@@ -6,7 +6,7 @@ pub fn start_render_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
 
     thread::spawn(move || {
         for event in receiver {
-            println!("render thread got {}", event);
+            log::debug!("Renderer processing event {:?}", event);
         }
     })
 }

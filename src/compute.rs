@@ -6,7 +6,7 @@ pub fn start_compute_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
 
     thread::spawn(move || {
         for event in receiver {
-            println!("compute thread got {}", event);
+            log::debug!("Compute processing event {:?}", event);
         }
     })
 }

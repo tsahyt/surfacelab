@@ -1,6 +1,8 @@
 use surfacelab::bus::Bus;
 
 fn main() {
+    env_logger::init();
+
     // initialize the bus
     let mut bus: Bus = Bus::new(1024);
 

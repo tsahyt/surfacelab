@@ -10,7 +10,7 @@ pub fn start_ui_threads(bus: &bus::Bus) -> (thread::JoinHandle<()>, thread::Join
     let gtk_thread = thread::spawn(move || gtk_main(sender));
     let bus_thread = thread::spawn(move || {
         for event in receiver {
-            println!("ui bus thread got {}", event);
+            log::debug!("UI processing event {:?}", event);
         }
     });
 
