@@ -3,7 +3,6 @@ use gtk::prelude::*;
 use gio::prelude::*;
 use std::thread;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 pub fn start_ui_threads(bus: &bus::Bus) -> (thread::JoinHandle<()>, thread::JoinHandle<()>) {
     let (sender, receiver) = bus.subscribe().unwrap();
