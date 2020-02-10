@@ -1,40 +1,7 @@
 use crate::bus;
-use std::collections::HashMap;
+use crate::lang::*;
 use std::thread;
-
-#[repr(C)]
-pub struct BlendParameters {
-    mix: f32,
-}
-
-#[repr(C)]
-pub struct PerlinNoiseParameters {
-    scale: f32,
-    octaves: f32,
-}
-
-pub enum Operator {
-    Blend(BlendParameters),
-    PerlinNoise(PerlinNoiseParameters),
-    Image { path: std::path::PathBuf },
-    Output { output_type: OutputType },
-}
-
-#[derive(PartialEq)]
-pub enum ImageType {
-    RgbImage,
-    RgbaImage,
-    Value,
-}
-
-#[derive(PartialEq)]
-pub enum OutputType {
-    Albedo,
-    Roughness,
-    Normal,
-    Displacement,
-    Value,
-}
+use std::collections::HashMap;
 
 pub struct Node {
     pub operator: Operator,
@@ -43,6 +10,14 @@ pub struct Node {
 }
 
 impl Node {
+    pub fn new(operator: Operator) -> Self {
+        Node {
+            operator,
+            inputs: HashMap::new(),
+            outputs: HashMap::new(),
+        }
+    }
+
     /// A node can be considered a Mask if and only if it has exactly one output
     /// which produces a Value.
     pub fn is_mask(&self) -> bool {
@@ -50,7 +25,7 @@ impl Node {
     }
 }
 
-type NodeGraph = petgraph::graph::Graph<Node, (u8, u8), petgraph::Directed>;
+type NodeGraph = petgraph::graph::Graph<Node, (String, String), petgraph::Directed>;
 
 struct NodeManager {
     node_graph: NodeGraph,

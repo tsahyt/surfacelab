@@ -2,6 +2,7 @@ pub mod compute;
 pub mod nodes;
 pub mod render;
 pub mod ui;
+pub mod lang;
 
 pub mod bus {
     use multiqueue2 as mq;
