@@ -7,7 +7,7 @@ pub mod lang;
 pub mod bus {
     use multiqueue2 as mq;
 
-    pub type Lang = String;
+    pub type Lang = crate::lang::Lang;
     pub type Sender = mq::BroadcastSender<Lang>;
     pub type Receiver = mq::BroadcastReceiver<Lang>;
 

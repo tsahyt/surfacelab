@@ -1,17 +1,21 @@
 use maplit::hashmap;
 use std::collections::HashMap;
+pub use uriparse::uri::URI;
 
 #[repr(C)]
+#[derive(Clone, Debug)]
 pub struct BlendParameters {
     mix: f32,
 }
 
 #[repr(C)]
+#[derive(Clone, Debug)]
 pub struct PerlinNoiseParameters {
     scale: f32,
     octaves: f32,
 }
 
+#[derive(Clone, Debug)]
 pub enum Operator {
     Blend(BlendParameters),
     PerlinNoise(PerlinNoiseParameters),
@@ -51,9 +55,18 @@ impl Operator {
             Operator::Output { .. } => HashMap::new(),
         }
     }
+
+    pub fn default_name(&self) -> String {
+        match self {
+            Operator::Blend(..) => "blend".to_string(),
+            Operator::PerlinNoise(..) => "perlin_noise".to_string(),
+            Operator::Image {..} => "image".to_string(),
+            Operator::Output {..} => "output".to_string(),
+        }
+    }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum ImageType {
     RgbImage,
     RgbaImage,
@@ -66,7 +79,7 @@ impl Default for ImageType {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum OutputType {
     Albedo,
     Roughness,
@@ -79,4 +92,18 @@ impl Default for OutputType {
     fn default() -> Self {
         OutputType::Value
     }
+}
+
+/// Events concerning node operation triggered by the user
+#[derive(Clone, Debug)]
+pub enum UserNodeEvent {
+    NewNode(Operator),
+    RemoveNode(URI<'static>),
+    ConnectSockets(URI<'static>, URI<'static>),
+    DisconnectSockets(URI<'static>, URI<'static>),
+}
+
+#[derive(Clone, Debug)]
+pub enum Lang {
+    UserNodeEvent(UserNodeEvent)
 }
