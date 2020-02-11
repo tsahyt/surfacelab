@@ -53,25 +53,22 @@ impl NodeManager {
         log::trace!("Node Manager processing event {:?}", event);
         match event {
             Lang::UserNodeEvent(event) => match event {
-                UserNodeEvent::NewNode(op) => {
-                    self.new_node(op);
-                }
-                UserNodeEvent::RemoveNode(uri) => {
-                    self.remove_node(uri);
-                }
-                UserNodeEvent::ConnectSockets(from, to) => {
-                    self.connect_sockets(from, to)
-                        .unwrap_or_else(|e| log::error!("{}", e));
-                }
-                UserNodeEvent::DisconnectSockets(from, to) => {
-                    self.disconnect_sockets(from, to)
-                        .unwrap_or_else(|e| log::error!("{}", e));
-                }
+                UserNodeEvent::NewNode(op) => self.new_node(op),
+                UserNodeEvent::RemoveNode(uri) => self
+                    .remove_node(uri)
+                    .unwrap_or_else(|e| log::error!("{}", e)),
+                UserNodeEvent::ConnectSockets(from, to) => self
+                    .connect_sockets(from, to)
+                    .unwrap_or_else(|e| log::error!("{}", e)),
+                UserNodeEvent::DisconnectSockets(from, to) => self
+                    .disconnect_sockets(from, to)
+                    .unwrap_or_else(|e| log::error!("{}", e)),
             },
         }
     }
 
     fn new_node(&mut self, op: lang::Operator) {
+        // TODO: fix naming system
         let node_id = {
             let stem = op.default_name();
             let num = self
@@ -91,14 +88,21 @@ impl NodeManager {
         self.node_indices.insert(node_id, idx);
     }
 
-    fn remove_node(&mut self, uri: lang::URI) {
-        let node = self.node_by_uri(&uri).unwrap();
+    fn remove_node(&mut self, uri: lang::URI) -> Result<(), String> {
+        // TODO: fix naming system
+        let node = self
+            .node_by_uri(&uri)
+            .ok_or(format!("Node for URI {} not found!", uri))?;
+
         log::trace!(
             "Removing node with identifier {:?}, indexed {:?}",
             &uri,
             node
         );
         self.node_graph.remove_node(node);
+        self.node_indices.remove(&format!("{}", uri.path()));
+
+        Ok(())
     }
 
     /// Connect two sockets in the node graph.
