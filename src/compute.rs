@@ -10,6 +10,6 @@ pub fn start_compute_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
             log::trace!("Compute processing event {:?}", event);
         }
 
-        log::info!("Starting GPU Compute Handler");
+        log::info!("GPU Compute Handler terminating");
     })
 }
