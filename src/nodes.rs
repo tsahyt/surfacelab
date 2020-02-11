@@ -60,10 +60,12 @@ impl NodeManager {
                     self.remove_node(uri);
                 }
                 UserNodeEvent::ConnectSockets(from, to) => {
-                    self.connect_sockets(from, to);
+                    self.connect_sockets(from, to)
+                        .unwrap_or_else(|e| log::error!("{}", e));
                 }
                 UserNodeEvent::DisconnectSockets(from, to) => {
-                    self.disconnect_sockets(from, to);
+                    self.disconnect_sockets(from, to)
+                        .unwrap_or_else(|e| log::error!("{}", e));
                 }
             },
         }
@@ -101,12 +103,24 @@ impl NodeManager {
 
     /// Connect two sockets in the node graph.
     ///
-    /// **Panics** if either of the two URIs does not exist!
-    fn connect_sockets(&mut self, from: lang::URI, to: lang::URI) {
-        let from_path = self.node_by_uri(&from).unwrap();
-        let from_socket = from.fragment().unwrap().as_str().to_string();
-        let to_path = self.node_by_uri(&to).unwrap();
-        let to_socket = to.fragment().unwrap().as_str().to_string();
+    /// **Errors** and aborts if either of the two URIs does not exist!
+    fn connect_sockets(&mut self, from: lang::URI, to: lang::URI) -> Result<(), String> {
+        let from_path = self
+            .node_by_uri(&from)
+            .ok_or(format!("Node for URI {} not found!", &from))?;
+        let from_socket = from
+            .fragment()
+            .ok_or("Missing socket specification")?
+            .as_str()
+            .to_string();
+        let to_path = self
+            .node_by_uri(&to)
+            .ok_or(format!("Node for URI {} not found!", &to))?;
+        let to_socket = to
+            .fragment()
+            .ok_or("Missing socket specification")?
+            .as_str()
+            .to_string();
 
         log::trace!(
             "Connecting {:?} with {:?} from socket {:?} to socket {:?}",
@@ -117,19 +131,33 @@ impl NodeManager {
         );
         self.node_graph
             .add_edge(from_path, to_path, (from_socket, to_socket));
+
+        Ok(())
     }
 
     /// Disconnect two sockets in the node graph. If the two nodes are not
     /// connected, the graph remains the same.
     ///
-    /// **Panics** if either of the two URIs does not exist!
-    fn disconnect_sockets(&mut self, from: lang::URI, to: lang::URI) {
+    /// **Errors** and aborts if either of the two URIs does not exist!
+    fn disconnect_sockets(&mut self, from: lang::URI, to: lang::URI) -> Result<(), String> {
         use petgraph::visit::EdgeRef;
-       
-        let from_path = self.node_by_uri(&from).unwrap();
-        let from_socket = from.fragment().unwrap().as_str().to_string();
-        let to_path = self.node_by_uri(&to).unwrap();
-        let to_socket = to.fragment().unwrap().as_str().to_string();
+
+        let from_path = self
+            .node_by_uri(&from)
+            .ok_or(format!("Node for URI {} not found!", &from))?;
+        let from_socket = from
+            .fragment()
+            .ok_or("Missing socket specification")?
+            .as_str()
+            .to_string();
+        let to_path = self
+            .node_by_uri(&to)
+            .ok_or(format!("Node for URI {} not found!", &to))?;
+        let to_socket = to
+            .fragment()
+            .ok_or("Missing socket specification")?
+            .as_str()
+            .to_string();
 
         log::trace!(
             "Disconnecting {:?} with {:?} from socket {:?} to socket {:?}",
@@ -155,6 +183,8 @@ impl NodeManager {
         for id in to_delete {
             self.node_graph.remove_edge(id);
         }
+
+        Ok(())
     }
 
     fn node_by_uri(&self, uri: &lang::URI) -> Option<graph::NodeIndex> {
