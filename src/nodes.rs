@@ -3,6 +3,7 @@ use petgraph::graph;
 use std::collections::HashMap;
 use std::thread;
 
+#[derive(Debug)]
 pub struct Node {
     pub operator: lang::Operator,
     pub inputs: HashMap<String, lang::ImageType>,
@@ -33,7 +34,6 @@ type NodeGraph = graph::Graph<Node, (String, String), petgraph::Directed>;
 
 struct NodeManager {
     node_graph: NodeGraph,
-    identifiers: HashMap<String, u32>,
     node_indices: HashMap<String, graph::NodeIndex>,
 }
 
@@ -42,7 +42,6 @@ impl NodeManager {
         let node_graph = graph::Graph::new();
         NodeManager {
             node_graph,
-            identifiers: HashMap::new(),
             node_indices: HashMap::new(),
         }
     }
@@ -67,17 +66,24 @@ impl NodeManager {
         }
     }
 
+    /// Find the next name of the format `prefix.i` where `i` is a number.
+    /// Will return the string with the lowest `i` value
+    fn next_free_name(&self, prefix: String) -> String {
+        let mut i = 1;
+        let mut name = format!("{}.{}", prefix, i);
+
+        while self.node_indices.contains_key(&name) {
+            i += 1;
+            name = format!("{}.{}", prefix, i);
+        }
+
+        name
+    }
+
+    /// Add a new node to the node graph, defined by the operator.
     fn new_node(&mut self, op: lang::Operator) {
-        // TODO: fix naming system
-        let node_id = {
-            let stem = op.default_name();
-            let num = self
-                .identifiers
-                .entry(stem.clone())
-                .and_modify(|e| *e += 1)
-                .or_insert(1);
-            format!("{}.{}", stem, num)
-        };
+        let node_id = self.next_free_name(op.default_name());
+
         log::trace!(
             "Adding {:?} to node graph with identifier {:?}",
             op,
@@ -88,8 +94,10 @@ impl NodeManager {
         self.node_indices.insert(node_id, idx);
     }
 
+    /// Remove a node with the given URI if it exists.
+    ///
+    /// **Errors** if the node does not exist.
     fn remove_node(&mut self, uri: lang::URI) -> Result<(), String> {
-        // TODO: fix naming system
         let node = self
             .node_by_uri(&uri)
             .ok_or(format!("Node for URI {} not found!", uri))?;

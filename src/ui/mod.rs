@@ -1,26 +1,14 @@
-use crate::{bus, lang};
+use crate::{bus, clone, lang};
 use gio::prelude::*;
 use gtk::prelude::*;
 use std::convert::TryFrom;
 use std::rc::Rc;
 use std::thread;
 
-macro_rules! clone {
-    (@param _) => ( _ );
-    (@param $x:ident) => ( $x );
-    ($($n:ident),+ => move || $body:expr) => (
-        {
-            $( let $n = $n.clone(); )+
-            move || $body
-        }
-    );
-    ($($n:ident),+ => move |$($p:tt),+| $body:expr) => (
-        {
-            $( let $n = $n.clone(); )+
-            move |$(clone!(@param $p),)+| $body
-        }
-    );
-}
+pub mod util;
+pub mod node_area;
+pub mod node;
+pub mod node_socket;
 
 pub fn start_ui_threads(bus: &bus::Bus) -> (thread::JoinHandle<()>, thread::JoinHandle<()>) {
     log::info!("Starting UI");
@@ -29,7 +17,6 @@ pub fn start_ui_threads(bus: &bus::Bus) -> (thread::JoinHandle<()>, thread::Join
 
     let gtk_thread = thread::spawn(move || gtk_main(sender));
     let bus_thread = thread::spawn(move || {
-
         for event in receiver {
             log::trace!("UI processing event {:?}", event);
         }
@@ -98,6 +85,8 @@ fn gtk_main(bus: bus::Sender) {
             );
         }));
         button_box.add(&connect_button);
+
+        let node_area = node_area::NodeArea::new();
 
         window.add(&button_box);
         window.show_all();
