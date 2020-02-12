@@ -88,6 +88,8 @@ fn gtk_main(bus: bus::Sender) {
 
         let node_area = node_area::NodeArea::new();
 
+        button_box.add(&node_area);
+
         window.add(&button_box);
         window.show_all();
     });

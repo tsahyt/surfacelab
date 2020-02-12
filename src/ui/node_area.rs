@@ -1,11 +1,14 @@
-use glib::*;
-use glib::translate::*;
 use glib::subclass;
 use glib::subclass::prelude::*;
+use glib::translate::*;
+use glib::*;
+use gtk::prelude::*;
 
 use std::cell::Cell;
 
-pub struct NodeAreaPrivate { foo: Cell<i32> }
+pub struct NodeAreaPrivate {
+    foo: Cell<i32>,
+}
 
 // ObjectSubclass is the trait that defines the new type and
 // contains all information needed by the GObject type system,
@@ -36,7 +39,22 @@ impl ObjectImpl for NodeAreaPrivate {
     glib_object_impl!();
 }
 
-impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {}
+impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
+    fn get_preferred_width(&self, _widget: &gtk::Widget) -> (i32, i32) {
+        (60, 60)
+    }
+
+    fn get_preferred_height(&self, _widget: &gtk::Widget) -> (i32, i32) {
+        (60, 60)
+    }
+
+    fn draw(&self, _widget: &gtk::Widget, cr: &cairo::Context) -> Inhibit {
+        cr.move_to(0., 0.);
+        cr.line_to(16., 16.);
+        cr.paint();
+        Inhibit(false)
+    }
+}
 
 impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {}
 
@@ -54,6 +72,11 @@ glib_wrapper! {
 
 impl NodeArea {
     pub fn new() -> Self {
-        glib::Object::new(Self::static_type(), &[]).unwrap().downcast().unwrap()
+        let na: Self = glib::Object::new(Self::static_type(), &[])
+            .unwrap()
+            .downcast()
+            .unwrap();
+        na.set_has_window(false);
+        na
     }
 }
