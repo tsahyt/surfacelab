@@ -16,7 +16,7 @@ pub struct NodePrivate {
 impl ObjectSubclass for NodePrivate {
     const NAME: &'static str = "NodePrivate";
 
-    type ParentType = gtk::Container;
+    type ParentType = gtk::Box;
     type Instance = subclass::simple::InstanceStruct<Self>;
     type Class = subclass::simple::ClassStruct<Self>;
 
@@ -43,12 +43,14 @@ impl gtk::subclass::widget::WidgetImpl for NodePrivate {}
 
 impl gtk::subclass::container::ContainerImpl for NodePrivate {}
 
+impl gtk::subclass::box_::BoxImpl for NodePrivate {}
+
 glib_wrapper! {
     pub struct Node(
         Object<subclass::simple::InstanceStruct<NodePrivate>,
         subclass::simple::ClassStruct<NodePrivate>,
         NodeClass>)
-        @extends gtk::Widget, gtk::Container;
+        @extends gtk::Widget, gtk::Container, gtk::Box;
 
     match fn {
         get_type => || NodePrivate::get_type().to_glib(),

@@ -1,13 +1,23 @@
+use super::node::Node;
 use glib::subclass;
 use glib::subclass::prelude::*;
 use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
+use std::collections::HashMap;
 
-use std::cell::Cell;
+use std::cell::RefCell;
+
+#[derive(Debug)]
+struct NodeAreaChild {
+    south_east: (i32, i32),
+    rectangle: (i32, i32),
+    drag_start: (i32, i32),
+    drag_delta: (i32, i32)
+}
 
 pub struct NodeAreaPrivate {
-    foo: Cell<i32>,
+    nodes: RefCell<HashMap<Node, NodeAreaChild>>,
 }
 
 // ObjectSubclass is the trait that defines the new type and
@@ -31,12 +41,26 @@ impl ObjectSubclass for NodeAreaPrivate {
     // Called every time a new instance is created. This should return
     // a new instance of our type with its basic values.
     fn new() -> Self {
-        Self { foo: Cell::new(12) }
+        Self {
+            nodes: RefCell::new(HashMap::new()),
+        }
     }
 }
 
 impl ObjectImpl for NodeAreaPrivate {
     glib_object_impl!();
+}
+
+impl NodeAreaPrivate {
+    pub fn move_child(&self, widget: &gtk::Widget, x: i32, y: i32) {
+        let node = widget
+            .clone()
+            .downcast::<super::node::Node>()
+            .expect("NodeArea can only contain nodes!");
+        let mut nodes = self.nodes.borrow_mut();
+        let child = nodes.get_mut(&node).expect("Trying to move a non-child");
+        // TODO
+    }
 }
 
 impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
@@ -49,14 +73,35 @@ impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
     }
 
     fn draw(&self, _widget: &gtk::Widget, cr: &cairo::Context) -> Inhibit {
-        cr.move_to(0., 0.);
-        cr.line_to(16., 16.);
-        cr.paint();
         Inhibit(false)
     }
 }
 
-impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {}
+impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
+    fn add(&self, _container: &gtk::Container, widget: &gtk::Widget) {
+        let node = widget
+            .clone()
+            .downcast::<super::node::Node>()
+            .expect("NodeArea can only contain nodes!");
+        // self.nodes.borrow_mut().insert(
+        //     node,
+        //     NodeAreaChild {
+        //         x: 0,
+        //         y: 0,
+        //         width: 32,
+        //         height: 32,
+        //     },
+        // );
+    }
+
+    fn remove(&self, _container: &gtk::Container, widget: &gtk::Widget) {
+        let node = widget
+            .clone()
+            .downcast::<super::node::Node>()
+            .expect("NodeArea can only contain nodes!");
+        self.nodes.borrow_mut().remove(&node);
+    }
+}
 
 glib_wrapper! {
     pub struct NodeArea(
