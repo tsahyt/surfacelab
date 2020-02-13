@@ -1,5 +1,6 @@
 use super::node::Node;
 use super::node_socket::NodeSocket;
+use gdk::prelude::*;
 use gdk::Rectangle;
 use glib::subclass;
 use glib::subclass::prelude::*;
@@ -33,7 +34,7 @@ enum Action {
 pub struct NodeAreaPrivate {
     nodes: RefCell<HashMap<Node, Child>>,
     connections: Vec<Connection>,
-    event_window: Option<gdk::Window>,
+    event_window: RefCell<Option<gdk::Window>>,
     action: Option<Action>,
     node_id_counter: u32,
     drag_start: (f64, f64),
@@ -73,6 +74,9 @@ impl ObjectSubclass for NodeAreaPrivate {
                 let klass =
                     &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
                 klass.realize = Some(node_area_widget_realize);
+                klass.unrealize = Some(node_area_widget_unrealize);
+                klass.map = Some(node_area_widget_map);
+                klass.unmap = Some(node_area_widget_unmap);
             }
         }
     }
@@ -83,7 +87,7 @@ impl ObjectSubclass for NodeAreaPrivate {
         Self {
             nodes: RefCell::new(HashMap::new()),
             connections: Vec::new(),
-            event_window: None,
+            event_window: RefCell::new(None),
             action: None,
             node_id_counter: 0,
             drag_start: (0., 0.),
@@ -115,13 +119,82 @@ impl NodeAreaPrivate {
         // TODO
     }
 
-    fn map(&self, _widget: &gtk::Widget) {}
+    fn map(&self, widget: &gtk::Widget) {
+        widget.set_mapped(true);
 
-    fn unmap(&self, _widget: &gtk::Widget) {}
+        for child in self.nodes.borrow().keys() {
+            if !child.get_visible() {
+                continue;
+            }
+            if !child.get_mapped() {
+                child.map();
+            }
+        }
 
-    fn realize(&self, _widget: &gtk::Widget) {}
+        if let Some(ew) = self.event_window.borrow().as_ref() {
+            ew.show();
+        }
+    }
 
-    fn unrealize(&self, _widget: &gtk::Widget) {}
+    fn unmap(&self, _widget: &gtk::Widget) {
+        if let Some(ew) = self.event_window.borrow().as_ref() {
+            ew.hide();
+        }
+
+        // TODO: parent unmap
+    }
+
+    fn realize(&self, widget: &gtk::Widget) {
+        // set up event window
+        widget.set_realized(true);
+        let allocation = widget.get_allocation();
+        let parent = widget
+            .get_parent_window()
+            .expect("NodeArea without parent!");
+        let window = gdk::Window::new(
+            Some(&parent),
+            &gdk::WindowAttr {
+                window_type: gdk::WindowType::Child,
+                wclass: gdk::WindowWindowClass::InputOutput,
+                x: Some(allocation.x),
+                y: Some(allocation.y),
+                width: allocation.width,
+                height: allocation.height,
+                event_mask: {
+                    let mut em = widget.get_events();
+                    em.insert(gdk::EventMask::BUTTON_PRESS_MASK);
+                    em.insert(gdk::EventMask::BUTTON_RELEASE_MASK);
+                    em.insert(gdk::EventMask::POINTER_MOTION_MASK);
+                    em.insert(gdk::EventMask::TOUCH_MASK);
+                    em.insert(gdk::EventMask::ENTER_NOTIFY_MASK);
+                    em.insert(gdk::EventMask::LEAVE_NOTIFY_MASK);
+                    em.bits()
+                } as _,
+                ..gdk::WindowAttr::default()
+            },
+        );
+        widget.register_window(&window);
+
+        // parent children
+        for child in self.nodes.borrow().keys() {
+            child.set_parent_window(&window);
+        }
+
+        dbg!(&window);
+
+        // store event_window
+        self.event_window.replace(Some(window));
+    }
+
+    fn unrealize(&self, widget: &gtk::Widget) {
+        if let Some(ew) = self.event_window.borrow().as_ref() {
+            widget.unregister_window(ew);
+            ew.destroy();
+            self.event_window.replace(None);
+        }
+
+        // TODO: parent unrealize
+    }
 
     fn size_allocate(&self, _widget: &gtk::Widget, _allocation: &gtk::Allocation) {}
 
@@ -180,10 +253,10 @@ impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
             self.draw_socket_connection(widget, cr, connection);
         }
 
-        // if gtk::cairo_should_draw_window(cr, self.event_window.as_ref().unwrap()) {
-        //     use gtk::subclass::widget::WidgetImplExt;
-        //     self.parent_draw(widget, cr);
-        // }
+        if gtk::cairo_should_draw_window(cr, self.event_window.borrow().as_ref().unwrap()) {
+            use gtk::subclass::widget::WidgetImplExt;
+            self.parent_draw(widget, cr);
+        }
 
         Inhibit(false)
     }
@@ -219,9 +292,9 @@ impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
         // TODO: register signals for child button presses etc
 
         // Set up parents and show
-        // if container.get_realized() {
-        //     widget.set_parent_window(self.event_window.as_ref().unwrap());
-        // }
+        if container.get_realized() {
+            widget.set_parent_window(self.event_window.borrow().as_ref().unwrap());
+        }
 
         widget.set_parent(container);
         widget.show_all();
