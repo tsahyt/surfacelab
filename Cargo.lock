@@ -892,6 +892,7 @@ dependencies = [
  "gio",
  "glib",
  "gtk",
+ "gtk-sys",
  "log",
  "maplit",
  "multiqueue2",
