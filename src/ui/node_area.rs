@@ -60,9 +60,21 @@ impl ObjectSubclass for NodeAreaPrivate {
     // for the new type.
     //
     // We use this to override additional methods
-    fn class_init(_class: &mut subclass::simple::ClassStruct<Self>) {
-        //let klass: gtk_sys::GtkWidgetClass = unimplemented!("Casting from class");
-        //klass.size_allocate = None;
+    fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {
+        unsafe {
+            // Extra overrides for container methods
+            let container_class =
+                &mut *(class as *mut _ as *mut <gtk::Container as ObjectType>::RustClassType);
+
+            // Extra overrides for widget methods
+            let widget_class = &mut *(container_class as *mut _
+                as *mut <gtk::Widget as ObjectType>::RustClassType);
+            {
+                let klass =
+                    &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
+                klass.realize = Some(node_area_widget_realize);
+            }
+        }
     }
 
     // Called every time a new instance is created. This should return
@@ -168,10 +180,10 @@ impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
             self.draw_socket_connection(widget, cr, connection);
         }
 
-        if gtk::cairo_should_draw_window(cr, self.event_window.as_ref().unwrap()) {
-            use gtk::subclass::widget::WidgetImplExt;
-            self.parent_draw(widget, cr);
-        }
+        // if gtk::cairo_should_draw_window(cr, self.event_window.as_ref().unwrap()) {
+        //     use gtk::subclass::widget::WidgetImplExt;
+        //     self.parent_draw(widget, cr);
+        // }
 
         Inhibit(false)
     }
@@ -207,9 +219,9 @@ impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
         // TODO: register signals for child button presses etc
 
         // Set up parents and show
-        if container.get_realized() {
-            widget.set_parent_window(self.event_window.as_ref().unwrap());
-        }
+        // if container.get_realized() {
+        //     widget.set_parent_window(self.event_window.as_ref().unwrap());
+        // }
 
         widget.set_parent(container);
         widget.show_all();
@@ -245,3 +257,42 @@ impl NodeArea {
             .unwrap()
     }
 }
+
+// Wrapper functions
+
+unsafe extern "C" fn node_area_widget_realize(ptr: *mut gtk_sys::GtkWidget) {
+    let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
+    let imp = instance.get_impl();
+    let wrap: gtk::Widget = from_glib_borrow(ptr);
+    imp.realize(&wrap);
+}
+
+unsafe extern "C" fn node_area_widget_unrealize(ptr: *mut gtk_sys::GtkWidget) {
+    let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
+    let imp = instance.get_impl();
+    let wrap: gtk::Widget = from_glib_borrow(ptr);
+    imp.unrealize(&wrap);
+}
+
+unsafe extern "C" fn node_area_widget_map(ptr: *mut gtk_sys::GtkWidget) {
+    let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
+    let imp = instance.get_impl();
+    let wrap: gtk::Widget = from_glib_borrow(ptr);
+    imp.map(&wrap);
+}
+
+unsafe extern "C" fn node_area_widget_unmap(ptr: *mut gtk_sys::GtkWidget) {
+    let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
+    let imp = instance.get_impl();
+    let wrap: gtk::Widget = from_glib_borrow(ptr);
+    imp.unmap(&wrap);
+}
+
+// unsafe extern "C" fn node_area_widget_size_allocate(
+//     ptr: *mut gtk_sys::GtkWidget,
+//     aptr: *mut gtk_sys::GtkAllocation,
+// ) {
+//     let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
+//     let imp = instance.get_impl();
+//     let wrap: gtk::Widget = from_glib_borrow(ptr);
+// }
