@@ -77,6 +77,7 @@ impl ObjectSubclass for NodeAreaPrivate {
                 klass.unrealize = Some(node_area_widget_unrealize);
                 klass.map = Some(node_area_widget_map);
                 klass.unmap = Some(node_area_widget_unmap);
+                klass.size_allocate = Some(node_area_widget_size_allocate);
             }
         }
     }
@@ -196,7 +197,47 @@ impl NodeAreaPrivate {
         // TODO: parent unrealize
     }
 
-    fn size_allocate(&self, _widget: &gtk::Widget, _allocation: &gtk::Allocation) {}
+    fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
+        for (child_widget, child) in self.nodes.borrow_mut().iter_mut() {
+            let (requisition, _) = child_widget.get_preferred_size();
+            // TODO: read child rectangle x y from child widget properties
+            let mut child_allocation = gdk::Rectangle {
+                x: child.rectangle.x,
+                y: child.rectangle.y,
+                width: requisition.width.max(child.rectangle.width),
+                height: requisition.height.max(child.rectangle.height),
+            };
+
+            child_widget.size_allocate(&mut child_allocation);
+            child_allocation = child_widget.get_allocation();
+
+            let socket_radius = 16; // TODO: read from child
+
+            child.south_east.0 = child_allocation.width - socket_radius - RESIZE_RECTANGLE;
+            child.south_east.1 = child_allocation.height - socket_radius - RESIZE_RECTANGLE;
+
+            allocation.width = allocation
+                .width
+                .max(child_allocation.x + child_allocation.width);
+            allocation.height = allocation
+                .height
+                .max(child_allocation.y + child_allocation.height);
+        }
+
+        widget.set_allocation(allocation);
+        widget.set_size_request(allocation.width, allocation.height);
+
+        if widget.get_realized() {
+            if let Some(ew) = self.event_window.borrow().as_ref() {
+                ew.move_resize(
+                    allocation.x,
+                    allocation.y,
+                    allocation.width,
+                    allocation.height,
+                );
+            }
+        }
+    }
 
     fn connecting_curve(cr: &cairo::Context, source: (f64, f64), sink: (f64, f64)) {
         cr.move_to(source.0, source.1);
@@ -361,11 +402,14 @@ unsafe extern "C" fn node_area_widget_unmap(ptr: *mut gtk_sys::GtkWidget) {
     imp.unmap(&wrap);
 }
 
-// unsafe extern "C" fn node_area_widget_size_allocate(
-//     ptr: *mut gtk_sys::GtkWidget,
-//     aptr: *mut gtk_sys::GtkAllocation,
-// ) {
-//     let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
-//     let imp = instance.get_impl();
-//     let wrap: gtk::Widget = from_glib_borrow(ptr);
-// }
+unsafe extern "C" fn node_area_widget_size_allocate(
+    ptr: *mut gtk_sys::GtkWidget,
+    aptr: *mut gtk_sys::GtkAllocation,
+) {
+    let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
+    let imp = instance.get_impl();
+    let wrap: gtk::Widget = from_glib_borrow(ptr);
+    let mut alloc: gtk::Allocation = from_glib_borrow(aptr);
+
+    imp.size_allocate(&wrap, &mut alloc);
+}
