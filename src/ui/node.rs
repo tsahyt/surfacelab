@@ -1,3 +1,4 @@
+use super::subclass::*;
 use glib::subclass;
 use glib::subclass::prelude::*;
 use glib::translate::*;
@@ -7,7 +8,6 @@ use gtk::prelude::*;
 use std::cell::Cell;
 
 pub struct NodePrivate {
-    foo: Cell<i32>,
 }
 
 // ObjectSubclass is the trait that defines the new type and
@@ -26,12 +26,32 @@ impl ObjectSubclass for NodePrivate {
     // type is created. Here class specific settings can be performed,
     // including installation of properties and registration of signals
     // for the new type.
-    // fn class_init(_class: &mut subclass::simple::ClassStruct<Self>) {}
+    fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {
+        unsafe {
+            // Extra overrides for container methods
+            let container_class =
+                &mut *(class as *mut _ as *mut <gtk::Container as ObjectType>::RustClassType);
+
+            // Extra overrides for widget methods
+            let widget_class = &mut *(container_class as *mut _
+                as *mut <gtk::Widget as ObjectType>::RustClassType);
+            {
+                let klass =
+                    &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
+                klass.realize = Some(extra_widget_realize::<NodePrivate>);
+                klass.unrealize = Some(extra_widget_unrealize::<NodePrivate>);
+                klass.map = Some(extra_widget_map::<NodePrivate>);
+                klass.unmap = Some(extra_widget_unmap::<NodePrivate>);
+                klass.size_allocate = Some(extra_widget_size_allocate::<NodePrivate>);
+            }
+        }
+    }
+
 
     // Called every time a new instance is created. This should return
     // a new instance of our type with its basic values.
     fn new() -> Self {
-        Self { foo: Cell::new(12) }
+        Self {}
     }
 }
 
@@ -39,9 +59,56 @@ impl ObjectImpl for NodePrivate {
     glib_object_impl!();
 }
 
-impl gtk::subclass::widget::WidgetImpl for NodePrivate {}
+impl gtk::subclass::widget::WidgetImpl for NodePrivate {
+    fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
+        // TODO: draw
+        Inhibit(false)
+    }
 
-impl gtk::subclass::container::ContainerImpl for NodePrivate {}
+    fn button_press_event(&self, widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
+        // TODO: button_press_event
+        Inhibit(false)
+    }
+
+    fn button_release_event(&self, widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
+        // TODO: button_release_event
+        Inhibit(false)
+    }
+}
+
+impl WidgetImplExtra for NodePrivate {
+    fn map(&self, widget: &gtk::Widget) {
+        // TODO: map
+    }
+
+    fn unmap(&self, widget: &gtk::Widget) {
+        // TODO: unmap
+    }
+
+    fn realize(&self, widget: &gtk::Widget) {
+        // TODO: realize
+    }
+
+    fn unrealize(&self, widget: &gtk::Widget) {
+        // TODO: unrealize
+    }
+
+    fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
+        // TODO: size_allocate
+    }
+}
+
+impl gtk::subclass::container::ContainerImpl for NodePrivate {
+    fn add(&self, container: &gtk::Container, widget: &gtk::Widget) {
+        // TODO: add
+    }
+
+    fn remove(&self, container: &gtk::Container, widget: &gtk::Widget) {
+        // TODO: remove
+    }
+
+    // TODO: ContainerImplExtras: forall, {get,set}_child_property
+}
 
 impl gtk::subclass::box_::BoxImpl for NodePrivate {}
 

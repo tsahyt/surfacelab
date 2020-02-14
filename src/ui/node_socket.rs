@@ -104,7 +104,6 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
     fn drag_begin(&self, widget: &gtk::Widget, context: &gdk::DragContext) {
         self.set_drag_icon(context);
         context.get_drag_window().unwrap().hide();
-        // TODO: emit drag begin signal
         self.drag_src_redirect(widget);
     }
 
@@ -121,34 +120,33 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
 
     fn drag_data_received(
         &self,
-        widget: &gtk::Widget,
-        context: &gdk::DragContext,
-        x: i32,
-        y: i32,
-        selection_data: &gtk::SelectionData,
-        info: u32,
-        time: u32,
+        _widget: &gtk::Widget,
+        _context: &gdk::DragContext,
+        _x: i32,
+        _y: i32,
+        _selection_data: &gtk::SelectionData,
+        _info: u32,
+        _time: u32,
     ) {
-        // TODO
+        // TODO drag_data_received
     }
 
     fn drag_data_get(
         &self,
         _widget: &gtk::Widget,
         _context: &gdk::DragContext,
-        selection_data: &gtk::SelectionData,
+        _selection_data: &gtk::SelectionData,
         _info: u32,
         _time: u32,
     ) {
-        // TODO: socket
-        selection_data.set(&selection_data.get_target(), 32, unimplemented!("socket"))
+        // TODO drag_data_get
     }
 
     fn drag_failed(
         &self,
-        widget: &gtk::Widget,
-        context: &gdk::DragContext,
-        result: gtk::DragResult,
+        _widget: &gtk::Widget,
+        _context: &gdk::DragContext,
+        _result: gtk::DragResult,
     ) -> Inhibit {
         return Inhibit(true);
     }
