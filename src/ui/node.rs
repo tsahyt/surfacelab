@@ -1,13 +1,33 @@
+use super::node_socket;
 use super::subclass::*;
+use gdk::prelude::*;
 use glib::subclass;
 use glib::subclass::prelude::*;
 use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
 
-use std::cell::Cell;
+use std::cell::RefCell;
+
+struct NodeChild {
+    item: gtk::Widget,
+    socket: node_socket::NodeSocket,
+}
+
+struct Border<T> {
+    top: T,
+    bottom: T,
+    left: T,
+    right: T,
+}
 
 pub struct NodePrivate {
+    event_window: RefCell<Option<gdk::Window>>,
+    children: Vec<NodeChild>,
+    expander: gtk::Expander,
+    padding: Border<i32>,
+    margin: Border<i32>,
+    allocation: RefCell<gtk::Allocation>,
 }
 
 // ObjectSubclass is the trait that defines the new type and
@@ -45,13 +65,36 @@ impl ObjectSubclass for NodePrivate {
                 klass.size_allocate = Some(extra_widget_size_allocate::<NodePrivate>);
             }
         }
-    }
 
+        // TODO: Signals
+    }
 
     // Called every time a new instance is created. This should return
     // a new instance of our type with its basic values.
     fn new() -> Self {
-        Self {}
+        Self {
+            event_window: RefCell::new(None),
+            children: Vec::new(),
+            expander: gtk::Expander::new(None),
+            padding: Border {
+                top: 8,
+                bottom: 8,
+                left: 8,
+                right: 8,
+            },
+            margin: Border {
+                top: 8,
+                bottom: 8,
+                left: 8,
+                right: 8,
+            },
+            allocation: RefCell::new(gtk::Allocation {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+            }),
+        }
     }
 }
 
@@ -61,56 +104,154 @@ impl ObjectImpl for NodePrivate {
 
 impl gtk::subclass::widget::WidgetImpl for NodePrivate {
     fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
-        // TODO: draw
+        use gtk::subclass::widget::*;
+
+        let mut allocation = widget.get_allocation();
+        allocation.x = self.margin.left;
+        allocation.y = self.margin.top;
+        allocation.width -= self.margin.left + self.margin.right;
+        allocation.height -= self.margin.top + self.margin.bottom;
+       
+        self.draw_frame(cr, &allocation);
+        self.parent_draw(widget, cr);
+
         Inhibit(false)
     }
 
-    fn button_press_event(&self, widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
-        // TODO: button_press_event
-        Inhibit(false)
-    }
+    fn adjust_size_request(
+        &self,
+        _widget: &gtk::Widget,
+        orientation: gtk::Orientation,
+        minimum_size: &mut i32,
+        natural_size: &mut i32,
+    ) {
+        let h = self.padding.left + self.padding.right + self.margin.left + self.margin.right;
+        let v = self.padding.top + self.padding.bottom + self.margin.top + self.margin.bottom;
 
-    fn button_release_event(&self, widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
-        // TODO: button_release_event
-        Inhibit(false)
+        match orientation {
+            gtk::Orientation::Horizontal => {
+                *minimum_size += h + 25;
+                *natural_size += h + 25;
+            }
+            gtk::Orientation::Vertical => {
+                *minimum_size += v;
+                *natural_size += v;
+            }
+            _ => unreachable!("Impossible orientation"),
+        };
     }
 }
 
 impl WidgetImplExtra for NodePrivate {
     fn map(&self, widget: &gtk::Widget) {
-        // TODO: map
+        self.parent_map(widget);
+
+        if let Some(ew) = self.event_window.borrow().as_ref() {
+            ew.show();
+        }
     }
 
     fn unmap(&self, widget: &gtk::Widget) {
-        // TODO: unmap
+        if let Some(ew) = self.event_window.borrow().as_ref() {
+            ew.hide();
+        }
+
+        self.parent_unmap(widget);
     }
 
     fn realize(&self, widget: &gtk::Widget) {
-        // TODO: realize
+        widget.set_realized(true);
+        let allocation = widget.get_allocation();
+        let parent = widget
+            .get_parent_window()
+            .expect("NodeArea without parent!");
+
+        let window = gdk::Window::new(
+            Some(&parent),
+            &gdk::WindowAttr {
+                window_type: gdk::WindowType::Child,
+                wclass: gdk::WindowWindowClass::InputOutput,
+                x: Some(allocation.x),
+                y: Some(allocation.y),
+                width: allocation.width,
+                height: allocation.height,
+                event_mask: {
+                    let mut em = widget.get_events();
+                    em.insert(gdk::EventMask::BUTTON_PRESS_MASK);
+                    em.insert(gdk::EventMask::BUTTON_RELEASE_MASK);
+                    em.insert(gdk::EventMask::POINTER_MOTION_MASK);
+                    em.insert(gdk::EventMask::TOUCH_MASK);
+                    em.insert(gdk::EventMask::ENTER_NOTIFY_MASK);
+                    em.insert(gdk::EventMask::LEAVE_NOTIFY_MASK);
+                    em.bits()
+                } as _,
+                ..gdk::WindowAttr::default()
+            },
+        );
+
+        widget.register_window(&window);
+
+        for child in self.children.iter() {
+            child.item.set_parent_window(&window);
+            child.socket.set_parent_window(&window);
+        }
+
+        self.expander.set_parent_window(&window);
+        self.event_window.replace(Some(window));
     }
 
     fn unrealize(&self, widget: &gtk::Widget) {
-        // TODO: unrealize
+        let mut destroy_window = false;
+        if let Some(ew) = self.event_window.borrow().as_ref() {
+            widget.unregister_window(ew);
+            ew.destroy();
+            destroy_window = true;
+        }
+        if destroy_window {
+            self.event_window.replace(None);
+        }
     }
 
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
-        // TODO: size_allocate
+        self.allocation.replace(*allocation);
+        let spacing = Border {
+            top: self.padding.top + self.margin.top,
+            left: self.padding.left + self.margin.left,
+            right: self.padding.right + self.margin.right,
+            bottom: self.padding.bottom + self.margin.bottom,
+        };
+
+        allocation.x = spacing.left;
+        allocation.y = spacing.top;
+        allocation.width -= spacing.left + spacing.right;
+        allocation.height -= spacing.top + spacing.bottom;
+
+        // allocate the node items
+        self.parent_size_allocate(widget, allocation);
     }
 }
 
 impl gtk::subclass::container::ContainerImpl for NodePrivate {
     fn add(&self, container: &gtk::Container, widget: &gtk::Widget) {
-        // TODO: add
+        use gtk::subclass::container::*;
+        self.parent_add(container, widget);
+        // TODO: add socket
     }
 
     fn remove(&self, container: &gtk::Container, widget: &gtk::Widget) {
-        // TODO: remove
+        use gtk::subclass::container::*;
+        self.parent_remove(container,widget);
+        // TODO: remove socket
     }
-
-    // TODO: ContainerImplExtras: forall, {get,set}_child_property
 }
 
 impl gtk::subclass::box_::BoxImpl for NodePrivate {}
+
+impl NodePrivate {
+    fn draw_frame(&self, cr: &cairo::Context, allocation: &gtk::Allocation) {
+       
+    }
+}
 
 glib_wrapper! {
     pub struct Node(

@@ -19,7 +19,6 @@ pub trait WidgetImplExtra: WidgetImplExtraExt + 'static {
         self.parent_unrealize(widget);
     }
 
-    // TODO: check mutability on argument
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
         self.parent_size_allocate(widget, allocation);
     }
