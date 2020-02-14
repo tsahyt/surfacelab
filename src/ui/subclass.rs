@@ -19,8 +19,18 @@ pub trait WidgetImplExtra: WidgetImplExtraExt + 'static {
         self.parent_unrealize(widget);
     }
 
+    // TODO: check mutability on argument
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
         self.parent_size_allocate(widget, allocation);
+    }
+
+    // TODO: check mutability on argument
+    fn motion_notify_event(
+        &self,
+        widget: &gtk::Widget,
+        event: &mut gdk::EventMotion,
+    ) -> gtk::Inhibit {
+        self.parent_motion_notify_event(widget, event)
     }
 }
 
@@ -30,6 +40,11 @@ pub trait WidgetImplExtraExt {
     fn parent_realize(&self, widget: &gtk::Widget);
     fn parent_unrealize(&self, widget: &gtk::Widget);
     fn parent_size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation);
+    fn parent_motion_notify_event(
+        &self,
+        widget: &gtk::Widget,
+        event: &mut gdk::EventMotion,
+    ) -> gtk::Inhibit;
 }
 
 impl<T: WidgetImplExtra + ObjectImpl> WidgetImplExtraExt for T {
@@ -87,6 +102,24 @@ impl<T: WidgetImplExtra + ObjectImpl> WidgetImplExtraExt for T {
             f(widget.to_glib_none().0, allocation.to_glib_none_mut().0)
         }
     }
+
+    fn parent_motion_notify_event(
+        &self,
+        widget: &gtk::Widget,
+        event: &mut gdk::EventMotion,
+    ) -> gtk::Inhibit {
+        unsafe {
+            let data = self.get_type_data();
+            let parent_class = data.as_ref().get_parent_class() as *mut gtk_sys::GtkWidgetClass;
+            let f = (*parent_class)
+                .motion_notify_event
+                .expect("No parent class impl for \"motion_notify_event\"");
+            gtk::Inhibit(from_glib(f(
+                widget.to_glib_none().0,
+                event.to_glib_none_mut().0,
+            )))
+        }
+    }
 }
 
 pub unsafe extern "C" fn extra_widget_realize<T: ObjectSubclass>(ptr: *mut gtk_sys::GtkWidget)
@@ -141,4 +174,19 @@ pub unsafe extern "C" fn extra_widget_size_allocate<T: ObjectSubclass>(
     let mut alloc: gtk::Allocation = from_glib_borrow(aptr);
 
     imp.size_allocate(&wrap, &mut alloc);
+}
+
+pub unsafe extern "C" fn extra_widget_motion_notify_event<T: ObjectSubclass>(
+    ptr: *mut gtk_sys::GtkWidget,
+    mptr: *mut gdk_sys::GdkEventMotion,
+) -> glib_sys::gboolean
+where
+    T: WidgetImplExtra,
+{
+    let instance = &*(ptr as *mut T::Instance);
+    let imp = instance.get_impl();
+    let wrap: gtk::Widget = from_glib_borrow(ptr);
+    let mut alloc: gdk::EventMotion = from_glib_borrow(mptr);
+
+    imp.motion_notify_event(&wrap, &mut alloc).to_glib()
 }

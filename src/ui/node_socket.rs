@@ -18,8 +18,9 @@ pub enum NodeSocketIO {
 pub struct NodeSocketPrivate {
     event_window: RefCell<Option<gdk::Window>>,
     io: NodeSocketIO,
-    rgba: gdk::RGBA,
+    rgba: (f64, f64, f64, f64),
     radius: f64,
+    input: RefCell<Option<NodeSocket>>,
 }
 
 // ObjectSubclass is the trait that defines the new type and
@@ -55,10 +56,11 @@ impl ObjectSubclass for NodeSocketPrivate {
                 klass.map = Some(extra_widget_map::<NodeSocketPrivate>);
                 klass.unmap = Some(extra_widget_unmap::<NodeSocketPrivate>);
                 klass.size_allocate = Some(extra_widget_size_allocate::<NodeSocketPrivate>);
+                klass.motion_notify_event =
+                    Some(extra_widget_motion_notify_event::<NodeSocketPrivate>);
             }
         }
     }
-
 
     // Called every time a new instance is created. This should return
     // a new instance of our type with its basic values.
@@ -66,8 +68,9 @@ impl ObjectSubclass for NodeSocketPrivate {
         Self {
             event_window: RefCell::new(None),
             io: NodeSocketIO::Disable,
-            rgba: gdk::RGBA::blue(),
+            rgba: (1., 1., 1., 1.),
             radius: 16.0,
+            input: RefCell::new(None),
         }
     }
 }
@@ -76,7 +79,73 @@ impl ObjectImpl for NodeSocketPrivate {
     glib_object_impl!();
 }
 
-impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {}
+impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
+    fn get_preferred_width(&self, _widget: &gtk::Widget) -> (i32, i32) {
+        let w = (2.0 * self.radius) as _;
+        (w, w)
+    }
+
+    fn get_preferred_height(&self, _widget: &gtk::Widget) -> (i32, i32) {
+        let w = (2.0 * self.radius) as _;
+        (w, w)
+    }
+
+    fn button_press_event(&self, _widget: &gtk::Widget, _event: &gdk::EventButton) -> gtk::Inhibit {
+        Inhibit(true)
+    }
+
+    fn drag_begin(&self, widget: &gtk::Widget, context: &gdk::DragContext) {
+        self.set_drag_icon(context);
+        context.get_drag_window().unwrap().hide();
+        // TODO: emit drag begin signal
+        self.drag_src_redirect(widget);
+    }
+
+    fn drag_motion(
+        &self,
+        _widget: &gtk::Widget,
+        _context: &gdk::DragContext,
+        _x: i32,
+        _y: i32,
+        _time: u32,
+    ) -> gtk::Inhibit {
+        return gtk::Inhibit(true);
+    }
+
+    fn drag_data_received(
+        &self,
+        widget: &gtk::Widget,
+        context: &gdk::DragContext,
+        x: i32,
+        y: i32,
+        selection_data: &gtk::SelectionData,
+        info: u32,
+        time: u32,
+    ) {
+        // TODO
+    }
+
+    fn drag_data_get(
+        &self,
+        _widget: &gtk::Widget,
+        _context: &gdk::DragContext,
+        selection_data: &gtk::SelectionData,
+        _info: u32,
+        _time: u32,
+    ) {
+        // TODO: socket
+        selection_data.set(&selection_data.get_target(), 32, unimplemented!("socket"))
+    }
+
+    fn drag_failed(
+        &self,
+        widget: &gtk::Widget,
+        context: &gdk::DragContext,
+        result: gtk::DragResult,
+    ) -> Inhibit {
+        return Inhibit(true);
+    }
+}
 
 impl WidgetImplExtra for NodeSocketPrivate {
     fn map(&self, widget: &gtk::Widget) {
@@ -97,7 +166,9 @@ impl WidgetImplExtra for NodeSocketPrivate {
 
     fn realize(&self, widget: &gtk::Widget) {
         widget.set_realized(true);
-        let parent_window = widget.get_parent_window().expect("Node Socket without parent window!");
+        let parent_window = widget
+            .get_parent_window()
+            .expect("Node Socket without parent window!");
         let allocation = widget.get_allocation();
 
         let mut event_mask = widget.get_events();
@@ -134,7 +205,9 @@ impl WidgetImplExtra for NodeSocketPrivate {
             ew.destroy();
             window_destroyed = true;
         }
-        if window_destroyed { self.event_window.replace(None); }
+        if window_destroyed {
+            self.event_window.replace(None);
+        }
 
         // TODO: emit node socket destroyed signal
         self.parent_unrealize(widget);
@@ -152,6 +225,62 @@ impl WidgetImplExtra for NodeSocketPrivate {
                     (2.0 * self.radius) as _,
                 );
             }
+        }
+    }
+
+    fn motion_notify_event(
+        &self,
+        _widget: &gtk::Widget,
+        _event: &mut gdk::EventMotion,
+    ) -> gtk::Inhibit {
+        Inhibit(true)
+    }
+}
+
+impl NodeSocketPrivate {
+    fn set_drag_icon(&self, context: &gdk::DragContext) {
+        let size = (2.0 * self.radius) as _;
+        let surface = cairo::ImageSurface::create(cairo::Format::ARgb32, size, size)
+            .expect("Failed to create cairo surface for drag icon");
+        let cr = cairo::Context::new(&surface);
+
+        cr.set_source_rgba(self.rgba.0, self.rgba.1, self.rgba.2, self.rgba.3);
+        cr.arc(
+            self.radius,
+            self.radius,
+            self.radius,
+            0.,
+            2. * std::f64::consts::PI,
+        );
+        cr.fill();
+
+        context.drag_set_icon_surface(&surface);
+    }
+
+    fn drag_src_redirect(&self, widget: &gtk::Widget) {
+        let mut disconnect = false;
+        if let Some(source) = self.input.borrow().as_ref() {
+            // TODO: disconnect signal handlers
+            disconnect = true;
+
+            // remove as drag source
+            if let NodeSocketIO::Sink = self.io {
+                widget.drag_source_unset();
+            }
+
+            // begin drag on previous source, so user can redirect connection
+            source.drag_begin_with_coordinates(
+                &gtk::TargetList::new(&[]),
+                gdk::DragAction::COPY,
+                gdk::ModifierType::BUTTON1_MASK.bits() as _,
+                None,
+                -1,
+                -1,
+            );
+        }
+
+        if disconnect {
+            self.input.replace(None);
         }
     }
 }
