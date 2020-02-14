@@ -9,6 +9,7 @@ pub mod util;
 pub mod node_area;
 pub mod node;
 pub mod node_socket;
+pub mod subclass;
 
 pub fn start_ui_threads(bus: &bus::Bus) -> (thread::JoinHandle<()>, thread::JoinHandle<()>) {
     log::info!("Starting UI");

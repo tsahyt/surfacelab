@@ -1,5 +1,6 @@
 use super::node::Node;
 use super::node_socket::NodeSocket;
+use super::subclass::*;
 use gdk::prelude::*;
 use gdk::Rectangle;
 use glib::subclass;
@@ -73,11 +74,11 @@ impl ObjectSubclass for NodeAreaPrivate {
             {
                 let klass =
                     &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
-                klass.realize = Some(node_area_widget_realize);
-                klass.unrealize = Some(node_area_widget_unrealize);
-                klass.map = Some(node_area_widget_map);
-                klass.unmap = Some(node_area_widget_unmap);
-                klass.size_allocate = Some(node_area_widget_size_allocate);
+                klass.realize = Some(extra_widget_realize::<NodeAreaPrivate>);
+                klass.unrealize = Some(extra_widget_unrealize::<NodeAreaPrivate>);
+                klass.map = Some(extra_widget_map::<NodeAreaPrivate>);
+                klass.unmap = Some(extra_widget_unmap::<NodeAreaPrivate>);
+                klass.size_allocate = Some(extra_widget_size_allocate::<NodeAreaPrivate>);
             }
         }
     }
@@ -120,6 +121,71 @@ impl NodeAreaPrivate {
         // TODO
     }
 
+    fn connecting_curve(cr: &cairo::Context, source: (f64, f64), sink: (f64, f64)) {
+        cr.move_to(source.0, source.1);
+        let d = (sink.0 - source.0).abs() / 2.0;
+        cr.curve_to(source.0 + d, source.1, sink.0 - d, sink.1, sink.0, sink.1);
+    }
+
+    fn draw_socket_connection(&self, _widget: &gtk::Widget, cr: &cairo::Context, c: &Connection) {
+        // get coordinates
+        let start = {
+            let parent_alloc = c.source.get_parent().unwrap().get_allocation();
+            let alloc = c.source.get_allocation();
+            (
+                (alloc.x + alloc.width / 2 + parent_alloc.x) as f64,
+                (alloc.y + alloc.width / 2 + parent_alloc.y) as f64,
+            )
+        };
+
+        let end = {
+            let parent_alloc = c.sink.get_parent().unwrap().get_allocation();
+            let alloc = c.sink.get_allocation();
+            (
+                (alloc.x + alloc.width / 2 + parent_alloc.x) as f64,
+                (alloc.y + alloc.width / 2 + parent_alloc.y) as f64,
+            )
+        };
+
+        // set up gradient
+        // TODO: get color values from sockets
+        let gradient = cairo::LinearGradient::new(start.0, start.1, end.0, end.1);
+        gradient.add_color_stop_rgba(0., 1., 0., 0., 1.);
+        gradient.add_color_stop_rgba(1., 0., 1., 0., 1.);
+
+        // draw
+        cr.save();
+        Self::connecting_curve(cr, start, end);
+        cr.set_source(&gradient);
+        cr.stroke();
+        cr.restore();
+    }
+}
+
+impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
+    fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> Inhibit {
+        if let Some(Action::DragCon) = self.action {
+            cr.save();
+            cr.set_source_rgba(1., 0.2, 0.2, 0.6);
+            Self::connecting_curve(cr, self.drag_start, self.drag_current);
+            cr.stroke();
+            cr.restore();
+        }
+
+        for connection in &self.connections {
+            self.draw_socket_connection(widget, cr, connection);
+        }
+
+        if gtk::cairo_should_draw_window(cr, self.event_window.borrow().as_ref().unwrap()) {
+            use gtk::subclass::widget::WidgetImplExt;
+            self.parent_draw(widget, cr);
+        }
+
+        Inhibit(false)
+    }
+}
+
+impl WidgetImplExtra for NodeAreaPrivate {
     fn map(&self, widget: &gtk::Widget) {
         widget.set_mapped(true);
 
@@ -238,69 +304,6 @@ impl NodeAreaPrivate {
             }
         }
     }
-
-    fn connecting_curve(cr: &cairo::Context, source: (f64, f64), sink: (f64, f64)) {
-        cr.move_to(source.0, source.1);
-        let d = (sink.0 - source.0).abs() / 2.0;
-        cr.curve_to(source.0 + d, source.1, sink.0 - d, sink.1, sink.0, sink.1);
-    }
-
-    fn draw_socket_connection(&self, _widget: &gtk::Widget, cr: &cairo::Context, c: &Connection) {
-        // get coordinates
-        let start = {
-            let parent_alloc = c.source.get_parent().unwrap().get_allocation();
-            let alloc = c.source.get_allocation();
-            (
-                (alloc.x + alloc.width / 2 + parent_alloc.x) as f64,
-                (alloc.y + alloc.width / 2 + parent_alloc.y) as f64,
-            )
-        };
-
-        let end = {
-            let parent_alloc = c.sink.get_parent().unwrap().get_allocation();
-            let alloc = c.sink.get_allocation();
-            (
-                (alloc.x + alloc.width / 2 + parent_alloc.x) as f64,
-                (alloc.y + alloc.width / 2 + parent_alloc.y) as f64,
-            )
-        };
-
-        // set up gradient
-        // TODO: get color values from sockets
-        let gradient = cairo::LinearGradient::new(start.0, start.1, end.0, end.1);
-        gradient.add_color_stop_rgba(0., 1., 0., 0., 1.);
-        gradient.add_color_stop_rgba(1., 0., 1., 0., 1.);
-
-        // draw
-        cr.save();
-        Self::connecting_curve(cr, start, end);
-        cr.set_source(&gradient);
-        cr.stroke();
-        cr.restore();
-    }
-}
-
-impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
-    fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> Inhibit {
-        if let Some(Action::DragCon) = self.action {
-            cr.save();
-            cr.set_source_rgba(1., 0.2, 0.2, 0.6);
-            Self::connecting_curve(cr, self.drag_start, self.drag_current);
-            cr.stroke();
-            cr.restore();
-        }
-
-        for connection in &self.connections {
-            self.draw_socket_connection(widget, cr, connection);
-        }
-
-        if gtk::cairo_should_draw_window(cr, self.event_window.borrow().as_ref().unwrap()) {
-            use gtk::subclass::widget::WidgetImplExt;
-            self.parent_draw(widget, cr);
-        }
-
-        Inhibit(false)
-    }
 }
 
 impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
@@ -370,46 +373,4 @@ impl NodeArea {
             .downcast()
             .unwrap()
     }
-}
-
-// Wrapper functions
-
-unsafe extern "C" fn node_area_widget_realize(ptr: *mut gtk_sys::GtkWidget) {
-    let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
-    let imp = instance.get_impl();
-    let wrap: gtk::Widget = from_glib_borrow(ptr);
-    imp.realize(&wrap);
-}
-
-unsafe extern "C" fn node_area_widget_unrealize(ptr: *mut gtk_sys::GtkWidget) {
-    let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
-    let imp = instance.get_impl();
-    let wrap: gtk::Widget = from_glib_borrow(ptr);
-    imp.unrealize(&wrap);
-}
-
-unsafe extern "C" fn node_area_widget_map(ptr: *mut gtk_sys::GtkWidget) {
-    let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
-    let imp = instance.get_impl();
-    let wrap: gtk::Widget = from_glib_borrow(ptr);
-    imp.map(&wrap);
-}
-
-unsafe extern "C" fn node_area_widget_unmap(ptr: *mut gtk_sys::GtkWidget) {
-    let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
-    let imp = instance.get_impl();
-    let wrap: gtk::Widget = from_glib_borrow(ptr);
-    imp.unmap(&wrap);
-}
-
-unsafe extern "C" fn node_area_widget_size_allocate(
-    ptr: *mut gtk_sys::GtkWidget,
-    aptr: *mut gtk_sys::GtkAllocation,
-) {
-    let instance = &*(ptr as *mut subclass::simple::InstanceStruct<NodeAreaPrivate>);
-    let imp = instance.get_impl();
-    let wrap: gtk::Widget = from_glib_borrow(ptr);
-    let mut alloc: gtk::Allocation = from_glib_borrow(aptr);
-
-    imp.size_allocate(&wrap, &mut alloc);
 }

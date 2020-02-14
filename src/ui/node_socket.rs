@@ -4,10 +4,20 @@ use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
 
-use std::cell::Cell;
+use std::cell::RefCell;
+
+#[derive(Debug)]
+pub enum NodeSocketIO {
+    Source,
+    Sink,
+    Disable,
+}
 
 pub struct NodeSocketPrivate {
-    foo: Cell<i32>,
+    event_window: RefCell<Option<gdk::Window>>,
+    io: NodeSocketIO,
+    rgba: gdk::RGBA,
+    radius: f64,
 }
 
 // ObjectSubclass is the trait that defines the new type and
@@ -31,7 +41,12 @@ impl ObjectSubclass for NodeSocketPrivate {
     // Called every time a new instance is created. This should return
     // a new instance of our type with its basic values.
     fn new() -> Self {
-        Self { foo: Cell::new(12) }
+        Self {
+            event_window: RefCell::new(None),
+            io: NodeSocketIO::Disable,
+            rgba: gdk::RGBA::blue(),
+            radius: 16.0,
+        }
     }
 }
 
