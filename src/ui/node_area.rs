@@ -148,10 +148,12 @@ impl NodeAreaPrivate {
         };
 
         // set up gradient
-        // TODO: get color values from sockets
+        let col_src = c.source.get_rgba();
+        let col_sink = c.sink.get_rgba();
+
         let gradient = cairo::LinearGradient::new(start.0, start.1, end.0, end.1);
-        gradient.add_color_stop_rgba(0., 1., 0., 0., 1.);
-        gradient.add_color_stop_rgba(1., 0., 1., 0., 1.);
+        gradient.add_color_stop_rgba(0., col_src.0, col_src.1, col_src.2, col_src.3);
+        gradient.add_color_stop_rgba(1., col_sink.0, col_sink.1, col_sink.2, col_sink.3);
 
         // draw
         cr.save();
@@ -261,7 +263,9 @@ impl WidgetImplExtra for NodeAreaPrivate {
             ew.destroy();
             window_destroyed = true;
         }
-        if window_destroyed { self.event_window.replace(None); }
+        if window_destroyed {
+            self.event_window.replace(None);
+        }
 
         self.parent_unrealize(widget);
     }

@@ -18,8 +18,8 @@ pub enum NodeSocketIO {
 pub struct NodeSocketPrivate {
     event_window: RefCell<Option<gdk::Window>>,
     io: NodeSocketIO,
-    rgba: (f64, f64, f64, f64),
-    radius: f64,
+    rgba: RefCell<(f64, f64, f64, f64)>,
+    radius: RefCell<f64>,
     input: RefCell<Option<NodeSocket>>,
 }
 
@@ -59,7 +59,14 @@ impl ObjectSubclass for NodeSocketPrivate {
                 klass.motion_notify_event =
                     Some(extra_widget_motion_notify_event::<NodeSocketPrivate>);
             }
-        }
+        };
+
+        class.add_signal(
+            "socket-drag-begin",
+            glib::SignalFlags::RUN_FIRST,
+            &[],
+            glib::Type::Invalid,
+        );
     }
 
     // Called every time a new instance is created. This should return
@@ -68,8 +75,8 @@ impl ObjectSubclass for NodeSocketPrivate {
         Self {
             event_window: RefCell::new(None),
             io: NodeSocketIO::Disable,
-            rgba: (1., 1., 1., 1.),
-            radius: 16.0,
+            rgba: RefCell::new((1., 1., 1., 1.)),
+            radius: RefCell::new(16.0),
             input: RefCell::new(None),
         }
     }
@@ -81,12 +88,12 @@ impl ObjectImpl for NodeSocketPrivate {
 
 impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
     fn get_preferred_width(&self, _widget: &gtk::Widget) -> (i32, i32) {
-        let w = (2.0 * self.radius) as _;
+        let w = (2.0 * *self.radius.borrow()) as _;
         (w, w)
     }
 
     fn get_preferred_height(&self, _widget: &gtk::Widget) -> (i32, i32) {
-        let w = (2.0 * self.radius) as _;
+        let w = (2.0 * *self.radius.borrow()) as _;
         (w, w)
     }
 
@@ -170,6 +177,7 @@ impl WidgetImplExtra for NodeSocketPrivate {
             .get_parent_window()
             .expect("Node Socket without parent window!");
         let allocation = widget.get_allocation();
+        let size = 2.0 * *self.radius.borrow();
 
         let mut event_mask = widget.get_events();
         event_mask.insert(gdk::EventMask::BUTTON_PRESS_MASK);
@@ -185,8 +193,8 @@ impl WidgetImplExtra for NodeSocketPrivate {
                 window_type: gdk::WindowType::Child,
                 x: Some(allocation.x),
                 y: Some(allocation.y),
-                width: (2.0 * self.radius) as _,
-                height: (2.0 * self.radius) as _,
+                width: size as _,
+                height: size as _,
                 wclass: gdk::WindowWindowClass::InputOnly,
                 event_mask: event_mask.bits() as _,
                 ..gdk::WindowAttr::default()
@@ -214,16 +222,12 @@ impl WidgetImplExtra for NodeSocketPrivate {
     }
 
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
+        let size = 2.0 * *self.radius.borrow();
         widget.set_allocation(allocation);
 
         if widget.get_realized() {
             if let Some(ew) = self.event_window.borrow().as_ref() {
-                ew.move_resize(
-                    allocation.x,
-                    allocation.y,
-                    (2.0 * self.radius) as _,
-                    (2.0 * self.radius) as _,
-                );
+                ew.move_resize(allocation.x, allocation.y, size as _, size as _);
             }
         }
     }
@@ -239,19 +243,19 @@ impl WidgetImplExtra for NodeSocketPrivate {
 
 impl NodeSocketPrivate {
     fn set_drag_icon(&self, context: &gdk::DragContext) {
-        let size = (2.0 * self.radius) as _;
+        let r = *self.radius.borrow();
+        let size = (2.0 * r) as _;
         let surface = cairo::ImageSurface::create(cairo::Format::ARgb32, size, size)
             .expect("Failed to create cairo surface for drag icon");
         let cr = cairo::Context::new(&surface);
 
-        cr.set_source_rgba(self.rgba.0, self.rgba.1, self.rgba.2, self.rgba.3);
-        cr.arc(
-            self.radius,
-            self.radius,
-            self.radius,
-            0.,
-            2. * std::f64::consts::PI,
+        cr.set_source_rgba(
+            self.rgba.borrow().0,
+            self.rgba.borrow().1,
+            self.rgba.borrow().2,
+            self.rgba.borrow().3,
         );
+        cr.arc(r, r, r, 0., 2. * std::f64::consts::PI);
         cr.fill();
 
         context.drag_set_icon_surface(&surface);
@@ -283,6 +287,22 @@ impl NodeSocketPrivate {
             self.input.replace(None);
         }
     }
+
+    fn set_rgba(&self, red: f64, green: f64, blue: f64, alpha: f64) {
+        self.rgba.replace((red, green, blue, alpha));
+    }
+
+    fn get_rgba(&self) -> (f64, f64, f64, f64) {
+        self.rgba.borrow().clone()
+    }
+
+    fn set_radius(&self, radius: f64) {
+        self.radius.replace(radius);
+    }
+
+    fn get_radius(&self) -> f64 {
+        self.radius.borrow().clone()
+    }
 }
 
 glib_wrapper! {
@@ -305,5 +325,25 @@ impl NodeSocket {
             .unwrap();
         na.set_has_window(false);
         na
+    }
+
+    pub fn set_rgba(&self, red: f64, green: f64, blue: f64, alpha: f64) {
+        let imp = NodeSocketPrivate::from_instance(self);
+        imp.set_rgba(red, green, blue, alpha);
+    }
+
+    pub fn get_rgba(&self) -> (f64, f64, f64, f64) {
+        let imp = NodeSocketPrivate::from_instance(self);
+        imp.get_rgba()
+    }
+
+    pub fn set_radius(&self, radius: f64) {
+        let imp = NodeSocketPrivate::from_instance(self);
+        imp.set_radius(radius);
+    }
+
+    pub fn get_radius(&self) -> f64 {
+        let imp = NodeSocketPrivate::from_instance(self);
+        imp.get_radius()
     }
 }
