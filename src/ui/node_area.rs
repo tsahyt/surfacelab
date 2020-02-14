@@ -254,11 +254,14 @@ impl WidgetImplExtra for NodeAreaPrivate {
     }
 
     fn unrealize(&self, widget: &gtk::Widget) {
+        let mut window_destroyed = false;
+
         if let Some(ew) = self.event_window.borrow().as_ref() {
             widget.unregister_window(ew);
             ew.destroy();
-            self.event_window.replace(None);
+            window_destroyed = true;
         }
+        if window_destroyed { self.event_window.replace(None); }
 
         self.parent_unrealize(widget);
     }

@@ -127,11 +127,14 @@ impl WidgetImplExtra for NodeSocketPrivate {
     }
 
     fn unrealize(&self, widget: &gtk::Widget) {
+        let mut window_destroyed = false;
+
         if let Some(ew) = self.event_window.borrow().as_ref() {
             widget.unregister_window(ew);
             ew.destroy();
-            self.event_window.replace(None);
+            window_destroyed = true;
         }
+        if window_destroyed { self.event_window.replace(None); }
 
         // TODO: emit node socket destroyed signal
         self.parent_unrealize(widget);
