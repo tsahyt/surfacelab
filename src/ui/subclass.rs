@@ -2,12 +2,91 @@ use glib::subclass;
 use glib::subclass::prelude::*;
 use glib::translate::*;
 
-pub trait WidgetImplExtra: 'static {
-    fn map(&self, widget: &gtk::Widget);
-    fn unmap(&self, _widget: &gtk::Widget);
-    fn realize(&self, widget: &gtk::Widget);
-    fn unrealize(&self, widget: &gtk::Widget);
-    fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation);
+pub trait WidgetImplExtra: WidgetImplExtraExt + 'static {
+    fn map(&self, widget: &gtk::Widget) {
+        self.parent_map(widget);
+    }
+
+    fn unmap(&self, widget: &gtk::Widget) {
+        self.parent_unmap(widget);
+    }
+
+    fn realize(&self, widget: &gtk::Widget) {
+        self.parent_realize(widget);
+    }
+
+    fn unrealize(&self, widget: &gtk::Widget) {
+        self.parent_unrealize(widget);
+    }
+
+    fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
+        self.parent_size_allocate(widget, allocation);
+    }
+}
+
+pub trait WidgetImplExtraExt {
+    fn parent_map(&self, widget: &gtk::Widget);
+    fn parent_unmap(&self, widget: &gtk::Widget);
+    fn parent_realize(&self, widget: &gtk::Widget);
+    fn parent_unrealize(&self, widget: &gtk::Widget);
+    fn parent_size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation);
+}
+
+impl<T: WidgetImplExtra + ObjectImpl> WidgetImplExtraExt for T {
+    fn parent_map(&self, widget: &gtk::Widget) {
+        unsafe {
+            let data = self.get_type_data();
+            let parent_class = data.as_ref().get_parent_class() as *mut gtk_sys::GtkWidgetClass;
+            let f = (*parent_class)
+                .map
+                .expect("No parent class impl for \"map\"");
+            f(widget.to_glib_none().0)
+        }
+    }
+
+    fn parent_unmap(&self, widget: &gtk::Widget) {
+        unsafe {
+            let data = self.get_type_data();
+            let parent_class = data.as_ref().get_parent_class() as *mut gtk_sys::GtkWidgetClass;
+            let f = (*parent_class)
+                .unmap
+                .expect("No parent class impl for \"unmap\"");
+            f(widget.to_glib_none().0)
+        }
+    }
+
+    fn parent_realize(&self, widget: &gtk::Widget) {
+        unsafe {
+            let data = self.get_type_data();
+            let parent_class = data.as_ref().get_parent_class() as *mut gtk_sys::GtkWidgetClass;
+            let f = (*parent_class)
+                .realize
+                .expect("No parent class impl for \"realize\"");
+            f(widget.to_glib_none().0)
+        }
+    }
+
+    fn parent_unrealize(&self, widget: &gtk::Widget) {
+        unsafe {
+            let data = self.get_type_data();
+            let parent_class = data.as_ref().get_parent_class() as *mut gtk_sys::GtkWidgetClass;
+            let f = (*parent_class)
+                .unrealize
+                .expect("No parent class impl for \"unrealize\"");
+            f(widget.to_glib_none().0)
+        }
+    }
+
+    fn parent_size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
+        unsafe {
+            let data = self.get_type_data();
+            let parent_class = data.as_ref().get_parent_class() as *mut gtk_sys::GtkWidgetClass;
+            let f = (*parent_class)
+                .size_allocate
+                .expect("No parent class impl for \"size_allocate\"");
+            f(widget.to_glib_none().0, allocation.to_glib_none_mut().0)
+        }
+    }
 }
 
 pub unsafe extern "C" fn extra_widget_realize<T: ObjectSubclass>(ptr: *mut gtk_sys::GtkWidget)

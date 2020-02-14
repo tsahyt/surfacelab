@@ -203,12 +203,12 @@ impl WidgetImplExtra for NodeAreaPrivate {
         }
     }
 
-    fn unmap(&self, _widget: &gtk::Widget) {
+    fn unmap(&self, widget: &gtk::Widget) {
         if let Some(ew) = self.event_window.borrow().as_ref() {
             ew.hide();
         }
 
-        // TODO: parent unmap
+        self.parent_unmap(widget);
     }
 
     fn realize(&self, widget: &gtk::Widget) {
@@ -260,7 +260,7 @@ impl WidgetImplExtra for NodeAreaPrivate {
             self.event_window.replace(None);
         }
 
-        // TODO: parent unrealize
+        self.parent_unrealize(widget);
     }
 
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {

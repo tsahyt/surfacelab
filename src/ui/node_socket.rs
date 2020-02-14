@@ -79,20 +79,20 @@ impl ObjectImpl for NodeSocketPrivate {
 impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {}
 
 impl WidgetImplExtra for NodeSocketPrivate {
-    fn map(&self, _widget: &gtk::Widget) {
-        // TODO: parent map
+    fn map(&self, widget: &gtk::Widget) {
+        self.parent_map(widget);
 
         if let Some(ew) = self.event_window.borrow().as_ref() {
             ew.show()
         }
     }
 
-    fn unmap(&self, _widget: &gtk::Widget) {
+    fn unmap(&self, widget: &gtk::Widget) {
         if let Some(ew) = self.event_window.borrow().as_ref() {
             ew.show()
         }
 
-        // TODO: parent unmap
+        self.parent_unmap(widget);
     }
 
     fn realize(&self, widget: &gtk::Widget) {
@@ -134,7 +134,7 @@ impl WidgetImplExtra for NodeSocketPrivate {
         }
 
         // TODO: emit node socket destroyed signal
-        // TODO: unrealize parent
+        self.parent_unrealize(widget);
     }
 
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
