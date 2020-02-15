@@ -178,9 +178,11 @@ impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
             self.draw_socket_connection(widget, cr, connection);
         }
 
-        if gtk::cairo_should_draw_window(cr, self.event_window.borrow().as_ref().unwrap()) {
-            use gtk::subclass::widget::WidgetImplExt;
-            self.parent_draw(widget, cr);
+        if let Some(ew) = self.event_window.borrow().as_ref() {
+            if gtk::cairo_should_draw_window(cr, ew) {
+                use gtk::subclass::widget::WidgetImplExt;
+                self.parent_draw(widget, cr);
+            }
         }
 
         Inhibit(false)
@@ -242,14 +244,14 @@ impl WidgetImplExtra for NodeAreaPrivate {
                 ..gdk::WindowAttr::default()
             },
         );
+
+        widget.set_window(&parent);
         widget.register_window(&window);
 
         // parent children
         for child in self.nodes.borrow().keys() {
             child.set_parent_window(&window);
         }
-
-        dbg!(&window);
 
         // store event_window
         self.event_window.replace(Some(window));
@@ -267,6 +269,7 @@ impl WidgetImplExtra for NodeAreaPrivate {
             self.event_window.replace(None);
         }
 
+        // FIXME: causes g_object_unref critical when there are no children
         self.parent_unrealize(widget);
     }
 
@@ -298,7 +301,8 @@ impl WidgetImplExtra for NodeAreaPrivate {
         }
 
         widget.set_allocation(allocation);
-        widget.set_size_request(allocation.width, allocation.height);
+        // permanently enlarges the window!
+        // widget.set_size_request(allocation.width, allocation.height);
 
         if widget.get_realized() {
             if let Some(ew) = self.event_window.borrow().as_ref() {

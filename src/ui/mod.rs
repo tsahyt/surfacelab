@@ -5,11 +5,11 @@ use std::convert::TryFrom;
 use std::rc::Rc;
 use std::thread;
 
-pub mod util;
-pub mod node_area;
 pub mod node;
+pub mod node_area;
 pub mod node_socket;
 pub mod subclass;
+pub mod util;
 
 pub fn start_ui_threads(bus: &bus::Bus) -> (thread::JoinHandle<()>, thread::JoinHandle<()>) {
     log::info!("Starting UI");
@@ -37,61 +37,37 @@ fn gtk_main(bus: bus::Sender) {
     application.connect_activate(move |app| {
         let window = gtk::ApplicationWindow::new(app);
         window.set_title("SurfaceLab");
-        window.set_default_size(350, 70);
+        window.set_default_size(1024, 768);
 
-        let button_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        let vbox = gtk::Box::new(gtk::Orientation::Vertical, 16);
 
-        let new_o_button = gtk::Button::new_with_label("New Output");
-        new_o_button.connect_clicked(clone!(bus_rc => move |_| {
-            bus::emit(
-                bus_rc.as_ref(),
-                lang::Lang::UserNodeEvent(lang::UserNodeEvent::NewNode(lang::Operator::Output {
-                    output_type: lang::OutputType::default(),
-                })),
-            );
-        }));
-        button_box.add(&new_o_button);
-
-        let new_i_button = gtk::Button::new_with_label("New Input");
-        new_i_button.connect_clicked(clone!(bus_rc => move |_| {
-            bus::emit(
-                bus_rc.as_ref(),
-                lang::Lang::UserNodeEvent(lang::UserNodeEvent::NewNode(lang::Operator::Image {
-                    path: std::path::PathBuf::from("/tmp/foo.png"),
-                })),
-            );
-        }));
-        button_box.add(&new_i_button);
-
-        let remove_button = gtk::Button::new_with_label("Remove Output");
-        remove_button.connect_clicked(clone!(bus_rc => move |_| {
-            bus::emit(
-                bus_rc.as_ref(),
-                lang::Lang::UserNodeEvent(
-                    lang::UserNodeEvent::RemoveNode(
-                        uriparse::uri::URI::try_from("node:output.1").unwrap())),
-            );
-        }));
-        button_box.add(&remove_button);
-
-        let connect_button = gtk::Button::new_with_label("Connect");
-        connect_button.connect_clicked(clone!(bus_rc => move |_| {
-            bus::emit(
-                bus_rc.as_ref(),
-                lang::Lang::UserNodeEvent(
-                    lang::UserNodeEvent::ConnectSockets(
-                        uriparse::uri::URI::try_from("node:image.1#image").unwrap(),
-                        uriparse::uri::URI::try_from("node:output.1#value").unwrap()
-                    )),
-            );
-        }));
-        button_box.add(&connect_button);
-
+        // Node Area
         let node_area = node_area::NodeArea::new();
 
-        button_box.add(&node_area);
+        // Buttons
+        let button_box = {
+            let button_box = gtk::ButtonBox::new(gtk::Orientation::Horizontal);
+            button_box.set_layout(gtk::ButtonBoxStyle::Expand);
+            let new_image_node_button = gtk::Button::new_with_label("New Image Node");
+            button_box.add(&new_image_node_button);
 
-        window.add(&button_box);
+            new_image_node_button.connect_clicked(clone!(node_area => move |_| {
+                let new_node = node::Node::new();
+                node_area.add(&new_node);
+                new_node.show();
+            }));
+
+            // let new_noise_node_button = gtk::Button::new_with_label("New Noise Node");
+            // button_box.add(&new_noise_node_button);
+            // let new_output_node_button = gtk::Button::new_with_label("New Output Node");
+            // button_box.add(&new_output_node_button);
+            button_box
+        };
+
+        vbox.add(&button_box);
+        vbox.pack_end(&node_area, true, true, 0);
+
+        window.add(&vbox);
         window.show_all();
     });
 
