@@ -62,7 +62,7 @@ impl ObjectSubclass for NodePrivate {
                 klass.unrealize = Some(extra_widget_unrealize::<NodePrivate>);
                 klass.map = Some(extra_widget_map::<NodePrivate>);
                 klass.unmap = Some(extra_widget_unmap::<NodePrivate>);
-                klass.size_allocate = Some(extra_widget_size_allocate::<NodePrivate>);
+                // klass.size_allocate = Some(extra_widget_size_allocate::<NodePrivate>);
             }
         }
 
@@ -75,7 +75,7 @@ impl ObjectSubclass for NodePrivate {
         Self {
             event_window: RefCell::new(None),
             children: Vec::new(),
-            expander: gtk::Expander::new(None),
+            expander: gtk::Expander::new(Some("Node")),
             padding: Border {
                 top: 8,
                 bottom: 8,
@@ -100,6 +100,20 @@ impl ObjectSubclass for NodePrivate {
 
 impl ObjectImpl for NodePrivate {
     glib_object_impl!();
+
+    fn constructed(&self, obj: &glib::Object) {
+        let node = obj.clone().downcast::<Node>().unwrap();
+        node.set_has_window(false);
+        node.set_size_request(100, 100);
+
+        // Set box layout
+        node.set_homogeneous(false);
+        node.clone().upcast::<gtk::Box>().set_orientation(gtk::Orientation::Vertical);
+
+        // Expander
+        self.expander.set_expanded(true);
+        node.pack_start(&self.expander, false, false, 0);
+    }
 }
 
 impl gtk::subclass::widget::WidgetImpl for NodePrivate {
@@ -189,6 +203,7 @@ impl WidgetImplExtra for NodePrivate {
             },
         );
 
+        widget.set_window(&parent);
         widget.register_window(&window);
 
         for child in self.children.iter() {
@@ -196,7 +211,7 @@ impl WidgetImplExtra for NodePrivate {
             child.socket.set_parent_window(&window);
         }
 
-        self.expander.set_parent_window(&window);
+        //self.expander.set_parent_window(&window);
         self.event_window.replace(Some(window));
     }
 
