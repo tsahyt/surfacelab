@@ -1,3 +1,4 @@
+use super::node::Node;
 use super::subclass::*;
 use gdk::prelude::*;
 use glib::subclass;
@@ -6,7 +7,17 @@ use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+#[derive(Debug)]
+struct NodeAreaChild {
+    x: i32,
+    y: i32,
+}
+
 pub struct NodeAreaPrivate {
+    children: RefCell<HashMap<Node, NodeAreaChild>>,
 }
 
 // ObjectSubclass is the trait that defines the new type and
@@ -39,10 +50,10 @@ impl ObjectSubclass for NodeAreaPrivate {
             {
                 let klass =
                     &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
-                klass.realize = Some(extra_widget_realize::<NodeAreaPrivate>);
-                klass.unrealize = Some(extra_widget_unrealize::<NodeAreaPrivate>);
-                klass.map = Some(extra_widget_map::<NodeAreaPrivate>);
-                klass.unmap = Some(extra_widget_unmap::<NodeAreaPrivate>);
+                // klass.realize = Some(extra_widget_realize::<NodeAreaPrivate>);
+                // klass.unrealize = Some(extra_widget_unrealize::<NodeAreaPrivate>);
+                // klass.map = Some(extra_widget_map::<NodeAreaPrivate>);
+                // klass.unmap = Some(extra_widget_unmap::<NodeAreaPrivate>);
                 klass.size_allocate = Some(extra_widget_size_allocate::<NodeAreaPrivate>);
             }
         }
@@ -52,6 +63,7 @@ impl ObjectSubclass for NodeAreaPrivate {
     // a new instance of our type with its basic values.
     fn new() -> Self {
         Self {
+            children: RefCell::new(HashMap::new()),
         }
     }
 }
@@ -60,6 +72,10 @@ impl ObjectImpl for NodeAreaPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
+        let node_area = obj.clone().downcast::<NodeArea>().unwrap();
+
+        // We reuse the parent window for drawing
+        node_area.set_has_window(false);
     }
 }
 
@@ -69,29 +85,96 @@ impl NodeAreaPrivate {
         let d = (sink.0 - source.0).abs() / 2.0;
         cr.curve_to(source.0 + d, source.1, sink.0 - d, sink.1, sink.0, sink.1);
     }
+
+    fn put(&self, container: &gtk::Container, widget: &Node) {
+        // Make sure the widget is indeed a Node and does not yet have a parent
+        debug_assert!(widget.get_parent().is_none());
+
+        let child = NodeAreaChild { x: 256, y: 256 };
+
+        widget.set_parent(container);
+        self.children.borrow_mut().insert(widget.clone(), child);
+    }
 }
 
 impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
+    fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
+        let container = widget.clone().downcast::<gtk::Container>().unwrap();
+
+        for (node, _) in self.children.borrow().iter() {
+            container.propagate_draw(node, cr);
+        }
+
+        Inhibit(false)
+    }
 }
 
 impl WidgetImplExtra for NodeAreaPrivate {
-    fn map(&self, widget: &gtk::Widget) {
-    }
-
-    fn unmap(&self, widget: &gtk::Widget) {
-    }
-
-    fn realize(&self, widget: &gtk::Widget) {
-    }
-
-    fn unrealize(&self, widget: &gtk::Widget) {
-    }
+    // fn realize(&self, widget: &gtk::Widget) {
+    // }
 
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
+        widget.set_allocation(allocation);
+
+        let has_window = widget.get_has_window();
+
+        if has_window && widget.get_realized() {
+            widget.get_window().unwrap().move_resize(
+                allocation.x,
+                allocation.y,
+                allocation.width,
+                allocation.height,
+            )
+        }
+
+        for (node, child) in self.children.borrow().iter() {
+            if !node.get_visible() { continue; }
+            let (child_requisition, _) = node.get_preferred_size();
+
+            let mut child_allocation = gtk::Allocation {
+                x: child.x + if has_window { allocation.x } else { 0 },
+                y: child.y + if has_window { allocation.y } else { 0 },
+                width: child_requisition.width,
+                height: child_requisition.height
+            };
+
+            node.size_allocate(&mut child_allocation)
+        }
     }
 }
 
 impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
+    // Node Areas contain nodes and nothing else
+    fn child_type(&self, _container: &gtk::Container) -> glib::Type {
+        Node::static_type()
+    }
+
+    fn add(&self, container: &gtk::Container, widget: &gtk::Widget) {
+        let node = widget
+            .clone()
+            .downcast::<Node>()
+            .expect("Node Area can only contain nodes!");
+        self.put(container, &node);
+    }
+
+    fn remove(&self, container: &gtk::Container, widget: &gtk::Widget) {
+        let node = widget
+            .clone()
+            .downcast::<Node>()
+            .expect("Node Area can only contain nodes!");
+
+        let resize_after = self.children.borrow().contains_key(&node)
+            && node.get_visible()
+            && container.get_visible();
+
+        if let Some(_) = self.children.borrow_mut().remove(&node) {
+            widget.unparent()
+        }
+
+        if resize_after {
+            container.queue_resize()
+        }
+    }
 }
 
 glib_wrapper! {
