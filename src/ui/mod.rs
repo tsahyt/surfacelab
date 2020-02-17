@@ -65,8 +65,8 @@ fn gtk_main(bus: bus::Sender) {
         };
 
         // test node
-        let node = node::Node::new();
-        vbox.add(&node);
+        // let node = node::Node::new();
+        // vbox.add(&node);
 
         vbox.add(&button_box);
         vbox.pack_end(&node_area, true, true, 0);

@@ -50,10 +50,7 @@ impl ObjectSubclass for NodeAreaPrivate {
             {
                 let klass =
                     &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
-                // klass.realize = Some(extra_widget_realize::<NodeAreaPrivate>);
-                // klass.unrealize = Some(extra_widget_unrealize::<NodeAreaPrivate>);
-                // klass.map = Some(extra_widget_map::<NodeAreaPrivate>);
-                // klass.unmap = Some(extra_widget_unmap::<NodeAreaPrivate>);
+                klass.realize = Some(extra_widget_realize::<NodeAreaPrivate>);
                 klass.size_allocate = Some(extra_widget_size_allocate::<NodeAreaPrivate>);
             }
         }
@@ -73,9 +70,6 @@ impl ObjectImpl for NodeAreaPrivate {
 
     fn constructed(&self, obj: &glib::Object) {
         let node_area = obj.clone().downcast::<NodeArea>().unwrap();
-
-        // We reuse the parent window for drawing
-        node_area.set_has_window(false);
     }
 }
 
@@ -86,11 +80,11 @@ impl NodeAreaPrivate {
         cr.curve_to(source.0 + d, source.1, sink.0 - d, sink.1, sink.0, sink.1);
     }
 
-    fn put(&self, container: &gtk::Container, widget: &Node) {
+    fn put(&self, container: &gtk::Container, widget: &Node, x: i32, y: i32) {
         // Make sure the widget is indeed a Node and does not yet have a parent
         debug_assert!(widget.get_parent().is_none());
 
-        let child = NodeAreaChild { x: 256, y: 256 };
+        let child = NodeAreaChild { x, y };
 
         widget.set_parent(container);
         self.children.borrow_mut().insert(widget.clone(), child);
@@ -110,8 +104,36 @@ impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
 }
 
 impl WidgetImplExtra for NodeAreaPrivate {
-    // fn realize(&self, widget: &gtk::Widget) {
-    // }
+    fn realize(&self, widget: &gtk::Widget) {
+        widget.set_realized(true);
+        let allocation = widget.get_allocation();
+        let attributes = gdk::WindowAttr {
+            window_type: gdk::WindowType::Child,
+            x: Some(allocation.x),
+            y: Some(allocation.y),
+            width: allocation.width,
+            wclass: gdk::WindowWindowClass::InputOutput,
+            visual: widget.get_visual(),
+            event_mask: {
+                let mut em = widget.get_events();
+                em.insert(gdk::EventMask::EXPOSURE_MASK);
+                em.insert(gdk::EventMask::BUTTON_PRESS_MASK);
+                em.bits() as _
+            },
+            ..gdk::WindowAttr::default()
+        };
+
+        let window = gdk::Window::new(
+            Some(
+                &widget
+                    .get_parent_window()
+                    .expect("Node Area must have parent"),
+            ),
+            &attributes,
+        );
+        widget.set_window(&window);
+        widget.register_window(&window);
+    }
 
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
         widget.set_allocation(allocation);
@@ -128,14 +150,16 @@ impl WidgetImplExtra for NodeAreaPrivate {
         }
 
         for (node, child) in self.children.borrow().iter() {
-            if !node.get_visible() { continue; }
+            if !node.get_visible() {
+                continue;
+            }
             let (child_requisition, _) = node.get_preferred_size();
 
             let mut child_allocation = gtk::Allocation {
-                x: child.x + if has_window { allocation.x } else { 0 },
-                y: child.y + if has_window { allocation.y } else { 0 },
+                x: child.x + if !has_window { allocation.x } else { 0 },
+                y: child.y + if !has_window { allocation.y } else { 0 },
                 width: child_requisition.width,
-                height: child_requisition.height
+                height: child_requisition.height,
             };
 
             node.size_allocate(&mut child_allocation)
@@ -150,24 +174,24 @@ impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
     }
 
     fn add(&self, container: &gtk::Container, widget: &gtk::Widget) {
-        let node = widget
+        let widget = widget
             .clone()
             .downcast::<Node>()
             .expect("Node Area can only contain nodes!");
-        self.put(container, &node);
+        self.put(container, &widget, 0, 0);
     }
 
     fn remove(&self, container: &gtk::Container, widget: &gtk::Widget) {
-        let node = widget
+        let widget = widget
             .clone()
             .downcast::<Node>()
             .expect("Node Area can only contain nodes!");
 
-        let resize_after = self.children.borrow().contains_key(&node)
-            && node.get_visible()
+        let resize_after = self.children.borrow().contains_key(&widget)
+            && widget.get_visible()
             && container.get_visible();
 
-        if let Some(_) = self.children.borrow_mut().remove(&node) {
+        if let Some(_) = self.children.borrow_mut().remove(&widget) {
             widget.unparent()
         }
 
