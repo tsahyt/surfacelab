@@ -1,5 +1,6 @@
-use super::node::{self, Node};
+use super::node::Node;
 use super::subclass::*;
+use crate::clone;
 use gdk::prelude::*;
 use glib::subclass;
 use glib::subclass::prelude::*;
@@ -9,15 +10,25 @@ use gtk::prelude::*;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Debug)]
 struct NodeAreaChild {
     x: i32,
     y: i32,
+    start_x: i32,
+    start_y: i32,
 }
 
+#[derive(Debug)]
+enum Action {
+    DragChild,
+}
+
+#[derive(Debug)]
 pub struct NodeAreaPrivate {
-    children: RefCell<HashMap<Node, NodeAreaChild>>,
+    children: Rc<RefCell<HashMap<Node, NodeAreaChild>>>,
+    action: Rc<RefCell<Option<Action>>>,
 }
 
 // ObjectSubclass is the trait that defines the new type and
@@ -60,7 +71,8 @@ impl ObjectSubclass for NodeAreaPrivate {
     // a new instance of our type with its basic values.
     fn new() -> Self {
         Self {
-            children: RefCell::new(HashMap::new()),
+            children: Rc::new(RefCell::new(HashMap::new())),
+            action: Rc::new(RefCell::new(None)),
         }
     }
 }
@@ -80,20 +92,50 @@ impl NodeAreaPrivate {
         // Make sure the widget is indeed a Node and does not yet have a parent
         debug_assert!(widget.get_parent().is_none());
 
-        let child = NodeAreaChild { x, y };
+        let child = NodeAreaChild { x, y, start_x: x, start_y: y };
 
         widget.set_parent(container);
         self.children.borrow_mut().insert(widget.clone(), child);
 
-        widget.connect_header_button_press_event(|w| {
-            println!("press {:?}", w);
-        });
-        widget.connect_header_button_release_event(|w| {
-            println!("release {:?}", w);
-        });
-        widget.connect_close_clicked(|w| {
-            println!("close {:?}", w);
-        });
+        // Connect to child signals
+        let action = self.action.clone();
+        let children = self.children.clone();
+
+        widget.connect_header_button_press_event(clone!(action, children => move |w| {
+            action.replace(Some(Action::DragChild));
+            let mut children = children.borrow_mut();
+            let c_ref = children.get_mut(&w);
+            let child = c_ref.unwrap();
+            child.start_x = child.x;
+            child.start_y = child.y;
+        }));
+
+        widget.connect_header_button_release_event(clone!(action => move |_| {
+            action.replace(None);
+        }));
+
+        widget.connect_motion_notify_event(clone!(action, children, container => move |w, motion| {
+            if let Some(Action::DragChild) = action.borrow().as_ref() {
+                let pos = motion.get_position();
+
+                let mut children = children.borrow_mut();
+                let c_ref = children.get_mut(&w);
+                let child = c_ref.unwrap();
+                child.x = child.start_x + pos.0 as i32;
+                child.y = child.start_y + pos.1 as i32;
+
+                if w.get_visible() {
+                    w.queue_resize();
+                }
+
+                container.queue_draw();
+            }
+            Inhibit(true)
+        }));
+
+        widget.connect_close_clicked(clone!(container => move |w| {
+            container.remove(w);
+        }));
     }
 }
 

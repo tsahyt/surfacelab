@@ -9,7 +9,8 @@ use gtk::prelude::*;
 
 use std::cell::RefCell;
 
-pub struct NodePrivate {}
+pub struct NodePrivate {
+}
 
 const HEADER_SPACING: i32 = 16;
 const MARGIN: i32 = 8;
@@ -78,7 +79,8 @@ impl ObjectSubclass for NodePrivate {
     // Called every time a new instance is created. This should return
     // a new instance of our type with its basic values.
     fn new() -> Self {
-        Self {}
+        Self {
+        }
     }
 }
 
@@ -137,7 +139,7 @@ impl ObjectImpl for NodePrivate {
             let thumbnail = gtk::DrawingArea::new();
             thumbnail.set_size_request(128, 128);
 
-            thumbnail.connect_draw(|w, cr| {
+            thumbnail.connect_draw(|_, cr| {
                 cr.set_source_rgba(0., 0., 0., 1.);
                 cr.rectangle(0., 0., 128., 128.);
                 cr.fill();
@@ -208,11 +210,11 @@ impl Node {
         na
     }
 
-    pub fn connect_header_button_press_event<F: Send + Sync + Fn(&Self) + 'static>(
+    pub fn connect_header_button_press_event<F: Fn(&Self) + 'static>(
         &self,
         f: F,
     ) -> glib::SignalHandlerId {
-        self.connect(HEADER_BUTTON_PRESS, true, move |w| {
+        self.connect_local(HEADER_BUTTON_PRESS, true, move |w| {
             let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
             f(&node);
             None
@@ -220,11 +222,11 @@ impl Node {
         .unwrap()
     }
 
-    pub fn connect_header_button_release_event<F: Send + Sync + Fn(&Self) + 'static>(
+    pub fn connect_header_button_release_event<F: Fn(&Self) + 'static>(
         &self,
         f: F,
     ) -> glib::SignalHandlerId {
-        self.connect(HEADER_BUTTON_RELEASE, true, move |w| {
+        self.connect_local(HEADER_BUTTON_RELEASE, true, move |w| {
             let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
             f(&node);
             None
@@ -232,11 +234,11 @@ impl Node {
         .unwrap()
     }
 
-    pub fn connect_close_clicked<F: Send + Sync + Fn(&Self) + 'static>(
+    pub fn connect_close_clicked<F: Fn(&Self) + 'static>(
         &self,
         f: F,
     ) -> glib::SignalHandlerId {
-        self.connect(CLOSE_CLICKED, true, move |w| {
+        self.connect_local(CLOSE_CLICKED, true, move |w| {
             let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
             f(&node);
             None
