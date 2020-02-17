@@ -10,6 +10,10 @@ use std::cell::RefCell;
 
 pub struct NodePrivate {}
 
+const HEADER_SPACING: i32 = 16;
+const MARGIN: i32 = 8;
+const PADDING: i32 = 8;
+
 // ObjectSubclass is the trait that defines the new type and
 // contains all information needed by the GObject type system,
 // including the new type's name, parent type, etc.
@@ -70,21 +74,20 @@ impl ObjectImpl for NodePrivate {
 
         // header
         {
-            const HEADER_SPACING: i32 = 16;
-
             let header_box = gtk::Box::new(gtk::Orientation::Horizontal, HEADER_SPACING);
             let header_label = gtk::Label::new(Some("Node"));
+            header_label.set_halign(gtk::Align::Start);
             header_box.pack_start(&header_label, true, false, 0);
 
-            let close_button = gtk::Button::new();
-            close_button.set_relief(gtk::ReliefStyle::None);
             let close_image = gtk::Image::new_from_icon_name(
                 Some("window-close-symbolic"),
                 gtk::IconSize::Button,
             );
-            close_button.add(&close_image);
-            header_box.pack_end(&close_button, false, false, 0);
+            header_box.pack_end(&close_image, false, false, 0);
 
+            header_box.set_margin_start(MARGIN);
+            header_box.set_margin_end(MARGIN);
+            header_box.set_margin_top(MARGIN);
             node.add(&header_box);
         }
 
@@ -94,19 +97,32 @@ impl ObjectImpl for NodePrivate {
             thumbnail.set_size_request(128, 128);
 
             thumbnail.connect_draw(|w, cr| {
-                let allocation = w.get_allocation();
                 cr.set_source_rgba(0., 0., 0., 1.);
-                cr.rectangle(0., 0., allocation.width as _, allocation.height as _);
+                cr.rectangle(0., 0., 128., 128.);
                 cr.fill();
                 Inhibit(false)
             });
+
+            thumbnail.set_margin_start(MARGIN);
+            thumbnail.set_margin_end(MARGIN);
+            thumbnail.set_margin_bottom(MARGIN);
 
             node.add(&thumbnail);
         }
     }
 }
 
-impl gtk::subclass::widget::WidgetImpl for NodePrivate {}
+impl gtk::subclass::widget::WidgetImpl for NodePrivate {
+    fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
+        use gtk::subclass::widget::WidgetImplExt;
+
+        let allocation = widget.get_allocation();
+
+        self.draw_frame(cr, allocation.width, allocation.height);
+        self.parent_draw(widget, cr);
+        Inhibit(false)
+    }
+}
 
 impl WidgetImplExtra for NodePrivate {}
 
@@ -114,7 +130,20 @@ impl gtk::subclass::container::ContainerImpl for NodePrivate {}
 
 impl gtk::subclass::box_::BoxImpl for NodePrivate {}
 
-impl NodePrivate {}
+impl NodePrivate {
+    fn get_style_node() -> gtk::StyleContext {
+        let b = gtk::Button::new();
+        b.get_style_context()
+    }
+
+    fn draw_frame(&self, cr: &cairo::Context, width: i32, height: i32) {
+        let style_context = Self::get_style_node();
+        style_context.save();
+        gtk::render_background(&style_context, cr, 0., 0., width as _, height as _);
+        gtk::render_frame(&style_context, cr, 0., 0., width as _, height as _);
+        style_context.restore();
+    }
+}
 
 glib_wrapper! {
     pub struct Node(

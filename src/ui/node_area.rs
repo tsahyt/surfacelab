@@ -174,7 +174,7 @@ impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
             .clone()
             .downcast::<Node>()
             .expect("Node Area can only contain nodes!");
-        self.put(container, &widget, 0, 0);
+        self.put(container, &widget, 64, 64);
     }
 
     fn remove(&self, container: &gtk::Container, widget: &gtk::Widget) {
