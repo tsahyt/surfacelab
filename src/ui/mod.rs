@@ -54,7 +54,7 @@ fn gtk_main(bus: bus::Sender) {
             new_image_node_button.connect_clicked(clone!(node_area => move |_| {
                 let new_node = node::Node::new();
                 node_area.add(&new_node);
-                new_node.show();
+                new_node.show_all();
             }));
 
             // let new_noise_node_button = gtk::Button::new_with_label("New Noise Node");

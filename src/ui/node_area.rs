@@ -67,10 +67,6 @@ impl ObjectSubclass for NodeAreaPrivate {
 
 impl ObjectImpl for NodeAreaPrivate {
     glib_object_impl!();
-
-    fn constructed(&self, obj: &glib::Object) {
-        let node_area = obj.clone().downcast::<NodeArea>().unwrap();
-    }
 }
 
 impl NodeAreaPrivate {
