@@ -16,13 +16,11 @@ use std::rc::Rc;
 struct NodeAreaChild {
     x: i32,
     y: i32,
-    start_x: i32,
-    start_y: i32,
 }
 
 #[derive(Debug)]
 enum Action {
-    DragChild,
+    DragChild(i32, i32),
 }
 
 #[derive(Debug)]
@@ -92,7 +90,7 @@ impl NodeAreaPrivate {
         // Make sure the widget is indeed a Node and does not yet have a parent
         debug_assert!(widget.get_parent().is_none());
 
-        let child = NodeAreaChild { x, y, start_x: x, start_y: y };
+        let child = NodeAreaChild { x, y };
 
         widget.set_parent(container);
         self.children.borrow_mut().insert(widget.clone(), child);
@@ -100,38 +98,38 @@ impl NodeAreaPrivate {
         // Connect to child signals
         let action = self.action.clone();
         let children = self.children.clone();
+        let allocation = container.get_allocation();
 
-        widget.connect_header_button_press_event(clone!(action, children => move |w| {
-            action.replace(Some(Action::DragChild));
-            let mut children = children.borrow_mut();
-            let c_ref = children.get_mut(&w);
-            let child = c_ref.unwrap();
-            child.start_x = child.x;
-            child.start_y = child.y;
+        widget.connect_header_button_press_event(clone!(action => move |_, x, y| {
+            action.replace(Some(Action::DragChild(allocation.x + x as i32, allocation.y + y as i32)));
         }));
 
         widget.connect_header_button_release_event(clone!(action => move |_| {
             action.replace(None);
         }));
 
-        widget.connect_motion_notify_event(clone!(action, children, container => move |w, motion| {
-            if let Some(Action::DragChild) = action.borrow().as_ref() {
-                let pos = motion.get_position();
+        widget.connect_motion_notify_event(
+            clone!(action, children, container => move |w, motion| {
+                if let Some(Action::DragChild(offset_x, offset_y)) = action.borrow().as_ref() {
+                    let pos = motion.get_root();
 
-                let mut children = children.borrow_mut();
-                let c_ref = children.get_mut(&w);
-                let child = c_ref.unwrap();
-                child.x = child.start_x + pos.0 as i32;
-                child.y = child.start_y + pos.1 as i32;
+                    //dbg!(pos);
 
-                if w.get_visible() {
-                    w.queue_resize();
+                    let mut children = children.borrow_mut();
+                    let c_ref = children.get_mut(&w);
+                    let child = c_ref.unwrap();
+                    child.x = pos.0 as i32 - offset_x;
+                    child.y = pos.1 as i32 - offset_y;
+
+                    if w.get_visible() {
+                        w.queue_resize();
+                    }
+
+                    container.queue_draw();
                 }
-
-                container.queue_draw();
-            }
-            Inhibit(true)
-        }));
+                Inhibit(true)
+            }),
+        );
 
         widget.connect_close_clicked(clone!(container => move |w| {
             container.remove(w);
@@ -226,7 +224,7 @@ impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
             .clone()
             .downcast::<Node>()
             .expect("Node Area can only contain nodes!");
-        self.put(container, &widget, 64, 64);
+        self.put(container, &widget, 0, 0);
     }
 
     fn remove(&self, container: &gtk::Container, widget: &gtk::Widget) {

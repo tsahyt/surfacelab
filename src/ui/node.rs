@@ -58,7 +58,7 @@ impl ObjectSubclass for NodePrivate {
             class.add_signal(
                 HEADER_BUTTON_PRESS,
                 glib::SignalFlags::empty(),
-                &[],
+                &[glib::types::Type::F64, glib::types::Type::F64],
                 glib::types::Type::Unit,
             );
             class.add_signal(
@@ -105,8 +105,9 @@ impl ObjectImpl for NodePrivate {
             let header_evbox = gtk::EventBox::new();
             header_label.set_halign(gtk::Align::Start);
 
-            header_evbox.connect_button_press_event(clone!(node => move |_, _| {
-                node.emit(HEADER_BUTTON_PRESS, &[]).unwrap();
+            header_evbox.connect_button_press_event(clone!(node => move |_, m| {
+                let pos = m.get_position();
+                node.emit(HEADER_BUTTON_PRESS, &[&pos.0, &pos.1]).unwrap();
                 Inhibit(false)
             }));
             header_evbox.connect_button_release_event(clone!(node => move |_, _| {
@@ -210,13 +211,15 @@ impl Node {
         na
     }
 
-    pub fn connect_header_button_press_event<F: Fn(&Self) + 'static>(
+    pub fn connect_header_button_press_event<F: Fn(&Self, f64, f64) + 'static>(
         &self,
         f: F,
     ) -> glib::SignalHandlerId {
         self.connect_local(HEADER_BUTTON_PRESS, true, move |w| {
             let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
-            f(&node);
+            let x: f64 = w[1].get_some().unwrap();
+            let y: f64 = w[2].get_some().unwrap();
+            f(&node, x, y);
             None
         })
         .unwrap()
