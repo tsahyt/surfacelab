@@ -207,4 +207,40 @@ impl Node {
         na.set_has_window(false);
         na
     }
+
+    pub fn connect_header_button_press_event<F: Send + Sync + Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect(HEADER_BUTTON_PRESS, true, move |w| {
+            let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
+            f(&node);
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn connect_header_button_release_event<F: Send + Sync + Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect(HEADER_BUTTON_RELEASE, true, move |w| {
+            let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
+            f(&node);
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn connect_close_clicked<F: Send + Sync + Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect(CLOSE_CLICKED, true, move |w| {
+            let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
+            f(&node);
+            None
+        })
+        .unwrap()
+    }
 }
