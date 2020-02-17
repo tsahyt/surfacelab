@@ -1,4 +1,4 @@
-use super::node::Node;
+use super::node::{self, Node};
 use super::subclass::*;
 use gdk::prelude::*;
 use glib::subclass;
@@ -84,6 +84,22 @@ impl NodeAreaPrivate {
 
         widget.set_parent(container);
         self.children.borrow_mut().insert(widget.clone(), child);
+
+        widget.connect(node::HEADER_BUTTON_PRESS, true, |w| {
+            let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
+            println!("press {:?}", node);
+            None
+        });
+        widget.connect(node::HEADER_BUTTON_RELEASE, true, |w| {
+            let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
+            println!("release {:?}", node);
+            None
+        });
+        widget.connect(node::CLOSE_CLICKED, true, |w| {
+            let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
+            println!("close {:?}", node);
+            None
+        });
     }
 }
 

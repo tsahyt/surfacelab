@@ -1,4 +1,5 @@
 use super::subclass::*;
+use crate::clone;
 use gdk::prelude::*;
 use glib::subclass;
 use glib::subclass::prelude::*;
@@ -12,7 +13,11 @@ pub struct NodePrivate {}
 
 const HEADER_SPACING: i32 = 16;
 const MARGIN: i32 = 8;
-const PADDING: i32 = 8;
+
+// Signals
+pub const HEADER_BUTTON_PRESS: &str = "header-button-press";
+pub const HEADER_BUTTON_RELEASE: &str = "header-button-release";
+pub const CLOSE_CLICKED: &str = "close-clicked";
 
 // ObjectSubclass is the trait that defines the new type and
 // contains all information needed by the GObject type system,
@@ -48,6 +53,25 @@ impl ObjectSubclass for NodePrivate {
                 //klass.unmap = Some(extra_widget_unmap::<NodePrivate>);
                 //klass.size_allocate = Some(extra_widget_size_allocate::<NodePrivate>);
             }
+
+            class.add_signal(
+                HEADER_BUTTON_PRESS,
+                glib::SignalFlags::empty(),
+                &[],
+                glib::types::Type::Unit,
+            );
+            class.add_signal(
+                HEADER_BUTTON_RELEASE,
+                glib::SignalFlags::empty(),
+                &[],
+                glib::types::Type::Unit,
+            );
+            class.add_signal(
+                CLOSE_CLICKED,
+                glib::SignalFlags::empty(),
+                &[],
+                glib::types::Type::Unit,
+            );
         }
     }
 
@@ -76,14 +100,31 @@ impl ObjectImpl for NodePrivate {
         {
             let header_box = gtk::Box::new(gtk::Orientation::Horizontal, HEADER_SPACING);
             let header_label = gtk::Label::new(Some("Node"));
+            let header_evbox = gtk::EventBox::new();
             header_label.set_halign(gtk::Align::Start);
-            header_box.pack_start(&header_label, true, false, 0);
+
+            header_evbox.connect_button_press_event(clone!(node => move |_, _| {
+                node.emit(HEADER_BUTTON_PRESS, &[]).unwrap();
+                Inhibit(false)
+            }));
+            header_evbox.connect_button_release_event(clone!(node => move |_, _| {
+                node.emit(HEADER_BUTTON_RELEASE, &[]).unwrap();
+                Inhibit(false)
+            }));
+            header_evbox.add(&header_label);
+            header_box.pack_start(&header_evbox, false, false, 0);
 
             let close_image = gtk::Image::new_from_icon_name(
                 Some("window-close-symbolic"),
                 gtk::IconSize::Button,
             );
-            header_box.pack_end(&close_image, false, false, 0);
+            let close_evbox = gtk::EventBox::new();
+            close_evbox.connect_button_release_event(clone!(node => move |_, _| {
+                node.emit(CLOSE_CLICKED, &[]).unwrap();
+                Inhibit(false)
+            }));
+            close_evbox.add(&close_image);
+            header_box.pack_end(&close_evbox, false, false, 0);
 
             header_box.set_margin_start(MARGIN);
             header_box.set_margin_end(MARGIN);
