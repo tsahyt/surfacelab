@@ -37,43 +37,24 @@ impl ObjectSubclass for NodePrivate {
     // including installation of properties and registration of signals
     // for the new type.
     fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {
-        unsafe {
-            // Extra overrides for container methods
-            let container_class =
-                &mut *(class as *mut _ as *mut <gtk::Container as ObjectType>::RustClassType);
-
-            // Extra overrides for widget methods
-            let widget_class = &mut *(container_class as *mut _
-                as *mut <gtk::Widget as ObjectType>::RustClassType);
-            {
-                let klass =
-                    &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
-                //klass.realize = Some(extra_widget_realize::<NodePrivate>);
-                //klass.unrealize = Some(extra_widget_unrealize::<NodePrivate>);
-                //klass.map = Some(extra_widget_map::<NodePrivate>);
-                //klass.unmap = Some(extra_widget_unmap::<NodePrivate>);
-                //klass.size_allocate = Some(extra_widget_size_allocate::<NodePrivate>);
-            }
-
-            class.add_signal(
-                HEADER_BUTTON_PRESS,
-                glib::SignalFlags::empty(),
-                &[glib::types::Type::F64, glib::types::Type::F64],
-                glib::types::Type::Unit,
-            );
-            class.add_signal(
-                HEADER_BUTTON_RELEASE,
-                glib::SignalFlags::empty(),
-                &[],
-                glib::types::Type::Unit,
-            );
-            class.add_signal(
-                CLOSE_CLICKED,
-                glib::SignalFlags::empty(),
-                &[],
-                glib::types::Type::Unit,
-            );
-        }
+        class.add_signal(
+            HEADER_BUTTON_PRESS,
+            glib::SignalFlags::empty(),
+            &[glib::types::Type::F64, glib::types::Type::F64],
+            glib::types::Type::Unit,
+        );
+        class.add_signal(
+            HEADER_BUTTON_RELEASE,
+            glib::SignalFlags::empty(),
+            &[],
+            glib::types::Type::Unit,
+        );
+        class.add_signal(
+            CLOSE_CLICKED,
+            glib::SignalFlags::empty(),
+            &[],
+            glib::types::Type::Unit,
+        );
     }
 
     // Called every time a new instance is created. This should return

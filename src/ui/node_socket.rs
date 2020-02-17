@@ -16,11 +16,8 @@ pub enum NodeSocketIO {
 }
 
 pub struct NodeSocketPrivate {
-    event_window: RefCell<Option<gdk::Window>>,
-    io: NodeSocketIO,
     rgba: RefCell<(f64, f64, f64, f64)>,
     radius: RefCell<f64>,
-    input: RefCell<Option<NodeSocket>>,
 }
 
 // ObjectSubclass is the trait that defines the new type and
@@ -51,13 +48,13 @@ impl ObjectSubclass for NodeSocketPrivate {
             {
                 let klass =
                     &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
-                klass.realize = Some(extra_widget_realize::<NodeSocketPrivate>);
-                klass.unrealize = Some(extra_widget_unrealize::<NodeSocketPrivate>);
-                klass.map = Some(extra_widget_map::<NodeSocketPrivate>);
-                klass.unmap = Some(extra_widget_unmap::<NodeSocketPrivate>);
-                klass.size_allocate = Some(extra_widget_size_allocate::<NodeSocketPrivate>);
-                klass.motion_notify_event =
-                    Some(extra_widget_motion_notify_event::<NodeSocketPrivate>);
+                // klass.realize = Some(extra_widget_realize::<NodeSocketPrivate>);
+                // klass.unrealize = Some(extra_widget_unrealize::<NodeSocketPrivate>);
+                // klass.map = Some(extra_widget_map::<NodeSocketPrivate>);
+                // klass.unmap = Some(extra_widget_unmap::<NodeSocketPrivate>);
+                // klass.size_allocate = Some(extra_widget_size_allocate::<NodeSocketPrivate>);
+                // klass.motion_notify_event =
+                //     Some(extra_widget_motion_notify_event::<NodeSocketPrivate>);
             }
         };
 
@@ -73,11 +70,8 @@ impl ObjectSubclass for NodeSocketPrivate {
     // a new instance of our type with its basic values.
     fn new() -> Self {
         Self {
-            event_window: RefCell::new(None),
-            io: NodeSocketIO::Disable,
             rgba: RefCell::new((1., 1., 1., 1.)),
             radius: RefCell::new(16.0),
-            input: RefCell::new(None),
         }
     }
 }
@@ -87,205 +81,12 @@ impl ObjectImpl for NodeSocketPrivate {
 }
 
 impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
-    fn get_preferred_width(&self, _widget: &gtk::Widget) -> (i32, i32) {
-        let w = (2.0 * *self.radius.borrow()) as _;
-        (w, w)
-    }
-
-    fn get_preferred_height(&self, _widget: &gtk::Widget) -> (i32, i32) {
-        let w = (2.0 * *self.radius.borrow()) as _;
-        (w, w)
-    }
-
-    fn button_press_event(&self, _widget: &gtk::Widget, _event: &gdk::EventButton) -> gtk::Inhibit {
-        Inhibit(true)
-    }
-
-    fn drag_begin(&self, widget: &gtk::Widget, context: &gdk::DragContext) {
-        self.set_drag_icon(context);
-        context.get_drag_window().unwrap().hide();
-        self.drag_src_redirect(widget);
-    }
-
-    fn drag_motion(
-        &self,
-        _widget: &gtk::Widget,
-        _context: &gdk::DragContext,
-        _x: i32,
-        _y: i32,
-        _time: u32,
-    ) -> gtk::Inhibit {
-        return gtk::Inhibit(true);
-    }
-
-    fn drag_data_received(
-        &self,
-        _widget: &gtk::Widget,
-        _context: &gdk::DragContext,
-        _x: i32,
-        _y: i32,
-        _selection_data: &gtk::SelectionData,
-        _info: u32,
-        _time: u32,
-    ) {
-        // TODO drag_data_received
-    }
-
-    fn drag_data_get(
-        &self,
-        _widget: &gtk::Widget,
-        _context: &gdk::DragContext,
-        _selection_data: &gtk::SelectionData,
-        _info: u32,
-        _time: u32,
-    ) {
-        // TODO drag_data_get
-    }
-
-    fn drag_failed(
-        &self,
-        _widget: &gtk::Widget,
-        _context: &gdk::DragContext,
-        _result: gtk::DragResult,
-    ) -> Inhibit {
-        return Inhibit(true);
-    }
 }
 
 impl WidgetImplExtra for NodeSocketPrivate {
-    fn map(&self, widget: &gtk::Widget) {
-        self.parent_map(widget);
-
-        if let Some(ew) = self.event_window.borrow().as_ref() {
-            ew.show()
-        }
-    }
-
-    fn unmap(&self, widget: &gtk::Widget) {
-        if let Some(ew) = self.event_window.borrow().as_ref() {
-            ew.show()
-        }
-
-        self.parent_unmap(widget);
-    }
-
-    fn realize(&self, widget: &gtk::Widget) {
-        widget.set_realized(true);
-        let parent_window = widget
-            .get_parent_window()
-            .expect("Node Socket without parent window!");
-        let allocation = widget.get_allocation();
-        let size = 2.0 * *self.radius.borrow();
-
-        let mut event_mask = widget.get_events();
-        event_mask.insert(gdk::EventMask::BUTTON_PRESS_MASK);
-        event_mask.insert(gdk::EventMask::BUTTON_RELEASE_MASK);
-        event_mask.insert(gdk::EventMask::POINTER_MOTION_MASK);
-        event_mask.insert(gdk::EventMask::TOUCH_MASK);
-        event_mask.insert(gdk::EventMask::ENTER_NOTIFY_MASK);
-        event_mask.insert(gdk::EventMask::LEAVE_NOTIFY_MASK);
-
-        let window = gdk::Window::new(
-            Some(&parent_window),
-            &gdk::WindowAttr {
-                window_type: gdk::WindowType::Child,
-                x: Some(allocation.x),
-                y: Some(allocation.y),
-                width: size as _,
-                height: size as _,
-                wclass: gdk::WindowWindowClass::InputOnly,
-                event_mask: event_mask.bits() as _,
-                ..gdk::WindowAttr::default()
-            },
-        );
-
-        widget.register_window(&window);
-        self.event_window.replace(Some(window));
-    }
-
-    fn unrealize(&self, widget: &gtk::Widget) {
-        let mut window_destroyed = false;
-
-        if let Some(ew) = self.event_window.borrow().as_ref() {
-            widget.unregister_window(ew);
-            ew.destroy();
-            window_destroyed = true;
-        }
-        if window_destroyed {
-            self.event_window.replace(None);
-        }
-
-        // TODO: emit node socket destroyed signal
-        self.parent_unrealize(widget);
-    }
-
-    fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
-        let size = 2.0 * *self.radius.borrow();
-        widget.set_allocation(allocation);
-
-        if widget.get_realized() {
-            if let Some(ew) = self.event_window.borrow().as_ref() {
-                ew.move_resize(allocation.x, allocation.y, size as _, size as _);
-            }
-        }
-    }
-
-    fn motion_notify_event(
-        &self,
-        _widget: &gtk::Widget,
-        _event: &mut gdk::EventMotion,
-    ) -> gtk::Inhibit {
-        Inhibit(true)
-    }
 }
 
 impl NodeSocketPrivate {
-    fn set_drag_icon(&self, context: &gdk::DragContext) {
-        let r = *self.radius.borrow();
-        let size = (2.0 * r) as _;
-        let surface = cairo::ImageSurface::create(cairo::Format::ARgb32, size, size)
-            .expect("Failed to create cairo surface for drag icon");
-        let cr = cairo::Context::new(&surface);
-
-        cr.set_source_rgba(
-            self.rgba.borrow().0,
-            self.rgba.borrow().1,
-            self.rgba.borrow().2,
-            self.rgba.borrow().3,
-        );
-        cr.arc(r, r, r, 0., 2. * std::f64::consts::PI);
-        cr.fill();
-
-        context.drag_set_icon_surface(&surface);
-    }
-
-    fn drag_src_redirect(&self, widget: &gtk::Widget) {
-        let mut disconnect = false;
-        if let Some(source) = self.input.borrow().as_ref() {
-            // TODO: disconnect signal handlers
-            disconnect = true;
-
-            // remove as drag source
-            if let NodeSocketIO::Sink = self.io {
-                widget.drag_source_unset();
-            }
-
-            // begin drag on previous source, so user can redirect connection
-            source.drag_begin_with_coordinates(
-                &gtk::TargetList::new(&[]),
-                gdk::DragAction::COPY,
-                gdk::ModifierType::BUTTON1_MASK.bits() as _,
-                None,
-                -1,
-                -1,
-            );
-        }
-
-        if disconnect {
-            self.input.replace(None);
-        }
-    }
-
     fn set_rgba(&self, red: f64, green: f64, blue: f64, alpha: f64) {
         self.rgba.replace((red, green, blue, alpha));
     }
