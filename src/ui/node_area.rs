@@ -158,6 +158,7 @@ impl WidgetImplExtra for NodeAreaPrivate {
             x: Some(allocation.x),
             y: Some(allocation.y),
             width: allocation.width,
+            height: allocation.height,
             wclass: gdk::WindowWindowClass::InputOutput,
             visual: widget.get_visual(),
             event_mask: {

@@ -1,3 +1,5 @@
+#![feature(tau_constant)]
+
 pub mod compute;
 pub mod nodes;
 pub mod render;

@@ -64,9 +64,15 @@ fn gtk_main(bus: bus::Sender) {
             button_box
         };
 
-        // test node
-        // let node = node::Node::new();
-        // vbox.add(&node);
+        // test node sockets
+        {
+            let socket_box = gtk::Box::new(gtk::Orientation::Horizontal, 128);
+            let node_socket1 = node_socket::NodeSocket::new();
+            let node_socket2 = node_socket::NodeSocket::new();
+            socket_box.add(&node_socket1);
+            socket_box.add(&node_socket2);
+            vbox.add(&socket_box);
+        }
 
         vbox.add(&button_box);
         vbox.pack_end(&node_area, true, true, 0);
