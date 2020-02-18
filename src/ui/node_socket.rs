@@ -5,7 +5,6 @@ use glib::subclass::prelude::*;
 use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
-
 use std::cell::RefCell;
 
 #[derive(Debug)]
@@ -21,6 +20,7 @@ pub struct NodeSocketPrivate {
     radius: RefCell<f64>,
     io: RefCell<NodeSocketIO>,
     drop_types: Vec<gtk::TargetEntry>,
+    socket_uri: RefCell<std::string::String>,
 }
 
 // ObjectSubclass is the trait that defines the new type and
@@ -75,6 +75,7 @@ impl ObjectSubclass for NodeSocketPrivate {
                 gtk::TargetFlags::SAME_APP,
                 0,
             )],
+            socket_uri: RefCell::new("".to_string()),
         }
     }
 }
@@ -129,7 +130,8 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
         time: u32,
     ) {
         log::trace!("Drag data get at {:?}", &widget);
-        selection_data.set(&selection_data.get_target(), 8, "hello world".as_bytes());
+        let uri = self.socket_uri.borrow().clone();
+        selection_data.set(&selection_data.get_target(), 8, uri.as_ref());
     }
 
     fn drag_data_received(
@@ -144,11 +146,7 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
     ) {
         let data = selection_data.get_data();
         let socket = std::str::from_utf8(&data).expect("Invalid drag and drop data!");
-        log::trace!(
-            "Drag data received at {:?}: {:?}",
-            &widget,
-            socket
-        );
+        log::trace!("Drag data received at {:?}: {:?}", &widget, socket);
     }
 
     fn drag_failed(
@@ -280,6 +278,10 @@ impl NodeSocketPrivate {
         }
         self.io.replace(io);
     }
+
+    fn set_socket_uri(&self, uri: uriparse::URI) {
+        self.socket_uri.replace(uri.to_string());
+    }
 }
 
 glib_wrapper! {
@@ -327,5 +329,10 @@ impl NodeSocket {
     pub fn set_io(&self, io: NodeSocketIO) {
         let imp = NodeSocketPrivate::from_instance(self);
         imp.set_io(&self.clone().upcast::<gtk::Widget>(), io);
+    }
+
+    pub fn set_socket_uri(&self, uri: uriparse::URI) {
+        let imp = NodeSocketPrivate::from_instance(self);
+        imp.set_socket_uri(uri);
     }
 }
