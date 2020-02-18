@@ -68,7 +68,9 @@ fn gtk_main(bus: bus::Sender) {
         {
             let socket_box = gtk::Box::new(gtk::Orientation::Horizontal, 128);
             let node_socket1 = node_socket::NodeSocket::new();
+            node_socket1.set_io(node_socket::NodeSocketIO::Source);
             let node_socket2 = node_socket::NodeSocket::new();
+            node_socket2.set_io(node_socket::NodeSocketIO::Sink);
             socket_box.add(&node_socket1);
             socket_box.add(&node_socket2);
             vbox.add(&socket_box);
