@@ -111,16 +111,6 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
         Inhibit(false)
     }
 
-    // fn drag_begin(&self, widget: &gtk::Widget, context: &gdk::DragContext) {
-    //     use gtk::subclass::widget::WidgetImplExt;
-    //     log::trace!("Starting drag at {:?}, context {:?}", &widget, &context);
-    // }
-
-    // fn drag_end(&self, widget: &gtk::Widget, context: &gdk::DragContext) {
-    //     use gtk::subclass::widget::WidgetImplExt;
-    //     log::trace!("Ending drag at {:?}, context {:?}", &widget, &context);
-    // }
-
     fn drag_data_get(
         &self,
         widget: &gtk::Widget,
@@ -207,6 +197,7 @@ impl WidgetImplExtra for NodeSocketPrivate {
         // TODO: g_object_ref(window)?
 
         let event_window = gdk::Window::new(Some(&window), &attributes);
+        event_window.raise();
         widget.register_window(&event_window);
         self.event_window.replace(Some(event_window));
     }
@@ -228,6 +219,7 @@ impl WidgetImplExtra for NodeSocketPrivate {
     }
 
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
+        widget.set_allocation(allocation);
         if let Some(ew) = self.event_window.borrow().as_ref() {
             ew.move_resize(
                 allocation.x,
@@ -279,7 +271,9 @@ impl NodeSocketPrivate {
         self.io.replace(io);
     }
 
-    fn set_socket_uri(&self, uri: uriparse::URI) {
+    fn set_socket_uri(&self, widget: &NodeSocket, uri: uriparse::URI) {
+        let uris = uri.to_string();
+        widget.set_tooltip_text(Some(&uris));
         self.socket_uri.replace(uri.to_string());
     }
 }
@@ -333,6 +327,6 @@ impl NodeSocket {
 
     pub fn set_socket_uri(&self, uri: uriparse::URI) {
         let imp = NodeSocketPrivate::from_instance(self);
-        imp.set_socket_uri(uri);
+        imp.set_socket_uri(self, uri);
     }
 }

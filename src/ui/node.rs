@@ -1,3 +1,4 @@
+use super::node_socket::{NodeSocket, NodeSocketIO};
 use super::subclass::*;
 use crate::clone;
 use gdk::prelude::*;
@@ -10,6 +11,7 @@ use gtk::prelude::*;
 use std::cell::RefCell;
 
 pub struct NodePrivate {
+    sockets: RefCell<Vec<NodeSocket>>,
 }
 
 const HEADER_SPACING: i32 = 16;
@@ -61,6 +63,7 @@ impl ObjectSubclass for NodePrivate {
     // a new instance of our type with its basic values.
     fn new() -> Self {
         Self {
+            sockets: RefCell::new(Vec::new()),
         }
     }
 }
@@ -142,9 +145,9 @@ impl gtk::subclass::widget::WidgetImpl for NodePrivate {
         use gtk::subclass::widget::WidgetImplExt;
 
         let allocation = widget.get_allocation();
-
         self.draw_frame(cr, allocation.width, allocation.height);
         self.parent_draw(widget, cr);
+
         Inhibit(false)
     }
 }
@@ -168,6 +171,27 @@ impl NodePrivate {
         gtk::render_frame(&style_context, cr, 0., 0., width as _, height as _);
         style_context.restore();
     }
+
+    fn add_socket(&self, node: &Node, uri: uriparse::URI, io: NodeSocketIO) {
+        let node_socket = NodeSocket::new();
+
+        match io {
+            NodeSocketIO::Source => {
+                node_socket.set_rgba(0.3, 0.2, 0.5, 1.0);
+                node_socket.set_halign(gtk::Align::End);
+            },
+            NodeSocketIO::Sink => {
+                node_socket.set_rgba(0.3, 0.7, 0.3, 1.0);
+                node_socket.set_halign(gtk::Align::Start);
+            }
+            _ => {}
+        }
+        node_socket.set_io(io);
+       
+        node_socket.set_socket_uri(uri);
+        node.add(&node_socket);
+        self.sockets.borrow_mut().push(node_socket);
+    }
 }
 
 glib_wrapper! {
@@ -190,6 +214,11 @@ impl Node {
             .unwrap();
         na.set_has_window(false);
         na
+    }
+
+    pub fn add_socket(&self, uri: uriparse::URI, io: NodeSocketIO) {
+        let imp = NodePrivate::from_instance(self);
+        imp.add_socket(self, uri, io);
     }
 
     pub fn connect_header_button_press_event<F: Fn(&Self, f64, f64) + 'static>(
@@ -218,10 +247,7 @@ impl Node {
         .unwrap()
     }
 
-    pub fn connect_close_clicked<F: Fn(&Self) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
+    pub fn connect_close_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_local(CLOSE_CLICKED, true, move |w| {
             let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
             f(&node);

@@ -48,25 +48,22 @@ fn gtk_main(bus: bus::Sender) {
         let button_box = {
             let button_box = gtk::ButtonBox::new(gtk::Orientation::Horizontal);
             button_box.set_layout(gtk::ButtonBoxStyle::Expand);
-            let new_image_node_button = gtk::Button::new_with_label("New Image Node");
+            let new_image_node_button = gtk::Button::new_with_label("New Node");
             button_box.add(&new_image_node_button);
 
             new_image_node_button.connect_clicked(clone!(node_area => move |_| {
                 let new_node = node::Node::new();
+                new_node.add_socket(uriparse::URI::try_from("node:foo#socket_in").unwrap(), node_socket::NodeSocketIO::Sink);
+                new_node.add_socket(uriparse::URI::try_from("node:foo#socket_out").unwrap(), node_socket::NodeSocketIO::Source);
                 node_area.add(&new_node);
                 new_node.show_all();
             }));
 
-            // let new_noise_node_button = gtk::Button::new_with_label("New Noise Node");
-            // button_box.add(&new_noise_node_button);
-            // let new_output_node_button = gtk::Button::new_with_label("New Output Node");
-            // button_box.add(&new_output_node_button);
             button_box
         };
 
-        // test node sockets
         {
-            let socket_box = gtk::Box::new(gtk::Orientation::Horizontal, 128);
+            let socket_box = gtk::Box::new(gtk::Orientation::Horizontal, 640);
             let node_socket1 = node_socket::NodeSocket::new();
             node_socket1.set_io(node_socket::NodeSocketIO::Source);
             node_socket1.set_socket_uri(uriparse::URI::try_from("node:foo#socket1").unwrap());
