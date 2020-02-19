@@ -137,15 +137,12 @@ impl NodeAreaPrivate {
 }
 
 impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
-    // fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
-    //     let container = widget.clone().downcast::<gtk::Container>().unwrap();
-
-    //     for (node, _) in self.children.borrow().iter() {
-    //         container.propagate_draw(node, cr);
-    //     }
-
-    //     Inhibit(false)
-    // }
+    fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
+        use gtk::subclass::widget::WidgetImplExt;
+       
+        self.parent_draw(widget, cr);
+        Inhibit(false)
+    }
 
     fn button_press_event(&self, widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
         use gtk::subclass::widget::*;

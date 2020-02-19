@@ -188,6 +188,7 @@ impl NodePrivate {
         }
         node_socket.set_io(io);
         node_socket.set_socket_uri(uri);
+        node_socket.connect_socket_connected(|_,a,b| { dbg!((a,b)); });
         node.add(&node_socket);
         self.sockets.borrow_mut().push(node_socket);
     }

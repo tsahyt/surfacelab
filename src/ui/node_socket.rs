@@ -22,6 +22,9 @@ pub struct NodeSocketPrivate {
     socket_uri: RefCell<std::string::String>,
 }
 
+// Signals
+pub const SOCKET_CONNECTED: &str = "socket-connected";
+
 // ObjectSubclass is the trait that defines the new type and
 // contains all information needed by the GObject type system,
 // including the new type's name, parent type, etc.
@@ -38,7 +41,14 @@ impl ObjectSubclass for NodeSocketPrivate {
     // type is created. Here class specific settings can be performed,
     // including installation of properties and registration of signals
     // for the new type.
-    fn class_init(_class: &mut subclass::simple::ClassStruct<Self>) {}
+    fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {
+        class.add_signal(
+            SOCKET_CONNECTED,
+            glib::SignalFlags::empty(),
+            &[glib::types::Type::String],
+            glib::types::Type::Unit,
+        );
+    }
 
     // Called every time a new instance is created. This should return
     // a new instance of our type with its basic values.
@@ -119,7 +129,9 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
     ) {
         let data = selection_data.get_data();
         let socket = std::str::from_utf8(&data).expect("Invalid drag and drop data!");
-        log::trace!("Drag data received at {:?}: {:?}", &widget, socket);
+        widget
+            .emit(SOCKET_CONNECTED, &[&Value::from(socket)])
+            .unwrap();
     }
 
     fn drag_failed(
@@ -178,6 +190,10 @@ impl NodeSocketPrivate {
         widget.set_tooltip_text(Some(&uris));
         self.socket_uri.replace(uri.to_string());
     }
+
+    fn get_socket_uri(&self) -> std::string::String {
+        self.socket_uri.borrow().to_owned()
+    }
 }
 
 glib_wrapper! {
@@ -229,5 +245,31 @@ impl NodeSocket {
     pub fn set_socket_uri(&self, uri: uriparse::URI) {
         let imp = NodeSocketPrivate::from_instance(self);
         imp.set_socket_uri(self, uri);
+    }
+
+    pub fn get_socket_uri(&self) -> std::string::String {
+        let imp = NodeSocketPrivate::from_instance(self);
+        imp.get_socket_uri()
+    }
+
+    pub fn connect_socket_connected<F: Fn(&Self, std::string::String, std::string::String) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        let local_uri = self.get_socket_uri();
+
+        self.connect_local(SOCKET_CONNECTED, true, move |w| {
+            let node_socket = w[0]
+                .clone()
+                .downcast::<NodeSocket>()
+                .unwrap()
+                .get()
+                .unwrap();
+            let foreign_uri = w[1].get::<std::string::String>().unwrap().unwrap();
+
+            f(&node_socket, local_uri.clone(), foreign_uri);
+            None
+        })
+        .unwrap()
     }
 }
