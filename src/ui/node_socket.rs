@@ -198,7 +198,6 @@ impl NodeSocket {
             .unwrap()
             .downcast()
             .unwrap();
-        na.set_has_window(false);
         na
     }
 
