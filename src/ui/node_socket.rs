@@ -194,11 +194,11 @@ glib_wrapper! {
 
 impl NodeSocket {
     pub fn new() -> Self {
-        let na: Self = glib::Object::new(Self::static_type(), &[])
+        let socket: Self = glib::Object::new(Self::static_type(), &[])
             .unwrap()
             .downcast()
             .unwrap();
-        na
+        socket
     }
 
     pub fn set_rgba(&self, red: f64, green: f64, blue: f64, alpha: f64) {

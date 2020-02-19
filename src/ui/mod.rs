@@ -62,29 +62,6 @@ fn gtk_main(bus: bus::Sender) {
             button_box
         };
 
-        {
-            let socket_box = gtk::Fixed::new();
-
-            let node_socket1 = node_socket::NodeSocket::new();
-            node_socket1.set_io(node_socket::NodeSocketIO::Source);
-            node_socket1.set_socket_uri(uriparse::URI::try_from("node:foo#socket1").unwrap());
-            let node_socket2 = node_socket::NodeSocket::new();
-            node_socket2.set_io(node_socket::NodeSocketIO::Sink);
-            node_socket2.set_socket_uri(uriparse::URI::try_from("node:bar#socket2").unwrap());
-            socket_box.put(&node_socket1, 512, 0);
-            socket_box.put(&node_socket2, 780, 0);
-
-            let node_1 = node::Node::new();
-            node_1.add_socket(uriparse::URI::try_from("node:foo#socket_in").unwrap(), node_socket::NodeSocketIO::Sink);
-            node_1.add_socket(uriparse::URI::try_from("node:foo#socket_out").unwrap(), node_socket::NodeSocketIO::Source);
-            socket_box.put(&node_1, 0, 0);
-            let node_2 = node::Node::new();
-            node_2.add_socket(uriparse::URI::try_from("node:foo#socket_in").unwrap(), node_socket::NodeSocketIO::Sink);
-            node_2.add_socket(uriparse::URI::try_from("node:foo#socket_out").unwrap(), node_socket::NodeSocketIO::Source);
-            socket_box.put(&node_2, 256, 0);
-            vbox.add(&socket_box);
-        }
-
         vbox.add(&button_box);
         vbox.pack_end(&node_area, true, true, 0);
 

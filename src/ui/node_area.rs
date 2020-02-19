@@ -35,7 +35,7 @@ pub struct NodeAreaPrivate {
 impl ObjectSubclass for NodeAreaPrivate {
     const NAME: &'static str = "NodeAreaPrivate";
 
-    type ParentType = gtk::Container;
+    type ParentType = gtk::Fixed;
     type Instance = subclass::simple::InstanceStruct<Self>;
     type Class = subclass::simple::ClassStruct<Self>;
 
@@ -61,7 +61,8 @@ impl ObjectSubclass for NodeAreaPrivate {
                     &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
                 klass.realize = Some(extra_widget_realize::<NodeAreaPrivate>);
                 klass.size_allocate = Some(extra_widget_size_allocate::<NodeAreaPrivate>);
-                klass.motion_notify_event = Some(extra_widget_motion_notify_event::<NodeAreaPrivate>);
+                klass.motion_notify_event =
+                    Some(extra_widget_motion_notify_event::<NodeAreaPrivate>);
             }
         }
     }
@@ -95,19 +96,11 @@ impl NodeAreaPrivate {
         cr.curve_to(source.0 + d, source.1, sink.0 - d, sink.1, sink.0, sink.1);
     }
 
-    fn put(&self, container: &gtk::Container, widget: &Node, x: i32, y: i32) {
-        // Make sure the widget is indeed a Node and does not yet have a parent
-        debug_assert!(widget.get_parent().is_none());
-
-        let child = NodeAreaChild { x, y };
-
-        widget.set_parent(container);
-        self.children.borrow_mut().insert(widget.clone(), child);
-
+    fn child_connect(&self, container: &gtk::Fixed, widget: &Node) {
         // Connect to child signals
         let action = self.action.clone();
-        let children = self.children.clone();
         let allocation = container.get_allocation();
+        let widget_u = widget.clone().upcast::<gtk::Widget>();
 
         widget.connect_header_button_press_event(clone!(action => move |_, x, y| {
             action.replace(Some(Action::DragChild(allocation.x + x as i32, allocation.y + y as i32)));
@@ -118,22 +111,20 @@ impl NodeAreaPrivate {
         }));
 
         widget.connect_motion_notify_event(
-            clone!(action, children, container => move |w, motion| {
+            clone!(action, widget_u, container => move |w, motion| {
                 if let Some(Action::DragChild(offset_x, offset_y)) = action.borrow().as_ref() {
                     let pos = motion.get_root();
 
-                    let mut children = children.borrow_mut();
-                    let c_ref = children.get_mut(&w);
-                    let child = c_ref.unwrap();
-                    child.x = pos.0 as i32 - offset_x;
-                    child.y = pos.1 as i32 - offset_y;
+                    let new_x = pos.0 as i32 - offset_x;
+                    let new_y = pos.1 as i32 - offset_y;
+
+                    container.move_(&widget_u, new_x, new_y);
 
                     if w.get_visible() {
                         w.queue_resize();
                     }
 
-
-                container.queue_draw();
+                    container.queue_draw();
                 }
                 Inhibit(false)
             }),
@@ -146,15 +137,15 @@ impl NodeAreaPrivate {
 }
 
 impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
-    fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
-        let container = widget.clone().downcast::<gtk::Container>().unwrap();
+    // fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
+    //     let container = widget.clone().downcast::<gtk::Container>().unwrap();
 
-        for (node, _) in self.children.borrow().iter() {
-            container.propagate_draw(node, cr);
-        }
+    //     for (node, _) in self.children.borrow().iter() {
+    //         container.propagate_draw(node, cr);
+    //     }
 
-        Inhibit(false)
-    }
+    //     Inhibit(false)
+    // }
 
     fn button_press_event(&self, widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
         use gtk::subclass::widget::*;
@@ -165,84 +156,7 @@ impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
     }
 }
 
-impl WidgetImplExtra for NodeAreaPrivate {
-    fn realize(&self, widget: &gtk::Widget) {
-        if !widget.get_has_window() {
-            self.parent_realize(&widget);
-        } else {
-            widget.set_realized(true);
-            let allocation = widget.get_allocation();
-            let attributes = gdk::WindowAttr {
-                window_type: gdk::WindowType::Child,
-                x: Some(allocation.x),
-                y: Some(allocation.y),
-                width: allocation.width,
-                height: allocation.height,
-                wclass: gdk::WindowWindowClass::InputOutput,
-                visual: widget.get_visual(),
-                event_mask: {
-                    let mut em = widget.get_events();
-                    em.insert(gdk::EventMask::EXPOSURE_MASK);
-                    em.insert(gdk::EventMask::BUTTON_PRESS_MASK);
-                    em.bits() as _
-                },
-                ..gdk::WindowAttr::default()
-            };
-
-            let window = gdk::Window::new(
-                Some(
-                    &widget
-                        .get_parent_window()
-                        .expect("Node Area must have parent"),
-                ),
-                &attributes,
-            );
-            widget.set_window(&window);
-            widget.register_window(&window);
-        }
-    }
-
-    fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
-        widget.set_allocation(allocation);
-
-        let has_window = widget.get_has_window();
-
-        if has_window && widget.get_realized() {
-            widget.get_window().unwrap().move_resize(
-                allocation.x,
-                allocation.y,
-                allocation.width,
-                allocation.height,
-            )
-        }
-
-        for (node, child) in self.children.borrow().iter() {
-            if !node.get_visible() {
-                continue;
-            }
-            let (child_requisition, _) = node.get_preferred_size();
-
-            let mut child_allocation = gtk::Allocation {
-                x: child.x + if !has_window { allocation.x } else { 0 },
-                y: child.y + if !has_window { allocation.y } else { 0 },
-                width: child_requisition.width,
-                height: child_requisition.height,
-            };
-
-            node.size_allocate(&mut child_allocation)
-        }
-    }
-
-    fn motion_notify_event(
-        &self,
-        widget: &gtk::Widget,
-        event: &mut gdk::EventMotion,
-    ) -> gtk::Inhibit {
-        self.parent_motion_notify_event(widget, event);
-
-        Inhibit(false)
-    }
-}
+impl WidgetImplExtra for NodeAreaPrivate {}
 
 impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
     // Node Areas contain nodes and nothing else
@@ -251,32 +165,18 @@ impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
     }
 
     fn add(&self, container: &gtk::Container, widget: &gtk::Widget) {
-        let widget = widget
-            .clone()
-            .downcast::<Node>()
-            .expect("Node Area can only contain nodes!");
-        self.put(container, &widget, 0, 0);
-    }
+        use gtk::subclass::container::*;
+        debug_assert!(widget.get_type() == Node::static_type());
 
-    fn remove(&self, container: &gtk::Container, widget: &gtk::Widget) {
-        let widget = widget
-            .clone()
-            .downcast::<Node>()
-            .expect("Node Area can only contain nodes!");
+        let node = widget.clone().downcast::<Node>().unwrap();
+        let fixed = container.clone().downcast::<gtk::Fixed>().unwrap();
+        self.child_connect(&fixed, &node);
 
-        let resize_after = self.children.borrow().contains_key(&widget)
-            && widget.get_visible()
-            && container.get_visible();
-
-        if let Some(_) = self.children.borrow_mut().remove(&widget) {
-            widget.unparent()
-        }
-
-        if resize_after {
-            container.queue_resize()
-        }
+        self.parent_add(container, widget);
     }
 }
+
+impl gtk::subclass::fixed::FixedImpl for NodeAreaPrivate {}
 
 glib_wrapper! {
     pub struct NodeArea(
