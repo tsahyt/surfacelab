@@ -97,10 +97,10 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
     fn drag_data_get(
         &self,
         widget: &gtk::Widget,
-        context: &gdk::DragContext,
+        _context: &gdk::DragContext,
         selection_data: &gtk::SelectionData,
-        info: u32,
-        time: u32,
+        _info: u32,
+        _time: u32,
     ) {
         log::trace!("Drag data get at {:?}", &widget);
         let uri = self.socket_uri.borrow().clone();
@@ -110,12 +110,12 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
     fn drag_data_received(
         &self,
         widget: &gtk::Widget,
-        context: &gdk::DragContext,
-        x: i32,
-        y: i32,
+        _context: &gdk::DragContext,
+        _x: i32,
+        _y: i32,
         selection_data: &gtk::SelectionData,
-        info: u32,
-        time: u32,
+        _info: u32,
+        _time: u32,
     ) {
         let data = selection_data.get_data();
         let socket = std::str::from_utf8(&data).expect("Invalid drag and drop data!");
@@ -125,7 +125,7 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
     fn drag_failed(
         &self,
         widget: &gtk::Widget,
-        context: &gdk::DragContext,
+        _context: &gdk::DragContext,
         result: gtk::DragResult,
     ) -> gtk::Inhibit {
         log::trace!("Drag failed {:?}: {:?}", &widget, &result);

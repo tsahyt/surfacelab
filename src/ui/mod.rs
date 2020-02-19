@@ -1,4 +1,4 @@
-use crate::{bus, clone, lang};
+use crate::{bus, clone};
 use gio::prelude::*;
 use gtk::prelude::*;
 use std::convert::TryFrom;
@@ -32,7 +32,7 @@ fn gtk_main(bus: bus::Sender) {
     let application = gtk::Application::new(Some("com.mechaneia.surfacelab"), Default::default())
         .expect("Failed to initialize GTK application");
 
-    let bus_rc = Rc::new(bus);
+    let _bus_rc = Rc::new(bus);
 
     application.connect_activate(move |app| {
         let window = gtk::ApplicationWindow::new(app);

@@ -1,4 +1,3 @@
-use glib::subclass;
 use glib::subclass::prelude::*;
 use glib::translate::*;
 

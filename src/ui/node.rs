@@ -179,7 +179,7 @@ impl NodePrivate {
             NodeSocketIO::Source => {
                 node_socket.set_rgba(0.3, 0.2, 0.5, 1.0);
                 node_socket.set_halign(gtk::Align::End);
-            },
+            }
             NodeSocketIO::Sink => {
                 node_socket.set_rgba(0.3, 0.7, 0.3, 1.0);
                 node_socket.set_halign(gtk::Align::Start);
@@ -187,7 +187,6 @@ impl NodePrivate {
             _ => {}
         }
         node_socket.set_io(io);
-       
         node_socket.set_socket_uri(uri);
         node.add(&node_socket);
         self.sockets.borrow_mut().push(node_socket);

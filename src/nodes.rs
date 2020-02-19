@@ -207,7 +207,7 @@ impl NodeManager {
 
 pub fn start_nodes_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
     log::info!("Starting Node Manager");
-    let (sender, receiver) = bus.subscribe().unwrap();
+    let (_sender, receiver) = bus.subscribe().unwrap();
 
     thread::spawn(move || {
         let mut node_mgr = NodeManager::new();
