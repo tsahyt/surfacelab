@@ -23,7 +23,6 @@ pub trait WidgetImplExtra: WidgetImplExtraExt + 'static {
         self.parent_size_allocate(widget, allocation);
     }
 
-    // TODO: check mutability on argument
     fn motion_notify_event(
         &self,
         widget: &gtk::Widget,

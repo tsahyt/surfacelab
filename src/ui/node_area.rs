@@ -61,6 +61,7 @@ impl ObjectSubclass for NodeAreaPrivate {
                     &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
                 klass.realize = Some(extra_widget_realize::<NodeAreaPrivate>);
                 klass.size_allocate = Some(extra_widget_size_allocate::<NodeAreaPrivate>);
+                klass.motion_notify_event = Some(extra_widget_motion_notify_event::<NodeAreaPrivate>);
             }
         }
     }
@@ -77,6 +78,14 @@ impl ObjectSubclass for NodeAreaPrivate {
 
 impl ObjectImpl for NodeAreaPrivate {
     glib_object_impl!();
+
+    fn constructed(&self, obj: &glib::Object) {
+        let node_area = obj.clone().downcast::<NodeArea>().unwrap();
+        node_area.set_has_window(true);
+
+        node_area.drag_dest_set(gtk::DestDefaults::MOTION, &[], gdk::DragAction::PRIVATE);
+        node_area.drag_dest_set_track_motion(true);
+    }
 }
 
 impl NodeAreaPrivate {
@@ -113,8 +122,6 @@ impl NodeAreaPrivate {
                 if let Some(Action::DragChild(offset_x, offset_y)) = action.borrow().as_ref() {
                     let pos = motion.get_root();
 
-                    //dbg!(pos);
-
                     let mut children = children.borrow_mut();
                     let c_ref = children.get_mut(&w);
                     let child = c_ref.unwrap();
@@ -125,9 +132,10 @@ impl NodeAreaPrivate {
                         w.queue_resize();
                     }
 
-                    container.queue_draw();
+
+                container.queue_draw();
                 }
-                Inhibit(true)
+                Inhibit(false)
             }),
         );
 
@@ -147,39 +155,51 @@ impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
 
         Inhibit(false)
     }
+
+    fn button_press_event(&self, widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
+        use gtk::subclass::widget::*;
+
+        self.parent_button_press_event(widget, event);
+
+        Inhibit(false)
+    }
 }
 
 impl WidgetImplExtra for NodeAreaPrivate {
     fn realize(&self, widget: &gtk::Widget) {
-        widget.set_realized(true);
-        let allocation = widget.get_allocation();
-        let attributes = gdk::WindowAttr {
-            window_type: gdk::WindowType::Child,
-            x: Some(allocation.x),
-            y: Some(allocation.y),
-            width: allocation.width,
-            height: allocation.height,
-            wclass: gdk::WindowWindowClass::InputOutput,
-            visual: widget.get_visual(),
-            event_mask: {
-                let mut em = widget.get_events();
-                em.insert(gdk::EventMask::EXPOSURE_MASK);
-                em.insert(gdk::EventMask::BUTTON_PRESS_MASK);
-                em.bits() as _
-            },
-            ..gdk::WindowAttr::default()
-        };
+        if !widget.get_has_window() {
+            self.parent_realize(&widget);
+        } else {
+            widget.set_realized(true);
+            let allocation = widget.get_allocation();
+            let attributes = gdk::WindowAttr {
+                window_type: gdk::WindowType::Child,
+                x: Some(allocation.x),
+                y: Some(allocation.y),
+                width: allocation.width,
+                height: allocation.height,
+                wclass: gdk::WindowWindowClass::InputOutput,
+                visual: widget.get_visual(),
+                event_mask: {
+                    let mut em = widget.get_events();
+                    em.insert(gdk::EventMask::EXPOSURE_MASK);
+                    em.insert(gdk::EventMask::BUTTON_PRESS_MASK);
+                    em.bits() as _
+                },
+                ..gdk::WindowAttr::default()
+            };
 
-        let window = gdk::Window::new(
-            Some(
-                &widget
-                    .get_parent_window()
-                    .expect("Node Area must have parent"),
-            ),
-            &attributes,
-        );
-        widget.set_window(&window);
-        widget.register_window(&window);
+            let window = gdk::Window::new(
+                Some(
+                    &widget
+                        .get_parent_window()
+                        .expect("Node Area must have parent"),
+                ),
+                &attributes,
+            );
+            widget.set_window(&window);
+            widget.register_window(&window);
+        }
     }
 
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &mut gtk::Allocation) {
@@ -211,6 +231,16 @@ impl WidgetImplExtra for NodeAreaPrivate {
 
             node.size_allocate(&mut child_allocation)
         }
+    }
+
+    fn motion_notify_event(
+        &self,
+        widget: &gtk::Widget,
+        event: &mut gdk::EventMotion,
+    ) -> gtk::Inhibit {
+        self.parent_motion_notify_event(widget, event);
+
+        Inhibit(false)
     }
 }
 
