@@ -963,6 +963,7 @@ dependencies = [
  "log",
  "maplit",
  "multiqueue2",
+ "once_cell",
  "petgraph",
 ]
 

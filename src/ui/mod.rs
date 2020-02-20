@@ -1,73 +1,45 @@
-use crate::{bus, clone, lang};
+use crate::{bus, lang::*};
 use gio::prelude::*;
 use gtk::prelude::*;
-use std::convert::TryFrom;
+use glib::clone;
 use std::rc::Rc;
 use std::thread;
 
+pub mod application;
 pub mod node;
 pub mod node_area;
 pub mod node_socket;
 pub mod subclass;
-pub mod util;
 
-pub fn start_ui_threads(bus: &bus::Bus) -> (thread::JoinHandle<()>, thread::JoinHandle<()>) {
+pub fn start_ui_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
     log::info!("Starting UI");
 
     let (sender, receiver) = bus.subscribe().unwrap();
 
-    let gtk_thread = thread::spawn(move || gtk_main(sender));
-    let bus_thread = thread::spawn(move || {
-        for event in receiver {
-            log::trace!("UI processing event {:?}", event);
-        }
-
-        log::info!("UI Terminating");
-    });
-
-    (gtk_thread, bus_thread)
+    thread::spawn(move || gtk_main(sender, receiver))
 }
 
-fn gtk_main(bus: bus::Sender) {
-    let application = gtk::Application::new(Some("com.mechaneia.surfacelab"), Default::default())
-        .expect("Failed to initialize GTK application");
+fn ui_bus(receiver: bus::Receiver) {
+    for event in receiver {
+        log::trace!("UI processing event {:?}", event);
 
-    let _bus_rc = Rc::new(bus);
+        match event {
+            Lang::GraphEvent(event) => match event {
+                GraphEvent::NodeAdded(res, op) => {}
+            },
+            Lang::UserNodeEvent(..) => {}
+        }
+    }
 
-    application.connect_activate(move |app| {
-        let window = gtk::ApplicationWindow::new(app);
-        window.set_title("SurfaceLab");
-        window.set_default_size(1024, 768);
+    log::info!("UI Terminating");
+}
 
-        let vbox = gtk::Box::new(gtk::Orientation::Vertical, 16);
+fn gtk_main(sender: bus::Sender, receiver: bus::Receiver) {
+    let bus_rc = Rc::new(sender);
 
-        // Node Area
-        let node_area = node_area::NodeArea::new();
-
-        // Buttons
-        let button_box = {
-            let button_box = gtk::ButtonBox::new(gtk::Orientation::Horizontal);
-            button_box.set_layout(gtk::ButtonBoxStyle::Expand);
-            let new_image_node_button = gtk::Button::new_with_label("New Node");
-            button_box.add(&new_image_node_button);
-
-            new_image_node_button.connect_clicked(clone!(node_area => move |_| {
-                let new_node = node::Node::new();
-                new_node.add_socket(lang::Resource::try_from("node:/foo:socket_in").unwrap(), node_socket::NodeSocketIO::Sink);
-                new_node.add_socket(lang::Resource::try_from("node:/foo:socket_out").unwrap(), node_socket::NodeSocketIO::Source);
-                node_area.add(&new_node);
-                new_node.show_all();
-            }));
-
-            button_box
-        };
-
-        vbox.add(&button_box);
-        vbox.pack_end(&node_area, true, true, 0);
-
-        window.add(&vbox);
-        window.show_all();
-    });
-
+    gtk::init().expect("Failed to initialize gtk");
+    let application = application::SurfaceLabApplication::new();
+    let bus_thread = thread::spawn(move || ui_bus(receiver));
     application.run(&[]);
+    bus_thread.join().unwrap();
 }

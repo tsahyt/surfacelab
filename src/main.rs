@@ -7,9 +7,9 @@ fn main() {
     let mut bus: Bus = Bus::new(1024);
 
     // start threads
-    let (gtk_thread, ui_thread) = surfacelab::ui::start_ui_threads(&bus);
+    let ui_thread = surfacelab::ui::start_ui_thread(&bus);
     // FIXME: threads seem to take 100% CPU each
-    // let nodes_thread = surfacelab::nodes::start_nodes_thread(&bus);
+    let nodes_thread = surfacelab::nodes::start_nodes_thread(&bus);
     // let compute_thread = surfacelab::compute::start_compute_thread(&bus);
     // let render_thread = surfacelab::render::start_render_thread(&bus);
 
@@ -21,8 +21,9 @@ fn main() {
 
     // wait for threads
     ui_thread.join().unwrap();
-    // nodes_thread.join().unwrap();
+    nodes_thread.join().unwrap();
     // compute_thread.join().unwrap();
     // render_thread.join().unwrap();
-    gtk_thread.join().unwrap();
+
+    // FIXME: application doesn't exit when GUI is closed
 }

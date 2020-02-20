@@ -176,8 +176,14 @@ pub enum UserNodeEvent {
 }
 
 #[derive(Clone, Debug)]
+pub enum GraphEvent {
+    NodeAdded(Resource, Operator),
+}
+
+#[derive(Clone, Debug)]
 pub enum Lang {
     UserNodeEvent(UserNodeEvent),
+    GraphEvent(GraphEvent),
 }
 
 #[cfg(test)]

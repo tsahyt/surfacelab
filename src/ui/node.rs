@@ -1,6 +1,5 @@
 use super::node_socket::{NodeSocket, NodeSocketIO};
 use super::subclass::*;
-use crate::clone;
 use crate::lang;
 use gdk::prelude::*;
 use glib::subclass;
@@ -90,12 +89,12 @@ impl ObjectImpl for NodePrivate {
             let header_evbox = gtk::EventBox::new();
             header_label.set_halign(gtk::Align::Start);
 
-            header_evbox.connect_button_press_event(clone!(node => move |_, m| {
+            header_evbox.connect_button_press_event(clone!(@strong node => move |_, m| {
                 let pos = m.get_position();
                 node.emit(HEADER_BUTTON_PRESS, &[&pos.0, &pos.1]).unwrap();
                 Inhibit(false)
             }));
-            header_evbox.connect_button_release_event(clone!(node => move |_, _| {
+            header_evbox.connect_button_release_event(clone!(@strong node => move |_, _| {
                 node.emit(HEADER_BUTTON_RELEASE, &[]).unwrap();
                 Inhibit(false)
             }));
@@ -107,7 +106,7 @@ impl ObjectImpl for NodePrivate {
                 gtk::IconSize::Button,
             );
             let close_evbox = gtk::EventBox::new();
-            close_evbox.connect_button_release_event(clone!(node => move |_, _| {
+            close_evbox.connect_button_release_event(clone!(@strong node => move |_, _| {
                 node.emit(CLOSE_CLICKED, &[]).unwrap();
                 Inhibit(false)
             }));

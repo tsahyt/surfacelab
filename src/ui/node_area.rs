@@ -1,6 +1,5 @@
 use super::node::Node;
 use super::subclass::*;
-use crate::clone;
 use gdk::prelude::*;
 use glib::subclass;
 use glib::subclass::prelude::*;
@@ -102,16 +101,16 @@ impl NodeAreaPrivate {
         let allocation = container.get_allocation();
         let widget_u = widget.clone().upcast::<gtk::Widget>();
 
-        widget.connect_header_button_press_event(clone!(action => move |_, x, y| {
+        widget.connect_header_button_press_event(clone!(@strong action => move |_, x, y| {
             action.replace(Some(Action::DragChild(allocation.x + x as i32, allocation.y + y as i32)));
         }));
 
-        widget.connect_header_button_release_event(clone!(action => move |_| {
+        widget.connect_header_button_release_event(clone!(@strong action => move |_| {
             action.replace(None);
         }));
 
         widget.connect_motion_notify_event(
-            clone!(action, widget_u, container => move |w, motion| {
+            clone!(@strong action, @strong widget_u, @strong container => move |w, motion| {
                 if let Some(Action::DragChild(offset_x, offset_y)) = action.borrow().as_ref() {
                     let pos = motion.get_root();
 
@@ -130,7 +129,7 @@ impl NodeAreaPrivate {
             }),
         );
 
-        widget.connect_close_clicked(clone!(container => move |w| {
+        widget.connect_close_clicked(clone!(@strong container => move |w| {
             container.remove(w);
         }));
     }

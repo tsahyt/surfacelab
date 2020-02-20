@@ -1,6 +1,7 @@
 use crate::{bus, lang};
 use petgraph::graph;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::thread;
 
 #[derive(Debug)]
@@ -46,13 +47,17 @@ impl NodeManager {
         }
     }
 
-    pub fn process_event(&mut self, event: bus::Lang) {
+    pub fn process_event(&mut self, event: bus::Lang) -> Option<bus::Lang> {
         use crate::lang::*;
+        let mut response = None;
 
         log::trace!("Node Manager processing event {:?}", event);
         match event {
             Lang::UserNodeEvent(event) => match event {
-                UserNodeEvent::NewNode(op) => self.new_node(op),
+                UserNodeEvent::NewNode(op) => {
+                    let resource = self.new_node(op.clone());
+                    response = Some(Lang::GraphEvent(GraphEvent::NodeAdded(resource, op)))
+                }
                 UserNodeEvent::RemoveNode(uri) => self
                     .remove_node(uri)
                     .unwrap_or_else(|e| log::error!("{}", e)),
@@ -63,26 +68,30 @@ impl NodeManager {
                     .disconnect_sockets(from, to)
                     .unwrap_or_else(|e| log::error!("{}", e)),
             },
+            Lang::GraphEvent(..) => {}
         }
+
+        response
     }
 
-    /// Find the next name of the format `prefix.i` where `i` is a number.
-    /// Will return the string with the lowest `i` value
-    fn next_free_name(&self, prefix: String) -> lang::Resource {
-        // let mut i = 1;
-        // let mut name = format!("{}.{}", prefix, i);
+    fn next_free_name(&self, base_name: String) -> lang::Resource {
+        let mut resource = lang::Resource::unregistered_node();
 
-        // // while self.node_indices.contains_key(&name) {
-        // //     i += 1;
-        // //     name = format!("{}.{}", prefix, i);
-        // // }
-        // TODO: next_free_name
+        for i in 1.. {
+            let name =
+                lang::Resource::try_from(format!("node:{}.{}", base_name, i).as_ref()).unwrap();
 
-        unimplemented!("next free") // name
+            if !self.node_indices.contains_key(&name) {
+                resource = name;
+                break;
+            }
+        }
+
+        resource
     }
 
     /// Add a new node to the node graph, defined by the operator.
-    fn new_node(&mut self, op: lang::Operator) {
+    fn new_node(&mut self, op: lang::Operator) -> lang::Resource {
         let node_id = self.next_free_name(op.default_name());
 
         log::trace!(
@@ -92,7 +101,9 @@ impl NodeManager {
         );
         let node = Node::new(op);
         let idx = self.node_graph.add_node(node);
-        self.node_indices.insert(node_id, idx);
+        self.node_indices.insert(node_id.clone(), idx);
+
+        node_id
     }
 
     /// Remove a node with the given URI if it exists.
@@ -150,7 +161,11 @@ impl NodeManager {
     /// connected, the graph remains the same.
     ///
     /// **Errors** and aborts if either of the two URIs does not exist!
-    fn disconnect_sockets(&mut self, from: lang::Resource, to: lang::Resource) -> Result<(), String> {
+    fn disconnect_sockets(
+        &mut self,
+        from: lang::Resource,
+        to: lang::Resource,
+    ) -> Result<(), String> {
         use petgraph::visit::EdgeRef;
 
         let from_path = self
@@ -203,13 +218,15 @@ impl NodeManager {
 
 pub fn start_nodes_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
     log::info!("Starting Node Manager");
-    let (_sender, receiver) = bus.subscribe().unwrap();
+    let (sender, receiver) = bus.subscribe().unwrap();
 
     thread::spawn(move || {
         let mut node_mgr = NodeManager::new();
 
         for event in receiver {
-            node_mgr.process_event(event);
+            if let Some(response) = node_mgr.process_event(event) {
+                bus::emit(&sender, response);
+            }
         }
 
         log::info!("Node Manager terminating");
