@@ -2,18 +2,16 @@ use super::{node, node_area};
 use crate::{bus, lang::*};
 
 use gio::prelude::*;
-use gtk::prelude::*;
-
 use gio::subclass::application::ApplicationImplExt;
 use gio::ApplicationFlags;
 use glib::subclass;
 use glib::subclass::prelude::*;
 use glib::translate::*;
 use glib::*;
+use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
 use once_cell::unsync::OnceCell;
-use std::rc::Rc;
 
 #[derive(Debug)]
 struct WindowWidgets {
