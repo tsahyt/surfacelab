@@ -1,4 +1,4 @@
-use super::{node, node_area, node_socket};
+use super::{node, node_area};
 use crate::{bus, lang::*};
 
 use gio::prelude::*;
@@ -13,7 +13,6 @@ use glib::*;
 use gtk::subclass::prelude::*;
 
 use once_cell::unsync::OnceCell;
-use std::convert::TryFrom;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -60,6 +59,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         let button_box = {
             let button_box = gtk::ButtonBox::new(gtk::Orientation::Horizontal);
             button_box.set_layout(gtk::ButtonBoxStyle::Expand);
+
             let new_image_node_button = gtk::Button::new_with_label("New Image Node");
             new_image_node_button.connect_clicked(clone!(@weak self.bus as bus => move |_| {
                 bus::emit(
@@ -73,13 +73,29 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
             }));
             button_box.add(&new_image_node_button);
 
-            // new_image_node_button.connect_clicked(clone!(node_area => move |_| {
-            //     let new_node = node::Node::new();
-            //     new_node.add_socket(lang::Resource::try_from("node:/foo:socket_in").unwrap(), node_socket::NodeSocketIO::Sink);
-            //     new_node.add_socket(lang::Resource::try_from("node:/foo:socket_out").unwrap(), node_socket::NodeSocketIO::Source);
-            //     node_area.add(&new_node);
-            //     new_node.show_all();
-            // }));
+            let new_output_node_button = gtk::Button::new_with_label("New Output Node");
+            new_output_node_button.connect_clicked(clone!(@weak self.bus as bus => move |_| {
+                bus::emit(
+                    bus.get().expect("Uninitialized bus!"),
+                    Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                        Operator::Output {
+                            output_type: OutputType::default()
+                        },
+                    )),
+                )
+            }));
+            button_box.add(&new_output_node_button);
+
+            let new_blend_node_button = gtk::Button::new_with_label("New Blend Node");
+            new_blend_node_button.connect_clicked(clone!(@weak self.bus as bus => move |_| {
+                bus::emit(
+                    bus.get().expect("Uninitialized bus!"),
+                    Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                        Operator::Blend(BlendParameters::default()),
+                    )),
+                )
+            }));
+            button_box.add(&new_blend_node_button);
 
             button_box
         };
@@ -238,15 +254,7 @@ impl SurfaceLabApplication {
         match event {
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, op) => {
-                    let new_node = node::Node::new();
-                    new_node.add_socket(
-                        Resource::try_from("node:/foo:socket_in").unwrap(),
-                        node_socket::NodeSocketIO::Sink,
-                    );
-                    new_node.add_socket(
-                        Resource::try_from("node:/foo:socket_out").unwrap(),
-                        node_socket::NodeSocketIO::Source,
-                    );
+                    let new_node = node::Node::new_from_operator(op, res);
                     widgets.node_area.add(&new_node);
                     new_node.show_all();
                 }

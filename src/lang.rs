@@ -8,6 +8,12 @@ pub struct BlendParameters {
     mix: f32,
 }
 
+impl Default for BlendParameters {
+    fn default() -> Self {
+        BlendParameters { mix: 0.5 }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Debug)]
 pub struct PerlinNoiseParameters {
@@ -56,12 +62,21 @@ impl Operator {
         }
     }
 
-    pub fn default_name(&self) -> String {
+    pub fn default_name(&self) -> &str {
         match self {
-            Operator::Blend(..) => "blend".to_string(),
-            Operator::PerlinNoise(..) => "perlin_noise".to_string(),
-            Operator::Image { .. } => "image".to_string(),
-            Operator::Output { .. } => "output".to_string(),
+            Operator::Blend(..) => "blend",
+            Operator::PerlinNoise(..) => "perlin_noise",
+            Operator::Image { .. } => "image",
+            Operator::Output { .. } => "output",
+        }
+    }
+
+    pub fn title(&self) -> &str {
+        match self {
+            Operator::Blend(..) => "Blend",
+            Operator::PerlinNoise(..) => "Perlin Noise",
+            Operator::Image { .. } => "Image",
+            Operator::Output { .. } => "Output",
         }
     }
 }
@@ -149,6 +164,12 @@ impl Resource {
         self.fragment.as_ref().map(|x| x.as_ref())
     }
 
+    pub fn extend_fragment(&self, fragment: &str) -> Self {
+        let mut new = self.clone();
+        new.fragment = Some(fragment.to_string());
+        new
+    }
+
     pub fn scheme(&self) -> &str {
         &self.scheme
     }
@@ -219,7 +240,7 @@ mod tests {
         let r = Resource {
             scheme: "node".to_string(),
             resource_path: PathBuf::from("/foo/bar"),
-            fragment: Some("socket".to_string())
+            fragment: Some("socket".to_string()),
         };
 
         assert_eq!(format!("{}", r), "node:/foo/bar:socket");

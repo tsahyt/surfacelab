@@ -1,8 +1,5 @@
-use crate::{bus, lang::*};
+use crate::bus;
 use gio::prelude::*;
-use glib::clone;
-use gtk::prelude::*;
-use std::rc::Rc;
 use std::thread;
 
 pub mod application;

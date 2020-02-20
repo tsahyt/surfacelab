@@ -8,10 +8,12 @@ use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
 
+use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
 
 pub struct NodePrivate {
     sockets: RefCell<Vec<NodeSocket>>,
+    header_label: OnceCell<gtk::Label>,
 }
 
 const HEADER_SPACING: i32 = 16;
@@ -64,6 +66,7 @@ impl ObjectSubclass for NodePrivate {
     fn new() -> Self {
         Self {
             sockets: RefCell::new(Vec::new()),
+            header_label: OnceCell::new(),
         }
     }
 }
@@ -117,6 +120,10 @@ impl ObjectImpl for NodePrivate {
             header_box.set_margin_end(MARGIN);
             header_box.set_margin_top(MARGIN);
             node.add(&header_box);
+
+            self.header_label
+                .set(header_label)
+                .expect("Failed to store header label");
         }
 
         // thumbnail
@@ -188,7 +195,9 @@ impl NodePrivate {
         }
         node_socket.set_io(io);
         node_socket.set_socket_resource(resource);
-        node_socket.connect_socket_connected(|_,a,b| { dbg!((a,b)); });
+        node_socket.connect_socket_connected(|_, a, b| {
+            dbg!((a, b));
+        });
         node.add(&node_socket);
         self.sockets.borrow_mut().push(node_socket);
     }
@@ -208,11 +217,28 @@ glib_wrapper! {
 
 impl Node {
     pub fn new() -> Self {
-        let na: Self = glib::Object::new(Self::static_type(), &[])
+        glib::Object::new(Self::static_type(), &[])
             .unwrap()
             .downcast()
-            .unwrap();
-        na
+            .unwrap()
+    }
+
+    pub fn new_from_operator(op: lang::Operator, resource: lang::Resource) -> Self {
+        let node = Self::new();
+        let priv_ = NodePrivate::from_instance(&node);
+        priv_.header_label.get().unwrap().set_label(op.title());
+
+        for (input, _) in op.inputs().iter() {
+            let res = resource.extend_fragment(input);
+            node.add_socket(res, NodeSocketIO::Sink);
+        }
+
+        for (output, _) in op.outputs().iter() {
+            let res = resource.extend_fragment(output);
+            node.add_socket(res, NodeSocketIO::Source);
+        }
+
+        node
     }
 
     pub fn add_socket(&self, resource: lang::Resource, io: NodeSocketIO) {

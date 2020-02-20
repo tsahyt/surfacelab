@@ -74,7 +74,7 @@ impl NodeManager {
         response
     }
 
-    fn next_free_name(&self, base_name: String) -> lang::Resource {
+    fn next_free_name(&self, base_name: &str) -> lang::Resource {
         let mut resource = lang::Resource::unregistered_node();
 
         for i in 1.. {
