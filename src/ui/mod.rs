@@ -1,12 +1,15 @@
 use crate::bus;
 use gio::prelude::*;
 use std::thread;
+use once_cell::unsync::OnceCell;
 
 pub mod application;
 pub mod node;
 pub mod node_area;
 pub mod node_socket;
 pub mod subclass;
+
+thread_local!(static BUS: OnceCell<bus::Sender> = OnceCell::new());
 
 pub fn start_ui_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
     log::info!("Starting UI");
@@ -25,7 +28,9 @@ fn ui_bus(gsender: glib::Sender<bus::Lang>, receiver: bus::Receiver) {
 
 fn gtk_main(sender: bus::Sender, receiver: bus::Receiver) {
     gtk::init().expect("Failed to initialize gtk");
-    let application = application::SurfaceLabApplication::new(sender);
+
+    BUS.with(|b| b.set(sender));
+    let application = application::SurfaceLabApplication::new();
 
     let (gsender, greceiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
     let ui_thread = thread::spawn(move || ui_bus(gsender, receiver));
