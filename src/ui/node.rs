@@ -1,6 +1,6 @@
 use super::node_socket::{NodeSocket, NodeSocketIO};
 use super::subclass::*;
-use crate::{bus, lang};
+use crate::lang::*;
 
 use gdk::prelude::*;
 use glib::subclass;
@@ -180,7 +180,7 @@ impl NodePrivate {
         style_context.restore();
     }
 
-    fn add_socket(&self, node: &Node, resource: lang::Resource, io: NodeSocketIO) {
+    fn add_socket(&self, node: &Node, resource: Resource, io: NodeSocketIO) {
         let node_socket = NodeSocket::new();
 
         match io {
@@ -196,8 +196,8 @@ impl NodePrivate {
         }
         node_socket.set_io(io);
         node_socket.set_socket_resource(resource);
-        node_socket.connect_socket_connected(|_, a, b| {
-            dbg!((a, b));
+        node_socket.connect_socket_connected(|_, to, from| {
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(from, to)))
         });
         node.add(&node_socket);
         self.sockets.borrow_mut().push(node_socket);
@@ -224,7 +224,7 @@ impl Node {
             .unwrap()
     }
 
-    pub fn new_from_operator(op: lang::Operator, resource: lang::Resource) -> Self {
+    pub fn new_from_operator(op: Operator, resource: Resource) -> Self {
         let node = Self::new();
         let priv_ = NodePrivate::from_instance(&node);
         priv_.header_label.get().unwrap().set_label(op.title());
@@ -242,7 +242,7 @@ impl Node {
         node
     }
 
-    pub fn add_socket(&self, resource: lang::Resource, io: NodeSocketIO) {
+    pub fn add_socket(&self, resource: Resource, io: NodeSocketIO) {
         let imp = NodePrivate::from_instance(self);
         imp.add_socket(self, resource, io);
     }

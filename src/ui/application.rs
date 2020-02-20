@@ -58,40 +58,29 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
             let new_image_node_button = gtk::Button::new_with_label("New Image Node");
             new_image_node_button.connect_clicked(move |_| {
-                super::BUS.with(|b| {
-                    bus::emit(
-                        b.get().expect("Uninitialized bus!"),
-                        Lang::UserNodeEvent(UserNodeEvent::NewNode(Operator::Image {
-                            path: std::path::PathBuf::from(""),
-                        })),
-                    )
-                })
+                super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                    Operator::Image {
+                        path: std::path::PathBuf::from(""),
+                    },
+                )))
             });
             button_box.add(&new_image_node_button);
 
             let new_output_node_button = gtk::Button::new_with_label("New Output Node");
             new_output_node_button.connect_clicked(move |_| {
-                super::BUS.with(|b| {
-                    bus::emit(
-                        b.get().expect("Uninitialized bus!"),
-                        Lang::UserNodeEvent(UserNodeEvent::NewNode(Operator::Output {
-                            output_type: OutputType::default(),
-                        })),
-                    )
-                })
+                super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                    Operator::Output {
+                        output_type: OutputType::default(),
+                    },
+                )))
             });
             button_box.add(&new_output_node_button);
 
             let new_blend_node_button = gtk::Button::new_with_label("New Blend Node");
             new_blend_node_button.connect_clicked(move |_| {
-                super::BUS.with(|b| {
-                    bus::emit(
-                        b.get().expect("Uninitialized bus!"),
-                        Lang::UserNodeEvent(UserNodeEvent::NewNode(Operator::Blend(
-                            BlendParameters::default(),
-                        ))),
-                    )
-                })
+                super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                    Operator::Blend(BlendParameters::default()),
+                )))
             });
             button_box.add(&new_blend_node_button);
 
