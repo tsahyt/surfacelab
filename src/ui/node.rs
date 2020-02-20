@@ -1,6 +1,7 @@
 use super::node_socket::{NodeSocket, NodeSocketIO};
 use super::subclass::*;
 use crate::clone;
+use crate::lang;
 use gdk::prelude::*;
 use glib::subclass;
 use glib::subclass::prelude::*;
@@ -172,7 +173,7 @@ impl NodePrivate {
         style_context.restore();
     }
 
-    fn add_socket(&self, node: &Node, uri: uriparse::URI, io: NodeSocketIO) {
+    fn add_socket(&self, node: &Node, resource: lang::Resource, io: NodeSocketIO) {
         let node_socket = NodeSocket::new();
 
         match io {
@@ -187,7 +188,7 @@ impl NodePrivate {
             _ => {}
         }
         node_socket.set_io(io);
-        node_socket.set_socket_uri(uri);
+        node_socket.set_socket_resource(resource);
         node_socket.connect_socket_connected(|_,a,b| { dbg!((a,b)); });
         node.add(&node_socket);
         self.sockets.borrow_mut().push(node_socket);
@@ -215,9 +216,9 @@ impl Node {
         na
     }
 
-    pub fn add_socket(&self, uri: uriparse::URI, io: NodeSocketIO) {
+    pub fn add_socket(&self, resource: lang::Resource, io: NodeSocketIO) {
         let imp = NodePrivate::from_instance(self);
-        imp.add_socket(self, uri, io);
+        imp.add_socket(self, resource, io);
     }
 
     pub fn connect_header_button_press_event<F: Fn(&Self, f64, f64) + 'static>(

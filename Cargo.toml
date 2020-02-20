@@ -19,5 +19,4 @@ glib = { git = "https://github.com/gtk-rs/glib" }
 glib-sys = { git = "https://github.com/gtk-rs/sys" }
 petgraph = "0.5.0"
 maplit = "1.0.2"
-uriparse = "0.6.1"
 cairo-rs = { git = "https://github.com/gtk-rs/cairo" }

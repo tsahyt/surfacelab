@@ -1,4 +1,4 @@
-use crate::{bus, clone};
+use crate::{bus, clone, lang};
 use gio::prelude::*;
 use gtk::prelude::*;
 use std::convert::TryFrom;
@@ -53,8 +53,8 @@ fn gtk_main(bus: bus::Sender) {
 
             new_image_node_button.connect_clicked(clone!(node_area => move |_| {
                 let new_node = node::Node::new();
-                new_node.add_socket(uriparse::URI::try_from("node:foo#socket_in").unwrap(), node_socket::NodeSocketIO::Sink);
-                new_node.add_socket(uriparse::URI::try_from("node:foo#socket_out").unwrap(), node_socket::NodeSocketIO::Source);
+                new_node.add_socket(lang::Resource::try_from("node:/foo:socket_in").unwrap(), node_socket::NodeSocketIO::Sink);
+                new_node.add_socket(lang::Resource::try_from("node:/foo:socket_out").unwrap(), node_socket::NodeSocketIO::Source);
                 node_area.add(&new_node);
                 new_node.show_all();
             }));

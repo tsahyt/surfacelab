@@ -1,4 +1,5 @@
 use super::subclass::*;
+use crate::lang;
 use gdk::prelude::*;
 use glib::subclass;
 use glib::subclass::prelude::*;
@@ -6,6 +7,7 @@ use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
 use std::cell::RefCell;
+use std::convert::TryFrom;
 
 #[derive(Debug)]
 pub enum NodeSocketIO {
@@ -19,7 +21,7 @@ pub struct NodeSocketPrivate {
     radius: RefCell<f64>,
     io: RefCell<NodeSocketIO>,
     drop_types: Vec<gtk::TargetEntry>,
-    socket_uri: RefCell<std::string::String>,
+    socket_resource: RefCell<lang::Resource>,
 }
 
 // Signals
@@ -62,7 +64,7 @@ impl ObjectSubclass for NodeSocketPrivate {
                 gtk::TargetFlags::SAME_APP,
                 0,
             )],
-            socket_uri: RefCell::new("".to_string()),
+            socket_resource: RefCell::new(lang::Resource::unregistered_node()),
         }
     }
 }
@@ -113,8 +115,12 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
         _time: u32,
     ) {
         log::trace!("Drag data get at {:?}", &widget);
-        let uri = self.socket_uri.borrow().clone();
-        selection_data.set(&selection_data.get_target(), 8, uri.as_ref());
+        let resource = self.socket_resource.borrow().clone();
+        selection_data.set(
+            &selection_data.get_target(),
+            8,
+            resource.to_string().as_ref(),
+        );
     }
 
     fn drag_data_received(
@@ -185,14 +191,14 @@ impl NodeSocketPrivate {
         self.io.replace(io);
     }
 
-    fn set_socket_uri(&self, widget: &NodeSocket, uri: uriparse::URI) {
-        let uris = uri.to_string();
-        widget.set_tooltip_text(Some(&uris));
-        self.socket_uri.replace(uri.to_string());
+    fn set_socket_resource(&self, widget: &NodeSocket, resource: lang::Resource) {
+        let rs = resource.to_string();
+        widget.set_tooltip_text(Some(&rs));
+        self.socket_resource.replace(resource);
     }
 
-    fn get_socket_uri(&self) -> std::string::String {
-        self.socket_uri.borrow().to_owned()
+    fn get_socket_uri(&self) -> lang::Resource {
+        self.socket_resource.borrow().to_owned()
     }
 }
 
@@ -242,21 +248,21 @@ impl NodeSocket {
         imp.set_io(&self.clone().upcast::<gtk::Widget>(), io);
     }
 
-    pub fn set_socket_uri(&self, uri: uriparse::URI) {
+    pub fn set_socket_resource(&self, resource: lang::Resource) {
         let imp = NodeSocketPrivate::from_instance(self);
-        imp.set_socket_uri(self, uri);
+        imp.set_socket_resource(self, resource);
     }
 
-    pub fn get_socket_uri(&self) -> std::string::String {
+    pub fn get_socket_resource(&self) -> lang::Resource {
         let imp = NodeSocketPrivate::from_instance(self);
         imp.get_socket_uri()
     }
 
-    pub fn connect_socket_connected<F: Fn(&Self, std::string::String, std::string::String) + 'static>(
+    pub fn connect_socket_connected<F: Fn(&Self, lang::Resource, lang::Resource) + 'static>(
         &self,
         f: F,
     ) -> glib::SignalHandlerId {
-        let local_uri = self.get_socket_uri();
+        let local_resource = self.get_socket_resource();
 
         self.connect_local(SOCKET_CONNECTED, true, move |w| {
             let node_socket = w[0]
@@ -265,9 +271,12 @@ impl NodeSocket {
                 .unwrap()
                 .get()
                 .unwrap();
-            let foreign_uri = w[1].get::<std::string::String>().unwrap().unwrap();
+            let foreign_resource = lang::Resource::try_from(
+                w[1].get::<std::string::String>().unwrap().unwrap().as_ref(),
+            )
+            .unwrap();
 
-            f(&node_socket, local_uri.clone(), foreign_uri);
+            f(&node_socket, local_resource.clone(), foreign_resource);
             None
         })
         .unwrap()

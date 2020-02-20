@@ -34,7 +34,7 @@ type NodeGraph = graph::Graph<Node, (String, String), petgraph::Directed>;
 
 struct NodeManager {
     node_graph: NodeGraph,
-    node_indices: HashMap<String, graph::NodeIndex>,
+    node_indices: HashMap<lang::Resource, graph::NodeIndex>,
 }
 
 impl NodeManager {
@@ -68,16 +68,17 @@ impl NodeManager {
 
     /// Find the next name of the format `prefix.i` where `i` is a number.
     /// Will return the string with the lowest `i` value
-    fn next_free_name(&self, prefix: String) -> String {
-        let mut i = 1;
-        let mut name = format!("{}.{}", prefix, i);
+    fn next_free_name(&self, prefix: String) -> lang::Resource {
+        // let mut i = 1;
+        // let mut name = format!("{}.{}", prefix, i);
 
-        while self.node_indices.contains_key(&name) {
-            i += 1;
-            name = format!("{}.{}", prefix, i);
-        }
+        // // while self.node_indices.contains_key(&name) {
+        // //     i += 1;
+        // //     name = format!("{}.{}", prefix, i);
+        // // }
+        // TODO: next_free_name
 
-        name
+        unimplemented!("next free") // name
     }
 
     /// Add a new node to the node graph, defined by the operator.
@@ -97,18 +98,18 @@ impl NodeManager {
     /// Remove a node with the given URI if it exists.
     ///
     /// **Errors** if the node does not exist.
-    fn remove_node(&mut self, uri: lang::URI) -> Result<(), String> {
+    fn remove_node(&mut self, resource: lang::Resource) -> Result<(), String> {
         let node = self
-            .node_by_uri(&uri)
-            .ok_or(format!("Node for URI {} not found!", uri))?;
+            .node_by_uri(&resource)
+            .ok_or(format!("Node for URI {} not found!", resource))?;
 
         log::trace!(
             "Removing node with identifier {:?}, indexed {:?}",
-            &uri,
+            &resource,
             node
         );
         self.node_graph.remove_node(node);
-        self.node_indices.remove(&format!("{}", uri.path()));
+        self.node_indices.remove(&resource);
 
         Ok(())
     }
@@ -116,14 +117,13 @@ impl NodeManager {
     /// Connect two sockets in the node graph.
     ///
     /// **Errors** and aborts if either of the two URIs does not exist!
-    fn connect_sockets(&mut self, from: lang::URI, to: lang::URI) -> Result<(), String> {
+    fn connect_sockets(&mut self, from: lang::Resource, to: lang::Resource) -> Result<(), String> {
         let from_path = self
             .node_by_uri(&from)
             .ok_or(format!("Node for URI {} not found!", &from))?;
         let from_socket = from
             .fragment()
             .ok_or("Missing socket specification")?
-            .as_str()
             .to_string();
         let to_path = self
             .node_by_uri(&to)
@@ -131,7 +131,6 @@ impl NodeManager {
         let to_socket = to
             .fragment()
             .ok_or("Missing socket specification")?
-            .as_str()
             .to_string();
 
         log::trace!(
@@ -151,7 +150,7 @@ impl NodeManager {
     /// connected, the graph remains the same.
     ///
     /// **Errors** and aborts if either of the two URIs does not exist!
-    fn disconnect_sockets(&mut self, from: lang::URI, to: lang::URI) -> Result<(), String> {
+    fn disconnect_sockets(&mut self, from: lang::Resource, to: lang::Resource) -> Result<(), String> {
         use petgraph::visit::EdgeRef;
 
         let from_path = self
@@ -160,7 +159,6 @@ impl NodeManager {
         let from_socket = from
             .fragment()
             .ok_or("Missing socket specification")?
-            .as_str()
             .to_string();
         let to_path = self
             .node_by_uri(&to)
@@ -168,7 +166,6 @@ impl NodeManager {
         let to_socket = to
             .fragment()
             .ok_or("Missing socket specification")?
-            .as_str()
             .to_string();
 
         log::trace!(
@@ -199,9 +196,8 @@ impl NodeManager {
         Ok(())
     }
 
-    fn node_by_uri(&self, uri: &lang::URI) -> Option<graph::NodeIndex> {
-        let path = format!("{}", uri.path());
-        self.node_indices.get(&path).map(|i| i.clone())
+    fn node_by_uri(&self, resource: &lang::Resource) -> Option<graph::NodeIndex> {
+        self.node_indices.get(&resource).map(|i| i.clone())
     }
 }
 
