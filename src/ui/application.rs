@@ -1,5 +1,5 @@
-use super::node_area;
-use crate::lang::*;
+use super::{node, node_area, node_socket};
+use crate::{bus, lang::*};
 
 use gio::prelude::*;
 use gtk::prelude::*;
@@ -13,23 +13,21 @@ use glib::*;
 use gtk::subclass::prelude::*;
 
 use once_cell::unsync::OnceCell;
-use std::cell::Cell;
+use std::convert::TryFrom;
+use std::rc::Rc;
 
 #[derive(Debug)]
 struct WindowWidgets {
+    node_area: node_area::NodeArea,
 }
 
-// This is the private part of our `SurfaceLabWindow` object.
-// Its where state and widgets are stored when they don't
-// need to be publicly accesible.
-#[derive(Debug)]
 pub struct SurfaceLabWindowPrivate {
     widgets: OnceCell<WindowWidgets>,
-    counter: Cell<u64>,
+    bus: Rc<OnceCell<bus::Sender>>,
 }
 
 impl ObjectSubclass for SurfaceLabWindowPrivate {
-    const NAME: &'static str = "SurfaceLabWindowPrivate";
+    const NAME: &'static str = "SurfaceLabWindow";
     type ParentType = gtk::ApplicationWindow;
     type Instance = subclass::simple::InstanceStruct<Self>;
     type Class = subclass::simple::ClassStruct<Self>;
@@ -39,7 +37,7 @@ impl ObjectSubclass for SurfaceLabWindowPrivate {
     fn new() -> Self {
         Self {
             widgets: OnceCell::new(),
-            counter: Cell::new(0),
+            bus: Rc::new(OnceCell::new()),
         }
     }
 }
@@ -47,9 +45,6 @@ impl ObjectSubclass for SurfaceLabWindowPrivate {
 impl ObjectImpl for SurfaceLabWindowPrivate {
     glib_object_impl!();
 
-    // Here we are overriding the glib::Objcet::contructed
-    // method. Its what gets called when we create our Object
-    // and where we can initialize things.
     fn constructed(&self, obj: &glib::Object) {
         self.parent_constructed(obj);
         let window = obj.downcast_ref::<SurfaceLabWindow>().unwrap();
@@ -66,16 +61,16 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
             let button_box = gtk::ButtonBox::new(gtk::Orientation::Horizontal);
             button_box.set_layout(gtk::ButtonBoxStyle::Expand);
             let new_image_node_button = gtk::Button::new_with_label("New Image Node");
-            // new_image_node_button.connect_clicked(clone!(@weak bus_rc => move |_| {
-            //     bus::emit(
-            //         &*bus_rc,
-            //         Lang::UserNodeEvent(UserNodeEvent::NewNode(
-            //             Operator::Image {
-            //                 path: std::path::PathBuf::from(""),
-            //             },
-            //         )),
-            //     )
-            // }));
+            new_image_node_button.connect_clicked(clone!(@weak self.bus as bus => move |_| {
+                bus::emit(
+                    bus.get().expect("Uninitialized bus!"),
+                    Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                        Operator::Image {
+                            path: std::path::PathBuf::from(""),
+                        },
+                    )),
+                )
+            }));
             button_box.add(&new_image_node_button);
 
             // new_image_node_button.connect_clicked(clone!(node_area => move |_| {
@@ -93,11 +88,14 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         vbox.pack_end(&node_area, true, true, 0);
 
         window.add(&vbox);
+
+        self.widgets
+            .set(WindowWidgets { node_area })
+            .expect("Failed to initialze widgets");
     }
 }
 
-impl SurfaceLabWindowPrivate {
-}
+impl SurfaceLabWindowPrivate {}
 
 impl WidgetImpl for SurfaceLabWindowPrivate {}
 impl ContainerImpl for SurfaceLabWindowPrivate {}
@@ -118,21 +116,27 @@ glib_wrapper! {
 }
 
 impl SurfaceLabWindow {
-    pub fn new(app: &gtk::Application) -> Self {
-        glib::Object::new(Self::static_type(), &[("application", app)])
+    pub fn new(app: &gtk::Application, bus: bus::Sender) -> Self {
+        let win: Self = glib::Object::new(Self::static_type(), &[("application", app)])
             .expect("Failed to create SurfaceLabWindow")
             .downcast::<SurfaceLabWindow>()
-            .expect("Created SurfaceLabWindow is of wrong type")
+            .expect("Created SurfaceLabWindow is of wrong type");
+        let imp = SurfaceLabWindowPrivate::from_instance(&win);
+        imp.bus
+            .set(bus)
+            .map_err(|_| "UI Bus")
+            .expect("Failed to assign bus to application window");
+        win
     }
 }
 
-#[derive(Debug)]
 pub struct SurfaceLabApplicationPrivate {
     window: OnceCell<SurfaceLabWindow>,
+    bus: OnceCell<bus::Sender>,
 }
 
 impl ObjectSubclass for SurfaceLabApplicationPrivate {
-    const NAME: &'static str = "SurfaceLabApplicationPrivate";
+    const NAME: &'static str = "SurfaceLabApplication";
     type ParentType = gtk::Application;
     type Instance = subclass::simple::InstanceStruct<Self>;
     type Class = subclass::simple::ClassStruct<Self>;
@@ -142,6 +146,7 @@ impl ObjectSubclass for SurfaceLabApplicationPrivate {
     fn new() -> Self {
         Self {
             window: OnceCell::new(),
+            bus: OnceCell::new(),
         }
     }
 }
@@ -177,7 +182,7 @@ impl ApplicationImpl for SurfaceLabApplicationPrivate {
         self.parent_startup(app);
 
         let app = app.downcast_ref::<gtk::Application>().unwrap();
-        let window = SurfaceLabWindow::new(&app);
+        let window = SurfaceLabWindow::new(&app, self.bus.get().unwrap().to_owned()); // TODO: evaluate validity of this clone
         self.window
             .set(window)
             .expect("Failed to initialize application window");
@@ -199,8 +204,8 @@ glib_wrapper! {
 }
 
 impl SurfaceLabApplication {
-    pub fn new() -> Self {
-        glib::Object::new(
+    pub fn new(bus: bus::Sender) -> Self {
+        let app: Self = glib::Object::new(
             Self::static_type(),
             &[
                 ("application-id", &"com.mechaneia.surfacelab"),
@@ -209,6 +214,44 @@ impl SurfaceLabApplication {
         )
         .expect("Failed to create SurfaceLabApplication")
         .downcast()
-        .expect("Created application is of wrong type")
+        .expect("Created application is of wrong type");
+        let imp = SurfaceLabApplicationPrivate::from_instance(&app);
+        imp.bus
+            .set(bus)
+            .map_err(|_| "UI Bus")
+            .expect("Failed to assign bus to application");
+        app
+    }
+
+    fn get_widgets(&self) -> &WindowWidgets {
+        let imp = SurfaceLabApplicationPrivate::from_instance(self);
+        let win = imp
+            .window
+            .get()
+            .expect("Failed to obtain Application Window");
+        let winimp = SurfaceLabWindowPrivate::from_instance(win);
+        winimp.widgets.get().expect("Failed to obtain widgets")
+    }
+
+    pub fn process_event(&self, event: bus::Lang) {
+        let widgets = self.get_widgets();
+        match event {
+            Lang::GraphEvent(event) => match event {
+                GraphEvent::NodeAdded(res, op) => {
+                    let new_node = node::Node::new();
+                    new_node.add_socket(
+                        Resource::try_from("node:/foo:socket_in").unwrap(),
+                        node_socket::NodeSocketIO::Sink,
+                    );
+                    new_node.add_socket(
+                        Resource::try_from("node:/foo:socket_out").unwrap(),
+                        node_socket::NodeSocketIO::Source,
+                    );
+                    widgets.node_area.add(&new_node);
+                    new_node.show_all();
+                }
+            },
+            Lang::UserNodeEvent(..) => {}
+        }
     }
 }

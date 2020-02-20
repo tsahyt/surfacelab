@@ -32,7 +32,7 @@ pub struct NodeAreaPrivate {
 // contains all information needed by the GObject type system,
 // including the new type's name, parent type, etc.
 impl ObjectSubclass for NodeAreaPrivate {
-    const NAME: &'static str = "NodeAreaPrivate";
+    const NAME: &'static str = "NodeArea";
 
     type ParentType = gtk::Fixed;
     type Instance = subclass::simple::InstanceStruct<Self>;

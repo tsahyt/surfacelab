@@ -31,7 +31,7 @@ pub const SOCKET_CONNECTED: &str = "socket-connected";
 // contains all information needed by the GObject type system,
 // including the new type's name, parent type, etc.
 impl ObjectSubclass for NodeSocketPrivate {
-    const NAME: &'static str = "NodeSocketPrivate";
+    const NAME: &'static str = "NodeSocket";
 
     type ParentType = gtk::EventBox;
     type Instance = subclass::simple::InstanceStruct<Self>;

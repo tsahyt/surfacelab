@@ -26,7 +26,7 @@ pub const CLOSE_CLICKED: &str = "close-clicked";
 // contains all information needed by the GObject type system,
 // including the new type's name, parent type, etc.
 impl ObjectSubclass for NodePrivate {
-    const NAME: &'static str = "NodePrivate";
+    const NAME: &'static str = "Node";
 
     type ParentType = gtk::Box;
     type Instance = subclass::simple::InstanceStruct<Self>;
