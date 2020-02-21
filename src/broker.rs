@@ -8,9 +8,9 @@ pub struct Broker<T> {
     subscribers: Vec<Sender<Arc<T>>>,
 }
 
-pub struct BrokerSender<T>(Sender<T>);
+pub type BrokerSender<T> = Sender<T>;
 
-pub struct BrokerReceiver<T>(Receiver<Arc<T>>);
+pub type BrokerReceiver<T> = Receiver<Arc<T>>;
 
 impl<T> Broker<T> {
     /// Create a new Broker with a given capacity.
@@ -26,20 +26,20 @@ impl<T> Broker<T> {
     }
 
     fn sender(&self) -> BrokerSender<T> {
-        BrokerSender(self.sender.clone())
+        self.sender.clone()
     }
 
     pub fn subscribe(&mut self) -> (BrokerSender<T>, BrokerReceiver<T>) {
         let (s, r) = bounded(self.capacity);
         self.subscribers.push(s);
-        (self.sender(), BrokerReceiver(r))
+        (self.sender(), r)
     }
 
     pub fn run(&self) {
         for ev in &self.receiver {
             let arc = Arc::new(ev);
             for subscriber in &self.subscribers {
-                let res = subscriber.send(arc.clone());
+                let res = subscriber.send(Arc::clone(&arc));
                 if let Err(e) = res {
                     log::error!("Disconnected Component: {}", e);
                 }

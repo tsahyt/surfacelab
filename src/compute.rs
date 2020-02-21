@@ -1,9 +1,9 @@
-use crate::bus;
+use crate::{broker, lang};
 use std::thread;
 
-pub fn start_compute_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
+pub fn start_compute_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinHandle<()> {
     log::info!("Starting GPU Compute Handler");
-    let (_sender, receiver) = bus.subscribe().unwrap();
+    let (_sender, receiver) = broker.subscribe();
 
     thread::spawn(move || {
         for event in receiver {

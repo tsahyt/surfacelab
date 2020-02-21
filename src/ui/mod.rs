@@ -1,4 +1,4 @@
-use crate::bus;
+use crate::{broker, lang};
 use gio::prelude::*;
 use once_cell::unsync::OnceCell;
 use std::thread;
@@ -9,31 +9,40 @@ pub mod node_area;
 pub mod node_socket;
 pub mod subclass;
 
-thread_local!(static BUS: OnceCell<bus::Sender> = OnceCell::new());
+thread_local!(static BROKER: OnceCell<broker::BrokerSender<lang::Lang>> = OnceCell::new());
 
-fn emit(ev: bus::Lang) {
-    BUS.with(|b| bus::emit(b.get().expect("Uninitialized bus!"), ev))
+fn emit(ev: lang::Lang) {
+    BROKER.with(|b| {
+        b.get()
+            .expect("Uninitialized broker in UI TLS")
+            .send(ev)
+            .expect("UI disconnected from broker")
+    })
 }
 
-pub fn start_ui_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
+pub fn start_ui_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinHandle<()> {
     log::info!("Starting UI");
 
-    let (sender, receiver) = bus.subscribe().unwrap();
+    let (sender, receiver) = broker.subscribe();
 
     thread::spawn(move || gtk_main(sender, receiver))
 }
 
-fn ui_bus(gsender: glib::Sender<bus::Lang>, receiver: bus::Receiver) {
+fn ui_bus(gsender: glib::Sender<lang::Lang>, receiver: broker::BrokerReceiver<lang::Lang>) {
     for event in receiver {
         log::trace!("UI processing event {:?}", event);
-        gsender.send(event).unwrap();
+        gsender.send((&*event).clone()).unwrap();
+        // TODO: evaluate this clone
     }
 }
 
-fn gtk_main(sender: bus::Sender, receiver: bus::Receiver) {
+fn gtk_main(
+    sender: broker::BrokerSender<lang::Lang>,
+    receiver: broker::BrokerReceiver<lang::Lang>,
+) {
     gtk::init().expect("Failed to initialize gtk");
 
-    BUS.with(|b| {
+    BROKER.with(|b| {
         b.set(sender)
             .map_err(|_| "<UI thread bus>")
             .expect("Failed to store UI thread bus")
@@ -44,7 +53,7 @@ fn gtk_main(sender: bus::Sender, receiver: bus::Receiver) {
     let ui_thread = thread::spawn(move || ui_bus(gsender, receiver));
 
     let application_clone = application.clone();
-    greceiver.attach(None, move |event: bus::Lang| {
+    greceiver.attach(None, move |event: lang::Lang| {
         application_clone.process_event(event);
         glib::Continue(true)
     });

@@ -1,7 +1,8 @@
-use crate::{bus, lang};
+use crate::{broker, lang};
 use petgraph::graph;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::sync::Arc;
 use std::thread;
 
 #[derive(Debug)]
@@ -49,18 +50,21 @@ impl NodeManager {
         }
     }
 
-    pub fn process_event(&mut self, event: bus::Lang) -> Vec<bus::Lang> {
+    pub fn process_event(&mut self, event: Arc<lang::Lang>) -> Vec<lang::Lang> {
         use crate::lang::*;
         let mut response = vec![];
 
         log::trace!("Node Manager processing event {:?}", event);
-        match event {
+        match &*event {
             Lang::UserNodeEvent(event) => match event {
                 UserNodeEvent::NewNode(op) => {
-                    let resource = self.new_node(op.clone());
-                    response.push(Lang::GraphEvent(GraphEvent::NodeAdded(resource, op)))
+                    let resource = self.new_node(op);
+                    response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
+                        resource,
+                        op.clone(),
+                    )))
                 }
-                UserNodeEvent::RemoveNode(res) => match self.remove_node(&res) {
+                UserNodeEvent::RemoveNode(res) => match self.remove_node(res) {
                     Ok(removed_conns) => {
                         response = removed_conns
                             .iter()
@@ -71,14 +75,17 @@ impl NodeManager {
                                 ))
                             })
                             .collect();
-                        response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(res)));
+                        response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(res.clone())));
                     }
                     Err(e) => log::error!("{}", e),
                 },
                 UserNodeEvent::ConnectSockets(from, to) => {
-                    self.connect_sockets(&from, &to)
+                    self.connect_sockets(from, to)
                         .unwrap_or_else(|e| log::error!("{}", e));
-                    response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(from, to)))
+                    response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                        from.clone(),
+                        to.clone(),
+                    )))
                 }
                 UserNodeEvent::DisconnectSockets(from, to) => self
                     .disconnect_sockets(from, to)
@@ -107,7 +114,7 @@ impl NodeManager {
     }
 
     /// Add a new node to the node graph, defined by the operator.
-    fn new_node(&mut self, op: lang::Operator) -> lang::Resource {
+    fn new_node(&mut self, op: &lang::Operator) -> lang::Resource {
         let node_id = self.next_free_name(op.default_name());
 
         log::trace!(
@@ -115,7 +122,7 @@ impl NodeManager {
             op,
             node_id
         );
-        let node = Node::new(op, node_id.clone());
+        let node = Node::new(op.clone(), node_id.clone());
         let idx = self.node_graph.add_node(node);
         self.node_indices.insert(node_id.clone(), idx);
 
@@ -214,8 +221,8 @@ impl NodeManager {
     /// **Errors** and aborts if either of the two URIs does not exist!
     fn disconnect_sockets(
         &mut self,
-        from: lang::Resource,
-        to: lang::Resource,
+        from: &lang::Resource,
+        to: &lang::Resource,
     ) -> Result<(), String> {
         use petgraph::visit::EdgeRef;
 
@@ -267,9 +274,9 @@ impl NodeManager {
     }
 }
 
-pub fn start_nodes_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
+pub fn start_nodes_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinHandle<()> {
     log::info!("Starting Node Manager");
-    let (sender, receiver) = bus.subscribe().unwrap();
+    let (sender, receiver) = broker.subscribe();
 
     thread::spawn(move || {
         let mut node_mgr = NodeManager::new();
@@ -277,7 +284,7 @@ pub fn start_nodes_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
         for event in receiver {
             let response = node_mgr.process_event(event);
             for ev in response {
-                bus::emit(&sender, ev)
+                sender.send(ev);
             }
         }
 

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::path::*;
 
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct BlendParameters {
     mix: f32,
 }
@@ -15,7 +15,7 @@ impl Default for BlendParameters {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct PerlinNoiseParameters {
     scale: f32,
     octaves: f32,
@@ -103,7 +103,7 @@ impl Operator {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum ImageType {
     RgbImage,
     RgbaImage,
@@ -116,7 +116,7 @@ impl Default for ImageType {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum OutputType {
     Albedo,
     Roughness,

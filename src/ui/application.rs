@@ -1,5 +1,5 @@
 use super::{node, node_area};
-use crate::{bus, lang::*};
+use crate::lang::*;
 
 use gio::prelude::*;
 use gio::subclass::application::ApplicationImplExt;
@@ -203,7 +203,7 @@ impl SurfaceLabApplication {
         winimp.widgets.get().expect("Failed to obtain widgets")
     }
 
-    pub fn process_event(&self, event: bus::Lang) {
+    pub fn process_event(&self, event: Lang) {
         let widgets = self.get_widgets();
         match event {
             Lang::GraphEvent(event) => match event {
