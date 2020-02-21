@@ -12,6 +12,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
 use once_cell::unsync::OnceCell;
+use std::sync::Arc;
 
 #[derive(Debug)]
 struct WindowWidgets {
@@ -203,21 +204,21 @@ impl SurfaceLabApplication {
         winimp.widgets.get().expect("Failed to obtain widgets")
     }
 
-    pub fn process_event(&self, event: Lang) {
+    pub fn process_event(&self, event: Arc<Lang>) {
         let widgets = self.get_widgets();
-        match event {
+        match &*event {
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, op) => {
-                    let new_node = node::Node::new_from_operator(op, res);
+                    let new_node = node::Node::new_from_operator(op.clone(), res.clone());
                     widgets.node_area.add(&new_node);
                     new_node.show_all();
                 }
                 GraphEvent::NodeRemoved(res) => widgets.node_area.remove_by_resource(&res),
                 GraphEvent::ConnectedSockets(source, sink) => {
-                    widgets.node_area.add_connection(source, sink);
+                    widgets.node_area.add_connection(source.clone(), sink.clone());
                 }
                 GraphEvent::DisconnectedSockets(source, sink) => {
-                    widgets.node_area.remove_connection(source, sink);
+                    widgets.node_area.remove_connection(source.clone(), sink.clone());
                 }
             },
             Lang::UserNodeEvent(..) => {}

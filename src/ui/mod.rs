@@ -2,6 +2,7 @@ use crate::{broker, lang};
 use gio::prelude::*;
 use once_cell::unsync::OnceCell;
 use std::thread;
+use std::sync::Arc;
 
 pub mod application;
 pub mod node;
@@ -27,11 +28,10 @@ pub fn start_ui_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinH
     thread::spawn(move || gtk_main(sender, receiver))
 }
 
-fn ui_bus(gsender: glib::Sender<lang::Lang>, receiver: broker::BrokerReceiver<lang::Lang>) {
+fn ui_bus(gsender: glib::Sender<Arc<lang::Lang>>, receiver: broker::BrokerReceiver<lang::Lang>) {
     for event in receiver {
         log::trace!("UI processing event {:?}", event);
-        gsender.send((&*event).clone()).unwrap();
-        // TODO: evaluate this clone
+        gsender.send(event).unwrap();
     }
 }
 
@@ -52,7 +52,7 @@ fn gtk_main(
     let ui_thread = thread::spawn(move || ui_bus(gsender, receiver));
 
     let application_clone = application.clone();
-    greceiver.attach(None, move |event: lang::Lang| {
+    greceiver.attach(None, move |event: Arc<lang::Lang>| {
         application_clone.process_event(event);
         glib::Continue(true)
     });
