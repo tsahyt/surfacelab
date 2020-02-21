@@ -50,11 +50,10 @@ impl NodeManager {
         }
     }
 
-    pub fn process_event(&mut self, event: Arc<lang::Lang>) -> Vec<lang::Lang> {
+    pub fn process_event(&mut self, event: Arc<lang::Lang>) -> Option<Vec<lang::Lang>> {
         use crate::lang::*;
         let mut response = vec![];
 
-        log::trace!("Node Manager processing event {:?}", event);
         match &*event {
             Lang::UserNodeEvent(event) => match event {
                 UserNodeEvent::NewNode(op) => {
@@ -91,10 +90,11 @@ impl NodeManager {
                     .disconnect_sockets(from, to)
                     .unwrap_or_else(|e| log::error!("{}", e)),
             },
+            Lang::UserEvent(UserEvent::Quit) => return None,
             Lang::GraphEvent(..) => {}
         }
 
-        response
+        Some(response)
     }
 
     fn next_free_name(&self, base_name: &str) -> lang::Resource {
@@ -282,10 +282,14 @@ pub fn start_nodes_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::Jo
         let mut node_mgr = NodeManager::new();
 
         for event in receiver {
-            let response = node_mgr.process_event(event);
-            for ev in response {
-                if let Err(e) = sender.send(ev) {
-                    log::error!("Node Manager lost connection to application bus! {}", e);
+            match node_mgr.process_event(event) {
+                None => break,
+                Some(response) => {
+                    for ev in response {
+                        if let Err(e) = sender.send(ev) {
+                            log::error!("Node Manager lost connection to application bus! {}", e);
+                        }
+                    }
                 }
             }
         }

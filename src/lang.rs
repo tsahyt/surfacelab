@@ -233,8 +233,14 @@ pub enum GraphEvent {
 }
 
 #[derive(Clone, Debug)]
+pub enum UserEvent {
+    Quit
+}
+
+#[derive(Clone, Debug)]
 pub enum Lang {
     UserNodeEvent(UserNodeEvent),
+    UserEvent(UserEvent),
     GraphEvent(GraphEvent),
 }
 

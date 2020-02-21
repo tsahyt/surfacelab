@@ -73,6 +73,10 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         vbox.pack_end(&node_area, true, true, 0);
 
         window.add(&vbox);
+        window.connect_delete_event(|_, _| {
+            super::emit(Lang::UserEvent(UserEvent::Quit));
+            Inhibit(false)
+        });
 
         self.widgets
             .set(WindowWidgets { node_area })
@@ -215,13 +219,18 @@ impl SurfaceLabApplication {
                 }
                 GraphEvent::NodeRemoved(res) => widgets.node_area.remove_by_resource(&res),
                 GraphEvent::ConnectedSockets(source, sink) => {
-                    widgets.node_area.add_connection(source.clone(), sink.clone());
+                    widgets
+                        .node_area
+                        .add_connection(source.clone(), sink.clone());
                 }
                 GraphEvent::DisconnectedSockets(source, sink) => {
-                    widgets.node_area.remove_connection(source.clone(), sink.clone());
+                    widgets
+                        .node_area
+                        .remove_connection(source.clone(), sink.clone());
                 }
             },
             Lang::UserNodeEvent(..) => {}
+            Lang::UserEvent(..) => {}
         }
     }
 }
