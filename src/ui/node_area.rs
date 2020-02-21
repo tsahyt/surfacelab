@@ -1,5 +1,7 @@
 use super::node::Node;
+use super::node_socket;
 use super::subclass::*;
+use crate::lang::*;
 
 use gdk::prelude::*;
 use glib::subclass;
@@ -13,19 +15,20 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug)]
-struct NodeAreaChild {
-    x: i32,
-    y: i32,
-}
-
-#[derive(Debug)]
 enum Action {
     DragChild(i32, i32),
 }
 
 #[derive(Debug)]
+struct Connection {
+    source: node_socket::NodeSocket,
+    sink: node_socket::NodeSocket,
+}
+
+#[derive(Debug)]
 pub struct NodeAreaPrivate {
-    children: Rc<RefCell<HashMap<Node, NodeAreaChild>>>,
+    children: Rc<RefCell<HashMap<Resource, Node>>>,
+    connections: RefCell<Vec<Connection>>,
     action: Rc<RefCell<Option<Action>>>,
 }
 
@@ -47,31 +50,14 @@ impl ObjectSubclass for NodeAreaPrivate {
     // for the new type.
     //
     // We use this to override additional methods
-    fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {
-        unsafe {
-            // Extra overrides for container methods
-            let container_class =
-                &mut *(class as *mut _ as *mut <gtk::Container as ObjectType>::RustClassType);
-
-            // Extra overrides for widget methods
-            let widget_class = &mut *(container_class as *mut _
-                as *mut <gtk::Widget as ObjectType>::RustClassType);
-            {
-                let klass =
-                    &mut *(widget_class as *mut gtk::WidgetClass as *mut gtk_sys::GtkWidgetClass);
-                klass.realize = Some(extra_widget_realize::<NodeAreaPrivate>);
-                klass.size_allocate = Some(extra_widget_size_allocate::<NodeAreaPrivate>);
-                klass.motion_notify_event =
-                    Some(extra_widget_motion_notify_event::<NodeAreaPrivate>);
-            }
-        }
-    }
+    fn class_init(_class: &mut subclass::simple::ClassStruct<Self>) {}
 
     // Called every time a new instance is created. This should return
     // a new instance of our type with its basic values.
     fn new() -> Self {
         Self {
             children: Rc::new(RefCell::new(HashMap::new())),
+            connections: RefCell::new(Vec::new()),
             action: Rc::new(RefCell::new(None)),
         }
     }
@@ -96,7 +82,7 @@ impl NodeAreaPrivate {
         cr.curve_to(source.0 + d, source.1, sink.0 - d, sink.1, sink.0, sink.1);
     }
 
-    fn child_connect(&self, container: &gtk::Fixed, widget: &Node) {
+    fn child_connect(&self, container: &gtk::Fixed, widget: &Node, resource: &Resource) {
         // Connect to child signals
         let action = self.action.clone();
         let allocation = container.get_allocation();
@@ -131,15 +117,55 @@ impl NodeAreaPrivate {
         );
 
         widget.connect_close_clicked(clone!(@strong container => move |w| {
+            // TODO: emit user node removal event
             container.remove(w);
         }));
+    }
+
+    fn add_connection(&self, source: Resource, sink: Resource) -> Option<()> {
+        let source_socket = self
+            .children
+            .borrow()
+            .get(&source.drop_fragment())?
+            .get_socket(&source)?;
+        let sink_socket = self
+            .children
+            .borrow()
+            .get(&sink.drop_fragment())?
+            .get_socket(&sink)?;
+
+        self.connections.borrow_mut().push(Connection {
+            source: source_socket,
+            sink: sink_socket,
+        });
+
+        Some(())
     }
 }
 
 impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
     fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
         use gtk::subclass::widget::WidgetImplExt;
-       
+
+        for connection in self.connections.borrow().iter() {
+            if !connection.source.get_visible() || !connection.sink.get_visible() {
+                continue;
+            }
+
+            let source = {
+                let alloc = connection.source.get_allocation();
+                let radius = connection.source.get_radius();
+                (alloc.x as f64 + radius, alloc.y as f64 + radius)
+            };
+            let sink = {
+                let alloc = connection.sink.get_allocation();
+                let radius = connection.sink.get_radius();
+                (alloc.x as f64 + radius, alloc.y as f64 + radius)
+            };
+            Self::connecting_curve(cr, source, sink);
+            cr.stroke();
+        }
+
         self.parent_draw(widget, cr);
         Inhibit(false)
     }
@@ -167,9 +193,25 @@ impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
 
         let node = widget.clone().downcast::<Node>().unwrap();
         let fixed = container.clone().downcast::<gtk::Fixed>().unwrap();
-        self.child_connect(&fixed, &node);
+        let resource = node
+            .get_resource()
+            .expect("Failed adding uninitialized node resource");
+        self.child_connect(&fixed, &node, &resource);
+        self.children.borrow_mut().insert(resource.clone(), node);
 
         self.parent_add(container, widget);
+    }
+
+    fn remove(&self, container: &gtk::Container, widget: &gtk::Widget) {
+        use gtk::subclass::container::*;
+
+        let node = widget.clone().downcast::<Node>().unwrap();
+        let resource = node
+            .get_resource()
+            .expect("Failed removing uninitialized node resource");
+        self.children.borrow_mut().remove(resource);
+
+        self.parent_remove(container, widget);
     }
 }
 
@@ -180,7 +222,7 @@ glib_wrapper! {
         Object<subclass::simple::InstanceStruct<NodeAreaPrivate>,
         subclass::simple::ClassStruct<NodeAreaPrivate>,
         NodeAreaClass>)
-        @extends gtk::Widget, gtk::Container;
+        @extends gtk::Widget, gtk::Container, gtk::Fixed;
 
     match fn {
         get_type => || NodeAreaPrivate::get_type().to_glib(),
@@ -193,5 +235,11 @@ impl NodeArea {
             .unwrap()
             .downcast()
             .unwrap()
+    }
+
+    pub fn add_connection(&self, source: Resource, sink: Resource) {
+        let imp = NodeAreaPrivate::from_instance(self);
+        imp.add_connection(source, sink).unwrap();
+        self.queue_draw();
     }
 }

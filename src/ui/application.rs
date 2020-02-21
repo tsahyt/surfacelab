@@ -230,6 +230,9 @@ impl SurfaceLabApplication {
                     let new_node = node::Node::new_from_operator(op, res);
                     widgets.node_area.add(&new_node);
                     new_node.show_all();
+                },
+                GraphEvent::ConnectedSockets(source, sink) => {
+                    widgets.node_area.add_connection(source, sink);
                 }
             },
             Lang::UserNodeEvent(..) => {}

@@ -15,6 +15,7 @@ use std::cell::RefCell;
 pub struct NodePrivate {
     sockets: RefCell<Vec<NodeSocket>>,
     header_label: OnceCell<gtk::Label>,
+    resource: OnceCell<Resource>,
 }
 
 const HEADER_SPACING: i32 = 16;
@@ -68,6 +69,7 @@ impl ObjectSubclass for NodePrivate {
         Self {
             sockets: RefCell::new(Vec::new()),
             header_label: OnceCell::new(),
+            resource: OnceCell::new(),
         }
     }
 }
@@ -228,6 +230,10 @@ impl Node {
         let node = Self::new();
         let priv_ = NodePrivate::from_instance(&node);
         priv_.header_label.get().unwrap().set_label(op.title());
+        priv_
+            .resource
+            .set(resource.clone())
+            .expect("Failed to set resource for new node");
 
         for (input, _) in op.inputs().iter() {
             let res = resource.extend_fragment(input);
@@ -240,6 +246,21 @@ impl Node {
         }
 
         node
+    }
+
+    pub fn get_resource(&self) -> Option<&Resource> {
+        let priv_ = NodePrivate::from_instance(self);
+        priv_.resource.get()
+    }
+
+    pub fn get_socket(&self, resource: &Resource) -> Option<NodeSocket> {
+        let priv_ = NodePrivate::from_instance(self);
+        priv_
+            .sockets
+            .borrow()
+            .iter()
+            .find(|socket| socket.get_socket_resource() == *resource)
+            .map(|x| x.clone())
     }
 
     pub fn add_socket(&self, resource: Resource, io: NodeSocketIO) {

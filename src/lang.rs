@@ -170,6 +170,12 @@ impl Resource {
         new
     }
 
+    pub fn drop_fragment(&self) -> Self {
+        let mut new = self.clone();
+        new.fragment = None;
+        new
+    }
+
     pub fn scheme(&self) -> &str {
         &self.scheme
     }
@@ -199,6 +205,7 @@ pub enum UserNodeEvent {
 #[derive(Clone, Debug)]
 pub enum GraphEvent {
     NodeAdded(Resource, Operator),
+    ConnectedSockets(Resource, Resource),
 }
 
 #[derive(Clone, Debug)]

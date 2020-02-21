@@ -61,9 +61,11 @@ impl NodeManager {
                 UserNodeEvent::RemoveNode(uri) => self
                     .remove_node(uri)
                     .unwrap_or_else(|e| log::error!("{}", e)),
-                UserNodeEvent::ConnectSockets(from, to) => self
-                    .connect_sockets(from, to)
-                    .unwrap_or_else(|e| log::error!("{}", e)),
+                UserNodeEvent::ConnectSockets(from, to) => {
+                    self.connect_sockets(&from, &to)
+                        .unwrap_or_else(|e| log::error!("{}", e));
+                    response = Some(Lang::GraphEvent(GraphEvent::ConnectedSockets(from, to)))
+                }
                 UserNodeEvent::DisconnectSockets(from, to) => self
                     .disconnect_sockets(from, to)
                     .unwrap_or_else(|e| log::error!("{}", e)),
@@ -128,16 +130,16 @@ impl NodeManager {
     /// Connect two sockets in the node graph.
     ///
     /// **Errors** and aborts if either of the two URIs does not exist!
-    fn connect_sockets(&mut self, from: lang::Resource, to: lang::Resource) -> Result<(), String> {
+    fn connect_sockets(&mut self, from: &lang::Resource, to: &lang::Resource) -> Result<(), String> {
         let from_path = self
-            .node_by_uri(&from)
+            .node_by_uri(from)
             .ok_or(format!("Node for URI {} not found!", &from))?;
         let from_socket = from
             .fragment()
             .ok_or("Missing socket specification")?
             .to_string();
         let to_path = self
-            .node_by_uri(&to)
+            .node_by_uri(to)
             .ok_or(format!("Node for URI {} not found!", &to))?;
         let to_socket = to
             .fragment()
@@ -212,7 +214,9 @@ impl NodeManager {
     }
 
     fn node_by_uri(&self, resource: &lang::Resource) -> Option<graph::NodeIndex> {
-        self.node_indices.get(&resource).map(|i| i.clone())
+        self.node_indices
+            .get(&resource.drop_fragment())
+            .map(|i| i.clone())
     }
 }
 
