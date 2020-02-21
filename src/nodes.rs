@@ -148,6 +148,7 @@ impl NodeManager {
             node
         );
 
+        // FIXME: removal sometimes fails when it shouldn't
         debug_assert!(self.node_graph.node_weight(node).is_some());
 
         // Get all connections
