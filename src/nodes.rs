@@ -5,16 +5,18 @@ use std::convert::TryFrom;
 use std::thread;
 
 #[derive(Debug)]
-pub struct Node {
-    pub operator: lang::Operator,
-    pub inputs: HashMap<String, lang::ImageType>,
-    pub outputs: HashMap<String, lang::ImageType>,
+struct Node {
+    operator: lang::Operator,
+    resource: lang::Resource,
+    inputs: HashMap<String, lang::ImageType>,
+    outputs: HashMap<String, lang::ImageType>,
 }
 
 impl Node {
-    pub fn new(operator: lang::Operator) -> Self {
+    fn new(operator: lang::Operator, resource: lang::Resource) -> Self {
         Node {
             operator,
+            resource,
             inputs: HashMap::new(),
             outputs: HashMap::new(),
         }
@@ -22,7 +24,7 @@ impl Node {
 
     /// A node can be considered a Mask if and only if it has exactly one output
     /// which produces a Value.
-    pub fn is_mask(&self) -> bool {
+    fn is_mask(&self) -> bool {
         self.outputs.len() == 1
             && self
                 .outputs
@@ -47,26 +49,36 @@ impl NodeManager {
         }
     }
 
-    pub fn process_event(&mut self, event: bus::Lang) -> Option<bus::Lang> {
+    pub fn process_event(&mut self, event: bus::Lang) -> Vec<bus::Lang> {
         use crate::lang::*;
-        let mut response = None;
+        let mut response = vec![];
 
         log::trace!("Node Manager processing event {:?}", event);
         match event {
             Lang::UserNodeEvent(event) => match event {
                 UserNodeEvent::NewNode(op) => {
                     let resource = self.new_node(op.clone());
-                    response = Some(Lang::GraphEvent(GraphEvent::NodeAdded(resource, op)))
+                    response.push(Lang::GraphEvent(GraphEvent::NodeAdded(resource, op)))
                 }
-                UserNodeEvent::RemoveNode(res) => {
-                    self.remove_node(&res)
-                        .unwrap_or_else(|e| log::error!("{}", e));
-                    response = Some(Lang::GraphEvent(GraphEvent::NodeRemoved(res)))
-                }
+                UserNodeEvent::RemoveNode(res) => match self.remove_node(&res) {
+                    Ok(removed_conns) => {
+                        response = removed_conns
+                            .iter()
+                            .map(|c| {
+                                Lang::GraphEvent(GraphEvent::DisconnectedSockets(
+                                    c.0.clone(),
+                                    c.1.clone(),
+                                ))
+                            })
+                            .collect();
+                        response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(res)));
+                    }
+                    Err(e) => log::error!("{}", e),
+                },
                 UserNodeEvent::ConnectSockets(from, to) => {
                     self.connect_sockets(&from, &to)
                         .unwrap_or_else(|e| log::error!("{}", e));
-                    response = Some(Lang::GraphEvent(GraphEvent::ConnectedSockets(from, to)))
+                    response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(from, to)))
                 }
                 UserNodeEvent::DisconnectSockets(from, to) => self
                     .disconnect_sockets(from, to)
@@ -103,17 +115,22 @@ impl NodeManager {
             op,
             node_id
         );
-        let node = Node::new(op);
+        let node = Node::new(op, node_id.clone());
         let idx = self.node_graph.add_node(node);
         self.node_indices.insert(node_id.clone(), idx);
 
         node_id
     }
 
-    /// Remove a node with the given URI if it exists.
+    /// Remove a node with the given Resource if it exists.
     ///
     /// **Errors** if the node does not exist.
-    fn remove_node(&mut self, resource: &lang::Resource) -> Result<(), String> {
+    fn remove_node(
+        &mut self,
+        resource: &lang::Resource,
+    ) -> Result<Vec<(lang::Resource, lang::Resource)>, String> {
+        use petgraph::visit::EdgeRef;
+
         let node = self
             .node_by_uri(resource)
             .ok_or(format!("Node for URI {} not found!", resource))?;
@@ -123,15 +140,41 @@ impl NodeManager {
             &resource,
             node
         );
+
+        debug_assert!(self.node_graph.node_weight(node).is_some());
+
+        // Get all connections
+        let edges = {
+            let incoming = self
+                .node_graph
+                .edges_directed(node, petgraph::Direction::Incoming);
+            let outgoing = self
+                .node_graph
+                .edges_directed(node, petgraph::Direction::Outgoing);
+            incoming.chain(outgoing)
+        };
+        let es: Vec<_> = edges
+            .map(|x| {
+                let source = &self.node_graph.node_weight(x.source()).unwrap().resource;
+                let sink = &self.node_graph.node_weight(x.target()).unwrap().resource;
+                let sockets = x.weight();
+                (
+                    source.extend_fragment(&sockets.0),
+                    sink.extend_fragment(&sockets.1),
+                )
+            })
+            .collect();
+
+        // Remove node
         self.node_graph.remove_node(node);
         self.node_indices.remove(&resource);
 
-        Ok(())
+        Ok(es)
     }
 
     /// Connect two sockets in the node graph.
     ///
-    /// **Errors** and aborts if either of the two URIs does not exist!
+    /// **Errors** and aborts if either of the two Resources does not exist!
     fn connect_sockets(
         &mut self,
         from: &lang::Resource,
@@ -220,9 +263,7 @@ impl NodeManager {
     }
 
     fn node_by_uri(&self, resource: &lang::Resource) -> Option<graph::NodeIndex> {
-        self.node_indices
-            .get(&resource.drop_fragment())
-            .cloned()
+        self.node_indices.get(&resource.drop_fragment()).cloned()
     }
 }
 
@@ -234,8 +275,9 @@ pub fn start_nodes_thread(bus: &bus::Bus) -> thread::JoinHandle<()> {
         let mut node_mgr = NodeManager::new();
 
         for event in receiver {
-            if let Some(response) = node_mgr.process_event(event) {
-                bus::emit(&sender, response);
+            let response = node_mgr.process_event(event);
+            for ev in response {
+                bus::emit(&sender, ev)
             }
         }
 

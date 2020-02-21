@@ -237,6 +237,9 @@ impl SurfaceLabApplication {
                 GraphEvent::ConnectedSockets(source, sink) => {
                     widgets.node_area.add_connection(source, sink);
                 }
+                GraphEvent::DisconnectedSockets(source, sink) => {
+                    widgets.node_area.remove_connection(source, sink);
+                }
             },
             Lang::UserNodeEvent(..) => {}
         }

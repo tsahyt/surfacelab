@@ -141,6 +141,32 @@ impl NodeAreaPrivate {
         Some(())
     }
 
+    fn remove_connection(&self, source: Resource, sink: Resource) -> Option<()> {
+        let source_socket = self
+            .children
+            .borrow()
+            .get(&source.drop_fragment())?
+            .get_socket(&source)?;
+        let sink_socket = self
+            .children
+            .borrow()
+            .get(&sink.drop_fragment())?
+            .get_socket(&sink)?;
+
+        {
+            let mut conns = self.connections.borrow_mut();
+            if let Some((idx, _)) = conns
+                .iter()
+                .enumerate()
+                .find(|(_, c)| c.source == source_socket && c.sink == sink_socket)
+            {
+                conns.remove(idx);
+            }
+        }
+
+        Some(())
+    }
+
     fn remove_by_resource(&self, container: &gtk::Container, node: &Resource) {
         let lookup = self.children.borrow().get(node).cloned();
 
@@ -248,6 +274,12 @@ impl NodeArea {
     pub fn add_connection(&self, source: Resource, sink: Resource) {
         let imp = NodeAreaPrivate::from_instance(self);
         imp.add_connection(source, sink).unwrap();
+        self.queue_draw();
+    }
+
+    pub fn remove_connection(&self, source: Resource, sink: Resource) {
+        let imp = NodeAreaPrivate::from_instance(self);
+        imp.remove_connection(source, sink).unwrap();
         self.queue_draw();
     }
 
