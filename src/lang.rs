@@ -165,13 +165,13 @@ impl std::convert::TryFrom<&str> for Resource {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let pieces: Vec<&str> = value.split(':').collect();
 
-        let scheme = pieces
+        let scheme = (*pieces
             .get(0)
-            .ok_or("Missing schema in resource identifier")?
-            .to_string();
+            .ok_or("Missing schema in resource identifier")?)
+        .to_string();
         let resource_path =
             PathBuf::from(pieces.get(1).ok_or("Missing path in resource identifier")?);
-        let fragment = pieces.get(2).map(|x| x.to_string());
+        let fragment = pieces.get(2).map(|x| (*x).to_string());
 
         Ok(Resource {
             scheme,

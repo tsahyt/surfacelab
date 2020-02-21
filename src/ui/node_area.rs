@@ -288,3 +288,9 @@ impl NodeArea {
         imp.remove_by_resource(&self.clone().upcast::<gtk::Container>(), node);
     }
 }
+
+impl Default for NodeArea {
+    fn default() -> Self {
+        Self::new()
+    }
+}

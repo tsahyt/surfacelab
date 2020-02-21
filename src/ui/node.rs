@@ -303,3 +303,9 @@ impl Node {
         .unwrap()
     }
 }
+
+impl Default for Node {
+    fn default() -> Self {
+        Self::new()
+    }
+}

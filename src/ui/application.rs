@@ -225,3 +225,9 @@ impl SurfaceLabApplication {
         }
     }
 }
+
+impl Default for SurfaceLabApplication {
+    fn default() -> Self {
+        Self::new()
+    }
+}

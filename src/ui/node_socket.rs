@@ -160,7 +160,7 @@ impl NodeSocketPrivate {
     }
 
     fn get_rgba(&self) -> (f64, f64, f64, f64) {
-        self.rgba.borrow().clone()
+        *self.rgba.borrow()
     }
 
     fn set_radius(&self, radius: f64) {
@@ -168,7 +168,7 @@ impl NodeSocketPrivate {
     }
 
     fn get_radius(&self) -> f64 {
-        self.radius.borrow().clone()
+        *self.radius.borrow()
     }
 
     fn set_io(&self, widget: &gtk::Widget, io: NodeSocketIO) {
