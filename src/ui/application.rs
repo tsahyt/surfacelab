@@ -56,33 +56,14 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
             let button_box = gtk::ButtonBox::new(gtk::Orientation::Horizontal);
             button_box.set_layout(gtk::ButtonBoxStyle::Expand);
 
-            let new_image_node_button = gtk::Button::new_with_label("New Image Node");
-            new_image_node_button.connect_clicked(move |_| {
-                super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                    Operator::Image {
-                        path: std::path::PathBuf::from(""),
-                    },
-                )))
-            });
-            button_box.add(&new_image_node_button);
-
-            let new_output_node_button = gtk::Button::new_with_label("New Output Node");
-            new_output_node_button.connect_clicked(move |_| {
-                super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                    Operator::Output {
-                        output_type: OutputType::default(),
-                    },
-                )))
-            });
-            button_box.add(&new_output_node_button);
-
-            let new_blend_node_button = gtk::Button::new_with_label("New Blend Node");
-            new_blend_node_button.connect_clicked(move |_| {
-                super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                    Operator::Blend(BlendParameters::default()),
-                )))
-            });
-            button_box.add(&new_blend_node_button);
+            for op in Operator::all_default() {
+                let new_button =
+                    gtk::Button::new_with_label(format!("New {} Node", op.title()).as_ref());
+                new_button.connect_clicked(move |_| {
+                    super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(op.clone())))
+                });
+                button_box.add(&new_button);
+            }
 
             button_box
         };
@@ -230,10 +211,8 @@ impl SurfaceLabApplication {
                     let new_node = node::Node::new_from_operator(op, res);
                     widgets.node_area.add(&new_node);
                     new_node.show_all();
-                },
-                GraphEvent::NodeRemoved(res) => {
-                    widgets.node_area.remove_by_resource(&res)
                 }
+                GraphEvent::NodeRemoved(res) => widgets.node_area.remove_by_resource(&res),
                 GraphEvent::ConnectedSockets(source, sink) => {
                     widgets.node_area.add_connection(source, sink);
                 }

@@ -21,6 +21,15 @@ pub struct PerlinNoiseParameters {
     octaves: f32,
 }
 
+impl Default for PerlinNoiseParameters {
+    fn default() -> Self {
+        PerlinNoiseParameters {
+            scale: 3.0,
+            octaves: 2.0,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Operator {
     Blend(BlendParameters),
@@ -78,6 +87,19 @@ impl Operator {
             Operator::Image { .. } => "Image",
             Operator::Output { .. } => "Output",
         }
+    }
+
+    pub fn all_default() -> Vec<Self> {
+        vec![
+            Operator::Blend(BlendParameters::default()),
+            Operator::PerlinNoise(PerlinNoiseParameters::default()),
+            Operator::Image {
+                path: PathBuf::new(),
+            },
+            Operator::Output {
+                output_type: OutputType::default(),
+            },
+        ]
     }
 }
 
