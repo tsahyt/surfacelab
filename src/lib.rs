@@ -1,10 +1,11 @@
 #![feature(tau_constant)]
 
+pub mod broker;
 pub mod compute;
+pub mod lang;
 pub mod nodes;
 pub mod render;
 pub mod ui;
-pub mod lang;
 
 pub mod bus {
     use multiqueue2 as mq;
@@ -21,7 +22,8 @@ pub mod bus {
     impl Bus {
         pub fn new(capacity: u64) -> Self {
             log::info!("Initializing application bus");
-            let (sender, receiver) = mq::broadcast_queue(capacity);
+            let (sender, receiver) =
+                mq::broadcast_queue_with(capacity, mq::wait::BlockingWait::with_spins(4, 12));
             Bus {
                 sender: Some(sender),
                 receiver: Some(receiver),

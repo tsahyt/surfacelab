@@ -952,6 +952,7 @@ name = "surfacelab"
 version = "0.1.0"
 dependencies = [
  "cairo-rs",
+ "crossbeam-channel",
  "env_logger",
  "gdk",
  "gdk-sys",
