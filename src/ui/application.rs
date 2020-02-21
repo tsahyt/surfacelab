@@ -231,6 +231,9 @@ impl SurfaceLabApplication {
                     widgets.node_area.add(&new_node);
                     new_node.show_all();
                 },
+                GraphEvent::NodeRemoved(res) => {
+                    widgets.node_area.remove_by_resource(&res)
+                }
                 GraphEvent::ConnectedSockets(source, sink) => {
                     widgets.node_area.add_connection(source, sink);
                 }

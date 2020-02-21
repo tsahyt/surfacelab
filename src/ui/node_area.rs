@@ -116,9 +116,8 @@ impl NodeAreaPrivate {
             }),
         );
 
-        widget.connect_close_clicked(clone!(@strong container => move |w| {
-            // TODO: emit user node removal event
-            container.remove(w);
+        widget.connect_close_clicked(clone!(@strong resource => move |_| {
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(resource.to_owned())));
         }));
     }
 
@@ -140,6 +139,15 @@ impl NodeAreaPrivate {
         });
 
         Some(())
+    }
+
+    fn remove_by_resource(&self, container: &gtk::Container, node: &Resource) {
+        let lookup = self.children.borrow().get(node).cloned();
+
+        match lookup {
+            Some(widget) => container.remove(&widget),
+            _ => log::error!("Tried to remove non-existent widget from NodeArea"),
+        }
     }
 }
 
@@ -241,5 +249,10 @@ impl NodeArea {
         let imp = NodeAreaPrivate::from_instance(self);
         imp.add_connection(source, sink).unwrap();
         self.queue_draw();
+    }
+
+    pub fn remove_by_resource(&self, node: &Resource) {
+        let imp = NodeAreaPrivate::from_instance(self);
+        imp.remove_by_resource(&self.clone().upcast::<gtk::Container>(), node);
     }
 }

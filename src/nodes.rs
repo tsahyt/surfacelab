@@ -58,9 +58,11 @@ impl NodeManager {
                     let resource = self.new_node(op.clone());
                     response = Some(Lang::GraphEvent(GraphEvent::NodeAdded(resource, op)))
                 }
-                UserNodeEvent::RemoveNode(uri) => self
-                    .remove_node(uri)
-                    .unwrap_or_else(|e| log::error!("{}", e)),
+                UserNodeEvent::RemoveNode(res) => {
+                    self.remove_node(&res)
+                        .unwrap_or_else(|e| log::error!("{}", e));
+                    response = Some(Lang::GraphEvent(GraphEvent::NodeRemoved(res)))
+                }
                 UserNodeEvent::ConnectSockets(from, to) => {
                     self.connect_sockets(&from, &to)
                         .unwrap_or_else(|e| log::error!("{}", e));
@@ -111,9 +113,9 @@ impl NodeManager {
     /// Remove a node with the given URI if it exists.
     ///
     /// **Errors** if the node does not exist.
-    fn remove_node(&mut self, resource: lang::Resource) -> Result<(), String> {
+    fn remove_node(&mut self, resource: &lang::Resource) -> Result<(), String> {
         let node = self
-            .node_by_uri(&resource)
+            .node_by_uri(resource)
             .ok_or(format!("Node for URI {} not found!", resource))?;
 
         log::trace!(
@@ -130,7 +132,11 @@ impl NodeManager {
     /// Connect two sockets in the node graph.
     ///
     /// **Errors** and aborts if either of the two URIs does not exist!
-    fn connect_sockets(&mut self, from: &lang::Resource, to: &lang::Resource) -> Result<(), String> {
+    fn connect_sockets(
+        &mut self,
+        from: &lang::Resource,
+        to: &lang::Resource,
+    ) -> Result<(), String> {
         let from_path = self
             .node_by_uri(from)
             .ok_or(format!("Node for URI {} not found!", &from))?;
@@ -216,7 +222,7 @@ impl NodeManager {
     fn node_by_uri(&self, resource: &lang::Resource) -> Option<graph::NodeIndex> {
         self.node_indices
             .get(&resource.drop_fragment())
-            .map(|i| i.clone())
+            .cloned()
     }
 }
 

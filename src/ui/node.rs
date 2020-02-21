@@ -260,7 +260,7 @@ impl Node {
             .borrow()
             .iter()
             .find(|socket| socket.get_socket_resource() == *resource)
-            .map(|x| x.clone())
+            .cloned()
     }
 
     pub fn add_socket(&self, resource: Resource, io: NodeSocketIO) {
