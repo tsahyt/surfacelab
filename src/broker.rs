@@ -12,7 +12,7 @@ pub type BrokerSender<T> = Sender<T>;
 
 pub type BrokerReceiver<T> = Receiver<Arc<T>>;
 
-impl<T> Broker<T> {
+impl<T: std::fmt::Debug> Broker<T> {
     /// Create a new Broker with a given capacity.
     pub fn new(capacity: usize) -> Self {
         let (s, r) = bounded(capacity);
@@ -37,6 +37,7 @@ impl<T> Broker<T> {
 
     pub fn run(&self) {
         for ev in &self.receiver {
+            log::debug!("Emitting event {:?}", ev);
             let arc = Arc::new(ev);
             for subscriber in &self.subscribers {
                 let res = subscriber.send(Arc::clone(&arc));

@@ -284,7 +284,9 @@ pub fn start_nodes_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::Jo
         for event in receiver {
             let response = node_mgr.process_event(event);
             for ev in response {
-                sender.send(ev);
+                if let Err(e) = sender.send(ev) {
+                    log::error!("Node Manager lost connection to application bus! {}", e);
+                }
             }
         }
 

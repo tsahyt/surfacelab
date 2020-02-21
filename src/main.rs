@@ -9,8 +9,10 @@ fn main() {
     // start threads
     let ui_thread = surfacelab::ui::start_ui_thread(&mut broker);
     let nodes_thread = surfacelab::nodes::start_nodes_thread(&mut broker);
-    let compute_thread = surfacelab::compute::start_compute_thread(&mut bus);
-    let render_thread = surfacelab::render::start_render_thread(&mut bus);
+    let compute_thread = surfacelab::compute::start_compute_thread(&mut broker);
+    let render_thread = surfacelab::render::start_render_thread(&mut broker);
+
+    broker.run();
 
     // wait for threads
     ui_thread.join().unwrap();

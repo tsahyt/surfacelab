@@ -13,10 +13,9 @@ thread_local!(static BROKER: OnceCell<broker::BrokerSender<lang::Lang>> = OnceCe
 
 fn emit(ev: lang::Lang) {
     BROKER.with(|b| {
-        b.get()
-            .expect("Uninitialized broker in UI TLS")
-            .send(ev)
-            .expect("UI disconnected from broker")
+        if let Err(e) = b.get().expect("Uninitialized broker in UI TLS").send(ev) {
+            log::error!("UI lost connection to application bus! {}", e)
+        }
     })
 }
 
