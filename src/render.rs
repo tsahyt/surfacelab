@@ -1,7 +1,10 @@
-use crate::{broker, lang::*};
+use crate::{broker, gpu, lang::*};
 use std::thread;
 
-pub fn start_render_thread(broker: &mut broker::Broker<Lang>) -> thread::JoinHandle<()> {
+pub fn start_render_thread<B: gpu::Backend>(
+    broker: &mut broker::Broker<Lang>,
+    gpu: &gpu::GPU<B>,
+) -> thread::JoinHandle<()> {
     let (_sender, receiver) = broker.subscribe();
 
     thread::spawn(move || {

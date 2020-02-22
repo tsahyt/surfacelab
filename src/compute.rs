@@ -1,7 +1,10 @@
-use crate::{broker, lang::*};
+use crate::{broker, gpu, lang::*};
 use std::thread;
 
-pub fn start_compute_thread(broker: &mut broker::Broker<Lang>) -> thread::JoinHandle<()> {
+pub fn start_compute_thread<B: gpu::Backend>(
+    broker: &mut broker::Broker<Lang>,
+    gpu: &gpu::GPU<B>,
+) -> thread::JoinHandle<()> {
     log::info!("Starting GPU Compute Handler");
     let (_sender, receiver) = broker.subscribe();
 
