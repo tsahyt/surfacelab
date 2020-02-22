@@ -6,18 +6,34 @@ fn main() {
     let mut compiler = shaderc::Compiler::new().unwrap();
     let mut options = shaderc::CompileOptions::new().unwrap();
 
-    // process all compute shaders
+    // process all shaders
     for entry in fs::read_dir("shaders").unwrap() {
         let entry = entry.unwrap();
+
+        // skip all already compiled files
+        if entry.path().extension().unwrap().to_str() == Some("spv") {
+            continue;
+        }
+
+        // load shader and compile
         let shader = fs::read_to_string(entry.path()).unwrap();
         let binary_result = compiler.compile_into_spirv(
             &shader,
-            shaderc::ShaderKind::Compute,
+            match entry.path().extension().unwrap().to_str().unwrap() {
+                "comp" => shaderc::ShaderKind::Compute,
+                "frag" => shaderc::ShaderKind::Fragment,
+                "vert" => shaderc::ShaderKind::Vertex,
+                _ => {
+                    eprintln!("Illegal extension discovered");
+                    std::process::exit(1);
+                }
+            },
             entry.path().file_name().unwrap().to_str().unwrap(),
             "main",
             None,
         );
 
+        // save to .spv file on success
         match binary_result {
             Err(e) => {
                 eprintln!("{}", e);
