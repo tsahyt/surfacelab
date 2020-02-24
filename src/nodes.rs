@@ -1,6 +1,6 @@
 use crate::{broker, lang};
 use petgraph::graph;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::thread;
@@ -34,11 +34,13 @@ impl Node {
     }
 }
 
-type NodeGraph = graph::Graph<Node, (String, String), petgraph::Directed>;
+type EdgeLabel = (String, String);
+type NodeGraph = graph::Graph<Node, EdgeLabel, petgraph::Directed>;
 
 struct NodeManager {
     node_graph: NodeGraph,
     node_indices: HashMap<lang::Resource, graph::NodeIndex>,
+    outputs: HashSet<graph::NodeIndex>,
 }
 
 impl NodeManager {
@@ -47,6 +49,7 @@ impl NodeManager {
         NodeManager {
             node_graph,
             node_indices: HashMap::new(),
+            outputs: HashSet::new(),
         }
     }
 
@@ -89,6 +92,7 @@ impl NodeManager {
                 UserNodeEvent::DisconnectSockets(from, to) => self
                     .disconnect_sockets(from, to)
                     .unwrap_or_else(|e| log::error!("{}", e)),
+                UserNodeEvent::ForceRecompute => self.recompute(),
             },
             Lang::UserEvent(UserEvent::Quit) => return None,
             Lang::GraphEvent(..) => {}
@@ -126,6 +130,10 @@ impl NodeManager {
         let idx = self.node_graph.add_node(node);
         self.node_indices.insert(node_id.clone(), idx);
 
+        if op.is_output() {
+            self.outputs.insert(idx);
+        }
+
         node_id
     }
 
@@ -150,6 +158,17 @@ impl NodeManager {
 
         // FIXME: removal sometimes fails when it shouldn't
         debug_assert!(self.node_graph.node_weight(node).is_some());
+
+        // Remove from output vector
+        if self
+            .node_graph
+            .node_weight(node)
+            .unwrap()
+            .operator
+            .is_output()
+        {
+            self.outputs.remove(&node);
+        }
 
         // Get all connections
         let edges = {
@@ -272,6 +291,58 @@ impl NodeManager {
 
     fn node_by_uri(&self, resource: &lang::Resource) -> Option<graph::NodeIndex> {
         self.node_indices.get(&resource.drop_fragment()).cloned()
+    }
+
+    // TODO: should be in its own scope
+    fn recompute(&self) {
+        use petgraph::visit::EdgeRef;
+
+        log::debug!("Relinearizing Node Graph");
+
+        enum Action {
+            Traverse(Option<(EdgeLabel, graph::NodeIndex)>),
+            Visit(Option<(EdgeLabel, graph::NodeIndex)>),
+        };
+
+        let mut stack: Vec<(graph::NodeIndex, Action)> = self
+            .outputs
+            .iter()
+            .map(|x| (*x, Action::Traverse(None)))
+            .collect();
+
+        let mut traversal = Vec::new();
+
+        while let Some((nx, mark)) = stack.pop() {
+            match mark {
+                Action::Traverse(l) => {
+                    stack.push((nx, Action::Visit(l)));
+                    for edge in self
+                        .node_graph
+                        .edges_directed(nx, petgraph::Direction::Incoming)
+                    {
+                        let label = edge.weight();
+                        let sink = edge.target();
+                        stack.push((
+                            edge.source(),
+                            Action::Traverse(Some((label.to_owned(), sink))),
+                        ));
+                    }
+                }
+                Action::Visit(l) => {
+                    let node = &self.node_graph.node_weight(nx).unwrap().resource;
+                    traversal.push((
+                        node,
+                        l.map(|(edge, idx)| {
+                            (
+                                edge.0,
+                                edge.1,
+                                &self.node_graph.node_weight(idx).unwrap().resource,
+                            )
+                        }),
+                    ));
+                }
+            }
+        }
     }
 }
 

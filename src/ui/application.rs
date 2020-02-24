@@ -66,6 +66,12 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 button_box.add(&new_button);
             }
 
+            let force_button = gtk::Button::new_with_label("Force Recompute");
+            force_button.connect_clicked(move |_| {
+                super::emit(Lang::UserNodeEvent(UserNodeEvent::ForceRecompute));
+            });
+            button_box.add(&force_button);
+
             button_box
         };
 

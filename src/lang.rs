@@ -41,13 +41,13 @@ pub enum Operator {
 impl Operator {
     pub fn inputs(&self) -> HashMap<String, ImageType> {
         match self {
-            Operator::Blend(..) => hashmap! {
+            Self::Blend(..) => hashmap! {
                 "color1".to_string() => ImageType::RgbaImage,
                 "color2".to_string() => ImageType::RgbaImage
             },
-            Operator::PerlinNoise(..) => HashMap::new(),
-            Operator::Image { .. } => HashMap::new(),
-            Operator::Output { output_type } => match output_type {
+            Self::PerlinNoise(..) => HashMap::new(),
+            Self::Image { .. } => HashMap::new(),
+            Self::Output { output_type } => match output_type {
                 OutputType::Albedo => hashmap! { "albedo".to_string() => ImageType::RgbImage },
                 OutputType::Roughness => hashmap! { "roughness".to_string() => ImageType::Value },
                 OutputType::Normal => hashmap! { "normal".to_string() => ImageType::RgbImage },
@@ -61,45 +61,52 @@ impl Operator {
 
     pub fn outputs(&self) -> HashMap<String, ImageType> {
         match self {
-            Operator::Blend(..) => hashmap! {
+            Self::Blend(..) => hashmap! {
                 "color".to_string() => ImageType::RgbaImage
             },
-            Operator::PerlinNoise(..) => hashmap! { "noise".to_string() => ImageType::Value
+            Self::PerlinNoise(..) => hashmap! { "noise".to_string() => ImageType::Value
             },
-            Operator::Image { .. } => hashmap! { "image".to_string() => ImageType::RgbaImage },
-            Operator::Output { .. } => HashMap::new(),
+            Self::Image { .. } => hashmap! { "image".to_string() => ImageType::RgbaImage },
+            Self::Output { .. } => HashMap::new(),
         }
     }
 
     pub fn default_name(&self) -> &str {
         match self {
-            Operator::Blend(..) => "blend",
-            Operator::PerlinNoise(..) => "perlin_noise",
-            Operator::Image { .. } => "image",
-            Operator::Output { .. } => "output",
+            Self::Blend(..) => "blend",
+            Self::PerlinNoise(..) => "perlin_noise",
+            Self::Image { .. } => "image",
+            Self::Output { .. } => "output",
         }
     }
 
     pub fn title(&self) -> &str {
         match self {
-            Operator::Blend(..) => "Blend",
-            Operator::PerlinNoise(..) => "Perlin Noise",
-            Operator::Image { .. } => "Image",
-            Operator::Output { .. } => "Output",
+            Self::Blend(..) => "Blend",
+            Self::PerlinNoise(..) => "Perlin Noise",
+            Self::Image { .. } => "Image",
+            Self::Output { .. } => "Output",
         }
     }
 
     pub fn all_default() -> Vec<Self> {
         vec![
-            Operator::Blend(BlendParameters::default()),
-            Operator::PerlinNoise(PerlinNoiseParameters::default()),
-            Operator::Image {
+            Self::Blend(BlendParameters::default()),
+            Self::PerlinNoise(PerlinNoiseParameters::default()),
+            Self::Image {
                 path: PathBuf::new(),
             },
-            Operator::Output {
+            Self::Output {
                 output_type: OutputType::default(),
             },
         ]
+    }
+
+    pub fn is_output(&self) -> bool {
+        match self {
+            Self::Output {..} => true,
+            _ => false
+        }
     }
 }
 
@@ -222,6 +229,7 @@ pub enum UserNodeEvent {
     RemoveNode(Resource),
     ConnectSockets(Resource, Resource),
     DisconnectSockets(Resource, Resource),
+    ForceRecompute,
 }
 
 #[derive(Clone, Debug)]
