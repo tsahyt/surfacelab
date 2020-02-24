@@ -3,13 +3,15 @@ use gfx_hal as hal;
 use gfx_hal::prelude::*;
 pub use gfx_hal::Backend;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::mem::ManuallyDrop;
+use std::ops::Deref;
+use std::sync::{Arc, Mutex};
 
 pub struct GPU<B: Backend> {
     instance: B::Instance,
     device: B::Device,
     queue_group: hal::queue::QueueGroup<B>,
-    shaders: HashMap<(ShaderType, &'static str), B::ShaderModule>,
+    // command_pool: Arc<Mutex<B::CommandPool>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -19,11 +21,29 @@ pub enum ShaderType {
     Fragment,
 }
 
-pub struct Shader<B: Backend>(Arc<B::ShaderModule>);
+pub struct Shader(ShaderType, &'static str);
+
+pub struct CommandBuffer<'a, B: Backend> {
+    inner: ManuallyDrop<B::CommandBuffer>,
+    pool: &'a mut B::CommandPool,
+}
+
+impl<B> Drop for CommandBuffer<'_, B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        log::debug!("Dropping Command Buffer");
+        unsafe {
+            self.pool.free(Some(ManuallyDrop::take(&mut self.inner)));
+            ManuallyDrop::drop(&mut self.inner);
+        }
+    }
+}
 
 /// Initialize the GPU, optionally headless. When headless is specified,
 /// no graphics capable family is required.
-pub fn initialize_gpu(headless: bool) -> Result<GPU<back::Backend>, String> {
+pub fn initialize_gpu(headless: bool) -> Result<Arc<Mutex<GPU<back::Backend>>>, String> {
     log::info!("Initializing GPU");
 
     let instance = back::Instance::create("surfacelab", 1)
@@ -43,7 +63,48 @@ pub fn initialize_gpu(headless: bool) -> Result<GPU<back::Backend>, String> {
             "Failed to find a GPU with compute and graphics support!"
         })?;
 
-    GPU::new(instance, adapter, headless)
+    let gpu = GPU::new(instance, adapter, headless)?;
+    Ok(Arc::new(Mutex::new(gpu)))
+}
+
+/// Create a new GPUCompute instance.
+pub fn create_compute<B: Backend>(gpu: Arc<Mutex<GPU<B>>>) -> Result<GPUCompute<B>, String> {
+    log::info!("Obtaining GPU Compute Resources");
+    let lock = gpu.lock().unwrap();
+
+    let command_pool = unsafe {
+        lock.device.create_command_pool(
+            lock.queue_group.family,
+            hal::pool::CommandPoolCreateFlags::empty(),
+        )
+    }
+    .map_err(|_| "Can't create command pool!")?;
+
+    Ok(GPUCompute {
+        gpu: gpu.clone(),
+        command_pool: command_pool,
+        shaders: HashMap::new(),
+    })
+}
+
+pub fn create_render<B: Backend>(gpu: Arc<Mutex<GPU<B>>>) -> Result<GPURender<B>, String> {
+    log::info!("Obtaining GPU Render Resources");
+    let lock = gpu.lock().unwrap();
+
+    let command_pool = unsafe {
+        lock.device.create_command_pool(
+            lock.queue_group.family,
+            hal::pool::CommandPoolCreateFlags::empty(),
+        )
+    }
+    .map_err(|_| "Can't create command pool!")?;
+
+    Ok(GPURender {
+        gpu: gpu.clone(),
+        command_pool: command_pool,
+        vertex_shaders: HashMap::new(),
+        fragment_shaders: HashMap::new(),
+    })
 }
 
 impl<B> GPU<B>
@@ -81,22 +142,7 @@ where
             instance,
             device,
             queue_group,
-            shaders: HashMap::new(),
         })
-    }
-
-    pub fn register_shader(
-        &mut self,
-        spirv: &[u8],
-        name: &'static str,
-        ty: ShaderType,
-    ) -> Result<(), String> {
-        let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
-            .map_err(|e| format!("Failed to load SPIR-V: {}", e))?;
-        let shader = unsafe { self.device.create_shader_module(&loaded_spirv) }
-            .map_err(|e| format!("Failed to build shader module: {}", e))?;
-        self.shaders.insert((ty, name), shader);
-        Ok(())
     }
 }
 
@@ -106,5 +152,84 @@ where
 {
     fn drop(&mut self) {
         log::info!("Dropping GPU")
+    }
+}
+
+pub struct GPUCompute<B: Backend> {
+    gpu: Arc<Mutex<GPU<B>>>,
+    command_pool: B::CommandPool,
+    shaders: HashMap<&'static str, B::ShaderModule>,
+}
+
+impl<B> GPUCompute<B>
+where
+    B: Backend,
+{
+    pub fn register_shader(&mut self, spirv: &[u8], name: &'static str) -> Result<Shader, String> {
+        let lock = self.gpu.lock().unwrap();
+        let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
+            .map_err(|e| format!("Failed to load SPIR-V: {}", e))?;
+        let shader = unsafe { lock.device.create_shader_module(&loaded_spirv) }
+            .map_err(|e| format!("Failed to build shader module: {}", e))?;
+        self.shaders.insert(name, shader);
+        Ok(Shader(ShaderType::Compute, name))
+    }
+
+    pub fn primary_command_buffer(&mut self) -> CommandBuffer<B> {
+        let inner = { unsafe { self.command_pool.allocate_one(hal::command::Level::Primary) } };
+
+        CommandBuffer {
+            inner: ManuallyDrop::new(inner),
+            pool: &mut self.command_pool,
+        }
+    }
+}
+
+impl<B> Drop for GPUCompute<B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        log::info!("Releasing GPU Compute resources")
+    }
+}
+
+pub struct GPURender<B: Backend> {
+    gpu: Arc<Mutex<GPU<B>>>,
+    command_pool: B::CommandPool,
+    vertex_shaders: HashMap<&'static str, B::ShaderModule>,
+    fragment_shaders: HashMap<&'static str, B::ShaderModule>,
+}
+
+impl<B> GPURender<B>
+where
+    B: Backend,
+{
+    // pub fn register_vertex_shader(&mut self, spirv: &[u8], name: &'static str) -> Result<Shader, String> {
+    //     let lock = self.gpu.lock().unwrap();
+    //     let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
+    //         .map_err(|e| format!("Failed to load SPIR-V: {}", e))?;
+    //     let shader = unsafe { lock.device.create_shader_module(&loaded_spirv) }
+    //         .map_err(|e| format!("Failed to build shader module: {}", e))?;
+    //     self.shaders.insert(name, shader);
+    //     Ok(Shader(ShaderType::Compute, name))
+    // }
+
+    // pub fn primary_command_buffer(&mut self) -> CommandBuffer<B> {
+    //     let inner = { unsafe { self.command_pool.allocate_one(hal::command::Level::Primary) } };
+
+    //     CommandBuffer {
+    //         inner: ManuallyDrop::new(inner),
+    //         pool: &mut self.command_pool,
+    //     }
+    // }
+}
+
+impl<B> Drop for GPURender<B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        log::info!("Releasing GPU Render resources")
     }
 }
