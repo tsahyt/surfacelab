@@ -233,10 +233,10 @@ impl SurfaceLabApplication {
                     widgets
                         .node_area
                         .remove_connection(source.clone(), sink.clone());
-                }
+                },
+                _ => {}
             },
-            Lang::UserNodeEvent(..) => {}
-            Lang::UserEvent(..) => {}
+            _ => {}
         }
     }
 }

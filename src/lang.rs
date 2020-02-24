@@ -104,10 +104,16 @@ impl Operator {
 
     pub fn is_output(&self) -> bool {
         match self {
-            Self::Output {..} => true,
-            _ => false
+            Self::Output { .. } => true,
+            _ => false,
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum Instruction {
+    Execute(Resource, Operator),
+    Move(Resource, Resource),
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -238,11 +244,12 @@ pub enum GraphEvent {
     NodeRemoved(Resource),
     ConnectedSockets(Resource, Resource),
     DisconnectedSockets(Resource, Resource),
+    Recomputed(Vec<Instruction>)
 }
 
 #[derive(Clone, Debug)]
 pub enum UserEvent {
-    Quit
+    Quit,
 }
 
 #[derive(Clone, Debug)]

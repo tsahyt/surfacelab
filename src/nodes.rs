@@ -92,7 +92,10 @@ impl NodeManager {
                 UserNodeEvent::DisconnectSockets(from, to) => self
                     .disconnect_sockets(from, to)
                     .unwrap_or_else(|e| log::error!("{}", e)),
-                UserNodeEvent::ForceRecompute => self.recompute(),
+                UserNodeEvent::ForceRecompute => {
+                    let instructions = self.recompute();
+                    response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
+                }
             },
             Lang::UserEvent(UserEvent::Quit) => return None,
             Lang::GraphEvent(..) => {}
@@ -294,7 +297,7 @@ impl NodeManager {
     }
 
     // TODO: should be in its own scope
-    fn recompute(&self) {
+    fn recompute(&self) -> Vec<lang::Instruction> {
         use petgraph::visit::EdgeRef;
 
         log::debug!("Relinearizing Node Graph");
@@ -329,20 +332,26 @@ impl NodeManager {
                     }
                 }
                 Action::Visit(l) => {
-                    let node = &self.node_graph.node_weight(nx).unwrap().resource;
-                    traversal.push((
-                        node,
-                        l.map(|(edge, idx)| {
-                            (
-                                edge.0,
-                                edge.1,
-                                &self.node_graph.node_weight(idx).unwrap().resource,
-                            )
-                        }),
-                    ));
+                    let node = self.node_graph.node_weight(nx).unwrap();
+                    let op = node.operator.to_owned();
+                    let res = node.resource.to_owned();
+                    traversal.push(lang::Instruction::Execute(res.clone(), op));
+                    if let Some(((source, sink), idx)) = l {
+                        let to_node = self
+                            .node_graph
+                            .node_weight(idx)
+                            .unwrap()
+                            .resource
+                            .to_owned();
+                        let from = res.extend_fragment(&source);
+                        let to = to_node.extend_fragment(&sink);
+                        traversal.push(lang::Instruction::Move(from, to));
+                    }
                 }
             }
         }
+
+        traversal
     }
 }
 
