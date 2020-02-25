@@ -67,46 +67,6 @@ pub fn initialize_gpu(headless: bool) -> Result<Arc<Mutex<GPU<back::Backend>>>, 
     Ok(Arc::new(Mutex::new(gpu)))
 }
 
-/// Create a new GPUCompute instance.
-pub fn create_compute<B: Backend>(gpu: Arc<Mutex<GPU<B>>>) -> Result<GPUCompute<B>, String> {
-    log::info!("Obtaining GPU Compute Resources");
-    let lock = gpu.lock().unwrap();
-
-    let command_pool = unsafe {
-        lock.device.create_command_pool(
-            lock.queue_group.family,
-            hal::pool::CommandPoolCreateFlags::empty(),
-        )
-    }
-    .map_err(|_| "Can't create command pool!")?;
-
-    Ok(GPUCompute {
-        gpu: gpu.clone(),
-        command_pool: command_pool,
-        shaders: HashMap::new(),
-    })
-}
-
-pub fn create_render<B: Backend>(gpu: Arc<Mutex<GPU<B>>>) -> Result<GPURender<B>, String> {
-    log::info!("Obtaining GPU Render Resources");
-    let lock = gpu.lock().unwrap();
-
-    let command_pool = unsafe {
-        lock.device.create_command_pool(
-            lock.queue_group.family,
-            hal::pool::CommandPoolCreateFlags::empty(),
-        )
-    }
-    .map_err(|_| "Can't create command pool!")?;
-
-    Ok(GPURender {
-        gpu: gpu.clone(),
-        command_pool: command_pool,
-        vertex_shaders: HashMap::new(),
-        fragment_shaders: HashMap::new(),
-    })
-}
-
 impl<B> GPU<B>
 where
     B: Backend,
@@ -159,12 +119,34 @@ pub struct GPUCompute<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: B::CommandPool,
     shaders: HashMap<&'static str, B::ShaderModule>,
+    uniforms: B::Buffer,
 }
 
 impl<B> GPUCompute<B>
 where
     B: Backend,
 {
+    /// Create a new GPUCompute instance.
+    pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, String> {
+        log::info!("Obtaining GPU Compute Resources");
+        let lock = gpu.lock().unwrap();
+
+        let command_pool = unsafe {
+            lock.device.create_command_pool(
+                lock.queue_group.family,
+                hal::pool::CommandPoolCreateFlags::empty(),
+            )
+        }
+        .map_err(|_| "Can't create command pool!")?;
+
+        Ok(GPUCompute {
+            gpu: gpu.clone(),
+            command_pool: command_pool,
+            shaders: HashMap::new(),
+            uniforms: unimplemented!(),
+        })
+    }
+
     pub fn register_shader(&mut self, spirv: &[u8], name: &'static str) -> Result<Shader, String> {
         let lock = self.gpu.lock().unwrap();
         let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
@@ -205,24 +187,25 @@ impl<B> GPURender<B>
 where
     B: Backend,
 {
-    // pub fn register_vertex_shader(&mut self, spirv: &[u8], name: &'static str) -> Result<Shader, String> {
-    //     let lock = self.gpu.lock().unwrap();
-    //     let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
-    //         .map_err(|e| format!("Failed to load SPIR-V: {}", e))?;
-    //     let shader = unsafe { lock.device.create_shader_module(&loaded_spirv) }
-    //         .map_err(|e| format!("Failed to build shader module: {}", e))?;
-    //     self.shaders.insert(name, shader);
-    //     Ok(Shader(ShaderType::Compute, name))
-    // }
+    pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, String> {
+        log::info!("Obtaining GPU Render Resources");
+        let lock = gpu.lock().unwrap();
 
-    // pub fn primary_command_buffer(&mut self) -> CommandBuffer<B> {
-    //     let inner = { unsafe { self.command_pool.allocate_one(hal::command::Level::Primary) } };
+        let command_pool = unsafe {
+            lock.device.create_command_pool(
+                lock.queue_group.family,
+                hal::pool::CommandPoolCreateFlags::empty(),
+            )
+        }
+        .map_err(|_| "Can't create command pool!")?;
 
-    //     CommandBuffer {
-    //         inner: ManuallyDrop::new(inner),
-    //         pool: &mut self.command_pool,
-    //     }
-    // }
+        Ok(GPURender {
+            gpu: gpu.clone(),
+            command_pool: command_pool,
+            vertex_shaders: HashMap::new(),
+            fragment_shaders: HashMap::new(),
+        })
+    }
 }
 
 impl<B> Drop for GPURender<B>

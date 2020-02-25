@@ -9,7 +9,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
 ) -> thread::JoinHandle<()> {
     log::info!("Starting GPU Compute Handler");
     let (sender, receiver) = broker.subscribe();
-    match gpu::create_compute(gpu) {
+    match gpu::GPUCompute::new(gpu) {
         Err(e) => {
             log::error!("Failed to initialize GPU Compute: {}", e);
             panic!("Critical Error");
