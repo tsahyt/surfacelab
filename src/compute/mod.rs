@@ -9,7 +9,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
 ) -> thread::JoinHandle<()> {
     log::info!("Starting GPU Compute Handler");
     let (sender, receiver) = broker.subscribe();
-    match gpu::GPUCompute::new(gpu) {
+    match gpu::compute::GPUCompute::new(gpu) {
         Err(e) => {
             log::error!("Failed to initialize GPU Compute: {}", e);
             panic!("Critical Error");
@@ -35,7 +35,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
 }
 
 struct ComputeManager<B: gpu::Backend> {
-    gpu: gpu::GPUCompute<B>,
+    gpu: gpu::compute::GPUCompute<B>,
     sockets: HashMap<Resource, ImageType>,
 }
 
@@ -43,7 +43,7 @@ impl<B> ComputeManager<B>
 where
     B: gpu::Backend,
 {
-    pub fn new(gpu: gpu::GPUCompute<B>) -> Self {
+    pub fn new(gpu: gpu::compute::GPUCompute<B>) -> Self {
         ComputeManager {
             gpu,
             sockets: HashMap::new(),
