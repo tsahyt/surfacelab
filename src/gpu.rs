@@ -11,7 +11,7 @@ pub struct GPU<B: Backend> {
     instance: B::Instance,
     device: B::Device,
     queue_group: hal::queue::QueueGroup<B>,
-    // command_pool: Arc<Mutex<B::CommandPool>>,
+    memory_properties: hal::adapter::MemoryProperties,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -79,6 +79,10 @@ where
         log::debug!("Using adapter {:?}", adapter);
 
         let memory_properties = adapter.physical_device.memory_properties();
+        log::debug!(
+            "Supported memory types: {:?}",
+            memory_properties.memory_types
+        );
 
         let family = adapter
             .queue_families
@@ -102,6 +106,7 @@ where
             instance,
             device,
             queue_group,
+            memory_properties,
         })
     }
 }
@@ -126,6 +131,7 @@ impl<B> GPUCompute<B>
 where
     B: Backend,
 {
+    const UNIFORM_BUFFER_SIZE: u64 = 4096;
     /// Create a new GPUCompute instance.
     pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, String> {
         log::info!("Obtaining GPU Compute Resources");
@@ -137,13 +143,52 @@ where
                 hal::pool::CommandPoolCreateFlags::empty(),
             )
         }
-        .map_err(|_| "Can't create command pool!")?;
+        .map_err(|_| "Cannot create command pool!")?;
+
+        // The uniform buffer is created once and shared across all compute
+        // shaders, since only one is ever running at the same time. The size
+        // of the buffer is given by UNIFORM_BUFFER_SIZE, and must be large
+        // enough to accomodate every possible uniform struct!
+        let uniforms = unsafe {
+            let mut buf = lock
+                .device
+                .create_buffer(
+                    Self::UNIFORM_BUFFER_SIZE,
+                    hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM,
+                )
+                .map_err(|_| "Cannot create compute uniform buffer")?;
+            let buffer_req = lock.device.get_buffer_requirements(&buf);
+            let upload_type = lock
+                .memory_properties
+                .memory_types
+                .iter()
+                .enumerate()
+                .position(|(id, mem_type)| {
+                    // type_mask is a bit field where each bit represents a memory type. If the bit is set
+                    // to 1 it means we can use that type for our buffer. So this code finds the first
+                    // memory type that has a `1` (or, is allowed), and is visible to the CPU.
+                    buffer_req.type_mask & (1 << id) != 0
+                        && mem_type
+                            .properties
+                            .contains(hal::memory::Properties::CPU_VISIBLE)
+                })
+                .unwrap()
+                .into();
+            let mem = lock
+                .device
+                .allocate_memory(upload_type, Self::UNIFORM_BUFFER_SIZE)
+                .map_err(|_| "Failed to allocate device memory for compute uniform buffer")?;
+            lock.device
+                .bind_buffer_memory(&mem, 0, &mut buf)
+                .map_err(|_| "Failed to bind compute uniform buffer to memory")?;
+            buf
+        };
 
         Ok(GPUCompute {
             gpu: gpu.clone(),
             command_pool: command_pool,
             shaders: HashMap::new(),
-            uniforms: unimplemented!(),
+            uniforms,
         })
     }
 
@@ -172,6 +217,7 @@ where
     B: Backend,
 {
     fn drop(&mut self) {
+        // TODO: call device destructors for gpucompute
         log::info!("Releasing GPU Compute resources")
     }
 }
@@ -213,6 +259,7 @@ where
     B: Backend,
 {
     fn drop(&mut self) {
+        // TODO: call device destructors for gpurender
         log::info!("Releasing GPU Render resources")
     }
 }
