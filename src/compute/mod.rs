@@ -1,4 +1,5 @@
 use crate::{broker, gpu, lang::*};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -35,6 +36,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
 
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::GPUCompute<B>,
+    sockets: HashMap<Resource, ImageType>,
 }
 
 impl<B> ComputeManager<B>
@@ -42,18 +44,28 @@ where
     B: gpu::Backend,
 {
     pub fn new(gpu: gpu::GPUCompute<B>) -> Self {
-        ComputeManager { gpu }
+        ComputeManager {
+            gpu,
+            sockets: HashMap::new(),
+        }
     }
 
     pub fn process_event(&mut self, event: Arc<Lang>) -> Option<Vec<Lang>> {
         let mut response = Vec::new();
-
         match &*event {
             Lang::GraphEvent(event) => match event {
+                GraphEvent::NodeAdded(res, op) => {
+                    for (socket, imgtype) in op.inputs().into_iter().chain(op.outputs()) {
+                        let socket_res = res.extend_fragment(&socket);
+                        self.sockets.insert(socket_res, imgtype);
+                    }
+                }
+                GraphEvent::NodeRemoved(res) => self.sockets.retain(|s, _| !s.is_fragment_of(res)),
                 GraphEvent::Recomputed(instrs) => {
                     for i in instrs.iter() {
                         self.interpret(i)
-                    }}
+                    }
+                }
                 _ => {}
             },
             Lang::UserEvent(UserEvent::Quit) => return None,
@@ -67,9 +79,14 @@ where
         match instr {
             Instruction::Move(from, to) => {
                 log::trace!("Moving texture from {} to {}", from, to);
-            },
+            }
             Instruction::Execute(res, op) => {
                 log::trace!("Executing operator {:?} of {}", op, res);
+                match op.operator_type() {
+                    OperatorType::SinkOperator => {}
+                    OperatorType::SourceOperator => {}
+                    OperatorType::ProcessOperator => {}
+                }
             }
         }
     }
