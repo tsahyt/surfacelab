@@ -1,5 +1,6 @@
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
@@ -16,14 +17,17 @@ pub struct GPUCompute<B: Backend> {
     uniform_mem: B::Memory,
 
     // Image Memory Management
+    allocs: Cell<AllocId>,
     image_mem: B::Memory,
-    image_mem_chunks: Vec<Chunk>,
+    image_mem_chunks: RefCell<Vec<Chunk>>,
 }
+
+type AllocId = u16;
 
 #[derive(Debug, Clone, Copy)]
 struct Chunk {
     offset: u64,
-    free: bool,
+    alloc: Option<AllocId>,
 }
 
 impl<B> GPUCompute<B>
@@ -114,15 +118,20 @@ where
             gpu: gpu.clone(),
             command_pool: command_pool,
             shaders: HashMap::new(),
+
             uniform_buf,
             uniform_mem,
+
+            allocs: Cell::new(0),
             image_mem,
-            image_mem_chunks: (0..Self::N_CHUNKS)
-                .map(|id| Chunk {
-                    offset: Self::CHUNK_SIZE * id,
-                    free: true,
-                })
-                .collect(),
+            image_mem_chunks: RefCell::new(
+                (0..Self::N_CHUNKS)
+                    .map(|id| Chunk {
+                        offset: Self::CHUNK_SIZE * id,
+                        alloc: None,
+                    })
+                    .collect(),
+            ),
         })
     }
 
@@ -145,14 +154,38 @@ where
         }
     }
 
+    pub fn create_compute_image<'a>(&'a self, size: u32) -> Result<Image<'a, B>, String> {
+        let image = {
+            let lock = self.gpu.lock().unwrap();
+            unsafe {
+                lock.device.create_image(
+                    hal::image::Kind::D2(size, size, 1, 1),
+                    1,
+                    hal::format::Format::R32Sfloat,
+                    hal::image::Tiling::Optimal,
+                    hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
+                    hal::image::ViewCapabilities::empty(),
+                )
+            }
+            .map_err(|_| "Failed to create image")?
+        };
+
+        Ok(Image {
+            parent: self,
+            size,
+            raw: ManuallyDrop::new(image),
+            alloc: None,
+        })
+    }
+
     /// Find the first set of chunks of contiguous free memory that fits the
     /// requested number of bytes
     fn find_free_image_memory(&self, bytes: u64) -> Option<Vec<usize>> {
         let request = bytes / Self::CHUNK_SIZE;
         let mut free = Vec::with_capacity(request as usize);
 
-        for (i, chunk) in self.image_mem_chunks.iter().enumerate() {
-            if chunk.free {
+        for (i, chunk) in self.image_mem_chunks.borrow().iter().enumerate() {
+            if chunk.alloc.is_none() {
                 free.push(i);
                 if free.len() == request as usize {
                     return Some(free);
@@ -165,18 +198,27 @@ where
         None
     }
 
-    /// Mark the given set of chunks as used.
-    fn use_image_memory(&mut self, chunks: &[usize]) {
+    /// Mark the given set of chunks as used. Assumes that the chunks were
+    /// previously free!
+    fn allocate_image_memory(&self, chunks: &[usize]) -> AllocId {
+        let alloc = self.allocs.get();
         for i in chunks {
-            self.image_mem_chunks[*i].free = false;
+            self.image_mem_chunks.borrow_mut()[*i].alloc = Some(alloc);
         }
+        self.allocs.set(alloc + 1);
+        alloc
     }
 
     /// Mark the given set of chunks as free. Memory freed here should no longer
     /// be used!
-    fn free_image_memory(&mut self, chunks: &[usize]) {
-        for i in chunks {
-            self.image_mem_chunks[*i].free = true;
+    fn free_image_memory(&self, alloc: AllocId) {
+        for mut chunk in self
+            .image_mem_chunks
+            .borrow_mut()
+            .iter_mut()
+            .filter(|c| c.alloc == Some(alloc))
+        {
+            chunk.alloc = None;
         }
     }
 }
@@ -188,5 +230,60 @@ where
     fn drop(&mut self) {
         // TODO: call device destructors for gpucompute
         log::info!("Releasing GPU Compute resources")
+    }
+}
+
+pub struct Image<'a, B: Backend> {
+    parent: &'a GPUCompute<B>,
+    size: u32,
+    raw: ManuallyDrop<B::Image>,
+    alloc: Option<AllocId>,
+}
+
+impl<B> Image<'_, B>
+where
+    B: Backend,
+{
+    /// Allocate memory to the image from the underlying memory pool in compute.
+    pub fn allocate_memory(&mut self, compute: &mut GPUCompute<B>) -> Result<(), String> {
+        debug_assert!(self.alloc.is_none());
+
+        let bytes = self.size as u64 * self.size as u64 * 4;
+        let chunks = compute
+            .find_free_image_memory(bytes)
+            .ok_or("Unable to find free memory for image")?;
+        let alloc = compute.allocate_image_memory(&chunks);
+        self.alloc = Some(alloc);
+
+        Ok(())
+    }
+
+    /// Free the memory backing the image.
+    pub fn free_memory(&mut self, compute: &mut GPUCompute<B>) {
+        debug_assert!(self.alloc.is_some());
+        compute.free_image_memory(self.alloc.unwrap());
+    }
+
+    /// Determine whether an Image is backed by Device memory
+    pub fn is_backed(&self) -> bool {
+        self.alloc.is_some()
+    }
+}
+
+impl<B> Drop for Image<'_, B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        {
+            let lock = self.parent.gpu.lock().unwrap();
+            unsafe {
+                lock.device.destroy_image(ManuallyDrop::take(&mut self.raw));
+            }
+        }
+
+        if let Some(alloc) = self.alloc {
+            self.parent.free_image_memory(alloc);
+        }
     }
 }
