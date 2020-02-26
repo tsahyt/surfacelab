@@ -123,8 +123,6 @@ where
 pub struct GPURender<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: B::CommandPool,
-    vertex_shaders: HashMap<&'static str, B::ShaderModule>,
-    fragment_shaders: HashMap<&'static str, B::ShaderModule>,
 }
 
 impl<B> GPURender<B>
@@ -146,8 +144,6 @@ where
         Ok(GPURender {
             gpu: gpu.clone(),
             command_pool: command_pool,
-            vertex_shaders: HashMap::new(),
-            fragment_shaders: HashMap::new(),
         })
     }
 }

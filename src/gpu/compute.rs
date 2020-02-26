@@ -263,7 +263,7 @@ where
     B: Backend,
 {
     /// Allocate fresh memory to the image from the underlying memory pool in compute.
-    pub fn allocate_memory(&mut self, compute: &mut GPUCompute<B>) -> Result<(), String> {
+    pub fn allocate_memory(&mut self, compute: &GPUCompute<B>) -> Result<(), String> {
         log::trace!("Allocating memory for image");
         debug_assert!(self.alloc.is_none());
 
@@ -304,6 +304,14 @@ where
     /// Returns a clone of the underlying allocation
     pub fn get_alloc(&self) -> Option<Rc<Alloc<B>>> {
         self.alloc.clone()
+    }
+
+    pub fn ensure_alloc(&mut self, compute: &GPUCompute<B>) -> Result<(), String> {
+        if self.alloc.is_none() {
+            return self.allocate_memory(compute);
+        }
+
+        Ok(())
     }
 }
 

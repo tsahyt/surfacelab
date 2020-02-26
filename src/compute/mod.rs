@@ -72,7 +72,12 @@ where
                 GraphEvent::NodeRemoved(res) => self.sockets.retain(|s, _| !s.is_fragment_of(res)),
                 GraphEvent::Recomputed(instrs) => {
                     for i in instrs.iter() {
-                        self.interpret(i)
+                        let r = self.interpret(i);
+                        if let Err(e) = r {
+                            log::error!("Error during compute interpretation: {}", e);
+                            log::error!("Aborting compute!");
+                            break;
+                        }
                     }
                 }
                 _ => {}
@@ -84,7 +89,7 @@ where
         Some(response)
     }
 
-    fn interpret(&mut self, instr: &Instruction) {
+    fn interpret(&mut self, instr: &Instruction) -> Result<(), String> {
         match instr {
             Instruction::Move(from, to) => {
                 log::trace!("Moving texture from {} to {}", from, to);
@@ -102,8 +107,22 @@ where
             }
             Instruction::Execute(res, op) => {
                 log::trace!("Executing operator {:?} of {}", op, res);
+
+                // ensure images are allocated
+                for (socket, _) in op.inputs().iter().chain(op.outputs().iter()) {
+                    let socket_res = res.extend_fragment(&socket);
+                    debug_assert!(self.sockets.get(&socket_res).is_some());
+                    self.sockets
+                        .get_mut(&socket_res)
+                        .unwrap()
+                        .ensure_alloc(&self.gpu)?;
+                }
+
+                // fill uniforms and execute shader
             }
         }
+
+        Ok(())
     }
 }
 
