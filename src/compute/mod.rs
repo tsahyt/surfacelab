@@ -96,3 +96,12 @@ where
         }
     }
 }
+
+impl<B> Drop for ComputeManager<B>
+where
+    B: gpu::Backend,
+{
+    fn drop(&mut self) {
+        self.sockets.clear();
+    }
+}
