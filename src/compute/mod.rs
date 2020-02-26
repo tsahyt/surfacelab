@@ -111,6 +111,12 @@ where
                     log::warn!("Tried to move unallocated memory")
                 }
             }
+            Instruction::Execute(res, Operator::Image { .. }) => {
+                log::trace!("Processing Image operator {}", res);
+            }
+            Instruction::Execute(res, Operator::Output { .. }) => {
+                log::trace!("Processing Output operator {}", res);
+            }
             Instruction::Execute(res, op) => {
                 log::trace!("Executing operator {:?} of {}", op, res);
 
@@ -125,6 +131,7 @@ where
                 }
 
                 // fill uniforms and execute shader
+                let shader = self.shader_library.shader_for(&op);
             }
         }
 
