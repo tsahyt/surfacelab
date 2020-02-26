@@ -30,12 +30,6 @@ impl Default for PerlinNoiseParameters {
     }
 }
 
-pub enum OperatorType {
-    SourceOperator,
-    ProcessOperator,
-    SinkOperator,
-}
-
 #[derive(Clone, Debug)]
 pub enum Operator {
     Blend(BlendParameters),
@@ -112,15 +106,6 @@ impl Operator {
         match self {
             Self::Output { .. } => true,
             _ => false,
-        }
-    }
-
-    pub fn operator_type(&self) -> OperatorType {
-        match self {
-            Self::Output { .. } => OperatorType::SinkOperator,
-            Self::Image { .. } => OperatorType::SourceOperator,
-            Self::PerlinNoise(..) => OperatorType::SourceOperator,
-            _ => OperatorType::ProcessOperator,
         }
     }
 }

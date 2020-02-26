@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+// TODO: Image sizes should not be hardcoded!
+const IMG_SIZE: u32 = 1024;
+
 pub fn start_compute_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,
@@ -50,8 +53,8 @@ where
         }
     }
 
-    fn add_socket(&mut self, socket: Resource) {
-        let img = self.gpu.create_compute_image(128).unwrap();
+    fn add_new_socket(&mut self, socket: Resource, _ty: &ImageType) {
+        let img = self.gpu.create_compute_image(IMG_SIZE).unwrap();
         self.sockets.insert(socket, img);
     }
 
@@ -60,9 +63,10 @@ where
         match &*event {
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, op) => {
-                    for (socket, imgtype) in op.inputs().into_iter().chain(op.outputs()) {
+                    for (socket, imgtype) in op.inputs().iter().chain(op.outputs().iter()) {
                         let socket_res = res.extend_fragment(&socket);
-                        self.add_socket(socket_res);
+                        log::trace!("Adding socket {}", socket_res);
+                        self.add_new_socket(socket_res, imgtype);
                     }
                 }
                 GraphEvent::NodeRemoved(res) => self.sockets.retain(|s, _| !s.is_fragment_of(res)),
@@ -84,14 +88,20 @@ where
         match instr {
             Instruction::Move(from, to) => {
                 log::trace!("Moving texture from {} to {}", from, to);
+
+                debug_assert!(self.sockets.get(from).is_some());
+                debug_assert!(self.sockets.get(to).is_some());
+                debug_assert!(from != to);
+
+                let source = self.sockets.get(from).unwrap().get_alloc();
+                if let Some(alloc) = source {
+                    self.sockets.get_mut(to).unwrap().use_memory_from(alloc);
+                } else {
+                    log::warn!("Tried to move unallocated memory")
+                }
             }
             Instruction::Execute(res, op) => {
                 log::trace!("Executing operator {:?} of {}", op, res);
-                match op.operator_type() {
-                    OperatorType::SinkOperator => {}
-                    OperatorType::SourceOperator => {}
-                    OperatorType::ProcessOperator => {}
-                }
             }
         }
     }

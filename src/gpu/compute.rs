@@ -3,6 +3,7 @@ use gfx_hal::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::mem::ManuallyDrop;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use super::{Backend, CommandBuffer, Shader, ShaderType, GPU};
@@ -24,7 +25,7 @@ pub struct GPUCompute<B: Backend> {
 
 type AllocId = u16;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct Chunk {
     offset: u64,
     alloc: Option<AllocId>,
@@ -233,18 +234,34 @@ where
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Alloc<B: Backend> {
+    parent: *const GPUCompute<B>,
+    id: AllocId,
+}
+
+impl<B> Drop for Alloc<B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        let parent = unsafe { &*self.parent };
+        parent.free_image_memory(self.id);
+    }
+}
+
 pub struct Image<B: Backend> {
     parent: *const GPUCompute<B>,
     size: u32,
     raw: ManuallyDrop<B::Image>,
-    alloc: Option<AllocId>,
+    alloc: Option<Rc<Alloc<B>>>,
 }
 
 impl<B> Image<B>
 where
     B: Backend,
 {
-    /// Allocate memory to the image from the underlying memory pool in compute.
+    /// Allocate fresh memory to the image from the underlying memory pool in compute.
     pub fn allocate_memory(&mut self, compute: &mut GPUCompute<B>) -> Result<(), String> {
         debug_assert!(self.alloc.is_none());
 
@@ -253,20 +270,36 @@ where
             .find_free_image_memory(bytes)
             .ok_or("Unable to find free memory for image")?;
         let alloc = compute.allocate_image_memory(&chunks);
-        self.alloc = Some(alloc);
+        self.alloc = Some(Rc::new(Alloc {
+            parent: self.parent,
+            id: alloc,
+        }));
 
         Ok(())
     }
 
-    /// Free the memory backing the image.
-    pub fn free_memory(&mut self, compute: &mut GPUCompute<B>) {
+    /// Release the Image's hold on the backing memory. Note that this does
+    /// *not* necessarily free the underlying memory block, since there may be
+    /// other references to it!
+    pub fn free_memory(&mut self) {
         debug_assert!(self.alloc.is_some());
-        compute.free_image_memory(self.alloc.unwrap());
+        self.alloc = None;
     }
 
     /// Determine whether an Image is backed by Device memory
     pub fn is_backed(&self) -> bool {
         self.alloc.is_some()
+    }
+
+    /// Use the memory region from another image. This will increase the
+    /// reference count on the underlying memory region.
+    pub fn use_memory_from(&mut self, alloc: Rc<Alloc<B>>) {
+        self.alloc = Some(alloc);
+    }
+
+    /// Returns a clone of the underlying allocation
+    pub fn get_alloc(&self) -> Option<Rc<Alloc<B>>> {
+        self.alloc.clone()
     }
 }
 
@@ -274,6 +307,8 @@ impl<B> Drop for Image<B>
 where
     B: Backend,
 {
+    /// Drop the raw resource. Any allocated memory will only be dropped when
+    /// the last reference to it drops.
     fn drop(&mut self) {
         let parent = unsafe { &*self.parent };
 
@@ -282,10 +317,6 @@ where
             unsafe {
                 lock.device.destroy_image(ManuallyDrop::take(&mut self.raw));
             }
-        }
-
-        if let Some(alloc) = self.alloc {
-            parent.free_image_memory(alloc);
         }
     }
 }
