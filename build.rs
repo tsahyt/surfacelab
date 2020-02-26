@@ -4,7 +4,6 @@ use std::{fs, io::Write};
 fn main() {
     // initialize compiler
     let mut compiler = shaderc::Compiler::new().unwrap();
-    let mut options = shaderc::CompileOptions::new().unwrap();
 
     // process all shaders
     for entry in fs::read_dir("shaders").unwrap() {
@@ -44,7 +43,7 @@ fn main() {
                 output_path.set_extension("spv");
 
                 let mut output = fs::File::create(output_path).unwrap();
-                output.write_all(binary_result.as_binary_u8());
+                output.write_all(binary_result.as_binary_u8()).unwrap();
             }
         }
     }
