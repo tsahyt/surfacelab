@@ -245,6 +245,7 @@ where
     B: Backend,
 {
     fn drop(&mut self) {
+        log::trace!("Release image memory for allocation {}", self.id);
         let parent = unsafe { &*self.parent };
         parent.free_image_memory(self.id);
     }
@@ -263,6 +264,7 @@ where
 {
     /// Allocate fresh memory to the image from the underlying memory pool in compute.
     pub fn allocate_memory(&mut self, compute: &mut GPUCompute<B>) -> Result<(), String> {
+        log::trace!("Allocating memory for image");
         debug_assert!(self.alloc.is_none());
 
         let bytes = self.size as u64 * self.size as u64 * 4;
@@ -282,6 +284,7 @@ where
     /// *not* necessarily free the underlying memory block, since there may be
     /// other references to it!
     pub fn free_memory(&mut self) {
+        log::trace!("Releasing image allocation");
         debug_assert!(self.alloc.is_some());
         self.alloc = None;
     }
@@ -294,6 +297,7 @@ where
     /// Use the memory region from another image. This will increase the
     /// reference count on the underlying memory region.
     pub fn use_memory_from(&mut self, alloc: Rc<Alloc<B>>) {
+        log::trace!("Transferring allocation");
         self.alloc = Some(alloc);
     }
 
