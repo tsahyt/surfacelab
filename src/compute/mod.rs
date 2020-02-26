@@ -36,7 +36,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
 
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
-    sockets: HashMap<Resource, ImageType>,
+    sockets: HashMap<Resource, gpu::compute::Image<B>>,
 }
 
 impl<B> ComputeManager<B>
@@ -50,6 +50,11 @@ where
         }
     }
 
+    fn add_socket(&mut self, socket: Resource) {
+        let img = self.gpu.create_compute_image(128).unwrap();
+        self.sockets.insert(socket, img);
+    }
+
     pub fn process_event(&mut self, event: Arc<Lang>) -> Option<Vec<Lang>> {
         let mut response = Vec::new();
         match &*event {
@@ -57,7 +62,7 @@ where
                 GraphEvent::NodeAdded(res, op) => {
                     for (socket, imgtype) in op.inputs().into_iter().chain(op.outputs()) {
                         let socket_res = res.extend_fragment(&socket);
-                        self.sockets.insert(socket_res, imgtype);
+                        self.add_socket(socket_res);
                     }
                 }
                 GraphEvent::NodeRemoved(res) => self.sockets.retain(|s, _| !s.is_fragment_of(res)),

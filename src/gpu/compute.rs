@@ -154,7 +154,7 @@ where
         }
     }
 
-    pub fn create_compute_image<'a>(&'a self, size: u32) -> Result<Image<'a, B>, String> {
+    pub fn create_compute_image<'a>(&'a self, size: u32) -> Result<Image<B>, String> {
         let image = {
             let lock = self.gpu.lock().unwrap();
             unsafe {
@@ -233,14 +233,14 @@ where
     }
 }
 
-pub struct Image<'a, B: Backend> {
-    parent: &'a GPUCompute<B>,
+pub struct Image<B: Backend> {
+    parent: *const GPUCompute<B>,
     size: u32,
     raw: ManuallyDrop<B::Image>,
     alloc: Option<AllocId>,
 }
 
-impl<B> Image<'_, B>
+impl<B> Image<B>
 where
     B: Backend,
 {
@@ -270,20 +270,22 @@ where
     }
 }
 
-impl<B> Drop for Image<'_, B>
+impl<B> Drop for Image<B>
 where
     B: Backend,
 {
     fn drop(&mut self) {
+        let parent = unsafe { &*self.parent };
+
         {
-            let lock = self.parent.gpu.lock().unwrap();
+            let lock = parent.gpu.lock().unwrap();
             unsafe {
                 lock.device.destroy_image(ManuallyDrop::take(&mut self.raw));
             }
         }
 
         if let Some(alloc) = self.alloc {
-            self.parent.free_image_memory(alloc);
+            parent.free_image_memory(alloc);
         }
     }
 }
