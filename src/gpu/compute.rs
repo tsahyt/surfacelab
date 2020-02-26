@@ -1,7 +1,6 @@
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
 use std::mem::ManuallyDrop;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -188,17 +187,19 @@ where
 
     /// Find the first set of chunks of contiguous free memory that fits the
     /// requested number of bytes
-    fn find_free_image_memory(&self, bytes: u64) -> Option<Vec<usize>> {
+    fn find_free_image_memory(&self, bytes: u64) -> Option<(u64, Vec<usize>)> {
         let request = bytes / Self::CHUNK_SIZE;
         let mut free = Vec::with_capacity(request as usize);
+        let mut offset = 0;
 
         for (i, chunk) in self.image_mem_chunks.borrow().iter().enumerate() {
             if chunk.alloc.is_none() {
                 free.push(i);
                 if free.len() == request as usize {
-                    return Some(free);
+                    return Some((offset, free));
                 }
             } else {
+                offset = i as u64 * Self::CHUNK_SIZE;
                 free.clear();
             }
         }
@@ -245,6 +246,7 @@ where
 pub struct Alloc<B: Backend> {
     parent: *const GPUCompute<B>,
     id: AllocId,
+    offset: u64,
 }
 
 impl<B> Drop for Alloc<B>
@@ -275,13 +277,14 @@ where
         debug_assert!(self.alloc.is_none());
 
         let bytes = self.size as u64 * self.size as u64 * 4;
-        let chunks = compute
+        let (offset, chunks) = compute
             .find_free_image_memory(bytes)
             .ok_or("Unable to find free memory for image")?;
         let alloc = compute.allocate_image_memory(&chunks);
         self.alloc = Some(Rc::new(Alloc {
             parent: self.parent,
             id: alloc,
+            offset
         }));
 
         Ok(())
