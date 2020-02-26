@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+pub mod shaders;
+
 // TODO: Image sizes should not be hardcoded!
 const IMG_SIZE: u32 = 1024;
 
@@ -40,6 +42,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
     sockets: HashMap<Resource, gpu::compute::Image<B>>,
+    shader_library: shaders::ShaderLibrary<B>,
 }
 
 impl<B> ComputeManager<B>
@@ -47,13 +50,16 @@ where
     B: gpu::Backend,
 {
     pub fn new(gpu: gpu::compute::GPUCompute<B>) -> Self {
+        let shader_library = shaders::ShaderLibrary::new(&gpu).unwrap();
+
         ComputeManager {
             gpu,
             sockets: HashMap::new(),
+            shader_library,
         }
     }
 
-    fn add_new_socket(&mut self, socket: Resource, _ty: &ImageType) {
+    fn add_new_socket(&mut self, socket: Resource, _ty: ImageType) {
         let img = self.gpu.create_compute_image(IMG_SIZE).unwrap();
         self.sockets.insert(socket, img);
     }
@@ -66,7 +72,7 @@ where
                     for (socket, imgtype) in op.inputs().iter().chain(op.outputs().iter()) {
                         let socket_res = res.extend_fragment(&socket);
                         log::trace!("Adding socket {}", socket_res);
-                        self.add_new_socket(socket_res, imgtype);
+                        self.add_new_socket(socket_res, *imgtype);
                     }
                 }
                 GraphEvent::NodeRemoved(res) => self.sockets.retain(|s, _| !s.is_fragment_of(res)),

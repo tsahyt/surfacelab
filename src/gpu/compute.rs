@@ -137,10 +137,9 @@ where
     /// Build a new compute shader given raw SPIR-V. The resulting shader will
     /// destroy itself when dropped. The parent GPU can not be dropped before
     /// all its shaders are dropped!
-    pub fn register_shader(
+    pub fn create_shader(
         &self,
         spirv: &[u8],
-        name: &'static str,
     ) -> Result<Shader<B>, String> {
         let lock = self.gpu.lock().unwrap();
         let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))

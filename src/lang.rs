@@ -71,7 +71,7 @@ impl Operator {
         }
     }
 
-    pub fn default_name(&self) -> &str {
+    pub fn default_name<'a>(&'a self) -> &'static str {
         match self {
             Self::Blend(..) => "blend",
             Self::PerlinNoise(..) => "perlin_noise",
