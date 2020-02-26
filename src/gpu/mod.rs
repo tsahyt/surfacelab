@@ -22,7 +22,26 @@ pub enum ShaderType {
     Fragment,
 }
 
-pub struct Shader(ShaderType, &'static str);
+pub struct Shader<B: Backend> {
+    raw: ManuallyDrop<B::ShaderModule>,
+    ty: ShaderType,
+    parent: Arc<Mutex<GPU<B>>>,
+}
+
+impl<B> Drop for Shader<B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        log::debug!("Dropping {:?} shader module", self.ty);
+
+        let lock = self.parent.lock().unwrap();
+        unsafe {
+            lock.device
+                .destroy_shader_module(ManuallyDrop::take(&mut self.raw));
+        }
+    }
+}
 
 pub struct CommandBuffer<'a, B: Backend> {
     inner: ManuallyDrop<B::CommandBuffer>,

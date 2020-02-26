@@ -11,7 +11,6 @@ use super::{Backend, CommandBuffer, Shader, ShaderType, GPU};
 pub struct GPUCompute<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: B::CommandPool,
-    shaders: HashMap<&'static str, B::ShaderModule>,
 
     // Uniforms
     uniform_buf: B::Buffer,
@@ -118,7 +117,6 @@ where
         Ok(GPUCompute {
             gpu: gpu.clone(),
             command_pool: command_pool,
-            shaders: HashMap::new(),
 
             uniform_buf,
             uniform_mem,
@@ -136,14 +134,24 @@ where
         })
     }
 
-    pub fn register_shader(&mut self, spirv: &[u8], name: &'static str) -> Result<Shader, String> {
+    /// Build a new compute shader given raw SPIR-V. The resulting shader will
+    /// destroy itself when dropped. The parent GPU can not be dropped before
+    /// all its shaders are dropped!
+    pub fn register_shader(
+        &self,
+        spirv: &[u8],
+        name: &'static str,
+    ) -> Result<Shader<B>, String> {
         let lock = self.gpu.lock().unwrap();
         let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
             .map_err(|e| format!("Failed to load SPIR-V: {}", e))?;
         let shader = unsafe { lock.device.create_shader_module(&loaded_spirv) }
             .map_err(|e| format!("Failed to build shader module: {}", e))?;
-        self.shaders.insert(name, shader);
-        Ok(Shader(ShaderType::Compute, name))
+        Ok(Shader {
+            raw: ManuallyDrop::new(shader),
+            ty: ShaderType::Compute,
+            parent: self.gpu.clone(),
+        })
     }
 
     pub fn primary_command_buffer(&mut self) -> CommandBuffer<B> {
@@ -310,6 +318,8 @@ where
         if self.alloc.is_none() {
             return self.allocate_memory(compute);
         }
+
+        log::trace!("Reusing existing allocation");
 
         Ok(())
     }
