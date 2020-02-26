@@ -1,5 +1,6 @@
 use crate::{gpu, lang};
 use std::collections::HashMap;
+use zerocopy::AsBytes;
 
 fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
     use lang::Operator;
@@ -15,6 +16,20 @@ fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
     };
 
     Some(src)
+}
+
+pub fn operator_uniforms<'a>(op: &'a lang::Operator) -> &'a [u8] {
+    use lang::Operator;
+
+    match op {
+        // Image and Output are special and don't have uniforms
+        Operator::Image { .. } => &[],
+        Operator::Output { .. } => &[],
+
+        // Operators
+        Operator::Blend(p) => p.as_bytes(),
+        Operator::PerlinNoise(p) => p.as_bytes(),
+    }
 }
 
 pub struct ShaderLibrary<B: gpu::Backend> {

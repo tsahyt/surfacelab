@@ -132,6 +132,8 @@ where
 
                 // fill uniforms and execute shader
                 let shader = self.shader_library.shader_for(&op);
+                let uniforms = shaders::operator_uniforms(&op);
+                self.gpu.fill_uniforms(uniforms)?;
             }
         }
 

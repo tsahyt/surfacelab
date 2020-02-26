@@ -1,9 +1,10 @@
 use maplit::hashmap;
 use std::collections::HashMap;
 use std::path::*;
+use zerocopy::AsBytes;
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(AsBytes, Clone, Copy, Debug)]
 pub struct BlendParameters {
     mix: f32,
 }
@@ -15,7 +16,7 @@ impl Default for BlendParameters {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(AsBytes, Clone, Copy, Debug)]
 pub struct PerlinNoiseParameters {
     scale: f32,
     octaves: f32,

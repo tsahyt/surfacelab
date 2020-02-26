@@ -136,10 +136,7 @@ where
     /// Build a new compute shader given raw SPIR-V. The resulting shader will
     /// destroy itself when dropped. The parent GPU can not be dropped before
     /// all its shaders are dropped!
-    pub fn create_shader(
-        &self,
-        spirv: &[u8],
-    ) -> Result<Shader<B>, String> {
+    pub fn create_shader(&self, spirv: &[u8]) -> Result<Shader<B>, String> {
         let lock = self.gpu.lock().unwrap();
         let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
             .map_err(|e| format!("Failed to load SPIR-V: {}", e))?;
@@ -230,6 +227,31 @@ where
             chunk.alloc = None;
         }
     }
+
+    /// Fill the uniform buffer with the given data. The data *must* fit into
+    /// UNIFORM_BUFFER_SIZE.
+    pub fn fill_uniforms(&self, uniforms: &[u8]) -> Result<(), String> {
+        debug_assert!(uniforms.len() <= Self::UNIFORM_BUFFER_SIZE as usize);
+
+        let lock = self.gpu.lock().unwrap();
+
+        unsafe {
+            let mapping = lock
+                .device
+                .map_memory(&self.uniform_mem, 0..Self::UNIFORM_BUFFER_SIZE)
+                .map_err(|e| {
+                    format!("Failed to map uniform buffer into CPU address space: {}", e)
+                })?;
+            std::ptr::copy_nonoverlapping(
+                uniforms.as_ptr() as *const u8,
+                mapping,
+                uniforms.len() as usize,
+            );
+            lock.device.unmap_memory(&self.uniform_mem);
+        }
+
+        Ok(())
+    }
 }
 
 impl<B> Drop for GPUCompute<B>
@@ -276,6 +298,7 @@ where
         log::trace!("Allocating memory for image");
         debug_assert!(self.alloc.is_none());
 
+        // Handle memory manager
         let bytes = self.size as u64 * self.size as u64 * 4;
         let (offset, chunks) = compute
             .find_free_image_memory(bytes)
@@ -284,8 +307,15 @@ where
         self.alloc = Some(Rc::new(Alloc {
             parent: self.parent,
             id: alloc,
-            offset
+            offset,
         }));
+
+        let lock = compute.gpu.lock().unwrap();
+        unsafe {
+            lock.device
+                .bind_image_memory(&compute.image_mem, offset, &mut self.raw)
+        }
+        .map_err(|_| "Failed to bind Image to memory")?;
 
         Ok(())
     }
