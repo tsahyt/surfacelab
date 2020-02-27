@@ -118,6 +118,7 @@ where
     B: gpu::Backend,
 {
     pub fn new(gpu: &mut gpu::compute::GPUCompute<B>) -> Result<Self, String> {
+        log::info!("Initializing Shader Library");
         let mut shaders = HashMap::new();
         let mut pipelines = HashMap::new();
         let mut descriptor_sets = HashMap::new();
@@ -134,6 +135,8 @@ where
                 descriptor_sets.insert(op.default_name(), desc_set);
             }
         }
+
+        log::info!("Shader Library initialized!");
 
         Ok(ShaderLibrary {
             _shaders: shaders,

@@ -19,14 +19,16 @@ impl Default for BlendParameters {
 #[derive(AsBytes, Clone, Copy, Debug)]
 pub struct PerlinNoiseParameters {
     scale: f32,
-    octaves: f32,
+    octaves: u32,
+    attenuation: f32
 }
 
 impl Default for PerlinNoiseParameters {
     fn default() -> Self {
         PerlinNoiseParameters {
             scale: 3.0,
-            octaves: 2.0,
+            octaves: 2,
+            attenuation: 2.0,
         }
     }
 }
