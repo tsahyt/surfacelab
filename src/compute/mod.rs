@@ -96,6 +96,8 @@ where
     }
 
     fn interpret(&mut self, instr: &Instruction) -> Result<(), String> {
+        use shaders::Uniforms;
+       
         match instr {
             Instruction::Move(from, to) => {
                 log::trace!("Moving texture from {} to {}", from, to);
@@ -131,8 +133,8 @@ where
                 }
 
                 // fill uniforms and execute shader
-                let shader = self.shader_library.shader_for(&op);
-                let uniforms = shaders::operator_uniforms(&op);
+                let pipeline = self.shader_library.pipeline_for(&op);
+                let uniforms = op.uniforms();
                 self.gpu.fill_uniforms(uniforms)?;
             }
         }

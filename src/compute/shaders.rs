@@ -2,8 +2,57 @@ use crate::{gpu, lang};
 use std::collections::HashMap;
 use zerocopy::AsBytes;
 
+// Blend
 static BLEND_SHADER: &[u8] = include_bytes!("../../shaders/blend.spv");
+static BLEND_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
+    gpu::DescriptorSetLayoutBinding {
+        binding: 0,
+        ty: gpu::DescriptorType::UniformBuffer,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 1,
+        ty: gpu::DescriptorType::SampledImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 2,
+        ty: gpu::DescriptorType::SampledImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 3,
+        ty: gpu::DescriptorType::StorageImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+];
+
+// Perlin Noise
 static PERLIN_NOISE_SHADER: &[u8] = include_bytes!("../../shaders/perlin.spv");
+static PERLIN_NOISE_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
+    gpu::DescriptorSetLayoutBinding {
+        binding: 0,
+        ty: gpu::DescriptorType::UniformBuffer,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 1,
+        ty: gpu::DescriptorType::StorageImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+];
 
 fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
     use lang::Operator;
@@ -21,22 +70,45 @@ fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
     Some(src)
 }
 
-pub fn operator_uniforms<'a>(op: &'a lang::Operator) -> &'a [u8] {
+fn operator_layout<'a>(
+    op: &'a lang::Operator,
+) -> Option<&'static [gpu::DescriptorSetLayoutBinding]> {
     use lang::Operator;
 
-    match op {
-        // Image and Output are special and don't have uniforms
-        Operator::Image { .. } => &[],
-        Operator::Output { .. } => &[],
+    let bindings = match op {
+        // Image and Output are special
+        Operator::Image { .. } => return None,
+        Operator::Output { .. } => return None,
 
-        // Operators
-        Operator::Blend(p) => p.as_bytes(),
-        Operator::PerlinNoise(p) => p.as_bytes(),
+        Operator::Blend(..) => BLEND_LAYOUT,
+        Operator::PerlinNoise(..) => PERLIN_NOISE_LAYOUT,
+    };
+
+    Some(bindings)
+}
+
+pub trait Uniforms {
+    fn uniforms<'a>(&'a self) -> &'a [u8];
+}
+
+impl Uniforms for lang::Operator {
+    fn uniforms<'a>(&'a self) -> &'a [u8] {
+        use lang::Operator;
+
+        match self {
+            // Image and Output are special and don't have uniforms
+            Operator::Image { .. } => &[],
+            Operator::Output { .. } => &[],
+
+            // Operators
+            Operator::Blend(p) => p.as_bytes(),
+            Operator::PerlinNoise(p) => p.as_bytes(),
+        }
     }
 }
 
 pub struct ShaderLibrary<B: gpu::Backend> {
-    shaders: HashMap<&'static str, gpu::Shader<B>>,
+    _shaders: HashMap<&'static str, gpu::Shader<B>>,
     pipelines: HashMap<&'static str, gpu::compute::ComputePipeline<B>>,
 }
 
@@ -50,19 +122,23 @@ where
         for op in lang::Operator::all_default() {
             if let Some(shader_src) = operator_shader_src(&op) {
                 let shader: gpu::Shader<B> = gpu.create_shader(shader_src)?;
+                let layout = operator_layout(&op).ok_or("Failed to fetch Operator layout")?;
                 let pipeline: gpu::compute::ComputePipeline<B> =
-                    gpu.create_pipeline(&shader, &[])?;
+                    gpu.create_pipeline(&shader, layout)?;
 
                 shaders.insert(op.default_name(), shader);
                 pipelines.insert(op.default_name(), pipeline);
             }
         }
 
-        Ok(ShaderLibrary { shaders, pipelines })
+        Ok(ShaderLibrary {
+            _shaders: shaders,
+            pipelines,
+        })
     }
 
-    pub fn shader_for(&self, op: &lang::Operator) -> &gpu::Shader<B> {
+    pub fn pipeline_for(&self, op: &lang::Operator) -> &gpu::compute::ComputePipeline<B> {
         debug_assert!(op.default_name() != "image" && op.default_name() != "output");
-        self.shaders.get(op.default_name()).unwrap()
+        self.pipelines.get(op.default_name()).unwrap()
     }
 }

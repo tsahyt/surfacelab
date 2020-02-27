@@ -1,9 +1,11 @@
 use gfx_backend_vulkan as back;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
-pub use gfx_hal::Backend;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
+
+pub use gfx_hal::Backend;
+pub use hal::pso::{DescriptorSetLayoutBinding, DescriptorType, ShaderStageFlags};
 
 pub mod compute;
 pub mod render;

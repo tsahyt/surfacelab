@@ -19,6 +19,9 @@ pub struct GPUCompute<B: Backend> {
     allocs: Cell<AllocId>,
     image_mem: B::Memory,
     image_mem_chunks: RefCell<Vec<Chunk>>,
+
+    // Descriptors
+    descriptor_pool: B::DescriptorPool,
 }
 
 type AllocId = u16;
@@ -113,6 +116,36 @@ where
                 .map_err(|_| "Failed to allocate memory region for compute images")?
         };
 
+        // Descriptor Pool. We need to set out resource limits here. Since we
+        // keep descriptor sets around for each shader after creation, we need a
+        // size large enough to accomodate all the nodes.
+        let descriptor_pool = unsafe {
+            use hal::pso::*;
+            lock.device.create_descriptor_pool(
+                128,
+                &[
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::UniformBuffer,
+                        count: 1,
+                    },
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::Sampler,
+                        count: 1,
+                    },
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::StorageImage,
+                        count: 1,
+                    },
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::SampledImage,
+                        count: 8,
+                    },
+                ],
+                hal::pso::DescriptorPoolCreateFlags::empty(),
+            )
+        }
+        .map_err(|_| "Failed to create descriptor pool")?;
+
         Ok(GPUCompute {
             gpu: gpu.clone(),
             command_pool: command_pool,
@@ -130,6 +163,8 @@ where
                     })
                     .collect(),
             ),
+
+            descriptor_pool,
         })
     }
 
