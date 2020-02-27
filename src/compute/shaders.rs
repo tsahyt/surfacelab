@@ -2,6 +2,9 @@ use crate::{gpu, lang};
 use std::collections::HashMap;
 use zerocopy::AsBytes;
 
+static BLEND_SHADER: &[u8] = include_bytes!("../../shaders/blend.spv");
+static PERLIN_NOISE_SHADER: &[u8] = include_bytes!("../../shaders/perlin.spv");
+
 fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
     use lang::Operator;
 
@@ -11,8 +14,8 @@ fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
         Operator::Output { .. } => return None,
 
         // Operators
-        Operator::Blend(..) => include_bytes!("../../shaders/blend.spv"),
-        Operator::PerlinNoise(..) => include_bytes!("../../shaders/perlin.spv"),
+        Operator::Blend(..) => BLEND_SHADER,
+        Operator::PerlinNoise(..) => PERLIN_NOISE_SHADER,
     };
 
     Some(src)
