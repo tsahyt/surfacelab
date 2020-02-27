@@ -34,6 +34,7 @@ pub fn operator_uniforms<'a>(op: &'a lang::Operator) -> &'a [u8] {
 
 pub struct ShaderLibrary<B: gpu::Backend> {
     shaders: HashMap<&'static str, gpu::Shader<B>>,
+    pipelines: HashMap<&'static str, gpu::compute::ComputePipeline<B>>,
 }
 
 impl<B> ShaderLibrary<B>
@@ -41,15 +42,20 @@ where
     B: gpu::Backend,
 {
     pub fn new(gpu: &gpu::compute::GPUCompute<B>) -> Result<Self, String> {
-        let mut hm = HashMap::new();
+        let mut shaders = HashMap::new();
+        let mut pipelines = HashMap::new();
         for op in lang::Operator::all_default() {
             if let Some(shader_src) = operator_shader_src(&op) {
                 let shader: gpu::Shader<B> = gpu.create_shader(shader_src)?;
-                hm.insert(op.default_name(), shader);
+                let pipeline: gpu::compute::ComputePipeline<B> =
+                    gpu.create_pipeline(&shader, &[])?;
+
+                shaders.insert(op.default_name(), shader);
+                pipelines.insert(op.default_name(), pipeline);
             }
         }
 
-        Ok(ShaderLibrary { shaders: hm })
+        Ok(ShaderLibrary { shaders, pipelines })
     }
 
     pub fn shader_for(&self, op: &lang::Operator) -> &gpu::Shader<B> {

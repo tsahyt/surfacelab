@@ -33,7 +33,7 @@ impl<B> GPUCompute<B>
 where
     B: Backend,
 {
-    const UNIFORM_BUFFER_SIZE: u64 = 4096; // bytes
+    const UNIFORM_BUFFER_SIZE: u64 = 1024; // bytes
 
     const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 1024; // bytes
     const CHUNK_SIZE: u64 = 256 * 256 * 4; // bytes
@@ -252,6 +252,43 @@ where
 
         Ok(())
     }
+
+    /// Create a new compute pipeline, given a shader and a set of bindings.
+    pub fn create_pipeline(
+        &self,
+        shader: &Shader<B>,
+        bindings: &[hal::pso::DescriptorSetLayoutBinding],
+    ) -> Result<ComputePipeline<B>, String> {
+        let lock = self.gpu.lock().unwrap();
+
+        // Layouts
+        let set_layout = unsafe { lock.device.create_descriptor_set_layout(bindings, &[]) }
+            .map_err(|_| "Failed to create descriptor set layout")?;
+        let pipeline_layout = unsafe { lock.device.create_pipeline_layout(Some(&set_layout), &[]) }
+            .map_err(|_| "Failed to create pipeline layout")?;
+
+        let entry_point = hal::pso::EntryPoint {
+            entry: "main",
+            module: &*shader.raw,
+            specialization: hal::pso::Specialization::default(),
+        };
+
+        // Pipeline
+        let pipeline = unsafe {
+            lock.device.create_compute_pipeline(
+                &hal::pso::ComputePipelineDesc::new(entry_point, &pipeline_layout),
+                None,
+            )
+        }
+        .map_err(|_| "Failed to create pipeline")?;
+
+        Ok(ComputePipeline {
+            parent: self,
+            raw: ManuallyDrop::new(pipeline),
+            set_layout: ManuallyDrop::new(set_layout),
+            pipeline_layout: ManuallyDrop::new(pipeline_layout),
+        })
+    }
 }
 
 impl<B> Drop for GPUCompute<B>
@@ -370,6 +407,36 @@ where
             let lock = parent.gpu.lock().unwrap();
             unsafe {
                 lock.device.destroy_image(ManuallyDrop::take(&mut self.raw));
+            }
+        }
+    }
+}
+
+pub struct ComputePipeline<B: Backend> {
+    parent: *const GPUCompute<B>,
+    raw: ManuallyDrop<B::ComputePipeline>,
+    set_layout: ManuallyDrop<B::DescriptorSetLayout>,
+    pipeline_layout: ManuallyDrop<B::PipelineLayout>,
+}
+
+impl<B> Drop for ComputePipeline<B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        log::debug!("Dropping compute pipeline");
+
+        let parent = unsafe { &*self.parent };
+
+        {
+            let lock = parent.gpu.lock().unwrap();
+            unsafe {
+                lock.device
+                    .destroy_descriptor_set_layout(ManuallyDrop::take(&mut self.set_layout));
+                lock.device
+                    .destroy_pipeline_layout(ManuallyDrop::take(&mut self.pipeline_layout));
+                lock.device
+                    .destroy_compute_pipeline(ManuallyDrop::take(&mut self.raw));
             }
         }
     }
