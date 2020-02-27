@@ -22,6 +22,9 @@ pub struct GPUCompute<B: Backend> {
 
     // Descriptors
     descriptor_pool: B::DescriptorPool,
+
+    // Sync
+    fence: B::Fence,
 }
 
 type AllocId = u16;
@@ -146,6 +149,8 @@ where
         }
         .map_err(|_| "Failed to create descriptor pool")?;
 
+        let fence = lock.device.create_fence(false).unwrap();
+
         Ok(GPUCompute {
             gpu: gpu.clone(),
             command_pool: command_pool,
@@ -165,6 +170,8 @@ where
             ),
 
             descriptor_pool,
+
+            fence,
         })
     }
 
@@ -182,15 +189,6 @@ where
             ty: ShaderType::Compute,
             parent: self.gpu.clone(),
         })
-    }
-
-    pub fn primary_command_buffer(&mut self) -> CommandBuffer<B> {
-        let inner = { unsafe { self.command_pool.allocate_one(hal::command::Level::Primary) } };
-
-        CommandBuffer {
-            inner: ManuallyDrop::new(inner),
-            pool: &mut self.command_pool,
-        }
     }
 
     pub fn create_compute_image<'a>(&'a self, size: u32) -> Result<Image<B>, String> {
@@ -343,6 +341,37 @@ where
     {
         let lock = self.gpu.lock().unwrap();
         unsafe { lock.device.write_descriptor_sets(write_iter) };
+    }
+
+    pub fn run_pipeline(
+        &mut self,
+        image_size: u32,
+        pipeline: &ComputePipeline<B>,
+        descriptors: &B::DescriptorSet,
+    ) {
+        let command_buffer = unsafe {
+            let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
+            command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            command_buffer.bind_compute_pipeline(&*pipeline.raw);
+            command_buffer.bind_compute_descriptor_sets(
+                &*pipeline.pipeline_layout,
+                0,
+                Some(descriptors),
+                &[],
+            );
+            command_buffer.dispatch([image_size, image_size, 1]);
+            command_buffer.finish();
+            command_buffer
+        };
+
+        let mut lock = self.gpu.lock().unwrap();
+
+        unsafe {
+            lock.queue_group.queues[0]
+                .submit_without_semaphores(Some(&command_buffer), Some(&self.fence));
+            lock.device.wait_for_fence(&self.fence, !0).unwrap();
+            self.command_pool.free(Some(command_buffer));
+        }
     }
 }
 

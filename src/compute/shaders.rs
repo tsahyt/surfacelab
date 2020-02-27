@@ -146,4 +146,9 @@ where
         debug_assert!(op.default_name() != "image" && op.default_name() != "output");
         self.pipelines.get(op.default_name()).unwrap()
     }
+
+    pub fn descriptor_set_for(&self, op: &lang::Operator) -> &B::DescriptorSet {
+        debug_assert!(op.default_name() != "image" && op.default_name() != "output");
+        self.descriptor_sets.get(op.default_name()).unwrap()
+    }
 }

@@ -134,8 +134,10 @@ where
 
                 // fill uniforms and execute shader
                 let pipeline = self.shader_library.pipeline_for(&op);
+                let descriptors = self.shader_library.descriptor_set_for(&op);
                 let uniforms = op.uniforms();
                 self.gpu.fill_uniforms(uniforms)?;
+                self.gpu.run_pipeline(IMG_SIZE, pipeline, descriptors);
             }
         }
 
