@@ -7,7 +7,7 @@ pub fn start_render_thread<B: gpu::Backend>(
     gpu: Arc<Mutex<gpu::GPU<B>>>,
 ) -> thread::JoinHandle<()> {
     let (_sender, receiver) = broker.subscribe();
-    match gpu::GPURender::new(gpu) {
+    match gpu::render::GPURender::new(gpu) {
         Err(e) => {
             log::error!("Failed to initialize GPU Render: {}", e);
             panic!("Critical Error");

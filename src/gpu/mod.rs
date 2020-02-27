@@ -2,11 +2,11 @@ use gfx_backend_vulkan as back;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 pub use gfx_hal::Backend;
-use std::collections::HashMap;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
 pub mod compute;
+pub mod render;
 
 pub struct GPU<B: Backend> {
     instance: B::Instance,
@@ -137,42 +137,5 @@ where
 {
     fn drop(&mut self) {
         log::info!("Dropping GPU")
-    }
-}
-pub struct GPURender<B: Backend> {
-    gpu: Arc<Mutex<GPU<B>>>,
-    command_pool: B::CommandPool,
-}
-
-impl<B> GPURender<B>
-where
-    B: Backend,
-{
-    pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, String> {
-        log::info!("Obtaining GPU Render Resources");
-        let lock = gpu.lock().unwrap();
-
-        let command_pool = unsafe {
-            lock.device.create_command_pool(
-                lock.queue_group.family,
-                hal::pool::CommandPoolCreateFlags::empty(),
-            )
-        }
-        .map_err(|_| "Can't create command pool!")?;
-
-        Ok(GPURender {
-            gpu: gpu.clone(),
-            command_pool: command_pool,
-        })
-    }
-}
-
-impl<B> Drop for GPURender<B>
-where
-    B: Backend,
-{
-    fn drop(&mut self) {
-        // TODO: call device destructors for gpurender
-        log::info!("Releasing GPU Render resources")
     }
 }
