@@ -110,30 +110,35 @@ impl Uniforms for lang::Operator {
 pub struct ShaderLibrary<B: gpu::Backend> {
     _shaders: HashMap<&'static str, gpu::Shader<B>>,
     pipelines: HashMap<&'static str, gpu::compute::ComputePipeline<B>>,
+    descriptor_sets: HashMap<&'static str, B::DescriptorSet>,
 }
 
 impl<B> ShaderLibrary<B>
 where
     B: gpu::Backend,
 {
-    pub fn new(gpu: &gpu::compute::GPUCompute<B>) -> Result<Self, String> {
+    pub fn new(gpu: &mut gpu::compute::GPUCompute<B>) -> Result<Self, String> {
         let mut shaders = HashMap::new();
         let mut pipelines = HashMap::new();
+        let mut descriptor_sets = HashMap::new();
         for op in lang::Operator::all_default() {
             if let Some(shader_src) = operator_shader_src(&op) {
                 let shader: gpu::Shader<B> = gpu.create_shader(shader_src)?;
                 let layout = operator_layout(&op).ok_or("Failed to fetch Operator layout")?;
                 let pipeline: gpu::compute::ComputePipeline<B> =
                     gpu.create_pipeline(&shader, layout)?;
+                let desc_set = gpu.allocate_descriptor_set(pipeline.set_layout())?;
 
                 shaders.insert(op.default_name(), shader);
                 pipelines.insert(op.default_name(), pipeline);
+                descriptor_sets.insert(op.default_name(), desc_set);
             }
         }
 
         Ok(ShaderLibrary {
             _shaders: shaders,
             pipelines,
+            descriptor_sets,
         })
     }
 

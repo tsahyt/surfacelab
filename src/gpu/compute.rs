@@ -324,6 +324,26 @@ where
             pipeline_layout: ManuallyDrop::new(pipeline_layout),
         })
     }
+
+    /// Obtain a new descriptor set from the command pool.
+    pub fn allocate_descriptor_set(
+        &mut self,
+        layout: &B::DescriptorSetLayout,
+    ) -> Result<B::DescriptorSet, String> {
+        unsafe { self.descriptor_pool.allocate_set(layout) }
+            .map_err(|e| format!("Failed to allocate descriptor set: {}", e))
+    }
+
+    /// Specifying the parameters of a descriptor set write operation
+    pub fn write_descriptor_sets<'a, I, J>(&self, write_iter: I)
+    where
+        I: IntoIterator<Item = hal::pso::DescriptorSetWrite<'a, B, J>>,
+        J: IntoIterator,
+        J::Item: std::borrow::Borrow<hal::pso::Descriptor<'a, B>>,
+    {
+        let lock = self.gpu.lock().unwrap();
+        unsafe { lock.device.write_descriptor_sets(write_iter) };
+    }
 }
 
 impl<B> Drop for GPUCompute<B>
@@ -452,6 +472,16 @@ pub struct ComputePipeline<B: Backend> {
     raw: ManuallyDrop<B::ComputePipeline>,
     set_layout: ManuallyDrop<B::DescriptorSetLayout>,
     pipeline_layout: ManuallyDrop<B::PipelineLayout>,
+}
+
+impl<B> ComputePipeline<B>
+where
+    B: Backend,
+{
+    /// Get descriptor set layout.
+    pub fn set_layout(&self) -> &B::DescriptorSetLayout {
+        &*self.set_layout
+    }
 }
 
 impl<B> Drop for ComputePipeline<B>

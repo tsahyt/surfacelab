@@ -49,8 +49,8 @@ impl<B> ComputeManager<B>
 where
     B: gpu::Backend,
 {
-    pub fn new(gpu: gpu::compute::GPUCompute<B>) -> Self {
-        let shader_library = shaders::ShaderLibrary::new(&gpu).unwrap();
+    pub fn new(mut gpu: gpu::compute::GPUCompute<B>) -> Self {
+        let shader_library = shaders::ShaderLibrary::new(&mut gpu).unwrap();
 
         ComputeManager {
             gpu,

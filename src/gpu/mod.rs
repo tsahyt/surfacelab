@@ -5,7 +5,9 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
 pub use gfx_hal::Backend;
-pub use hal::pso::{DescriptorSetLayoutBinding, DescriptorType, ShaderStageFlags};
+pub use hal::pso::{
+    Descriptor, DescriptorSetLayoutBinding, DescriptorSetWrite, DescriptorType, ShaderStageFlags,
+};
 
 pub mod compute;
 pub mod render;
