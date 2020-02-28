@@ -373,6 +373,10 @@ where
             self.command_pool.free(Some(command_buffer));
         }
     }
+
+    pub fn uniform_buffer(&self) -> &B::Buffer {
+        &self.uniform_buf
+    }
 }
 
 impl<B> Drop for GPUCompute<B>

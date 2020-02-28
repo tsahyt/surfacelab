@@ -97,7 +97,6 @@ where
 
     fn interpret(&mut self, instr: &Instruction) -> Result<(), String> {
         use shaders::Uniforms;
-       
         match instr {
             Instruction::Move(from, to) => {
                 log::trace!("Moving texture from {} to {}", from, to);
@@ -122,7 +121,7 @@ where
             Instruction::Execute(res, op) => {
                 log::trace!("Executing operator {:?} of {}", op, res);
 
-                // ensure images are allocated
+                // ensure images are allocated and build alloc mapping
                 for (socket, _) in op.inputs().iter().chain(op.outputs().iter()) {
                     let socket_res = res.extend_fragment(&socket);
                     debug_assert!(self.sockets.get(&socket_res).is_some());
@@ -132,12 +131,44 @@ where
                         .ensure_alloc(&self.gpu)?;
                 }
 
+                let inputs: HashMap<_, _> = op
+                    .inputs()
+                    .iter()
+                    .map(|(socket, _)| {
+                        let socket_res = res.extend_fragment(&socket);
+                        (
+                            socket_res.to_string(),
+                            self.sockets.get(&socket_res).unwrap(),
+                        )
+                    })
+                    .collect();
+                let outputs: HashMap<_, _> = op
+                    .inputs()
+                    .iter()
+                    .map(|(socket, _)| {
+                        let socket_res = res.extend_fragment(&socket);
+                        (
+                            socket_res.to_string(),
+                            self.sockets.get(&socket_res).unwrap(),
+                        )
+                    })
+                    .collect();
+
                 // fill uniforms and execute shader
                 let pipeline = self.shader_library.pipeline_for(&op);
-                let descriptors = self.shader_library.descriptor_set_for(&op);
+                let desc_set = self.shader_library.descriptor_set_for(&op);
                 let uniforms = op.uniforms();
+                let descriptors = shaders::operator_write_desc(
+                    op,
+                    desc_set,
+                    self.gpu.uniform_buffer(),
+                    &inputs,
+                    &outputs,
+                );
+
                 self.gpu.fill_uniforms(uniforms)?;
-                self.gpu.run_pipeline(IMG_SIZE, pipeline, descriptors);
+                self.gpu.write_descriptor_sets(descriptors);
+                self.gpu.run_pipeline(IMG_SIZE, pipeline, desc_set);
             }
         }
 

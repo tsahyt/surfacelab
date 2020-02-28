@@ -87,6 +87,62 @@ fn operator_layout<'a>(
     Some(bindings)
 }
 
+pub fn operator_write_desc<'a, B: gpu::Backend>(
+    op: &lang::Operator,
+    desc_set: &'a B::DescriptorSet,
+    uniforms: &'a B::Buffer,
+    inputs: &HashMap<String, &gpu::compute::Image<B>>,
+    outputs: &HashMap<String, &gpu::compute::Image<B>>,
+) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
+    use lang::Operator;
+
+    match op {
+        Operator::Image { .. } => vec![],
+        Operator::Output { .. } => vec![],
+
+        Operator::Blend(..) => vec![
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 0,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 1,
+                array_offset: 0,
+                descriptors: vec![],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 1,
+                array_offset: 0,
+                descriptors: vec![],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 1,
+                array_offset: 0,
+                descriptors: vec![],
+            },
+        ],
+        Operator::PerlinNoise(..) => vec![
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 0,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 1,
+                array_offset: 0,
+                descriptors: vec![],
+            },
+        ],
+    }
+}
+
 pub trait Uniforms {
     fn uniforms<'a>(&'a self) -> &'a [u8];
 }
