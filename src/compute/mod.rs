@@ -137,7 +137,7 @@ where
                     .map(|(socket, _)| {
                         let socket_res = res.extend_fragment(&socket);
                         (
-                            socket_res.to_string(),
+                            socket.clone(),
                             self.sockets.get(&socket_res).unwrap(),
                         )
                     })
@@ -148,7 +148,7 @@ where
                     .map(|(socket, _)| {
                         let socket_res = res.extend_fragment(&socket);
                         (
-                            socket_res.to_string(),
+                            socket.clone(),
                             self.sockets.get(&socket_res).unwrap(),
                         )
                     })

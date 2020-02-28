@@ -8,6 +8,7 @@ pub use gfx_hal::Backend;
 pub use hal::pso::{
     Descriptor, DescriptorSetLayoutBinding, DescriptorSetWrite, DescriptorType, ShaderStageFlags,
 };
+pub use hal::image::Layout;
 
 pub mod compute;
 pub mod render;

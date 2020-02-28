@@ -5,6 +5,12 @@ use std::mem::ManuallyDrop;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
+    aspects: hal::format::Aspects::COLOR,
+    levels: 0..1,
+    layers: 0..1,
+};
+
 use super::{Backend, CommandBuffer, Shader, ShaderType, GPU};
 
 pub struct GPUCompute<B: Backend> {
@@ -192,25 +198,36 @@ where
     }
 
     pub fn create_compute_image<'a>(&'a self, size: u32) -> Result<Image<B>, String> {
-        let image = {
-            let lock = self.gpu.lock().unwrap();
-            unsafe {
-                lock.device.create_image(
-                    hal::image::Kind::D2(size, size, 1, 1),
-                    1,
-                    hal::format::Format::R32Sfloat,
-                    hal::image::Tiling::Optimal,
-                    hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
-                    hal::image::ViewCapabilities::empty(),
-                )
-            }
-            .map_err(|_| "Failed to create image")?
-        };
+        let lock = self.gpu.lock().unwrap();
+
+        let image = unsafe {
+            lock.device.create_image(
+                hal::image::Kind::D2(size, size, 1, 1),
+                1,
+                hal::format::Format::R32Sfloat,
+                hal::image::Tiling::Optimal,
+                hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
+                hal::image::ViewCapabilities::empty(),
+            )
+        }
+        .map_err(|_| "Failed to create image")?;
+
+        let view = unsafe {
+            lock.device.create_image_view(
+                &image,
+                hal::image::ViewKind::D2,
+                hal::format::Format::R32Sfloat,
+                hal::format::Swizzle::NO,
+                COLOR_RANGE.clone(),
+            )
+        }
+        .map_err(|_| "Failed to create image view")?;
 
         Ok(Image {
             parent: self,
             size,
             raw: ManuallyDrop::new(image),
+            view: ManuallyDrop::new(view),
             alloc: None,
         })
     }
@@ -411,6 +428,7 @@ pub struct Image<B: Backend> {
     parent: *const GPUCompute<B>,
     size: u32,
     raw: ManuallyDrop<B::Image>,
+    view: ManuallyDrop<B::ImageView>,
     alloc: Option<Rc<Alloc<B>>>,
 }
 
@@ -480,6 +498,10 @@ where
 
         Ok(())
     }
+
+    pub fn get_view(&self) -> &B::ImageView {
+        &*self.view
+    }
 }
 
 impl<B> Drop for Image<B>
@@ -494,6 +516,8 @@ where
         {
             let lock = parent.gpu.lock().unwrap();
             unsafe {
+                lock.device
+                    .destroy_image_view(ManuallyDrop::take(&mut self.view));
                 lock.device.destroy_image(ManuallyDrop::take(&mut self.raw));
             }
         }

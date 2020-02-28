@@ -91,8 +91,8 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
     op: &lang::Operator,
     desc_set: &'a B::DescriptorSet,
     uniforms: &'a B::Buffer,
-    inputs: &HashMap<String, &gpu::compute::Image<B>>,
-    outputs: &HashMap<String, &gpu::compute::Image<B>>,
+    inputs: &HashMap<String, &'a gpu::compute::Image<B>>,
+    outputs: &HashMap<String, &'a gpu::compute::Image<B>>,
 ) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
     use lang::Operator;
 
@@ -111,19 +111,28 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
                 set: desc_set,
                 binding: 1,
                 array_offset: 0,
-                descriptors: vec![],
+                descriptors: vec![gpu::Descriptor::Image(
+                    inputs.get("color1").unwrap().get_view(),
+                    gpu::Layout::ShaderReadOnlyOptimal,
+                )],
             },
             gpu::DescriptorSetWrite {
                 set: desc_set,
                 binding: 1,
                 array_offset: 0,
-                descriptors: vec![],
+                descriptors: vec![gpu::Descriptor::Image(
+                    inputs.get("color2").unwrap().get_view(),
+                    gpu::Layout::ShaderReadOnlyOptimal,
+                )],
             },
             gpu::DescriptorSetWrite {
                 set: desc_set,
                 binding: 1,
                 array_offset: 0,
-                descriptors: vec![],
+                descriptors: vec![gpu::Descriptor::Image(
+                    outputs.get("color").unwrap().get_view(),
+                    gpu::Layout::General,
+                )],
             },
         ],
         Operator::PerlinNoise(..) => vec![
@@ -137,7 +146,10 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
                 set: desc_set,
                 binding: 1,
                 array_offset: 0,
-                descriptors: vec![],
+                descriptors: vec![gpu::Descriptor::Image(
+                    outputs.get("noise").unwrap().get_view(),
+                    gpu::Layout::General,
+                )],
             },
         ],
     }
