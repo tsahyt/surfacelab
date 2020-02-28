@@ -131,28 +131,17 @@ where
                         .ensure_alloc(&self.gpu)?;
                 }
 
-                let inputs: HashMap<_, _> = op
-                    .inputs()
-                    .iter()
-                    .map(|(socket, _)| {
-                        let socket_res = res.extend_fragment(&socket);
-                        (
-                            socket.clone(),
-                            self.sockets.get(&socket_res).unwrap(),
-                        )
-                    })
-                    .collect();
-                let outputs: HashMap<_, _> = op
-                    .inputs()
-                    .iter()
-                    .map(|(socket, _)| {
-                        let socket_res = res.extend_fragment(&socket);
-                        (
-                            socket.clone(),
-                            self.sockets.get(&socket_res).unwrap(),
-                        )
-                    })
-                    .collect();
+                let mut inputs = HashMap::new();
+                for socket in op.inputs().keys() {
+                    let socket_res = res.extend_fragment(&socket);
+                    inputs.insert(socket.clone(), self.sockets.get(&socket_res).unwrap());
+                };
+
+                let mut outputs = HashMap::new();
+                for socket in op.outputs().keys() {
+                    let socket_res = res.extend_fragment(&socket);
+                    outputs.insert(socket.clone(), self.sockets.get(&socket_res).unwrap());
+                };
 
                 // fill uniforms and execute shader
                 let pipeline = self.shader_library.pipeline_for(&op);
