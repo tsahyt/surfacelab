@@ -11,7 +11,7 @@ const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     layers: 0..1,
 };
 
-use super::{Backend, CommandBuffer, Shader, ShaderType, GPU};
+use super::{Backend, Shader, ShaderType, GPU};
 
 pub struct GPUCompute<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
@@ -206,7 +206,9 @@ where
                 1,
                 hal::format::Format::R32Sfloat,
                 hal::image::Tiling::Optimal,
-                hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
+                hal::image::Usage::SAMPLED
+                    | hal::image::Usage::STORAGE
+                    | hal::image::Usage::TRANSFER_SRC,
                 hal::image::ViewCapabilities::empty(),
             )
         }
@@ -393,6 +395,97 @@ where
 
     pub fn uniform_buffer(&self) -> &B::Buffer {
         &self.uniform_buf
+    }
+
+    /// Download a raw image from the GPU by copying it into a temporary CPU
+    /// visible buffer.
+    pub fn download_image(&mut self, image: &Image<B>) -> Result<&[u8], String> {
+        let mut lock = self.gpu.lock().unwrap();
+        let bytes = (image.size * image.size * 4) as u64;
+
+        // Create, allocate, and bind download buffer
+        let mut buf = unsafe {
+            lock.device
+                .create_buffer(bytes, hal::buffer::Usage::TRANSFER_DST)
+        }
+        .map_err(|_| "Cannot create download buffer")?;
+
+        let buf_req = unsafe { lock.device.get_buffer_requirements(&buf) };
+        let mem_type = lock
+            .memory_properties
+            .memory_types
+            .iter()
+            .enumerate()
+            .position(|(id, mem_type)| {
+                buf_req.type_mask & (1 << id) != 0
+                    && mem_type
+                        .properties
+                        .contains(hal::memory::Properties::CPU_VISIBLE)
+            })
+            .unwrap()
+            .into();
+        let mem = unsafe { lock.device.allocate_memory(mem_type, bytes) }
+            .map_err(|_| "Failed to allocate device memory for download buffer")?;
+
+        unsafe {
+            lock.device
+                .bind_buffer_memory(&mem, 0, &mut buf)
+                .map_err(|_| "Failed to bind download buffer to memory")?
+        };
+
+        // Copy image to buffer
+        unsafe {
+            let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
+            command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            command_buffer.copy_image_to_buffer(
+                &image.raw,
+                hal::image::Layout::TransferSrcOptimal,
+                &buf,
+                Some(hal::command::BufferImageCopy {
+                    buffer_offset: 0,
+                    buffer_width: image.size,
+                    buffer_height: image.size,
+                    image_offset: hal::image::Offset { x: 0, y: 0, z: 0 },
+                    image_extent: hal::image::Extent {
+                        width: image.size,
+                        height: image.size,
+                        depth: 1,
+                    },
+                    image_layers: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 1,
+                        layers: 1..1,
+                    },
+                }),
+            );
+            command_buffer.finish();
+
+            lock.queue_group.queues[0]
+                .submit_without_semaphores(Some(&command_buffer), Some(&self.fence));
+            lock.device.wait_for_fence(&self.fence, !0).unwrap();
+            self.command_pool.free(Some(command_buffer));
+        };
+
+        // Download
+        let res = unsafe {
+            let mapping = lock.device.map_memory(&mem, 0..bytes).map_err(|e| {
+                format!(
+                    "Failed to map download buffer into CPU address space: {}",
+                    e
+                )
+            })?;
+            let res = std::slice::from_raw_parts::<u8>(mapping as *const u8, bytes as usize);
+            lock.device.unmap_memory(&mem);
+            res
+        };
+
+        // Clean Up
+        unsafe {
+            lock.device.free_memory(mem);
+            lock.device.destroy_buffer(buf);
+        }
+
+        Ok(res)
     }
 }
 
