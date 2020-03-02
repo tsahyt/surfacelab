@@ -20,7 +20,7 @@ impl Default for BlendParameters {
 pub struct PerlinNoiseParameters {
     scale: f32,
     octaves: u32,
-    attenuation: f32
+    attenuation: f32,
 }
 
 impl Default for PerlinNoiseParameters {
@@ -33,10 +33,25 @@ impl Default for PerlinNoiseParameters {
     }
 }
 
+#[repr(C)]
+#[derive(AsBytes, Clone, Copy, Debug)]
+pub struct RgbParameters {
+    rgb: [f32; 3],
+}
+
+impl Default for RgbParameters {
+    fn default() -> Self {
+        RgbParameters {
+            rgb: [0.5, 0.7, 0.3],
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Operator {
     Blend(BlendParameters),
     PerlinNoise(PerlinNoiseParameters),
+    Rgb(RgbParameters),
     Image { path: std::path::PathBuf },
     Output { output_type: OutputType },
 }
@@ -49,6 +64,7 @@ impl Operator {
                 "color2".to_string() => ImageType::Rgba
             },
             Self::PerlinNoise(..) => HashMap::new(),
+            Self::Rgb(..) => HashMap::new(),
             Self::Image { .. } => HashMap::new(),
             Self::Output { output_type } => match output_type {
                 OutputType::Albedo => hashmap! { "albedo".to_string() => ImageType::Rgb },
@@ -67,6 +83,9 @@ impl Operator {
             Self::Blend(..) => hashmap! {
                 "color".to_string() => ImageType::Rgba
             },
+            Self::Rgb(..) => hashmap! {
+                "color".to_string() => ImageType::Rgb
+            },
             Self::PerlinNoise(..) => hashmap! { "noise".to_string() => ImageType::Value
             },
             Self::Image { .. } => hashmap! { "image".to_string() => ImageType::Rgba },
@@ -78,6 +97,7 @@ impl Operator {
         match self {
             Self::Blend(..) => "blend",
             Self::PerlinNoise(..) => "perlin_noise",
+            Self::Rgb(..) => "rgb",
             Self::Image { .. } => "image",
             Self::Output { .. } => "output",
         }
@@ -87,6 +107,7 @@ impl Operator {
         match self {
             Self::Blend(..) => "Blend",
             Self::PerlinNoise(..) => "Perlin Noise",
+            Self::Rgb(..) => "RGB Color",
             Self::Image { .. } => "Image",
             Self::Output { .. } => "Output",
         }
@@ -96,6 +117,7 @@ impl Operator {
         vec![
             Self::Blend(BlendParameters::default()),
             Self::PerlinNoise(PerlinNoiseParameters::default()),
+            Self::Rgb(RgbParameters::default()),
             Self::Image {
                 path: PathBuf::new(),
             },

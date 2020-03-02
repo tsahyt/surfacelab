@@ -1,0 +1,14 @@
+#version 460
+
+layout(local_size_x = 1, local_size_y = 1) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    vec3 rgb;
+};
+
+layout(set = 0, binding = 1, rgba16f) uniform image2D t_Out;
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    imageStore(t_Out, idx, vec4(rgb, 1.));
+}

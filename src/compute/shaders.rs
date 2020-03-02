@@ -54,6 +54,25 @@ static PERLIN_NOISE_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     },
 ];
 
+// Rgb
+static RGB_SHADER: &[u8] = include_bytes!("../../shaders/rgb.spv");
+static RGB_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
+    gpu::DescriptorSetLayoutBinding {
+        binding: 0,
+        ty: gpu::DescriptorType::UniformBuffer,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 1,
+        ty: gpu::DescriptorType::StorageImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+];
+
 fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
     use lang::Operator;
 
@@ -65,6 +84,7 @@ fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
         // Operators
         Operator::Blend(..) => BLEND_SHADER,
         Operator::PerlinNoise(..) => PERLIN_NOISE_SHADER,
+        Operator::Rgb(..) => RGB_SHADER,
     };
 
     Some(src)
@@ -82,6 +102,7 @@ fn operator_layout<'a>(
 
         Operator::Blend(..) => BLEND_LAYOUT,
         Operator::PerlinNoise(..) => PERLIN_NOISE_LAYOUT,
+        Operator::Rgb(..) => RGB_LAYOUT,
     };
 
     Some(bindings)
@@ -152,6 +173,23 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
                 )],
             },
         ],
+        Operator::Rgb(..) => vec![
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 0,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 1,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Image(
+                    outputs.get("noise").unwrap().get_view(),
+                    gpu::Layout::General,
+                )],
+            },
+        ]
     }
 }
 
@@ -171,6 +209,7 @@ impl Uniforms for lang::Operator {
             // Operators
             Operator::Blend(p) => p.as_bytes(),
             Operator::PerlinNoise(p) => p.as_bytes(),
+            Operator::Rgb(p) => p.as_bytes()
         }
     }
 }
