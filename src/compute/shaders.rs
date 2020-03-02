@@ -185,7 +185,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
                 binding: 1,
                 array_offset: 0,
                 descriptors: vec![gpu::Descriptor::Image(
-                    outputs.get("noise").unwrap().get_view(),
+                    outputs.get("color").unwrap().get_view(),
                     gpu::Layout::General,
                 )],
             },
