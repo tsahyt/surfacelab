@@ -625,6 +625,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "half"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20d6a47d6e4b8559729f58287efa8e6f767e603c068fea7a5e4d9f1cebe2bebb"
+
+[[package]]
 name = "heck"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1333,6 +1339,7 @@ dependencies = [
  "glib-sys",
  "gtk",
  "gtk-sys",
+ "half",
  "image",
  "log",
  "maplit",

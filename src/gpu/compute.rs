@@ -197,7 +197,7 @@ where
         })
     }
 
-    pub fn create_compute_image<'a>(&'a self, size: u32) -> Result<Image<B>, String> {
+    pub fn create_compute_image<'a>(&'a self, size: u32, px_width: u8) -> Result<Image<B>, String> {
         let lock = self.gpu.lock().unwrap();
 
         let image = unsafe {
@@ -228,6 +228,7 @@ where
         Ok(Image {
             parent: self,
             size,
+            px_width,
             raw: ManuallyDrop::new(image),
             view: ManuallyDrop::new(view),
             alloc: None,
@@ -521,6 +522,7 @@ where
 pub struct Image<B: Backend> {
     parent: *const GPUCompute<B>,
     size: u32,
+    px_width: u8,
     raw: ManuallyDrop<B::Image>,
     view: ManuallyDrop<B::ImageView>,
     alloc: Option<Rc<Alloc<B>>>,
@@ -536,7 +538,7 @@ where
         debug_assert!(self.alloc.is_none());
 
         // Handle memory manager
-        let bytes = self.size as u64 * self.size as u64 * 4;
+        let bytes = self.size as u64 * self.size as u64 * self.px_width as u64;
         let (offset, chunks) = compute
             .find_free_image_memory(bytes)
             .ok_or("Unable to find free memory for image")?;

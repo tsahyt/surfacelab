@@ -45,15 +45,15 @@ impl Operator {
     pub fn inputs(&self) -> HashMap<String, ImageType> {
         match self {
             Self::Blend(..) => hashmap! {
-                "color1".to_string() => ImageType::RgbaImage,
-                "color2".to_string() => ImageType::RgbaImage
+                "color1".to_string() => ImageType::Rgba,
+                "color2".to_string() => ImageType::Rgba
             },
             Self::PerlinNoise(..) => HashMap::new(),
             Self::Image { .. } => HashMap::new(),
             Self::Output { output_type } => match output_type {
-                OutputType::Albedo => hashmap! { "albedo".to_string() => ImageType::RgbImage },
+                OutputType::Albedo => hashmap! { "albedo".to_string() => ImageType::Rgb },
                 OutputType::Roughness => hashmap! { "roughness".to_string() => ImageType::Value },
-                OutputType::Normal => hashmap! { "normal".to_string() => ImageType::RgbImage },
+                OutputType::Normal => hashmap! { "normal".to_string() => ImageType::Rgb },
                 OutputType::Displacement => {
                     hashmap! { "displacement".to_string() => ImageType::Value }
                 }
@@ -65,11 +65,11 @@ impl Operator {
     pub fn outputs(&self) -> HashMap<String, ImageType> {
         match self {
             Self::Blend(..) => hashmap! {
-                "color".to_string() => ImageType::RgbaImage
+                "color".to_string() => ImageType::Rgba
             },
             Self::PerlinNoise(..) => hashmap! { "noise".to_string() => ImageType::Value
             },
-            Self::Image { .. } => hashmap! { "image".to_string() => ImageType::RgbaImage },
+            Self::Image { .. } => hashmap! { "image".to_string() => ImageType::Rgba },
             Self::Output { .. } => HashMap::new(),
         }
     }
@@ -121,8 +121,8 @@ pub enum Instruction {
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum ImageType {
-    RgbImage,
-    RgbaImage,
+    Rgb,
+    Rgba,
     Value,
 }
 

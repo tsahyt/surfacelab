@@ -59,8 +59,13 @@ where
         }
     }
 
-    fn add_new_socket(&mut self, socket: Resource, _ty: ImageType) {
-        let img = self.gpu.create_compute_image(IMG_SIZE).unwrap();
+    fn add_new_socket(&mut self, socket: Resource, ty: ImageType) {
+        let px_width = match ty {
+            ImageType::Rgb => 8,
+            ImageType::Rgba => 8,
+            ImageType::Value => 4,
+        };
+        let img = self.gpu.create_compute_image(IMG_SIZE, px_width).unwrap();
         self.sockets.insert(socket, img);
     }
 
@@ -118,7 +123,7 @@ where
                         log::trace!("Processing Image operator {}", res);
                     }
                     Operator::Output { .. } => {
-                        for (socket, _) in op.inputs().iter() {
+                        for (socket, ty) in op.inputs().iter() {
                             log::trace!("Processing Output operator {} socket {}", res, socket);
 
                             let socket_res = res.extend_fragment(&socket);
@@ -127,14 +132,24 @@ where
                             let raw = self.gpu.download_image(image).unwrap();
 
                             log::debug!("Downloaded image size {:?}", raw.len());
+
+                            let converted = convert_image(&raw, *ty);
+
+                            let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
+                            log::debug!("Saving converted image to {}", path);
                             image::save_buffer(
-                                format!("/tmp/{}.png", res.path().to_str().unwrap()),
-                                &raw,
+                                path,
+                                &converted,
                                 IMG_SIZE,
                                 IMG_SIZE,
-                                image::ColorType::Rgba8,
+                                match ty {
+                                    ImageType::Value => image::ColorType::L16,
+                                    ImageType::Rgb => image::ColorType::Rgb16,
+                                    ImageType::Rgba => image::ColorType::Rgba16,
+                                },
                             )
                             .map_err(|e| format!("Error saving image: {}", e))?;
+                            log::debug!("Saved image!");
                         }
                     }
                     _ => {
@@ -192,5 +207,52 @@ where
 {
     fn drop(&mut self) {
         self.sockets.clear();
+    }
+}
+
+fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
+    match ty {
+        // Underlying memory is formatted as rgba16f, expected to be Rgb16
+        ImageType::Rgb => unsafe {
+            // TODO: sizes?
+            let u16s: Vec<[u16; 3]> =
+                std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() * 2)
+                    .chunks(4)
+                    .map(|chunk| {
+                        [
+                            chunk[0].to_f32() as u16,
+                            chunk[1].to_f32() as u16,
+                            chunk[2].to_f32() as u16,
+                        ]
+                    })
+                    .collect();
+            std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2 * 3).to_owned()
+        },
+        // Underlying memory is formatted as rgba16f, expected to be Rgba16
+        ImageType::Rgba => unsafe {
+            // TODO: sizes?
+            let u16s: Vec<[u16; 4]> =
+                std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() * 2)
+                    .chunks(4)
+                    .map(|chunk| {
+                        [
+                            chunk[0].to_f32() as u16,
+                            chunk[1].to_f32() as u16,
+                            chunk[2].to_f32() as u16,
+                            chunk[3].to_f32() as u16,
+                        ]
+                    })
+                    .collect();
+            std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2 * 4).to_owned()
+        },
+        // Underlying memory is formatted as r32f, expected to be L16
+        ImageType::Value => unsafe {
+            let u16s: Vec<u16> =
+                std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
+                    .iter()
+                    .map(|x| (*x * 65536.) as u16)
+                    .collect();
+            std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2).to_owned()
+        },
     }
 }

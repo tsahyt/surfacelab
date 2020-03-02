@@ -26,6 +26,7 @@ multiqueue2 = "0.1.6"
 once_cell = "1.3.1"
 petgraph = "0.5.0"
 zerocopy = "0.2.8"
+half = "1.4.1"
 
 [build-dependencies]
 shaderc = "0.6"
