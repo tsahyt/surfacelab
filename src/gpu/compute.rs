@@ -371,6 +371,11 @@ where
         pipeline: &ComputePipeline<B>,
         descriptors: &B::DescriptorSet,
     ) {
+        unsafe {
+            let lock = self.gpu.lock().unwrap();
+            lock.device.reset_fence(&self.fence).unwrap();
+        }
+
         let command_buffer = unsafe {
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
@@ -386,9 +391,8 @@ where
             command_buffer
         };
 
-        let mut lock = self.gpu.lock().unwrap();
-
         unsafe {
+            let mut lock = self.gpu.lock().unwrap();
             lock.queue_group.queues[0]
                 .submit_without_semaphores(Some(&command_buffer), Some(&self.fence));
             lock.device.wait_for_fence(&self.fence, !0).unwrap();
@@ -435,6 +439,11 @@ where
                 .bind_buffer_memory(&mem, 0, &mut buf)
                 .map_err(|_| "Failed to bind download buffer to memory")?
         };
+
+        // Reset fence
+        unsafe {
+            lock.device.reset_fence(&self.fence).unwrap();
+        }
 
         // Copy image to buffer
         unsafe {
