@@ -399,7 +399,7 @@ where
 
     /// Download a raw image from the GPU by copying it into a temporary CPU
     /// visible buffer.
-    pub fn download_image(&mut self, image: &Image<B>) -> Result<&[u8], String> {
+    pub fn download_image(&mut self, image: &Image<B>) -> Result<Vec<u8>, String> {
         let mut lock = self.gpu.lock().unwrap();
         let bytes = (image.size * image.size * 4) as u64;
 
@@ -474,9 +474,10 @@ where
                     e
                 )
             })?;
-            let res = std::slice::from_raw_parts::<u8>(mapping as *const u8, bytes as usize);
+            let slice = std::slice::from_raw_parts::<u8>(mapping as *const u8, bytes as usize);
+            let owned = slice.to_owned();
             lock.device.unmap_memory(&mem);
-            res
+            owned
         };
 
         // Clean Up

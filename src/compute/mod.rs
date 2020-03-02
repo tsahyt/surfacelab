@@ -112,52 +112,73 @@ where
                     log::warn!("Tried to move unallocated memory")
                 }
             }
-            Instruction::Execute(res, Operator::Image { .. }) => {
-                log::trace!("Processing Image operator {}", res);
-            }
-            Instruction::Execute(res, Operator::Output { .. }) => {
-                log::trace!("Processing Output operator {}", res);
-            }
             Instruction::Execute(res, op) => {
-                log::trace!("Executing operator {:?} of {}", op, res);
+                match op {
+                    Operator::Image { .. } => {
+                        log::trace!("Processing Image operator {}", res);
+                    }
+                    Operator::Output { .. } => {
+                        for (socket, _) in op.inputs().iter() {
+                            log::trace!("Processing Output operator {} socket {}", res, socket);
 
-                // ensure images are allocated and build alloc mapping
-                for (socket, _) in op.inputs().iter().chain(op.outputs().iter()) {
-                    let socket_res = res.extend_fragment(&socket);
-                    debug_assert!(self.sockets.get(&socket_res).is_some());
-                    self.sockets
-                        .get_mut(&socket_res)
-                        .unwrap()
-                        .ensure_alloc(&self.gpu)?;
+                            let socket_res = res.extend_fragment(&socket);
+                            debug_assert!(self.sockets.get(&socket_res).is_some());
+                            let image = self.sockets.get(&socket_res).unwrap();
+                            let raw = self.gpu.download_image(image).unwrap();
+
+                            log::debug!("Downloaded image size {:?}", raw.len());
+                            image::save_buffer(
+                                format!("/tmp/{}.png", res.path().to_str().unwrap()),
+                                &raw,
+                                IMG_SIZE,
+                                IMG_SIZE,
+                                image::ColorType::Rgba8,
+                            )
+                            .map_err(|e| format!("Error saving image: {}", e))?;
+                        }
+                    }
+                    _ => {
+                        log::trace!("Executing operator {:?} of {}", op, res);
+
+                        // ensure images are allocated and build alloc mapping
+                        for (socket, _) in op.inputs().iter().chain(op.outputs().iter()) {
+                            let socket_res = res.extend_fragment(&socket);
+                            debug_assert!(self.sockets.get(&socket_res).is_some());
+                            self.sockets
+                                .get_mut(&socket_res)
+                                .unwrap()
+                                .ensure_alloc(&self.gpu)?;
+                        }
+
+                        let mut inputs = HashMap::new();
+                        for socket in op.inputs().keys() {
+                            let socket_res = res.extend_fragment(&socket);
+                            inputs.insert(socket.clone(), self.sockets.get(&socket_res).unwrap());
+                        }
+
+                        let mut outputs = HashMap::new();
+                        for socket in op.outputs().keys() {
+                            let socket_res = res.extend_fragment(&socket);
+                            outputs.insert(socket.clone(), self.sockets.get(&socket_res).unwrap());
+                        }
+
+                        // fill uniforms and execute shader
+                        let pipeline = self.shader_library.pipeline_for(&op);
+                        let desc_set = self.shader_library.descriptor_set_for(&op);
+                        let uniforms = op.uniforms();
+                        let descriptors = shaders::operator_write_desc(
+                            op,
+                            desc_set,
+                            self.gpu.uniform_buffer(),
+                            &inputs,
+                            &outputs,
+                        );
+
+                        self.gpu.fill_uniforms(uniforms)?;
+                        self.gpu.write_descriptor_sets(descriptors);
+                        self.gpu.run_pipeline(IMG_SIZE, pipeline, desc_set);
+                    }
                 }
-
-                let mut inputs = HashMap::new();
-                for socket in op.inputs().keys() {
-                    let socket_res = res.extend_fragment(&socket);
-                    inputs.insert(socket.clone(), self.sockets.get(&socket_res).unwrap());
-                };
-
-                let mut outputs = HashMap::new();
-                for socket in op.outputs().keys() {
-                    let socket_res = res.extend_fragment(&socket);
-                    outputs.insert(socket.clone(), self.sockets.get(&socket_res).unwrap());
-                };
-
-                // fill uniforms and execute shader
-                let pipeline = self.shader_library.pipeline_for(&op);
-                let desc_set = self.shader_library.descriptor_set_for(&op);
-                let uniforms = op.uniforms();
-                let descriptors = shaders::operator_write_desc(
-                    op,
-                    desc_set,
-                    self.gpu.uniform_buffer(),
-                    &inputs,
-                    &outputs,
-                );
-
-                self.gpu.fill_uniforms(uniforms)?;
-                self.gpu.write_descriptor_sets(descriptors);
-                self.gpu.run_pipeline(IMG_SIZE, pipeline, desc_set);
             }
         }
 

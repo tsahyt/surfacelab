@@ -19,6 +19,7 @@ glib = { git = "https://github.com/gtk-rs/glib" }
 glib-sys = { git = "https://github.com/gtk-rs/sys" }
 gtk = { version = "0.8.1", path = "../gtk-rs/gtk" }
 gtk-sys = { git = "https://github.com/gtk-rs/sys" }
+image = "0.23.0"
 log = "0.4.8"
 maplit = "1.0.2"
 multiqueue2 = "0.1.6"
