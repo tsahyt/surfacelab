@@ -130,24 +130,26 @@ where
         // size large enough to accomodate all the nodes.
         let descriptor_pool = unsafe {
             use hal::pso::*;
+            let ops = crate::lang::Operator::all_default().len();
+
             lock.device.create_descriptor_pool(
-                128,
+                ops,
                 &[
                     DescriptorRangeDesc {
                         ty: DescriptorType::UniformBuffer,
-                        count: 1,
+                        count: 1 * ops,
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::Sampler,
-                        count: 1,
+                        count: 1 * ops,
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::StorageImage,
-                        count: 1,
+                        count: 1 * ops,
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::SampledImage,
-                        count: 8,
+                        count: 8 * ops,
                     },
                 ],
                 hal::pso::DescriptorPoolCreateFlags::empty(),

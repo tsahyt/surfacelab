@@ -230,6 +230,7 @@ where
         let mut pipelines = HashMap::new();
         let mut descriptor_sets = HashMap::new();
         for op in lang::Operator::all_default() {
+            log::trace!("Initializing operator {}", op.title());
             if let Some(shader_src) = operator_shader_src(&op) {
                 let shader: gpu::Shader<B> = gpu.create_shader(shader_src)?;
                 let layout = operator_layout(&op).ok_or("Failed to fetch Operator layout")?;
