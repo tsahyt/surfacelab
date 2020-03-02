@@ -108,6 +108,8 @@ fn operator_layout<'a>(
     Some(bindings)
 }
 
+/// Create descriptor set writes for given operator with its inputs and outputs.
+/// This assumes that all given inputs and outputs are already bound!
 pub fn operator_write_desc<'a, B: gpu::Backend>(
     op: &lang::Operator,
     desc_set: &'a B::DescriptorSet,
@@ -116,6 +118,9 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
     outputs: &HashMap<String, &'a gpu::compute::Image<B>>,
 ) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
     use lang::Operator;
+
+    debug_assert!(inputs.values().all(|i| i.get_view().is_some()));
+    debug_assert!(outputs.values().all(|i| i.get_view().is_some()));
 
     match op {
         Operator::Image { .. } => vec![],
@@ -133,7 +138,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
                 binding: 1,
                 array_offset: 0,
                 descriptors: vec![gpu::Descriptor::Image(
-                    inputs.get("color1").unwrap().get_view(),
+                    inputs.get("color1").unwrap().get_view().unwrap(),
                     gpu::Layout::ShaderReadOnlyOptimal,
                 )],
             },
@@ -142,7 +147,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
                 binding: 1,
                 array_offset: 0,
                 descriptors: vec![gpu::Descriptor::Image(
-                    inputs.get("color2").unwrap().get_view(),
+                    inputs.get("color2").unwrap().get_view().unwrap(),
                     gpu::Layout::ShaderReadOnlyOptimal,
                 )],
             },
@@ -151,7 +156,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
                 binding: 1,
                 array_offset: 0,
                 descriptors: vec![gpu::Descriptor::Image(
-                    outputs.get("color").unwrap().get_view(),
+                    outputs.get("color").unwrap().get_view().unwrap(),
                     gpu::Layout::General,
                 )],
             },
@@ -168,7 +173,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
                 binding: 1,
                 array_offset: 0,
                 descriptors: vec![gpu::Descriptor::Image(
-                    outputs.get("noise").unwrap().get_view(),
+                    outputs.get("noise").unwrap().get_view().unwrap(),
                     gpu::Layout::General,
                 )],
             },
@@ -185,7 +190,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend>(
                 binding: 1,
                 array_offset: 0,
                 descriptors: vec![gpu::Descriptor::Image(
-                    outputs.get("color").unwrap().get_view(),
+                    outputs.get("color").unwrap().get_view().unwrap(),
                     gpu::Layout::General,
                 )],
             },

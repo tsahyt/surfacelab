@@ -216,23 +216,12 @@ where
         }
         .map_err(|_| "Failed to create image")?;
 
-        let view = unsafe {
-            lock.device.create_image_view(
-                &image,
-                hal::image::ViewKind::D2,
-                hal::format::Format::R32Sfloat,
-                hal::format::Swizzle::NO,
-                COLOR_RANGE.clone(),
-            )
-        }
-        .map_err(|_| "Failed to create image view")?;
-
         Ok(Image {
             parent: self,
             size,
             px_width,
             raw: ManuallyDrop::new(image),
-            view: ManuallyDrop::new(view),
+            view: None, // ManuallyDrop::new(view),
             alloc: None,
         })
     }
@@ -535,7 +524,7 @@ pub struct Image<B: Backend> {
     size: u32,
     px_width: u8,
     raw: ManuallyDrop<B::Image>,
-    view: ManuallyDrop<B::ImageView>,
+    view: Option<ManuallyDrop<B::ImageView>>,
     alloc: Option<Rc<Alloc<B>>>,
 }
 
@@ -567,6 +556,19 @@ where
         }
         .map_err(|_| "Failed to bind Image to memory")?;
 
+        // Create view once the image is bound
+        let view = unsafe {
+            lock.device.create_image_view(
+                &self.raw,
+                hal::image::ViewKind::D2,
+                hal::format::Format::R32Sfloat,
+                hal::format::Swizzle::NO,
+                COLOR_RANGE.clone(),
+            )
+        }
+        .map_err(|_| "Failed to create image view")?;
+        self.view = Some(ManuallyDrop::new(view));
+
         Ok(())
     }
 
@@ -576,6 +578,9 @@ where
     pub fn free_memory(&mut self) {
         log::trace!("Releasing image allocation");
         debug_assert!(self.alloc.is_some());
+
+        // TODO: destroy now invalid image view
+
         self.alloc = None;
     }
 
@@ -606,8 +611,11 @@ where
         Ok(())
     }
 
-    pub fn get_view(&self) -> &B::ImageView {
-        &*self.view
+    pub fn get_view(&self) -> Option<&B::ImageView> {
+        match &self.view {
+            Some(view) => Some(&*view),
+            None => None
+        }
     }
 }
 
@@ -623,8 +631,13 @@ where
         {
             let lock = parent.gpu.lock().unwrap();
             unsafe {
-                lock.device
-                    .destroy_image_view(ManuallyDrop::take(&mut self.view));
+                // TODO: destroy imageview
+                // match &mut self.view {
+                //     Some(mut view) =>
+                //         lock.device
+                //             .destroy_image_view(ManuallyDrop::take(&mut view)),
+                //     None => {}
+                // };
                 lock.device.destroy_image(ManuallyDrop::take(&mut self.raw));
             }
         }
