@@ -215,8 +215,8 @@ where
                         self.gpu.write_descriptor_sets(descriptors);
                         self.gpu.run_pipeline(
                             IMG_SIZE,
-                            inputs.values().map(|x| *x).collect(),
-                            outputs.values().map(|x| *x).collect(),
+                            inputs.values().copied().collect(),
+                            outputs.values().copied().collect(),
                             pipeline,
                             desc_set,
                         );

@@ -283,3 +283,9 @@ impl NodeSocket {
         .unwrap()
     }
 }
+
+impl Default for NodeSocket {
+    fn default() -> Self {
+        Self::new()
+    }
+}

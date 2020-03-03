@@ -137,15 +137,15 @@ where
                 &[
                     DescriptorRangeDesc {
                         ty: DescriptorType::UniformBuffer,
-                        count: 1 * ops,
+                        count: ops,
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::Sampler,
-                        count: 1 * ops,
+                        count: ops,
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::StorageImage,
-                        count: 1 * ops,
+                        count: ops,
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::SampledImage,
@@ -199,7 +199,7 @@ where
         })
     }
 
-    pub fn create_compute_image<'a>(&'a self, size: u32, px_width: u8) -> Result<Image<B>, String> {
+    pub fn create_compute_image(&self, size: u32, px_width: u8) -> Result<Image<B>, String> {
         let lock = self.gpu.lock().unwrap();
 
         let image = unsafe {

@@ -110,12 +110,12 @@ fn operator_layout<'a>(
 
 /// Create descriptor set writes for given operator with its inputs and outputs.
 /// This assumes that all given inputs and outputs are already bound!
-pub fn operator_write_desc<'a, B: gpu::Backend>(
+pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
     op: &lang::Operator,
     desc_set: &'a B::DescriptorSet,
     uniforms: &'a B::Buffer,
-    inputs: &HashMap<String, &'a gpu::compute::Image<B>>,
-    outputs: &HashMap<String, &'a gpu::compute::Image<B>>,
+    inputs: &HashMap<String, &'a gpu::compute::Image<B>, S>,
+    outputs: &HashMap<String, &'a gpu::compute::Image<B>, S>,
 ) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
     use lang::Operator;
 
@@ -203,7 +203,7 @@ pub trait Uniforms {
 }
 
 impl Uniforms for lang::Operator {
-    fn uniforms<'a>(&'a self) -> &'a [u8] {
+    fn uniforms(&self) -> &[u8] {
         use lang::Operator;
 
         match self {
