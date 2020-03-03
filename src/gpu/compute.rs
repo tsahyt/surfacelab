@@ -481,10 +481,33 @@ where
             lock.device.reset_fence(&self.fence).unwrap();
         }
 
+        // Build barrier
+        let barrier = {
+            let access = image.access.get();
+            let layout = image.layout.get();
+            image.access.set(hal::image::Access::TRANSFER_READ);
+            image.layout.set(hal::image::Layout::TransferSrcOptimal);
+            hal::memory::Barrier::Image {
+                states: (access, layout)
+                    ..(
+                        hal::image::Access::TRANSFER_READ,
+                        hal::image::Layout::TransferSrcOptimal,
+                    ),
+                target: &*image.raw,
+                families: None,
+                range: COLOR_RANGE.clone(),
+            }
+        };
+
         // Copy image to buffer
         unsafe {
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            command_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::TRANSFER,
+                hal::memory::Dependencies::empty(),
+                &[barrier],
+            );
             command_buffer.copy_image_to_buffer(
                 &image.raw,
                 hal::image::Layout::TransferSrcOptimal,
@@ -581,24 +604,9 @@ impl<B> Image<B>
 where
     B: Backend,
 {
-    /// Allocate fresh memory to the image from the underlying memory pool in compute.
-    pub fn allocate_memory(&mut self, compute: &GPUCompute<B>) -> Result<(), String> {
-        log::trace!("Allocating memory for image");
-        debug_assert!(self.alloc.is_none());
-
-        // Handle memory manager
-        let bytes = self.size as u64 * self.size as u64 * self.px_width as u64;
-        let (offset, chunks) = compute
-            .find_free_image_memory(bytes)
-            .ok_or("Unable to find free memory for image")?;
-        let alloc = compute.allocate_image_memory(&chunks);
-        self.alloc = Some(Rc::new(Alloc {
-            parent: self.parent,
-            id: alloc,
-            offset,
-        }));
-
+    fn bind_memory(&mut self, offset: u64, compute: &GPUCompute<B>) -> Result<(), String> {
         let lock = compute.gpu.lock().unwrap();
+
         unsafe {
             lock.device
                 .bind_image_memory(&compute.image_mem, offset, &mut self.raw)
@@ -617,6 +625,29 @@ where
         }
         .map_err(|_| "Failed to create image view")?;
         self.view = Some(ManuallyDrop::new(view));
+
+        Ok(())
+    }
+
+    /// Allocate fresh memory to the image from the underlying memory pool in compute.
+    pub fn allocate_memory(&mut self, compute: &GPUCompute<B>) -> Result<(), String> {
+        log::trace!("Allocating memory for image");
+        debug_assert!(self.alloc.is_none());
+
+        // Handle memory manager
+        let bytes = self.size as u64 * self.size as u64 * self.px_width as u64;
+        let (offset, chunks) = compute
+            .find_free_image_memory(bytes)
+            .ok_or("Unable to find free memory for image")?;
+        let alloc = compute.allocate_image_memory(&chunks);
+        self.alloc = Some(Rc::new(Alloc {
+            parent: self.parent,
+            id: alloc,
+            offset,
+        }));
+
+        // Bind
+        self.bind_memory(offset, compute)?;
 
         Ok(())
     }
@@ -640,9 +671,15 @@ where
 
     /// Use the memory region from another image. This will increase the
     /// reference count on the underlying memory region.
-    pub fn use_memory_from(&mut self, alloc: Rc<Alloc<B>>) {
+    pub fn use_memory_from(
+        &mut self,
+        compute: &GPUCompute<B>,
+        alloc: Rc<Alloc<B>>,
+    ) -> Result<(), String> {
         log::trace!("Transferring allocation");
+        let offset = alloc.offset;
         self.alloc = Some(alloc);
+        self.bind_memory(offset, compute)
     }
 
     /// Returns a clone of the underlying allocation

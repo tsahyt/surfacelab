@@ -112,7 +112,7 @@ where
 
                 let source = self.sockets.get(from).unwrap().get_alloc();
                 if let Some(alloc) = source {
-                    self.sockets.get_mut(to).unwrap().use_memory_from(alloc);
+                    self.sockets.get_mut(to).unwrap().use_memory_from(&self.gpu, alloc);
                 } else {
                     log::warn!("Tried to move unallocated memory")
                 }
