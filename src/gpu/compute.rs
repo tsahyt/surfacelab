@@ -445,7 +445,8 @@ where
         let mut lock = self.gpu.lock().unwrap();
         let bytes = (image.size * image.size * 4) as u64;
 
-        // Create, allocate, and bind download buffer
+        // Create, allocate, and bind download buffer. We need this buffer
+        // because the image is otherwise not in host readable memory!
         let mut buf = unsafe {
             lock.device
                 .create_buffer(bytes, hal::buffer::Usage::TRANSFER_DST)
@@ -500,8 +501,8 @@ where
                     },
                     image_layers: hal::image::SubresourceLayers {
                         aspects: hal::format::Aspects::COLOR,
-                        level: 1,
-                        layers: 1..1,
+                        level: 0,
+                        layers: 0..1,
                     },
                 }),
             );
