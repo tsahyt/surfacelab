@@ -357,6 +357,8 @@ where
     pub fn run_pipeline(
         &mut self,
         image_size: u32,
+        input_images: Vec<&Image<B>>,
+        output_images: Vec<&Image<B>>,
         pipeline: &ComputePipeline<B>,
         descriptors: &B::DescriptorSet,
     ) {
@@ -365,9 +367,35 @@ where
             lock.device.reset_fence(&self.fence).unwrap();
         }
 
+        let input_barriers = input_images.iter().map(|i| {
+            hal::memory::Barrier::Image {
+                states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                    .. (hal::image::Access::SHADER_READ, hal::image::Layout::ShaderReadOnlyOptimal),
+                target: &*i.raw,
+                families: None,
+                range: COLOR_RANGE.clone(),
+            }
+        });
+        let output_barriers = output_images.iter().map(|i| {
+            hal::memory::Barrier::Image {
+                states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                    .. (hal::image::Access::SHADER_WRITE, hal::image::Layout::General),
+                target: &*i.raw,
+                families: None,
+                range: COLOR_RANGE.clone(),
+            }
+        });
+        let barriers: Vec<_> = input_barriers.chain(output_barriers).collect();
+
         let command_buffer = unsafe {
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            // TODO: submit barrier for every image to transition layout
+            command_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TOP_OF_PIPE .. hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::memory::Dependencies::empty(),
+                &dbg!(barriers)
+            );
             command_buffer.bind_compute_pipeline(&*pipeline.raw);
             command_buffer.bind_compute_descriptor_sets(
                 &*pipeline.pipeline_layout,

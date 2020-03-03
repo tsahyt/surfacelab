@@ -191,7 +191,13 @@ where
 
                         self.gpu.fill_uniforms(uniforms)?;
                         self.gpu.write_descriptor_sets(descriptors);
-                        self.gpu.run_pipeline(IMG_SIZE, pipeline, desc_set);
+                        self.gpu.run_pipeline(
+                            IMG_SIZE,
+                            inputs.values().map(|x| *x).collect(),
+                            outputs.values().map(|x| *x).collect(),
+                            pipeline,
+                            desc_set,
+                        );
                     }
                 }
             }
