@@ -223,7 +223,7 @@ where
             raw: ManuallyDrop::new(image),
             layout: Cell::new(hal::image::Layout::Undefined),
             access: Cell::new(hal::image::Access::empty()),
-            view: None,
+            view: ManuallyDrop::new(None),
             alloc: None,
         })
     }
@@ -408,7 +408,6 @@ where
         let command_buffer = unsafe {
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
-            // TODO: submit barrier for every image to transition layout
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
@@ -596,7 +595,7 @@ pub struct Image<B: Backend> {
     raw: ManuallyDrop<B::Image>,
     layout: Cell<hal::image::Layout>,
     access: Cell<hal::image::Access>,
-    view: Option<ManuallyDrop<B::ImageView>>,
+    view: ManuallyDrop<Option<B::ImageView>>,
     alloc: Option<Rc<Alloc<B>>>,
 }
 
@@ -624,7 +623,12 @@ where
             )
         }
         .map_err(|_| "Failed to create image view")?;
-        self.view = Some(ManuallyDrop::new(view));
+        unsafe {
+            if let Some(view) = ManuallyDrop::take(&mut self.view) {
+                lock.device.destroy_image_view(view);
+            }
+        }
+        self.view = ManuallyDrop::new(Some(view));
 
         Ok(())
     }
@@ -655,11 +659,16 @@ where
     /// Release the Image's hold on the backing memory. Note that this does
     /// *not* necessarily free the underlying memory block, since there may be
     /// other references to it!
-    pub fn free_memory(&mut self) {
+    pub fn free_memory(&mut self, compute: &GPUCompute<B>) {
         log::trace!("Releasing image allocation");
         debug_assert!(self.alloc.is_some());
 
-        // TODO: destroy now invalid image view
+        unsafe {
+            if let Some(view) = ManuallyDrop::take(&mut self.view) {
+                let lock = compute.gpu.lock().unwrap();
+                lock.device.destroy_image_view(view);
+            }
+        }
 
         self.alloc = None;
     }
@@ -698,8 +707,8 @@ where
     }
 
     pub fn get_view(&self) -> Option<&B::ImageView> {
-        match &self.view {
-            Some(view) => Some(&*view),
+        match &*self.view {
+            Some(view) => Some(view),
             None => None,
         }
     }
@@ -717,13 +726,9 @@ where
         {
             let lock = parent.gpu.lock().unwrap();
             unsafe {
-                // TODO: destroy imageview
-                // match &mut self.view {
-                //     Some(mut view) =>
-                //         lock.device
-                //             .destroy_image_view(ManuallyDrop::take(&mut view)),
-                //     None => {}
-                // };
+                if let Some(view) = ManuallyDrop::take(&mut self.view) {
+                    lock.device.destroy_image_view(view);
+                }
                 lock.device.destroy_image(ManuallyDrop::take(&mut self.raw));
             }
         }
