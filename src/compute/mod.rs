@@ -41,7 +41,8 @@ pub fn start_compute_thread<B: gpu::Backend>(
 
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
-    sockets: HashMap<Resource, gpu::compute::Image<B>>,
+    output_sockets: HashMap<Resource, gpu::compute::Image<B>>,
+    input_sockets: HashMap<Resource, Resource>,
     shader_library: shaders::ShaderLibrary<B>,
 }
 
@@ -54,19 +55,20 @@ where
 
         ComputeManager {
             gpu,
-            sockets: HashMap::new(),
+            output_sockets: HashMap::new(),
+            input_sockets: HashMap::new(),
             shader_library,
         }
     }
 
-    fn add_new_socket(&mut self, socket: Resource, ty: ImageType) {
+    fn add_new_output_socket(&mut self, socket: Resource, ty: ImageType) {
         let px_width = match ty {
             ImageType::Rgb => 8,
             ImageType::Rgba => 8,
             ImageType::Value => 4,
         };
         let img = self.gpu.create_compute_image(IMG_SIZE, px_width).unwrap();
-        self.sockets.insert(socket, img);
+        self.output_sockets.insert(socket, img);
     }
 
     pub fn process_event(&mut self, event: Arc<Lang>) -> Option<Vec<Lang>> {
@@ -77,10 +79,13 @@ where
                     for (socket, imgtype) in op.inputs().iter().chain(op.outputs().iter()) {
                         let socket_res = res.extend_fragment(&socket);
                         log::trace!("Adding socket {}", socket_res);
-                        self.add_new_socket(socket_res, *imgtype);
+                        self.add_new_output_socket(socket_res, *imgtype);
                     }
                 }
-                GraphEvent::NodeRemoved(res) => self.sockets.retain(|s, _| !s.is_fragment_of(res)),
+                GraphEvent::NodeRemoved(res) => {
+                    // TODO: directly find and remove sockets
+                    self.output_sockets.retain(|s, _| !s.is_fragment_of(res))
+                }
                 GraphEvent::Recomputed(instrs) => {
                     for i in instrs.iter() {
                         let r = self.interpret(i);
@@ -106,16 +111,9 @@ where
             Instruction::Move(from, to) => {
                 log::trace!("Moving texture from {} to {}", from, to);
 
-                debug_assert!(self.sockets.get(from).is_some());
-                debug_assert!(self.sockets.get(to).is_some());
-                debug_assert!(from != to);
+                debug_assert!(self.output_sockets.get(from).is_some());
 
-                let source = self.sockets.get(from).unwrap().get_alloc();
-                if let Some(alloc) = source {
-                    self.sockets.get_mut(to).unwrap().use_memory_from(&self.gpu, alloc);
-                } else {
-                    log::warn!("Tried to move unallocated memory")
-                }
+                self.input_sockets.insert(to.to_owned(), from.to_owned());
             }
             Instruction::Execute(res, op) => {
                 match op {
@@ -127,8 +125,17 @@ where
                             log::trace!("Processing Output operator {} socket {}", res, socket);
 
                             let socket_res = res.extend_fragment(&socket);
-                            debug_assert!(self.sockets.get(&socket_res).is_some());
-                            let image = self.sockets.get(&socket_res).unwrap();
+
+                            // Ensure socket exists and is backed in debug builds
+                            debug_assert!({
+                                let output_res = self.input_sockets.get(&socket_res).unwrap();
+                                self.output_sockets.get(&output_res).unwrap().is_backed()
+                            });
+
+                            let image = self
+                                .output_sockets
+                                .get(self.input_sockets.get(&socket_res).unwrap())
+                                .unwrap();
                             let raw = self.gpu.download_image(image).unwrap();
 
                             log::debug!("Downloaded image size {:?}", raw.len());
@@ -155,26 +162,41 @@ where
                     _ => {
                         log::trace!("Executing operator {:?} of {}", op, res);
 
-                        // ensure images are allocated and build alloc mapping
-                        for (socket, _) in op.inputs().iter().chain(op.outputs().iter()) {
+                        // Ensure output images are allocated
+                        for (socket, _) in op.outputs().iter() {
                             let socket_res = res.extend_fragment(&socket);
-                            debug_assert!(self.sockets.get(&socket_res).is_some());
-                            self.sockets
+                            debug_assert!(self.output_sockets.get(&socket_res).is_some());
+                            self.output_sockets
                                 .get_mut(&socket_res)
                                 .unwrap()
                                 .ensure_alloc(&self.gpu)?;
                         }
 
+                        // In debug builds, ensure that all input images exist and are backed
+                        debug_assert!(op.inputs().iter().all(|(socket, _)| {
+                            let socket_res = res.extend_fragment(&socket);
+                            let output_res = self.input_sockets.get(&socket_res).unwrap();
+                            let output = self.output_sockets.get(output_res);
+                            output.is_some() && output.unwrap().is_backed()
+                        }));
+
                         let mut inputs = HashMap::new();
                         for socket in op.inputs().keys() {
                             let socket_res = res.extend_fragment(&socket);
-                            inputs.insert(socket.clone(), self.sockets.get(&socket_res).unwrap());
+                            let output_res = self.input_sockets.get(&socket_res).unwrap();
+                            inputs.insert(
+                                socket.clone(),
+                                self.output_sockets.get(output_res).unwrap(),
+                            );
                         }
 
                         let mut outputs = HashMap::new();
                         for socket in op.outputs().keys() {
                             let socket_res = res.extend_fragment(&socket);
-                            outputs.insert(socket.clone(), self.sockets.get(&socket_res).unwrap());
+                            outputs.insert(
+                                socket.clone(),
+                                self.output_sockets.get(&socket_res).unwrap(),
+                            );
                         }
 
                         // fill uniforms and execute shader
@@ -204,15 +226,6 @@ where
         }
 
         Ok(())
-    }
-}
-
-impl<B> Drop for ComputeManager<B>
-where
-    B: gpu::Backend,
-{
-    fn drop(&mut self) {
-        self.sockets.clear();
     }
 }
 

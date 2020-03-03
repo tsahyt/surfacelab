@@ -612,7 +612,7 @@ pub struct Image<B: Backend> {
     layout: Cell<hal::image::Layout>,
     access: Cell<hal::image::Access>,
     view: ManuallyDrop<Option<B::ImageView>>,
-    alloc: Option<Rc<Alloc<B>>>,
+    alloc: Option<Alloc<B>>,
 }
 
 impl<B> Image<B>
@@ -660,11 +660,11 @@ where
             .find_free_image_memory(bytes)
             .ok_or("Unable to find free memory for image")?;
         let alloc = compute.allocate_image_memory(&chunks);
-        self.alloc = Some(Rc::new(Alloc {
+        self.alloc = Some(Alloc {
             parent: self.parent,
             id: alloc,
             offset,
-        }));
+        });
 
         // Bind
         self.bind_memory(offset, compute)?;
@@ -672,9 +672,7 @@ where
         Ok(())
     }
 
-    /// Release the Image's hold on the backing memory. Note that this does
-    /// *not* necessarily free the underlying memory block, since there may be
-    /// other references to it!
+    /// Release the Image's hold on the backing memory.
     pub fn free_memory(&mut self, compute: &GPUCompute<B>) {
         log::trace!("Releasing image allocation");
         debug_assert!(self.alloc.is_some());
@@ -694,24 +692,8 @@ where
         self.alloc.is_some()
     }
 
-    /// Use the memory region from another image. This will increase the
-    /// reference count on the underlying memory region.
-    pub fn use_memory_from(
-        &mut self,
-        compute: &GPUCompute<B>,
-        alloc: Rc<Alloc<B>>,
-    ) -> Result<(), String> {
-        log::trace!("Transferring allocation");
-        let offset = alloc.offset;
-        self.alloc = Some(alloc);
-        self.bind_memory(offset, compute)
-    }
-
-    /// Returns a clone of the underlying allocation
-    pub fn get_alloc(&self) -> Option<Rc<Alloc<B>>> {
-        self.alloc.clone()
-    }
-
+    /// Ensures that the image is backed. If no memory is currently allocated to
+    /// it, new memory will be allocated. May fail if out of memory!
     pub fn ensure_alloc(&mut self, compute: &GPUCompute<B>) -> Result<(), String> {
         if self.alloc.is_none() {
             return self.allocate_memory(compute);
