@@ -221,7 +221,9 @@ where
             size,
             px_width,
             raw: ManuallyDrop::new(image),
-            view: None, // ManuallyDrop::new(view),
+            layout: Cell::new(hal::image::Layout::Undefined),
+            access: Cell::new(hal::image::Access::empty()),
+            view: None,
             alloc: None,
         })
     }
@@ -367,34 +369,50 @@ where
             lock.device.reset_fence(&self.fence).unwrap();
         }
 
-        let input_barriers = input_images.iter().map(|i| {
-            hal::memory::Barrier::Image {
-                states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-                    .. (hal::image::Access::SHADER_READ, hal::image::Layout::ShaderReadOnlyOptimal),
-                target: &*i.raw,
-                families: None,
-                range: COLOR_RANGE.clone(),
-            }
-        });
-        let output_barriers = output_images.iter().map(|i| {
-            hal::memory::Barrier::Image {
-                states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-                    .. (hal::image::Access::SHADER_WRITE, hal::image::Layout::General),
-                target: &*i.raw,
-                families: None,
-                range: COLOR_RANGE.clone(),
-            }
-        });
-        let barriers: Vec<_> = input_barriers.chain(output_barriers).collect();
+        let pre_barriers: Vec<_> = {
+            let input_barriers = input_images.iter().map(|i| {
+                let access = i.access.get();
+                let layout = i.layout.get();
+                i.access.set(hal::image::Access::SHADER_READ);
+                i.layout.set(hal::image::Layout::ShaderReadOnlyOptimal);
+                hal::memory::Barrier::Image {
+                    states: (access, layout)
+                        ..(
+                            hal::image::Access::SHADER_READ,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        ),
+                    target: &*i.raw,
+                    families: None,
+                    range: COLOR_RANGE.clone(),
+                }
+            });
+            let output_barriers = output_images.iter().map(|i| {
+                let access = i.access.get();
+                let layout = i.layout.get();
+                i.access.set(hal::image::Access::SHADER_WRITE);
+                i.layout.set(hal::image::Layout::General);
+                hal::memory::Barrier::Image {
+                    states: (access, layout)
+                        ..(
+                            hal::image::Access::SHADER_WRITE,
+                            hal::image::Layout::General,
+                        ),
+                    target: &*i.raw,
+                    families: None,
+                    range: COLOR_RANGE.clone(),
+                }
+            });
+            input_barriers.chain(output_barriers).collect()
+        };
 
         let command_buffer = unsafe {
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
             // TODO: submit barrier for every image to transition layout
             command_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::TOP_OF_PIPE .. hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
-                &dbg!(barriers)
+                &pre_barriers,
             );
             command_buffer.bind_compute_pipeline(&*pipeline.raw);
             command_buffer.bind_compute_descriptor_sets(
@@ -552,6 +570,8 @@ pub struct Image<B: Backend> {
     size: u32,
     px_width: u8,
     raw: ManuallyDrop<B::Image>,
+    layout: Cell<hal::image::Layout>,
+    access: Cell<hal::image::Access>,
     view: Option<ManuallyDrop<B::ImageView>>,
     alloc: Option<Rc<Alloc<B>>>,
 }
@@ -642,7 +662,7 @@ where
     pub fn get_view(&self) -> Option<&B::ImageView> {
         match &self.view {
             Some(view) => Some(&*view),
-            None => None
+            None => None,
         }
     }
 }
