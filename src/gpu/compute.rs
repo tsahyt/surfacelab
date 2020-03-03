@@ -15,22 +15,22 @@ use super::{Backend, Shader, ShaderType, GPU};
 
 pub struct GPUCompute<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
-    command_pool: B::CommandPool,
+    command_pool: ManuallyDrop<B::CommandPool>,
 
     // Uniforms
-    uniform_buf: B::Buffer,
-    uniform_mem: B::Memory,
+    uniform_buf: ManuallyDrop<B::Buffer>,
+    uniform_mem: ManuallyDrop<B::Memory>,
 
     // Image Memory Management
     allocs: Cell<AllocId>,
-    image_mem: B::Memory,
+    image_mem: ManuallyDrop<B::Memory>,
     image_mem_chunks: RefCell<Vec<Chunk>>,
 
     // Descriptors
-    descriptor_pool: B::DescriptorPool,
+    descriptor_pool: ManuallyDrop<B::DescriptorPool>,
 
     // Sync
-    fence: B::Fence,
+    fence: ManuallyDrop<B::Fence>,
 }
 
 type AllocId = u16;
@@ -157,17 +157,17 @@ where
         }
         .map_err(|_| "Failed to create descriptor pool")?;
 
-        let fence = lock.device.create_fence(false).unwrap();
+        let fence = ManuallyDrop::new(lock.device.create_fence(false).unwrap());
 
         Ok(GPUCompute {
             gpu: gpu.clone(),
-            command_pool: command_pool,
+            command_pool: ManuallyDrop::new(command_pool),
 
-            uniform_buf,
-            uniform_mem,
+            uniform_buf: ManuallyDrop::new(uniform_buf),
+            uniform_mem: ManuallyDrop::new(uniform_mem),
 
             allocs: Cell::new(0),
-            image_mem,
+            image_mem: ManuallyDrop::new(image_mem),
             image_mem_chunks: RefCell::new(
                 (0..Self::N_CHUNKS)
                     .map(|id| Chunk {
@@ -177,7 +177,7 @@ where
                     .collect(),
             ),
 
-            descriptor_pool,
+            descriptor_pool: ManuallyDrop::new(descriptor_pool),
 
             fence,
         })
@@ -566,7 +566,23 @@ where
 {
     fn drop(&mut self) {
         // TODO: call device destructors for gpucompute
-        log::info!("Releasing GPU Compute resources")
+        log::info!("Releasing GPU Compute resources");
+
+        let lock = self.gpu.lock().unwrap();
+        unsafe {
+            lock.device
+                .destroy_fence(ManuallyDrop::take(&mut self.fence));
+            lock.device
+                .free_memory(ManuallyDrop::take(&mut self.uniform_mem));
+            lock.device
+                .free_memory(ManuallyDrop::take(&mut self.image_mem));
+            lock.device
+                .destroy_buffer(ManuallyDrop::take(&mut self.uniform_buf));
+            lock.device
+                .destroy_command_pool(ManuallyDrop::take(&mut self.command_pool));
+            lock.device
+                .destroy_descriptor_pool(ManuallyDrop::take(&mut self.descriptor_pool));
+        }
     }
 }
 

@@ -9,7 +9,7 @@ use super::{Backend, CommandBuffer, Shader, ShaderType, GPU};
 
 pub struct GPURender<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
-    command_pool: B::CommandPool,
+    command_pool: ManuallyDrop<B::CommandPool>,
 }
 
 impl<B> GPURender<B>
@@ -30,7 +30,22 @@ where
 
         Ok(GPURender {
             gpu: gpu.clone(),
-            command_pool: command_pool,
+            command_pool: ManuallyDrop::new(command_pool),
         })
+    }
+}
+
+impl<B> Drop for GPURender<B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        log::info!("Releasing GPU Render resources");
+
+        let lock = self.gpu.lock().unwrap();
+        unsafe {
+            lock.device
+                .destroy_command_pool(ManuallyDrop::take(&mut self.command_pool));
+        }
     }
 }
