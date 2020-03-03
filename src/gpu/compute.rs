@@ -2,8 +2,8 @@ use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     aspects: hal::format::Aspects::COLOR,
@@ -364,6 +364,8 @@ where
         pipeline: &ComputePipeline<B>,
         descriptors: &B::DescriptorSet,
     ) {
+        let start_time = Instant::now();
+       
         unsafe {
             let lock = self.gpu.lock().unwrap();
             lock.device.reset_fence(&self.fence).unwrap();
@@ -432,6 +434,8 @@ where
             lock.device.wait_for_fence(&self.fence, !0).unwrap();
             self.command_pool.free(Some(command_buffer));
         }
+
+        log::debug!("Pipeline executed in {}µs", start_time.elapsed().as_micros());
     }
 
     pub fn uniform_buffer(&self) -> &B::Buffer {
