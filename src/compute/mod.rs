@@ -148,8 +148,10 @@ where
                             }
                             ExternalImage::Loaded(buf) => {
                                 log::trace!("Uploading image to GPU");
-                                image.ensure_alloc(&self.gpu);
+                                image.ensure_alloc(&self.gpu)?;
                                 self.gpu.upload_image(&image, &buf)?;
+                                // TODO: make sure this is zero copy, we're just transferring ownership
+                                *external_image = ExternalImage::Uploaded(buf.to_owned());
                             }
                             ExternalImage::Unloaded(path) => {
                                 log::debug!("Loading image file from {}", path.to_str().unwrap());
