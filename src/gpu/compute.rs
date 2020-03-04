@@ -365,7 +365,6 @@ where
         descriptors: &B::DescriptorSet,
     ) {
         let start_time = Instant::now();
-       
         unsafe {
             let lock = self.gpu.lock().unwrap();
             lock.device.reset_fence(&self.fence).unwrap();
@@ -435,7 +434,10 @@ where
             self.command_pool.free(Some(command_buffer));
         }
 
-        log::debug!("Pipeline executed in {}µs", start_time.elapsed().as_micros());
+        log::debug!(
+            "Pipeline executed in {}µs",
+            start_time.elapsed().as_micros()
+        );
     }
 
     pub fn uniform_buffer(&self) -> &B::Buffer {
@@ -561,6 +563,127 @@ where
         }
 
         Ok(res)
+    }
+
+    /// Upload image. This assumes the image to be allocated!
+    pub fn upload_image(
+        &mut self,
+        image: &Image<B>,
+        buffer: &image::ImageBuffer<image::Rgba<u16>, Vec<u16>>,
+    ) -> Result<(), String> {
+        debug_assert!(image.alloc.is_some());
+        let mut lock = self.gpu.lock().unwrap();
+        let bytes = (image.size * image.size * image.px_width as u32) as u64;
+
+        // Create and allocate staging buffer in host readable memory.
+        let mut buf = unsafe {
+            lock.device
+                .create_buffer(bytes, hal::buffer::Usage::TRANSFER_SRC)
+        }
+        .map_err(|_| "Cannot create upload buffer")?;
+
+        let buf_req = unsafe { lock.device.get_buffer_requirements(&buf) };
+        let mem_type = lock
+            .memory_properties
+            .memory_types
+            .iter()
+            .enumerate()
+            .position(|(id, mem_type)| {
+                buf_req.type_mask & (1 << id) != 0
+                    && mem_type
+                        .properties
+                        .contains(hal::memory::Properties::CPU_VISIBLE)
+            })
+            .unwrap()
+            .into();
+        let mem = unsafe { lock.device.allocate_memory(mem_type, bytes) }
+            .map_err(|_| "Failed to allocate device memory for upload buffer")?;
+
+        unsafe {
+            lock.device
+                .bind_buffer_memory(&mem, 0, &mut buf)
+                .map_err(|_| "Failed to bind download buffer to memory")?
+        };
+
+        // Upload image to staging buffer
+        unsafe {
+            let mapping = lock.device.map_memory(&mem, 0..bytes).unwrap();
+            let slice: &[u16] = &buffer.into_raw();
+            let u8s: &[u8] =
+                std::slice::from_raw_parts(slice.as_ptr() as *const u8, slice.len() * 2);
+            std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, bytes as usize);
+            lock.device.unmap_memory(&mem);
+        }
+
+        // Reset fence
+        unsafe {
+            lock.device.reset_fence(&self.fence).unwrap();
+        }
+
+        // Build barrier
+        // TODO: abstract barrier building into Image<B>, we use this too often
+        let barrier = {
+            let access = image.access.get();
+            let layout = image.layout.get();
+            image.access.set(hal::image::Access::TRANSFER_WRITE);
+            image.layout.set(hal::image::Layout::TransferDstOptimal);
+            hal::memory::Barrier::Image {
+                states: (access, layout)
+                    ..(
+                        hal::image::Access::TRANSFER_WRITE,
+                        hal::image::Layout::TransferDstOptimal,
+                    ),
+                target: &*image.raw,
+                families: None,
+                range: COLOR_RANGE.clone(),
+            }
+        };
+
+        // Copy buffer to image
+        unsafe {
+            let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
+            command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            command_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::TRANSFER,
+                hal::memory::Dependencies::empty(),
+                &[barrier],
+            );
+            command_buffer.copy_buffer_to_image(
+                &buf,
+                &image.raw,
+                hal::image::Layout::TransferDstOptimal,
+                Some(hal::command::BufferImageCopy {
+                    buffer_offset: 0,
+                    buffer_width: image.size,
+                    buffer_height: image.size,
+                    image_offset: hal::image::Offset { x: 0, y: 0, z: 0 },
+                    image_extent: hal::image::Extent {
+                        width: image.size,
+                        height: image.size,
+                        depth: 1,
+                    },
+                    image_layers: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 0,
+                        layers: 0..1,
+                    },
+                }),
+            );
+            command_buffer.finish();
+
+            lock.queue_group.queues[0]
+                .submit_without_semaphores(Some(&command_buffer), Some(&self.fence));
+            lock.device.wait_for_fence(&self.fence, !0).unwrap();
+            self.command_pool.free(Some(command_buffer));
+        }
+
+        // Cleanup
+        unsafe {
+            lock.device.free_memory(mem);
+            lock.device.destroy_buffer(buf);
+        }
+
+        Ok(())
     }
 }
 

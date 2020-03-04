@@ -39,11 +39,18 @@ pub fn start_compute_thread<B: gpu::Backend>(
     }
 }
 
+enum ExternalImage {
+    Uploaded(image::ImageBuffer<image::Rgba<u16>, Vec<u16>>),
+    Loaded(image::ImageBuffer<image::Rgba<u16>, Vec<u16>>),
+    Unloaded(std::path::PathBuf),
+}
+
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
     output_sockets: HashMap<Resource, gpu::compute::Image<B>>,
     input_sockets: HashMap<Resource, Resource>,
     shader_library: shaders::ShaderLibrary<B>,
+    external_images: HashMap<Resource, ExternalImage>,
 }
 
 impl<B> ComputeManager<B>
@@ -58,21 +65,20 @@ where
             output_sockets: HashMap::new(),
             input_sockets: HashMap::new(),
             shader_library,
+            external_images: HashMap::new(),
         }
     }
 
     fn add_new_output_socket(&mut self, socket: Resource, ty: ImageType) {
-        let px_width = match ty {
-            ImageType::Rgb => 8,
-            ImageType::Rgba => 8,
-            ImageType::Value => 4,
-        };
-        let img = self.gpu.create_compute_image(IMG_SIZE, px_width).unwrap();
+        let img = self
+            .gpu
+            .create_compute_image(IMG_SIZE, ty.gpu_bytes_per_pixel())
+            .unwrap();
         self.output_sockets.insert(socket, img);
     }
 
     pub fn process_event(&mut self, event: Arc<Lang>) -> Option<Vec<Lang>> {
-        let mut response = Vec::new();
+        let response = Vec::new();
         match &*event {
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, op) => {
@@ -81,10 +87,16 @@ where
                         log::trace!("Adding socket {}", socket_res);
                         self.add_new_output_socket(socket_res, *imgtype);
                     }
+
+                    if let Operator::Image { path } = op {
+                        self.external_images
+                            .insert(res.to_owned(), ExternalImage::Unloaded(path.clone()));
+                    }
                 }
                 GraphEvent::NodeRemoved(res) => {
                     // TODO: directly find and remove sockets
-                    self.output_sockets.retain(|s, _| !s.is_fragment_of(res))
+                    self.output_sockets.retain(|s, _| !s.is_fragment_of(res));
+                    self.external_images.remove(res);
                 }
                 GraphEvent::Recomputed(instrs) => {
                     for i in instrs.iter() {
@@ -119,6 +131,36 @@ where
                 match op {
                     Operator::Image { .. } => {
                         log::trace!("Processing Image operator {}", res);
+
+                        let external_image = self
+                            .external_images
+                            .get_mut(res)
+                            .expect("Unknown external image");
+
+                        let image = self
+                            .output_sockets
+                            .get_mut(res)
+                            .expect("Trying to process missing socket");
+
+                        match external_image {
+                            ExternalImage::Uploaded(..) => {
+                                log::trace!("Reusing uploaded image");
+                            }
+                            ExternalImage::Loaded(buf) => {
+                                log::trace!("Uploading image to GPU");
+                                image.ensure_alloc(&self.gpu);
+                                self.gpu.upload_image(&image, &buf)?;
+                            }
+                            ExternalImage::Unloaded(path) => {
+                                log::debug!("Loading image file from {}", path.to_str().unwrap());
+                                let img = image::open(path)
+                                    .map_err(|e| format!("Failed to read image: {}", e))?;
+                                let buf = img.as_rgba16().unwrap().to_owned();
+                                image.ensure_alloc(&self.gpu)?;
+                                self.gpu.upload_image(&image, &buf)?;
+                                *external_image = ExternalImage::Loaded(buf);
+                            }
+                        }
                     }
                     Operator::Output { .. } => {
                         for (socket, ty) in op.inputs().iter() {

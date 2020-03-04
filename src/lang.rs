@@ -154,6 +154,16 @@ impl Default for ImageType {
     }
 }
 
+impl ImageType {
+    pub fn gpu_bytes_per_pixel(&self) -> usize {
+        match self {
+            Self::Rgb => 8,
+            Self::Rgba => 8,
+            Self::Value => 4
+        }
+    }
+}
+
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum OutputType {
     Albedo,
