@@ -372,36 +372,16 @@ where
 
         let pre_barriers: Vec<_> = {
             let input_barriers = input_images.iter().map(|i| {
-                let access = i.access.get();
-                let layout = i.layout.get();
-                i.access.set(hal::image::Access::SHADER_READ);
-                i.layout.set(hal::image::Layout::ShaderReadOnlyOptimal);
-                hal::memory::Barrier::Image {
-                    states: (access, layout)
-                        ..(
-                            hal::image::Access::SHADER_READ,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        ),
-                    target: &*i.raw,
-                    families: None,
-                    range: COLOR_RANGE.clone(),
-                }
+                i.barrier_to(
+                    hal::image::Access::SHADER_READ,
+                    hal::image::Layout::ShaderReadOnlyOptimal,
+                )
             });
             let output_barriers = output_images.iter().map(|i| {
-                let access = i.access.get();
-                let layout = i.layout.get();
-                i.access.set(hal::image::Access::SHADER_WRITE);
-                i.layout.set(hal::image::Layout::General);
-                hal::memory::Barrier::Image {
-                    states: (access, layout)
-                        ..(
-                            hal::image::Access::SHADER_WRITE,
-                            hal::image::Layout::General,
-                        ),
-                    target: &*i.raw,
-                    families: None,
-                    range: COLOR_RANGE.clone(),
-                }
+                i.barrier_to(
+                    hal::image::Access::SHADER_WRITE,
+                    hal::image::Layout::General,
+                )
             });
             input_barriers.chain(output_barriers).collect()
         };
@@ -487,22 +467,10 @@ where
         }
 
         // Build barrier
-        let barrier = {
-            let access = image.access.get();
-            let layout = image.layout.get();
-            image.access.set(hal::image::Access::TRANSFER_READ);
-            image.layout.set(hal::image::Layout::TransferSrcOptimal);
-            hal::memory::Barrier::Image {
-                states: (access, layout)
-                    ..(
-                        hal::image::Access::TRANSFER_READ,
-                        hal::image::Layout::TransferSrcOptimal,
-                    ),
-                target: &*image.raw,
-                families: None,
-                range: COLOR_RANGE.clone(),
-            }
-        };
+        let barrier = image.barrier_to(
+            hal::image::Access::TRANSFER_READ,
+            hal::image::Layout::TransferSrcOptimal,
+        );
 
         // Copy image to buffer
         unsafe {
@@ -621,23 +589,10 @@ where
         }
 
         // Build barrier
-        // TODO: abstract barrier building into Image<B>, we use this too often
-        let barrier = {
-            let access = image.access.get();
-            let layout = image.layout.get();
-            image.access.set(hal::image::Access::TRANSFER_WRITE);
-            image.layout.set(hal::image::Layout::TransferDstOptimal);
-            hal::memory::Barrier::Image {
-                states: (access, layout)
-                    ..(
-                        hal::image::Access::TRANSFER_WRITE,
-                        hal::image::Layout::TransferDstOptimal,
-                    ),
-                target: &*image.raw,
-                families: None,
-                range: COLOR_RANGE.clone(),
-            }
-        };
+        let barrier = image.barrier_to(
+            hal::image::Access::TRANSFER_WRITE,
+            hal::image::Layout::TransferDstOptimal,
+        );
 
         // Copy buffer to image
         unsafe {
@@ -774,6 +729,23 @@ where
         self.view = ManuallyDrop::new(Some(view));
 
         Ok(())
+    }
+
+    pub fn barrier_to(
+        &self,
+        access: hal::image::Access,
+        layout: hal::image::Layout,
+    ) -> hal::memory::Barrier<B> {
+        let old_access = self.access.get();
+        let old_layout = self.layout.get();
+        self.access.set(access);
+        self.layout.set(layout);
+        hal::memory::Barrier::Image {
+            states: (old_access, old_layout)..(access, layout),
+            target: &*self.raw,
+            families: None,
+            range: COLOR_RANGE.clone(),
+        }
     }
 
     /// Allocate fresh memory to the image from the underlying memory pool in compute.
