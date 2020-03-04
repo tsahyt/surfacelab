@@ -1,4 +1,5 @@
 #![feature(tau_constant)]
+#![feature(clamp)]
 
 pub mod broker;
 pub mod compute;

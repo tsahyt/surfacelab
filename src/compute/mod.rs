@@ -269,7 +269,7 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
             let u16s: Vec<u16> =
                 std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
                     .iter()
-                    .map(|x| (*x * 65536.) as u16)
+                    .map(|x| ((*x).clamp(0., 1.) * 65535.) as u16)
                     .collect();
             std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2).to_owned()
         },
