@@ -1,13 +1,14 @@
 use crate::{broker, lang};
 use gio::prelude::*;
 use once_cell::unsync::OnceCell;
-use std::thread;
 use std::sync::Arc;
+use std::thread;
 
 pub mod application;
 pub mod node;
 pub mod node_area;
 pub mod node_socket;
+pub mod param_box;
 pub mod subclass;
 
 thread_local!(static BROKER: OnceCell<broker::BrokerSender<lang::Lang>> = OnceCell::new());
@@ -31,7 +32,9 @@ pub fn start_ui_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinH
 fn ui_bus(gsender: glib::Sender<Arc<lang::Lang>>, receiver: broker::BrokerReceiver<lang::Lang>) {
     for event in receiver {
         gsender.send(event.clone()).unwrap();
-        if let lang::Lang::UserEvent(lang::UserEvent::Quit) = &*event { break; }
+        if let lang::Lang::UserEvent(lang::UserEvent::Quit) = &*event {
+            break;
+        }
     }
 }
 
