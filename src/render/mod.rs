@@ -12,7 +12,7 @@ pub fn start_render_thread<B: gpu::Backend>(
             log::error!("Failed to initialize GPU Render: {}", e);
             panic!("Critical Error");
         }
-        Ok(mut render) => thread::spawn(move || {
+        Ok(_render) => thread::spawn(move || {
             log::info!("Starting Renderer");
 
             for event in receiver {

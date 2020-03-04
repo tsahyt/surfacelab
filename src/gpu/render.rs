@@ -1,11 +1,9 @@
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
-use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-use super::{Backend, CommandBuffer, Shader, ShaderType, GPU};
+use super::{Backend, GPU};
 
 pub struct GPURender<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
