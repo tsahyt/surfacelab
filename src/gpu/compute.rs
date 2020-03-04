@@ -647,7 +647,6 @@ where
     B: Backend,
 {
     fn drop(&mut self) {
-        // TODO: call device destructors for gpucompute
         log::info!("Releasing GPU Compute resources");
 
         let lock = self.gpu.lock().unwrap();
