@@ -155,7 +155,7 @@ impl Default for ImageType {
 }
 
 impl ImageType {
-    pub fn gpu_bytes_per_pixel(&self) -> usize {
+    pub fn gpu_bytes_per_pixel(&self) -> u8 {
         match self {
             Self::Rgb => 8,
             Self::Rgba => 8,

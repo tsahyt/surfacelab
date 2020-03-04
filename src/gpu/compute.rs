@@ -608,7 +608,7 @@ where
         // Upload image to staging buffer
         unsafe {
             let mapping = lock.device.map_memory(&mem, 0..bytes).unwrap();
-            let slice: &[u16] = &buffer.into_raw();
+            let slice: &[u16] = &*buffer;
             let u8s: &[u8] =
                 std::slice::from_raw_parts(slice.as_ptr() as *const u8, slice.len() * 2);
             std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, bytes as usize);
