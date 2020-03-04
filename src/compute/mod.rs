@@ -273,6 +273,7 @@ where
     }
 }
 
+// TODO: use rgba16 on device instead of rgba16f.
 fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
     match ty {
         // Underlying memory is formatted as rgba16f, expected to be Rgb16

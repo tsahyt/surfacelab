@@ -9,26 +9,20 @@ use std::thread;
 struct Node {
     operator: lang::Operator,
     resource: lang::Resource,
-    inputs: HashMap<String, lang::ImageType>,
-    outputs: HashMap<String, lang::ImageType>,
 }
 
 impl Node {
     fn new(operator: lang::Operator, resource: lang::Resource) -> Self {
-        Node {
-            operator,
-            resource,
-            inputs: HashMap::new(),
-            outputs: HashMap::new(),
-        }
+        Node { operator, resource }
     }
 
     /// A node can be considered a Mask if and only if it has exactly one output
     /// which produces a Value.
     fn is_mask(&self) -> bool {
-        self.outputs.len() == 1
+        self.operator.outputs().len() == 1
             && self
-                .outputs
+                .operator
+                .outputs()
                 .iter()
                 .all(|(_, x)| *x == lang::ImageType::Value)
     }
@@ -81,14 +75,13 @@ impl NodeManager {
                     }
                     Err(e) => log::error!("{}", e),
                 },
-                UserNodeEvent::ConnectSockets(from, to) => {
-                    self.connect_sockets(from, to)
-                        .unwrap_or_else(|e| log::error!("{}", e));
-                    response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                UserNodeEvent::ConnectSockets(from, to) => match self.connect_sockets(from, to) {
+                    Ok(_) => response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
                         from.clone(),
                         to.clone(),
-                    )))
-                }
+                    ))),
+                    Err(e) => log::error!("{}", e),
+                },
                 UserNodeEvent::DisconnectSockets(from, to) => self
                     .disconnect_sockets(from, to)
                     .unwrap_or_else(|e| log::error!("{}", e)),
@@ -225,6 +218,17 @@ impl NodeManager {
             .ok_or("Missing socket specification")?
             .to_string();
 
+        {
+            let from_type = self.socket_type(from).unwrap();
+            let to_type = self.socket_type(to).unwrap();
+            if from_type != to_type {
+                return Err(format!(
+                    "Socket type mismatch! {:?} != {:?}",
+                    from_type, to_type
+                ));
+            }
+        }
+
         log::trace!(
             "Connecting {:?} with {:?} from socket {:?} to socket {:?}",
             from_path,
@@ -294,6 +298,27 @@ impl NodeManager {
 
     fn node_by_uri(&self, resource: &lang::Resource) -> Option<graph::NodeIndex> {
         self.node_indices.get(&resource.drop_fragment()).cloned()
+    }
+
+    fn socket_type(&self, socket: &lang::Resource) -> Result<lang::ImageType, String> {
+        let path = self
+            .node_by_uri(socket)
+            .ok_or(format!("Node for URI {} not found!", &socket))?;
+        let socket_name = socket
+            .fragment()
+            .ok_or("Missing socket specification")?
+            .to_string();
+
+        let node = self
+            .node_graph
+            .node_weight(path)
+            .expect("Missing node during type lookup");
+        node.operator
+            .inputs()
+            .get(&socket_name)
+            .or(node.operator.outputs().get(&socket_name))
+            .cloned()
+            .ok_or("Missing socket type".to_string())
     }
 
     // TODO: should be in its own scope
