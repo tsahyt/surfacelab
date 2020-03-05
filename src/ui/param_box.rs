@@ -154,6 +154,7 @@ impl Control {
     ) -> gtk::Widget {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 0.01, 0.01, 0.);
         let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
+        scale.set_size_request(128, 0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
@@ -174,6 +175,7 @@ impl Control {
     ) -> gtk::Widget {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 1., 1., 0.);
         let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
+        scale.set_size_request(128, 0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(

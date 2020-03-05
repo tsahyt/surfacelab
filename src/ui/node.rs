@@ -1,4 +1,5 @@
 use super::node_socket::{NodeSocket, NodeSocketIO};
+use super::param_box;
 use super::subclass::*;
 use crate::lang::*;
 
@@ -131,6 +132,8 @@ impl ObjectImpl for NodePrivate {
 
         // thumbnail
         {
+            use std::convert::TryFrom;
+
             let thumbnail = gtk::DrawingArea::new();
             thumbnail.set_size_request(128, 128);
 
@@ -145,7 +148,22 @@ impl ObjectImpl for NodePrivate {
             thumbnail.set_margin_end(MARGIN);
             thumbnail.set_margin_bottom(MARGIN);
 
-            node.add(&thumbnail);
+            let popover = gtk::Popover::new(Some(&thumbnail));
+            popover.set_position(gtk::PositionType::Right);
+            let pbox = param_box::perlin_noise(&Resource::try_from("node:perlin_noise.1").unwrap());
+            popover.add(&pbox);
+            let ebox = gtk::EventBox::new();
+            ebox.add(&thumbnail);
+
+            ebox.connect_button_press_event(move |_,e| {
+                if e.get_button() == 3 /* thx gdk... */ {
+                    popover.show_all();
+                    popover.popup();
+                };
+                Inhibit(false)
+            });
+
+            node.add(&ebox);
         }
     }
 }
