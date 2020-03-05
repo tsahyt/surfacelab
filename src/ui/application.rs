@@ -81,40 +81,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         vbox.pack_end(&node_area, true, true, 0);
 
         // ParamBox test
-        let pbox = param_box::ParamBox::new(&param_box::ParamBoxDescription {
-            box_title: "hello world",
-            resource: Resource::try_from("node:something").unwrap(),
-            categories: &[
-                param_box::ParamCategory {
-                    name: "foo",
-                    parameters: &[param_box::Parameter {
-                        name: "Scale",
-                        field: "scale",
-                        control: param_box::Control::Slider { min: 0., max: 1. },
-                    }],
-                },
-                param_box::ParamCategory {
-                    name: "bar",
-                    parameters: &[
-                        param_box::Parameter {
-                            name: "Octaves",
-                            field: "octaves",
-                            control: param_box::Control::DiscreteSlider { min: 0, max: 8 },
-                        },
-                        param_box::Parameter {
-                            name: "Enum",
-                            field: "enum",
-                            control: param_box::Control::Enum(&["foo", "bar", "quux"]),
-                        },
-                        param_box::Parameter {
-                            name: "Color",
-                            field: "color",
-                            control: param_box::Control::RgbaColor,
-                        },
-                    ],
-                },
-            ],
-        });
+        let pbox = param_box::perlin_noise(&Resource::try_from("node:perlin_noise.1").unwrap());
         pbox.show_all();
         vbox.pack_end(&pbox, false, false, 0);
 

@@ -7,7 +7,6 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
-
 pub struct ParamBoxPrivate {
     inner: gtk::Box,
 }
@@ -160,7 +159,7 @@ impl Control {
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
                 resource.to_owned(),
                 field,
-                a.get_value().to_be_bytes().to_vec(),
+                (a.get_value() as f32).to_be_bytes().to_vec(),
             )));
         }));
 
@@ -180,7 +179,7 @@ impl Control {
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
                 resource.to_owned(),
                 field,
-                a.get_value().to_be_bytes().to_vec(),
+                (a.get_value() as u32).to_be_bytes().to_vec(),
             )));
         }));
 
@@ -204,4 +203,48 @@ impl Control {
 
         combo.upcast()
     }
+}
+
+// Parameter Boxes for Nodes
+
+pub fn blend(res: &Resource) -> ParamBox {
+    ParamBox::new(&ParamBoxDescription {
+        box_title: "Blend",
+        resource: res.clone(),
+        categories: &[ParamCategory {
+            name: "Basic Parameters",
+            parameters: &[Parameter {
+                name: "Mix",
+                field: BlendParameters::MIX,
+                control: Control::Slider { min: 0., max: 1. },
+            }],
+        }],
+    })
+}
+
+pub fn perlin_noise(res: &Resource) -> ParamBox {
+    ParamBox::new(&ParamBoxDescription {
+        box_title: "Perlin Noise",
+        resource: res.clone(),
+        categories: &[ParamCategory {
+            name: "Basic Parameters",
+            parameters: &[
+                Parameter {
+                    name: "Scale",
+                    field: PerlinNoiseParameters::SCALE,
+                    control: Control::Slider { min: 0., max: 128. },
+                },
+                Parameter {
+                    name: "Octaves",
+                    field: PerlinNoiseParameters::OCTAVES,
+                    control: Control::DiscreteSlider { min: 0, max: 32 },
+                },
+                Parameter {
+                    name: "Attenuation",
+                    field: PerlinNoiseParameters::ATTENUATION,
+                    control: Control::Slider { min: 0., max: 4. },
+                },
+            ],
+        }],
+    })
 }

@@ -19,10 +19,14 @@ impl Default for BlendParameters {
     }
 }
 
+impl BlendParameters {
+    pub const MIX: &'static str = "mix";
+}
+
 impl Parameters for BlendParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
-            "mix" => {
+            Self::MIX => {
                 let mut arr: [u8; 4] = Default::default();
                 arr.copy_from_slice(data);
                 self.mix = f32::from_be_bytes(arr);
@@ -50,20 +54,26 @@ impl Default for PerlinNoiseParameters {
     }
 }
 
+impl PerlinNoiseParameters {
+    pub const SCALE: &'static str = "scale";
+    pub const OCTAVES: &'static str = "octaves";
+    pub const ATTENUATION: &'static str = "attenuation";
+}
+
 impl Parameters for PerlinNoiseParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
-            "scale" => {
+            Self::SCALE => {
                 let mut arr: [u8; 4] = Default::default();
                 arr.copy_from_slice(data);
                 self.scale = f32::from_be_bytes(arr);
             }
-            "octaves" => {
+            Self::OCTAVES => {
                 let mut arr: [u8; 4] = Default::default();
                 arr.copy_from_slice(data);
                 self.octaves = u32::from_be_bytes(arr);
             }
-            "attenuation" => {
+            Self::ATTENUATION => {
                 let mut arr: [u8; 4] = Default::default();
                 arr.copy_from_slice(data);
                 self.attenuation = f32::from_be_bytes(arr);
