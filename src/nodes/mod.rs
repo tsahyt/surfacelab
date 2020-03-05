@@ -85,6 +85,7 @@ impl NodeManager {
                 UserNodeEvent::DisconnectSockets(from, to) => self
                     .disconnect_sockets(from, to)
                     .unwrap_or_else(|e| log::error!("{}", e)),
+                UserNodeEvent::ParameterChange(..) => {}
                 UserNodeEvent::ForceRecompute => {
                     let instructions = self.recompute();
                     response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));

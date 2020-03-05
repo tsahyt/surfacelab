@@ -1,9 +1,13 @@
+use crate::lang::*;
+
 use glib::subclass;
 use glib::subclass::prelude::*;
 use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
+
+use std::sync::Arc;
 
 pub struct ParamBoxPrivate {
     inner: gtk::Box,
@@ -68,7 +72,9 @@ impl ParamBoxPrivate {
 
                 let param_label = gtk::Label::new(Some(parameter.name));
                 param_label_group.add_widget(&param_label);
-                let param_control = parameter.control.construct();
+                let param_control = parameter
+                    .control
+                    .construct(&description.resource, parameter.field);
                 param_control_group.add_widget(&param_control);
 
                 param_layout.pack_start(&param_label, false, false, 4);
@@ -106,6 +112,7 @@ impl ParamBox {
 
 pub struct ParamBoxDescription {
     pub box_title: &'static str,
+    pub resource: Resource,
     pub categories: &'static [ParamCategory],
 }
 
@@ -116,7 +123,7 @@ pub struct ParamCategory {
 
 pub struct Parameter {
     pub name: &'static str,
-    pub internal_name: &'static str,
+    pub field: &'static str,
     pub control: Control,
 }
 
@@ -129,33 +136,73 @@ pub enum Control {
 }
 
 impl Control {
-    pub fn construct(&self) -> gtk::Widget {
+    pub fn construct(&self, resource: &Resource, field: &'static str) -> gtk::Widget {
         match self {
-            Self::Slider { min, max } => Self::construct_slider(*min, *max),
-            Self::DiscreteSlider { min, max } => Self::construct_discrete_slider(*min, *max),
+            Self::Slider { min, max } => Self::construct_slider(*min, *max, resource, field),
+            Self::DiscreteSlider { min, max } => {
+                Self::construct_discrete_slider(*min, *max, resource, field)
+            }
             Self::RgbColor => gtk::ColorButton::new().upcast(),
             Self::RgbaColor => gtk::ColorButton::new().upcast(),
-            Self::Enum(entries) => Self::construct_enum(entries),
+            Self::Enum(entries) => Self::construct_enum(entries, resource, field),
         }
     }
 
-    fn construct_slider(min: f32, max: f32) -> gtk::Widget {
+    fn construct_slider(
+        min: f32,
+        max: f32,
+        resource: &Resource,
+        field: &'static str,
+    ) -> gtk::Widget {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 0.01, 0.01, 0.);
         let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
+
+        adjustment.connect_value_changed(clone!(@strong resource, @strong field => move |a| {
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+                resource.to_owned(),
+                field.to_owned(),
+                a.get_value().to_be_bytes().to_vec(),
+            )));
+        }));
+
         scale.upcast()
     }
 
-    fn construct_discrete_slider(min: i32, max: i32) -> gtk::Widget {
+    fn construct_discrete_slider(
+        min: i32,
+        max: i32,
+        resource: &Resource,
+        field: &'static str,
+    ) -> gtk::Widget {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 1., 1., 0.);
         let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
+
+        adjustment.connect_value_changed(clone!(@strong resource, @strong field => move |a| {
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+                resource.to_owned(),
+                field.to_owned(),
+                a.get_value().to_be_bytes().to_vec(),
+            )));
+        }));
+
         scale.upcast()
     }
 
-    fn construct_enum(entries: &[&str]) -> gtk::Widget {
+    fn construct_enum(entries: &[&str], resource: &Resource, field: &'static str) -> gtk::Widget {
         let combo = gtk::ComboBoxText::new();
+
         for (i, entry) in entries.iter().enumerate() {
             combo.insert_text(i as _, entry);
         }
+
+        combo.connect_changed(clone!(@strong resource, @strong field => move |c| {
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+                resource.to_owned(),
+                field.to_owned(),
+                (c.get_active().unwrap_or(0)).to_be_bytes().to_vec()
+            )))
+        }));
+
         combo.upcast()
     }
 }

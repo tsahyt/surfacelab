@@ -1,6 +1,8 @@
 use maplit::hashmap;
+use std::any::Any;
 use std::collections::HashMap;
 use std::path::*;
+use std::rc::Rc;
 use zerocopy::AsBytes;
 
 #[repr(C)]
@@ -159,7 +161,7 @@ impl ImageType {
         match self {
             Self::Rgb => 8,
             Self::Rgba => 8,
-            Self::Value => 4
+            Self::Value => 4,
         }
     }
 }
@@ -274,6 +276,11 @@ pub enum UserNodeEvent {
     RemoveNode(Resource),
     ConnectSockets(Resource, Resource),
     DisconnectSockets(Resource, Resource),
+    ParameterChange(
+        Resource,
+        String,
+        Vec<u8>,
+    ),
     ForceRecompute,
 }
 

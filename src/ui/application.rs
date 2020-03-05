@@ -42,6 +42,8 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
+        use std::convert::TryFrom;
+       
         self.parent_constructed(obj);
         let window = obj.downcast_ref::<SurfaceLabWindow>().unwrap();
         window.set_title("SurfaceLab");
@@ -81,12 +83,13 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         // ParamBox test
         let pbox = param_box::ParamBox::new(&param_box::ParamBoxDescription {
             box_title: "hello world",
+            resource: Resource::try_from("node:something").unwrap(),
             categories: &[
                 param_box::ParamCategory {
                     name: "foo",
                     parameters: &[param_box::Parameter {
                         name: "Scale",
-                        internal_name: "scale",
+                        field: "scale",
                         control: param_box::Control::Slider { min: 0., max: 1. },
                     }],
                 },
@@ -94,18 +97,18 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                     name: "bar",
                     parameters: &[
                         param_box::Parameter {
-                            name: "Scale",
-                            internal_name: "scale",
-                            control: param_box::Control::Slider { min: 0., max: 8. },
+                            name: "Octaves",
+                            field: "octaves",
+                            control: param_box::Control::DiscreteSlider { min: 0, max: 8 },
                         },
                         param_box::Parameter {
                             name: "Enum",
-                            internal_name: "enum",
+                            field: "enum",
                             control: param_box::Control::Enum(&["foo", "bar", "quux"]),
                         },
                         param_box::Parameter {
                             name: "Color",
-                            internal_name: "color",
+                            field: "color",
                             control: param_box::Control::RgbaColor,
                         },
                     ],
