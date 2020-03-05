@@ -1,9 +1,11 @@
 use maplit::hashmap;
-use std::any::Any;
 use std::collections::HashMap;
 use std::path::*;
-use std::rc::Rc;
 use zerocopy::AsBytes;
+
+pub trait Parameters {
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]);
+}
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug)]
@@ -14,6 +16,19 @@ pub struct BlendParameters {
 impl Default for BlendParameters {
     fn default() -> Self {
         BlendParameters { mix: 0.5 }
+    }
+}
+
+impl Parameters for BlendParameters {
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+        match field {
+            "mix" => {
+                let mut arr: [u8; 4] = Default::default();
+                arr.copy_from_slice(data);
+                self.mix = f32::from_be_bytes(arr);
+            }
+            _ => panic!("Unknown field {}", field),
+        }
     }
 }
 
@@ -35,6 +50,29 @@ impl Default for PerlinNoiseParameters {
     }
 }
 
+impl Parameters for PerlinNoiseParameters {
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+        match field {
+            "scale" => {
+                let mut arr: [u8; 4] = Default::default();
+                arr.copy_from_slice(data);
+                self.scale = f32::from_be_bytes(arr);
+            }
+            "octaves" => {
+                let mut arr: [u8; 4] = Default::default();
+                arr.copy_from_slice(data);
+                self.octaves = u32::from_be_bytes(arr);
+            }
+            "attenuation" => {
+                let mut arr: [u8; 4] = Default::default();
+                arr.copy_from_slice(data);
+                self.attenuation = f32::from_be_bytes(arr);
+            }
+            _ => panic!("Unknown field {}", field),
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug)]
 pub struct RgbParameters {
@@ -45,6 +83,20 @@ impl Default for RgbParameters {
     fn default() -> Self {
         RgbParameters {
             rgb: [0.5, 0.7, 0.3],
+        }
+    }
+}
+
+impl Parameters for RgbParameters {
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+        match field {
+            "rgb" => {
+                // TODO: rgb parameter
+                // let mut arr: [u8; 12] = Default::default();
+                // arr.copy_from_slice(data);
+                // self.rgb = f32::from_be_bytes(arr);
+            }
+            _ => panic!("Unknown field {}", field),
         }
     }
 }
@@ -133,6 +185,16 @@ impl Operator {
         match self {
             Self::Output { .. } => true,
             _ => false,
+        }
+    }
+}
+
+impl Parameters for Operator {
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+        match self {
+            Self::Blend(p) => p.set_parameter(field, data),
+            Self::PerlinNoise(p) => p.set_parameter(field, data),
+            _ => panic!("Unsupported operator for parameter setting")
         }
     }
 }
@@ -276,11 +338,7 @@ pub enum UserNodeEvent {
     RemoveNode(Resource),
     ConnectSockets(Resource, Resource),
     DisconnectSockets(Resource, Resource),
-    ParameterChange(
-        Resource,
-        String,
-        Vec<u8>,
-    ),
+    ParameterChange(Resource, &'static str, Vec<u8>),
     ForceRecompute,
 }
 

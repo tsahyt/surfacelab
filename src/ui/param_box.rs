@@ -7,7 +7,6 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
-use std::sync::Arc;
 
 pub struct ParamBoxPrivate {
     inner: gtk::Box,
@@ -157,10 +156,10 @@ impl Control {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 0.01, 0.01, 0.);
         let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
 
-        adjustment.connect_value_changed(clone!(@strong resource, @strong field => move |a| {
+        adjustment.connect_value_changed(clone!(@strong resource => move |a| {
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
                 resource.to_owned(),
-                field.to_owned(),
+                field,
                 a.get_value().to_be_bytes().to_vec(),
             )));
         }));
@@ -177,10 +176,10 @@ impl Control {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 1., 1., 0.);
         let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
 
-        adjustment.connect_value_changed(clone!(@strong resource, @strong field => move |a| {
+        adjustment.connect_value_changed(clone!(@strong resource => move |a| {
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
                 resource.to_owned(),
-                field.to_owned(),
+                field,
                 a.get_value().to_be_bytes().to_vec(),
             )));
         }));
@@ -195,10 +194,10 @@ impl Control {
             combo.insert_text(i as _, entry);
         }
 
-        combo.connect_changed(clone!(@strong resource, @strong field => move |c| {
+        combo.connect_changed(clone!(@strong resource => move |c| {
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
                 resource.to_owned(),
-                field.to_owned(),
+                field,
                 (c.get_active().unwrap_or(0)).to_be_bytes().to_vec()
             )))
         }));

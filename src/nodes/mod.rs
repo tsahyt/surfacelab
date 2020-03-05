@@ -85,7 +85,9 @@ impl NodeManager {
                 UserNodeEvent::DisconnectSockets(from, to) => self
                     .disconnect_sockets(from, to)
                     .unwrap_or_else(|e| log::error!("{}", e)),
-                UserNodeEvent::ParameterChange(..) => {}
+                UserNodeEvent::ParameterChange(res, field, data) => self
+                    .parameter_change(res, field, data)
+                    .unwrap_or_else(|e| log::error!("{}", e)),
                 UserNodeEvent::ForceRecompute => {
                     let instructions = self.recompute();
                     response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
@@ -96,6 +98,25 @@ impl NodeManager {
         }
 
         Some(response)
+    }
+
+    fn parameter_change(
+        &mut self,
+        res: &lang::Resource,
+        field: &'static str,
+        data: &[u8],
+    ) -> Result<(), String> {
+        use lang::Parameters;
+
+        let node = self
+            .node_by_uri(res)
+            .ok_or("Missing node for parameter change")?;
+        let node_data = self.node_graph.node_weight_mut(node).unwrap();
+        node_data.operator.set_parameter(field, data);
+
+        log::trace!("Parameter changed to {:?}", node_data.operator);
+
+        Ok(())
     }
 
     fn next_free_name(&self, base_name: &str) -> lang::Resource {
