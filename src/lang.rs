@@ -210,8 +210,11 @@ impl Parameters for Operator {
             Self::PerlinNoise(p) => p.set_parameter(field, data),
             Self::Rgb(p) => p.set_parameter(field, data),
 
-            Self::Image{..} => {}
-            Self::Output{..} => {}
+            // TODO: image parameters
+            Self::Image { path: path } => {}
+
+            // TODO: Output parameters
+            Self::Output { output_type: ty } => {}
         }
     }
 }
