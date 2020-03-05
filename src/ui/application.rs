@@ -1,4 +1,4 @@
-use super::{node, node_area};
+use super::{node, node_area, param_box};
 use crate::lang::*;
 
 use gio::prelude::*;
@@ -77,6 +77,43 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
         vbox.add(&button_box);
         vbox.pack_end(&node_area, true, true, 0);
+
+        // ParamBox test
+        let pbox = param_box::ParamBox::new(&param_box::ParamBoxDescription {
+            box_title: "hello world",
+            categories: &[
+                param_box::ParamCategory {
+                    name: "foo",
+                    parameters: &[param_box::Parameter {
+                        name: "Scale",
+                        internal_name: "scale",
+                        control: param_box::Control::Slider { min: 0., max: 1. },
+                    }],
+                },
+                param_box::ParamCategory {
+                    name: "bar",
+                    parameters: &[
+                        param_box::Parameter {
+                            name: "Scale",
+                            internal_name: "scale",
+                            control: param_box::Control::Slider { min: 0., max: 8. },
+                        },
+                        param_box::Parameter {
+                            name: "Enum",
+                            internal_name: "enum",
+                            control: param_box::Control::Enum(&["foo", "bar", "quux"]),
+                        },
+                        param_box::Parameter {
+                            name: "Color",
+                            internal_name: "color",
+                            control: param_box::Control::RgbaColor,
+                        },
+                    ],
+                },
+            ],
+        });
+        pbox.show_all();
+        vbox.pack_end(&pbox, false, false, 0);
 
         window.add(&vbox);
         window.connect_delete_event(|_, _| {
@@ -233,7 +270,7 @@ impl SurfaceLabApplication {
                     widgets
                         .node_area
                         .remove_connection(source.clone(), sink.clone());
-                },
+                }
                 _ => {}
             },
             _ => {}
