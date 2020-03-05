@@ -97,6 +97,10 @@ impl Default for RgbParameters {
     }
 }
 
+impl RgbParameters {
+    pub const RGB: &'static str = "rgb";
+}
+
 impl Parameters for RgbParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
@@ -204,7 +208,10 @@ impl Parameters for Operator {
         match self {
             Self::Blend(p) => p.set_parameter(field, data),
             Self::PerlinNoise(p) => p.set_parameter(field, data),
-            _ => panic!("Unsupported operator for parameter setting")
+            Self::Rgb(p) => p.set_parameter(field, data),
+
+            Self::Image{..} => {}
+            Self::Output{..} => {}
         }
     }
 }

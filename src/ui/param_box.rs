@@ -134,6 +134,8 @@ pub enum Control {
 }
 
 impl Control {
+    const SLIDER_WIDTH: i32 = 256;
+
     pub fn construct(&self, resource: &Resource, field: &'static str) -> gtk::Widget {
         match self {
             Self::Slider { min, max } => Self::construct_slider(*min, *max, resource, field),
@@ -154,7 +156,7 @@ impl Control {
     ) -> gtk::Widget {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 0.01, 0.01, 0.);
         let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
-        scale.set_size_request(128, 0);
+        scale.set_size_request(Self::SLIDER_WIDTH, 0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
@@ -175,7 +177,7 @@ impl Control {
     ) -> gtk::Widget {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 1., 1., 0.);
         let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
-        scale.set_size_request(128, 0);
+        scale.set_size_request(Self::SLIDER_WIDTH, 0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
@@ -208,6 +210,16 @@ impl Control {
 }
 
 // Parameter Boxes for Nodes
+
+pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
+    match op {
+        Operator::Blend(..) => blend(res),
+        Operator::PerlinNoise(..) => perlin_noise(res),
+        Operator::Rgb(..) => rgb(res),
+        Operator::Image{..} => image(res),
+        Operator::Output{..} => output(res),
+    }
+}
 
 pub fn blend(res: &Resource) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
@@ -247,6 +259,51 @@ pub fn perlin_noise(res: &Resource) -> ParamBox {
                     control: Control::Slider { min: 0., max: 4. },
                 },
             ],
+        }],
+    })
+}
+
+pub fn rgb(res: &Resource) -> ParamBox {
+    ParamBox::new(&ParamBoxDescription {
+        box_title: "RGB Color",
+        resource: res.clone(),
+        categories: &[ParamCategory {
+            name: "Basic Parameters",
+            parameters: &[Parameter {
+                name: "Color",
+                field: RgbParameters::RGB,
+                control: Control::RgbColor,
+            }],
+        }],
+    })
+}
+
+pub fn output(res: &Resource) -> ParamBox {
+    ParamBox::new(&ParamBoxDescription {
+        box_title: "Output",
+        resource: res.clone(),
+        categories: &[ParamCategory {
+            name: "Basic Parameters",
+            parameters: &[Parameter {
+                name: "Output Type",
+                field: "output_type",
+                control: Control::Enum(&["Value"]),
+            }],
+        }],
+    })
+}
+
+pub fn image(res: &Resource) -> ParamBox {
+    ParamBox::new(&ParamBoxDescription {
+        box_title: "Image",
+        resource: res.clone(),
+        categories: &[ParamCategory {
+            name: "Basic Parameters",
+            parameters: &[Parameter {
+                name: "Image Path",
+                field: "image_path",
+                control: Control::Enum(&[]),
+            }],
         }],
     })
 }

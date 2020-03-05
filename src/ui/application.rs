@@ -80,11 +80,6 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         vbox.add(&button_box);
         vbox.pack_end(&node_area, true, true, 0);
 
-        // ParamBox test
-        let pbox = param_box::perlin_noise(&Resource::try_from("node:perlin_noise.1").unwrap());
-        pbox.show_all();
-        vbox.pack_end(&pbox, false, false, 0);
-
         window.add(&vbox);
         window.connect_delete_event(|_, _| {
             super::emit(Lang::UserEvent(UserEvent::Quit));

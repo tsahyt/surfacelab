@@ -12,11 +12,13 @@ use gtk::prelude::*;
 
 use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct NodePrivate {
     sockets: RefCell<Vec<NodeSocket>>,
-    header_label: OnceCell<gtk::Label>,
+    header_label: gtk::Label,
     resource: OnceCell<Resource>,
+    popover: Rc<gtk::Popover>,
 }
 
 const HEADER_SPACING: i32 = 16;
@@ -69,8 +71,9 @@ impl ObjectSubclass for NodePrivate {
     fn new() -> Self {
         Self {
             sockets: RefCell::new(Vec::new()),
-            header_label: OnceCell::new(),
+            header_label: gtk::Label::new(Some("Node")),
             resource: OnceCell::new(),
+            popover: Rc::new(gtk::Popover::new::<gtk::Widget>(None)),
         }
     }
 }
@@ -92,9 +95,8 @@ impl ObjectImpl for NodePrivate {
         // header
         {
             let header_box = gtk::Box::new(gtk::Orientation::Horizontal, HEADER_SPACING);
-            let header_label = gtk::Label::new(Some("Node"));
             let header_evbox = gtk::EventBox::new();
-            header_label.set_halign(gtk::Align::Start);
+            self.header_label.set_halign(gtk::Align::Start);
 
             header_evbox.connect_button_press_event(clone!(@strong node => move |_, m| {
                 let pos = m.get_position();
@@ -105,7 +107,7 @@ impl ObjectImpl for NodePrivate {
                 node.emit(HEADER_BUTTON_RELEASE, &[]).unwrap();
                 Inhibit(false)
             }));
-            header_evbox.add(&header_label);
+            header_evbox.add(&self.header_label);
             header_box.pack_start(&header_evbox, false, false, 0);
 
             let close_image = gtk::Image::new_from_icon_name(
@@ -124,16 +126,10 @@ impl ObjectImpl for NodePrivate {
             header_box.set_margin_end(MARGIN);
             header_box.set_margin_top(MARGIN);
             node.add(&header_box);
-
-            self.header_label
-                .set(header_label)
-                .expect("Failed to store header label");
         }
 
         // thumbnail
         {
-            use std::convert::TryFrom;
-
             let thumbnail = gtk::DrawingArea::new();
             thumbnail.set_size_request(128, 128);
 
@@ -148,15 +144,15 @@ impl ObjectImpl for NodePrivate {
             thumbnail.set_margin_end(MARGIN);
             thumbnail.set_margin_bottom(MARGIN);
 
-            let popover = gtk::Popover::new(Some(&thumbnail));
-            popover.set_position(gtk::PositionType::Right);
-            let pbox = param_box::perlin_noise(&Resource::try_from("node:perlin_noise.1").unwrap());
-            popover.add(&pbox);
+            self.popover.set_relative_to(Some(&thumbnail));
+            self.popover.set_position(gtk::PositionType::Right);
+
             let ebox = gtk::EventBox::new();
             ebox.add(&thumbnail);
 
-            ebox.connect_button_press_event(move |_,e| {
-                if e.get_button() == 3 /* thx gdk... */ {
+            let popover = self.popover.clone();
+            ebox.connect_button_press_event(move |_, e| {
+                if e.get_button() == (gdk_sys::GDK_BUTTON_SECONDARY as _) {
                     popover.show_all();
                     popover.popup();
                 };
@@ -247,7 +243,8 @@ impl Node {
     pub fn new_from_operator(op: Operator, resource: Resource) -> Self {
         let node = Self::new();
         let priv_ = NodePrivate::from_instance(&node);
-        priv_.header_label.get().unwrap().set_label(op.title());
+        priv_.header_label.set_label(op.title());
+        priv_.popover.add(&param_box::param_box_for_operator(&op, &resource));
         priv_
             .resource
             .set(resource.clone())
