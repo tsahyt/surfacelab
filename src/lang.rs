@@ -1,8 +1,8 @@
 use maplit::hashmap;
 use std::collections::HashMap;
 use std::path::*;
-use strum_macros::*;
 use strum::VariantNames;
+use strum_macros::*;
 use zerocopy::AsBytes;
 
 pub trait Parameters {
@@ -143,14 +143,15 @@ impl Operator {
             Self::PerlinNoise(..) => HashMap::new(),
             Self::Rgb(..) => HashMap::new(),
             Self::Image { .. } => HashMap::new(),
-            Self::Output { output_type } => match output_type {
-                OutputType::Albedo => hashmap! { "albedo".to_string() => ImageType::Rgb },
-                OutputType::Roughness => hashmap! { "roughness".to_string() => ImageType::Value },
-                OutputType::Normal => hashmap! { "normal".to_string() => ImageType::Rgb },
-                OutputType::Displacement => {
-                    hashmap! { "displacement".to_string() => ImageType::Value }
+            Self::Output { output_type } => hashmap! {
+                "data".to_string() => match output_type {
+                    OutputType::Albedo => ImageType::Rgb,
+                    OutputType::Roughness => ImageType::Value,
+                    OutputType::Normal => ImageType::Rgb,
+                    OutputType::Displacement =>
+                        ImageType::Value,
+                    OutputType::Value => ImageType::Value,
                 }
-                OutputType::Value => hashmap! { "value".to_string() => ImageType::Value },
             },
         }
     }
