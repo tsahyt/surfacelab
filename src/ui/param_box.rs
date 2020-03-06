@@ -7,6 +7,8 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
+use strum::VariantNames;
+
 pub struct ParamBoxPrivate {
     inner: gtk::Box,
 }
@@ -306,7 +308,7 @@ pub fn output(res: &Resource) -> ParamBox {
             parameters: &[Parameter {
                 name: "Output Type",
                 field: "output_type",
-                control: Control::Enum(&["Value"]),
+                control: Control::Enum(OutputType::VARIANTS),
             }],
         }],
     })

@@ -1,6 +1,8 @@
 use maplit::hashmap;
 use std::collections::HashMap;
 use std::path::*;
+use strum_macros::*;
+use strum::VariantNames;
 use zerocopy::AsBytes;
 
 pub trait Parameters {
@@ -105,11 +107,14 @@ impl Parameters for RgbParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
             "rgb" => {
-                let cols: Vec<f32> = data.chunks(4).map(|z| {
-                    let mut arr: [u8; 4] = Default::default();
-                    arr.copy_from_slice(z);
-                    f32::from_be_bytes(arr)
-                }).collect();
+                let cols: Vec<f32> = data
+                    .chunks(4)
+                    .map(|z| {
+                        let mut arr: [u8; 4] = Default::default();
+                        arr.copy_from_slice(z);
+                        f32::from_be_bytes(arr)
+                    })
+                    .collect();
                 self.rgb[0] = cols[0];
                 self.rgb[1] = cols[1];
                 self.rgb[2] = cols[2];
@@ -185,6 +190,7 @@ impl Operator {
         }
     }
 
+    // TODO: Use EnumIter instead?
     pub fn all_default() -> Vec<Self> {
         vec![
             Self::Blend(BlendParameters::default()),
@@ -215,10 +221,17 @@ impl Parameters for Operator {
             Self::Rgb(p) => p.set_parameter(field, data),
 
             // TODO: image parameters
-            Self::Image { path: path } => {}
+            Self::Image { path } => {}
 
-            // TODO: Output parameters
-            Self::Output { output_type: ty } => {}
+            Self::Output { output_type } => {
+                use std::str::FromStr;
+
+                let mut arr: [u8; 4] = Default::default();
+                arr.copy_from_slice(data);
+                let idx = u32::from_be_bytes(arr);
+                let variant = OutputType::VARIANTS[idx as usize];
+                *output_type = OutputType::from_str(variant).unwrap();
+            }
         }
     }
 }
@@ -252,7 +265,7 @@ impl ImageType {
     }
 }
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString)]
 pub enum OutputType {
     Albedo,
     Roughness,
