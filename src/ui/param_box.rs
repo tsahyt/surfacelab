@@ -142,8 +142,8 @@ impl Control {
             Self::DiscreteSlider { min, max } => {
                 Self::construct_discrete_slider(*min, *max, resource, field)
             }
-            Self::RgbColor => gtk::ColorButton::new().upcast(),
-            Self::RgbaColor => gtk::ColorButton::new().upcast(),
+            Self::RgbColor => Self::construct_rgba(resource, field),
+            Self::RgbaColor => Self::construct_rgba(resource, field),
             Self::Enum(entries) => Self::construct_enum(entries, resource, field),
         }
     }
@@ -207,6 +207,25 @@ impl Control {
 
         combo.upcast()
     }
+
+    fn construct_rgba(resource: &Resource, field: &'static str) -> gtk::Widget {
+        let button = gtk::ColorButton::new();
+
+        button.connect_color_set(clone!(@strong resource => move |btn| {
+            let rgba = btn.get_rgba();
+            let mut buf = Vec::new();
+            buf.extend_from_slice(&(rgba.red as f32).to_be_bytes());
+            buf.extend_from_slice(&(rgba.green as f32).to_be_bytes());
+            buf.extend_from_slice(&(rgba.blue as f32).to_be_bytes());
+            buf.extend_from_slice(&(rgba.alpha as f32).to_be_bytes());
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+                resource.to_owned(),
+                field,
+                buf,
+            )))
+        }));
+        button.upcast()
+    }
 }
 
 // Parameter Boxes for Nodes
@@ -216,8 +235,8 @@ pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
         Operator::Blend(..) => blend(res),
         Operator::PerlinNoise(..) => perlin_noise(res),
         Operator::Rgb(..) => rgb(res),
-        Operator::Image{..} => image(res),
-        Operator::Output{..} => output(res),
+        Operator::Image { .. } => image(res),
+        Operator::Output { .. } => output(res),
     }
 }
 

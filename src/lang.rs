@@ -105,10 +105,14 @@ impl Parameters for RgbParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
             "rgb" => {
-                // TODO: rgb parameter
-                // let mut arr: [u8; 12] = Default::default();
-                // arr.copy_from_slice(data);
-                // self.rgb = f32::from_be_bytes(arr);
+                let cols: Vec<f32> = data.chunks(4).map(|z| {
+                    let mut arr: [u8; 4] = Default::default();
+                    arr.copy_from_slice(z);
+                    f32::from_be_bytes(arr)
+                }).collect();
+                self.rgb[0] = cols[0];
+                self.rgb[1] = cols[1];
+                self.rgb[2] = cols[2];
             }
             _ => panic!("Unknown field {}", field),
         }
