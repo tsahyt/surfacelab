@@ -40,7 +40,6 @@ impl<T: std::fmt::Debug> Broker<T> {
             log::debug!("Emitting event {:?}", ev);
             let arc = Arc::new(ev);
             for subscriber in &self.subscribers {
-                // TODO: don't send event back to emitter
                 let res = subscriber.send(Arc::clone(&arc));
                 if let Err(e) = res {
                     log::error!("Disconnected Component: {}", e);
