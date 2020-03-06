@@ -143,6 +143,7 @@ where
                             self.external_images.entry(path.clone()).or_insert_with(|| {
                                 log::trace!("Loading external image {:?}", path);
                                 let img = image::open(path).expect("Failed to read image");
+                                // TODO: proper image format conversion
                                 let buf = img.as_rgba16().unwrap().to_owned();
                                 ExternalImage {
                                     state: ExternalImageState::InMemory,
