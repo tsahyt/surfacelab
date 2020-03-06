@@ -357,6 +357,12 @@ impl NodeManager {
         let mut stack: Vec<(graph::NodeIndex, Action)> = self
             .outputs
             .iter()
+            .filter(|x| {
+                self.node_graph
+                    .neighbors_directed(**x, petgraph::Direction::Incoming)
+                    .count()
+                    != 0
+            })
             .map(|x| (*x, Action::Traverse(None)))
             .collect();
 
