@@ -133,6 +133,7 @@ pub enum Control {
     RgbColor,
     RgbaColor,
     Enum(&'static [&'static str]),
+    File,
 }
 
 impl Control {
@@ -147,6 +148,7 @@ impl Control {
             Self::RgbColor => Self::construct_rgba(resource, field),
             Self::RgbaColor => Self::construct_rgba(resource, field),
             Self::Enum(entries) => Self::construct_enum(entries, resource, field),
+            Self::File => Self::construct_file(resource, field),
         }
     }
 
@@ -224,6 +226,19 @@ impl Control {
                 resource.to_owned(),
                 field,
                 buf,
+            )))
+        }));
+        button.upcast()
+    }
+
+    fn construct_file(resource: &Resource, field: &'static str) -> gtk::Widget {
+        let button = gtk::FileChooserButton::new("Image", gtk::FileChooserAction::Open);
+        button.connect_file_set(clone!(@strong resource => move |btn| {
+            let buf = btn.get_uri().unwrap().as_str().as_bytes().to_vec();
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+                resource.to_owned(),
+                field,
+                buf
             )))
         }));
         button.upcast()
@@ -323,7 +338,7 @@ pub fn image(res: &Resource) -> ParamBox {
             parameters: &[Parameter {
                 name: "Image Path",
                 field: "image_path",
-                control: Control::Enum(&[]),
+                control: Control::File,
             }],
         }],
     })

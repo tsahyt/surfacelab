@@ -150,6 +150,7 @@ impl Operator {
                     OutputType::Normal => ImageType::Rgb,
                     OutputType::Displacement => ImageType::Value,
                     OutputType::Value => ImageType::Value,
+                    OutputType::Rgba => ImageType::Rgba,
                 }
             },
         }
@@ -220,8 +221,11 @@ impl Parameters for Operator {
             Self::PerlinNoise(p) => p.set_parameter(field, data),
             Self::Rgb(p) => p.set_parameter(field, data),
 
-            // TODO: image parameters
-            Self::Image { path } => {}
+            Self::Image { path } => {
+                let path_str = unsafe { std::str::from_utf8_unchecked(&data) };
+                let new_path = Path::new(path_str).to_path_buf();
+                *path = new_path;
+            }
 
             Self::Output { output_type } => {
                 use std::str::FromStr;
@@ -272,6 +276,7 @@ pub enum OutputType {
     Normal,
     Displacement,
     Value,
+    Rgba,
 }
 
 impl Default for OutputType {
