@@ -148,8 +148,7 @@ impl Operator {
                     OutputType::Albedo => ImageType::Rgb,
                     OutputType::Roughness => ImageType::Value,
                     OutputType::Normal => ImageType::Rgb,
-                    OutputType::Displacement =>
-                        ImageType::Value,
+                    OutputType::Displacement => ImageType::Value,
                     OutputType::Value => ImageType::Value,
                 }
             },

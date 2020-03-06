@@ -70,10 +70,7 @@ where
     }
 
     fn add_new_output_socket(&mut self, socket: Resource, ty: ImageType) {
-        let img = self
-            .gpu
-            .create_compute_image(IMG_SIZE, ty.gpu_bytes_per_pixel())
-            .unwrap();
+        let img = self.gpu.create_compute_image(IMG_SIZE, ty).unwrap();
         self.output_sockets.insert(socket, img);
     }
 
@@ -275,18 +272,21 @@ where
 
 // TODO: use rgba16 on device instead of rgba16f.
 fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
+    fn to_16bit(x: f32) -> u16 {
+        (x.clamp(0., 1.) * 65535.) as u16
+    }
+
     match ty {
         // Underlying memory is formatted as rgba16f, expected to be Rgb16
         ImageType::Rgb => unsafe {
-            // TODO: sizes?
             let u16s: Vec<[u16; 3]> =
-                std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() * 2)
+                std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
                     .chunks(4)
                     .map(|chunk| {
                         [
-                            chunk[0].to_f32() as u16,
-                            chunk[1].to_f32() as u16,
-                            chunk[2].to_f32() as u16,
+                            to_16bit(chunk[0].to_f32()),
+                            to_16bit(chunk[1].to_f32()),
+                            to_16bit(chunk[2].to_f32()),
                         ]
                     })
                     .collect();
@@ -294,16 +294,15 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
         },
         // Underlying memory is formatted as rgba16f, expected to be Rgba16
         ImageType::Rgba => unsafe {
-            // TODO: sizes?
             let u16s: Vec<[u16; 4]> =
-                std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() * 2)
+                std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
                     .chunks(4)
                     .map(|chunk| {
                         [
-                            chunk[0].to_f32() as u16,
-                            chunk[1].to_f32() as u16,
-                            chunk[2].to_f32() as u16,
-                            chunk[3].to_f32() as u16,
+                            to_16bit(chunk[0].to_f32()),
+                            to_16bit(chunk[1].to_f32()),
+                            to_16bit(chunk[2].to_f32()),
+                            to_16bit(chunk[3].to_f32()),
                         ]
                     })
                     .collect();
@@ -314,7 +313,7 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
             let u16s: Vec<u16> =
                 std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
                     .iter()
-                    .map(|x| ((*x).clamp(0., 1.) * 65535.) as u16)
+                    .map(|x| to_16bit(*x))
                     .collect();
             std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2).to_owned()
         },

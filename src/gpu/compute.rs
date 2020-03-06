@@ -1,3 +1,5 @@
+use crate::lang;
+
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use std::cell::{Cell, RefCell};
@@ -199,14 +201,23 @@ where
         })
     }
 
-    pub fn create_compute_image(&self, size: u32, px_width: u8) -> Result<Image<B>, String> {
+    pub fn create_compute_image(&self, size: u32, ty: lang::ImageType) -> Result<Image<B>, String> {
         let lock = self.gpu.lock().unwrap();
 
+        // Determine formats and sizes
+        let format = match ty {
+            lang::ImageType::Value => hal::format::Format::R32Sfloat,
+            lang::ImageType::Rgba => hal::format::Format::Rgba16Sfloat,
+            lang::ImageType::Rgb => hal::format::Format::Rgba16Sfloat,
+        };
+        let px_width = ty.gpu_bytes_per_pixel();
+
+        // Create device image
         let image = unsafe {
             lock.device.create_image(
                 hal::image::Kind::D2(size, size, 1, 1),
                 1,
-                hal::format::Format::R32Sfloat,
+                format,
                 hal::image::Tiling::Optimal,
                 hal::image::Usage::SAMPLED
                     | hal::image::Usage::STORAGE
@@ -225,6 +236,7 @@ where
             access: Cell::new(hal::image::Access::empty()),
             view: ManuallyDrop::new(None),
             alloc: None,
+            format,
         })
     }
 
@@ -428,7 +440,7 @@ where
     /// visible buffer.
     pub fn download_image(&mut self, image: &Image<B>) -> Result<Vec<u8>, String> {
         let mut lock = self.gpu.lock().unwrap();
-        let bytes = (image.size * image.size * 4) as u64;
+        let bytes = (image.size * image.size * image.px_width as u32) as u64;
 
         // Create, allocate, and bind download buffer. We need this buffer
         // because the image is otherwise not in host readable memory!
@@ -694,6 +706,7 @@ pub struct Image<B: Backend> {
     access: Cell<hal::image::Access>,
     view: ManuallyDrop<Option<B::ImageView>>,
     alloc: Option<Alloc<B>>,
+    format: hal::format::Format,
 }
 
 impl<B> Image<B>
@@ -714,7 +727,7 @@ where
             lock.device.create_image_view(
                 &self.raw,
                 hal::image::ViewKind::D2,
-                hal::format::Format::R32Sfloat,
+                self.format,
                 hal::format::Swizzle::NO,
                 COLOR_RANGE.clone(),
             )
