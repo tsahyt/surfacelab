@@ -39,18 +39,28 @@ pub fn start_compute_thread<B: gpu::Backend>(
     }
 }
 
-enum ExternalImage {
-    Uploaded(image::ImageBuffer<image::Rgba<u16>, Vec<u16>>),
-    Loaded(image::ImageBuffer<image::Rgba<u16>, Vec<u16>>),
-    Unloaded(std::path::PathBuf),
+#[derive(Debug, Clone, Copy)]
+enum ExternalImageState {
+    Uploaded,
+    InMemory,
+}
+
+struct ExternalImage {
+    state: ExternalImageState,
+    buffer: Vec<u16>,
 }
 
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
+
+    /// Output sockets always map to an image, which may or may not be allocated
     output_sockets: HashMap<Resource, gpu::compute::Image<B>>,
+
+    /// Input sockets only map to the output sockets they are connected to
     input_sockets: HashMap<Resource, Resource>,
+
     shader_library: shaders::ShaderLibrary<B>,
-    external_images: HashMap<Resource, ExternalImage>,
+    external_images: HashMap<std::path::PathBuf, ExternalImage>,
 }
 
 impl<B> ComputeManager<B>
@@ -84,16 +94,11 @@ where
                         log::trace!("Adding socket {}", socket_res);
                         self.add_new_output_socket(socket_res, *imgtype);
                     }
-
-                    if let Operator::Image { path } = op {
-                        self.external_images
-                            .insert(res.to_owned(), ExternalImage::Unloaded(path.clone()));
-                    }
                 }
                 GraphEvent::NodeRemoved(res) => {
                     // TODO: directly find and remove sockets
                     self.output_sockets.retain(|s, _| !s.is_fragment_of(res));
-                    self.external_images.remove(res);
+                    // self.external_images.remove(res);
                 }
                 GraphEvent::Recomputed(instrs) => {
                     for i in instrs.iter() {
@@ -126,38 +131,34 @@ where
             }
             Instruction::Execute(res, op) => {
                 match op {
-                    Operator::Image { .. } => {
+                    Operator::Image { path } => {
                         log::trace!("Processing Image operator {}", res);
-
-                        let external_image = self
-                            .external_images
-                            .get_mut(res)
-                            .expect("Unknown external image");
 
                         let image = self
                             .output_sockets
-                            .get_mut(res)
+                            .get_mut(&res.extend_fragment("image"))
                             .expect("Trying to process missing socket");
 
-                        match external_image {
-                            ExternalImage::Uploaded(..) => {
-                                log::trace!("Reusing uploaded image");
-                            }
-                            ExternalImage::Loaded(buf) => {
+                        let external_image =
+                            self.external_images.entry(path.clone()).or_insert_with(|| {
+                                log::trace!("Loading external image {:?}", path);
+                                let img = image::open(path).expect("Failed to read image");
+                                let buf = img.as_rgba16().unwrap().to_owned();
+                                ExternalImage {
+                                    state: ExternalImageState::InMemory,
+                                    buffer: (*buf).to_vec(),
+                                }
+                            });
+
+                        match external_image.state {
+                            ExternalImageState::InMemory => {
                                 log::trace!("Uploading image to GPU");
                                 image.ensure_alloc(&self.gpu)?;
-                                self.gpu.upload_image(&image, &buf)?;
-                                // TODO: make sure this is zero copy, we're just transferring ownership
-                                *external_image = ExternalImage::Uploaded(buf.to_owned());
+                                self.gpu.upload_image(&image, &external_image.buffer)?;
+                                external_image.state = ExternalImageState::Uploaded
                             }
-                            ExternalImage::Unloaded(path) => {
-                                log::debug!("Loading image file from {}", path.to_str().unwrap());
-                                let img = image::open(path)
-                                    .map_err(|e| format!("Failed to read image: {}", e))?;
-                                let buf = img.as_rgba16().unwrap().to_owned();
-                                image.ensure_alloc(&self.gpu)?;
-                                self.gpu.upload_image(&image, &buf)?;
-                                *external_image = ExternalImage::Loaded(buf);
+                            ExternalImageState::Uploaded => {
+                                log::trace!("Reusing uploaded image");
                             }
                         }
                     }

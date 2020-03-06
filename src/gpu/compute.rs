@@ -549,7 +549,7 @@ where
     pub fn upload_image(
         &mut self,
         image: &Image<B>,
-        buffer: &image::ImageBuffer<image::Rgba<u16>, Vec<u16>>,
+        buffer: &[u16],
     ) -> Result<(), String> {
         debug_assert!(image.alloc.is_some());
         let mut lock = self.gpu.lock().unwrap();
@@ -588,9 +588,8 @@ where
         // Upload image to staging buffer
         unsafe {
             let mapping = lock.device.map_memory(&mem, 0..bytes).unwrap();
-            let slice: &[u16] = &*buffer;
             let u8s: &[u8] =
-                std::slice::from_raw_parts(slice.as_ptr() as *const u8, slice.len() * 2);
+                std::slice::from_raw_parts(buffer.as_ptr() as *const u8, buffer.len() * 2);
             std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, bytes as usize);
             lock.device.unmap_memory(&mem);
         }
