@@ -270,7 +270,6 @@ where
     }
 }
 
-// TODO: use rgba16 on device instead of rgba16f.
 fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
     fn to_16bit(x: f32) -> u16 {
         (x.clamp(0., 1.) * 65535.) as u16
