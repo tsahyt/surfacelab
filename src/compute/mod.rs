@@ -142,12 +142,10 @@ where
                         let external_image =
                             self.external_images.entry(path.clone()).or_insert_with(|| {
                                 log::trace!("Loading external image {:?}", path);
-                                let img = image::open(path).expect("Failed to read image");
-                                // TODO: proper image format conversion
-                                let buf = img.as_rgba16().unwrap().to_owned();
+                                let buf = load_rgba16f_image(path).expect("Failed to read image");
                                 ExternalImage {
                                     state: ExternalImageState::InMemory,
-                                    buffer: (*buf).to_vec(),
+                                    buffer: buf,
                                 }
                             });
 
@@ -318,5 +316,37 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
                     .collect();
             std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2).to_owned()
         },
+    }
+}
+
+fn load_rgba16f_image<P: AsRef<std::path::Path>>(path: P) -> Result<Vec<u16>, String> {
+    let img = image::open(path).map_err(|e| format!("Failed to read image: {}", e))?;
+
+    fn via_rgba8(image: image::DynamicImage) -> Result<Vec<u16>, String> {
+        Ok(image
+            .into_rgba()
+            .as_flat_samples()
+            .as_slice()
+            .iter()
+            .map(|x| half::f16::from_f32(*x as f32 / 256.0).to_bits())
+            .collect())
+    }
+
+    fn via_rgba16(image: image::DynamicImage) -> Result<Vec<u16>, String> {
+        // TODO: 16 bit image loading
+        unimplemented!("Loading of 16 bit images")
+    }
+
+    match img {
+        image::DynamicImage::ImageLuma8(..) => via_rgba8(img),
+        image::DynamicImage::ImageLumaA8(..) => via_rgba8(img),
+        image::DynamicImage::ImageRgb8(..) => via_rgba8(img),
+        image::DynamicImage::ImageRgba8(..) => via_rgba8(img),
+        image::DynamicImage::ImageBgr8(..) => via_rgba8(img),
+        image::DynamicImage::ImageBgra8(..) => via_rgba8(img),
+        image::DynamicImage::ImageLuma16(..) => via_rgba16(img),
+        image::DynamicImage::ImageLumaA16(..) => via_rgba16(img),
+        image::DynamicImage::ImageRgb16(..) => via_rgba16(img),
+        image::DynamicImage::ImageRgba16(..) => via_rgba16(img),
     }
 }
