@@ -8,12 +8,14 @@ layout(set = 0, binding = 0) uniform Params {
 
 layout(set = 0, binding = 1) uniform texture2D t_Color1;
 layout(set = 0, binding = 2) uniform texture2D t_Color2;
-layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
+layout(set = 0, binding = 3) uniform sampler Sampler;
+layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
 
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    vec4 col1 = vec4(0.); // imageLoad(t_Color1, idx);
-    vec4 col2 = vec4(0.); // imageLoad(t_Color2, idx);
+    vec2 uv = vec2(idx.x / 1024., idx.y / 1024.);
+    vec4 col1 = texture(sampler2D(t_Color1, Sampler), uv);
+    vec4 col2 = texture(sampler2D(t_Color2, Sampler), uv);
     vec4 res = mix(col1, col2, mix_factor);
     imageStore(t_Out, idx, res);
 }

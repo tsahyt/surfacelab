@@ -19,9 +19,10 @@ pub struct GPUCompute<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: ManuallyDrop<B::CommandPool>,
 
-    // Uniforms
+    // Uniforms and Sampler
     uniform_buf: ManuallyDrop<B::Buffer>,
     uniform_mem: ManuallyDrop<B::Memory>,
+    sampler: ManuallyDrop<B::Sampler>,
 
     // Image Memory Management
     allocs: Cell<AllocId>,
@@ -161,12 +162,22 @@ where
 
         let fence = ManuallyDrop::new(lock.device.create_fence(false).unwrap());
 
+        // Initialize sampler
+        let sampler = unsafe {
+            lock.device.create_sampler(&hal::image::SamplerDesc::new(
+                hal::image::Filter::Linear,
+                hal::image::WrapMode::Tile,
+            ))
+        }
+        .map_err(|_| "Failed to create sampler")?;
+
         Ok(GPUCompute {
             gpu: gpu.clone(),
             command_pool: ManuallyDrop::new(command_pool),
 
             uniform_buf: ManuallyDrop::new(uniform_buf),
             uniform_mem: ManuallyDrop::new(uniform_mem),
+            sampler: ManuallyDrop::new(sampler),
 
             allocs: Cell::new(0),
             image_mem: ManuallyDrop::new(image_mem),
@@ -401,6 +412,7 @@ where
         let command_buffer = unsafe {
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            // FIXME: vkCmdPipelineBarrier(): pImageMemBarriers[0].srcAccessMask (0x40) is not supported by srcStageMask (0x1)
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
@@ -434,6 +446,10 @@ where
 
     pub fn uniform_buffer(&self) -> &B::Buffer {
         &self.uniform_buf
+    }
+
+    pub fn sampler(&self) -> &B::Sampler {
+        &self.sampler
     }
 
     /// Download a raw image from the GPU by copying it into a temporary CPU
@@ -546,11 +562,7 @@ where
     }
 
     /// Upload image. This assumes the image to be allocated!
-    pub fn upload_image(
-        &mut self,
-        image: &Image<B>,
-        buffer: &[u16],
-    ) -> Result<(), String> {
+    pub fn upload_image(&mut self, image: &Image<B>, buffer: &[u16]) -> Result<(), String> {
         debug_assert!(image.alloc.is_some());
         let mut lock = self.gpu.lock().unwrap();
         let bytes = (image.size * image.size * image.px_width as u32) as u64;
@@ -670,6 +682,8 @@ where
                 .free_memory(ManuallyDrop::take(&mut self.image_mem));
             lock.device
                 .destroy_buffer(ManuallyDrop::take(&mut self.uniform_buf));
+            lock.device
+                .destroy_sampler(ManuallyDrop::take(&mut self.sampler));
             lock.device
                 .destroy_command_pool(ManuallyDrop::take(&mut self.command_pool));
             lock.device

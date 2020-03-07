@@ -28,6 +28,13 @@ static BLEND_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 3,
+        ty: gpu::DescriptorType::Sampler,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 4,
         ty: gpu::DescriptorType::StorageImage,
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
@@ -114,6 +121,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
     op: &lang::Operator,
     desc_set: &'a B::DescriptorSet,
     uniforms: &'a B::Buffer,
+    sampler: &'a B::Sampler,
     inputs: &HashMap<String, &'a gpu::compute::Image<B>, S>,
     outputs: &HashMap<String, &'a gpu::compute::Image<B>, S>,
 ) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
@@ -144,7 +152,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
             },
             gpu::DescriptorSetWrite {
                 set: desc_set,
-                binding: 1,
+                binding: 2,
                 array_offset: 0,
                 descriptors: vec![gpu::Descriptor::Image(
                     inputs.get("color2").unwrap().get_view().unwrap(),
@@ -153,7 +161,13 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
             },
             gpu::DescriptorSetWrite {
                 set: desc_set,
-                binding: 1,
+                binding: 3,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Sampler(sampler)],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 4,
                 array_offset: 0,
                 descriptors: vec![gpu::Descriptor::Image(
                     outputs.get("color").unwrap().get_view().unwrap(),
@@ -194,7 +208,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                     gpu::Layout::General,
                 )],
             },
-        ]
+        ],
     }
 }
 
@@ -214,7 +228,7 @@ impl Uniforms for lang::Operator {
             // Operators
             Operator::Blend(p) => p.as_bytes(),
             Operator::PerlinNoise(p) => p.as_bytes(),
-            Operator::Rgb(p) => p.as_bytes()
+            Operator::Rgb(p) => p.as_bytes(),
         }
     }
 }

@@ -249,6 +249,7 @@ where
                             op,
                             desc_set,
                             self.gpu.uniform_buffer(),
+                            self.gpu.sampler(),
                             &inputs,
                             &outputs,
                         );
