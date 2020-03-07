@@ -234,7 +234,7 @@ impl Control {
     fn construct_file(resource: &Resource, field: &'static str) -> gtk::Widget {
         let button = gtk::FileChooserButton::new("Image", gtk::FileChooserAction::Open);
         button.connect_file_set(clone!(@strong resource => move |btn| {
-            let buf = btn.get_uri().unwrap().as_str()[7..].as_bytes().to_vec();
+            let buf = btn.get_filename().unwrap().to_str().unwrap().as_bytes().to_vec();
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
                 resource.to_owned(),
                 field,
