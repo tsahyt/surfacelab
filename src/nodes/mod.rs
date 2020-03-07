@@ -243,9 +243,9 @@ impl NodeManager {
         {
             let from_type = self.socket_type(from).unwrap();
             let to_type = self.socket_type(to).unwrap();
-            if from_type != to_type {
+            if from_type > to_type {
                 return Err(format!(
-                    "Socket type mismatch! {:?} != {:?}",
+                    "Socket type mismatch! {:?} cannot be coerced into {:?}",
                     from_type, to_type
                 ));
             }

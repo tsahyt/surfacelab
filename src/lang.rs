@@ -246,11 +246,11 @@ pub enum Instruction {
     Move(Resource, Resource),
 }
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub enum ImageType {
+    Value,
     Rgb,
     Rgba,
-    Value,
 }
 
 impl Default for ImageType {
