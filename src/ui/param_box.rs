@@ -264,6 +264,10 @@ pub fn blend(res: &Resource) -> ParamBox {
         categories: &[ParamCategory {
             name: "Basic Parameters",
             parameters: &[Parameter {
+                name: "Blend Mode",
+                field: BlendParameters::BLEND_MODE,
+                control: Control::Enum(BlendMode::VARIANTS)
+            }, Parameter {
                 name: "Mix",
                 field: BlendParameters::MIX,
                 control: Control::Slider { min: 0., max: 1. },

@@ -241,6 +241,7 @@ impl NodeManager {
             .to_string();
 
         {
+            // FIXME: value to rgb(a) cast only uses red channel
             let from_type = self.socket_type(from).unwrap();
             let to_type = self.socket_type(to).unwrap();
             if from_type > to_type {

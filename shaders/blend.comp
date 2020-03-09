@@ -3,6 +3,7 @@
 layout(local_size_x = 1, local_size_y = 1) in;
 
 layout(set = 0, binding = 0) uniform Params {
+    uint mode;
     float mix_factor;
 };
 
@@ -11,11 +12,27 @@ layout(set = 0, binding = 2) uniform texture2D t_Color2;
 layout(set = 0, binding = 3) uniform sampler Sampler;
 layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
 
+#define MODE_MIX 0
+#define MODE_MULTIPLY 1
+#define MODE_ADD 2
+#define MODE_SUBTRACT 3
+
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     vec2 uv = vec2(idx.x / 1024., idx.y / 1024.);
     vec4 col1 = texture(sampler2D(t_Color1, Sampler), uv);
     vec4 col2 = texture(sampler2D(t_Color2, Sampler), uv);
-    vec4 res = mix(col1, col2, mix_factor);
+
+    vec4 res;
+
+    if (mode == MODE_MIX)
+        res = mix(col1, col2, mix_factor);
+    else if (mode == MODE_MULTIPLY)
+        res = mix(col1, col1 * col2, mix_factor);
+    else if (mode == MODE_ADD)
+        res = mix(col1, col1 + col2, mix_factor);
+    else if (mode == MODE_SUBTRACT)
+        res = mix(col1, col1 - col2, mix_factor);
+
     imageStore(t_Out, idx, res);
 }

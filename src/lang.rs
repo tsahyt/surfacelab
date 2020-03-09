@@ -1,6 +1,7 @@
 use maplit::hashmap;
 use std::collections::HashMap;
 use std::path::*;
+use std::str::FromStr;
 use strum::VariantNames;
 use strum_macros::*;
 use zerocopy::AsBytes;
@@ -10,18 +11,32 @@ pub trait Parameters {
 }
 
 #[repr(C)]
+#[derive(AsBytes, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString)]
+pub enum BlendMode {
+    Mix,
+    Multiply,
+    Add,
+    Subtract,
+}
+
+#[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug)]
 pub struct BlendParameters {
+    blend_mode: BlendMode,
     mix: f32,
 }
 
 impl Default for BlendParameters {
     fn default() -> Self {
-        BlendParameters { mix: 0.5 }
+        BlendParameters {
+            blend_mode: BlendMode::Mix,
+            mix: 0.5,
+        }
     }
 }
 
 impl BlendParameters {
+    pub const BLEND_MODE: &'static str = "mode";
     pub const MIX: &'static str = "mix";
 }
 
@@ -32,6 +47,13 @@ impl Parameters for BlendParameters {
                 let mut arr: [u8; 4] = Default::default();
                 arr.copy_from_slice(data);
                 self.mix = f32::from_be_bytes(arr);
+            }
+            Self::BLEND_MODE => {
+                let mut arr: [u8; 4] = Default::default();
+                arr.copy_from_slice(data);
+                let idx = u32::from_be_bytes(arr);
+                let variant = BlendMode::VARIANTS[idx as usize];
+                self.blend_mode = BlendMode::from_str(variant).unwrap();
             }
             _ => panic!("Unknown field {}", field),
         }
@@ -228,8 +250,6 @@ impl Parameters for Operator {
             }
 
             Self::Output { output_type } => {
-                use std::str::FromStr;
-
                 let mut arr: [u8; 4] = Default::default();
                 arr.copy_from_slice(data);
                 let idx = u32::from_be_bytes(arr);
