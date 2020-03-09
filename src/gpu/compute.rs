@@ -265,7 +265,7 @@ where
                     return Some((offset, free));
                 }
             } else {
-                offset = i as u64 * Self::CHUNK_SIZE;
+                offset = (i + 1) as u64 * Self::CHUNK_SIZE;
                 free.clear();
             }
         }
