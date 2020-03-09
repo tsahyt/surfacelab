@@ -194,7 +194,6 @@ where
                                 match ty {
                                     ImageType::Grayscale => image::ColorType::L16,
                                     ImageType::Rgb => image::ColorType::Rgb16,
-                                    ImageType::Rgba => image::ColorType::Rgba16,
                                 },
                             )
                             .map_err(|e| format!("Error saving image: {}", e))?;
@@ -292,22 +291,6 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
                     })
                     .collect();
             std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2 * 3).to_owned()
-        },
-        // Underlying memory is formatted as rgba16f, expected to be Rgba16
-        ImageType::Rgba => unsafe {
-            let u16s: Vec<[u16; 4]> =
-                std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
-                    .chunks(4)
-                    .map(|chunk| {
-                        [
-                            to_16bit(chunk[0].to_f32()),
-                            to_16bit(chunk[1].to_f32()),
-                            to_16bit(chunk[2].to_f32()),
-                            to_16bit(chunk[3].to_f32()),
-                        ]
-                    })
-                    .collect();
-            std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2 * 4).to_owned()
         },
         // Underlying memory is formatted as r32f, expected to be L16
         ImageType::Grayscale => unsafe {

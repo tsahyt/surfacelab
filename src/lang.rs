@@ -205,13 +205,13 @@ impl Operator {
     pub fn inputs(&self) -> HashMap<String, ImageType> {
         match self {
             Self::Blend(..) => hashmap! {
-                "color1".to_string() => ImageType::Rgba,
-                "color2".to_string() => ImageType::Rgba
+                "color1".to_string() => ImageType::Rgb,
+                "color2".to_string() => ImageType::Rgb
             },
             Self::PerlinNoise(..) => HashMap::new(),
             Self::Rgb(..) => HashMap::new(),
             Self::Grayscale(..) => hashmap! {
-                "color".to_string() => ImageType::Rgba,
+                "color".to_string() => ImageType::Rgb,
             },
             Self::Ramp => hashmap! {
                 "factor".to_string() => ImageType::Grayscale,
@@ -224,7 +224,7 @@ impl Operator {
                     OutputType::Normal => ImageType::Rgb,
                     OutputType::Displacement => ImageType::Grayscale,
                     OutputType::Value => ImageType::Grayscale,
-                    OutputType::Rgba => ImageType::Rgba,
+                    OutputType::Rgb => ImageType::Rgb,
                 }
             },
         }
@@ -233,7 +233,7 @@ impl Operator {
     pub fn outputs(&self) -> HashMap<String, ImageType> {
         match self {
             Self::Blend(..) => hashmap! {
-                "color".to_string() => ImageType::Rgba
+                "color".to_string() => ImageType::Rgb
             },
             Self::Rgb(..) => hashmap! {
                 "color".to_string() => ImageType::Rgb
@@ -246,7 +246,7 @@ impl Operator {
             Self::Ramp => hashmap! {
                 "color".to_string() => ImageType::Rgb
             },
-            Self::Image { .. } => hashmap! { "image".to_string() => ImageType::Rgba },
+            Self::Image { .. } => hashmap! { "image".to_string() => ImageType::Rgb },
             Self::Output { .. } => HashMap::new(),
         }
     }
@@ -336,7 +336,6 @@ pub enum Instruction {
 pub enum ImageType {
     Grayscale,
     Rgb,
-    Rgba,
 }
 
 impl Default for ImageType {
@@ -349,7 +348,6 @@ impl ImageType {
     pub fn gpu_bytes_per_pixel(&self) -> u8 {
         match self {
             Self::Rgb => 8,
-            Self::Rgba => 8,
             Self::Grayscale => 4,
         }
     }
@@ -362,7 +360,7 @@ pub enum OutputType {
     Normal,
     Displacement,
     Value,
-    Rgba,
+    Rgb,
 }
 
 impl Default for OutputType {

@@ -218,7 +218,6 @@ where
         // Determine formats and sizes
         let format = match ty {
             lang::ImageType::Grayscale => hal::format::Format::R32Sfloat,
-            lang::ImageType::Rgba => hal::format::Format::Rgba16Sfloat,
             lang::ImageType::Rgb => hal::format::Format::Rgba16Sfloat,
         };
         let px_width = ty.gpu_bytes_per_pixel();
