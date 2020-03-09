@@ -10,6 +10,13 @@ layout(set = 0, binding = 2) uniform sampler Sampler;
 layout(set = 0, binding = 3, r32f) uniform image2D t_Out;
 
 #define MODE_LUMINANCE 0
+#define MODE_AVERAGE 1
+#define MODE_DESATURATE 2
+#define MODE_MAXDECOMPOSE 3
+#define MODE_MINDECOMPOSE 4
+#define MODE_REDONLY 5
+#define MODE_GREENONLY 6
+#define MODE_BLUEONLY 7
 
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
@@ -20,6 +27,20 @@ void main() {
 
     if (mode == MODE_LUMINANCE)
         val = col.r * 0.2126 + col.g * 0.7152 + col.b * 0.0722;
+    else if (mode == MODE_AVERAGE)
+        val = (col.r + col.g + col.b) / 3.0;
+    else if (mode == MODE_DESATURATE)
+        val = (max(col.r, max(col.g, col.b)) + min(col.r, min(col.g, col.b))) / 2.0;
+    else if (mode == MODE_MAXDECOMPOSE)
+        val = max(col.r, max(col.g, col.b));
+    else if (mode == MODE_MINDECOMPOSE)
+        val = min(col.r, min(col.g, col.b));
+    else if (mode == MODE_REDONLY)
+        val = col.r;
+    else if (mode == MODE_GREENONLY)
+        val = col.g;
+    else if (mode == MODE_BLUEONLY)
+        val = col.b;
 
     imageStore(t_Out, idx, vec4(val));
 }

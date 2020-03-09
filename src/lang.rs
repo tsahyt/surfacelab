@@ -149,6 +149,13 @@ impl Parameters for RgbParameters {
 #[derive(AsBytes, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString)]
 pub enum GrayscaleMode {
     Luminance,
+    Average,
+    Desaturate,
+    MaxDecompose,
+    MinDecompose,
+    RedOnly,
+    GreenOnly,
+    BlueOnly,
 }
 
 #[repr(C)]
