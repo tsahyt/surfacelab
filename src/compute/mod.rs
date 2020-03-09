@@ -92,7 +92,13 @@ where
                     for (socket, imgtype) in op.inputs().iter().chain(op.outputs().iter()) {
                         let socket_res = res.extend_fragment(&socket);
                         log::trace!("Adding socket {}", socket_res);
-                        self.add_new_output_socket(socket_res, *imgtype);
+
+                        // If the type is monomorphic, we can create the socket
+                        // right away, otherwise creation needs to be delayed
+                        // until the type is known.
+                        if let OperatorType::Monomorphic(ty) = imgtype {
+                            self.add_new_output_socket(socket_res, *ty);
+                        }
                     }
                 }
                 GraphEvent::NodeRemoved(res) => {
@@ -182,7 +188,10 @@ where
 
                             log::debug!("Downloaded image size {:?}", raw.len());
 
-                            let converted = convert_image(&raw, *ty);
+                            let ty = ty
+                                .monomorphic()
+                                .expect("Output Type must always be monomorphic!");
+                            let converted = convert_image(&raw, ty);
 
                             let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
                             log::debug!("Saving converted image to {}", path);

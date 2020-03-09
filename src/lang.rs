@@ -202,51 +202,55 @@ pub enum Operator {
 }
 
 impl Operator {
-    pub fn inputs(&self) -> HashMap<String, ImageType> {
+    pub fn inputs(&self) -> HashMap<String, OperatorType> {
         match self {
             Self::Blend(..) => hashmap! {
-                "color1".to_string() => ImageType::Rgb,
-                "color2".to_string() => ImageType::Rgb
+                "background".to_string() => OperatorType::Polymorphic(0),
+                "foreground".to_string() => OperatorType::Polymorphic(0)
             },
             Self::PerlinNoise(..) => HashMap::new(),
             Self::Rgb(..) => HashMap::new(),
             Self::Grayscale(..) => hashmap! {
-                "color".to_string() => ImageType::Rgb,
+                "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb),
             },
             Self::Ramp => hashmap! {
-                "factor".to_string() => ImageType::Grayscale,
+                "factor".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
             },
             Self::Image { .. } => HashMap::new(),
             Self::Output { output_type } => hashmap! {
                 "data".to_string() => match output_type {
-                    OutputType::Albedo => ImageType::Rgb,
-                    OutputType::Roughness => ImageType::Grayscale,
-                    OutputType::Normal => ImageType::Rgb,
-                    OutputType::Displacement => ImageType::Grayscale,
-                    OutputType::Value => ImageType::Grayscale,
-                    OutputType::Rgb => ImageType::Rgb,
+                    OutputType::Albedo => OperatorType::Monomorphic(ImageType::Rgb),
+                    OutputType::Roughness => OperatorType::Monomorphic(ImageType::Grayscale),
+                    OutputType::Normal => OperatorType::Monomorphic(ImageType::Rgb),
+                    OutputType::Displacement => OperatorType::Monomorphic(ImageType::Grayscale),
+                    OutputType::Value => OperatorType::Monomorphic(ImageType::Grayscale),
+                    OutputType::Rgb => OperatorType::Monomorphic(ImageType::Rgb),
                 }
             },
         }
     }
 
-    pub fn outputs(&self) -> HashMap<String, ImageType> {
+    pub fn outputs(&self) -> HashMap<String, OperatorType> {
         match self {
             Self::Blend(..) => hashmap! {
-                "color".to_string() => ImageType::Rgb
+                "color".to_string() => OperatorType::Polymorphic(0),
             },
             Self::Rgb(..) => hashmap! {
-                "color".to_string() => ImageType::Rgb
+                "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
             },
-            Self::PerlinNoise(..) => hashmap! { "noise".to_string() => ImageType::Grayscale
-            },
+            Self::PerlinNoise(..) => {
+                hashmap! { "noise".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+                }
+            }
             Self::Grayscale(..) => hashmap! {
-                "value".to_string() => ImageType::Grayscale
+                "value".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
             },
             Self::Ramp => hashmap! {
-                "color".to_string() => ImageType::Rgb
+                "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
             },
-            Self::Image { .. } => hashmap! { "image".to_string() => ImageType::Rgb },
+            Self::Image { .. } => {
+                hashmap! { "image".to_string() => OperatorType::Monomorphic(ImageType::Rgb) }
+            }
             Self::Output { .. } => HashMap::new(),
         }
     }
@@ -263,7 +267,7 @@ impl Operator {
         }
     }
 
-    pub fn title(&self) -> &str {
+    pub fn title(&self) -> &'static str {
         match self {
             Self::Blend(..) => "Blend",
             Self::PerlinNoise(..) => "Perlin Noise",
@@ -366,6 +370,23 @@ pub enum OutputType {
 impl Default for OutputType {
     fn default() -> Self {
         OutputType::Value
+    }
+}
+
+pub type TypeParameter = u8;
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
+pub enum OperatorType {
+    Monomorphic(ImageType),
+    Polymorphic(TypeParameter),
+}
+
+impl OperatorType {
+    pub fn monomorphic(&self) -> Option<ImageType> {
+        match self {
+            Self::Monomorphic(ty) => Some(*ty),
+            _ => None,
+        }
     }
 }
 

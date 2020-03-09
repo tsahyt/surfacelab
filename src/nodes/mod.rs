@@ -9,22 +9,48 @@ use std::thread;
 struct Node {
     operator: lang::Operator,
     resource: lang::Resource,
+    // TODO: Rename all this to type *variables*
+    type_parameters: HashMap<lang::TypeParameter, lang::ImageType>,
 }
 
 impl Node {
     fn new(operator: lang::Operator, resource: lang::Resource) -> Self {
-        Node { operator, resource }
+        Node {
+            operator,
+            resource,
+            type_parameters: HashMap::new(),
+        }
     }
 
     /// A node can be considered a Mask if and only if it has exactly one output
     /// which produces a Value.
     fn is_mask(&self) -> bool {
         self.operator.outputs().len() == 1
-            && self
-                .operator
-                .outputs()
-                .iter()
-                .all(|(_, x)| *x == lang::ImageType::Grayscale)
+            && self.operator.outputs().iter().all(|(_, x)| match x {
+                lang::OperatorType::Monomorphic(z) => *z == lang::ImageType::Grayscale,
+                lang::OperatorType::Polymorphic(p) => self
+                    .type_parameters
+                    .get(p)
+                    .map_or(false, |z| *z == lang::ImageType::Grayscale),
+            })
+    }
+
+    fn monomorphic_type(&self, socket: &str) -> Result<lang::OperatorType, String> {
+        let ty = self
+            .operator
+            .inputs()
+            .get(socket)
+            .or(self.operator.outputs().get(socket))
+            .cloned()
+            .ok_or("Missing socket type".to_string())?;
+        if let lang::OperatorType::Polymorphic(p) = ty {
+            match self.type_parameters.get(&p) {
+                Some(x) => Ok(lang::OperatorType::Monomorphic(*x)),
+                _ => Ok(ty),
+            }
+        } else {
+            Ok(ty)
+        }
     }
 }
 
@@ -225,6 +251,7 @@ impl NodeManager {
         from: &lang::Resource,
         to: &lang::Resource,
     ) -> Result<(), String> {
+        // Get relevant resources
         let from_path = self
             .node_by_uri(from)
             .ok_or(format!("Node for URI {} not found!", &from))?;
@@ -240,18 +267,28 @@ impl NodeManager {
             .ok_or("Missing socket specification")?
             .to_string();
 
-        {
-            // FIXME: value to rgb(a) cast only uses red channel
-            let from_type = self.socket_type(from).unwrap();
-            let to_type = self.socket_type(to).unwrap();
-            if from_type > to_type {
-                return Err(format!(
-                    "Socket type mismatch! {:?} cannot be coerced into {:?}",
-                    from_type, to_type
-                ));
+        // Handle type checking/inference
+        let from_type = self.socket_type(from).unwrap();
+        let to_type = self.socket_type(to).unwrap();
+        match dbg!((from_type, to_type)) {
+            (lang::OperatorType::Polymorphic(..), lang::OperatorType::Polymorphic(..)) => {
+                // TODO: Type inference over multiple arcs?
+                panic!("Too polymorphic")
+            }
+            (lang::OperatorType::Monomorphic(ty1), lang::OperatorType::Monomorphic(ty2)) => {
+                if ty1 != ty2 {
+                    Err("Type mismatch")?
+                }
+            }
+            (lang::OperatorType::Monomorphic(ty), lang::OperatorType::Polymorphic(p)) => {
+                self.set_type_parameter(&from.drop_fragment(), p, Some(ty))?
+            }
+            (lang::OperatorType::Polymorphic(p), lang::OperatorType::Monomorphic(ty)) => {
+                self.set_type_parameter(&to.drop_fragment(), p, Some(ty))?
             }
         }
 
+        // Perform connection
         log::trace!(
             "Connecting {:?} with {:?} from socket {:?} to socket {:?}",
             from_path,
@@ -323,7 +360,7 @@ impl NodeManager {
         self.node_indices.get(&resource.drop_fragment()).cloned()
     }
 
-    fn socket_type(&self, socket: &lang::Resource) -> Result<lang::ImageType, String> {
+    fn socket_type(&self, socket: &lang::Resource) -> Result<lang::OperatorType, String> {
         let path = self
             .node_by_uri(socket)
             .ok_or(format!("Node for URI {} not found!", &socket))?;
@@ -336,12 +373,34 @@ impl NodeManager {
             .node_graph
             .node_weight(path)
             .expect("Missing node during type lookup");
-        node.operator
-            .inputs()
-            .get(&socket_name)
-            .or(node.operator.outputs().get(&socket_name))
-            .cloned()
-            .ok_or("Missing socket type".to_string())
+        node.monomorphic_type(&socket_name)
+    }
+
+    fn set_type_parameter(
+        &mut self,
+        node: &lang::Resource,
+        parameter: lang::TypeParameter,
+        ty: Option<lang::ImageType>,
+    ) -> Result<(), String> {
+        let path = self
+            .node_by_uri(node)
+            .ok_or(format!("Node for URI {} not found!", &node))?;
+
+        let node_data = self
+            .node_graph
+            .node_weight_mut(path)
+            .expect("Missing node during type lookup");
+
+        dbg!(&node_data);
+
+        match ty {
+            Some(t) => node_data.type_parameters.insert(parameter, t),
+            None => node_data.type_parameters.remove(&parameter),
+        };
+
+        dbg!(&node_data);
+
+        Ok(())
     }
 
     // TODO: should be in its own scope
