@@ -24,7 +24,7 @@ impl Node {
                 .operator
                 .outputs()
                 .iter()
-                .all(|(_, x)| *x == lang::ImageType::Value)
+                .all(|(_, x)| *x == lang::ImageType::Grayscale)
     }
 }
 

@@ -108,6 +108,14 @@ impl ParamBox {
         private.construct(description);
         pbox
     }
+
+    pub fn empty() -> Self {
+        Self::new(&ParamBoxDescription {
+            box_title: "",
+            resource: Resource::unregistered_node(),
+            categories: &[],
+        })
+    }
 }
 
 pub struct ParamBoxDescription {
@@ -252,6 +260,8 @@ pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
         Operator::Blend(..) => blend(res),
         Operator::PerlinNoise(..) => perlin_noise(res),
         Operator::Rgb(..) => rgb(res),
+        Operator::Grayscale(..) => grayscale(res),
+        Operator::Ramp => ParamBox::empty(), // TODO: Ramp parameter box
         Operator::Image { .. } => image(res),
         Operator::Output { .. } => output(res),
     }
@@ -263,15 +273,18 @@ pub fn blend(res: &Resource) -> ParamBox {
         resource: res.clone(),
         categories: &[ParamCategory {
             name: "Basic Parameters",
-            parameters: &[Parameter {
-                name: "Blend Mode",
-                field: BlendParameters::BLEND_MODE,
-                control: Control::Enum(BlendMode::VARIANTS)
-            }, Parameter {
-                name: "Mix",
-                field: BlendParameters::MIX,
-                control: Control::Slider { min: 0., max: 1. },
-            }],
+            parameters: &[
+                Parameter {
+                    name: "Blend Mode",
+                    field: BlendParameters::BLEND_MODE,
+                    control: Control::Enum(BlendMode::VARIANTS),
+                },
+                Parameter {
+                    name: "Mix",
+                    field: BlendParameters::MIX,
+                    control: Control::Slider { min: 0., max: 1. },
+                },
+            ],
         }],
     })
 }
@@ -343,6 +356,21 @@ pub fn image(res: &Resource) -> ParamBox {
                 name: "Image Path",
                 field: "image_path",
                 control: Control::File,
+            }],
+        }],
+    })
+}
+
+pub fn grayscale(res: &Resource) -> ParamBox {
+    ParamBox::new(&ParamBoxDescription {
+        box_title: "Grayscale",
+        resource: res.clone(),
+        categories: &[ParamCategory {
+            name: "Basic Parameters",
+            parameters: &[Parameter {
+                name: "Conversion Mode",
+                field: GrayscaleParameters::MODE,
+                control: Control::Enum(GrayscaleMode::VARIANTS),
             }],
         }],
     })

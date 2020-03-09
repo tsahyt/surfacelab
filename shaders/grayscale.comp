@@ -1,0 +1,25 @@
+#version 460
+
+layout(local_size_x = 1, local_size_y = 1) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    uint mode;
+};
+layout(set = 0, binding = 1) uniform texture2D t_Color;
+layout(set = 0, binding = 2) uniform sampler Sampler;
+layout(set = 0, binding = 3, r32f) uniform image2D t_Out;
+
+#define MODE_LUMINANCE 0
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    vec2 uv = vec2(idx.x / 1024., idx.y / 1024.);
+    vec4 col = texture(sampler2D(t_Color, Sampler), uv);
+
+    float val;
+
+    if (mode == MODE_LUMINANCE)
+        val = col.r * 0.2126 + col.g * 0.7152 + col.b * 0.0722;
+
+    imageStore(t_Out, idx, vec4(val));
+}

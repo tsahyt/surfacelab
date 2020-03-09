@@ -128,7 +128,7 @@ impl RgbParameters {
 impl Parameters for RgbParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
-            "rgb" => {
+            Self::RGB => {
                 let cols: Vec<f32> = data
                     .chunks(4)
                     .map(|z| {
@@ -145,12 +145,51 @@ impl Parameters for RgbParameters {
         }
     }
 }
+#[repr(C)]
+#[derive(AsBytes, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString)]
+pub enum GrayscaleMode {
+    Luminance,
+}
 
+#[repr(C)]
+#[derive(AsBytes, Clone, Copy, Debug)]
+pub struct GrayscaleParameters {
+    mode: GrayscaleMode,
+}
+
+impl Default for GrayscaleParameters {
+    fn default() -> Self {
+        GrayscaleParameters {
+            mode: GrayscaleMode::Luminance,
+        }
+    }
+}
+
+impl GrayscaleParameters {
+    pub const MODE: &'static str = "mode";
+}
+
+impl Parameters for GrayscaleParameters {
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+        match field {
+            Self::MODE => {
+                let mut arr: [u8; 4] = Default::default();
+                arr.copy_from_slice(data);
+                let idx = u32::from_be_bytes(arr);
+                let variant = GrayscaleMode::VARIANTS[idx as usize];
+                self.mode = GrayscaleMode::from_str(variant).unwrap();
+            }
+            _ => panic!("Unknown field {}", field),
+        }
+    }
+}
 #[derive(Clone, Debug)]
 pub enum Operator {
     Blend(BlendParameters),
     PerlinNoise(PerlinNoiseParameters),
     Rgb(RgbParameters),
+    Grayscale(GrayscaleParameters),
+    Ramp,
     Image { path: std::path::PathBuf },
     Output { output_type: OutputType },
 }
@@ -164,14 +203,20 @@ impl Operator {
             },
             Self::PerlinNoise(..) => HashMap::new(),
             Self::Rgb(..) => HashMap::new(),
+            Self::Grayscale(..) => hashmap! {
+                "color".to_string() => ImageType::Rgba,
+            },
+            Self::Ramp => hashmap! {
+                "factor".to_string() => ImageType::Grayscale,
+            },
             Self::Image { .. } => HashMap::new(),
             Self::Output { output_type } => hashmap! {
                 "data".to_string() => match output_type {
                     OutputType::Albedo => ImageType::Rgb,
-                    OutputType::Roughness => ImageType::Value,
+                    OutputType::Roughness => ImageType::Grayscale,
                     OutputType::Normal => ImageType::Rgb,
-                    OutputType::Displacement => ImageType::Value,
-                    OutputType::Value => ImageType::Value,
+                    OutputType::Displacement => ImageType::Grayscale,
+                    OutputType::Value => ImageType::Grayscale,
                     OutputType::Rgba => ImageType::Rgba,
                 }
             },
@@ -186,7 +231,13 @@ impl Operator {
             Self::Rgb(..) => hashmap! {
                 "color".to_string() => ImageType::Rgb
             },
-            Self::PerlinNoise(..) => hashmap! { "noise".to_string() => ImageType::Value
+            Self::PerlinNoise(..) => hashmap! { "noise".to_string() => ImageType::Grayscale
+            },
+            Self::Grayscale(..) => hashmap! {
+                "value".to_string() => ImageType::Grayscale
+            },
+            Self::Ramp => hashmap! {
+                "color".to_string() => ImageType::Rgb
             },
             Self::Image { .. } => hashmap! { "image".to_string() => ImageType::Rgba },
             Self::Output { .. } => HashMap::new(),
@@ -198,6 +249,8 @@ impl Operator {
             Self::Blend(..) => "blend",
             Self::PerlinNoise(..) => "perlin_noise",
             Self::Rgb(..) => "rgb",
+            Self::Grayscale(..) => "grayscale",
+            Self::Ramp => "ramp",
             Self::Image { .. } => "image",
             Self::Output { .. } => "output",
         }
@@ -208,6 +261,8 @@ impl Operator {
             Self::Blend(..) => "Blend",
             Self::PerlinNoise(..) => "Perlin Noise",
             Self::Rgb(..) => "RGB Color",
+            Self::Grayscale(..) => "Grayscale",
+            Self::Ramp => "Ramp",
             Self::Image { .. } => "Image",
             Self::Output { .. } => "Output",
         }
@@ -219,6 +274,8 @@ impl Operator {
             Self::Blend(BlendParameters::default()),
             Self::PerlinNoise(PerlinNoiseParameters::default()),
             Self::Rgb(RgbParameters::default()),
+            Self::Grayscale(GrayscaleParameters::default()),
+            Self::Ramp,
             Self::Image {
                 path: PathBuf::new(),
             },
@@ -242,6 +299,8 @@ impl Parameters for Operator {
             Self::Blend(p) => p.set_parameter(field, data),
             Self::PerlinNoise(p) => p.set_parameter(field, data),
             Self::Rgb(p) => p.set_parameter(field, data),
+            Self::Grayscale(p) => p.set_parameter(field, data),
+            Self::Ramp => {}
 
             Self::Image { path } => {
                 let path_str = unsafe { std::str::from_utf8_unchecked(&data) };
@@ -268,14 +327,14 @@ pub enum Instruction {
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub enum ImageType {
-    Value,
+    Grayscale,
     Rgb,
     Rgba,
 }
 
 impl Default for ImageType {
     fn default() -> Self {
-        ImageType::Value
+        ImageType::Grayscale
     }
 }
 
@@ -284,7 +343,7 @@ impl ImageType {
         match self {
             Self::Rgb => 8,
             Self::Rgba => 8,
-            Self::Value => 4,
+            Self::Grayscale => 4,
         }
     }
 }

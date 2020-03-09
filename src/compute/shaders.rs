@@ -80,6 +80,72 @@ static RGB_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     },
 ];
 
+// Grayscale
+static GRAYSCALE_SHADER: &[u8] = include_bytes!("../../shaders/grayscale.spv");
+static GRAYSCALE_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
+    gpu::DescriptorSetLayoutBinding {
+        binding: 0,
+        ty: gpu::DescriptorType::UniformBuffer,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 1,
+        ty: gpu::DescriptorType::SampledImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 2,
+        ty: gpu::DescriptorType::Sampler,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 3,
+        ty: gpu::DescriptorType::StorageImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+];
+
+// Ramp
+static RAMP_SHADER: &[u8] = include_bytes!("../../shaders/ramp.spv");
+static RAMP_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
+    gpu::DescriptorSetLayoutBinding {
+        binding: 0,
+        ty: gpu::DescriptorType::UniformBuffer,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 1,
+        ty: gpu::DescriptorType::SampledImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 2,
+        ty: gpu::DescriptorType::Sampler,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 3,
+        ty: gpu::DescriptorType::StorageImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+];
+
 fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
     use lang::Operator;
 
@@ -92,6 +158,8 @@ fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
         Operator::Blend(..) => BLEND_SHADER,
         Operator::PerlinNoise(..) => PERLIN_NOISE_SHADER,
         Operator::Rgb(..) => RGB_SHADER,
+        Operator::Grayscale(..) => GRAYSCALE_SHADER,
+        Operator::Ramp => RAMP_SHADER,
     };
 
     Some(src)
@@ -110,6 +178,8 @@ fn operator_layout<'a>(
         Operator::Blend(..) => BLEND_LAYOUT,
         Operator::PerlinNoise(..) => PERLIN_NOISE_LAYOUT,
         Operator::Rgb(..) => RGB_LAYOUT,
+        Operator::Grayscale(..) => GRAYSCALE_LAYOUT,
+        Operator::Ramp => RAMP_LAYOUT,
     };
 
     Some(bindings)
@@ -209,6 +279,70 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 )],
             },
         ],
+        Operator::Grayscale(..) => vec![
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 0,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 1,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Image(
+                    inputs.get("color").unwrap().get_view().unwrap(),
+                    gpu::Layout::ShaderReadOnlyOptimal,
+                )],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 2,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Sampler(sampler)],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 3,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Image(
+                    outputs.get("value").unwrap().get_view().unwrap(),
+                    gpu::Layout::General,
+                )],
+            },
+        ],
+        Operator::Ramp => vec![
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 0,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 1,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Image(
+                    inputs.get("factor").unwrap().get_view().unwrap(),
+                    gpu::Layout::ShaderReadOnlyOptimal,
+                )],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 2,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Sampler(sampler)],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 3,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Image(
+                    outputs.get("color").unwrap().get_view().unwrap(),
+                    gpu::Layout::General,
+                )],
+            },
+        ],
     }
 }
 
@@ -229,6 +363,8 @@ impl Uniforms for lang::Operator {
             Operator::Blend(p) => p.as_bytes(),
             Operator::PerlinNoise(p) => p.as_bytes(),
             Operator::Rgb(p) => p.as_bytes(),
+            Operator::Grayscale(p) => p.as_bytes(),
+            Operator::Ramp => &[],
         }
     }
 }

@@ -192,7 +192,7 @@ where
                                 IMG_SIZE,
                                 IMG_SIZE,
                                 match ty {
-                                    ImageType::Value => image::ColorType::L16,
+                                    ImageType::Grayscale => image::ColorType::L16,
                                     ImageType::Rgb => image::ColorType::Rgb16,
                                     ImageType::Rgba => image::ColorType::Rgba16,
                                 },
@@ -310,7 +310,7 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
             std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2 * 4).to_owned()
         },
         // Underlying memory is formatted as r32f, expected to be L16
-        ImageType::Value => unsafe {
+        ImageType::Grayscale => unsafe {
             let u16s: Vec<u16> =
                 std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
                     .iter()
