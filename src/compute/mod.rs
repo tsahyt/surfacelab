@@ -50,19 +50,116 @@ struct ExternalImage {
     buffer: Vec<u16>,
 }
 
-struct ComputeManager<B: gpu::Backend> {
-    gpu: gpu::compute::GPUCompute<B>,
-
+struct SocketData<B: gpu::Backend> {
     /// Output sockets always map to an image, which may or may not be allocated
-    output_sockets: HashMap<Resource, gpu::compute::Image<B>>,
+    typed_outputs: HashMap<String, gpu::compute::Image<B>>,
 
     /// Required to keep track of polymorphic outputs. Kept separately to keep
     /// output_sockets ownership structure simple.
-    known_output_sockets: HashSet<Resource>,
+    known_outputs: HashSet<String>,
 
     /// Input sockets only map to the output sockets they are connected to
-    input_sockets: HashMap<Resource, Resource>,
+    inputs: HashMap<String, Resource>,
+}
 
+struct Sockets<B: gpu::Backend>(HashMap<Resource, SocketData<B>>);
+
+impl<B> Sockets<B>
+where
+    B: gpu::Backend,
+{
+    pub fn new() -> Self {
+        Sockets(HashMap::new())
+    }
+
+    /// Remove all sockets for the given node.
+    ///
+    /// The resource *must* point to a node!
+    pub fn remove_all_for_node(&mut self, res: &Resource) {
+        debug_assert!(res.fragment().is_none());
+        self.0.remove(res);
+    }
+
+    pub fn add_output_socket(&mut self, res: &Resource, image: Option<gpu::compute::Image<B>>) {
+        let sockets = self.0.entry(res.drop_fragment()).or_insert(SocketData {
+            typed_outputs: HashMap::new(),
+            known_outputs: HashSet::new(),
+            inputs: HashMap::new(),
+        });
+        let socket_name = res.fragment().unwrap().to_string();
+        if let Some(img) = image {
+            sockets.typed_outputs.insert(socket_name.clone(), img);
+        }
+        sockets.known_outputs.insert(socket_name);
+    }
+
+    /// Determine whether the given resource points to a known output socket.
+    pub fn is_known_output(&self, res: &Resource) -> bool {
+        debug_assert!(res.fragment().is_some());
+        self.0
+            .get(&res.drop_fragment())
+            .map(|s| s.known_outputs.contains(res.fragment().unwrap()))
+            .unwrap_or(false)
+    }
+
+    /// Drop the underlying image from an output socket
+    pub fn remove_image(&mut self, res: &Resource) {
+        let sockets = self
+            .0
+            .get_mut(&res.drop_fragment())
+            .expect("Trying to remove image from unknown resource");
+        sockets.typed_outputs.remove(res.fragment().unwrap());
+    }
+
+    /// Obtain the output image given a socket resource
+    pub fn get_output_image(&self, res: &Resource) -> Option<&gpu::compute::Image<B>> {
+        self.0
+            .get(&res.drop_fragment())?
+            .typed_outputs
+            .get(res.fragment().unwrap())
+    }
+
+    /// Obtain the output image given a socket resource, mutably
+    pub fn get_output_image_mut(&mut self, res: &Resource) -> Option<&mut gpu::compute::Image<B>> {
+        self.0
+            .get_mut(&res.drop_fragment())?
+            .typed_outputs
+            .get_mut(res.fragment().unwrap())
+    }
+
+    /// Obtain the input image given a socket resource, mutably
+    pub fn get_input_image(&self, res: &Resource) -> Option<&gpu::compute::Image<B>> {
+        let sockets = self.0.get(&res.drop_fragment())?;
+        let output_res = sockets.inputs.get(res.fragment()?)?;
+        self.0
+            .get(&output_res.drop_fragment())?
+            .typed_outputs
+            .get((&output_res).fragment()?)
+    }
+
+    /// Connect an output to an input
+    pub fn connect_input(&mut self, from: &Resource, to: &Resource) {
+        self.0
+            .get_mut(&to.drop_fragment())
+            .unwrap()
+            .inputs
+            .insert(to.fragment().unwrap().to_string(), from.to_owned());
+    }
+}
+
+struct ComputeManager<B: gpu::Backend> {
+    gpu: gpu::compute::GPUCompute<B>,
+
+    // /// Output sockets always map to an image, which may or may not be allocated
+    // output_sockets: HashMap<Resource, gpu::compute::Image<B>>,
+
+    // /// Required to keep track of polymorphic outputs. Kept separately to keep
+    // /// output_sockets ownership structure simple.
+    // known_output_sockets: HashSet<Resource>,
+
+    // /// Input sockets only map to the output sockets they are connected to
+    // input_sockets: HashMap<Resource, Resource>,
+    sockets: Sockets<B>,
     shader_library: shaders::ShaderLibrary<B>,
     external_images: HashMap<std::path::PathBuf, ExternalImage>,
 }
@@ -76,18 +173,16 @@ where
 
         ComputeManager {
             gpu,
-            output_sockets: HashMap::new(),
-            known_output_sockets: HashSet::new(),
-            input_sockets: HashMap::new(),
+            sockets: Sockets::new(),
             shader_library,
             external_images: HashMap::new(),
         }
     }
 
-    fn add_new_output_socket(&mut self, socket: Resource, ty: ImageType) {
-        let img = self.gpu.create_compute_image(IMG_SIZE, ty).unwrap();
-        self.output_sockets.insert(socket, img);
-    }
+    // fn add_new_output_socket(&mut self, socket: Resource, ty: ImageType) {
+    //     let img = self.gpu.create_compute_image(IMG_SIZE, ty).unwrap();
+    //     self.output_sockets.insert(socket, img);
+    // }
 
     pub fn process_event(&mut self, event: Arc<Lang>) -> Option<Vec<Lang>> {
         let response = Vec::new();
@@ -97,22 +192,19 @@ where
                     for (socket, imgtype) in op.inputs().iter().chain(op.outputs().iter()) {
                         let socket_res = res.extend_fragment(&socket);
 
-                        // If the type is monomorphic, we can create the socket
-                        // right away, otherwise creation needs to be delayed
-                        // until the type is known.
                         if let OperatorType::Monomorphic(ty) = imgtype {
+                            // If the type is monomorphic, we can create the image
+                            // right away, otherwise creation needs to be delayed
+                            // until the type is known.
                             log::trace!("Adding monomorphic socket {}", socket_res);
-                            self.add_new_output_socket(socket_res.clone(), *ty);
+                            let img = self.gpu.create_compute_image(IMG_SIZE, *ty).unwrap();
+                            self.sockets.add_output_socket(&socket_res, Some(img));
+                        } else {
+                            self.sockets.add_output_socket(&socket_res, None);
                         }
-
-                        self.known_output_sockets.insert(socket_res);
                     }
                 }
-                GraphEvent::NodeRemoved(res) => {
-                    // TODO: directly find and remove sockets
-                    self.output_sockets.retain(|s, _| !s.is_fragment_of(res));
-                    self.known_output_sockets.retain(|s| !s.is_fragment_of(res));
-                }
+                GraphEvent::NodeRemoved(res) => self.sockets.remove_all_for_node(res),
                 GraphEvent::Recomputed(instrs) => {
                     for i in instrs.iter() {
                         let r = self.interpret(i);
@@ -124,14 +216,15 @@ where
                     }
                 }
                 GraphEvent::SocketMonomorphized(res, ty) => {
-                    if self.known_output_sockets.contains(res) {
+                    if self.sockets.is_known_output(res) {
                         log::trace!("Adding monomorphized socket {}", res);
-                        self.add_new_output_socket(res.clone(), *ty)
+                        let img = self.gpu.create_compute_image(IMG_SIZE, *ty).unwrap();
+                        self.sockets.add_output_socket(res, Some(img));
                     }
                 }
                 GraphEvent::SocketDemonomorphized(res) => {
-                    if self.known_output_sockets.contains(res) {
-                        self.output_sockets.remove(res);
+                    if self.sockets.is_known_output(res) {
+                        self.sockets.remove_image(res);
                     }
                 }
                 _ => {}
@@ -147,9 +240,9 @@ where
         match instr {
             Instruction::Move(from, to) => {
                 log::trace!("Moving texture from {} to {}", from, to);
-                debug_assert!(self.output_sockets.get(from).is_some());
+                debug_assert!(self.sockets.get_output_image(from).is_some());
 
-                self.input_sockets.insert(to.to_owned(), from.to_owned());
+                self.sockets.connect_input(from, to);
             }
             Instruction::Execute(res, op) => match op {
                 Operator::Image { path } => self.execute_image(res, path)?,
@@ -165,8 +258,8 @@ where
         log::trace!("Processing Image operator {}", res);
 
         let image = self
-            .output_sockets
-            .get_mut(&res.extend_fragment("image"))
+            .sockets
+            .get_output_image_mut(&res.extend_fragment("image"))
             .expect("Trying to process missing socket");
 
         let external_image = self.external_images.entry(path.clone()).or_insert_with(|| {
@@ -200,15 +293,13 @@ where
             let socket_res = res.extend_fragment(&socket);
 
             // Ensure socket exists and is backed in debug builds
-            debug_assert!({
-                let output_res = self.input_sockets.get(&socket_res).unwrap();
-                self.output_sockets.get(&output_res).unwrap().is_backed()
-            });
+            debug_assert!(self
+                .sockets
+                .get_input_image(&socket_res)
+                .unwrap()
+                .is_backed());
 
-            let image = self
-                .output_sockets
-                .get(self.input_sockets.get(&socket_res).unwrap())
-                .unwrap();
+            let image = self.sockets.get_input_image(&socket_res).unwrap();
             let raw = self.gpu.download_image(image).unwrap();
 
             log::debug!("Downloaded image size {:?}", raw.len());
@@ -244,26 +335,26 @@ where
         // Ensure output images are allocated
         for (socket, _) in op.outputs().iter() {
             let socket_res = res.extend_fragment(&socket);
-            debug_assert!(self.output_sockets.get(&socket_res).is_some());
-            self.output_sockets
-                .get_mut(&socket_res)
-                .unwrap()
+            self.sockets
+                .get_output_image_mut(&socket_res)
+                .expect(&format!("Missing output image for operator {}", res))
                 .ensure_alloc(&self.gpu)?;
         }
 
         // In debug builds, ensure that all input images exist and are backed
         debug_assert!(op.inputs().iter().all(|(socket, _)| {
             let socket_res = res.extend_fragment(&socket);
-            let output_res = self.input_sockets.get(&socket_res).unwrap();
-            let output = self.output_sockets.get(output_res);
+            let output = self.sockets.get_input_image(&socket_res);
             output.is_some() && output.unwrap().is_backed()
         }));
 
         let mut inputs = HashMap::new();
         for socket in op.inputs().keys() {
             let socket_res = res.extend_fragment(&socket);
-            let output_res = self.input_sockets.get(&socket_res).unwrap();
-            inputs.insert(socket.clone(), self.output_sockets.get(output_res).unwrap());
+            inputs.insert(
+                socket.clone(),
+                self.sockets.get_input_image(&socket_res).unwrap(),
+            );
         }
 
         let mut outputs = HashMap::new();
@@ -271,7 +362,7 @@ where
             let socket_res = res.extend_fragment(&socket);
             outputs.insert(
                 socket.clone(),
-                self.output_sockets.get(&socket_res).unwrap(),
+                self.sockets.get_output_image(&socket_res).unwrap(),
             );
         }
 
