@@ -422,7 +422,6 @@ impl NodeManager {
         Ok(affected)
     }
 
-    // TODO: should be in its own scope
     fn recompute(&self) -> Vec<lang::Instruction> {
         use petgraph::visit::EdgeRef;
 
