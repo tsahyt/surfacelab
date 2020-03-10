@@ -273,7 +273,7 @@ impl NodeManager {
         // Handle type checking/inference
         let from_type = self.socket_type(from).unwrap();
         let to_type = self.socket_type(to).unwrap();
-        match dbg!((from_type, to_type)) {
+        match (from_type, to_type) {
             (lang::OperatorType::Polymorphic(..), lang::OperatorType::Polymorphic(..)) => {
                 Err("Unable to connect polymorphic socket to polymorphic socket")?
             }

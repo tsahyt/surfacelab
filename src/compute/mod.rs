@@ -186,7 +186,6 @@ where
                         }
                     }
                     Operator::Output { .. } => {
-                        // FIXME: Value into Rgb(a) crashes
                         for (socket, ty) in op.inputs().iter() {
                             log::trace!("Processing Output operator {} socket {}", res, socket);
 
