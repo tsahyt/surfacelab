@@ -331,33 +331,100 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
 }
 
 fn load_rgba16f_image<P: AsRef<std::path::Path>>(path: P) -> Result<Vec<u16>, String> {
+    use image::GenericImageView;
+
     let img = image::open(path).map_err(|e| format!("Failed to read image: {}", e))?;
 
-    fn via_rgba8(image: image::DynamicImage) -> Result<Vec<u16>, String> {
-        Ok(image
-            .into_rgba()
-            .as_flat_samples()
-            .as_slice()
-            .iter()
-            .map(|x| half::f16::from_f32(*x as f32 / 256.0).to_bits())
-            .collect())
+    fn sample8(sample: u8) -> u16 {
+        half::f16::from_f32(sample as f32 / 256.0).to_bits()
     }
 
-    fn via_rgba16(image: image::DynamicImage) -> Result<Vec<u16>, String> {
-        // TODO: 16 bit image loading
-        unimplemented!("Loading of 16 bit images")
+    fn sample16(sample: u16) -> u16 {
+        half::f16::from_f32(sample as f32 / 65536.0).to_bits()
     }
+
+    let mut loaded: Vec<u16> = Vec::with_capacity(img.width() as usize * img.height() as usize * 4);
 
     match img {
-        image::DynamicImage::ImageLuma8(..) => via_rgba8(img),
-        image::DynamicImage::ImageLumaA8(..) => via_rgba8(img),
-        image::DynamicImage::ImageRgb8(..) => via_rgba8(img),
-        image::DynamicImage::ImageRgba8(..) => via_rgba8(img),
-        image::DynamicImage::ImageBgr8(..) => via_rgba8(img),
-        image::DynamicImage::ImageBgra8(..) => via_rgba8(img),
-        image::DynamicImage::ImageLuma16(..) => via_rgba16(img),
-        image::DynamicImage::ImageLumaA16(..) => via_rgba16(img),
-        image::DynamicImage::ImageRgb16(..) => via_rgba16(img),
-        image::DynamicImage::ImageRgba16(..) => via_rgba16(img),
+        image::DynamicImage::ImageLuma8(buf) => {
+            for image::Luma([l]) in buf.pixels() {
+                let x = sample8(*l);
+                loaded.push(x);
+                loaded.push(x);
+                loaded.push(x);
+                loaded.push(255);
+            }
+        }
+        image::DynamicImage::ImageLumaA8(buf) => {
+            for image::LumaA([l, a]) in buf.pixels() {
+                let x = sample8(*l);
+                loaded.push(x);
+                loaded.push(x);
+                loaded.push(x);
+                loaded.push(sample8(*a));
+            }
+        }
+        image::DynamicImage::ImageRgb8(buf) => {
+            for image::Rgb([r, g, b]) in buf.pixels() {
+                loaded.push(sample8(*r));
+                loaded.push(sample8(*g));
+                loaded.push(sample8(*b));
+                loaded.push(sample8(255));
+            }
+        }
+        image::DynamicImage::ImageRgba8(buf) => {
+            for sample in buf.as_flat_samples().as_slice().iter() {
+                loaded.push(sample8(*sample))
+            }
+        }
+        image::DynamicImage::ImageBgr8(buf) => {
+            for image::Bgr([b, g, r]) in buf.pixels() {
+                loaded.push(sample8(*r));
+                loaded.push(sample8(*g));
+                loaded.push(sample8(*b));
+                loaded.push(sample8(255));
+            }
+        }
+        image::DynamicImage::ImageBgra8(buf) => {
+            for image::Bgra([b, g, r, a]) in buf.pixels() {
+                loaded.push(sample8(*r));
+                loaded.push(sample8(*g));
+                loaded.push(sample8(*b));
+                loaded.push(sample8(*a));
+            }
+        }
+        image::DynamicImage::ImageLuma16(buf) => {
+            for image::Luma([l]) in buf.pixels() {
+                let x = sample16(*l);
+                loaded.push(x);
+                loaded.push(x);
+                loaded.push(x);
+                loaded.push(255);
+            }
+        }
+        image::DynamicImage::ImageLumaA16(buf) => {
+            for image::LumaA([l, a]) in buf.pixels() {
+                let x = sample16(*l);
+                loaded.push(x);
+                loaded.push(x);
+                loaded.push(x);
+                loaded.push(sample16(*a));
+            }
+        }
+        image::DynamicImage::ImageRgb16(buf) => {
+            for image::Rgb([r, g, b]) in buf.pixels() {
+                loaded.push(sample16(*r));
+                loaded.push(sample16(*g));
+                loaded.push(sample16(*b));
+                loaded.push(sample16(255));
+            }
+        }
+        image::DynamicImage::ImageRgba16(buf) => {
+            for sample in buf.as_flat_samples().as_slice().iter() {
+                loaded.push(sample16(*sample))
+            }
+        }
     }
+
+    Ok(loaded)
 }
