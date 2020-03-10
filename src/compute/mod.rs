@@ -197,7 +197,10 @@ where
                             // right away, otherwise creation needs to be delayed
                             // until the type is known.
                             log::trace!("Adding monomorphic socket {}", socket_res);
-                            let img = self.gpu.create_compute_image(IMG_SIZE, *ty).unwrap();
+                            let img = self
+                                .gpu
+                                .create_compute_image(IMG_SIZE, *ty, op.external_data())
+                                .unwrap();
                             self.sockets.add_output_socket(&socket_res, Some(img));
                         } else {
                             self.sockets.add_output_socket(&socket_res, None);
@@ -218,7 +221,7 @@ where
                 GraphEvent::SocketMonomorphized(res, ty) => {
                     if self.sockets.is_known_output(res) {
                         log::trace!("Adding monomorphized socket {}", res);
-                        let img = self.gpu.create_compute_image(IMG_SIZE, *ty).unwrap();
+                        let img = self.gpu.create_compute_image(IMG_SIZE, *ty, false).unwrap();
                         self.sockets.add_output_socket(res, Some(img));
                     }
                 }

@@ -212,7 +212,12 @@ where
         })
     }
 
-    pub fn create_compute_image(&self, size: u32, ty: lang::ImageType) -> Result<Image<B>, String> {
+    pub fn create_compute_image(
+        &self,
+        size: u32,
+        ty: lang::ImageType,
+        upload: bool,
+    ) -> Result<Image<B>, String> {
         let lock = self.gpu.lock().unwrap();
 
         // Determine formats and sizes
@@ -240,8 +245,17 @@ where
                 format,
                 hal::image::Tiling::Optimal,
                 hal::image::Usage::SAMPLED
-                    | hal::image::Usage::STORAGE
-                    | hal::image::Usage::TRANSFER_SRC,
+                    | if !upload {
+                        hal::image::Usage::STORAGE
+                    } else {
+                        hal::image::Usage::empty()
+                    }
+                    | hal::image::Usage::TRANSFER_SRC
+                    | if upload {
+                        hal::image::Usage::TRANSFER_DST
+                    } else {
+                        hal::image::Usage::empty()
+                    },
                 hal::image::ViewCapabilities::empty(),
             )
         }
@@ -421,9 +435,8 @@ where
         let command_buffer = unsafe {
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
-            // FIXME: vkCmdPipelineBarrier(): pImageMemBarriers[0].srcAccessMask (0x40) is not supported by srcStageMask (0x1)
             command_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
                 &pre_barriers,
             );
@@ -514,7 +527,7 @@ where
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
             command_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::TRANSFER,
+                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
                 hal::memory::Dependencies::empty(),
                 &[barrier],
             );
@@ -621,10 +634,6 @@ where
         }
 
         // Build barrier
-        let barrier = image.barrier_to(
-            hal::image::Access::TRANSFER_WRITE,
-            hal::image::Layout::TransferDstOptimal,
-        );
 
         // Copy buffer to image
         unsafe {
@@ -633,7 +642,10 @@ where
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::TRANSFER,
                 hal::memory::Dependencies::empty(),
-                &[barrier],
+                &[image.barrier_to(
+                    hal::image::Access::TRANSFER_WRITE,
+                    hal::image::Layout::TransferDstOptimal,
+                )],
             );
             command_buffer.copy_buffer_to_image(
                 &buf,
@@ -655,6 +667,14 @@ where
                         layers: 0..1,
                     },
                 }),
+            );
+            command_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::memory::Dependencies::empty(),
+                &[image.barrier_to(
+                    hal::image::Access::SHADER_READ,
+                    hal::image::Layout::ShaderReadOnlyOptimal,
+                )],
             );
             command_buffer.finish();
 

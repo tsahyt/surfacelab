@@ -203,6 +203,14 @@ pub enum Operator {
 }
 
 impl Operator {
+    /// Returns whether an operator can use external data.
+    pub fn external_data(&self) -> bool {
+        match self {
+            Operator::Image{..} => true,
+            _ => false
+        }
+    }
+
     pub fn inputs(&self) -> HashMap<String, OperatorType> {
         match self {
             Self::Blend(..) => hashmap! {
