@@ -62,6 +62,7 @@ struct NodeManager {
     outputs: HashSet<graph::NodeIndex>,
 }
 
+// FIXME: Changing output socket type after connection has already been made does not propagate type changes into preceeding polymorphic nodes!
 impl NodeManager {
     pub fn new() -> Self {
         let node_graph = graph::Graph::new();
@@ -202,7 +203,6 @@ impl NodeManager {
             node
         );
 
-        // FIXME: removal sometimes fails when it shouldn't
         debug_assert!(self.node_graph.node_weight(node).is_some());
 
         // Remove from output vector
@@ -238,9 +238,20 @@ impl NodeManager {
             })
             .collect();
 
+        // Obtain last node before removal for reindexing
+        let last = self
+            .node_graph
+            .node_weight(self.node_graph.node_indices().next_back().unwrap())
+            .unwrap()
+            .resource
+            .clone();
+
         // Remove node
         self.node_graph.remove_node(node);
         self.node_indices.remove(&resource);
+
+        // Reindex last node
+        self.node_indices.insert(last, node);
 
         Ok(es)
     }
