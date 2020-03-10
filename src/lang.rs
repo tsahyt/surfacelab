@@ -280,7 +280,6 @@ impl Operator {
         }
     }
 
-    // TODO: Use EnumIter instead?
     pub fn all_default() -> Vec<Self> {
         vec![
             Self::Blend(BlendParameters::default()),
