@@ -9,8 +9,7 @@ use std::thread;
 struct Node {
     operator: lang::Operator,
     resource: lang::Resource,
-    // TODO: Rename all this to type *variables*
-    type_parameters: HashMap<lang::TypeParameter, lang::ImageType>,
+    type_variables: HashMap<lang::TypeVariable, lang::ImageType>,
 }
 
 impl Node {
@@ -18,7 +17,7 @@ impl Node {
         Node {
             operator,
             resource,
-            type_parameters: HashMap::new(),
+            type_variables: HashMap::new(),
         }
     }
 
@@ -29,7 +28,7 @@ impl Node {
             && self.operator.outputs().iter().all(|(_, x)| match x {
                 lang::OperatorType::Monomorphic(z) => *z == lang::ImageType::Grayscale,
                 lang::OperatorType::Polymorphic(p) => self
-                    .type_parameters
+                    .type_variables
                     .get(p)
                     .map_or(false, |z| *z == lang::ImageType::Grayscale),
             })
@@ -44,7 +43,7 @@ impl Node {
             .cloned()
             .ok_or("Missing socket type".to_string())?;
         if let lang::OperatorType::Polymorphic(p) = ty {
-            match self.type_parameters.get(&p) {
+            match self.type_variables.get(&p) {
                 Some(x) => Ok(lang::OperatorType::Monomorphic(*x)),
                 _ => Ok(ty),
             }
@@ -284,7 +283,7 @@ impl NodeManager {
                 }
             }
             (lang::OperatorType::Monomorphic(ty), lang::OperatorType::Polymorphic(p)) => {
-                let affected = self.set_type_parameter(&to.drop_fragment(), p, Some(ty))?;
+                let affected = self.set_type_variable(&to.drop_fragment(), p, Some(ty))?;
                 for res in affected {
                     response.push(lang::Lang::GraphEvent(
                         lang::GraphEvent::SocketMonomorphized(res, ty),
@@ -292,7 +291,7 @@ impl NodeManager {
                 }
             }
             (lang::OperatorType::Polymorphic(p), lang::OperatorType::Monomorphic(ty)) => {
-                let affected = self.set_type_parameter(&from.drop_fragment(), p, Some(ty))?;
+                let affected = self.set_type_variable(&from.drop_fragment(), p, Some(ty))?;
                 for res in affected {
                     response.push(lang::Lang::GraphEvent(
                         lang::GraphEvent::SocketMonomorphized(res, ty),
@@ -389,12 +388,12 @@ impl NodeManager {
         node.monomorphic_type(&socket_name)
     }
 
-    /// Assign a type parameter/type variable with a concrete type or erase it.
+    /// Assign a type variable with a concrete type or erase it.
     /// Returns a vector of all affected sockets.
-    fn set_type_parameter(
+    fn set_type_variable(
         &mut self,
         node: &lang::Resource,
-        parameter: lang::TypeParameter,
+        variable: lang::TypeVariable,
         ty: Option<lang::ImageType>,
     ) -> Result<Vec<lang::Resource>, String> {
         let path = self
@@ -407,8 +406,8 @@ impl NodeManager {
             .expect("Missing node during type lookup");
 
         match ty {
-            Some(t) => node_data.type_parameters.insert(parameter, t),
-            None => node_data.type_parameters.remove(&parameter),
+            Some(t) => node_data.type_variables.insert(variable, t),
+            None => node_data.type_variables.remove(&variable),
         };
 
         let affected = node_data
@@ -416,7 +415,7 @@ impl NodeManager {
             .inputs()
             .iter()
             .chain(node_data.operator.outputs().iter())
-            .filter(|(_, t)| **t == lang::OperatorType::Polymorphic(parameter))
+            .filter(|(_, t)| **t == lang::OperatorType::Polymorphic(variable))
             .map(|x| node.extend_fragment(x.0))
             .collect();
 

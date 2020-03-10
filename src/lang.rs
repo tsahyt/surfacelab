@@ -374,12 +374,12 @@ impl Default for OutputType {
     }
 }
 
-pub type TypeParameter = u8;
+pub type TypeVariable = u8;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub enum OperatorType {
     Monomorphic(ImageType),
-    Polymorphic(TypeParameter),
+    Polymorphic(TypeVariable),
 }
 
 impl OperatorType {
