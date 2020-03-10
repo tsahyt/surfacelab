@@ -144,154 +144,159 @@ where
     }
 
     fn interpret(&mut self, instr: &Instruction) -> Result<(), String> {
-        use shaders::Uniforms;
         match instr {
             Instruction::Move(from, to) => {
                 log::trace!("Moving texture from {} to {}", from, to);
-
                 debug_assert!(self.output_sockets.get(from).is_some());
 
                 self.input_sockets.insert(to.to_owned(), from.to_owned());
             }
-            Instruction::Execute(res, op) => {
-                match op {
-                    Operator::Image { path } => {
-                        log::trace!("Processing Image operator {}", res);
+            Instruction::Execute(res, op) => match op {
+                Operator::Image { path } => self.execute_image(res, path)?,
+                Operator::Output { .. } => self.execute_output(op, res)?,
+                _ => self.execute_operator(op, res)?,
+            },
+        }
 
-                        let image = self
-                            .output_sockets
-                            .get_mut(&res.extend_fragment("image"))
-                            .expect("Trying to process missing socket");
+        Ok(())
+    }
 
-                        let external_image =
-                            self.external_images.entry(path.clone()).or_insert_with(|| {
-                                log::trace!("Loading external image {:?}", path);
-                                let buf = load_rgba16f_image(path).expect("Failed to read image");
-                                ExternalImage {
-                                    state: ExternalImageState::InMemory,
-                                    buffer: buf,
-                                }
-                            });
+    fn execute_image(&mut self, res: &Resource, path: &std::path::PathBuf) -> Result<(), String> {
+        log::trace!("Processing Image operator {}", res);
 
-                        match external_image.state {
-                            ExternalImageState::InMemory => {
-                                log::trace!("Uploading image to GPU");
-                                image.ensure_alloc(&self.gpu)?;
-                                self.gpu.upload_image(&image, &external_image.buffer)?;
-                                external_image.state = ExternalImageState::Uploaded
-                            }
-                            ExternalImageState::Uploaded => {
-                                log::trace!("Reusing uploaded image");
-                            }
-                        }
-                    }
-                    Operator::Output { .. } => {
-                        for (socket, ty) in op.inputs().iter() {
-                            log::trace!("Processing Output operator {} socket {}", res, socket);
+        let image = self
+            .output_sockets
+            .get_mut(&res.extend_fragment("image"))
+            .expect("Trying to process missing socket");
 
-                            let socket_res = res.extend_fragment(&socket);
+        let external_image = self.external_images.entry(path.clone()).or_insert_with(|| {
+            log::trace!("Loading external image {:?}", path);
+            let buf = load_rgba16f_image(path).expect("Failed to read image");
+            ExternalImage {
+                state: ExternalImageState::InMemory,
+                buffer: buf,
+            }
+        });
 
-                            // Ensure socket exists and is backed in debug builds
-                            debug_assert!({
-                                let output_res = self.input_sockets.get(&socket_res).unwrap();
-                                self.output_sockets.get(&output_res).unwrap().is_backed()
-                            });
-
-                            let image = self
-                                .output_sockets
-                                .get(self.input_sockets.get(&socket_res).unwrap())
-                                .unwrap();
-                            let raw = self.gpu.download_image(image).unwrap();
-
-                            log::debug!("Downloaded image size {:?}", raw.len());
-
-                            let ty = ty
-                                .monomorphic()
-                                .expect("Output Type must always be monomorphic!");
-                            let converted = convert_image(&raw, ty);
-
-                            let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
-                            log::debug!("Saving converted image to {}", path);
-                            image::save_buffer(
-                                path,
-                                &converted,
-                                IMG_SIZE,
-                                IMG_SIZE,
-                                match ty {
-                                    ImageType::Grayscale => image::ColorType::L16,
-                                    ImageType::Rgb => image::ColorType::Rgb16,
-                                },
-                            )
-                            .map_err(|e| format!("Error saving image: {}", e))?;
-                            log::debug!("Saved image!");
-                        }
-                    }
-                    _ => {
-                        log::trace!("Executing operator {:?} of {}", op, res);
-
-                        // Ensure output images are allocated
-                        for (socket, _) in op.outputs().iter() {
-                            let socket_res = res.extend_fragment(&socket);
-                            debug_assert!(self.output_sockets.get(&socket_res).is_some());
-                            self.output_sockets
-                                .get_mut(&socket_res)
-                                .unwrap()
-                                .ensure_alloc(&self.gpu)?;
-                        }
-
-                        // In debug builds, ensure that all input images exist and are backed
-                        debug_assert!(op.inputs().iter().all(|(socket, _)| {
-                            let socket_res = res.extend_fragment(&socket);
-                            let output_res = self.input_sockets.get(&socket_res).unwrap();
-                            let output = self.output_sockets.get(output_res);
-                            output.is_some() && output.unwrap().is_backed()
-                        }));
-
-                        let mut inputs = HashMap::new();
-                        for socket in op.inputs().keys() {
-                            let socket_res = res.extend_fragment(&socket);
-                            let output_res = self.input_sockets.get(&socket_res).unwrap();
-                            inputs.insert(
-                                socket.clone(),
-                                self.output_sockets.get(output_res).unwrap(),
-                            );
-                        }
-
-                        let mut outputs = HashMap::new();
-                        for socket in op.outputs().keys() {
-                            let socket_res = res.extend_fragment(&socket);
-                            outputs.insert(
-                                socket.clone(),
-                                self.output_sockets.get(&socket_res).unwrap(),
-                            );
-                        }
-
-                        // fill uniforms and execute shader
-                        let pipeline = self.shader_library.pipeline_for(&op);
-                        let desc_set = self.shader_library.descriptor_set_for(&op);
-                        let uniforms = op.uniforms();
-                        let descriptors = shaders::operator_write_desc(
-                            op,
-                            desc_set,
-                            self.gpu.uniform_buffer(),
-                            self.gpu.sampler(),
-                            &inputs,
-                            &outputs,
-                        );
-
-                        self.gpu.fill_uniforms(uniforms)?;
-                        self.gpu.write_descriptor_sets(descriptors);
-                        self.gpu.run_pipeline(
-                            IMG_SIZE,
-                            inputs.values().copied().collect(),
-                            outputs.values().copied().collect(),
-                            pipeline,
-                            desc_set,
-                        );
-                    }
-                }
+        match external_image.state {
+            ExternalImageState::InMemory => {
+                log::trace!("Uploading image to GPU");
+                image.ensure_alloc(&self.gpu)?;
+                self.gpu.upload_image(&image, &external_image.buffer)?;
+                external_image.state = ExternalImageState::Uploaded
+            }
+            ExternalImageState::Uploaded => {
+                log::trace!("Reusing uploaded image");
             }
         }
+
+        Ok(())
+    }
+
+    fn execute_output(&mut self, op: &Operator, res: &Resource) -> Result<(), String> {
+        for (socket, ty) in op.inputs().iter() {
+            log::trace!("Processing Output operator {} socket {}", res, socket);
+
+            let socket_res = res.extend_fragment(&socket);
+
+            // Ensure socket exists and is backed in debug builds
+            debug_assert!({
+                let output_res = self.input_sockets.get(&socket_res).unwrap();
+                self.output_sockets.get(&output_res).unwrap().is_backed()
+            });
+
+            let image = self
+                .output_sockets
+                .get(self.input_sockets.get(&socket_res).unwrap())
+                .unwrap();
+            let raw = self.gpu.download_image(image).unwrap();
+
+            log::debug!("Downloaded image size {:?}", raw.len());
+
+            let ty = ty
+                .monomorphic()
+                .expect("Output Type must always be monomorphic!");
+            let converted = convert_image(&raw, ty);
+
+            let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
+            log::debug!("Saving converted image to {}", path);
+            image::save_buffer(
+                path,
+                &converted,
+                IMG_SIZE,
+                IMG_SIZE,
+                match ty {
+                    ImageType::Grayscale => image::ColorType::L16,
+                    ImageType::Rgb => image::ColorType::Rgb16,
+                },
+            )
+            .map_err(|e| format!("Error saving image: {}", e))?;
+            log::debug!("Saved image!");
+        }
+        Ok(())
+    }
+
+    fn execute_operator(&mut self, op: &Operator, res: &Resource) -> Result<(), String> {
+        use shaders::Uniforms;
+
+        log::trace!("Executing operator {:?} of {}", op, res);
+
+        // Ensure output images are allocated
+        for (socket, _) in op.outputs().iter() {
+            let socket_res = res.extend_fragment(&socket);
+            debug_assert!(self.output_sockets.get(&socket_res).is_some());
+            self.output_sockets
+                .get_mut(&socket_res)
+                .unwrap()
+                .ensure_alloc(&self.gpu)?;
+        }
+
+        // In debug builds, ensure that all input images exist and are backed
+        debug_assert!(op.inputs().iter().all(|(socket, _)| {
+            let socket_res = res.extend_fragment(&socket);
+            let output_res = self.input_sockets.get(&socket_res).unwrap();
+            let output = self.output_sockets.get(output_res);
+            output.is_some() && output.unwrap().is_backed()
+        }));
+
+        let mut inputs = HashMap::new();
+        for socket in op.inputs().keys() {
+            let socket_res = res.extend_fragment(&socket);
+            let output_res = self.input_sockets.get(&socket_res).unwrap();
+            inputs.insert(socket.clone(), self.output_sockets.get(output_res).unwrap());
+        }
+
+        let mut outputs = HashMap::new();
+        for socket in op.outputs().keys() {
+            let socket_res = res.extend_fragment(&socket);
+            outputs.insert(
+                socket.clone(),
+                self.output_sockets.get(&socket_res).unwrap(),
+            );
+        }
+
+        // fill uniforms and execute shader
+        let pipeline = self.shader_library.pipeline_for(&op);
+        let desc_set = self.shader_library.descriptor_set_for(&op);
+        let uniforms = op.uniforms();
+        let descriptors = shaders::operator_write_desc(
+            op,
+            desc_set,
+            self.gpu.uniform_buffer(),
+            self.gpu.sampler(),
+            &inputs,
+            &outputs,
+        );
+
+        self.gpu.fill_uniforms(uniforms)?;
+        self.gpu.write_descriptor_sets(descriptors);
+        self.gpu.run_pipeline(
+            IMG_SIZE,
+            inputs.values().copied().collect(),
+            outputs.values().copied().collect(),
+            pipeline,
+            desc_set,
+        );
 
         Ok(())
     }
