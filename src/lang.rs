@@ -190,6 +190,7 @@ impl Parameters for GrayscaleParameters {
         }
     }
 }
+
 #[derive(Clone, Debug)]
 pub enum Operator {
     Blend(BlendParameters),
@@ -496,6 +497,8 @@ pub enum GraphEvent {
     ConnectedSockets(Resource, Resource),
     DisconnectedSockets(Resource, Resource),
     Recomputed(Vec<Instruction>),
+    SocketMonomorphized(Resource, ImageType),
+    SocketDemonomorphized(Resource),
 }
 
 #[derive(Clone, Debug)]

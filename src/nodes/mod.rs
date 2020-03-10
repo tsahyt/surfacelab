@@ -102,10 +102,13 @@ impl NodeManager {
                     Err(e) => log::error!("{}", e),
                 },
                 UserNodeEvent::ConnectSockets(from, to) => match self.connect_sockets(from, to) {
-                    Ok(_) => response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                        from.clone(),
-                        to.clone(),
-                    ))),
+                    Ok(mut res) => {
+                        response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                            from.clone(),
+                            to.clone(),
+                        )));
+                        response.append(&mut res);
+                    }
                     Err(e) => log::error!("{}", e),
                 },
                 UserNodeEvent::DisconnectSockets(from, to) => self
@@ -250,7 +253,8 @@ impl NodeManager {
         &mut self,
         from: &lang::Resource,
         to: &lang::Resource,
-    ) -> Result<(), String> {
+    ) -> Result<Vec<lang::Lang>, String> {
+        let mut response = Vec::new();
         // Get relevant resources
         let from_path = self
             .node_by_uri(from)
@@ -281,10 +285,20 @@ impl NodeManager {
                 }
             }
             (lang::OperatorType::Monomorphic(ty), lang::OperatorType::Polymorphic(p)) => {
-                self.set_type_parameter(&to.drop_fragment(), p, Some(ty))?
+                let affected = self.set_type_parameter(&to.drop_fragment(), p, Some(ty))?;
+                for res in affected {
+                    response.push(lang::Lang::GraphEvent(
+                        lang::GraphEvent::SocketMonomorphized(res, ty),
+                    ))
+                }
             }
             (lang::OperatorType::Polymorphic(p), lang::OperatorType::Monomorphic(ty)) => {
-                self.set_type_parameter(&from.drop_fragment(), p, Some(ty))?
+                let affected = self.set_type_parameter(&from.drop_fragment(), p, Some(ty))?;
+                for res in affected {
+                    response.push(lang::Lang::GraphEvent(
+                        lang::GraphEvent::SocketMonomorphized(res, ty),
+                    ))
+                }
             }
         }
 
@@ -299,7 +313,7 @@ impl NodeManager {
         self.node_graph
             .add_edge(from_path, to_path, (from_socket, to_socket));
 
-        Ok(())
+        Ok(response)
     }
 
     /// Disconnect two sockets in the node graph. If the two nodes are not
@@ -376,12 +390,14 @@ impl NodeManager {
         node.monomorphic_type(&socket_name)
     }
 
+    /// Assign a type parameter/type variable with a concrete type or erase it.
+    /// Returns a vector of all affected sockets.
     fn set_type_parameter(
         &mut self,
         node: &lang::Resource,
         parameter: lang::TypeParameter,
         ty: Option<lang::ImageType>,
-    ) -> Result<(), String> {
+    ) -> Result<Vec<lang::Resource>, String> {
         let path = self
             .node_by_uri(node)
             .ok_or(format!("Node for URI {} not found!", &node))?;
@@ -391,16 +407,21 @@ impl NodeManager {
             .node_weight_mut(path)
             .expect("Missing node during type lookup");
 
-        dbg!(&node_data);
-
         match ty {
             Some(t) => node_data.type_parameters.insert(parameter, t),
             None => node_data.type_parameters.remove(&parameter),
         };
 
-        dbg!(&node_data);
+        let affected = node_data
+            .operator
+            .inputs()
+            .iter()
+            .chain(node_data.operator.outputs().iter())
+            .filter(|(_, t)| **t == lang::OperatorType::Polymorphic(parameter))
+            .map(|x| node.extend_fragment(x.0))
+            .collect();
 
-        Ok(())
+        Ok(affected)
     }
 
     // TODO: should be in its own scope

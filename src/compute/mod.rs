@@ -1,5 +1,5 @@
 use crate::{broker, gpu, lang::*};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -56,6 +56,10 @@ struct ComputeManager<B: gpu::Backend> {
     /// Output sockets always map to an image, which may or may not be allocated
     output_sockets: HashMap<Resource, gpu::compute::Image<B>>,
 
+    /// Required to keep track of polymorphic outputs. Kept separately to keep
+    /// output_sockets ownership structure simple.
+    known_output_sockets: HashSet<Resource>,
+
     /// Input sockets only map to the output sockets they are connected to
     input_sockets: HashMap<Resource, Resource>,
 
@@ -73,6 +77,7 @@ where
         ComputeManager {
             gpu,
             output_sockets: HashMap::new(),
+            known_output_sockets: HashSet::new(),
             input_sockets: HashMap::new(),
             shader_library,
             external_images: HashMap::new(),
@@ -91,20 +96,22 @@ where
                 GraphEvent::NodeAdded(res, op) => {
                     for (socket, imgtype) in op.inputs().iter().chain(op.outputs().iter()) {
                         let socket_res = res.extend_fragment(&socket);
-                        log::trace!("Adding socket {}", socket_res);
 
                         // If the type is monomorphic, we can create the socket
                         // right away, otherwise creation needs to be delayed
                         // until the type is known.
                         if let OperatorType::Monomorphic(ty) = imgtype {
-                            self.add_new_output_socket(socket_res, *ty);
+                            log::trace!("Adding monomorphic socket {}", socket_res);
+                            self.add_new_output_socket(socket_res.clone(), *ty);
                         }
+
+                        self.known_output_sockets.insert(socket_res);
                     }
                 }
                 GraphEvent::NodeRemoved(res) => {
                     // TODO: directly find and remove sockets
                     self.output_sockets.retain(|s, _| !s.is_fragment_of(res));
-                    // self.external_images.remove(res);
+                    self.known_output_sockets.retain(|s| !s.is_fragment_of(res));
                 }
                 GraphEvent::Recomputed(instrs) => {
                     for i in instrs.iter() {
@@ -114,6 +121,17 @@ where
                             log::error!("Aborting compute!");
                             break;
                         }
+                    }
+                }
+                GraphEvent::SocketMonomorphized(res, ty) => {
+                    if self.known_output_sockets.contains(res) {
+                        log::trace!("Adding monomorphized socket {}", res);
+                        self.add_new_output_socket(res.clone(), *ty)
+                    }
+                }
+                GraphEvent::SocketDemonomorphized(res) => {
+                    if self.known_output_sockets.contains(res) {
+                        self.output_sockets.remove(res);
                     }
                 }
                 _ => {}

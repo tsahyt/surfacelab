@@ -216,7 +216,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 binding: 1,
                 array_offset: 0,
                 descriptors: vec![gpu::Descriptor::Image(
-                    inputs.get("color1").unwrap().get_view().unwrap(),
+                    inputs.get("background").unwrap().get_view().unwrap(),
                     gpu::Layout::ShaderReadOnlyOptimal,
                 )],
             },
@@ -225,7 +225,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 binding: 2,
                 array_offset: 0,
                 descriptors: vec![gpu::Descriptor::Image(
-                    inputs.get("color2").unwrap().get_view().unwrap(),
+                    inputs.get("foreground").unwrap().get_view().unwrap(),
                     gpu::Layout::ShaderReadOnlyOptimal,
                 )],
             },
