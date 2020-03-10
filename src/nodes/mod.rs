@@ -281,10 +281,10 @@ impl NodeManager {
                 }
             }
             (lang::OperatorType::Monomorphic(ty), lang::OperatorType::Polymorphic(p)) => {
-                self.set_type_parameter(&from.drop_fragment(), p, Some(ty))?
+                self.set_type_parameter(&to.drop_fragment(), p, Some(ty))?
             }
             (lang::OperatorType::Polymorphic(p), lang::OperatorType::Monomorphic(ty)) => {
-                self.set_type_parameter(&to.drop_fragment(), p, Some(ty))?
+                self.set_type_parameter(&from.drop_fragment(), p, Some(ty))?
             }
         }
 
