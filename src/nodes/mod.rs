@@ -276,8 +276,7 @@ impl NodeManager {
         let to_type = self.socket_type(to).unwrap();
         match dbg!((from_type, to_type)) {
             (lang::OperatorType::Polymorphic(..), lang::OperatorType::Polymorphic(..)) => {
-                // TODO: Type inference over multiple arcs?
-                panic!("Too polymorphic")
+                Err("Unable to connect polymorphic socket to polymorphic socket")?
             }
             (lang::OperatorType::Monomorphic(ty1), lang::OperatorType::Monomorphic(ty2)) => {
                 if ty1 != ty2 {
