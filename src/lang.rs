@@ -350,7 +350,7 @@ impl Default for ImageType {
 }
 
 impl ImageType {
-    pub fn gpu_bytes_per_pixel(&self) -> u8 {
+    pub fn gpu_bytes_per_pixel(self) -> u8 {
         match self {
             Self::Rgb => 8,
             Self::Grayscale => 4,
@@ -383,9 +383,9 @@ pub enum OperatorType {
 }
 
 impl OperatorType {
-    pub fn monomorphic(&self) -> Option<ImageType> {
+    pub fn monomorphic(self) -> Option<ImageType> {
         match self {
-            Self::Monomorphic(ty) => Some(*ty),
+            Self::Monomorphic(ty) => Some(ty),
             _ => None,
         }
     }

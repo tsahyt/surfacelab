@@ -347,7 +347,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
 }
 
 pub trait Uniforms {
-    fn uniforms<'a>(&'a self) -> &'a [u8];
+    fn uniforms(&self) -> &[u8];
 }
 
 impl Uniforms for lang::Operator {

@@ -1,4 +1,4 @@
-use super::{node, node_area, param_box};
+use super::{node, node_area};
 use crate::lang::*;
 
 use gio::prelude::*;
@@ -42,8 +42,6 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
-        use std::convert::TryFrom;
-       
         self.parent_constructed(obj);
         let window = obj.downcast_ref::<SurfaceLabWindow>().unwrap();
         window.set_title("SurfaceLab");

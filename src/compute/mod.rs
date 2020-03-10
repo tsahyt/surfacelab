@@ -305,6 +305,7 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
     match ty {
         // Underlying memory is formatted as rgba16f, expected to be Rgb16
         ImageType::Rgb => unsafe {
+            #[allow(clippy::cast_ptr_alignment)]
             let u16s: Vec<[u16; 3]> =
                 std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
                     .chunks(4)
@@ -320,6 +321,7 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
         },
         // Underlying memory is formatted as r32f, expected to be L16
         ImageType::Grayscale => unsafe {
+            #[allow(clippy::cast_ptr_alignment)]
             let u16s: Vec<u16> =
                 std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
                     .iter()

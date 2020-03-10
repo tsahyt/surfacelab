@@ -39,9 +39,9 @@ impl Node {
             .operator
             .inputs()
             .get(socket)
-            .or(self.operator.outputs().get(socket))
             .cloned()
-            .ok_or("Missing socket type".to_string())?;
+            .or_else(|| self.operator.outputs().get(socket).cloned())
+            .ok_or("Missing socket type")?;
         if let lang::OperatorType::Polymorphic(p) = ty {
             match self.type_variables.get(&p) {
                 Some(x) => Ok(lang::OperatorType::Monomorphic(*x)),
@@ -286,11 +286,11 @@ impl NodeManager {
         let to_type = self.socket_type(to).unwrap();
         match (from_type, to_type) {
             (lang::OperatorType::Polymorphic(..), lang::OperatorType::Polymorphic(..)) => {
-                Err("Unable to connect polymorphic socket to polymorphic socket")?
+                return Err("Unable to connect polymorphic socket to polymorphic socket".into())
             }
             (lang::OperatorType::Monomorphic(ty1), lang::OperatorType::Monomorphic(ty2)) => {
                 if ty1 != ty2 {
-                    Err("Type mismatch")?
+                    return Err("Type mismatch".into());
                 }
             }
             (lang::OperatorType::Monomorphic(ty), lang::OperatorType::Polymorphic(p)) => {

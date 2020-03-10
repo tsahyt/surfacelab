@@ -893,6 +893,7 @@ where
         let parent = unsafe { &*self.parent };
 
         {
+            // FIXME: Compute Pipeline Drop Poison Error
             let lock = parent.gpu.lock().unwrap();
             unsafe {
                 lock.device
