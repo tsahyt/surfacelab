@@ -2,6 +2,7 @@ use glib::subclass::prelude::*;
 use glib::translate::*;
 
 // TODO: merge into gtk-rs
+// TODO: submit issue to gtk-rs about how Ext traits should be exported from subclass::prelude
 pub trait WidgetImplExtra: WidgetImplExtraExt + 'static {
     fn map(&self, widget: &gtk::Widget) {
         self.parent_map(widget);
