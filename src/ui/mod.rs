@@ -9,6 +9,7 @@ pub mod node;
 pub mod node_area;
 pub mod node_socket;
 pub mod param_box;
+pub mod render_area;
 pub mod subclass;
 
 thread_local!(static BROKER: OnceCell<broker::BrokerSender<lang::Lang>> = OnceCell::new());
