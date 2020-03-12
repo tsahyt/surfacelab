@@ -76,10 +76,7 @@ where
         let swap_config = hal::window::SwapchainConfig::from_caps(
             &caps,
             format,
-            hal::window::Extent2D {
-                width,
-                height,
-            },
+            hal::window::Extent2D { width, height },
         );
 
         unsafe {

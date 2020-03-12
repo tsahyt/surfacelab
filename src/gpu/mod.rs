@@ -5,11 +5,11 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
 pub use gfx_hal::Backend;
-pub use hal::Instance;
+pub use hal::image::Layout;
 pub use hal::pso::{
     Descriptor, DescriptorSetLayoutBinding, DescriptorSetWrite, DescriptorType, ShaderStageFlags,
 };
-pub use hal::image::Layout;
+pub use hal::Instance;
 
 pub mod compute;
 pub mod render;

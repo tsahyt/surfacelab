@@ -244,7 +244,9 @@ impl Node {
         let node = Self::new();
         let priv_ = NodePrivate::from_instance(&node);
         priv_.header_label.set_label(op.title());
-        priv_.popover.add(&param_box::param_box_for_operator(&op, &resource));
+        priv_
+            .popover
+            .add(&param_box::param_box_for_operator(&op, &resource));
         priv_
             .resource
             .set(resource.clone())
