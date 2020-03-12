@@ -14,6 +14,7 @@ pub use hal::image::Layout;
 pub mod compute;
 pub mod render;
 
+// TODO: more finegrained concurrency model for GPU
 pub struct GPU<B: Backend> {
     instance: B::Instance,
     device: B::Device,

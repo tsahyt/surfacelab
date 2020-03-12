@@ -535,8 +535,9 @@ unsafe impl Send for WindowHandle {}
 
 #[derive(Debug)]
 pub enum UIEvent {
-    RendererAdded(WindowHandle),
-    RendererRedraw,
+    RendererAdded(u64, WindowHandle, u32, u32),
+    RendererRedraw(u64),
+    RendererResize(u64, u32, u32),
 }
 
 #[derive(Debug)]

@@ -10,10 +10,14 @@ pub struct GPURender<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: ManuallyDrop<B::CommandPool>,
 
-    // Rendering Data
-    render_pass: ManuallyDrop<B::RenderPass>,
+    // Surface Data and Geometry
     surface: ManuallyDrop<B::Surface>,
     viewport: hal::pso::Viewport,
+    format: hal::format::Format,
+    dimensions: hal::window::Extent2D,
+
+    // Rendering Data
+    render_pass: ManuallyDrop<B::RenderPass>,
     pipeline: ManuallyDrop<B::GraphicsPipeline>,
 
     // Synchronization
@@ -37,7 +41,12 @@ impl<B> GPURender<B>
 where
     B: Backend,
 {
-    pub fn new(gpu: &Arc<Mutex<GPU<B>>>, mut surface: B::Surface) -> Result<Self, String> {
+    pub fn new(
+        gpu: &Arc<Mutex<GPU<B>>>,
+        mut surface: B::Surface,
+        width: u32,
+        height: u32,
+    ) -> Result<Self, String> {
         log::info!("Obtaining GPU Render Resources");
         let lock = gpu.lock().unwrap();
 
@@ -68,12 +77,11 @@ where
             &caps,
             format,
             hal::window::Extent2D {
-                width: 128,
-                height: 128,
+                width: width,
+                height: height,
             },
         );
 
-        let extent = swap_config.extent;
         unsafe {
             surface
                 .configure_swapchain(&lock.device, swap_config)
@@ -198,8 +206,8 @@ where
             rect: hal::pso::Rect {
                 x: 0,
                 y: 0,
-                w: 128,
-                h: 128,
+                w: width as _,
+                h: height as _,
             },
             depth: 0.0..1.0,
         };
@@ -211,16 +219,42 @@ where
         Ok(GPURender {
             gpu: gpu.clone(),
             command_pool: ManuallyDrop::new(command_pool),
-            render_pass: ManuallyDrop::new(render_pass),
+
             surface: ManuallyDrop::new(surface),
             viewport,
+            format,
+            dimensions: hal::window::Extent2D { width, height },
+
+            render_pass: ManuallyDrop::new(render_pass),
             pipeline: ManuallyDrop::new(pipeline),
+
             complete_fence: ManuallyDrop::new(fence),
             complete_semaphore: ManuallyDrop::new(semaphore),
         })
     }
 
-    pub fn recreate_swapchain(&mut self) {}
+    pub fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.dimensions.width = width;
+        self.dimensions.height = height;
+    }
+
+    pub fn recreate_swapchain(&mut self) {
+        let lock = self.gpu.lock().unwrap();
+
+        let caps = self.surface.capabilities(&lock.adapter.physical_device);
+        let swap_config =
+            hal::window::SwapchainConfig::from_caps(&caps, self.format, self.dimensions);
+        let extent = swap_config.extent.to_extent();
+
+        unsafe {
+            self.surface
+                .configure_swapchain(&lock.device, swap_config)
+                .expect("Failed to recreate swapchain");
+        }
+
+        self.viewport.rect.w = extent.width as _;
+        self.viewport.rect.h = extent.height as _;
+    }
 
     fn synchronize_at_fence(&self) {
         let lock = self.gpu.lock().unwrap();
@@ -257,8 +291,8 @@ where
                         &self.render_pass,
                         std::iter::once(surface_image.borrow()),
                         hal::image::Extent {
-                            width: 128,
-                            height: 128,
+                            width: self.dimensions.width,
+                            height: self.dimensions.height,
                             depth: 1,
                         },
                     )

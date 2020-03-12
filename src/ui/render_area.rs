@@ -62,16 +62,24 @@ impl ObjectImpl for RenderAreaPrivate {
 impl WidgetImpl for RenderAreaPrivate {
     fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
         if widget.get_realized() {
-            super::emit(Lang::UIEvent(UIEvent::RendererRedraw));
+            super::emit(Lang::UIEvent(UIEvent::RendererRedraw(
+                self.unique_identifier(),
+            )));
         }
         Inhibit(false)
     }
 
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &gtk::Allocation) {
-        // TODO: notify render backend of size changes to recreate swap chain
         self.parent_size_allocate(widget, allocation);
 
-        // super::emit(Lang::UIEvent(UIEvent::RendererResize));
+        let width = allocation.width;
+        let height = allocation.height;
+
+        super::emit(Lang::UIEvent(UIEvent::RendererResize(
+            self.unique_identifier(),
+            width as _,
+            height as _,
+        )));
     }
 
     fn realize(&self, widget: &gtk::Widget) {
@@ -96,9 +104,12 @@ impl WidgetImpl for RenderAreaPrivate {
 
         let handle = gdk_wayland_handle(gdk_window, gdk_display);
 
-        super::emit(Lang::UIEvent(UIEvent::RendererAdded(WindowHandle::new(
-            handle,
-        ))));
+        super::emit(Lang::UIEvent(UIEvent::RendererAdded(
+            self.unique_identifier(),
+            WindowHandle::new(handle),
+            w as _,
+            h as _,
+        )));
     }
 
     fn unrealize(&self, widget: &gtk::Widget) {
@@ -111,6 +122,17 @@ impl WidgetImpl for RenderAreaPrivate {
 }
 
 impl DrawingAreaImpl for RenderAreaPrivate {}
+
+impl RenderAreaPrivate {
+    /// Obtain a unique identifier for this render area.
+    ///
+    /// This is based on memory address of the private struct. Therefore it is
+    /// guaranteed to be unique for each new instance.
+    fn unique_identifier(&self) -> u64 {
+        let x = self as *const Self;
+        x as u64
+    }
+}
 
 glib_wrapper! {
     pub struct RenderArea(
