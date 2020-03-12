@@ -152,3 +152,9 @@ impl RenderArea {
             .unwrap()
     }
 }
+
+impl Default for RenderArea {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -66,7 +66,7 @@ where
             formats
                 .iter()
                 .find(|format| format.base_format().1 == hal::format::ChannelType::Srgb)
-                .map(|format| *format)
+                .copied()
                 .unwrap_or(formats[0])
         });
 
@@ -77,8 +77,8 @@ where
             &caps,
             format,
             hal::window::Extent2D {
-                width: width,
-                height: height,
+                width,
+                height,
             },
         );
 

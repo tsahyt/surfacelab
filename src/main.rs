@@ -6,6 +6,7 @@ fn main() {
 
     // initialize GPU before proceeding
     match gpu::initialize_gpu(true) {
+        #[allow(clippy::redundant_clone)]
         Ok(gpu) => {
             // initialize the bus
             let mut broker: broker::Broker<lang::Lang> = broker::Broker::new(1024);

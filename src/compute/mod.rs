@@ -340,7 +340,7 @@ where
             let socket_res = res.extend_fragment(&socket);
             self.sockets
                 .get_output_image_mut(&socket_res)
-                .expect(&format!("Missing output image for operator {}", res))
+                .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
                 .ensure_alloc(&self.gpu)?;
         }
 
