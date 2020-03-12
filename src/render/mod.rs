@@ -79,8 +79,6 @@ where
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_dimensions(width, height);
             r.recreate_swapchain();
-        } else {
-            log::error!("Trying to resize on non-existent renderer!");
         }
     }
 }
