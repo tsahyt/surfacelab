@@ -47,11 +47,12 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         window.set_title("SurfaceLab");
         window.set_default_size(1024, 768);
 
-        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 16);
+        let paned = gtk::Paned::new(gtk::Orientation::Horizontal);
         let vbox = gtk::Box::new(gtk::Orientation::Vertical, 16);
 
         // Node Area
         let node_area = node_area::NodeArea::new();
+        node_area.set_size_request(512, 512);
 
         // Buttons
         let button_box = {
@@ -77,11 +78,12 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         };
 
         vbox.add(&button_box);
-        vbox.pack_end(&node_area, true, true, 0);
 
         // Test Render Area
         let render_area = render_area::RenderArea::new();
-        vbox.pack_end(&render_area, true, true, 0);
+        paned.add1(&node_area);
+        paned.add2(&render_area);
+        vbox.pack_end(&paned, true, true, 0);
 
         window.add(&vbox);
         window.connect_delete_event(|_, _| {

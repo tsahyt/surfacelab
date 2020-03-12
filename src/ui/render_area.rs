@@ -2,7 +2,6 @@ use crate::lang::*;
 
 use glib::subclass;
 use glib::subclass::prelude::*;
-use std::sync::{Arc, Mutex};
 
 use gdk::prelude::*;
 use glib::translate::*;
@@ -60,7 +59,7 @@ impl ObjectImpl for RenderAreaPrivate {
 }
 
 impl WidgetImpl for RenderAreaPrivate {
-    fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
+    fn draw(&self, widget: &gtk::Widget, _cr: &cairo::Context) -> gtk::Inhibit {
         if widget.get_realized() {
             super::emit(Lang::UIEvent(UIEvent::RendererRedraw(
                 self.unique_identifier(),
@@ -116,7 +115,6 @@ impl WidgetImpl for RenderAreaPrivate {
         // TODO: notify render backend of termination of window
         self.parent_unrealize(widget);
 
-        // FIXME: sends on a disconnected channel on quit, because components exit before this signal happens, since Quit gets sent first and gtk only calls unrealize later.
         // super::emit(Lang::UIEvent(UIEvent::RendererUnrealize));
     }
 }
