@@ -123,7 +123,7 @@ impl NodeManager {
                 }
             },
             Lang::UserEvent(UserEvent::Quit) => return None,
-            Lang::GraphEvent(..) => {}
+            _ => {}
         }
 
         Some(response)

@@ -2,14 +2,15 @@ use crate::lang::*;
 
 use glib::subclass;
 use glib::subclass::prelude::*;
+use std::sync::{Arc, Mutex};
 
+use gdk::prelude::*;
 use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::subclass::widget::WidgetImplExt;
-
-struct GdkRawWindowHandle(raw_window_handle::RawWindowHandle);
+use raw_window_handle::*;
 
 #[link(name = "gdk-3")]
 extern "C" {
@@ -18,7 +19,7 @@ extern "C" {
         -> *mut libc::c_void;
 }
 
-fn gdk_wayland_handle(window: gdk::Window, display: gdk::Display) -> GdkRawWindowHandle {
+fn gdk_wayland_handle(window: gdk::Window, display: gdk::Display) -> RawWindowHandle {
     let gdkwindow: *const gdk_sys::GdkWindow = window.to_glib_none().0;
     let gdkdisplay: *const gdk_sys::GdkDisplay = display.to_glib_none().0;
     let handle = unsafe {
@@ -29,7 +30,7 @@ fn gdk_wayland_handle(window: gdk::Window, display: gdk::Display) -> GdkRawWindo
         }
     };
 
-    GdkRawWindowHandle(raw_window_handle::RawWindowHandle::Wayland(handle))
+    RawWindowHandle::Wayland(handle)
 }
 
 pub struct RenderAreaPrivate {}
@@ -60,22 +61,49 @@ impl ObjectImpl for RenderAreaPrivate {
 
 impl WidgetImpl for RenderAreaPrivate {
     fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
+        super::emit(Lang::UIEvent(UIEvent::RendererRedraw));
         Inhibit(false)
     }
 
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &gtk::Allocation) {
         // TODO: notify render backend of size changes to recreate swap chain
         self.parent_size_allocate(widget, allocation);
+
+        // super::emit(Lang::UIEvent(UIEvent::RendererResize));
     }
 
     fn realize(&self, widget: &gtk::Widget) {
-        // TODO: extract the window and send message to render backend containing handle
+        // Realize parent first, such that we have a parent to work with
         self.parent_realize(widget);
+
+        let window = widget.get_window().expect("Drawing Area has no window!");
+        let (w, h) = (window.get_width(), window.get_height());
+
+        let gdk_window = gdk::Window::new(
+            Some(&window),
+            &gdk::WindowAttr {
+                window_type: gdk::WindowType::Subsurface,
+                ..gdk::WindowAttr::default()
+            },
+        );
+
+        let gdk_display = gdk_window.get_display();
+        gdk_window.set_transient_for(&window);
+        gdk_window.show();
+
+        let handle = gdk_wayland_handle(gdk_window, gdk_display);
+
+        super::emit(Lang::UIEvent(UIEvent::RendererAdded(WindowHandle::new(
+            handle,
+        ))));
     }
 
     fn unrealize(&self, widget: &gtk::Widget) {
         // TODO: notify render backend of termination of window
         self.parent_unrealize(widget);
+
+        // FIXME: sends on a disconnected channel on quit, because components exit before this signal happens, since Quit gets sent first and gtk only calls unrealize later.
+        // super::emit(Lang::UIEvent(UIEvent::RendererUnrealize));
     }
 }
 

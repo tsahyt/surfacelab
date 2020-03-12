@@ -206,8 +206,8 @@ impl Operator {
     /// Returns whether an operator can use external data.
     pub fn external_data(&self) -> bool {
         match self {
-            Operator::Image{..} => true,
-            _ => false
+            Operator::Image { .. } => true,
+            _ => false,
         }
     }
 
@@ -487,7 +487,7 @@ impl Resource {
 }
 
 /// Events concerning node operation triggered by the user
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum UserNodeEvent {
     NewNode(Operator),
     RemoveNode(Resource),
@@ -497,7 +497,7 @@ pub enum UserNodeEvent {
     ForceRecompute,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum GraphEvent {
     NodeAdded(Resource, Operator),
     NodeRemoved(Resource),
@@ -508,15 +508,42 @@ pub enum GraphEvent {
     SocketDemonomorphized(Resource),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum UserEvent {
     Quit,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+pub struct WindowHandle {
+    raw: raw_window_handle::RawWindowHandle,
+}
+
+impl WindowHandle {
+    pub fn new(handle: raw_window_handle::RawWindowHandle) -> Self {
+        WindowHandle { raw: handle }
+    }
+}
+
+unsafe impl raw_window_handle::HasRawWindowHandle for WindowHandle {
+    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+        self.raw
+    }
+}
+
+unsafe impl Sync for WindowHandle {}
+unsafe impl Send for WindowHandle {}
+
+#[derive(Debug)]
+pub enum UIEvent {
+    RendererAdded(WindowHandle),
+    RendererRedraw,
+}
+
+#[derive(Debug)]
 pub enum Lang {
     UserNodeEvent(UserNodeEvent),
     UserEvent(UserEvent),
+    UIEvent(UIEvent),
     GraphEvent(GraphEvent),
 }
 

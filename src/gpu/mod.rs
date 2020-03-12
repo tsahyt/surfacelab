@@ -5,6 +5,7 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
 pub use gfx_hal::Backend;
+pub use hal::Instance;
 pub use hal::pso::{
     Descriptor, DescriptorSetLayoutBinding, DescriptorSetWrite, DescriptorType, ShaderStageFlags,
 };
@@ -16,6 +17,7 @@ pub mod render;
 pub struct GPU<B: Backend> {
     instance: B::Instance,
     device: B::Device,
+    adapter: hal::adapter::Adapter<B>,
     queue_group: hal::queue::QueueGroup<B>,
     memory_properties: hal::adapter::MemoryProperties,
 }
@@ -68,6 +70,8 @@ where
 
 /// Initialize the GPU, optionally headless. When headless is specified,
 /// no graphics capable family is required.
+///
+/// TODO: Late creation of GPU to check for surface compatibility when not running headless
 pub fn initialize_gpu(headless: bool) -> Result<Arc<Mutex<GPU<back::Backend>>>, String> {
     log::info!("Initializing GPU");
 
@@ -130,6 +134,7 @@ where
         Ok(GPU {
             instance,
             device,
+            adapter,
             queue_group,
             memory_properties,
         })

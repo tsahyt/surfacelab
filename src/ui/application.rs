@@ -1,4 +1,4 @@
-use super::{node, node_area};
+use super::{node, node_area, render_area};
 use crate::lang::*;
 
 use gio::prelude::*;
@@ -47,6 +47,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         window.set_title("SurfaceLab");
         window.set_default_size(1024, 768);
 
+        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 16);
         let vbox = gtk::Box::new(gtk::Orientation::Vertical, 16);
 
         // Node Area
@@ -77,6 +78,10 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
         vbox.add(&button_box);
         vbox.pack_end(&node_area, true, true, 0);
+
+        // Test Render Area
+        let render_area = render_area::RenderArea::new();
+        vbox.pack_end(&render_area, true, true, 0);
 
         window.add(&vbox);
         window.connect_delete_event(|_, _| {
