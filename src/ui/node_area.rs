@@ -1,6 +1,5 @@
 use super::node::Node;
 use super::node_socket;
-use super::subclass::*;
 use crate::lang::*;
 
 use gdk::prelude::*;
@@ -212,8 +211,6 @@ impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
         Inhibit(false)
     }
 }
-
-impl WidgetImplExtra for NodeAreaPrivate {}
 
 impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
     // Node Areas contain nodes and nothing else

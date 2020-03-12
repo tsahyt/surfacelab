@@ -1,6 +1,5 @@
 use super::node_socket::{NodeSocket, NodeSocketIO};
 use super::param_box;
-use super::subclass::*;
 use crate::lang::*;
 
 use gdk::prelude::*;
@@ -175,8 +174,6 @@ impl gtk::subclass::widget::WidgetImpl for NodePrivate {
         Inhibit(false)
     }
 }
-
-impl WidgetImplExtra for NodePrivate {}
 
 impl gtk::subclass::container::ContainerImpl for NodePrivate {}
 

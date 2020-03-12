@@ -1,4 +1,3 @@
-use super::subclass::*;
 use crate::lang;
 
 use gdk::prelude::*;
@@ -151,8 +150,6 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
         Inhibit(true)
     }
 }
-
-impl WidgetImplExtra for NodeSocketPrivate {}
 
 impl NodeSocketPrivate {
     fn set_rgba(&self, red: f64, green: f64, blue: f64, alpha: f64) {
