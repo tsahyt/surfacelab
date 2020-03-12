@@ -37,9 +37,14 @@ impl<B> GPURender<B>
 where
     B: Backend,
 {
-    pub fn new(gpu: &Arc<Mutex<GPU<B>>>, surface: B::Surface) -> Result<Self, String> {
+    pub fn new(gpu: &Arc<Mutex<GPU<B>>>, mut surface: B::Surface) -> Result<Self, String> {
         log::info!("Obtaining GPU Render Resources");
         let lock = gpu.lock().unwrap();
+
+        // Check whether the surface supports the selected queue family
+        if !surface.supports_queue_family(&lock.adapter.queue_families[lock.queue_group.family.0]) {
+            return Err("Surface does not support selected queue family!".into());
+        }
 
         // Getting capabilities and deciding on format
         let caps = surface.capabilities(&lock.adapter.physical_device);
@@ -68,7 +73,12 @@ where
             },
         );
 
-        log::debug!("Swapchain config {:?}", swap_config);
+        let extent = swap_config.extent;
+        unsafe {
+            surface
+                .configure_swapchain(&lock.device, swap_config)
+                .expect("Can't configure swapchain");
+        };
 
         // Create Render Pass
         let render_pass = {
@@ -195,7 +205,7 @@ where
         };
 
         // Synchronization primitives
-        let fence = lock.device.create_fence(false).unwrap();
+        let fence = lock.device.create_fence(true).unwrap();
         let semaphore = lock.device.create_semaphore().unwrap();
 
         Ok(GPURender {
@@ -212,6 +222,18 @@ where
 
     pub fn recreate_swapchain(&mut self) {}
 
+    fn synchronize_at_fence(&self) {
+        let lock = self.gpu.lock().unwrap();
+        unsafe {
+            lock.device
+                .wait_for_fence(&self.complete_fence, 10_000_000_000)
+                .expect("Failed to wait for render fence after 1s");
+            lock.device
+                .reset_fence(&self.complete_fence)
+                .expect("Failed to reset render fence");
+        }
+    }
+
     pub fn render(&mut self) {
         let surface_image = unsafe {
             match self.surface.acquire_image(!0) {
@@ -222,6 +244,9 @@ where
                 }
             }
         };
+
+        // Wait on previous fence to make sure the last frame has been rendered.
+        self.synchronize_at_fence();
 
         let result = {
             let mut lock = self.gpu.lock().unwrap();
@@ -302,10 +327,14 @@ where
     B: Backend,
 {
     fn drop(&mut self) {
+        // Finish all rendering before destruction of resources
+        self.synchronize_at_fence();
+
         log::info!("Releasing GPU Render resources");
 
         let lock = self.gpu.lock().unwrap();
         unsafe {
+            // TODO: destroy render resources
             lock.device
                 .destroy_render_pass(ManuallyDrop::take(&mut self.render_pass));
             lock.device

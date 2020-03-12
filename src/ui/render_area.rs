@@ -61,7 +61,9 @@ impl ObjectImpl for RenderAreaPrivate {
 
 impl WidgetImpl for RenderAreaPrivate {
     fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
-        super::emit(Lang::UIEvent(UIEvent::RendererRedraw));
+        if widget.get_realized() {
+            super::emit(Lang::UIEvent(UIEvent::RendererRedraw));
+        }
         Inhibit(false)
     }
 
@@ -75,6 +77,7 @@ impl WidgetImpl for RenderAreaPrivate {
     fn realize(&self, widget: &gtk::Widget) {
         // Realize parent first, such that we have a parent to work with
         self.parent_realize(widget);
+        widget.show();
 
         let window = widget.get_window().expect("Drawing Area has no window!");
         let (w, h) = (window.get_width(), window.get_height());
