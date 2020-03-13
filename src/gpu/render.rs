@@ -4,6 +4,9 @@ use std::borrow::Borrow;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
+static BLIT_VERTEX_SHADER: &[u8] = include_bytes!("../../shaders/blit-vert.spv");
+static BLIT_FRAGMENT_SHADER: &[u8] = include_bytes!("../../shaders/blit-frag.spv");
+
 use super::{Backend, GPU};
 
 pub struct GPURender<B: Backend> {
@@ -17,12 +20,22 @@ pub struct GPURender<B: Backend> {
     dimensions: hal::window::Extent2D,
 
     // Rendering Data
-    render_pass: ManuallyDrop<B::RenderPass>,
-    pipeline: ManuallyDrop<B::GraphicsPipeline>,
+    main_render_pass: ManuallyDrop<B::RenderPass>,
+    main_pipeline: ManuallyDrop<B::GraphicsPipeline>,
+    image_slots: Vec<ManuallyDrop<Image<B>>>,
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
     complete_semaphore: ManuallyDrop<B::Semaphore>,
+}
+
+pub struct Image<B: Backend> {
+    size: u32,
+    px_width: u8,
+    image: B::Image,
+    memory: B::Memory,
+    view: B::ImageView,
+    format: hal::format::Format,
 }
 
 pub fn create_surface<B: Backend, H: raw_window_handle::HasRawWindowHandle>(
@@ -85,6 +98,69 @@ where
                 .expect("Can't configure swapchain");
         };
 
+        let command_pool = unsafe {
+            lock.device.create_command_pool(
+                lock.queue_group.family,
+                hal::pool::CommandPoolCreateFlags::empty(),
+            )
+        }
+        .map_err(|_| "Can't create command pool!")?;
+
+        // Descriptors
+        let set_layout = unsafe { lock.device.create_descriptor_set_layout(&[], &[]) }
+            .expect("Can't create descriptor set layout");
+
+        let (render_pass, pipeline) = Self::new_pipeline(
+            &lock.device,
+            format,
+            set_layout,
+            include_bytes!("../../shaders/quad.spv"),
+            include_bytes!("../../shaders/basic.spv"),
+        )?;
+
+        // Rendering setup
+        let viewport = hal::pso::Viewport {
+            rect: hal::pso::Rect {
+                x: 0,
+                y: 0,
+                w: width as _,
+                h: height as _,
+            },
+            depth: 0.0..1.0,
+        };
+
+        // Synchronization primitives
+        let fence = lock.device.create_fence(true).unwrap();
+        let semaphore = lock.device.create_semaphore().unwrap();
+
+        // Image slots
+        let image_slots = vec![];
+
+        Ok(GPURender {
+            gpu: gpu.clone(),
+            command_pool: ManuallyDrop::new(command_pool),
+
+            surface: ManuallyDrop::new(surface),
+            viewport,
+            format,
+            dimensions: hal::window::Extent2D { width, height },
+
+            main_render_pass: ManuallyDrop::new(render_pass),
+            main_pipeline: ManuallyDrop::new(pipeline),
+            image_slots,
+
+            complete_fence: ManuallyDrop::new(fence),
+            complete_semaphore: ManuallyDrop::new(semaphore),
+        })
+    }
+
+    fn new_pipeline(
+        device: &B::Device,
+        format: hal::format::Format,
+        set_layout: B::DescriptorSetLayout,
+        vertex_shader: &[u8],
+        fragment_shader: &[u8],
+    ) -> Result<(B::RenderPass, B::GraphicsPipeline), String> {
         // Create Render Pass
         let render_pass = {
             let attachment = hal::pass::Attachment {
@@ -106,45 +182,28 @@ where
                 preserves: &[],
             };
 
-            unsafe {
-                lock.device
-                    .create_render_pass(&[attachment], &[subpass], &[])
-            }
-            .expect("Can't create render pass")
+            unsafe { device.create_render_pass(&[attachment], &[subpass], &[]) }
+                .expect("Can't create render pass")
         };
-
-        let command_pool = unsafe {
-            lock.device.create_command_pool(
-                lock.queue_group.family,
-                hal::pool::CommandPoolCreateFlags::empty(),
-            )
-        }
-        .map_err(|_| "Can't create command pool!")?;
-
-        // Descriptors
-        let set_layout = unsafe { lock.device.create_descriptor_set_layout(&[], &[]) }
-            .expect("Can't create descriptor set layout");
 
         // Pipeline
         let pipeline_layout = unsafe {
-            lock.device
+            device
                 .create_pipeline_layout(std::iter::once(&set_layout), &[])
                 .expect("Can't create pipeline layout")
         };
 
         let pipeline = {
             let vs_module = {
-                let spirv: &[u8] = include_bytes!("../../shaders/quad.spv");
-                let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
+                let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(vertex_shader))
                     .map_err(|e| format!("Failed to load vertex shader SPIR-V: {}", e))?;
-                unsafe { lock.device.create_shader_module(&loaded_spirv) }
+                unsafe { device.create_shader_module(&loaded_spirv) }
                     .map_err(|e| format!("Failed to build vertex shader module: {}", e))?
             };
             let fs_module = {
-                let spirv: &[u8] = include_bytes!("../../shaders/basic.spv");
-                let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
+                let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(fragment_shader))
                     .map_err(|e| format!("Failed to load fragment shader SPIR-V: {}", e))?;
-                unsafe { lock.device.create_shader_module(&loaded_spirv) }
+                unsafe { device.create_shader_module(&loaded_spirv) }
                     .map_err(|e| format!("Failed to build fragment shader module: {}", e))?
             };
 
@@ -185,49 +244,20 @@ where
                         blend: Some(hal::pso::BlendState::ALPHA),
                     });
 
-                unsafe { lock.device.create_graphics_pipeline(&pipeline_desc, None) }
+                unsafe { device.create_graphics_pipeline(&pipeline_desc, None) }
             };
 
             unsafe {
-                lock.device.destroy_shader_module(vs_module);
+                device.destroy_shader_module(vs_module);
             }
             unsafe {
-                lock.device.destroy_shader_module(fs_module);
+                device.destroy_shader_module(fs_module);
             }
 
             pipeline.unwrap()
         };
 
-        // Rendering setup
-        let viewport = hal::pso::Viewport {
-            rect: hal::pso::Rect {
-                x: 0,
-                y: 0,
-                w: width as _,
-                h: height as _,
-            },
-            depth: 0.0..1.0,
-        };
-
-        // Synchronization primitives
-        let fence = lock.device.create_fence(true).unwrap();
-        let semaphore = lock.device.create_semaphore().unwrap();
-
-        Ok(GPURender {
-            gpu: gpu.clone(),
-            command_pool: ManuallyDrop::new(command_pool),
-
-            surface: ManuallyDrop::new(surface),
-            viewport,
-            format,
-            dimensions: hal::window::Extent2D { width, height },
-
-            render_pass: ManuallyDrop::new(render_pass),
-            pipeline: ManuallyDrop::new(pipeline),
-
-            complete_fence: ManuallyDrop::new(fence),
-            complete_semaphore: ManuallyDrop::new(semaphore),
-        })
+        Ok((render_pass, pipeline))
     }
 
     pub fn set_dimensions(&mut self, width: u32, height: u32) {
@@ -285,7 +315,7 @@ where
             let framebuffer = unsafe {
                 lock.device
                     .create_framebuffer(
-                        &self.render_pass,
+                        &self.main_render_pass,
                         std::iter::once(surface_image.borrow()),
                         hal::image::Extent {
                             width: self.dimensions.width,
@@ -302,9 +332,9 @@ where
                 cmd_buffer.set_viewports(0, &[self.viewport.clone()]);
                 cmd_buffer.set_scissors(0, &[self.viewport.rect]);
 
-                cmd_buffer.bind_graphics_pipeline(&self.pipeline);
+                cmd_buffer.bind_graphics_pipeline(&self.main_pipeline);
                 cmd_buffer.begin_render_pass(
-                    &self.render_pass,
+                    &self.main_render_pass,
                     &framebuffer,
                     self.viewport.rect,
                     &[hal::command::ClearValue {
@@ -351,6 +381,77 @@ where
             self.recreate_swapchain();
         }
     }
+
+    fn generate_mipmaps(&mut self) -> Result<(), String> {
+        let lock = self.gpu.lock().unwrap();
+        let pipeline = {
+            let vs_module = {
+                let loaded_spirv =
+                    hal::pso::read_spirv(std::io::Cursor::new(BLIT_VERTEX_SHADER))
+                        .map_err(|e| format!("Failed to load vertex shader SPIR-V: {}", e))?;
+                unsafe { lock.device.create_shader_module(&loaded_spirv) }
+                    .map_err(|e| format!("Failed to build vertex shader module: {}", e))?
+            };
+            let fs_module = {
+                let spirv: &[u8] = include_bytes!("../../shaders/basic.spv");
+                let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(BLIT_FRAGMENT_SHADER))
+                    .map_err(|e| format!("Failed to load fragment shader SPIR-V: {}", e))?;
+                unsafe { lock.device.create_shader_module(&loaded_spirv) }
+                    .map_err(|e| format!("Failed to build fragment shader module: {}", e))?
+            };
+
+            let pipeline = {
+                let shader_entries = hal::pso::GraphicsShaderSet {
+                    vertex: hal::pso::EntryPoint {
+                        entry: "main",
+                        module: &vs_module,
+                        specialization: hal::pso::Specialization::default(),
+                    },
+                    hull: None,
+                    domain: None,
+                    geometry: None,
+                    fragment: Some(hal::pso::EntryPoint {
+                        entry: "main",
+                        module: &fs_module,
+                        specialization: hal::pso::Specialization::default(),
+                    }),
+                };
+
+                let subpass = hal::pass::Subpass {
+                    index: 0,
+                    main_pass: &unimplemented!(),
+                };
+
+                let mut pipeline_desc = hal::pso::GraphicsPipelineDesc::new(
+                    shader_entries,
+                    hal::pso::Primitive::TriangleList,
+                    hal::pso::Rasterizer::FILL,
+                    unimplemented!(),
+                    subpass,
+                );
+                pipeline_desc
+                    .blender
+                    .targets
+                    .push(hal::pso::ColorBlendDesc {
+                        mask: hal::pso::ColorMask::ALL,
+                        blend: Some(hal::pso::BlendState::ALPHA),
+                    });
+
+                unsafe { lock.device.create_graphics_pipeline(&pipeline_desc, None) }
+            };
+
+            unsafe {
+                lock.device.destroy_shader_module(vs_module);
+            }
+            unsafe {
+                lock.device.destroy_shader_module(fs_module);
+            }
+
+            pipeline.unwrap()
+        };
+
+        Ok(())
+    }
 }
 
 impl<B> Drop for GPURender<B>
@@ -364,10 +465,18 @@ where
         log::info!("Releasing GPU Render resources");
 
         let lock = self.gpu.lock().unwrap();
+
+        for img in self.image_slots.iter_mut() {
+            unsafe {
+                lock.device.free_memory(ManuallyDrop::take(img).memory);
+                lock.device.destroy_image(ManuallyDrop::take(img).image);
+            }
+        }
+
         unsafe {
             // TODO: destroy render resources
             lock.device
-                .destroy_render_pass(ManuallyDrop::take(&mut self.render_pass));
+                .destroy_render_pass(ManuallyDrop::take(&mut self.main_render_pass));
             lock.device
                 .destroy_command_pool(ManuallyDrop::take(&mut self.command_pool));
         }
