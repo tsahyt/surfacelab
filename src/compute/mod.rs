@@ -60,6 +60,8 @@ struct SocketData<B: gpu::Backend> {
 
     /// Input sockets only map to the output sockets they are connected to
     inputs: HashMap<String, Resource>,
+
+    // TODO: Block dropping of output images that were last sent as outputready
 }
 
 struct Sockets<B: gpu::Backend>(HashMap<Resource, SocketData<B>>);
@@ -179,13 +181,8 @@ where
         }
     }
 
-    // fn add_new_output_socket(&mut self, socket: Resource, ty: ImageType) {
-    //     let img = self.gpu.create_compute_image(IMG_SIZE, ty).unwrap();
-    //     self.output_sockets.insert(socket, img);
-    // }
-
     pub fn process_event(&mut self, event: Arc<Lang>) -> Option<Vec<Lang>> {
-        let response = Vec::new();
+        let mut response = Vec::new();
         match &*event {
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, op) => {
@@ -210,11 +207,17 @@ where
                 GraphEvent::NodeRemoved(res) => self.sockets.remove_all_for_node(res),
                 GraphEvent::Recomputed(instrs) => {
                     for i in instrs.iter() {
-                        let r = self.interpret(i);
-                        if let Err(e) = r {
-                            log::error!("Error during compute interpretation: {}", e);
-                            log::error!("Aborting compute!");
-                            break;
+                        match self.interpret(i) {
+                            Err(e) => {
+                                log::error!("Error during compute interpretation: {}", e);
+                                log::error!("Aborting compute!");
+                                break;
+                            }
+                            Ok(r) => {
+                                for ev in r {
+                                    response.push(Lang::ComputeEvent(ev))
+                                }
+                            }
                         }
                     }
                 }
@@ -239,7 +242,9 @@ where
         Some(response)
     }
 
-    fn interpret(&mut self, instr: &Instruction) -> Result<(), String> {
+    fn interpret(&mut self, instr: &Instruction) -> Result<Vec<ComputeEvent>, String> {
+        let mut response = Vec::new();
+
         match instr {
             Instruction::Move(from, to) => {
                 log::trace!("Moving texture from {} to {}", from, to);
@@ -249,12 +254,15 @@ where
             }
             Instruction::Execute(res, op) => match op {
                 Operator::Image { path } => self.execute_image(res, path)?,
-                Operator::Output { .. } => self.execute_output(op, res)?,
+                Operator::Output { .. } => {
+                    let res = self.execute_output(op, res)?;
+                    response.push(res);
+                }
                 _ => self.execute_operator(op, res)?,
             },
         }
 
-        Ok(())
+        Ok(response)
     }
 
     fn execute_image(&mut self, res: &Resource, path: &std::path::PathBuf) -> Result<(), String> {
@@ -289,45 +297,51 @@ where
         Ok(())
     }
 
-    fn execute_output(&mut self, op: &Operator, res: &Resource) -> Result<(), String> {
-        for (socket, ty) in op.inputs().iter() {
-            log::trace!("Processing Output operator {} socket {}", res, socket);
+    fn execute_output(&mut self, op: &Operator, res: &Resource) -> Result<ComputeEvent, String> {
+        let socket = "data";
+        let ty = op.inputs()[socket];
 
-            let socket_res = res.extend_fragment(&socket);
+        log::trace!("Processing Output operator {} socket {}", res, socket);
 
-            // Ensure socket exists and is backed in debug builds
-            debug_assert!(self
-                .sockets
-                .get_input_image(&socket_res)
-                .unwrap()
-                .is_backed());
+        let socket_res = res.extend_fragment(&socket);
 
-            let image = self.sockets.get_input_image(&socket_res).unwrap();
-            let raw = self.gpu.download_image(image).unwrap();
+        // Ensure socket exists and is backed in debug builds
+        debug_assert!(self
+            .sockets
+            .get_input_image(&socket_res)
+            .unwrap()
+            .is_backed());
 
-            log::debug!("Downloaded image size {:?}", raw.len());
+        let image = self.sockets.get_input_image(&socket_res).unwrap();
+        let raw = self.gpu.download_image(image).unwrap();
 
-            let ty = ty
-                .monomorphic()
-                .expect("Output Type must always be monomorphic!");
-            let converted = convert_image(&raw, ty);
+        log::debug!("Downloaded image size {:?}", raw.len());
 
-            let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
-            log::debug!("Saving converted image to {}", path);
-            image::save_buffer(
-                path,
-                &converted,
-                IMG_SIZE,
-                IMG_SIZE,
-                match ty {
-                    ImageType::Grayscale => image::ColorType::L16,
-                    ImageType::Rgb => image::ColorType::Rgb16,
-                },
-            )
-            .map_err(|e| format!("Error saving image: {}", e))?;
-            log::debug!("Saved image!");
-        }
-        Ok(())
+        let ty = ty
+            .monomorphic()
+            .expect("Output Type must always be monomorphic!");
+        let converted = convert_image(&raw, ty);
+
+        let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
+        log::debug!("Saving converted image to {}", path);
+        image::save_buffer(
+            path,
+            &converted,
+            IMG_SIZE,
+            IMG_SIZE,
+            match ty {
+                ImageType::Grayscale => image::ColorType::L16,
+                ImageType::Rgb => image::ColorType::Rgb16,
+            },
+        )
+        .map_err(|e| format!("Error saving image: {}", e))?;
+        log::debug!("Saved image!");
+
+        Ok(ComputeEvent::OutputReady(
+            res.clone(),
+            gpu::BrokerImageView::from::<B>(image.get_view().unwrap()),
+            image.get_layout(),
+        ))
     }
 
     fn execute_operator(&mut self, op: &Operator, res: &Resource) -> Result<(), String> {

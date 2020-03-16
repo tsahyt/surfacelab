@@ -534,6 +534,11 @@ unsafe impl Sync for WindowHandle {}
 unsafe impl Send for WindowHandle {}
 
 #[derive(Debug)]
+pub enum ComputeEvent {
+    OutputReady(Resource, crate::gpu::BrokerImageView, crate::gpu::Layout),
+}
+
+#[derive(Debug)]
 pub enum UIEvent {
     RendererAdded(u64, WindowHandle, u32, u32),
     RendererRedraw(u64),
@@ -546,6 +551,7 @@ pub enum Lang {
     UserEvent(UserEvent),
     UIEvent(UIEvent),
     GraphEvent(GraphEvent),
+    ComputeEvent(ComputeEvent),
 }
 
 #[cfg(test)]

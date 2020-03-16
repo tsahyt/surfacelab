@@ -150,3 +150,31 @@ where
         log::info!("Dropping GPU")
     }
 }
+
+/// Image View variant hiding the parameterization over the backend. Deeply
+/// unsafe! Must be used with similar backend types on both ends.
+///
+/// This exists solely for transmitting an image view over the broker bus
+/// without incurring the type parameter all throughout the program. This is
+/// required for sharing images between the compute and the render thread(s).
+///
+/// Manual care is required to make sure the underlying images do not drop while
+/// the data is in use in both threads.
+#[derive(Debug)]
+pub struct BrokerImageView {
+    raw: *const (),
+}
+
+unsafe impl Send for BrokerImageView {}
+unsafe impl Sync for BrokerImageView {}
+
+impl BrokerImageView {
+    pub fn from<B: Backend>(view: &B::ImageView) -> Self {
+        let ptr = view as *const B::ImageView as *const ();
+        Self { raw: ptr }
+    }
+
+    pub fn to<B: Backend>(self) -> &'static B::ImageView {
+        unsafe { &*(self.raw as *const B::ImageView) }
+    }
+}

@@ -23,6 +23,9 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
                     render_manager.resize(*id, *width, *height)
                 }
+                Lang::ComputeEvent(ComputeEvent::OutputReady(res, img, layout)) => {
+
+                }
                 _ => {}
             }
         }
