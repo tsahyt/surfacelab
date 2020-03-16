@@ -22,7 +22,7 @@ pub struct GPURender<B: Backend> {
     // Rendering Data
     main_render_pass: ManuallyDrop<B::RenderPass>,
     main_pipeline: ManuallyDrop<B::GraphicsPipeline>,
-    image_slots: Vec<ImageSlot<B>>,
+    image_slot: ImageSlot<B>,
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
@@ -43,8 +43,73 @@ pub struct GPURender<B: Backend> {
 /// grayscale has to be converted to RGBA anyway. Furthermore the bit depth is
 /// generally set by the surface and is generally also lower than 16 bits. We
 /// therefore initialize all images with the *surface format*.
+///
+/// Contrary to images in the compute component, which are allocated in a common
+/// memory pool, every image slot is given its own memory allocation. This works
+/// out because there are comparatively few renderers with few image slots
+/// compared to potentially large numbers of compute images.
 pub struct ImageSlot<B: Backend> {
-    image: B::Image,
+    image: ManuallyDrop<B::Image>,
+    view: ManuallyDrop<B::ImageView>,
+    memory: ManuallyDrop<B::Memory>,
+}
+
+impl<B> ImageSlot<B>
+where
+    B: Backend,
+{
+    const FORMAT: hal::format::Format = hal::format::Format::Rgba8Snorm;
+
+    pub fn new(
+        device: &B::Device,
+        memory_properties: &hal::adapter::MemoryProperties,
+    ) -> Result<Self, String> {
+        // Create Image
+        let mut image = unsafe {
+            device.create_image(
+                hal::image::Kind::D2(1024, 1024, 1, 1),
+                8,
+                Self::FORMAT,
+                hal::image::Tiling::Optimal,
+                hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
+                hal::image::ViewCapabilities::empty(),
+            )
+        }
+        .map_err(|_| "Failed to create render image")?;
+
+        // Allocate and bind memory for image
+        let requirements = unsafe { device.get_image_requirements(&image) };
+        let memory_type = memory_properties
+            .memory_types
+            .iter()
+            .position(|mem_type| {
+                mem_type
+                    .properties
+                    .contains(hal::memory::Properties::DEVICE_LOCAL)
+            })
+            .unwrap()
+            .into();
+        let image_memory = unsafe { device.allocate_memory(memory_type, requirements.size) }
+            .map_err(|_| "Failed to allocate memory for render image")?;
+        unsafe { device.bind_image_memory(&image_memory, 0, &mut image) }.unwrap();
+
+        let image_view = unsafe {
+            device.create_image_view(
+                &image,
+                hal::image::ViewKind::D2,
+                Self::FORMAT,
+                hal::format::Swizzle::NO,
+                super::COLOR_RANGE.clone(),
+            )
+        }
+        .map_err(|_| "Failed to create render image view")?;
+
+        Ok(ImageSlot {
+            image: ManuallyDrop::new(image),
+            view: ManuallyDrop::new(image_view),
+            memory: ManuallyDrop::new(image_memory),
+        })
+    }
 }
 
 pub fn create_surface<B: Backend, H: raw_window_handle::HasRawWindowHandle>(
@@ -143,7 +208,7 @@ where
         let semaphore = lock.device.create_semaphore().unwrap();
 
         // Image slots
-        let image_slots = vec![];
+        let image_slot = ImageSlot::new(&lock.device, &lock.memory_properties)?;
 
         Ok(GPURender {
             gpu: gpu.clone(),
@@ -156,7 +221,7 @@ where
 
             main_render_pass: ManuallyDrop::new(render_pass),
             main_pipeline: ManuallyDrop::new(pipeline),
-            image_slots,
+            image_slot,
 
             complete_fence: ManuallyDrop::new(fence),
             complete_semaphore: ManuallyDrop::new(semaphore),
@@ -400,11 +465,10 @@ where
     ///
     /// Blitting is performed once per MIP level of the image slot, such that
     /// the MIP hierarchy is created.
-    fn transfer_image(
+    pub fn transfer_image(
         &mut self,
         source: &B::ImageView,
         source_layout: hal::image::Layout,
-        destination: &ImageSlot<B>,
     ) -> Result<(), String> {
         Ok(())
     }

@@ -7,12 +7,6 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
-    aspects: hal::format::Aspects::COLOR,
-    levels: 0..1,
-    layers: 0..1,
-};
-
 use super::{Backend, Shader, ShaderType, GPU};
 
 pub struct GPUCompute<B: Backend> {
@@ -259,7 +253,7 @@ where
                 hal::image::ViewCapabilities::empty(),
             )
         }
-        .map_err(|_| "Failed to create image")?;
+        .map_err(|_| "Failed to create compute image")?;
 
         Ok(Image {
             parent: self,
@@ -771,7 +765,7 @@ where
                 hal::image::ViewKind::D2,
                 self.format,
                 hal::format::Swizzle::NO,
-                COLOR_RANGE.clone(),
+                super::COLOR_RANGE.clone(),
             )
         }
         .map_err(|_| "Failed to create image view")?;
@@ -798,7 +792,7 @@ where
             states: (old_access, old_layout)..(access, layout),
             target: &*self.raw,
             families: None,
-            range: COLOR_RANGE.clone(),
+            range: super::COLOR_RANGE.clone(),
         }
     }
 

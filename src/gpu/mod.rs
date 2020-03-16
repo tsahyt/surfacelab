@@ -14,6 +14,13 @@ pub use hal::Instance;
 pub mod compute;
 pub mod render;
 
+pub const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
+    aspects: hal::format::Aspects::COLOR,
+    levels: 0..1,
+    layers: 0..1,
+};
+
+
 // TODO: more finegrained concurrency model for GPU
 pub struct GPU<B: Backend> {
     instance: B::Instance,
@@ -174,7 +181,7 @@ impl BrokerImageView {
         Self { raw: ptr }
     }
 
-    pub fn to<B: Backend>(self) -> &'static B::ImageView {
+    pub fn to<B: Backend>(&self) -> &'static B::ImageView {
         unsafe { &*(self.raw as *const B::ImageView) }
     }
 }

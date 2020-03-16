@@ -535,7 +535,7 @@ unsafe impl Send for WindowHandle {}
 
 #[derive(Debug)]
 pub enum ComputeEvent {
-    OutputReady(Resource, crate::gpu::BrokerImageView, crate::gpu::Layout),
+    OutputReady(Resource, crate::gpu::BrokerImageView, crate::gpu::Layout, OutputType),
 }
 
 #[derive(Debug)]

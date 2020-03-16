@@ -23,8 +23,8 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
                     render_manager.resize(*id, *width, *height)
                 }
-                Lang::ComputeEvent(ComputeEvent::OutputReady(res, img, layout)) => {
-
+                Lang::ComputeEvent(ComputeEvent::OutputReady(res, img, layout, out_ty)) => {
+                    render_manager.transfer_output(res, img, *layout, *out_ty)
                 }
                 _ => {}
             }
@@ -82,6 +82,19 @@ where
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_dimensions(width, height);
             r.recreate_swapchain();
+        }
+    }
+
+    pub fn transfer_output(
+        &mut self,
+        _res: &Resource,
+        image: &gpu::BrokerImageView,
+        layout: gpu::Layout,
+        _output_type: OutputType,
+    ) {
+        // TODO: pick correct renderer based on resource
+        for r in self.renderers.values_mut() {
+            r.transfer_image(image.to::<B>(), layout).unwrap();
         }
     }
 }

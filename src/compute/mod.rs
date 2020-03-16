@@ -300,6 +300,10 @@ where
     fn execute_output(&mut self, op: &Operator, res: &Resource) -> Result<ComputeEvent, String> {
         let socket = "data";
         let ty = op.inputs()[socket];
+        let output_type = match op {
+            Operator::Output { output_type } => output_type,
+            _ => panic!("Output execution on non-output")
+        };
 
         log::trace!("Processing Output operator {} socket {}", res, socket);
 
@@ -341,6 +345,7 @@ where
             res.clone(),
             gpu::BrokerImageView::from::<B>(image.get_view().unwrap()),
             image.get_layout(),
+            *output_type,
         ))
     }
 
