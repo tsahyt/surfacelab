@@ -857,11 +857,17 @@ where
         Ok(())
     }
 
+    /// Get a view to the image
     pub fn get_view(&self) -> Option<&B::ImageView> {
         match &*self.view {
             Some(view) => Some(view),
             None => None,
         }
+    }
+
+    /// Get the current layout of the image
+    pub fn get_layout(&self) -> hal::image::Layout {
+        self.layout.get()
     }
 }
 

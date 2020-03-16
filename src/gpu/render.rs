@@ -22,20 +22,29 @@ pub struct GPURender<B: Backend> {
     // Rendering Data
     main_render_pass: ManuallyDrop<B::RenderPass>,
     main_pipeline: ManuallyDrop<B::GraphicsPipeline>,
-    image_slots: Vec<ManuallyDrop<Image<B>>>,
+    image_slots: Vec<ImageSlot<B>>,
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
     complete_semaphore: ManuallyDrop<B::Semaphore>,
 }
 
-pub struct Image<B: Backend> {
-    size: u32,
-    px_width: u8,
+/// The renderer holds a fixed number of image slots, as opposed to the compute
+/// component which can hold a dynamic amount of images. Each Image Slot also
+/// contains MIP levels to reduce artifacts during rendering.
+///
+/// Since these image slots are separate from the compute images, compute images
+/// have to be copied for display first.
+///
+/// For 2D renderers, the MIP levels can be set to 0, because the artifacts do
+/// not occur when just blitting the image.
+///
+/// All image slots have the same format, since one the way to display,
+/// grayscale has to be converted to RGBA anyway. Furthermore the bit depth is
+/// generally set by the surface and is generally also lower than 16 bits. We
+/// therefore initialize all images with the *surface format*.
+pub struct ImageSlot<B: Backend> {
     image: B::Image,
-    memory: B::Memory,
-    view: B::ImageView,
-    format: hal::format::Format,
 }
 
 pub fn create_surface<B: Backend, H: raw_window_handle::HasRawWindowHandle>(
@@ -382,74 +391,21 @@ where
         }
     }
 
-    fn generate_mipmaps(&mut self) -> Result<(), String> {
-        let lock = self.gpu.lock().unwrap();
-        let pipeline = {
-            let vs_module = {
-                let loaded_spirv =
-                    hal::pso::read_spirv(std::io::Cursor::new(BLIT_VERTEX_SHADER))
-                        .map_err(|e| format!("Failed to load vertex shader SPIR-V: {}", e))?;
-                unsafe { lock.device.create_shader_module(&loaded_spirv) }
-                    .map_err(|e| format!("Failed to build vertex shader module: {}", e))?
-            };
-            let fs_module = {
-                let spirv: &[u8] = include_bytes!("../../shaders/basic.spv");
-                let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(BLIT_FRAGMENT_SHADER))
-                    .map_err(|e| format!("Failed to load fragment shader SPIR-V: {}", e))?;
-                unsafe { lock.device.create_shader_module(&loaded_spirv) }
-                    .map_err(|e| format!("Failed to build fragment shader module: {}", e))?
-            };
-
-            let pipeline = {
-                let shader_entries = hal::pso::GraphicsShaderSet {
-                    vertex: hal::pso::EntryPoint {
-                        entry: "main",
-                        module: &vs_module,
-                        specialization: hal::pso::Specialization::default(),
-                    },
-                    hull: None,
-                    domain: None,
-                    geometry: None,
-                    fragment: Some(hal::pso::EntryPoint {
-                        entry: "main",
-                        module: &fs_module,
-                        specialization: hal::pso::Specialization::default(),
-                    }),
-                };
-
-                let subpass = hal::pass::Subpass {
-                    index: 0,
-                    main_pass: &unimplemented!(),
-                };
-
-                let mut pipeline_desc = hal::pso::GraphicsPipelineDesc::new(
-                    shader_entries,
-                    hal::pso::Primitive::TriangleList,
-                    hal::pso::Rasterizer::FILL,
-                    unimplemented!(),
-                    subpass,
-                );
-                pipeline_desc
-                    .blender
-                    .targets
-                    .push(hal::pso::ColorBlendDesc {
-                        mask: hal::pso::ColorMask::ALL,
-                        blend: Some(hal::pso::BlendState::ALPHA),
-                    });
-
-                unsafe { lock.device.create_graphics_pipeline(&pipeline_desc, None) }
-            };
-
-            unsafe {
-                lock.device.destroy_shader_module(vs_module);
-            }
-            unsafe {
-                lock.device.destroy_shader_module(fs_module);
-            }
-
-            pipeline.unwrap()
-        };
-
+    /// Transfer an external (usually compute) image to an image slot.
+    ///
+    /// This is done by *blitting* the source image, since there is a potential
+    /// format conversion going on in the process. The image slot has the same
+    /// format as the target surface to render on, whereas the source image can
+    /// be potentially any format.
+    ///
+    /// Blitting is performed once per MIP level of the image slot, such that
+    /// the MIP hierarchy is created.
+    fn transfer_image(
+        &mut self,
+        source: &B::ImageView,
+        source_layout: hal::image::Layout,
+        destination: &ImageSlot<B>,
+    ) -> Result<(), String> {
         Ok(())
     }
 }
@@ -466,12 +422,12 @@ where
 
         let lock = self.gpu.lock().unwrap();
 
-        for img in self.image_slots.iter_mut() {
-            unsafe {
-                lock.device.free_memory(ManuallyDrop::take(img).memory);
-                lock.device.destroy_image(ManuallyDrop::take(img).image);
-            }
-        }
+        // for img in self.image_slots.iter_mut() {
+        //     unsafe {
+        //         lock.device.free_memory(ManuallyDrop::take(img).memory);
+        //         lock.device.destroy_image(ManuallyDrop::take(img).image);
+        //     }
+        // }
 
         unsafe {
             // TODO: destroy render resources
