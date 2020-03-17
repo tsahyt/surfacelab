@@ -494,6 +494,26 @@ where
                 cmd_buffer.set_viewports(0, &[self.viewport.clone()]);
                 cmd_buffer.set_scissors(0, &[self.viewport.rect]);
 
+                cmd_buffer.pipeline_barrier(
+                    hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::FRAGMENT_SHADER,
+                    hal::memory::Dependencies::empty(),
+                    &[
+                        hal::memory::Barrier::Image {
+                            states: (
+                                hal::image::Access::empty(),
+                                hal::image::Layout::Undefined,
+                            )
+                                ..(
+                                    hal::image::Access::SHADER_READ,
+                                    hal::image::Layout::ShaderReadOnlyOptimal,
+                                ),
+                            target: &*self.image_slot.image,
+                            families: None,
+                            range: super::COLOR_RANGE.clone(),
+                        },
+                    ],
+                );
+
                 cmd_buffer.bind_graphics_descriptor_sets(
                     &self.main_pipeline_layout,
                     0,
@@ -611,8 +631,8 @@ where
                     },
                     hal::memory::Barrier::Image {
                         states: (
-                            hal::image::Access::SHADER_READ,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
+                            hal::image::Access::empty(),
+                            hal::image::Layout::Undefined,
                         )
                             ..(
                                 hal::image::Access::TRANSFER_WRITE,
@@ -633,7 +653,7 @@ where
                 &blits,
             );
             cmd_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
+                hal::pso::PipelineStage::FRAGMENT_SHADER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
                 hal::memory::Dependencies::empty(),
                 &[
                     hal::memory::Barrier::Image {
