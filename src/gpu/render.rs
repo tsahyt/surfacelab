@@ -565,7 +565,7 @@ where
     pub fn transfer_image(
         &mut self,
         source: &B::ImageView,
-        source_layout: hal::image::Layout,
+        _source_layout: hal::image::Layout,
     ) -> Result<(), String> {
         self.synchronize_at_fence();
 
@@ -592,7 +592,10 @@ where
                     set: &*self.blit_descriptor_set,
                     binding: 0,
                     array_offset: 0,
-                    descriptors: Some(Descriptor::Image(source, hal::image::Layout::ShaderReadOnlyOptimal)),
+                    descriptors: Some(Descriptor::Image(
+                        source,
+                        hal::image::Layout::ShaderReadOnlyOptimal,
+                    )),
                 },
                 DescriptorSetWrite {
                     set: &*self.blit_descriptor_set,
@@ -603,11 +606,28 @@ where
             ])
         }
 
+        let viewport = hal::pso::Viewport {
+            rect: hal::pso::Rect {
+                x: 0,
+                y: 0,
+                w: 1024,
+                h: 1024,
+            },
+            depth: 0.0..1.0,
+        };
+
         let cmd_buffer = unsafe {
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
-            cmd_buffer.set_viewports(0, &[self.viewport.clone()]);
-            cmd_buffer.set_scissors(0, &[self.viewport.rect]);
+            cmd_buffer.set_viewports(0, &[viewport.clone()]);
+            cmd_buffer.set_scissors(0, &[viewport.rect]);
+
+            // TODO: barrier
+            // cmd_buffer.pipeline_barrier(
+            //     hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::FRAGMENT_SHADER,
+            //     hal::memory::Dependencies::empty(),
+            //     &[],
+            // );
 
             cmd_buffer.bind_graphics_descriptor_sets(
                 &self.blit_pipeline_layout,
@@ -615,7 +635,7 @@ where
                 std::iter::once(&*self.blit_descriptor_set),
                 &[],
             );
-            cmd_buffer.bind_graphics_pipeline(&self.main_pipeline);
+            cmd_buffer.bind_graphics_pipeline(&self.blit_pipeline);
             cmd_buffer.begin_render_pass(
                 &self.blit_render_pass,
                 &framebuffer,
@@ -634,20 +654,22 @@ where
             );
             cmd_buffer.draw(0..6, 0..1);
             cmd_buffer.end_render_pass();
+
+            // TODO: barrier back
+            // cmd_buffer.pipeline_barrier(
+            //     hal::pso::PipelineStage::FRAGMENT_SHADER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
+            //     hal::memory::Dependencies::empty(),
+            //     &[],
+            // );
+           
             cmd_buffer.finish();
             cmd_buffer
         };
 
         // Submit for render
         unsafe {
-            lock.queue_group.queues[0].submit(
-                hal::queue::Submission {
-                    command_buffers: std::iter::once(&cmd_buffer),
-                    wait_semaphores: None,
-                    signal_semaphores: std::iter::once(&*self.complete_semaphore),
-                },
-                Some(&self.complete_fence),
-            )
+            lock.queue_group.queues[0]
+                .submit_without_semaphores(std::iter::once(&cmd_buffer), Some(&self.complete_fence))
         };
 
         Ok(())
