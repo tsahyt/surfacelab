@@ -56,6 +56,7 @@ pub struct ImageSlot<B: Backend> {
     image: ManuallyDrop<B::Image>,
     view: ManuallyDrop<B::ImageView>,
     memory: ManuallyDrop<B::Memory>,
+    mip_levels: u8,
 }
 
 impl<B> ImageSlot<B>
@@ -68,11 +69,13 @@ where
         device: &B::Device,
         memory_properties: &hal::adapter::MemoryProperties,
     ) -> Result<Self, String> {
+        let mip_levels = 8;
+
         // Create Image
         let mut image = unsafe {
             device.create_image(
                 hal::image::Kind::D2(1024, 1024, 1, 1),
-                8,
+                mip_levels,
                 Self::FORMAT,
                 hal::image::Tiling::Optimal,
                 hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
@@ -112,6 +115,7 @@ where
             image: ManuallyDrop::new(image),
             view: ManuallyDrop::new(image_view),
             memory: ManuallyDrop::new(image_memory),
+            mip_levels: 8,
         })
     }
 }
@@ -562,6 +566,31 @@ where
     ) -> Result<(), String> {
         self.synchronize_at_fence();
 
+        let blits: Vec<_> = (0..self.image_slot.mip_levels)
+            .map(|level| hal::command::ImageBlit {
+                src_subresource: hal::image::SubresourceLayers {
+                    aspects: hal::format::Aspects::COLOR,
+                    level: 0,
+                    layers: 0..1,
+                },
+                src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                    x: 1024,
+                    y: 1024,
+                    z: 1,
+                },
+                dst_subresource: hal::image::SubresourceLayers {
+                    aspects: hal::format::Aspects::COLOR,
+                    level,
+                    layers: 0..1,
+                },
+                dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                    x: 1024 >> level,
+                    y: 1024 >> level,
+                    z: 1,
+                },
+            })
+            .collect();
+
         let cmd_buffer = unsafe {
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
@@ -571,35 +600,13 @@ where
                 &*self.image_slot.image,
                 hal::image::Layout::TransferDstOptimal,
                 hal::image::Filter::Nearest,
-                &[hal::command::ImageBlit {
-                    src_subresource: hal::image::SubresourceLayers {
-                        aspects: hal::format::Aspects::COLOR,
-                        level: 0,
-                        layers: 0..1,
-                    },
-                    src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-                        x: 1024,
-                        y: 1024,
-                        z: 1,
-                    },
-                    dst_subresource: hal::image::SubresourceLayers {
-                        aspects: hal::format::Aspects::COLOR,
-                        level: 0,
-                        layers: 0..1,
-                    },
-                    dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-                        x: 1024,
-                        y: 1024,
-                        z: 1,
-                    },
-                }],
+                &blits,
             );
             cmd_buffer.finish();
             cmd_buffer
         };
 
         let mut lock = self.gpu.lock().unwrap();
-       
         unsafe {
             lock.queue_group.queues[0]
                 .submit_without_semaphores(Some(&cmd_buffer), Some(&self.complete_fence));
