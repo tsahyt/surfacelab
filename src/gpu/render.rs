@@ -4,9 +4,6 @@ use std::borrow::Borrow;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
-static BLIT_VERTEX_SHADER: &[u8] = include_bytes!("../../shaders/blit-vert.spv");
-static BLIT_FRAGMENT_SHADER: &[u8] = include_bytes!("../../shaders/blit-frag.spv");
-
 static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../shaders/quad.spv");
 static MAIN_FRAGMENT_SHADER: &[u8] = include_bytes!("../../shaders/basic.spv");
 
@@ -22,23 +19,14 @@ pub struct GPURender<B: Backend> {
     format: hal::format::Format,
     dimensions: hal::window::Extent2D,
 
-    // Shared Pipeline Data
-    descriptor_pool: ManuallyDrop<B::DescriptorPool>,
-
     // Rendering Data
+    descriptor_pool: ManuallyDrop<B::DescriptorPool>,
     main_render_pass: ManuallyDrop<B::RenderPass>,
     main_pipeline: ManuallyDrop<B::GraphicsPipeline>,
     main_pipeline_layout: ManuallyDrop<B::PipelineLayout>,
     main_descriptor_set: ManuallyDrop<B::DescriptorSet>,
-    image_slot: ImageSlot<B>,
-
-    // Blitting Data
-    blit_render_pass: ManuallyDrop<B::RenderPass>,
-    blit_pipeline: ManuallyDrop<B::GraphicsPipeline>,
-    blit_pipeline_layout: ManuallyDrop<B::PipelineLayout>,
-    blit_descriptor_set: ManuallyDrop<B::DescriptorSet>,
-
     sampler: ManuallyDrop<B::Sampler>,
+    image_slot: ImageSlot<B>,
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
@@ -87,7 +75,7 @@ where
                 8,
                 Self::FORMAT,
                 hal::image::Tiling::Optimal,
-                hal::image::Usage::SAMPLED | hal::image::Usage::COLOR_ATTACHMENT,
+                hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
                 hal::image::ViewCapabilities::empty(),
             )
         }
@@ -254,41 +242,6 @@ where
             MAIN_FRAGMENT_SHADER,
         )?;
 
-        // Blit Rendering Data
-        let blit_set_layout = unsafe {
-            lock.device.create_descriptor_set_layout(
-                &[
-                    hal::pso::DescriptorSetLayoutBinding {
-                        binding: 0,
-                        ty: hal::pso::DescriptorType::SampledImage,
-                        count: 1,
-                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
-                        immutable_samplers: false,
-                    },
-                    hal::pso::DescriptorSetLayoutBinding {
-                        binding: 1,
-                        ty: hal::pso::DescriptorType::Sampler,
-                        count: 1,
-                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
-                        immutable_samplers: false,
-                    },
-                ],
-                &[],
-            )
-        }
-        .expect("Can't create blit descriptor set layout");
-
-        let blit_descriptor_set = unsafe { descriptor_pool.allocate_set(&blit_set_layout) }
-            .map_err(|_| "Failed to allocate blit descriptor set")?;
-
-        let (blit_render_pass, blit_pipeline, blit_pipeline_layout) = Self::new_pipeline(
-            &lock.device,
-            ImageSlot::<B>::FORMAT,
-            blit_set_layout,
-            BLIT_VERTEX_SHADER,
-            BLIT_FRAGMENT_SHADER,
-        )?;
-
         // Rendering setup
         let viewport = hal::pso::Viewport {
             rect: hal::pso::Rect {
@@ -326,18 +279,11 @@ where
             dimensions: hal::window::Extent2D { width, height },
 
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
-
             main_render_pass: ManuallyDrop::new(main_render_pass),
             main_pipeline: ManuallyDrop::new(main_pipeline),
             main_pipeline_layout: ManuallyDrop::new(main_pipeline_layout),
             main_descriptor_set: ManuallyDrop::new(main_descriptor_set),
             image_slot,
-
-            blit_render_pass: ManuallyDrop::new(blit_render_pass),
-            blit_pipeline: ManuallyDrop::new(blit_pipeline),
-            blit_pipeline_layout: ManuallyDrop::new(blit_pipeline_layout),
-            blit_descriptor_set: ManuallyDrop::new(blit_descriptor_set),
-
             sampler: ManuallyDrop::new(sampler),
 
             complete_fence: ManuallyDrop::new(fence),
@@ -611,113 +557,55 @@ where
     /// the MIP hierarchy is created.
     pub fn transfer_image(
         &mut self,
-        source: &B::ImageView,
-        _source_layout: hal::image::Layout,
+        source: &B::Image,
+        source_layout: hal::image::Layout,
     ) -> Result<(), String> {
         self.synchronize_at_fence();
-
-        let mut lock = self.gpu.lock().unwrap();
-
-        let framebuffer = unsafe {
-            lock.device
-                .create_framebuffer(
-                    &self.blit_render_pass,
-                    std::iter::once(&*self.image_slot.view),
-                    hal::image::Extent {
-                        width: 1024,
-                        height: 1024,
-                        depth: 1,
-                    },
-                )
-                .unwrap()
-        };
-
-        unsafe {
-            use hal::pso::*;
-            lock.device.write_descriptor_sets(vec![
-                DescriptorSetWrite {
-                    set: &*self.blit_descriptor_set,
-                    binding: 0,
-                    array_offset: 0,
-                    descriptors: Some(Descriptor::Image(
-                        source,
-                        hal::image::Layout::ShaderReadOnlyOptimal,
-                    )),
-                },
-                DescriptorSetWrite {
-                    set: &*self.blit_descriptor_set,
-                    binding: 1,
-                    array_offset: 0,
-                    descriptors: Some(Descriptor::Sampler(&*self.sampler)),
-                },
-            ])
-        }
-
-        let viewport = hal::pso::Viewport {
-            rect: hal::pso::Rect {
-                x: 0,
-                y: 0,
-                w: 1024,
-                h: 1024,
-            },
-            depth: 0.0..1.0,
-        };
 
         let cmd_buffer = unsafe {
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
-            cmd_buffer.set_viewports(0, &[viewport.clone()]);
-            cmd_buffer.set_scissors(0, &[viewport.rect]);
-
-            // TODO: barrier
-            // cmd_buffer.pipeline_barrier(
-            //     hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::FRAGMENT_SHADER,
-            //     hal::memory::Dependencies::empty(),
-            //     &[],
-            // );
-
-            cmd_buffer.bind_graphics_descriptor_sets(
-                &self.blit_pipeline_layout,
-                0,
-                std::iter::once(&*self.blit_descriptor_set),
-                &[],
-            );
-            cmd_buffer.bind_graphics_pipeline(&self.blit_pipeline);
-            cmd_buffer.begin_render_pass(
-                &self.blit_render_pass,
-                &framebuffer,
-                hal::pso::Rect {
-                    x: 0,
-                    y: 0,
-                    w: 1024,
-                    h: 1024,
-                },
-                &[hal::command::ClearValue {
-                    color: hal::command::ClearColor {
-                        float32: [0.0, 0.0, 0.0, 1.0],
+            cmd_buffer.blit_image(
+                source,
+                source_layout,
+                &*self.image_slot.image,
+                hal::image::Layout::TransferDstOptimal,
+                hal::image::Filter::Nearest,
+                &[hal::command::ImageBlit {
+                    src_subresource: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 0,
+                        layers: 0..1,
+                    },
+                    src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                        x: 1024,
+                        y: 1024,
+                        z: 1,
+                    },
+                    dst_subresource: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 0,
+                        layers: 0..1,
+                    },
+                    dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                        x: 1024,
+                        y: 1024,
+                        z: 1,
                     },
                 }],
-                hal::command::SubpassContents::Inline,
             );
-            cmd_buffer.draw(0..6, 0..1);
-            cmd_buffer.end_render_pass();
-
-            // TODO: barrier back
-            // cmd_buffer.pipeline_barrier(
-            //     hal::pso::PipelineStage::FRAGMENT_SHADER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
-            //     hal::memory::Dependencies::empty(),
-            //     &[],
-            // );
-           
             cmd_buffer.finish();
             cmd_buffer
         };
 
-        // Submit for render
+        let mut lock = self.gpu.lock().unwrap();
+       
         unsafe {
             lock.queue_group.queues[0]
-                .submit_without_semaphores(std::iter::once(&cmd_buffer), Some(&self.complete_fence))
-        };
+                .submit_without_semaphores(Some(&cmd_buffer), Some(&self.complete_fence));
+
+            self.command_pool.free(Some(cmd_buffer));
+        }
 
         Ok(())
     }

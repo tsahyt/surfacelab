@@ -863,6 +863,11 @@ where
     pub fn get_layout(&self) -> hal::image::Layout {
         self.layout.get()
     }
+
+    /// Get the raw image
+    pub fn get_raw(&self) -> &B::Image {
+        &*self.raw
+    }
 }
 
 impl<B> Drop for Image<B>

@@ -88,7 +88,7 @@ where
     pub fn transfer_output(
         &mut self,
         _res: &Resource,
-        image: &gpu::BrokerImageView,
+        image: &gpu::BrokerImage,
         layout: gpu::Layout,
         _output_type: OutputType,
     ) {

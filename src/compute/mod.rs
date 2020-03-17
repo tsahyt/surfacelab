@@ -316,38 +316,39 @@ where
             .is_backed());
 
         let image = self.sockets.get_input_image(&socket_res).unwrap();
-        let raw = self.gpu.download_image(image).unwrap();
 
-        log::debug!("Downloaded image size {:?}", raw.len());
-        let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
+        // let raw = self.gpu.download_image(image).unwrap();
 
-        thread::spawn(move || {
-            let ty = ty
-                .monomorphic()
-                .expect("Output Type must always be monomorphic!");
-            let converted = convert_image(&raw, ty);
+        // log::debug!("Downloaded image size {:?}", raw.len());
+        // let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
 
-            log::debug!("Saving converted image to {}", path);
+        // thread::spawn(move || {
+        //     let ty = ty
+        //         .monomorphic()
+        //         .expect("Output Type must always be monomorphic!");
+        //     let converted = convert_image(&raw, ty);
 
-            let r = image::save_buffer(
-                path,
-                &converted,
-                IMG_SIZE,
-                IMG_SIZE,
-                match ty {
-                    ImageType::Grayscale => image::ColorType::L16,
-                    ImageType::Rgb => image::ColorType::Rgb16,
-                },
-            );
-            match r {
-                Err(e) => log::error!("Error saving image: {}", e),
-                Ok(_) => log::debug!("Saved image!"),
-            };
-        });
+        //     log::debug!("Saving converted image to {}", path);
+
+        //     let r = image::save_buffer(
+        //         path,
+        //         &converted,
+        //         IMG_SIZE,
+        //         IMG_SIZE,
+        //         match ty {
+        //             ImageType::Grayscale => image::ColorType::L16,
+        //             ImageType::Rgb => image::ColorType::Rgb16,
+        //         },
+        //     );
+        //     match r {
+        //         Err(e) => log::error!("Error saving image: {}", e),
+        //         Ok(_) => log::debug!("Saved image!"),
+        //     };
+        // });
 
         Ok(ComputeEvent::OutputReady(
             res.clone(),
-            gpu::BrokerImageView::from::<B>(image.get_view().unwrap()),
+            gpu::BrokerImage::from::<B>(image.get_raw()),
             image.get_layout(),
             *output_type,
         ))
