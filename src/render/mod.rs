@@ -92,9 +92,9 @@ where
         layout: gpu::Layout,
         _output_type: OutputType,
     ) {
-        // TODO: pick correct renderer based on resource
         for r in self.renderers.values_mut() {
             r.transfer_image(image.to::<B>(), layout).unwrap();
+            r.render();
         }
     }
 }
