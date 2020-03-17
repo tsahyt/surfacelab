@@ -60,7 +60,6 @@ struct SocketData<B: gpu::Backend> {
 
     /// Input sockets only map to the output sockets they are connected to
     inputs: HashMap<String, Resource>,
-
     // TODO: Block dropping of output images that were last sent as outputready
 }
 
@@ -302,7 +301,7 @@ where
         let ty = op.inputs()[socket];
         let output_type = match op {
             Operator::Output { output_type } => output_type,
-            _ => panic!("Output execution on non-output")
+            _ => panic!("Output execution on non-output"),
         };
 
         log::trace!("Processing Output operator {} socket {}", res, socket);
@@ -320,26 +319,31 @@ where
         let raw = self.gpu.download_image(image).unwrap();
 
         log::debug!("Downloaded image size {:?}", raw.len());
-
-        let ty = ty
-            .monomorphic()
-            .expect("Output Type must always be monomorphic!");
-        let converted = convert_image(&raw, ty);
-
         let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
-        log::debug!("Saving converted image to {}", path);
-        image::save_buffer(
-            path,
-            &converted,
-            IMG_SIZE,
-            IMG_SIZE,
-            match ty {
-                ImageType::Grayscale => image::ColorType::L16,
-                ImageType::Rgb => image::ColorType::Rgb16,
-            },
-        )
-        .map_err(|e| format!("Error saving image: {}", e))?;
-        log::debug!("Saved image!");
+
+        thread::spawn(move || {
+            let ty = ty
+                .monomorphic()
+                .expect("Output Type must always be monomorphic!");
+            let converted = convert_image(&raw, ty);
+
+            log::debug!("Saving converted image to {}", path);
+
+            let r = image::save_buffer(
+                path,
+                &converted,
+                IMG_SIZE,
+                IMG_SIZE,
+                match ty {
+                    ImageType::Grayscale => image::ColorType::L16,
+                    ImageType::Rgb => image::ColorType::Rgb16,
+                },
+            );
+            match r {
+                Err(e) => log::error!("Error saving image: {}", e),
+                Ok(_) => log::debug!("Saved image!"),
+            };
+        });
 
         Ok(ComputeEvent::OutputReady(
             res.clone(),
