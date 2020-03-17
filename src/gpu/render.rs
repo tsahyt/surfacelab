@@ -220,8 +220,28 @@ where
         .map_err(|_| "Failed to create render descriptor pool")?;
 
         // Main Rendering Data
-        let main_set_layout = unsafe { lock.device.create_descriptor_set_layout(&[], &[]) }
-            .expect("Can't create main descriptor set layout");
+        let main_set_layout = unsafe {
+            lock.device.create_descriptor_set_layout(
+                &[
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 0,
+                        ty: hal::pso::DescriptorType::SampledImage,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 1,
+                        ty: hal::pso::DescriptorType::Sampler,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                ],
+                &[],
+            )
+        }
+        .expect("Can't create main descriptor set layout");
 
         let main_descriptor_set = unsafe { descriptor_pool.allocate_set(&main_set_layout) }
             .map_err(|_| "Failed to allocate render descriptor set")?;
@@ -497,12 +517,39 @@ where
                     .unwrap()
             };
 
+            unsafe {
+                use hal::pso::*;
+                lock.device.write_descriptor_sets(vec![
+                    DescriptorSetWrite {
+                        set: &*self.main_descriptor_set,
+                        binding: 0,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Image(
+                            &*self.image_slot.view,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
+                    DescriptorSetWrite {
+                        set: &*self.main_descriptor_set,
+                        binding: 1,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Sampler(&*self.sampler)),
+                    },
+                ])
+            }
+
             let cmd_buffer = unsafe {
                 let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
                 cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
                 cmd_buffer.set_viewports(0, &[self.viewport.clone()]);
                 cmd_buffer.set_scissors(0, &[self.viewport.rect]);
 
+                cmd_buffer.bind_graphics_descriptor_sets(
+                    &self.main_pipeline_layout,
+                    0,
+                    std::iter::once(&*self.main_descriptor_set),
+                    &[],
+                );
                 cmd_buffer.bind_graphics_pipeline(&self.main_pipeline);
                 cmd_buffer.begin_render_pass(
                     &self.main_render_pass,
