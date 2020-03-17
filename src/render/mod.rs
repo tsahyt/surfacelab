@@ -23,8 +23,8 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
                     render_manager.resize(*id, *width, *height)
                 }
-                Lang::ComputeEvent(ComputeEvent::OutputReady(res, img, layout, out_ty)) => {
-                    render_manager.transfer_output(res, img, *layout, *out_ty)
+                Lang::ComputeEvent(ComputeEvent::OutputReady(res, img, layout, access, out_ty)) => {
+                    render_manager.transfer_output(res, img, *layout, *access, *out_ty)
                 }
                 _ => {}
             }
@@ -90,10 +90,11 @@ where
         _res: &Resource,
         image: &gpu::BrokerImage,
         layout: gpu::Layout,
+        access: gpu::Access,
         _output_type: OutputType,
     ) {
         for r in self.renderers.values_mut() {
-            r.transfer_image(image.to::<B>(), layout).unwrap();
+            r.transfer_image(image.to::<B>(), layout, access).unwrap();
             r.render();
         }
     }

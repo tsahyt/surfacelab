@@ -10,5 +10,5 @@ void main() {
     vec3 uv = vec3(v_TexCoord, 0.);
     vec4 tex = texture(sampler2D(t_Color, s_Color), v_TexCoord);
 
-    outColor = vec4(tex.rgb, 1.0);
+    outColor = vec4(tex.r, tex.r, tex.r, 1.0);
 }

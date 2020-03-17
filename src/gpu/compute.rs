@@ -864,6 +864,10 @@ where
         self.layout.get()
     }
 
+    pub fn get_access(&self) -> hal::image::Access {
+        self.access.get()
+    }
+
     /// Get the raw image
     pub fn get_raw(&self) -> &B::Image {
         &*self.raw

@@ -563,6 +563,7 @@ where
         &mut self,
         source: &B::Image,
         source_layout: hal::image::Layout,
+        source_access: hal::image::Access,
     ) -> Result<(), String> {
         self.synchronize_at_fence();
 
@@ -594,13 +595,70 @@ where
         let cmd_buffer = unsafe {
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            cmd_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::TRANSFER,
+                hal::memory::Dependencies::empty(),
+                &[
+                    hal::memory::Barrier::Image {
+                        states: (source_access, source_layout)
+                            ..(
+                                hal::image::Access::TRANSFER_READ,
+                                hal::image::Layout::TransferSrcOptimal,
+                            ),
+                        target: source,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    },
+                    hal::memory::Barrier::Image {
+                        states: (
+                            hal::image::Access::SHADER_READ,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )
+                            ..(
+                                hal::image::Access::TRANSFER_WRITE,
+                                hal::image::Layout::TransferDstOptimal,
+                            ),
+                        target: &*self.image_slot.image,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    },
+                ],
+            );
             cmd_buffer.blit_image(
                 source,
-                source_layout,
+                hal::image::Layout::TransferSrcOptimal,
                 &*self.image_slot.image,
                 hal::image::Layout::TransferDstOptimal,
                 hal::image::Filter::Nearest,
                 &blits,
+            );
+            cmd_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
+                hal::memory::Dependencies::empty(),
+                &[
+                    hal::memory::Barrier::Image {
+                        states: (
+                            hal::image::Access::TRANSFER_READ,
+                            hal::image::Layout::TransferSrcOptimal,
+                        )..(source_access, source_layout),
+                        target: source,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    },
+                    hal::memory::Barrier::Image {
+                        states: (
+                            hal::image::Access::TRANSFER_WRITE,
+                            hal::image::Layout::TransferDstOptimal,
+                        )
+                            ..(
+                                hal::image::Access::SHADER_READ,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            ),
+                        target: &*self.image_slot.image,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    },
+                ],
             );
             cmd_buffer.finish();
             cmd_buffer
