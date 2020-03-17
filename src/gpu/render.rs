@@ -7,6 +7,9 @@ use std::sync::{Arc, Mutex};
 static BLIT_VERTEX_SHADER: &[u8] = include_bytes!("../../shaders/blit-vert.spv");
 static BLIT_FRAGMENT_SHADER: &[u8] = include_bytes!("../../shaders/blit-frag.spv");
 
+static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../shaders/quad.spv");
+static MAIN_FRAGMENT_SHADER: &[u8] = include_bytes!("../../shaders/basic.spv");
+
 use super::{Backend, GPU};
 
 pub struct GPURender<B: Backend> {
@@ -19,10 +22,23 @@ pub struct GPURender<B: Backend> {
     format: hal::format::Format,
     dimensions: hal::window::Extent2D,
 
+    // Shared Pipeline Data
+    descriptor_pool: ManuallyDrop<B::DescriptorPool>,
+
     // Rendering Data
     main_render_pass: ManuallyDrop<B::RenderPass>,
     main_pipeline: ManuallyDrop<B::GraphicsPipeline>,
+    main_pipeline_layout: ManuallyDrop<B::PipelineLayout>,
+    main_descriptor_set: ManuallyDrop<B::DescriptorSet>,
     image_slot: ImageSlot<B>,
+
+    // Blitting Data
+    blit_render_pass: ManuallyDrop<B::RenderPass>,
+    blit_pipeline: ManuallyDrop<B::GraphicsPipeline>,
+    blit_pipeline_layout: ManuallyDrop<B::PipelineLayout>,
+    blit_descriptor_set: ManuallyDrop<B::DescriptorSet>,
+
+    sampler: ManuallyDrop<B::Sampler>,
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
@@ -58,7 +74,7 @@ impl<B> ImageSlot<B>
 where
     B: Backend,
 {
-    const FORMAT: hal::format::Format = hal::format::Format::Rgba8Snorm;
+    pub const FORMAT: hal::format::Format = hal::format::Format::Rgba8Snorm;
 
     pub fn new(
         device: &B::Device,
@@ -71,7 +87,7 @@ where
                 8,
                 Self::FORMAT,
                 hal::image::Tiling::Optimal,
-                hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
+                hal::image::Usage::SAMPLED | hal::image::Usage::COLOR_ATTACHMENT,
                 hal::image::ViewCapabilities::empty(),
             )
         }
@@ -180,16 +196,77 @@ where
         }
         .map_err(|_| "Can't create command pool!")?;
 
-        // Descriptors
-        let set_layout = unsafe { lock.device.create_descriptor_set_layout(&[], &[]) }
-            .expect("Can't create descriptor set layout");
+        let mut descriptor_pool = unsafe {
+            use hal::pso::*;
+            lock.device.create_descriptor_pool(
+                2,
+                &[
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::UniformBuffer,
+                        count: 8,
+                    },
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::Sampler,
+                        count: 2,
+                    },
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::SampledImage,
+                        count: 16,
+                    },
+                ],
+                DescriptorPoolCreateFlags::empty(),
+            )
+        }
+        .map_err(|_| "Failed to create render descriptor pool")?;
 
-        let (render_pass, pipeline) = Self::new_pipeline(
+        // Main Rendering Data
+        let main_set_layout = unsafe { lock.device.create_descriptor_set_layout(&[], &[]) }
+            .expect("Can't create main descriptor set layout");
+
+        let main_descriptor_set = unsafe { descriptor_pool.allocate_set(&main_set_layout) }
+            .map_err(|_| "Failed to allocate render descriptor set")?;
+
+        let (main_render_pass, main_pipeline, main_pipeline_layout) = Self::new_pipeline(
             &lock.device,
             format,
-            set_layout,
-            include_bytes!("../../shaders/quad.spv"),
-            include_bytes!("../../shaders/basic.spv"),
+            main_set_layout,
+            MAIN_VERTEX_SHADER,
+            MAIN_FRAGMENT_SHADER,
+        )?;
+
+        // Blit Rendering Data
+        let blit_set_layout = unsafe {
+            lock.device.create_descriptor_set_layout(
+                &[
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 0,
+                        ty: hal::pso::DescriptorType::SampledImage,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 1,
+                        ty: hal::pso::DescriptorType::Sampler,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                ],
+                &[],
+            )
+        }
+        .expect("Can't create blit descriptor set layout");
+
+        let blit_descriptor_set = unsafe { descriptor_pool.allocate_set(&blit_set_layout) }
+            .map_err(|_| "Failed to allocate blit descriptor set")?;
+
+        let (blit_render_pass, blit_pipeline, blit_pipeline_layout) = Self::new_pipeline(
+            &lock.device,
+            ImageSlot::<B>::FORMAT,
+            blit_set_layout,
+            BLIT_VERTEX_SHADER,
+            BLIT_FRAGMENT_SHADER,
         )?;
 
         // Rendering setup
@@ -202,6 +279,15 @@ where
             },
             depth: 0.0..1.0,
         };
+
+        // Shared Sampler
+        let sampler = unsafe {
+            lock.device.create_sampler(&hal::image::SamplerDesc::new(
+                hal::image::Filter::Linear,
+                hal::image::WrapMode::Tile,
+            ))
+        }
+        .map_err(|_| "Failed to create render sampler")?;
 
         // Synchronization primitives
         let fence = lock.device.create_fence(true).unwrap();
@@ -219,9 +305,20 @@ where
             format,
             dimensions: hal::window::Extent2D { width, height },
 
-            main_render_pass: ManuallyDrop::new(render_pass),
-            main_pipeline: ManuallyDrop::new(pipeline),
+            descriptor_pool: ManuallyDrop::new(descriptor_pool),
+
+            main_render_pass: ManuallyDrop::new(main_render_pass),
+            main_pipeline: ManuallyDrop::new(main_pipeline),
+            main_pipeline_layout: ManuallyDrop::new(main_pipeline_layout),
+            main_descriptor_set: ManuallyDrop::new(main_descriptor_set),
             image_slot,
+
+            blit_render_pass: ManuallyDrop::new(blit_render_pass),
+            blit_pipeline: ManuallyDrop::new(blit_pipeline),
+            blit_pipeline_layout: ManuallyDrop::new(blit_pipeline_layout),
+            blit_descriptor_set: ManuallyDrop::new(blit_descriptor_set),
+
+            sampler: ManuallyDrop::new(sampler),
 
             complete_fence: ManuallyDrop::new(fence),
             complete_semaphore: ManuallyDrop::new(semaphore),
@@ -234,7 +331,7 @@ where
         set_layout: B::DescriptorSetLayout,
         vertex_shader: &[u8],
         fragment_shader: &[u8],
-    ) -> Result<(B::RenderPass, B::GraphicsPipeline), String> {
+    ) -> Result<(B::RenderPass, B::GraphicsPipeline, B::PipelineLayout), String> {
         // Create Render Pass
         let render_pass = {
             let attachment = hal::pass::Attachment {
@@ -331,7 +428,7 @@ where
             pipeline.unwrap()
         };
 
-        Ok((render_pass, pipeline))
+        Ok((render_pass, pipeline, pipeline_layout))
     }
 
     pub fn set_dimensions(&mut self, width: u32, height: u32) {
@@ -470,6 +567,89 @@ where
         source: &B::ImageView,
         source_layout: hal::image::Layout,
     ) -> Result<(), String> {
+        self.synchronize_at_fence();
+
+        let mut lock = self.gpu.lock().unwrap();
+
+        let framebuffer = unsafe {
+            lock.device
+                .create_framebuffer(
+                    &self.blit_render_pass,
+                    std::iter::once(&*self.image_slot.view),
+                    hal::image::Extent {
+                        width: 1024,
+                        height: 1024,
+                        depth: 1,
+                    },
+                )
+                .unwrap()
+        };
+
+        unsafe {
+            use hal::pso::*;
+            lock.device.write_descriptor_sets(vec![
+                DescriptorSetWrite {
+                    set: &*self.blit_descriptor_set,
+                    binding: 0,
+                    array_offset: 0,
+                    descriptors: Some(Descriptor::Image(source, hal::image::Layout::ShaderReadOnlyOptimal)),
+                },
+                DescriptorSetWrite {
+                    set: &*self.blit_descriptor_set,
+                    binding: 1,
+                    array_offset: 0,
+                    descriptors: Some(Descriptor::Sampler(&*self.sampler)),
+                },
+            ])
+        }
+
+        let cmd_buffer = unsafe {
+            let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
+            cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            cmd_buffer.set_viewports(0, &[self.viewport.clone()]);
+            cmd_buffer.set_scissors(0, &[self.viewport.rect]);
+
+            cmd_buffer.bind_graphics_descriptor_sets(
+                &self.blit_pipeline_layout,
+                0,
+                std::iter::once(&*self.blit_descriptor_set),
+                &[],
+            );
+            cmd_buffer.bind_graphics_pipeline(&self.main_pipeline);
+            cmd_buffer.begin_render_pass(
+                &self.blit_render_pass,
+                &framebuffer,
+                hal::pso::Rect {
+                    x: 0,
+                    y: 0,
+                    w: 1024,
+                    h: 1024,
+                },
+                &[hal::command::ClearValue {
+                    color: hal::command::ClearColor {
+                        float32: [0.0, 0.0, 0.0, 1.0],
+                    },
+                }],
+                hal::command::SubpassContents::Inline,
+            );
+            cmd_buffer.draw(0..6, 0..1);
+            cmd_buffer.end_render_pass();
+            cmd_buffer.finish();
+            cmd_buffer
+        };
+
+        // Submit for render
+        unsafe {
+            lock.queue_group.queues[0].submit(
+                hal::queue::Submission {
+                    command_buffers: std::iter::once(&cmd_buffer),
+                    wait_semaphores: None,
+                    signal_semaphores: std::iter::once(&*self.complete_semaphore),
+                },
+                Some(&self.complete_fence),
+            )
+        };
+
         Ok(())
     }
 }
@@ -486,12 +666,14 @@ where
 
         let lock = self.gpu.lock().unwrap();
 
-        // for img in self.image_slots.iter_mut() {
-        //     unsafe {
-        //         lock.device.free_memory(ManuallyDrop::take(img).memory);
-        //         lock.device.destroy_image(ManuallyDrop::take(img).image);
-        //     }
-        // }
+        unsafe {
+            lock.device
+                .free_memory(ManuallyDrop::take(&mut self.image_slot.memory));
+            lock.device
+                .destroy_image_view(ManuallyDrop::take(&mut self.image_slot.view));
+            lock.device
+                .destroy_image(ManuallyDrop::take(&mut self.image_slot.image));
+        }
 
         unsafe {
             // TODO: destroy render resources

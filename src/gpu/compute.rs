@@ -149,7 +149,7 @@ where
                         count: 8 * ops,
                     },
                 ],
-                hal::pso::DescriptorPoolCreateFlags::empty(),
+                DescriptorPoolCreateFlags::empty(),
             )
         }
         .map_err(|_| "Failed to create descriptor pool")?;
