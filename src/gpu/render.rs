@@ -497,21 +497,16 @@ where
                 cmd_buffer.pipeline_barrier(
                     hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::FRAGMENT_SHADER,
                     hal::memory::Dependencies::empty(),
-                    &[
-                        hal::memory::Barrier::Image {
-                            states: (
-                                hal::image::Access::empty(),
-                                hal::image::Layout::Undefined,
-                            )
-                                ..(
-                                    hal::image::Access::SHADER_READ,
-                                    hal::image::Layout::ShaderReadOnlyOptimal,
-                                ),
-                            target: &*self.image_slot.image,
-                            families: None,
-                            range: super::COLOR_RANGE.clone(),
-                        },
-                    ],
+                    &[hal::memory::Barrier::Image {
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                            ..(
+                                hal::image::Access::SHADER_READ,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            ),
+                        target: &*self.image_slot.image,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    }],
                 );
 
                 cmd_buffer.bind_graphics_descriptor_sets(
@@ -620,7 +615,7 @@ where
                 hal::memory::Dependencies::empty(),
                 &[
                     hal::memory::Barrier::Image {
-                        states: (source_access, source_layout)
+                        states: (hal::image::Access::empty(), source_layout)
                             ..(
                                 hal::image::Access::TRANSFER_READ,
                                 hal::image::Layout::TransferSrcOptimal,
@@ -630,17 +625,18 @@ where
                         range: super::COLOR_RANGE.clone(),
                     },
                     hal::memory::Barrier::Image {
-                        states: (
-                            hal::image::Access::empty(),
-                            hal::image::Layout::Undefined,
-                        )
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
                             ..(
                                 hal::image::Access::TRANSFER_WRITE,
                                 hal::image::Layout::TransferDstOptimal,
                             ),
                         target: &*self.image_slot.image,
                         families: None,
-                        range: super::COLOR_RANGE.clone(),
+                        range: hal::image::SubresourceRange {
+                            aspects: hal::format::Aspects::COLOR,
+                            levels: 0..self.image_slot.mip_levels,
+                            layers: 0..1,
+                        },
                     },
                 ],
             );
@@ -653,7 +649,7 @@ where
                 &blits,
             );
             cmd_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::FRAGMENT_SHADER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
+                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::FRAGMENT_SHADER,
                 hal::memory::Dependencies::empty(),
                 &[
                     hal::memory::Barrier::Image {
@@ -688,7 +684,9 @@ where
         unsafe {
             lock.queue_group.queues[0]
                 .submit_without_semaphores(Some(&cmd_buffer), Some(&self.complete_fence));
+        }
 
+        unsafe {
             self.command_pool.free(Some(cmd_buffer));
         }
 
