@@ -298,7 +298,6 @@ where
 
     fn execute_output(&mut self, op: &Operator, res: &Resource) -> Result<ComputeEvent, String> {
         let socket = "data";
-        let ty = op.inputs()[socket];
         let output_type = match op {
             Operator::Output { output_type } => output_type,
             _ => panic!("Output execution on non-output"),
@@ -323,7 +322,7 @@ where
         // let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
 
         // thread::spawn(move || {
-        //     let ty = ty
+        //     let ty = op.inputs()[socket]
         //         .monomorphic()
         //         .expect("Output Type must always be monomorphic!");
         //     let converted = convert_image(&raw, ty);

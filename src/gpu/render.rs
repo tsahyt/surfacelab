@@ -298,6 +298,7 @@ where
         })
     }
 
+    #[allow(clippy::type_complexity)]
     fn new_pipeline(
         device: &B::Device,
         format: hal::format::Format,
