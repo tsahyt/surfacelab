@@ -31,6 +31,7 @@ pub struct GPURender<B: Backend> {
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
     complete_semaphore: ManuallyDrop<B::Semaphore>,
+    transfer_fence: ManuallyDrop<B::Fence>,
 }
 
 /// The renderer holds a fixed number of image slots, as opposed to the compute
@@ -268,6 +269,7 @@ where
 
         // Synchronization primitives
         let fence = lock.device.create_fence(true).unwrap();
+        let tfence = lock.device.create_fence(false).unwrap();
         let semaphore = lock.device.create_semaphore().unwrap();
 
         // Image slots
@@ -292,6 +294,7 @@ where
 
             complete_fence: ManuallyDrop::new(fence),
             complete_semaphore: ManuallyDrop::new(semaphore),
+            transfer_fence: ManuallyDrop::new(tfence),
         })
     }
 
@@ -429,7 +432,7 @@ where
         unsafe {
             lock.device
                 .wait_for_fence(&self.complete_fence, 10_000_000_000)
-                .expect("Failed to wait for render fence after 1s");
+                .expect("Failed to wait for render fence after 10s");
             lock.device
                 .reset_fence(&self.complete_fence)
                 .expect("Failed to reset render fence");
@@ -580,8 +583,6 @@ where
         source_layout: hal::image::Layout,
         source_access: hal::image::Access,
     ) -> Result<(), String> {
-        self.synchronize_at_fence();
-
         let blits: Vec<_> = (0..self.image_slot.mip_levels)
             .map(|level| hal::command::ImageBlit {
                 src_subresource: hal::image::SubresourceLayers {
@@ -682,8 +683,10 @@ where
 
         let mut lock = self.gpu.lock().unwrap();
         unsafe {
+            lock.device.reset_fence(&*self.transfer_fence).unwrap();
             lock.queue_group.queues[0]
-                .submit_without_semaphores(Some(&cmd_buffer), Some(&self.complete_fence));
+                .submit_without_semaphores(Some(&cmd_buffer), Some(&self.transfer_fence));
+            lock.device.wait_for_fence(&*self.transfer_fence, 5_000_000_000).unwrap();
         }
 
         unsafe {
