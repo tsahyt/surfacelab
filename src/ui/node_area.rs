@@ -95,6 +95,7 @@ impl NodeAreaPrivate {
             action.replace(None);
         }));
 
+        // FIXME: Since render area was added, node jumps on drag
         widget.connect_motion_notify_event(
             clone!(@strong action, @strong widget_u, @strong container => move |w, motion| {
                 if let Some(Action::DragChild(offset_x, offset_y)) = action.borrow().as_ref() {

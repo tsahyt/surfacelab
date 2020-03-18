@@ -80,7 +80,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         vbox.add(&button_box);
 
         // Test Render Area
-        let render_area = render_area::RenderArea::new();
+        let render_area = render_area::RenderArea::new(RendererType::Renderer3D);
         paned.add1(&node_area);
         paned.add2(&render_area);
         vbox.pack_end(&paned, true, true, 0);

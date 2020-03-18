@@ -544,9 +544,15 @@ pub enum ComputeEvent {
     ),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum RendererType {
+    Renderer3D,
+    Renderer2D,
+}
+
 #[derive(Debug)]
 pub enum UIEvent {
-    RendererAdded(u64, WindowHandle, u32, u32),
+    RendererAdded(u64, WindowHandle, u32, u32, RendererType),
     RendererRedraw(u64),
     RendererResize(u64, u32, u32),
 }

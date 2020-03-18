@@ -5,7 +5,8 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
 static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../shaders/quad.spv");
-static MAIN_FRAGMENT_SHADER: &[u8] = include_bytes!("../../shaders/basic.spv");
+static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../shaders/renderer2d.spv");
+static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../shaders/renderer3d.spv");
 
 use super::{Backend, GPU};
 
@@ -143,6 +144,7 @@ where
         mut surface: B::Surface,
         width: u32,
         height: u32,
+        ty: crate::lang::RendererType,
     ) -> Result<Self, String> {
         log::info!("Obtaining GPU Render Resources");
         let lock = gpu.lock().unwrap();
@@ -245,7 +247,10 @@ where
             format,
             &main_set_layout,
             MAIN_VERTEX_SHADER,
-            MAIN_FRAGMENT_SHADER,
+            match ty {
+                crate::lang::RendererType::Renderer2D => MAIN_FRAGMENT_SHADER_2D,
+                crate::lang::RendererType::Renderer3D => MAIN_FRAGMENT_SHADER_3D,
+            },
         )?;
 
         // Rendering setup
@@ -733,7 +738,9 @@ where
             lock.device
                 .destroy_descriptor_pool(ManuallyDrop::take(&mut self.descriptor_pool));
             lock.device
-                .destroy_descriptor_set_layout(ManuallyDrop::take(&mut self.main_descriptor_set_layout));
+                .destroy_descriptor_set_layout(ManuallyDrop::take(
+                    &mut self.main_descriptor_set_layout,
+                ));
             lock.device
                 .destroy_render_pass(ManuallyDrop::take(&mut self.main_render_pass));
             lock.device

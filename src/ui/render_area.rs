@@ -11,6 +11,8 @@ use gtk::subclass::prelude::*;
 use gtk::subclass::widget::WidgetImplExt;
 use raw_window_handle::*;
 
+use once_cell::unsync::OnceCell;
+
 #[link(name = "gdk-3")]
 extern "C" {
     fn gdk_wayland_window_get_wl_surface(window: *const gdk_sys::GdkWindow) -> *mut libc::c_void;
@@ -32,7 +34,9 @@ fn gdk_wayland_handle(window: gdk::Window, display: gdk::Display) -> RawWindowHa
     RawWindowHandle::Wayland(handle)
 }
 
-pub struct RenderAreaPrivate {}
+pub struct RenderAreaPrivate {
+    renderer_type: OnceCell<RendererType>,
+}
 
 impl ObjectSubclass for RenderAreaPrivate {
     const NAME: &'static str = "RenderArea";
@@ -50,7 +54,9 @@ impl ObjectSubclass for RenderAreaPrivate {
     //fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {}
 
     fn new() -> Self {
-        RenderAreaPrivate {}
+        RenderAreaPrivate {
+            renderer_type: OnceCell::new(),
+        }
     }
 }
 
@@ -108,6 +114,7 @@ impl WidgetImpl for RenderAreaPrivate {
             WindowHandle::new(handle),
             w as _,
             h as _,
+            *self.renderer_type.get().unwrap_or(&RendererType::Renderer2D),
         )));
     }
 
@@ -145,16 +152,19 @@ glib_wrapper! {
 }
 
 impl RenderArea {
-    pub fn new() -> Self {
-        glib::Object::new(Self::static_type(), &[])
+    pub fn new(ty: RendererType) -> Self {
+        let obj = glib::Object::new(Self::static_type(), &[])
             .unwrap()
             .downcast()
-            .unwrap()
+            .unwrap();
+        let imp = RenderAreaPrivate::from_instance(&obj);
+        imp.renderer_type.set(ty);
+        obj
     }
 }
 
 impl Default for RenderArea {
     fn default() -> Self {
-        Self::new()
+        Self::new(RendererType::Renderer2D)
     }
 }

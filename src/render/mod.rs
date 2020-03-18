@@ -16,8 +16,8 @@ pub fn start_render_thread<B: gpu::Backend>(
         for event in receiver {
             match &*event {
                 Lang::UserEvent(UserEvent::Quit) => break,
-                Lang::UIEvent(UIEvent::RendererAdded(id, h, width, height)) => render_manager
-                    .new_renderer(*id, h, *width, *height)
+                Lang::UIEvent(UIEvent::RendererAdded(id, h, width, height, ty)) => render_manager
+                    .new_renderer(*id, h, *width, *height, *ty)
                     .unwrap(),
                 Lang::UIEvent(UIEvent::RendererRedraw(id)) => render_manager.redraw(*id),
                 Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
@@ -56,9 +56,10 @@ where
         handle: &H,
         width: u32,
         height: u32,
+        ty: RendererType
     ) -> Result<(), String> {
         let surface = gpu::render::create_surface(&self.gpu, handle);
-        let renderer = gpu::render::GPURender::new(&self.gpu, surface, width, height)?;
+        let renderer = gpu::render::GPURender::new(&self.gpu, surface, width, height, ty)?;
         self.renderers.insert(id, renderer);
 
         Ok(())
