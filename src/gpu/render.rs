@@ -46,11 +46,6 @@ pub struct GPURender<B: Backend> {
 /// For 2D renderers, the MIP levels can be set to 0, because the artifacts do
 /// not occur when just blitting the image.
 ///
-/// All image slots have the same format, since one the way to display,
-/// grayscale has to be converted to RGBA anyway. Furthermore the bit depth is
-/// generally set by the surface and is generally also lower than 16 bits. We
-/// therefore initialize all images with the *surface format*.
-///
 /// Contrary to images in the compute component, which are allocated in a common
 /// memory pool, every image slot is given its own memory allocation. This works
 /// out because there are comparatively few renderers with few image slots
@@ -66,7 +61,7 @@ impl<B> ImageSlot<B>
 where
     B: Backend,
 {
-    pub const FORMAT: hal::format::Format = hal::format::Format::Rgba8Snorm;
+    pub const FORMAT: hal::format::Format = hal::format::Format::Rgba16Sfloat;
 
     pub fn new(
         device: &B::Device,

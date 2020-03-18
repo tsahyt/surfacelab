@@ -6,12 +6,12 @@ layout(location = 0) out vec4 outColor;
 layout(set = 0, binding = 0) uniform texture2D t_Displ;
 layout(set = 0, binding = 1) uniform sampler s_Sampler;
 
-const int MAX_STEPS = 300;
+const int MAX_STEPS = 1000;
 const float MAX_DIST = 24.0;
 const float SURF_DIST = .0002;
 
 const float TEX_SCALE = 8.;
-const float TEX_DISPL = 0.1;
+const float TEX_DISPL = 1.;
 const float TEX_MIDLEVEL = .5;
 
 #define LOD_BIAS .5
@@ -22,8 +22,6 @@ float lod_by_distance(float d) {
 
 float heightfield(vec2 p, float lod) {
     float h = textureLod(sampler2D(t_Displ, s_Sampler), p / TEX_SCALE, lod).r;
-    float gamma = 2.2;
-    h = pow(clamp(0., 1., h), 1. / gamma);
     return h - TEX_MIDLEVEL;
 }
 
@@ -31,7 +29,7 @@ float sdf(vec3 p, float lod) {
     float height = heightfield(p.xz, lod);
     float planeDist = p.y - (height * TEX_DISPL);
 
-    return planeDist / 2.;
+    return planeDist / 12.;
 }
 
 vec3 normal(vec3 p, float lod) {
