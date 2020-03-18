@@ -28,12 +28,19 @@ pub struct GPURender<B: Backend> {
     main_descriptor_set: B::DescriptorSet,
     main_descriptor_set_layout: ManuallyDrop<B::DescriptorSetLayout>,
     sampler: ManuallyDrop<B::Sampler>,
-    image_slot: ImageSlot<B>,
+    image_slots: ImageSlots<B>,
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
     complete_semaphore: ManuallyDrop<B::Semaphore>,
     transfer_fence: ManuallyDrop<B::Fence>,
+}
+
+struct ImageSlots<B: Backend> {
+    albedo: ImageSlot<B>,
+    roughness: ImageSlot<B>,
+    normal: ImageSlot<B>,
+    displacement: ImageSlot<B>,
 }
 
 /// The renderer holds a fixed number of image slots, as opposed to the compute
@@ -274,7 +281,12 @@ where
         let semaphore = lock.device.create_semaphore().unwrap();
 
         // Image slots
-        let image_slot = ImageSlot::new(&lock.device, &lock.memory_properties)?;
+        let image_slots = ImageSlots {
+            albedo: ImageSlot::new(&lock.device, &lock.memory_properties)?,
+            roughness: ImageSlot::new(&lock.device, &lock.memory_properties)?,
+            normal: ImageSlot::new(&lock.device, &lock.memory_properties)?,
+            displacement: ImageSlot::new(&lock.device, &lock.memory_properties)?,
+        };
 
         Ok(GPURender {
             gpu: gpu.clone(),
@@ -291,7 +303,7 @@ where
             main_pipeline_layout: ManuallyDrop::new(main_pipeline_layout),
             main_descriptor_set: main_descriptor_set,
             main_descriptor_set_layout: ManuallyDrop::new(main_set_layout),
-            image_slot,
+            image_slots,
             sampler: ManuallyDrop::new(sampler),
 
             complete_fence: ManuallyDrop::new(fence),
@@ -481,7 +493,7 @@ where
                         binding: 0,
                         array_offset: 0,
                         descriptors: Some(Descriptor::Image(
-                            &*self.image_slot.view,
+                            &*self.image_slots.displacement.view,
                             hal::image::Layout::ShaderReadOnlyOptimal,
                         )),
                     },
@@ -509,7 +521,7 @@ where
                                 hal::image::Access::SHADER_READ,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             ),
-                        target: &*self.image_slot.image,
+                        target: &*self.image_slots.displacement.image,
                         families: None,
                         range: super::COLOR_RANGE.clone(),
                     }],
@@ -586,7 +598,9 @@ where
         source_layout: hal::image::Layout,
         source_access: hal::image::Access,
     ) -> Result<(), String> {
-        let blits: Vec<_> = (0..self.image_slot.mip_levels)
+        let image_slot = &self.image_slots.displacement;
+
+        let blits: Vec<_> = (0..image_slot.mip_levels)
             .map(|level| hal::command::ImageBlit {
                 src_subresource: hal::image::SubresourceLayers {
                     aspects: hal::format::Aspects::COLOR,
@@ -634,11 +648,11 @@ where
                                 hal::image::Access::TRANSFER_WRITE,
                                 hal::image::Layout::TransferDstOptimal,
                             ),
-                        target: &*self.image_slot.image,
+                        target: &*image_slot.image,
                         families: None,
                         range: hal::image::SubresourceRange {
                             aspects: hal::format::Aspects::COLOR,
-                            levels: 0..self.image_slot.mip_levels,
+                            levels: 0..image_slot.mip_levels,
                             layers: 0..1,
                         },
                     },
@@ -647,7 +661,7 @@ where
             cmd_buffer.blit_image(
                 source,
                 hal::image::Layout::TransferSrcOptimal,
-                &*self.image_slot.image,
+                &*image_slot.image,
                 hal::image::Layout::TransferDstOptimal,
                 hal::image::Filter::Nearest,
                 &blits,
@@ -674,7 +688,7 @@ where
                                 hal::image::Access::SHADER_READ,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             ),
-                        target: &*self.image_slot.image,
+                        target: &*image_slot.image,
                         families: None,
                         range: super::COLOR_RANGE.clone(),
                     },
@@ -714,15 +728,19 @@ where
 
         let lock = self.gpu.lock().unwrap();
 
-        // Destroy Image Slots
-        unsafe {
-            lock.device
-                .free_memory(ManuallyDrop::take(&mut self.image_slot.memory));
-            lock.device
-                .destroy_image_view(ManuallyDrop::take(&mut self.image_slot.view));
-            lock.device
-                .destroy_image(ManuallyDrop::take(&mut self.image_slot.image));
+        fn free_slot<B: Backend>(device: &B::Device, slot: &mut ImageSlot<B>) {
+            unsafe {
+                device.free_memory(ManuallyDrop::take(&mut slot.memory));
+                device.destroy_image_view(ManuallyDrop::take(&mut slot.view));
+                device.destroy_image(ManuallyDrop::take(&mut slot.image));
+            }
         }
+
+        // Destroy Image Slots
+        free_slot(&lock.device, &mut self.image_slots.albedo);
+        free_slot(&lock.device, &mut self.image_slots.roughness);
+        free_slot(&lock.device, &mut self.image_slots.normal);
+        free_slot(&lock.device, &mut self.image_slots.displacement);
 
         unsafe {
             lock.device
