@@ -24,7 +24,8 @@ pub struct GPURender<B: Backend> {
     main_render_pass: ManuallyDrop<B::RenderPass>,
     main_pipeline: ManuallyDrop<B::GraphicsPipeline>,
     main_pipeline_layout: ManuallyDrop<B::PipelineLayout>,
-    main_descriptor_set: ManuallyDrop<B::DescriptorSet>,
+    main_descriptor_set: B::DescriptorSet,
+    main_descriptor_set_layout: ManuallyDrop<B::DescriptorSetLayout>,
     sampler: ManuallyDrop<B::Sampler>,
     image_slot: ImageSlot<B>,
 
@@ -242,7 +243,7 @@ where
         let (main_render_pass, main_pipeline, main_pipeline_layout) = Self::new_pipeline(
             &lock.device,
             format,
-            main_set_layout,
+            &main_set_layout,
             MAIN_VERTEX_SHADER,
             MAIN_FRAGMENT_SHADER,
         )?;
@@ -288,7 +289,8 @@ where
             main_render_pass: ManuallyDrop::new(main_render_pass),
             main_pipeline: ManuallyDrop::new(main_pipeline),
             main_pipeline_layout: ManuallyDrop::new(main_pipeline_layout),
-            main_descriptor_set: ManuallyDrop::new(main_descriptor_set),
+            main_descriptor_set: main_descriptor_set,
+            main_descriptor_set_layout: ManuallyDrop::new(main_set_layout),
             image_slot,
             sampler: ManuallyDrop::new(sampler),
 
@@ -302,7 +304,7 @@ where
     fn new_pipeline(
         device: &B::Device,
         format: hal::format::Format,
-        set_layout: B::DescriptorSetLayout,
+        set_layout: &B::DescriptorSetLayout,
         vertex_shader: &[u8],
         fragment_shader: &[u8],
     ) -> Result<(B::RenderPass, B::GraphicsPipeline, B::PipelineLayout), String> {
@@ -334,7 +336,7 @@ where
         // Pipeline
         let pipeline_layout = unsafe {
             device
-                .create_pipeline_layout(std::iter::once(&set_layout), &[])
+                .create_pipeline_layout(std::iter::once(set_layout), &[])
                 .expect("Can't create pipeline layout")
         };
 
@@ -475,7 +477,7 @@ where
                 use hal::pso::*;
                 lock.device.write_descriptor_sets(vec![
                     DescriptorSetWrite {
-                        set: &*self.main_descriptor_set,
+                        set: &self.main_descriptor_set,
                         binding: 0,
                         array_offset: 0,
                         descriptors: Some(Descriptor::Image(
@@ -484,7 +486,7 @@ where
                         )),
                     },
                     DescriptorSetWrite {
-                        set: &*self.main_descriptor_set,
+                        set: &self.main_descriptor_set,
                         binding: 1,
                         array_offset: 0,
                         descriptors: Some(Descriptor::Sampler(&*self.sampler)),
@@ -516,7 +518,7 @@ where
                 cmd_buffer.bind_graphics_descriptor_sets(
                     &self.main_pipeline_layout,
                     0,
-                    std::iter::once(&*self.main_descriptor_set),
+                    std::iter::once(&self.main_descriptor_set),
                     &[],
                 );
                 cmd_buffer.bind_graphics_pipeline(&self.main_pipeline);
@@ -687,7 +689,9 @@ where
             lock.device.reset_fence(&*self.transfer_fence).unwrap();
             lock.queue_group.queues[0]
                 .submit_without_semaphores(Some(&cmd_buffer), Some(&self.transfer_fence));
-            lock.device.wait_for_fence(&*self.transfer_fence, 5_000_000_000).unwrap();
+            lock.device
+                .wait_for_fence(&*self.transfer_fence, 5_000_000_000)
+                .unwrap();
         }
 
         unsafe {
@@ -710,6 +714,7 @@ where
 
         let lock = self.gpu.lock().unwrap();
 
+        // Destroy Image Slots
         unsafe {
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.image_slot.memory));
@@ -720,11 +725,29 @@ where
         }
 
         unsafe {
-            // TODO: destroy render resources
+            lock.device
+                .destroy_command_pool(ManuallyDrop::take(&mut self.command_pool));
+            self.surface.unconfigure_swapchain(&lock.device);
+            lock.instance
+                .destroy_surface(ManuallyDrop::take(&mut self.surface));
+            lock.device
+                .destroy_descriptor_pool(ManuallyDrop::take(&mut self.descriptor_pool));
+            lock.device
+                .destroy_descriptor_set_layout(ManuallyDrop::take(&mut self.main_descriptor_set_layout));
             lock.device
                 .destroy_render_pass(ManuallyDrop::take(&mut self.main_render_pass));
             lock.device
-                .destroy_command_pool(ManuallyDrop::take(&mut self.command_pool));
+                .destroy_graphics_pipeline(ManuallyDrop::take(&mut self.main_pipeline));
+            lock.device
+                .destroy_pipeline_layout(ManuallyDrop::take(&mut self.main_pipeline_layout));
+            lock.device
+                .destroy_sampler(ManuallyDrop::take(&mut self.sampler));
+            lock.device
+                .destroy_fence(ManuallyDrop::take(&mut self.complete_fence));
+            lock.device
+                .destroy_semaphore(ManuallyDrop::take(&mut self.complete_semaphore));
+            lock.device
+                .destroy_fence(ManuallyDrop::take(&mut self.transfer_fence));
         }
     }
 }
