@@ -919,6 +919,19 @@ where
 
         Ok(())
     }
+
+    pub fn vacate_image(&mut self, image_use: crate::lang::OutputType) {
+        let image_slot = match image_use {
+            crate::lang::OutputType::Displacement => &mut self.image_slots.displacement,
+            crate::lang::OutputType::Albedo => &mut self.image_slots.albedo,
+            crate::lang::OutputType::Roughness => &mut self.image_slots.roughness,
+            crate::lang::OutputType::Normal => &mut self.image_slots.normal,
+            crate::lang::OutputType::Metallic => &mut self.image_slots.metallic,
+            _ => return (),
+        };
+
+        image_slot.occupied = false;
+    }
 }
 
 impl<B> Drop for GPURender<B>

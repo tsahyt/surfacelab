@@ -87,7 +87,7 @@ impl NodeManager {
                     )))
                 }
                 UserNodeEvent::RemoveNode(res) => match self.remove_node(res) {
-                    Ok(removed_conns) => {
+                    Ok((ty, removed_conns)) => {
                         response = removed_conns
                             .iter()
                             .map(|c| {
@@ -98,6 +98,10 @@ impl NodeManager {
                             })
                             .collect();
                         response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(res.clone())));
+                        if let Some(ty) = ty {
+                            response
+                                .push(Lang::GraphEvent(GraphEvent::OutputRemoved(res.clone(), ty)))
+                        }
                     }
                     Err(e) => log::error!("{}", e),
                 },
@@ -193,7 +197,13 @@ impl NodeManager {
     fn remove_node(
         &mut self,
         resource: &lang::Resource,
-    ) -> Result<Vec<(lang::Resource, lang::Resource)>, String> {
+    ) -> Result<
+        (
+            Option<lang::OutputType>,
+            Vec<(lang::Resource, lang::Resource)>,
+        ),
+        String,
+    > {
         use petgraph::visit::EdgeRef;
 
         let node = self
@@ -209,14 +219,11 @@ impl NodeManager {
         debug_assert!(self.node_graph.node_weight(node).is_some());
 
         // Remove from output vector
-        if self
-            .node_graph
-            .node_weight(node)
-            .unwrap()
-            .operator
-            .is_output()
-        {
+        let operator = &self.node_graph.node_weight(node).unwrap().operator;
+        let mut output_type = None;
+        if let lang::Operator::Output { output_type: ty } = operator {
             self.outputs.remove(&node);
+            output_type = Some(*ty)
         }
 
         // Get all connections
@@ -256,7 +263,7 @@ impl NodeManager {
         // Reindex last node
         self.node_indices.insert(last, node);
 
-        Ok(es)
+        Ok((output_type, es))
     }
 
     /// Connect two sockets in the node graph.

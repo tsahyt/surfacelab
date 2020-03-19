@@ -508,6 +508,7 @@ pub enum GraphEvent {
     Recomputed(Vec<Instruction>),
     SocketMonomorphized(Resource, ImageType),
     SocketDemonomorphized(Resource),
+    OutputRemoved(Resource, OutputType)
 }
 
 #[derive(Debug)]

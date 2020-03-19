@@ -26,6 +26,9 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::ComputeEvent(ComputeEvent::OutputReady(res, img, layout, access, out_ty)) => {
                     render_manager.transfer_output(res, img, *layout, *access, *out_ty)
                 }
+                Lang::GraphEvent(GraphEvent::OutputRemoved(res, out_ty)) => {
+                    render_manager.disconnect_output(res, *out_ty)
+                }
                 _ => {}
             }
         }
@@ -56,7 +59,7 @@ where
         handle: &H,
         width: u32,
         height: u32,
-        ty: RendererType
+        ty: RendererType,
     ) -> Result<(), String> {
         let surface = gpu::render::create_surface(&self.gpu, handle);
         let renderer = gpu::render::GPURender::new(&self.gpu, surface, width, height, ty)?;
@@ -95,8 +98,15 @@ where
         output_type: OutputType,
     ) {
         for r in self.renderers.values_mut() {
-            r.transfer_image(image.to::<B>(), layout, access, output_type).unwrap();
+            r.transfer_image(image.to::<B>(), layout, access, output_type)
+                .unwrap();
             r.render();
+        }
+    }
+
+    pub fn disconnect_output(&mut self, _res: &Resource, output_type: OutputType) {
+        for r in self.renderers.values_mut() {
+            r.vacate_image(output_type);
         }
     }
 }
