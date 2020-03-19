@@ -4,10 +4,17 @@ layout(location = 0) in vec2 v_TexCoord;
 layout(location = 0) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform sampler s_Texture;
-layout(set = 0, binding = 1) uniform texture2D t_Displ;
-layout(set = 0, binding = 2) uniform texture2D t_Albedo;
-layout(set = 0, binding = 3) uniform texture2D t_Normal;
-layout(set = 0, binding = 4) uniform texture2D t_Roughness;
+layout(set = 0, binding = 1) uniform Occupancy {
+    uint has_albedo;
+    uint has_roughness;
+    uint has_normal;
+    uint has_displacement;
+    uint has_metallic;
+};
+layout(set = 0, binding = 2) uniform texture2D t_Displ;
+layout(set = 0, binding = 3) uniform texture2D t_Albedo;
+layout(set = 0, binding = 4) uniform texture2D t_Normal;
+layout(set = 0, binding = 5) uniform texture2D t_Roughness;
 
 const float PI = 3.141592654;
 
@@ -64,29 +71,29 @@ float lod_by_distance(float d) {
 
 // TODO: gamma correction in shader?
 float heightfield(vec2 p, float lod) {
-    float h = textureLod(sampler2D(t_Displ, s_Texture), p / TEX_SCALE, lod).r;
-    // float gamma = 2.2;
-    // h = pow(h, 1. / gamma);
-    return h - TEX_MIDLEVEL;
+    if(has_displacement != 0) {
+        float h = textureLod(sampler2D(t_Displ, s_Texture), p / TEX_SCALE, lod).r;
+        return h - TEX_MIDLEVEL;
+    } else {
+        return 0.;
+    }
 }
 
 vec3 albedo(vec2 p, float lod) {
-    return textureLod(sampler2D(t_Albedo, s_Texture), p / TEX_SCALE, lod).rgb;
-}
-
-//  Get normals from normal map
-vec3 normal(vec2 p, float lod) {
-    vec3 n = textureLod(sampler2D(t_Normal, s_Texture), p / TEX_SCALE, lod).xzy;
-    //  float gamma = 2.2;
-    // n = pow(n, vec3(1. / gamma));
-    return normalize(n * 2. - 1);
+    if(has_albedo != 0) {
+        return textureLod(sampler2D(t_Albedo, s_Texture), p / TEX_SCALE, lod).rgb;
+    } else {
+        return vec3(0.75);
+    }
 }
 
 float roughness(vec2 p, float lod) {
-    return .5;
-    float r = textureLod(sampler2D(t_Roughness, s_Texture), p / TEX_SCALE, lod).x;
-//    float gamma = 2.2;
-    return r;// pow(r, 1. / gamma);
+    if(has_roughness != 0) {
+        float r = textureLod(sampler2D(t_Roughness, s_Texture), p / TEX_SCALE, lod).x;
+        return r;
+    } else {
+        return 0.5;
+    }
 }
 
 float sdf(vec3 p, float lod) {
@@ -96,8 +103,6 @@ float sdf(vec3 p, float lod) {
     return planeDist / 2.;
 }
 
-// --- Alternative Normal Calculations
-
 // Compute the normal from the SDF numerically
 vec3 sdf_normal(vec3 p, float lod) {
     float d = sdf(p, lod);
@@ -106,6 +111,16 @@ vec3 sdf_normal(vec3 p, float lod) {
                      vec3(sdf(p - e.xyy, lod),
                           sdf(p - e.yxy, lod),
                           sdf(p - e.yyx, lod)));
+}
+
+//  Get normals from normal map
+vec3 normal(vec3 p, float lod) {
+    if(has_normal != 0) {
+        vec3 n = textureLod(sampler2D(t_Normal, s_Texture), p.xz / TEX_SCALE, lod).xzy;
+        return normalize(n * 2. - 1);
+    } else {
+        return sdf_normal(p, lod);
+    }
 }
 
 // Approximate normal numerically from heightfield

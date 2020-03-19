@@ -3,6 +3,7 @@ use gfx_hal::prelude::*;
 use std::borrow::Borrow;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
+use zerocopy::AsBytes;
 
 static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../shaders/quad.spv");
 static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../shaders/renderer2d.spv");
@@ -27,6 +28,8 @@ pub struct GPURender<B: Backend> {
     main_pipeline_layout: ManuallyDrop<B::PipelineLayout>,
     main_descriptor_set: B::DescriptorSet,
     main_descriptor_set_layout: ManuallyDrop<B::DescriptorSetLayout>,
+    uniform_buffer: ManuallyDrop<B::Buffer>,
+    uniform_memory: ManuallyDrop<B::Memory>,
     sampler: ManuallyDrop<B::Sampler>,
     image_slots: ImageSlots<B>,
 
@@ -42,6 +45,18 @@ struct ImageSlots<B: Backend> {
     normal: ImageSlot<B>,
     displacement: ImageSlot<B>,
     metallic: ImageSlot<B>,
+}
+
+/// Uniform struct to pass to the shader to make decisions on what to render and
+/// where to use defaults.
+#[derive(AsBytes)]
+#[repr(C)]
+struct SlotOccupancy {
+    albedo: u32,
+    roughness: u32,
+    normal: u32,
+    displacement: u32,
+    metallic: u32,
 }
 
 /// The renderer holds a fixed number of image slots, as opposed to the compute
@@ -63,6 +78,7 @@ pub struct ImageSlot<B: Backend> {
     view: ManuallyDrop<B::ImageView>,
     memory: ManuallyDrop<B::Memory>,
     mip_levels: u8,
+    occupied: bool,
 }
 
 impl<B> ImageSlot<B>
@@ -122,6 +138,7 @@ where
             view: ManuallyDrop::new(image_view),
             memory: ManuallyDrop::new(image_memory),
             mip_levels: 8,
+            occupied: false,
         })
     }
 }
@@ -142,6 +159,7 @@ impl<B> GPURender<B>
 where
     B: Backend,
 {
+    const UNIFORM_BUFFER_SIZE: u64 = 256;
     pub fn new(
         gpu: &Arc<Mutex<GPU<B>>>,
         mut surface: B::Surface,
@@ -231,7 +249,7 @@ where
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 1,
-                        ty: hal::pso::DescriptorType::SampledImage,
+                        ty: hal::pso::DescriptorType::UniformBuffer,
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
@@ -252,6 +270,13 @@ where
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 4,
+                        ty: hal::pso::DescriptorType::SampledImage,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 5,
                         ty: hal::pso::DescriptorType::SampledImage,
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
@@ -297,6 +322,44 @@ where
         }
         .map_err(|_| "Failed to create render sampler")?;
 
+        // Uniforms
+        let (uniform_buf, uniform_mem) = unsafe {
+            let mut buf = lock
+                .device
+                .create_buffer(
+                    Self::UNIFORM_BUFFER_SIZE,
+                    hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM,
+                )
+                .map_err(|_| "Cannot create compute uniform buffer")?;
+            let buffer_req = lock.device.get_buffer_requirements(&buf);
+            let upload_type = lock
+                .memory_properties
+                .memory_types
+                .iter()
+                .enumerate()
+                .position(|(id, mem_type)| {
+                    // type_mask is a bit field where each bit represents a
+                    // memory type. If the bit is set to 1 it means we can use
+                    // that type for our buffer. So this code finds the first
+                    // memory type that has a `1` (or, is allowed), and is
+                    // visible to the CPU.
+                    buffer_req.type_mask & (1 << id) != 0
+                        && mem_type
+                            .properties
+                            .contains(hal::memory::Properties::CPU_VISIBLE)
+                })
+                .unwrap()
+                .into();
+            let mem = lock
+                .device
+                .allocate_memory(upload_type, Self::UNIFORM_BUFFER_SIZE)
+                .map_err(|_| "Failed to allocate device memory for compute uniform buffer")?;
+            lock.device
+                .bind_buffer_memory(&mem, 0, &mut buf)
+                .map_err(|_| "Failed to bind compute uniform buffer to memory")?;
+            (buf, mem)
+        };
+
         // Synchronization primitives
         let fence = lock.device.create_fence(true).unwrap();
         let tfence = lock.device.create_fence(false).unwrap();
@@ -327,6 +390,8 @@ where
             main_descriptor_set: main_descriptor_set,
             main_descriptor_set_layout: ManuallyDrop::new(main_set_layout),
             image_slots,
+            uniform_buffer: ManuallyDrop::new(uniform_buf),
+            uniform_memory: ManuallyDrop::new(uniform_mem),
             sampler: ManuallyDrop::new(sampler),
 
             complete_fence: ManuallyDrop::new(fence),
@@ -477,6 +542,44 @@ where
         }
     }
 
+    fn build_uniforms(&self) -> SlotOccupancy {
+        fn from_bool(x: bool) -> u32 {
+            if x {
+                1
+            } else {
+                0
+            }
+        }
+
+        SlotOccupancy {
+            albedo: from_bool(self.image_slots.albedo.occupied),
+            roughness: from_bool(self.image_slots.roughness.occupied),
+            normal: from_bool(self.image_slots.normal.occupied),
+            displacement: from_bool(self.image_slots.displacement.occupied),
+            metallic: from_bool(self.image_slots.metallic.occupied),
+        }
+    }
+
+    fn fill_uniforms(&self, device: &B::Device, uniforms: &[u8]) -> Result<(), String> {
+        debug_assert!(uniforms.len() <= Self::UNIFORM_BUFFER_SIZE as usize);
+
+        unsafe {
+            let mapping = device
+                .map_memory(&*self.uniform_memory, 0..Self::UNIFORM_BUFFER_SIZE)
+                .map_err(|e| {
+                    format!("Failed to map uniform buffer into CPU address space: {}", e)
+                })?;
+            std::ptr::copy_nonoverlapping(
+                uniforms.as_ptr() as *const u8,
+                mapping,
+                uniforms.len() as usize,
+            );
+            device.unmap_memory(&*self.uniform_memory);
+        }
+
+        Ok(())
+    }
+
     pub fn render(&mut self) {
         let surface_image = unsafe {
             match self.surface.acquire_image(!0) {
@@ -493,6 +596,10 @@ where
 
         let result = {
             let mut lock = self.gpu.lock().unwrap();
+
+            let uniforms = self.build_uniforms();
+            self.fill_uniforms(&lock.device, uniforms.as_bytes())
+                .expect("Error filling uniforms during render");
 
             let framebuffer = unsafe {
                 lock.device
@@ -521,17 +628,14 @@ where
                         set: &self.main_descriptor_set,
                         binding: 1,
                         array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            &*self.image_slots.displacement.view,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
+                        descriptors: Some(Descriptor::Buffer(&*self.uniform_buffer, None..None)),
                     },
                     DescriptorSetWrite {
                         set: &self.main_descriptor_set,
                         binding: 2,
                         array_offset: 0,
                         descriptors: Some(Descriptor::Image(
-                            &*self.image_slots.albedo.view,
+                            &*self.image_slots.displacement.view,
                             hal::image::Layout::ShaderReadOnlyOptimal,
                         )),
                     },
@@ -540,13 +644,22 @@ where
                         binding: 3,
                         array_offset: 0,
                         descriptors: Some(Descriptor::Image(
-                            &*self.image_slots.normal.view,
+                            &*self.image_slots.albedo.view,
                             hal::image::Layout::ShaderReadOnlyOptimal,
                         )),
                     },
                     DescriptorSetWrite {
                         set: &self.main_descriptor_set,
                         binding: 4,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Image(
+                            &*self.image_slots.normal.view,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
+                    DescriptorSetWrite {
+                        set: &self.main_descriptor_set,
+                        binding: 5,
                         array_offset: 0,
                         descriptors: Some(Descriptor::Image(
                             &*self.image_slots.roughness.view,
@@ -565,43 +678,48 @@ where
                 cmd_buffer.pipeline_barrier(
                     hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::FRAGMENT_SHADER,
                     hal::memory::Dependencies::empty(),
-                    &[hal::memory::Barrier::Image {
-                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-                            ..(
-                                hal::image::Access::SHADER_READ,
-                                hal::image::Layout::ShaderReadOnlyOptimal,
-                            ),
-                        target: &*self.image_slots.displacement.image,
-                        families: None,
-                        range: super::COLOR_RANGE.clone(),
-                    }, hal::memory::Barrier::Image {
-                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-                            ..(
-                                hal::image::Access::SHADER_READ,
-                                hal::image::Layout::ShaderReadOnlyOptimal,
-                            ),
-                        target: &*self.image_slots.albedo.image,
-                        families: None,
-                        range: super::COLOR_RANGE.clone(),
-                    }, hal::memory::Barrier::Image {
-                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-                            ..(
-                                hal::image::Access::SHADER_READ,
-                                hal::image::Layout::ShaderReadOnlyOptimal,
-                            ),
-                        target: &*self.image_slots.normal.image,
-                        families: None,
-                        range: super::COLOR_RANGE.clone(),
-                    }, hal::memory::Barrier::Image {
-                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-                            ..(
-                                hal::image::Access::SHADER_READ,
-                                hal::image::Layout::ShaderReadOnlyOptimal,
-                            ),
-                        target: &*self.image_slots.roughness.image,
-                        families: None,
-                        range: super::COLOR_RANGE.clone(),
-                    }],
+                    &[
+                        hal::memory::Barrier::Image {
+                            states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                                ..(
+                                    hal::image::Access::SHADER_READ,
+                                    hal::image::Layout::ShaderReadOnlyOptimal,
+                                ),
+                            target: &*self.image_slots.displacement.image,
+                            families: None,
+                            range: super::COLOR_RANGE.clone(),
+                        },
+                        hal::memory::Barrier::Image {
+                            states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                                ..(
+                                    hal::image::Access::SHADER_READ,
+                                    hal::image::Layout::ShaderReadOnlyOptimal,
+                                ),
+                            target: &*self.image_slots.albedo.image,
+                            families: None,
+                            range: super::COLOR_RANGE.clone(),
+                        },
+                        hal::memory::Barrier::Image {
+                            states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                                ..(
+                                    hal::image::Access::SHADER_READ,
+                                    hal::image::Layout::ShaderReadOnlyOptimal,
+                                ),
+                            target: &*self.image_slots.normal.image,
+                            families: None,
+                            range: super::COLOR_RANGE.clone(),
+                        },
+                        hal::memory::Barrier::Image {
+                            states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                                ..(
+                                    hal::image::Access::SHADER_READ,
+                                    hal::image::Layout::ShaderReadOnlyOptimal,
+                                ),
+                            target: &*self.image_slots.roughness.image,
+                            families: None,
+                            range: super::COLOR_RANGE.clone(),
+                        },
+                    ],
                 );
 
                 cmd_buffer.bind_graphics_descriptor_sets(
@@ -674,16 +792,18 @@ where
         source: &B::Image,
         source_layout: hal::image::Layout,
         source_access: hal::image::Access,
-        image_use: crate::lang::OutputType
+        image_use: crate::lang::OutputType,
     ) -> Result<(), String> {
         let image_slot = match image_use {
-            crate::lang::OutputType::Displacement => &self.image_slots.displacement,
-            crate::lang::OutputType::Albedo => &self.image_slots.albedo,
-            crate::lang::OutputType::Roughness => &self.image_slots.roughness,
-            crate::lang::OutputType::Normal => &self.image_slots.normal,
-            crate::lang::OutputType::Metallic => &self.image_slots.metallic,
-            _ => return Ok(())
+            crate::lang::OutputType::Displacement => &mut self.image_slots.displacement,
+            crate::lang::OutputType::Albedo => &mut self.image_slots.albedo,
+            crate::lang::OutputType::Roughness => &mut self.image_slots.roughness,
+            crate::lang::OutputType::Normal => &mut self.image_slots.normal,
+            crate::lang::OutputType::Metallic => &mut self.image_slots.metallic,
+            _ => return Ok(()),
         };
+
+        image_slot.occupied = true;
 
         let blits: Vec<_> = (0..image_slot.mip_levels)
             .map(|level| hal::command::ImageBlit {
@@ -829,6 +949,10 @@ where
         free_slot(&lock.device, &mut self.image_slots.metallic);
 
         unsafe {
+            lock.device
+                .destroy_buffer(ManuallyDrop::take(&mut self.uniform_buffer));
+            lock.device
+                .free_memory(ManuallyDrop::take(&mut self.uniform_memory));
             lock.device
                 .destroy_command_pool(ManuallyDrop::take(&mut self.command_pool));
             self.surface.unconfigure_swapchain(&lock.device);
