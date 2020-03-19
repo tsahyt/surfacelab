@@ -558,6 +558,7 @@ pub enum UIEvent {
     RendererAdded(u64, WindowHandle, u32, u32, RendererType),
     RendererRedraw(u64),
     RendererResize(u64, u32, u32),
+    RendererRemoved(u64),
 }
 
 #[derive(Debug)]

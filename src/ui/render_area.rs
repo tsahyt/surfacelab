@@ -12,6 +12,7 @@ use gtk::subclass::widget::WidgetImplExt;
 use raw_window_handle::*;
 
 use once_cell::unsync::OnceCell;
+use std::cell::Cell;
 
 #[link(name = "gdk-3")]
 extern "C" {
@@ -20,7 +21,7 @@ extern "C" {
         -> *mut libc::c_void;
 }
 
-fn gdk_wayland_handle(window: gdk::Window, display: gdk::Display) -> RawWindowHandle {
+fn gdk_wayland_handle(window: &gdk::Window, display: &gdk::Display) -> RawWindowHandle {
     let gdkwindow: *const gdk_sys::GdkWindow = window.to_glib_none().0;
     let gdkdisplay: *const gdk_sys::GdkDisplay = display.to_glib_none().0;
     let handle = unsafe {
@@ -34,8 +35,17 @@ fn gdk_wayland_handle(window: gdk::Window, display: gdk::Display) -> RawWindowHa
     RawWindowHandle::Wayland(handle)
 }
 
+#[derive(Copy, Clone)]
+enum Buttons {
+    LeftMB,
+    RightMB,
+    None,
+}
+
 pub struct RenderAreaPrivate {
     renderer_type: OnceCell<RendererType>,
+    renderer_window: OnceCell<gdk::Window>,
+    button_pressed: Cell<Buttons>,
 }
 
 impl ObjectSubclass for RenderAreaPrivate {
@@ -56,6 +66,8 @@ impl ObjectSubclass for RenderAreaPrivate {
     fn new() -> Self {
         RenderAreaPrivate {
             renderer_type: OnceCell::new(),
+            renderer_window: OnceCell::new(),
+            button_pressed: Cell::new(Buttons::None),
         }
     }
 }
@@ -99,6 +111,7 @@ impl WidgetImpl for RenderAreaPrivate {
             Some(&window),
             &gdk::WindowAttr {
                 window_type: gdk::WindowType::Subsurface,
+                event_mask: gdk::EventMask::POINTER_MOTION_MASK.bits() as _,
                 ..gdk::WindowAttr::default()
             },
         );
@@ -107,22 +120,53 @@ impl WidgetImpl for RenderAreaPrivate {
         gdk_window.set_transient_for(&window);
         gdk_window.show();
 
-        let handle = gdk_wayland_handle(gdk_window, gdk_display);
+        let handle = gdk_wayland_handle(&gdk_window, &gdk_display);
 
         super::emit(Lang::UIEvent(UIEvent::RendererAdded(
             self.unique_identifier(),
             WindowHandle::new(handle),
             w as _,
             h as _,
-            *self.renderer_type.get().unwrap_or(&RendererType::Renderer2D),
+            *self
+                .renderer_type
+                .get()
+                .unwrap_or(&RendererType::Renderer2D),
         )));
     }
 
     fn unrealize(&self, widget: &gtk::Widget) {
-        // TODO: notify render backend of termination of window
+        // FIXME: components exit before following signal is sent
         self.parent_unrealize(widget);
 
-        // super::emit(Lang::UIEvent(UIEvent::RendererUnrealize));
+        super::emit(Lang::UIEvent(UIEvent::RendererRemoved(self.unique_identifier())));
+    }
+
+    fn button_press_event(&self, _widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
+        let btns = match event.get_button() as _ {
+            gdk_sys::GDK_BUTTON_PRIMARY => Buttons::LeftMB,
+            gdk_sys::GDK_BUTTON_SECONDARY => Buttons::RightMB,
+            _ => Buttons::None,
+        };
+        self.button_pressed.set(btns);
+        Inhibit(false)
+    }
+
+    fn button_release_event(
+        &self,
+        _widget: &gtk::Widget,
+        _event: &gdk::EventButton,
+    ) -> gtk::Inhibit {
+        self.button_pressed.set(Buttons::None);
+        Inhibit(false)
+    }
+
+    fn motion_notify_event(&self, _widget: &gtk::Widget, event: &gdk::EventMotion) -> gtk::Inhibit {
+        match self.button_pressed.get() {
+            Buttons::LeftMB => {}
+            Buttons::RightMB => {}
+            _ => {}
+        }
+        Inhibit(false)
     }
 }
 

@@ -23,6 +23,7 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
                     render_manager.resize(*id, *width, *height)
                 }
+                Lang::UIEvent(UIEvent::RendererRemoved(id)) => render_manager.remove(*id),
                 Lang::ComputeEvent(ComputeEvent::OutputReady(res, img, layout, access, out_ty)) => {
                     render_manager.transfer_output(res, img, *layout, *access, *out_ty)
                 }
@@ -66,6 +67,10 @@ where
         self.renderers.insert(id, renderer);
 
         Ok(())
+    }
+
+    pub fn remove(&mut self, renderer_id: u64) {
+        self.renderers.remove(&renderer_id);
     }
 
     pub fn redraw_all(&mut self) {
