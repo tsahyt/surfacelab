@@ -41,6 +41,7 @@ struct ImageSlots<B: Backend> {
     roughness: ImageSlot<B>,
     normal: ImageSlot<B>,
     displacement: ImageSlot<B>,
+    metallic: ImageSlot<B>,
 }
 
 /// The renderer holds a fixed number of image slots, as opposed to the compute
@@ -223,14 +224,35 @@ where
                 &[
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 0,
-                        ty: hal::pso::DescriptorType::SampledImage,
+                        ty: hal::pso::DescriptorType::Sampler,
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 1,
-                        ty: hal::pso::DescriptorType::Sampler,
+                        ty: hal::pso::DescriptorType::SampledImage,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 2,
+                        ty: hal::pso::DescriptorType::SampledImage,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 3,
+                        ty: hal::pso::DescriptorType::SampledImage,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 4,
+                        ty: hal::pso::DescriptorType::SampledImage,
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
@@ -286,6 +308,7 @@ where
             roughness: ImageSlot::new(&lock.device, &lock.memory_properties)?,
             normal: ImageSlot::new(&lock.device, &lock.memory_properties)?,
             displacement: ImageSlot::new(&lock.device, &lock.memory_properties)?,
+            metallic: ImageSlot::new(&lock.device, &lock.memory_properties)?,
         };
 
         Ok(GPURender {
@@ -492,6 +515,12 @@ where
                         set: &self.main_descriptor_set,
                         binding: 0,
                         array_offset: 0,
+                        descriptors: Some(Descriptor::Sampler(&*self.sampler)),
+                    },
+                    DescriptorSetWrite {
+                        set: &self.main_descriptor_set,
+                        binding: 1,
+                        array_offset: 0,
                         descriptors: Some(Descriptor::Image(
                             &*self.image_slots.displacement.view,
                             hal::image::Layout::ShaderReadOnlyOptimal,
@@ -499,9 +528,30 @@ where
                     },
                     DescriptorSetWrite {
                         set: &self.main_descriptor_set,
-                        binding: 1,
+                        binding: 2,
                         array_offset: 0,
-                        descriptors: Some(Descriptor::Sampler(&*self.sampler)),
+                        descriptors: Some(Descriptor::Image(
+                            &*self.image_slots.albedo.view,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
+                    DescriptorSetWrite {
+                        set: &self.main_descriptor_set,
+                        binding: 3,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Image(
+                            &*self.image_slots.normal.view,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
+                    DescriptorSetWrite {
+                        set: &self.main_descriptor_set,
+                        binding: 4,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Image(
+                            &*self.image_slots.roughness.view,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
                     },
                 ])
             }
@@ -522,6 +572,33 @@ where
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             ),
                         target: &*self.image_slots.displacement.image,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    }, hal::memory::Barrier::Image {
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                            ..(
+                                hal::image::Access::SHADER_READ,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            ),
+                        target: &*self.image_slots.albedo.image,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    }, hal::memory::Barrier::Image {
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                            ..(
+                                hal::image::Access::SHADER_READ,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            ),
+                        target: &*self.image_slots.normal.image,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    }, hal::memory::Barrier::Image {
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                            ..(
+                                hal::image::Access::SHADER_READ,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            ),
+                        target: &*self.image_slots.roughness.image,
                         families: None,
                         range: super::COLOR_RANGE.clone(),
                     }],
@@ -597,8 +674,16 @@ where
         source: &B::Image,
         source_layout: hal::image::Layout,
         source_access: hal::image::Access,
+        image_use: crate::lang::OutputType
     ) -> Result<(), String> {
-        let image_slot = &self.image_slots.displacement;
+        let image_slot = match image_use {
+            crate::lang::OutputType::Displacement => &self.image_slots.displacement,
+            crate::lang::OutputType::Albedo => &self.image_slots.albedo,
+            crate::lang::OutputType::Roughness => &self.image_slots.roughness,
+            crate::lang::OutputType::Normal => &self.image_slots.normal,
+            crate::lang::OutputType::Metallic => &self.image_slots.metallic,
+            _ => return Ok(())
+        };
 
         let blits: Vec<_> = (0..image_slot.mip_levels)
             .map(|level| hal::command::ImageBlit {
@@ -741,6 +826,7 @@ where
         free_slot(&lock.device, &mut self.image_slots.roughness);
         free_slot(&lock.device, &mut self.image_slots.normal);
         free_slot(&lock.device, &mut self.image_slots.displacement);
+        free_slot(&lock.device, &mut self.image_slots.metallic);
 
         unsafe {
             lock.device

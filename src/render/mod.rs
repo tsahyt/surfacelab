@@ -92,10 +92,10 @@ where
         image: &gpu::BrokerImage,
         layout: gpu::Layout,
         access: gpu::Access,
-        _output_type: OutputType,
+        output_type: OutputType,
     ) {
         for r in self.renderers.values_mut() {
-            r.transfer_image(image.to::<B>(), layout, access).unwrap();
+            r.transfer_image(image.to::<B>(), layout, access, output_type).unwrap();
             r.render();
         }
     }

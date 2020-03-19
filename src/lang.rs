@@ -232,6 +232,7 @@ impl Operator {
                     OutputType::Roughness => OperatorType::Monomorphic(ImageType::Grayscale),
                     OutputType::Normal => OperatorType::Monomorphic(ImageType::Rgb),
                     OutputType::Displacement => OperatorType::Monomorphic(ImageType::Grayscale),
+                    OutputType::Metallic => OperatorType::Monomorphic(ImageType::Grayscale),
                     OutputType::Value => OperatorType::Monomorphic(ImageType::Grayscale),
                     OutputType::Rgb => OperatorType::Monomorphic(ImageType::Rgb),
                 }
@@ -371,6 +372,7 @@ pub enum OutputType {
     Roughness,
     Normal,
     Displacement,
+    Metallic,
     Value,
     Rgb,
 }
