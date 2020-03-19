@@ -51,8 +51,10 @@ struct ExternalImage {
 }
 
 struct SocketData<B: gpu::Backend> {
-    /// Output sockets always map to an image, which may or may not be allocated
-    typed_outputs: HashMap<String, gpu::compute::Image<B>>,
+    /// Output sockets always map to an image, which may or may not be
+    /// allocated, and a flag determining whether the image was recently
+    /// updated.
+    typed_outputs: HashMap<String, (bool, gpu::compute::Image<B>)>,
 
     /// Required to keep track of polymorphic outputs. Kept separately to keep
     /// output_sockets ownership structure simple.
@@ -89,7 +91,9 @@ where
         });
         let socket_name = res.fragment().unwrap().to_string();
         if let Some(img) = image {
-            sockets.typed_outputs.insert(socket_name.clone(), img);
+            sockets
+                .typed_outputs
+                .insert(socket_name.clone(), (true, img));
         }
         sockets.known_outputs.insert(socket_name);
     }
@@ -118,6 +122,7 @@ where
             .get(&res.drop_fragment())?
             .typed_outputs
             .get(res.fragment().unwrap())
+            .map(|x| &x.1)
     }
 
     /// Obtain the output image given a socket resource, mutably
@@ -126,6 +131,7 @@ where
             .get_mut(&res.drop_fragment())?
             .typed_outputs
             .get_mut(res.fragment().unwrap())
+            .map(|x| &mut x.1)
     }
 
     /// Obtain the input image given a socket resource, mutably
@@ -136,9 +142,26 @@ where
             .get(&output_res.drop_fragment())?
             .typed_outputs
             .get((&output_res).fragment()?)
+            .map(|x| &x.1)
     }
 
-    /// Connect an output to an input
+    pub fn get_input_image_updated(&self, res: &Resource) -> Option<bool> {
+        let sockets = self.0.get(&res.drop_fragment())?;
+        let output_res = sockets.inputs.get(res.fragment()?)?;
+        self.0
+            .get(&output_res.drop_fragment())?
+            .typed_outputs
+            .get((&output_res).fragment()?)
+            .map(|x| x.0)
+    }
+
+    pub fn output_image_set_updated(&mut self, node: &Resource, updated: bool) {
+        for img in self.0.get_mut(&node).unwrap().typed_outputs.values_mut() {
+            img.0 = updated;
+        }
+    }
+
+    /// connect an output to an input
     pub fn connect_input(&mut self, from: &Resource, to: &Resource) {
         self.0
             .get_mut(&to.drop_fragment())
@@ -283,9 +306,11 @@ where
                 log::trace!("Uploading image to GPU");
                 image.ensure_alloc(&self.gpu)?;
                 self.gpu.upload_image(&image, &external_image.buffer)?;
+                self.sockets.output_image_set_updated(res, true);
                 external_image.state = ExternalImageState::Uploaded
             }
             ExternalImageState::Uploaded => {
+                self.sockets.output_image_set_updated(res, false);
                 log::trace!("Reusing uploaded image");
             }
         }
@@ -372,12 +397,18 @@ where
             output.is_some() && output.unwrap().is_backed()
         }));
 
-        // short circuit entire execution if uniforms are those of the last
-        // known execution, i.e. use the cached results.
+        // skip execution if neither uniforms nor input changed
         let uniform_hash = op.uniform_hash();
+        let inputs_updated = op.inputs().iter().any(|(socket, _)| {
+            let socket_res = res.extend_fragment(&socket);
+            self.sockets
+                .get_input_image_updated(&socket_res)
+                .unwrap_or(true)
+        });
         match self.last_known.get(res) {
-            Some(hash) if *hash == uniform_hash => {
+            Some(hash) if *hash == uniform_hash && !inputs_updated => {
                 log::trace!("Reusing known image");
+                self.sockets.output_image_set_updated(res, false);
                 return Ok(());
             }
             _ => {}
@@ -425,6 +456,7 @@ where
         );
 
         self.last_known.insert(res.clone(), uniform_hash);
+        self.sockets.output_image_set_updated(res, true);
 
         Ok(())
     }
