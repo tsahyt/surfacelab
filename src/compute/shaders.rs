@@ -348,6 +348,14 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
 
 pub trait Uniforms {
     fn uniforms(&self) -> &[u8];
+    fn uniform_hash(&self) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::Hasher;
+
+        let mut hasher = DefaultHasher::new();
+        hasher.write(self.uniforms());
+        hasher.finish()
+    }
 }
 
 impl Uniforms for lang::Operator {

@@ -34,7 +34,6 @@ const float TEX_MIDLEVEL = .5;
 // #define DBG_TEXGRID 0.01
 // #define DBG_AO
 
-// TODO:
 // [X] normal maps aren't aligned properly leading to wrong diffuse shading
 //     - "fixed" via gamma
 //     - make sure that normal maps are imported as linear in production!

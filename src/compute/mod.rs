@@ -151,18 +151,14 @@ where
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
 
-    // /// Output sockets always map to an image, which may or may not be allocated
-    // output_sockets: HashMap<Resource, gpu::compute::Image<B>>,
-
-    // /// Required to keep track of polymorphic outputs. Kept separately to keep
-    // /// output_sockets ownership structure simple.
-    // known_output_sockets: HashSet<Resource>,
-
-    // /// Input sockets only map to the output sockets they are connected to
-    // input_sockets: HashMap<Resource, Resource>,
     sockets: Sockets<B>,
     shader_library: shaders::ShaderLibrary<B>,
     external_images: HashMap<std::path::PathBuf, ExternalImage>,
+
+    /// The Compute Manager remembers the hash of the last executed set of
+    /// uniforms for each resource. On the next execution this is checked, and
+    /// if no changes happen, execution can be skipped entirely.
+    last_known: HashMap<Resource, u64>,
 }
 
 impl<B> ComputeManager<B>
@@ -177,6 +173,7 @@ where
             sockets: Sockets::new(),
             shader_library,
             external_images: HashMap::new(),
+            last_known: HashMap::new(),
         }
     }
 
@@ -375,6 +372,17 @@ where
             output.is_some() && output.unwrap().is_backed()
         }));
 
+        // short circuit entire execution if uniforms are those of the last
+        // known execution, i.e. use the cached results.
+        let uniform_hash = op.uniform_hash();
+        match self.last_known.get(res) {
+            Some(hash) if *hash == uniform_hash => {
+                log::trace!("Reusing known image");
+                return Ok(());
+            }
+            _ => {}
+        };
+
         let mut inputs = HashMap::new();
         for socket in op.inputs().keys() {
             let socket_res = res.extend_fragment(&socket);
@@ -415,6 +423,8 @@ where
             pipeline,
             desc_set,
         );
+
+        self.last_known.insert(res.clone(), uniform_hash);
 
         Ok(())
     }
