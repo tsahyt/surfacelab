@@ -35,17 +35,9 @@ fn gdk_wayland_handle(window: &gdk::Window, display: &gdk::Display) -> RawWindow
     RawWindowHandle::Wayland(handle)
 }
 
-#[derive(Copy, Clone)]
-enum Buttons {
-    LeftMB,
-    RightMB,
-    None,
-}
-
 pub struct RenderAreaPrivate {
     renderer_type: OnceCell<RendererType>,
     renderer_window: OnceCell<gdk::Window>,
-    button_pressed: Cell<Buttons>,
 }
 
 impl ObjectSubclass for RenderAreaPrivate {
@@ -67,7 +59,6 @@ impl ObjectSubclass for RenderAreaPrivate {
         RenderAreaPrivate {
             renderer_type: OnceCell::new(),
             renderer_window: OnceCell::new(),
-            button_pressed: Cell::new(Buttons::None),
         }
     }
 }
@@ -140,34 +131,6 @@ impl WidgetImpl for RenderAreaPrivate {
 
         super::emit(Lang::UIEvent(UIEvent::RendererRemoved(self.unique_identifier())));
     }
-
-    fn button_press_event(&self, _widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
-        let btns = match event.get_button() as _ {
-            gdk_sys::GDK_BUTTON_PRIMARY => Buttons::LeftMB,
-            gdk_sys::GDK_BUTTON_SECONDARY => Buttons::RightMB,
-            _ => Buttons::None,
-        };
-        self.button_pressed.set(btns);
-        Inhibit(false)
-    }
-
-    fn button_release_event(
-        &self,
-        _widget: &gtk::Widget,
-        _event: &gdk::EventButton,
-    ) -> gtk::Inhibit {
-        self.button_pressed.set(Buttons::None);
-        Inhibit(false)
-    }
-
-    fn motion_notify_event(&self, _widget: &gtk::Widget, event: &gdk::EventMotion) -> gtk::Inhibit {
-        match self.button_pressed.get() {
-            Buttons::LeftMB => {}
-            Buttons::RightMB => {}
-            _ => {}
-        }
-        Inhibit(false)
-    }
 }
 
 impl DrawingAreaImpl for RenderAreaPrivate {}
@@ -202,8 +165,13 @@ impl RenderArea {
             .downcast()
             .unwrap();
         let imp = RenderAreaPrivate::from_instance(&obj);
-        imp.renderer_type.set(ty);
+        imp.renderer_type.set(ty).expect("Failed to set renderer type");
         obj
+    }
+
+    pub fn unique_identifier(&self) -> u64 {
+        let imp = RenderAreaPrivate::from_instance(self);
+        imp.unique_identifier()
     }
 }
 

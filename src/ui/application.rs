@@ -1,4 +1,4 @@
-use super::{node, node_area, render_area};
+use super::{node, node_area, render_area, render_events};
 use crate::lang::*;
 
 use gio::prelude::*;
@@ -81,8 +81,9 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
         // Test Render Area
         let render_area = render_area::RenderArea::new(RendererType::Renderer3D);
+        let render_events = render_events::RenderEvents::new(render_area);
         paned.add1(&node_area);
-        paned.add2(&render_area);
+        paned.add2(&render_events);
         vbox.pack_end(&paned, true, true, 0);
 
         window.add(&vbox);

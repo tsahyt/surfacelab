@@ -511,6 +511,12 @@ pub enum GraphEvent {
     OutputRemoved(Resource, OutputType)
 }
 
+pub enum UserRenderEvent {
+    Rotate(u64, f32, f32),
+    Zoom(u64, f32, f32),
+    LightMove(u64, f32, f32),
+}
+
 #[derive(Debug)]
 pub enum UserEvent {
     Quit,
