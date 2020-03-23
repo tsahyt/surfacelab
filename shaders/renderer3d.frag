@@ -296,7 +296,7 @@ void main() {
     // Spherical Coordinate Input (phi, theta)
     vec2 sph = vec2(phi, theta);
     float rad = radius;
-    vec3 ro = rad * vec3(sin(sph.y) * cos(sph.x), cos(sph.y), sin(sph.y) * sin(sph.x));
+    vec3 ro = (rad * vec3(sin(sph.y) * cos(sph.x), cos(sph.y), sin(sph.y) * sin(sph.x))) + look_at;
 
     // Camera
     float itrc = 0.;
