@@ -514,6 +514,7 @@ pub enum GraphEvent {
 #[derive(Debug)]
 pub enum UserRenderEvent {
     Rotate(u64, f32, f32),
+    Pan(u64, f32, f32),
     Zoom(u64, f32),
     LightMove(u64, f32, f32),
 }

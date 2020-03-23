@@ -30,6 +30,18 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::GraphEvent(GraphEvent::OutputRemoved(res, out_ty)) => {
                     render_manager.disconnect_output(res, *out_ty)
                 }
+                Lang::UserRenderEvent(UserRenderEvent::Rotate(id, phi, theta)) => {
+                    render_manager.rotate_camera(*id, *phi, *theta)
+                }
+                Lang::UserRenderEvent(UserRenderEvent::Pan(id, x, y)) => {
+                    render_manager.pan_camera(*id, *x, *y)
+                }
+                Lang::UserRenderEvent(UserRenderEvent::Zoom(id, z)) => {
+                    render_manager.zoom_camera(*id, *z)
+                }
+                Lang::UserRenderEvent(UserRenderEvent::LightMove(id, x, y)) => {
+                    render_manager.move_light(*id, *x, *y)
+                }
                 _ => {}
             }
         }
@@ -112,6 +124,30 @@ where
     pub fn disconnect_output(&mut self, _res: &Resource, output_type: OutputType) {
         for r in self.renderers.values_mut() {
             r.vacate_image(output_type);
+        }
+    }
+
+    pub fn rotate_camera(&mut self, renderer_id: u64, phi: f32, theta: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.rotate_camera(phi, theta);
+        }
+    }
+
+    pub fn zoom_camera(&mut self, renderer_id: u64, z: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.zoom_camera(z);
+        }
+    }
+
+    pub fn move_light(&mut self, renderer_id: u64, x: f32, y: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.move_light();
+        }
+    }
+
+    pub fn pan_camera(&mut self, renderer_id: u64, x: f32, y: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.pan_camera(x, y);
         }
     }
 }

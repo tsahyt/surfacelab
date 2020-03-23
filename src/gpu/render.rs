@@ -11,6 +11,47 @@ static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../shaders/renderer3d
 
 use super::{Backend, GPU};
 
+#[repr(C)]
+#[derive(AsBytes)]
+struct RenderView2D {
+    pan: [f32; 2],
+    zoom: f32,
+}
+
+impl Default for RenderView2D {
+    fn default() -> Self {
+        Self {
+            pan: [0., 0.],
+            zoom: 1.,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(AsBytes)]
+struct RenderView3D {
+    phi: f32,
+    theta: f32,
+    rad: f32,
+    lookat: [f32; 3],
+}
+
+impl Default for RenderView3D {
+    fn default() -> Self {
+        Self {
+            phi: 1.,
+            theta: 1.,
+            rad: 6.,
+            lookat: [0., 0., 0.],
+        }
+    }
+}
+
+enum RenderView {
+    RenderView2D(RenderView2D),
+    RenderView3D(RenderView3D),
+}
+
 pub struct GPURender<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: ManuallyDrop<B::CommandPool>,
@@ -21,6 +62,9 @@ pub struct GPURender<B: Backend> {
     format: hal::format::Format,
     dimensions: hal::window::Extent2D,
 
+    // View
+    view: RenderView,
+
     // Rendering Data
     descriptor_pool: ManuallyDrop<B::DescriptorPool>,
     main_render_pass: ManuallyDrop<B::RenderPass>,
@@ -28,6 +72,8 @@ pub struct GPURender<B: Backend> {
     main_pipeline_layout: ManuallyDrop<B::PipelineLayout>,
     main_descriptor_set: B::DescriptorSet,
     main_descriptor_set_layout: ManuallyDrop<B::DescriptorSetLayout>,
+    occupancy_buffer: ManuallyDrop<B::Buffer>,
+    occupancy_memory: ManuallyDrop<B::Memory>,
     uniform_buffer: ManuallyDrop<B::Buffer>,
     uniform_memory: ManuallyDrop<B::Memory>,
     sampler: ManuallyDrop<B::Sampler>,
@@ -48,7 +94,7 @@ struct ImageSlots<B: Backend> {
 }
 
 /// Uniform struct to pass to the shader to make decisions on what to render and
-/// where to use defaults.
+/// where to use defaults. The u32s encode boolean values for use in shaders.
 #[derive(AsBytes)]
 #[repr(C)]
 struct SlotOccupancy {
@@ -159,7 +205,8 @@ impl<B> GPURender<B>
 where
     B: Backend,
 {
-    const UNIFORM_BUFFER_SIZE: u64 = 256;
+    const UNIFORM_BUFFER_SIZE: u64 = 512;
+
     pub fn new(
         gpu: &Arc<Mutex<GPU<B>>>,
         mut surface: B::Surface,
@@ -256,7 +303,7 @@ where
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 2,
-                        ty: hal::pso::DescriptorType::SampledImage,
+                        ty: hal::pso::DescriptorType::UniformBuffer,
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
@@ -277,6 +324,13 @@ where
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 5,
+                        ty: hal::pso::DescriptorType::SampledImage,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 6,
                         ty: hal::pso::DescriptorType::SampledImage,
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
@@ -323,42 +377,10 @@ where
         .map_err(|_| "Failed to create render sampler")?;
 
         // Uniforms
-        let (uniform_buf, uniform_mem) = unsafe {
-            let mut buf = lock
-                .device
-                .create_buffer(
-                    Self::UNIFORM_BUFFER_SIZE,
-                    hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM,
-                )
-                .map_err(|_| "Cannot create compute uniform buffer")?;
-            let buffer_req = lock.device.get_buffer_requirements(&buf);
-            let upload_type = lock
-                .memory_properties
-                .memory_types
-                .iter()
-                .enumerate()
-                .position(|(id, mem_type)| {
-                    // type_mask is a bit field where each bit represents a
-                    // memory type. If the bit is set to 1 it means we can use
-                    // that type for our buffer. So this code finds the first
-                    // memory type that has a `1` (or, is allowed), and is
-                    // visible to the CPU.
-                    buffer_req.type_mask & (1 << id) != 0
-                        && mem_type
-                            .properties
-                            .contains(hal::memory::Properties::CPU_VISIBLE)
-                })
-                .unwrap()
-                .into();
-            let mem = lock
-                .device
-                .allocate_memory(upload_type, Self::UNIFORM_BUFFER_SIZE)
-                .map_err(|_| "Failed to allocate device memory for compute uniform buffer")?;
-            lock.device
-                .bind_buffer_memory(&mem, 0, &mut buf)
-                .map_err(|_| "Failed to bind compute uniform buffer to memory")?;
-            (buf, mem)
-        };
+        let (uniform_buf, uniform_mem) =
+            Self::new_uniform_buffer(&lock.device, &lock.memory_properties)?;
+        let (occupancy_buf, occupancy_mem) =
+            Self::new_uniform_buffer(&lock.device, &lock.memory_properties)?;
 
         // Synchronization primitives
         let fence = lock.device.create_fence(true).unwrap();
@@ -383,6 +405,15 @@ where
             format,
             dimensions: hal::window::Extent2D { width, height },
 
+            view: match ty {
+                crate::lang::RendererType::Renderer2D => {
+                    RenderView::RenderView2D(RenderView2D::default())
+                }
+                crate::lang::RendererType::Renderer3D => {
+                    RenderView::RenderView3D(RenderView3D::default())
+                }
+            },
+
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
             main_render_pass: ManuallyDrop::new(main_render_pass),
             main_pipeline: ManuallyDrop::new(main_pipeline),
@@ -390,6 +421,8 @@ where
             main_descriptor_set: main_descriptor_set,
             main_descriptor_set_layout: ManuallyDrop::new(main_set_layout),
             image_slots,
+            occupancy_buffer: ManuallyDrop::new(occupancy_buf),
+            occupancy_memory: ManuallyDrop::new(occupancy_mem),
             uniform_buffer: ManuallyDrop::new(uniform_buf),
             uniform_memory: ManuallyDrop::new(uniform_mem),
             sampler: ManuallyDrop::new(sampler),
@@ -398,6 +431,42 @@ where
             complete_semaphore: ManuallyDrop::new(semaphore),
             transfer_fence: ManuallyDrop::new(tfence),
         })
+    }
+
+    fn new_uniform_buffer(
+        device: &B::Device,
+        memory_properties: &hal::adapter::MemoryProperties,
+    ) -> Result<(B::Buffer, B::Memory), String> {
+        let mut buf = unsafe {
+            device.create_buffer(
+                Self::UNIFORM_BUFFER_SIZE,
+                hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM,
+            )
+        }
+        .map_err(|_| "Cannot create compute uniform buffer")?;
+        let buffer_req = unsafe { device.get_buffer_requirements(&buf) };
+        let upload_type = memory_properties
+            .memory_types
+            .iter()
+            .enumerate()
+            .position(|(id, mem_type)| {
+                // type_mask is a bit field where each bit represents a
+                // memory type. If the bit is set to 1 it means we can use
+                // that type for our buffer. So this code finds the first
+                // memory type that has a `1` (or, is allowed), and is
+                // visible to the CPU.
+                buffer_req.type_mask & (1 << id) != 0
+                    && mem_type
+                        .properties
+                        .contains(hal::memory::Properties::CPU_VISIBLE)
+            })
+            .unwrap()
+            .into();
+        let mem = unsafe { device.allocate_memory(upload_type, Self::UNIFORM_BUFFER_SIZE) }
+            .map_err(|_| "Failed to allocate device memory for compute uniform buffer")?;
+        unsafe { device.bind_buffer_memory(&mem, 0, &mut buf) }
+            .map_err(|_| "Failed to bind compute uniform buffer to memory")?;
+        Ok((buf, mem))
     }
 
     #[allow(clippy::type_complexity)]
@@ -542,7 +611,7 @@ where
         }
     }
 
-    fn build_uniforms(&self) -> SlotOccupancy {
+    fn build_occupancy(&self) -> SlotOccupancy {
         fn from_bool(x: bool) -> u32 {
             if x {
                 1
@@ -560,8 +629,14 @@ where
         }
     }
 
-    fn fill_uniforms(&self, device: &B::Device, uniforms: &[u8]) -> Result<(), String> {
+    fn fill_uniforms(
+        &self,
+        device: &B::Device,
+        occupancy: &[u8],
+        uniforms: &[u8],
+    ) -> Result<(), String> {
         debug_assert!(uniforms.len() <= Self::UNIFORM_BUFFER_SIZE as usize);
+        debug_assert!(occupancy.len() <= Self::UNIFORM_BUFFER_SIZE as usize);
 
         unsafe {
             let mapping = device
@@ -577,6 +652,19 @@ where
             device.unmap_memory(&*self.uniform_memory);
         }
 
+        unsafe {
+            let mapping = device
+                .map_memory(&*self.occupancy_memory, 0..Self::UNIFORM_BUFFER_SIZE)
+                .map_err(|e| {
+                    format!("Failed to map uniform buffer into CPU address space: {}", e)
+                })?;
+            std::ptr::copy_nonoverlapping(
+                occupancy.as_ptr() as *const u8,
+                mapping,
+                occupancy.len() as usize,
+            );
+            device.unmap_memory(&*self.occupancy_memory);
+        }
         Ok(())
     }
 
@@ -597,8 +685,12 @@ where
         let result = {
             let mut lock = self.gpu.lock().unwrap();
 
-            let uniforms = self.build_uniforms();
-            self.fill_uniforms(&lock.device, uniforms.as_bytes())
+            let occupancy = self.build_occupancy();
+            let uniforms = match &self.view {
+                RenderView::RenderView2D(v) => v.as_bytes(),
+                RenderView::RenderView3D(v) => v.as_bytes(),
+            };
+            self.fill_uniforms(&lock.device, occupancy.as_bytes(), uniforms)
                 .expect("Error filling uniforms during render");
 
             let framebuffer = unsafe {
@@ -628,11 +720,17 @@ where
                         set: &self.main_descriptor_set,
                         binding: 1,
                         array_offset: 0,
-                        descriptors: Some(Descriptor::Buffer(&*self.uniform_buffer, None..None)),
+                        descriptors: Some(Descriptor::Buffer(&*self.occupancy_buffer, None..None)),
                     },
                     DescriptorSetWrite {
                         set: &self.main_descriptor_set,
                         binding: 2,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Buffer(&*self.uniform_buffer, None..None)),
+                    },
+                    DescriptorSetWrite {
+                        set: &self.main_descriptor_set,
+                        binding: 3,
                         array_offset: 0,
                         descriptors: Some(Descriptor::Image(
                             &*self.image_slots.displacement.view,
@@ -641,7 +739,7 @@ where
                     },
                     DescriptorSetWrite {
                         set: &self.main_descriptor_set,
-                        binding: 3,
+                        binding: 4,
                         array_offset: 0,
                         descriptors: Some(Descriptor::Image(
                             &*self.image_slots.albedo.view,
@@ -650,7 +748,7 @@ where
                     },
                     DescriptorSetWrite {
                         set: &self.main_descriptor_set,
-                        binding: 4,
+                        binding: 5,
                         array_offset: 0,
                         descriptors: Some(Descriptor::Image(
                             &*self.image_slots.normal.view,
@@ -659,7 +757,7 @@ where
                     },
                     DescriptorSetWrite {
                         set: &self.main_descriptor_set,
-                        binding: 5,
+                        binding: 6,
                         array_offset: 0,
                         descriptors: Some(Descriptor::Image(
                             &*self.image_slots.roughness.view,
@@ -932,6 +1030,49 @@ where
 
         image_slot.occupied = false;
     }
+
+    pub fn rotate_camera(&mut self, phi: f32, theta: f32) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.phi += phi;
+            view.theta += theta;
+        }
+    }
+
+    pub fn pan_camera(&mut self, x: f32, y: f32) {
+        match &mut self.view {
+            RenderView::RenderView2D(view) => {
+                view.pan[0] += x;
+                view.pan[1] += y;
+            }
+            RenderView::RenderView3D(view) => {
+                let dx = view.phi.cos() * view.theta.sin();
+                let dy = view.phi.sin() * view.theta.cos();
+                let l = (dx * dx + dy * dy).sqrt();
+
+                let forward = (y * dx / l, y * dy / l);
+                let sideways = (x * dy / l, x * (-(dx / l)));
+                let vec = (forward.0 + sideways.0, forward.1 + sideways.1);
+
+                view.lookat[0] += vec.0;
+                view.lookat[1] += vec.1;
+            }
+        }
+    }
+
+    pub fn zoom_camera(&mut self, z: f32) {
+        match &mut self.view {
+            RenderView::RenderView2D(view) => {
+                view.zoom += z;
+            }
+            RenderView::RenderView3D(view) => {
+                view.rad += z;
+            }
+        }
+    }
+
+    pub fn move_light(&mut self) {
+        if let RenderView::RenderView3D(view) = &self.view {}
+    }
 }
 
 impl<B> Drop for GPURender<B>
@@ -966,6 +1107,10 @@ where
                 .destroy_buffer(ManuallyDrop::take(&mut self.uniform_buffer));
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.uniform_memory));
+            lock.device
+                .destroy_buffer(ManuallyDrop::take(&mut self.occupancy_buffer));
+            lock.device
+                .free_memory(ManuallyDrop::take(&mut self.occupancy_memory));
             lock.device
                 .destroy_command_pool(ManuallyDrop::take(&mut self.command_pool));
             self.surface.unconfigure_swapchain(&lock.device);

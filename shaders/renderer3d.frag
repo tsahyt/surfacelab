@@ -11,10 +11,16 @@ layout(set = 0, binding = 1) uniform Occupancy {
     uint has_displacement;
     uint has_metallic;
 };
-layout(set = 0, binding = 2) uniform texture2D t_Displ;
-layout(set = 0, binding = 3) uniform texture2D t_Albedo;
-layout(set = 0, binding = 4) uniform texture2D t_Normal;
-layout(set = 0, binding = 5) uniform texture2D t_Roughness;
+layout(set = 0, binding = 2) uniform Camera {
+    float phi;
+    float theta;
+    float radius;
+    vec3 look_at;
+};
+layout(set = 0, binding = 3) uniform texture2D t_Displ;
+layout(set = 0, binding = 4) uniform texture2D t_Albedo;
+layout(set = 0, binding = 5) uniform texture2D t_Normal;
+layout(set = 0, binding = 6) uniform texture2D t_Roughness;
 
 const float PI = 3.141592654;
 
@@ -288,8 +294,8 @@ void main() {
     vec2 uv = (v_TexCoord - 0.5); // * vec2(u_Resolution.x / u_Resolution.y, 1 );
 
     // Spherical Coordinate Input (phi, theta)
-    vec2 sph = vec2(1,1);// + (-3.1415 * u_Mouse.xy / u_Resolution.xy);
-    float rad = 6;// - u_Mouse.w;
+    vec2 sph = vec2(phi, theta);// + (-3.1415 * u_Mouse.xy / u_Resolution.xy);
+    float rad = radius;// - u_Mouse.w;
     vec3 ro = rad * vec3(sin(sph.y) * cos(sph.x), cos(sph.y), sin(sph.y) * sin(sph.x));
 
     // Camera

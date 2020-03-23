@@ -12,7 +12,7 @@ use std::cell::Cell;
 
 pub struct RenderEventsPrivate {
     render_area: OnceCell<super::render_area::RenderArea>,
-    click_start: Cell<(f32, f32)>,
+    last_pos: Cell<(f32, f32)>,
     resolution: Cell<(f32, f32)>,
 }
 
@@ -36,7 +36,7 @@ impl ObjectSubclass for RenderEventsPrivate {
     fn new() -> Self {
         Self {
             render_area: OnceCell::new(),
-            click_start: Cell::new((0., 0.)),
+            last_pos: Cell::new((0., 0.)),
             resolution: Cell::new((0., 0.)),
         }
     }
@@ -55,12 +55,13 @@ impl ObjectImpl for RenderEventsPrivate {
 impl gtk::subclass::widget::WidgetImpl for RenderEventsPrivate {
     fn size_allocate(&self, widget: &gtk::Widget, allocation: &gtk::Allocation) {
         self.parent_size_allocate(widget, allocation);
-        self.resolution.set((allocation.width as _, allocation.height as _));
+        self.resolution
+            .set((allocation.width as _, allocation.height as _));
     }
 
     fn button_press_event(&self, _widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
         let (x, y) = event.get_position();
-        self.click_start.set((x as _, y as _));
+        self.last_pos.set((x as _, y as _));
         Inhibit(false)
     }
 
@@ -81,6 +82,13 @@ impl gtk::subclass::widget::WidgetImpl for RenderEventsPrivate {
                 x as _,
                 y as _,
             )))
+        } else if modifiers == ModifierType::BUTTON2_MASK {
+            let (x, y) = self.relative_movement(event.get_position());
+            super::emit(Lang::UserRenderEvent(UserRenderEvent::Pan(
+                self.render_area.get().unwrap().unique_identifier(),
+                x as _,
+                y as _,
+            )))
         } else if modifiers == ModifierType::BUTTON3_MASK {
             let (_, y) = self.relative_movement(event.get_position());
             super::emit(Lang::UserRenderEvent(UserRenderEvent::Zoom(
@@ -88,6 +96,9 @@ impl gtk::subclass::widget::WidgetImpl for RenderEventsPrivate {
                 y as _,
             )))
         }
+
+        let (x, y) = event.get_position();
+        self.last_pos.set((x as _, y as _));
         Inhibit(false)
     }
 }
@@ -95,7 +106,7 @@ impl gtk::subclass::widget::WidgetImpl for RenderEventsPrivate {
 impl RenderEventsPrivate {
     fn relative_movement(&self, (xp, yp): (f64, f64)) -> (f32, f32) {
         let (xr, yr) = self.resolution.get();
-        let (xs, ys) = self.click_start.get();
+        let (xs, ys) = self.last_pos.get();
         let x = xp as f32 - xs;
         let y = ys - yp as f32;
         (x / xr, y / yr)
