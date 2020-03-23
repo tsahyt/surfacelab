@@ -294,17 +294,16 @@ void main() {
     vec2 uv = (v_TexCoord - 0.5); // * vec2(u_Resolution.x / u_Resolution.y, 1 );
 
     // Spherical Coordinate Input (phi, theta)
-    vec2 sph = vec2(phi, theta);// + (-3.1415 * u_Mouse.xy / u_Resolution.xy);
-    float rad = radius;// - u_Mouse.w;
+    vec2 sph = vec2(phi, theta);
+    float rad = radius;
     vec3 ro = rad * vec3(sin(sph.y) * cos(sph.x), cos(sph.y), sin(sph.y) * sin(sph.x));
 
     // Camera
-    vec3 lookAt = vec3(0, 0, 0);
     float itrc = 0.;
     float sitrc = 0.;
     vec3 col = vec3(0.);
 
-    vec3 rd = camera(ro, lookAt, uv, 1.);
+    vec3 rd = camera(ro, look_at, uv, 1.);
     float d = rayMarch(ro, rd, itrc);
     vec3 p = ro + rd * d;
     vec3 n = sdf_normal(p, lod_by_distance(d));

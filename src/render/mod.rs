@@ -130,24 +130,28 @@ where
     pub fn rotate_camera(&mut self, renderer_id: u64, phi: f32, theta: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.rotate_camera(phi, theta);
+            r.render();
         }
     }
 
     pub fn zoom_camera(&mut self, renderer_id: u64, z: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.zoom_camera(z);
+            r.render();
         }
     }
 
     pub fn move_light(&mut self, renderer_id: u64, x: f32, y: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.move_light();
+            r.render();
         }
     }
 
     pub fn pan_camera(&mut self, renderer_id: u64, x: f32, y: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.pan_camera(x, y);
+            r.render();
         }
     }
 }
