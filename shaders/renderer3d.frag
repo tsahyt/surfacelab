@@ -13,6 +13,7 @@ layout(set = 0, binding = 1) uniform Occupancy {
 };
 layout(set = 0, binding = 2) uniform Camera {
     vec4 center;
+    vec4 light_pos;
     float phi;
     float theta;
     float radius;
@@ -309,7 +310,7 @@ void main() {
     vec3 p = ro + rd * d;
     vec3 n = sdf_normal(p, lod_by_distance(d));
 
-    col += light(p, n, rd, d, vec3(1.), vec3(0, 3., 0), 100, 1., sitrc);
+    col += light(p, n, rd, d, vec3(1.), light_pos.xyz, 100, 1., sitrc);
 
     // Ambient Light
     #ifdef AMBIENT_OCCLUSION

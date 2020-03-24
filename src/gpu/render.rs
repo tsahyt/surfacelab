@@ -31,6 +31,7 @@ impl Default for RenderView2D {
 #[repr(C)]
 struct RenderView3D {
     center: [f32; 4],
+    light_pos: [f32; 4],
     phi: f32,
     theta: f32,
     rad: f32,
@@ -40,6 +41,7 @@ impl Default for RenderView3D {
     fn default() -> Self {
         Self {
             center: [0., 0., 0., 0.],
+            light_pos: [0., 3., 0., 0.],
             phi: 1.,
             theta: 1.,
             rad: 6.,
@@ -1068,8 +1070,11 @@ where
         }
     }
 
-    pub fn move_light(&mut self) {
-        if let RenderView::RenderView3D(view) = &self.view {}
+    pub fn move_light(&mut self, x: f32, y: f32) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.light_pos[0] += x;
+            view.light_pos[2] += y;
+        }
     }
 }
 

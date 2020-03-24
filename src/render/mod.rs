@@ -143,7 +143,7 @@ where
 
     pub fn move_light(&mut self, renderer_id: u64, x: f32, y: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
-            r.move_light();
+            r.move_light(x, y);
             r.render();
         }
     }
