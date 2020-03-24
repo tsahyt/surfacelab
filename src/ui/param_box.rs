@@ -299,12 +299,12 @@ pub fn perlin_noise(res: &Resource) -> ParamBox {
                 Parameter {
                     name: "Scale",
                     field: PerlinNoiseParameters::SCALE,
-                    control: Control::Slider { min: 0., max: 128. },
+                    control: Control::Slider { min: 0., max: 16. },
                 },
                 Parameter {
                     name: "Octaves",
                     field: PerlinNoiseParameters::OCTAVES,
-                    control: Control::DiscreteSlider { min: 0, max: 32 },
+                    control: Control::DiscreteSlider { min: 0, max: 24 },
                 },
                 Parameter {
                     name: "Attenuation",
