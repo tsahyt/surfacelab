@@ -14,16 +14,39 @@ layout(set = 0, binding = 1) uniform Occupancy {
 layout(set = 0, binding = 2) uniform Camera {
     vec2 pan;
     float zoom;
+    uint channel;
 };
 layout(set = 0, binding = 3) uniform texture2D t_Displ;
 layout(set = 0, binding = 4) uniform texture2D t_Albedo;
 layout(set = 0, binding = 5) uniform texture2D t_Normal;
 layout(set = 0, binding = 6) uniform texture2D t_Roughness;
 
+#define CHANNEL_DISPLACEMENT 0
+#define CHANNEL_ALBEDO 1
+#define CHANNEL_NORMAL 2
+#define CHANNEL_ROUGHNESS 3
+
+#define TEX_SCALE 1.0
+#define TEX_GRID 0.01
 
 void main() {
-    vec3 uv = vec3(v_TexCoord, 0.);
-    vec4 tex = texture(sampler2D(t_Displ, s_Texture), v_TexCoord);
+    vec2 uv = zoom * v_TexCoord - pan;
+    vec3 col;
+    if (channel == CHANNEL_DISPLACEMENT && has_displacement != 0) {
+        col = texture(sampler2D(t_Displ, s_Texture), uv).rrr;
+    } else if (channel == CHANNEL_ALBEDO && has_albedo != 0) {
+        col = texture(sampler2D(t_Displ, s_Texture), uv).rgb;
+    } else if (channel == CHANNEL_NORMAL && has_normal != 0) {
+        col = texture(sampler2D(t_Displ, s_Texture), uv).rgb;
+    } else if (channel == CHANNEL_ROUGHNESS && has_roughness != 0) {
+        col = texture(sampler2D(t_Displ, s_Texture), uv).rrr;
+    } else {
+        col = vec3(0.,0.,0.);
+    }
 
-    outColor = vec4(tex.r, tex.r, tex.r, 1.0);
+    if (fract(uv.x) < TEX_GRID || fract(uv.y) < TEX_GRID) {
+        col += vec3(0.3, 0.8, 0.);
+    }
+
+    outColor = vec4(col, 1.0);
 }

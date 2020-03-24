@@ -16,6 +16,7 @@ use super::{Backend, GPU};
 struct RenderView2D {
     pan: [f32; 2],
     zoom: f32,
+    channel: u32,
 }
 
 impl Default for RenderView2D {
@@ -23,6 +24,7 @@ impl Default for RenderView2D {
         Self {
             pan: [0., 0.],
             zoom: 1.,
+            channel: 0,
         }
     }
 }
