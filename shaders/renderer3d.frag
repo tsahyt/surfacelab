@@ -31,7 +31,7 @@ const int MAX_STEPS_AO = 6;
 const float MAX_DIST = 24.0;
 const float SURF_DIST = .0002;
 const float TEX_SCALE = 8.;
-const float TEX_DISPL = 1;
+const float TEX_DISPL = .5;
 const float TEX_MIDLEVEL = .5;
 
 #define SHADOW
@@ -76,7 +76,6 @@ float lod_by_distance(float d) {
     return log(d * LOD_BIAS);
 }
 
-// TODO: gamma correction in shader?
 float heightfield(vec2 p, float lod) {
     if(has_displacement != 0) {
         float h = textureLod(sampler2D(t_Displ, s_Texture), p / TEX_SCALE, lod).r;
