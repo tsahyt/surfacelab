@@ -12,10 +12,10 @@ layout(set = 0, binding = 1) uniform Occupancy {
     uint has_metallic;
 };
 layout(set = 0, binding = 2) uniform Camera {
+    vec4 center;
     float phi;
     float theta;
     float radius;
-    vec3 look_at;
 };
 layout(set = 0, binding = 3) uniform texture2D t_Displ;
 layout(set = 0, binding = 4) uniform texture2D t_Albedo;
@@ -294,16 +294,17 @@ void main() {
     vec2 uv = (v_TexCoord - 0.5); // * vec2(u_Resolution.x / u_Resolution.y, 1 );
 
     // Spherical Coordinate Input (phi, theta)
-    vec2 sph = vec2(phi, theta);
-    float rad = radius;
-    vec3 ro = (rad * vec3(sin(sph.y) * cos(sph.x), cos(sph.y), sin(sph.y) * sin(sph.x))) + look_at;
+    vec3 ro = center.xyz + (radius * vec3(
+                   sin(phi) * cos(theta),
+                   cos(phi),
+                   sin(phi) * sin(theta)));
 
     // Camera
     float itrc = 0.;
     float sitrc = 0.;
     vec3 col = vec3(0.);
 
-    vec3 rd = camera(ro, look_at, uv, 1.);
+    vec3 rd = camera(ro, center.xyz, uv, 1.);
     float d = rayMarch(ro, rd, itrc);
     vec3 p = ro + rd * d;
     vec3 n = sdf_normal(p, lod_by_distance(d));

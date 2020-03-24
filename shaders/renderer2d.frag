@@ -23,7 +23,7 @@ layout(set = 0, binding = 6) uniform texture2D t_Roughness;
 
 void main() {
     vec3 uv = vec3(v_TexCoord, 0.);
-    vec4 tex = texture(sampler2D(t_Color, s_Color), v_TexCoord);
+    vec4 tex = texture(sampler2D(t_Displ, s_Texture), v_TexCoord);
 
     outColor = vec4(tex.r, tex.r, tex.r, 1.0);
 }

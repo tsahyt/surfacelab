@@ -11,8 +11,8 @@ static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../shaders/renderer3d
 
 use super::{Backend, GPU};
 
+#[derive(AsBytes, Debug)]
 #[repr(C)]
-#[derive(AsBytes)]
 struct RenderView2D {
     pan: [f32; 2],
     zoom: f32,
@@ -27,26 +27,27 @@ impl Default for RenderView2D {
     }
 }
 
+#[derive(AsBytes, Debug)]
 #[repr(C)]
-#[derive(AsBytes)]
 struct RenderView3D {
+    center: [f32; 4],
     phi: f32,
     theta: f32,
     rad: f32,
-    lookat: [f32; 3],
 }
 
 impl Default for RenderView3D {
     fn default() -> Self {
         Self {
+            center: [0., 0., 0., 0.],
             phi: 1.,
             theta: 1.,
             rad: 6.,
-            lookat: [0., 0., 0.],
         }
     }
 }
 
+#[derive(Debug)]
 enum RenderView {
     RenderView2D(RenderView2D),
     RenderView3D(RenderView3D),
@@ -645,9 +646,9 @@ where
                     format!("Failed to map uniform buffer into CPU address space: {}", e)
                 })?;
             std::ptr::copy_nonoverlapping(
-                uniforms.as_ptr() as *const u8,
+                uniforms.as_ptr(),
                 mapping,
-                uniforms.len() as usize,
+                uniforms.len(),
             );
             device.unmap_memory(&*self.uniform_memory);
         }
@@ -656,12 +657,12 @@ where
             let mapping = device
                 .map_memory(&*self.occupancy_memory, 0..Self::UNIFORM_BUFFER_SIZE)
                 .map_err(|e| {
-                    format!("Failed to map uniform buffer into CPU address space: {}", e)
+                    format!("Failed to map occupancy buffer into CPU address space: {}", e)
                 })?;
             std::ptr::copy_nonoverlapping(
-                occupancy.as_ptr() as *const u8,
+                occupancy.as_ptr(),
                 mapping,
-                occupancy.len() as usize,
+                occupancy.len(),
             );
             device.unmap_memory(&*self.occupancy_memory);
         }
@@ -1031,7 +1032,7 @@ where
         image_slot.occupied = false;
     }
 
-    pub fn rotate_camera(&mut self, phi: f32, theta: f32) {
+    pub fn rotate_camera(&mut self, theta: f32, phi: f32) {
         if let RenderView::RenderView3D(view) = &mut self.view {
             view.phi += phi;
             view.theta += theta;
@@ -1045,16 +1046,13 @@ where
                 view.pan[1] += y;
             }
             RenderView::RenderView3D(view) => {
-                let dx = view.phi.cos() * view.theta.sin();
-                let dy = view.phi.sin() * view.theta.cos();
-                let l = (dx * dx + dy * dy).sqrt();
+                let p = (view.theta.cos(), view.theta.sin());
+                let n = (p.1, -p.0);
 
-                let forward = (y * dx / l, y * dy / l);
-                let sideways = (x * dy / l, x * (-(dx / l)));
-                let vec = (forward.0 + sideways.0, forward.1 + sideways.1);
+                let d = (p.0 * y + n.0 * x, p.1 * y + n.1 * x);
 
-                view.lookat[0] += vec.0;
-                view.lookat[1] += vec.1;
+                view.center[0] += d.0;
+                view.center[2] += d.1;
             }
         }
     }

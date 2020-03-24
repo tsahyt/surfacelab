@@ -30,8 +30,8 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::GraphEvent(GraphEvent::OutputRemoved(res, out_ty)) => {
                     render_manager.disconnect_output(res, *out_ty)
                 }
-                Lang::UserRenderEvent(UserRenderEvent::Rotate(id, phi, theta)) => {
-                    render_manager.rotate_camera(*id, *phi, *theta)
+                Lang::UserRenderEvent(UserRenderEvent::Rotate(id, theta, phi)) => {
+                    render_manager.rotate_camera(*id, *theta, *phi)
                 }
                 Lang::UserRenderEvent(UserRenderEvent::Pan(id, x, y)) => {
                     render_manager.pan_camera(*id, *x, *y)
