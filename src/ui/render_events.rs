@@ -131,6 +131,8 @@ impl RenderEvents {
             .unwrap()
             .downcast()
             .unwrap();
+        ebox.set_above_child(true);
+        ebox.set_visible_window(false);
         ebox.add(&render_area);
         let imp = RenderEventsPrivate::from_instance(&ebox);
         imp.render_area
