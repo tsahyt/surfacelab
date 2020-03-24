@@ -12,6 +12,8 @@ struct Node {
     type_variables: HashMap<lang::TypeVariable, lang::ImageType>,
 }
 
+type Connections = Vec<(lang::Resource, lang::Resource)>;
+
 impl Node {
     fn new(operator: lang::Operator, resource: lang::Resource) -> Self {
         Node {
@@ -200,7 +202,7 @@ impl NodeManager {
     ) -> Result<
         (
             Option<lang::OutputType>,
-            Vec<(lang::Resource, lang::Resource)>,
+            Connections,
         ),
         String,
     > {

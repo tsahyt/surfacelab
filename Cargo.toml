@@ -17,7 +17,8 @@ gfx-hal = "0.4.1"
 gio = { git = "https://github.com/gtk-rs/gio" }
 glib = { git = "https://github.com/gtk-rs/glib" }
 glib-sys = { git = "https://github.com/gtk-rs/sys" }
-gtk = { version = "0.8.1", path = "../gtk-rs/gtk", features = ["v3_22"] }
+# gtk = { version = "0.8.1", path = "../gtk-rs/gtk", features = ["v3_22"] }
+gtk = { git = "https://github.com/tsahyt/gtk", branch = "scroll-event", features = ["v3_22"] }
 gtk-sys = { git = "https://github.com/gtk-rs/sys" }
 half = "1.4.1"
 image = "0.23.0"

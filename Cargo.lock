@@ -585,6 +585,7 @@ dependencies = [
 [[package]]
 name = "gtk"
 version = "0.8.1"
+source = "git+https://github.com/tsahyt/gtk?branch=scroll-event#2e87691855c62003e3f70b70adb6bdaad322eb0e"
 dependencies = [
  "atk",
  "bitflags",

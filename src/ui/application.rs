@@ -225,25 +225,24 @@ impl SurfaceLabApplication {
     pub fn process_event(&self, event: Arc<Lang>) {
         let widgets = self.get_widgets();
         match &*event {
-            Lang::GraphEvent(event) => match event {
-                GraphEvent::NodeAdded(res, op) => {
-                    let new_node = node::Node::new_from_operator(op.clone(), res.clone());
-                    widgets.node_area.add(&new_node);
-                    new_node.show_all();
-                }
-                GraphEvent::NodeRemoved(res) => widgets.node_area.remove_by_resource(&res),
-                GraphEvent::ConnectedSockets(source, sink) => {
-                    widgets
-                        .node_area
-                        .add_connection(source.clone(), sink.clone());
-                }
-                GraphEvent::DisconnectedSockets(source, sink) => {
-                    widgets
-                        .node_area
-                        .remove_connection(source.clone(), sink.clone());
-                }
-                _ => {}
-            },
+            Lang::GraphEvent(GraphEvent::NodeAdded(res, op)) => {
+                let new_node = node::Node::new_from_operator(op.clone(), res.clone());
+                widgets.node_area.add(&new_node);
+                new_node.show_all();
+            }
+            Lang::GraphEvent(GraphEvent::NodeRemoved(res)) => {
+                widgets.node_area.remove_by_resource(&res)
+            }
+            Lang::GraphEvent(GraphEvent::ConnectedSockets(source, sink)) => {
+                widgets
+                    .node_area
+                    .add_connection(source.clone(), sink.clone());
+            }
+            Lang::GraphEvent(GraphEvent::DisconnectedSockets(source, sink)) => {
+                widgets
+                    .node_area
+                    .remove_connection(source.clone(), sink.clone());
+            }
             _ => {}
         }
     }

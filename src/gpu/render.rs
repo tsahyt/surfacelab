@@ -427,7 +427,7 @@ where
             main_render_pass: ManuallyDrop::new(main_render_pass),
             main_pipeline: ManuallyDrop::new(main_pipeline),
             main_pipeline_layout: ManuallyDrop::new(main_pipeline_layout),
-            main_descriptor_set: main_descriptor_set,
+            main_descriptor_set,
             main_descriptor_set_layout: ManuallyDrop::new(main_set_layout),
             image_slots,
             occupancy_buffer: ManuallyDrop::new(occupancy_buf),
@@ -1034,7 +1034,7 @@ where
             crate::lang::OutputType::Roughness => &mut self.image_slots.roughness,
             crate::lang::OutputType::Normal => &mut self.image_slots.normal,
             crate::lang::OutputType::Metallic => &mut self.image_slots.metallic,
-            _ => return (),
+            _ => return,
         };
 
         image_slot.occupied = false;
@@ -1054,13 +1054,13 @@ where
                 view.pan[1] += y;
             }
             RenderView::RenderView3D(view) => {
-                let p = (view.theta.cos(), view.theta.sin());
-                let n = (p.1, -p.0);
+                let point = (view.theta.cos(), view.theta.sin());
+                let normal = (point.1, -point.0);
 
-                let d = (p.0 * y + n.0 * x, p.1 * y + n.1 * x);
+                let delta = (point.0 * y + normal.0 * x, point.1 * y + normal.1 * x);
 
-                view.center[0] += d.0;
-                view.center[2] += d.1;
+                view.center[0] += delta.0;
+                view.center[2] += delta.1;
             }
         }
     }

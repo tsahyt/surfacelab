@@ -11,8 +11,8 @@ use gtk::subclass::prelude::*;
 use gtk::subclass::widget::WidgetImplExt;
 use raw_window_handle::*;
 
+use std::cell::RefCell;
 use once_cell::unsync::OnceCell;
-use std::cell::Cell;
 
 #[link(name = "gdk-3")]
 extern "C" {
@@ -37,7 +37,7 @@ fn gdk_wayland_handle(window: &gdk::Window, display: &gdk::Display) -> RawWindow
 
 pub struct RenderAreaPrivate {
     renderer_type: OnceCell<RendererType>,
-    renderer_window: OnceCell<gdk::Window>,
+    renderer_window: RefCell<Option<gdk::Window>>,
 }
 
 impl ObjectSubclass for RenderAreaPrivate {
@@ -58,7 +58,7 @@ impl ObjectSubclass for RenderAreaPrivate {
     fn new() -> Self {
         RenderAreaPrivate {
             renderer_type: OnceCell::new(),
-            renderer_window: OnceCell::new(),
+            renderer_window: RefCell::new(None),
         }
     }
 }
@@ -126,6 +126,7 @@ impl WidgetImpl for RenderAreaPrivate {
 
         // Run initial size allocate to emit initial resize event
         self.size_allocate(widget, &widget.get_allocation());
+        self.renderer_window.replace(Some(gdk_window));
     }
 
     fn unrealize(&self, widget: &gtk::Widget) {
@@ -133,6 +134,8 @@ impl WidgetImpl for RenderAreaPrivate {
         self.parent_unrealize(widget);
 
         super::emit(Lang::UIEvent(UIEvent::RendererRemoved(self.unique_identifier())));
+
+        self.renderer_window.replace(None);
     }
 }
 
