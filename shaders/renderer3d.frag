@@ -14,6 +14,7 @@ layout(set = 0, binding = 1) uniform Occupancy {
 layout(set = 0, binding = 2) uniform Camera {
     vec4 center;
     vec4 light_pos;
+    vec2 resolution;
     float phi;
     float theta;
     float radius;
@@ -292,7 +293,7 @@ vec3 camera(vec3 ro, vec3 lookAt, vec2 uv, float zoom) {
 }
 
 void main() {
-    vec2 uv = (v_TexCoord - 0.5); // * vec2(u_Resolution.x / u_Resolution.y, 1 );
+    vec2 uv = (v_TexCoord - 0.5) * vec2(resolution.x / resolution.y, 1);
 
     // Spherical Coordinate Input (phi, theta)
     vec3 ro = center.xyz + (radius * vec3(

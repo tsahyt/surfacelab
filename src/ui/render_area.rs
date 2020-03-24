@@ -123,6 +123,9 @@ impl WidgetImpl for RenderAreaPrivate {
                 .get()
                 .unwrap_or(&RendererType::Renderer2D),
         )));
+
+        // Run initial size allocate to emit initial resize event
+        self.size_allocate(widget, &widget.get_allocation());
     }
 
     fn unrealize(&self, widget: &gtk::Widget) {

@@ -14,6 +14,7 @@ use super::{Backend, GPU};
 #[derive(AsBytes, Debug)]
 #[repr(C)]
 struct RenderView2D {
+    resolution: [f32; 2],
     pan: [f32; 2],
     zoom: f32,
     channel: u32,
@@ -22,6 +23,7 @@ struct RenderView2D {
 impl Default for RenderView2D {
     fn default() -> Self {
         Self {
+            resolution: [1024.0, 1024.0],
             pan: [0., 0.],
             zoom: 1.,
             channel: 0,
@@ -34,6 +36,7 @@ impl Default for RenderView2D {
 struct RenderView3D {
     center: [f32; 4],
     light_pos: [f32; 4],
+    resolution: [f32; 2],
     phi: f32,
     theta: f32,
     rad: f32,
@@ -42,6 +45,7 @@ struct RenderView3D {
 impl Default for RenderView3D {
     fn default() -> Self {
         Self {
+            resolution: [1024.0, 1024.0],
             center: [0., 0., 0., 0.],
             light_pos: [0., 3., 0., 0.],
             phi: 1.,
@@ -584,6 +588,11 @@ where
     pub fn set_dimensions(&mut self, width: u32, height: u32) {
         self.dimensions.width = width;
         self.dimensions.height = height;
+
+        match &mut self.view {
+            RenderView::RenderView2D(view) => view.resolution = [width as _, height as _],
+            RenderView::RenderView3D(view) => view.resolution = [width as _, height as _],
+        }
     }
 
     pub fn recreate_swapchain(&mut self) {
@@ -649,11 +658,7 @@ where
                 .map_err(|e| {
                     format!("Failed to map uniform buffer into CPU address space: {}", e)
                 })?;
-            std::ptr::copy_nonoverlapping(
-                uniforms.as_ptr(),
-                mapping,
-                uniforms.len(),
-            );
+            std::ptr::copy_nonoverlapping(uniforms.as_ptr(), mapping, uniforms.len());
             device.unmap_memory(&*self.uniform_memory);
         }
 
@@ -661,13 +666,12 @@ where
             let mapping = device
                 .map_memory(&*self.occupancy_memory, 0..Self::UNIFORM_BUFFER_SIZE)
                 .map_err(|e| {
-                    format!("Failed to map occupancy buffer into CPU address space: {}", e)
+                    format!(
+                        "Failed to map occupancy buffer into CPU address space: {}",
+                        e
+                    )
                 })?;
-            std::ptr::copy_nonoverlapping(
-                occupancy.as_ptr(),
-                mapping,
-                occupancy.len(),
-            );
+            std::ptr::copy_nonoverlapping(occupancy.as_ptr(), mapping, occupancy.len());
             device.unmap_memory(&*self.occupancy_memory);
         }
         Ok(())
