@@ -10,6 +10,7 @@ layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
 
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    vec2 uv = vec2(idx.x / 1024., idx.y / 1024.);
+    ivec2 resolution = imageSize(t_Out);
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
     imageStore(t_Out, idx, vec4(0.));
 }
