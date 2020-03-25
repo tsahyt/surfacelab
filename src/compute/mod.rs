@@ -62,7 +62,6 @@ struct SocketData<B: gpu::Backend> {
 
     /// Input sockets only map to the output sockets they are connected to
     inputs: HashMap<String, Resource>,
-    // TODO: Block dropping of output images that were last sent as outputready
 }
 
 struct Sockets<B: gpu::Backend>(HashMap<Resource, SocketData<B>>);
@@ -347,6 +346,7 @@ where
         }
     }
 
+    // HACK: Images sent as OutputReady could technically get dropped before the renderer is done copying them.
     fn execute_output(
         &mut self,
         op: &Operator,
