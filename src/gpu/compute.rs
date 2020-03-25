@@ -194,8 +194,8 @@ where
             lock.device.create_image(
                 hal::image::Kind::D2(Self::THUMBNAIL_SIZE as _, Self::THUMBNAIL_SIZE as _, 1, 1),
                 1,
-                hal::format::Format::Rgba8Snorm,
-                hal::image::Tiling::Optimal,
+                hal::format::Format::Rgba8Unorm,
+                hal::image::Tiling::Linear,
                 hal::image::Usage::TRANSFER_SRC | hal::image::Usage::TRANSFER_DST,
                 hal::image::ViewCapabilities::empty(),
             )
@@ -743,16 +743,23 @@ where
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
             cmd_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
+                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::TRANSFER,
                 hal::memory::Dependencies::empty(),
-                &[image.barrier_to(
-                    hal::image::Access::TRANSFER_READ,
-                    hal::image::Layout::TransferSrcOptimal,
-                )],
+                &[ hal::memory::Barrier::Image {
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                            ..(
+                                hal::image::Access::TRANSFER_WRITE,
+                                hal::image::Layout::TransferDstOptimal,
+                            ),
+                        target: &*self.thumbnail_image,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    },
+                ],
             );
             cmd_buffer.blit_image(
                 &*image.raw,
-                hal::image::Layout::TransferSrcOptimal,
+                image.get_layout(), // TODO: Use TransferSrcOptimal layout for thumbnail
                 &*self.thumbnail_image,
                 hal::image::Layout::TransferDstOptimal,
                 hal::image::Filter::Nearest,
@@ -804,6 +811,8 @@ where
             lock.device.unmap_memory(&self.thumbnail_mem);
             owned
         };
+
+        // TODO: Handle grayscale thumbnails
 
         Ok(res)
     }
