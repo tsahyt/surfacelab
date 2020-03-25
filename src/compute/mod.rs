@@ -339,33 +339,9 @@ where
         let image = self.sockets.get_input_image(&socket_res).unwrap();
 
         // let raw = self.gpu.download_image(image).unwrap();
-
-        // log::debug!("Downloaded image size {:?}", raw.len());
-        // let path = format!("/tmp/{}.png", res.path().to_str().unwrap());
-
-        // thread::spawn(move || {
-        //     let ty = op.inputs()[socket]
-        //         .monomorphic()
-        //         .expect("Output Type must always be monomorphic!");
-        //     let converted = convert_image(&raw, ty);
-
-        //     log::debug!("Saving converted image to {}", path);
-
-        //     let r = image::save_buffer(
-        //         path,
-        //         &converted,
-        //         IMG_SIZE,
-        //         IMG_SIZE,
-        //         match ty {
-        //             ImageType::Grayscale => image::ColorType::L16,
-        //             ImageType::Rgb => image::ColorType::Rgb16,
-        //         },
-        //     );
-        //     match r {
-        //         Err(e) => log::error!("Error saving image: {}", e),
-        //         Ok(_) => log::debug!("Saved image!"),
-        //     };
-        // });
+        // let ty = op.inputs()[socket]
+        //     .monomorphic()
+        //     .expect("Output Type must always be monomorphic!");
 
         Ok(ComputeEvent::OutputReady(
             res.clone(),
@@ -374,6 +350,38 @@ where
             image.get_access(),
             *output_type,
         ))
+    }
+
+    fn store_image(
+        raw: Vec<u8>,
+        path: std::path::PathBuf,
+        ty: ImageType,
+        size: u32,
+    ) -> Result<(), String> {
+        log::debug!("Downloaded image size {:?}", raw.len());
+
+        thread::spawn(move || {
+            let converted = convert_image(&raw, ty);
+
+            log::debug!("Saving converted image");
+
+            let r = image::save_buffer(
+                path,
+                &converted,
+                size,
+                size,
+                match ty {
+                    ImageType::Grayscale => image::ColorType::L16,
+                    ImageType::Rgb => image::ColorType::Rgb16,
+                },
+            );
+            match r {
+                Err(e) => log::error!("Error saving image: {}", e),
+                Ok(_) => log::debug!("Saved image!"),
+            };
+        });
+
+        Ok(())
     }
 
     fn execute_operator(&mut self, op: &Operator, res: &Resource) -> Result<(), String> {
@@ -454,6 +462,14 @@ where
             pipeline,
             desc_set,
         );
+
+        // generate thumbnail
+        let thumbnail = self.gpu.generate_thumbnail(
+            outputs
+                .values()
+                .next()
+                .expect("Cannot generate thumbnail for operator without outputs"),
+        )?;
 
         self.last_known.insert(res.clone(), uniform_hash);
         self.sockets.output_image_set_updated(res, true);
