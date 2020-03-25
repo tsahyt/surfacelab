@@ -272,10 +272,15 @@ where
                 self.sockets.connect_input(from, to);
             }
             Instruction::Execute(res, op) => match op {
-                Operator::Image { path } => self.execute_image(res, path)?,
+                Operator::Image { path } => {
+                    if let Some(res) = self.execute_image(res, path)? {
+                        response.push(res);
+                    }
+                }
                 Operator::Output { .. } => {
-                    let res = self.execute_output(op, res)?;
-                    response.push(res);
+                    for res in self.execute_output(op, res)? {
+                        response.push(res);
+                    }
                 }
                 _ => {
                     if let Some(res) = self.execute_operator(op, res)? {
@@ -288,41 +293,65 @@ where
         Ok(response)
     }
 
-    fn execute_image(&mut self, res: &Resource, path: &std::path::PathBuf) -> Result<(), String> {
+    fn execute_image(
+        &mut self,
+        res: &Resource,
+        path: &std::path::PathBuf,
+    ) -> Result<Option<ComputeEvent>, String> {
         log::trace!("Processing Image operator {}", res);
 
-        let image = self
-            .sockets
-            .get_output_image_mut(&res.extend_fragment("image"))
-            .expect("Trying to process missing socket");
+        let uploaded = {
+            let image = self
+                .sockets
+                .get_output_image_mut(&res.extend_fragment("image"))
+                .expect("Trying to process missing socket");
 
-        let external_image = self.external_images.entry(path.clone()).or_insert_with(|| {
-            log::trace!("Loading external image {:?}", path);
-            let buf = load_rgba16f_image(path).expect("Failed to read image");
-            ExternalImage {
-                state: ExternalImageState::InMemory,
-                buffer: buf,
-            }
-        });
+            let external_image = self.external_images.entry(path.clone()).or_insert_with(|| {
+                log::trace!("Loading external image {:?}", path);
+                let buf = load_rgba16f_image(path).expect("Failed to read image");
+                ExternalImage {
+                    state: ExternalImageState::InMemory,
+                    buffer: buf,
+                }
+            });
 
-        match external_image.state {
-            ExternalImageState::InMemory => {
-                log::trace!("Uploading image to GPU");
-                image.ensure_alloc(&self.gpu)?;
-                self.gpu.upload_image(&image, &external_image.buffer)?;
-                self.sockets.output_image_set_updated(res, true);
-                external_image.state = ExternalImageState::Uploaded
+            match external_image.state {
+                ExternalImageState::InMemory => {
+                    log::trace!("Uploading image to GPU");
+                    image.ensure_alloc(&self.gpu)?;
+                    self.gpu.upload_image(&image, &external_image.buffer)?;
+                    self.sockets.output_image_set_updated(res, true);
+                    external_image.state = ExternalImageState::Uploaded;
+                    true
+                }
+                ExternalImageState::Uploaded => {
+                    self.sockets.output_image_set_updated(res, false);
+                    log::trace!("Reusing uploaded image");
+                    false
+                }
             }
-            ExternalImageState::Uploaded => {
-                self.sockets.output_image_set_updated(res, false);
-                log::trace!("Reusing uploaded image");
-            }
+        };
+
+        if uploaded {
+            let image = self
+                .sockets
+                .get_output_image(&res.extend_fragment("image"))
+                .unwrap();
+            let thumbnail = self.gpu.generate_thumbnail(image)?;
+            Ok(Some(ComputeEvent::ThumbnailGenerated(
+                res.clone(),
+                thumbnail,
+            )))
+        } else {
+            Ok(None)
         }
-
-        Ok(())
     }
 
-    fn execute_output(&mut self, op: &Operator, res: &Resource) -> Result<ComputeEvent, String> {
+    fn execute_output(
+        &mut self,
+        op: &Operator,
+        res: &Resource,
+    ) -> Result<Vec<ComputeEvent>, String> {
         let socket = "data";
         let output_type = match op {
             Operator::Output { output_type } => output_type,
@@ -346,14 +375,19 @@ where
         // let ty = op.inputs()[socket]
         //     .monomorphic()
         //     .expect("Output Type must always be monomorphic!");
+        //
+        let thumbnail = self.gpu.generate_thumbnail(image)?;
 
-        Ok(ComputeEvent::OutputReady(
-            res.clone(),
-            gpu::BrokerImage::from::<B>(image.get_raw()),
-            image.get_layout(),
-            image.get_access(),
-            *output_type,
-        ))
+        Ok(vec![
+            ComputeEvent::OutputReady(
+                res.clone(),
+                gpu::BrokerImage::from::<B>(image.get_raw()),
+                image.get_layout(),
+                image.get_access(),
+                *output_type,
+            ),
+            ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail),
+        ])
     }
 
     fn store_image(
@@ -388,7 +422,11 @@ where
         Ok(())
     }
 
-    fn execute_operator(&mut self, op: &Operator, res: &Resource) -> Result<Option<ComputeEvent>, String> {
+    fn execute_operator(
+        &mut self,
+        op: &Operator,
+        res: &Resource,
+    ) -> Result<Option<ComputeEvent>, String> {
         use shaders::Uniforms;
 
         log::trace!("Executing operator {:?} of {}", op, res);
@@ -478,7 +516,10 @@ where
         self.last_known.insert(res.clone(), uniform_hash);
         self.sockets.output_image_set_updated(res, true);
 
-        Ok(Some(ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail)))
+        Ok(Some(ComputeEvent::ThumbnailGenerated(
+            res.clone(),
+            thumbnail,
+        )))
     }
 }
 
