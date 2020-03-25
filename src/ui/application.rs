@@ -243,6 +243,9 @@ impl SurfaceLabApplication {
                     .node_area
                     .remove_connection(source.clone(), sink.clone());
             }
+            Lang::ComputeEvent(ComputeEvent::ThumbnailGenerated(res, thumb)) => {
+                widgets.node_area.update_thumbnail(res, thumb);
+            }
             _ => {}
         }
     }

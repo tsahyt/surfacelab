@@ -175,6 +175,12 @@ impl NodeAreaPrivate {
             _ => log::error!("Tried to remove non-existent widget from NodeArea"),
         }
     }
+
+    fn update_thumbnail(&self, node: &Resource, thumbnail: &[u8]) {
+        if let Some(child) = self.children.borrow().get(node) {
+            child.set_thumbnail(thumbnail);
+        }
+    }
 }
 
 impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
@@ -284,6 +290,11 @@ impl NodeArea {
     pub fn remove_by_resource(&self, node: &Resource) {
         let imp = NodeAreaPrivate::from_instance(self);
         imp.remove_by_resource(&self.clone().upcast::<gtk::Container>(), node);
+    }
+
+    pub fn update_thumbnail(&self, node: &Resource, thumbnail: &[u8]) {
+        let imp = NodeAreaPrivate::from_instance(self);
+        imp.update_thumbnail(node, thumbnail);
     }
 }
 

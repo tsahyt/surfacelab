@@ -1350,6 +1350,7 @@ dependencies = [
  "crossbeam-channel",
  "env_logger",
  "gdk",
+ "gdk-pixbuf",
  "gdk-sys",
  "gfx-backend-vulkan",
  "gfx-hal",

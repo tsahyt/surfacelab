@@ -553,6 +553,7 @@ pub enum ComputeEvent {
         crate::gpu::Access,
         OutputType,
     ),
+    ThumbnailGenerated(Resource, Vec<u8>)
 }
 
 #[derive(Debug, Clone, Copy)]

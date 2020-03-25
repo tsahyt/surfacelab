@@ -277,7 +277,11 @@ where
                     let res = self.execute_output(op, res)?;
                     response.push(res);
                 }
-                _ => self.execute_operator(op, res)?,
+                _ => {
+                    if let Some(res) = self.execute_operator(op, res)? {
+                        response.push(res);
+                    }
+                }
             },
         }
 
@@ -384,7 +388,7 @@ where
         Ok(())
     }
 
-    fn execute_operator(&mut self, op: &Operator, res: &Resource) -> Result<(), String> {
+    fn execute_operator(&mut self, op: &Operator, res: &Resource) -> Result<Option<ComputeEvent>, String> {
         use shaders::Uniforms;
 
         log::trace!("Executing operator {:?} of {}", op, res);
@@ -417,7 +421,7 @@ where
             Some(hash) if *hash == uniform_hash && !inputs_updated => {
                 log::trace!("Reusing known image");
                 self.sockets.output_image_set_updated(res, false);
-                return Ok(());
+                return Ok(None);
             }
             _ => {}
         };
@@ -474,7 +478,7 @@ where
         self.last_known.insert(res.clone(), uniform_hash);
         self.sockets.output_image_set_updated(res, true);
 
-        Ok(())
+        Ok(Some(ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail)))
     }
 }
 

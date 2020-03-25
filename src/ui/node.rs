@@ -18,6 +18,7 @@ pub struct NodePrivate {
     header_label: gtk::Label,
     resource: OnceCell<Resource>,
     popover: Rc<gtk::Popover>,
+    thumbnail: gtk::Image,
 }
 
 const HEADER_SPACING: i32 = 16;
@@ -73,6 +74,7 @@ impl ObjectSubclass for NodePrivate {
             header_label: gtk::Label::new(Some("Node")),
             resource: OnceCell::new(),
             popover: Rc::new(gtk::Popover::new::<gtk::Widget>(None)),
+            thumbnail: gtk::Image::new(),
         }
     }
 }
@@ -129,25 +131,16 @@ impl ObjectImpl for NodePrivate {
 
         // thumbnail
         {
-            let thumbnail = gtk::DrawingArea::new();
-            thumbnail.set_size_request(128, 128);
+            self.thumbnail.set_size_request(128, 128);
+            self.thumbnail.set_margin_start(MARGIN);
+            self.thumbnail.set_margin_end(MARGIN);
+            self.thumbnail.set_margin_bottom(MARGIN);
 
-            thumbnail.connect_draw(|_, cr| {
-                cr.set_source_rgba(0., 0., 0., 1.);
-                cr.rectangle(0., 0., 128., 128.);
-                cr.fill();
-                Inhibit(false)
-            });
-
-            thumbnail.set_margin_start(MARGIN);
-            thumbnail.set_margin_end(MARGIN);
-            thumbnail.set_margin_bottom(MARGIN);
-
-            self.popover.set_relative_to(Some(&thumbnail));
+            self.popover.set_relative_to(Some(&self.thumbnail));
             self.popover.set_position(gtk::PositionType::Right);
 
             let ebox = gtk::EventBox::new();
-            ebox.add(&thumbnail);
+            ebox.add(&self.thumbnail);
 
             let popover = self.popover.clone();
             ebox.connect_button_press_event(move |_, e| {
@@ -214,6 +207,19 @@ impl NodePrivate {
         });
         node.add(&node_socket);
         self.sockets.borrow_mut().push(node_socket);
+    }
+
+    pub fn set_thumbnail(&self, thumbnail: &[u8]) {
+        let pixbuf = gdk_pixbuf::Pixbuf::new_from_bytes(
+            &glib::Bytes::from(thumbnail),
+            gdk_pixbuf::Colorspace::Rgb,
+            true,
+            8,
+            128,
+            128,
+            4 * 128,
+        );
+        self.thumbnail.set_from_pixbuf(Some(&pixbuf));
     }
 }
 
@@ -315,6 +321,11 @@ impl Node {
             None
         })
         .unwrap()
+    }
+
+    pub fn set_thumbnail(&self, thumbnail: &[u8]) {
+        let imp = NodePrivate::from_instance(self);
+        imp.set_thumbnail(thumbnail);
     }
 }
 

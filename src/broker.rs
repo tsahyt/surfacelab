@@ -37,7 +37,6 @@ impl<T: std::fmt::Debug> Broker<T> {
 
     pub fn run(&self) {
         for ev in &self.receiver {
-            log::trace!("Emitting event {:?}", ev);
             let arc = Arc::new(ev);
             for subscriber in &self.subscribers {
                 let res = subscriber.send(Arc::clone(&arc));

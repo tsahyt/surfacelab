@@ -12,6 +12,7 @@ crossbeam-channel = "0.4.0"
 env_logger = "0.7.1"
 gdk = { git = "https://github.com/gtk-rs/gdk", features = ["v3_20"] }
 gdk-sys = { git = "https://github.com/gtk-rs/sys" }
+gdk-pixbuf = { git = "https://github.com/gtk-rs/gdk-pixbuf", features = ["v2_32"] }
 gfx-backend-vulkan = ""
 gfx-hal = "0.4.1"
 gio = { git = "https://github.com/gtk-rs/gio" }
