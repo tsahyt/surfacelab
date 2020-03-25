@@ -17,6 +17,10 @@ pub enum BlendMode {
     Multiply,
     Add,
     Subtract,
+    Screen,
+    Overlay,
+    Darken,
+    Lighten,
 }
 
 #[repr(C)]
