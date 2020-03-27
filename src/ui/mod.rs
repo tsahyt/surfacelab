@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::thread;
 
 pub mod application;
+pub mod color_ramp;
 pub mod node;
 pub mod node_area;
 pub mod node_socket;

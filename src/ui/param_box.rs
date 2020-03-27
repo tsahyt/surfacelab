@@ -142,6 +142,7 @@ pub enum Control {
     RgbaColor,
     Enum(&'static [&'static str]),
     File,
+    Ramp,
 }
 
 impl Control {
@@ -157,6 +158,7 @@ impl Control {
             Self::RgbaColor => Self::construct_rgba(resource, field),
             Self::Enum(entries) => Self::construct_enum(entries, resource, field),
             Self::File => Self::construct_file(resource, field),
+            Self::Ramp => Self::construct_ramp(resource, field),
         }
     }
 
@@ -251,6 +253,11 @@ impl Control {
         }));
         button.upcast()
     }
+
+    fn construct_ramp(resource: &Resource, field: &'static str) -> gtk::Widget {
+        let ramp = super::color_ramp::ColorRamp::new();
+        ramp.upcast()
+    }
 }
 
 // Parameter Boxes for Nodes
@@ -261,7 +268,7 @@ pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
         Operator::PerlinNoise(..) => perlin_noise(res),
         Operator::Rgb(..) => rgb(res),
         Operator::Grayscale(..) => grayscale(res),
-        Operator::Ramp(..) => ParamBox::empty(), // TODO: Ramp parameter box
+        Operator::Ramp(..) => ramp(res),
         Operator::Image { .. } => image(res),
         Operator::Output { .. } => output(res),
     }
@@ -371,6 +378,21 @@ pub fn grayscale(res: &Resource) -> ParamBox {
                 name: "Conversion Mode",
                 field: GrayscaleParameters::MODE,
                 control: Control::Enum(GrayscaleMode::VARIANTS),
+            }],
+        }],
+    })
+}
+
+pub fn ramp(res: &Resource) -> ParamBox {
+    ParamBox::new(&ParamBoxDescription {
+        box_title: "Ramp",
+        resource: res.clone(),
+        categories: &[ParamCategory {
+            name: "Basic Parameters",
+            parameters: &[Parameter {
+                name: "Gradient",
+                field: "",
+                control: Control::Ramp,
             }],
         }],
     })
