@@ -261,7 +261,7 @@ pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
         Operator::PerlinNoise(..) => perlin_noise(res),
         Operator::Rgb(..) => rgb(res),
         Operator::Grayscale(..) => grayscale(res),
-        Operator::Ramp => ParamBox::empty(), // TODO: Ramp parameter box
+        Operator::Ramp(..) => ParamBox::empty(), // TODO: Ramp parameter box
         Operator::Image { .. } => image(res),
         Operator::Output { .. } => output(res),
     }

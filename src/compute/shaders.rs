@@ -159,7 +159,7 @@ fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
         Operator::PerlinNoise(..) => PERLIN_NOISE_SHADER,
         Operator::Rgb(..) => RGB_SHADER,
         Operator::Grayscale(..) => GRAYSCALE_SHADER,
-        Operator::Ramp => RAMP_SHADER,
+        Operator::Ramp(..) => RAMP_SHADER,
     };
 
     Some(src)
@@ -179,7 +179,7 @@ fn operator_layout<'a>(
         Operator::PerlinNoise(..) => PERLIN_NOISE_LAYOUT,
         Operator::Rgb(..) => RGB_LAYOUT,
         Operator::Grayscale(..) => GRAYSCALE_LAYOUT,
-        Operator::Ramp => RAMP_LAYOUT,
+        Operator::Ramp(..) => RAMP_LAYOUT,
     };
 
     Some(bindings)
@@ -311,7 +311,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 )],
             },
         ],
-        Operator::Ramp => vec![
+        Operator::Ramp(..) => vec![
             gpu::DescriptorSetWrite {
                 set: desc_set,
                 binding: 0,
@@ -372,7 +372,7 @@ impl Uniforms for lang::Operator {
             Operator::PerlinNoise(p) => p.as_bytes(),
             Operator::Rgb(p) => p.as_bytes(),
             Operator::Grayscale(p) => p.as_bytes(),
-            Operator::Ramp => &[],
+            Operator::Ramp(p) => p.as_bytes(),
         }
     }
 }

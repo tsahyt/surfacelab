@@ -195,13 +195,44 @@ impl Parameters for GrayscaleParameters {
     }
 }
 
+#[repr(C)]
+#[derive(AsBytes, Clone, Copy)]
+pub struct RampParameters {
+    ramp_size: u32,
+    ramp_data: [[f32; 4]; 64],
+}
+
+impl std::fmt::Debug for RampParameters {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RampParameters")
+            .field("ramp_size", &self.ramp_size)
+            .field("ramp_data", &[()])
+            .finish()
+    }
+}
+
+impl Default for RampParameters {
+    fn default() -> Self {
+        RampParameters {
+            ramp_size: 0,
+            ramp_data: [[0.0; 4]; 64],
+        }
+    }
+}
+
+impl Parameters for RampParameters {
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+    }
+
+}
+
 #[derive(Clone, Debug)]
 pub enum Operator {
     Blend(BlendParameters),
     PerlinNoise(PerlinNoiseParameters),
     Rgb(RgbParameters),
     Grayscale(GrayscaleParameters),
-    Ramp,
+    Ramp(RampParameters),
     Image { path: std::path::PathBuf },
     Output { output_type: OutputType },
 }
@@ -226,7 +257,7 @@ impl Operator {
             Self::Grayscale(..) => hashmap! {
                 "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb),
             },
-            Self::Ramp => hashmap! {
+            Self::Ramp(..) => hashmap! {
                 "factor".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
             },
             Self::Image { .. } => HashMap::new(),
@@ -259,7 +290,7 @@ impl Operator {
             Self::Grayscale(..) => hashmap! {
                 "value".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
             },
-            Self::Ramp => hashmap! {
+            Self::Ramp(..) => hashmap! {
                 "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
             },
             Self::Image { .. } => {
@@ -275,7 +306,7 @@ impl Operator {
             Self::PerlinNoise(..) => "perlin_noise",
             Self::Rgb(..) => "rgb",
             Self::Grayscale(..) => "grayscale",
-            Self::Ramp => "ramp",
+            Self::Ramp(..) => "ramp",
             Self::Image { .. } => "image",
             Self::Output { .. } => "output",
         }
@@ -287,7 +318,7 @@ impl Operator {
             Self::PerlinNoise(..) => "Perlin Noise",
             Self::Rgb(..) => "RGB Color",
             Self::Grayscale(..) => "Grayscale",
-            Self::Ramp => "Ramp",
+            Self::Ramp(..) => "Ramp",
             Self::Image { .. } => "Image",
             Self::Output { .. } => "Output",
         }
@@ -299,7 +330,7 @@ impl Operator {
             Self::PerlinNoise(PerlinNoiseParameters::default()),
             Self::Rgb(RgbParameters::default()),
             Self::Grayscale(GrayscaleParameters::default()),
-            Self::Ramp,
+            Self::Ramp(RampParameters::default()),
             Self::Image {
                 path: PathBuf::new(),
             },
@@ -324,7 +355,7 @@ impl Parameters for Operator {
             Self::PerlinNoise(p) => p.set_parameter(field, data),
             Self::Rgb(p) => p.set_parameter(field, data),
             Self::Grayscale(p) => p.set_parameter(field, data),
-            Self::Ramp => {}
+            Self::Ramp(p) => p.set_parameter(field, data),
 
             Self::Image { path } => {
                 let path_str = unsafe { std::str::from_utf8_unchecked(&data) };
@@ -512,7 +543,7 @@ pub enum GraphEvent {
     Recomputed(Vec<Instruction>),
     SocketMonomorphized(Resource, ImageType),
     SocketDemonomorphized(Resource),
-    OutputRemoved(Resource, OutputType)
+    OutputRemoved(Resource, OutputType),
 }
 
 #[derive(Debug)]
@@ -557,7 +588,7 @@ pub enum ComputeEvent {
         crate::gpu::Access,
         OutputType,
     ),
-    ThumbnailGenerated(Resource, Vec<u8>)
+    ThumbnailGenerated(Resource, Vec<u8>),
 }
 
 #[derive(Debug, Clone, Copy)]
