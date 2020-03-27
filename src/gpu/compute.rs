@@ -743,9 +743,10 @@ where
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
             cmd_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::TRANSFER,
+                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
                 hal::memory::Dependencies::empty(),
-                &[ hal::memory::Barrier::Image {
+                &[
+                    hal::memory::Barrier::Image {
                         states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
                             ..(
                                 hal::image::Access::TRANSFER_WRITE,
@@ -755,11 +756,15 @@ where
                         families: None,
                         range: super::COLOR_RANGE.clone(),
                     },
+                    image.barrier_to(
+                        hal::image::Access::TRANSFER_READ,
+                        hal::image::Layout::TransferSrcOptimal,
+                    ),
                 ],
             );
             cmd_buffer.blit_image(
                 &*image.raw,
-                image.get_layout(), // TODO: Use TransferSrcOptimal layout for thumbnail
+                hal::image::Layout::TransferSrcOptimal,
                 &*self.thumbnail_image,
                 hal::image::Layout::TransferDstOptimal,
                 hal::image::Filter::Nearest,
@@ -785,6 +790,16 @@ where
                         z: 1,
                     },
                 }],
+            );
+            cmd_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::memory::Dependencies::empty(),
+                &[
+                    image.barrier_to(
+                        hal::image::Access::SHADER_READ,
+                        hal::image::Layout::ShaderReadOnlyOptimal,
+                    ),
+                ],
             );
             cmd_buffer.finish();
 
