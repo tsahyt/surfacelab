@@ -795,7 +795,7 @@ where
         }
 
         // Download image
-        let res = unsafe {
+        let mut res = unsafe {
             let mapping = lock
                 .device
                 .map_memory(&self.thumbnail_mem, 0..(Self::THUMBNAIL_BYTES as _))
@@ -812,7 +812,12 @@ where
             owned
         };
 
-        // TODO: Handle grayscale thumbnails
+        if let hal::format::Format::R32Sfloat = image.format {
+            for chunk in res.chunks_mut(4) {
+                chunk[1] = chunk[0];
+                chunk[2] = chunk[0];
+            }
+        }
 
         Ok(res)
     }
