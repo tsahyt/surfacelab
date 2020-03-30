@@ -8,6 +8,7 @@ use glib::subclass::prelude::*;
 use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
+use gtk::subclass::prelude::*;
 
 use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
@@ -156,10 +157,8 @@ impl ObjectImpl for NodePrivate {
     }
 }
 
-impl gtk::subclass::widget::WidgetImpl for NodePrivate {
+impl WidgetImpl for NodePrivate {
     fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
-        use gtk::subclass::widget::WidgetImplExt;
-
         let allocation = widget.get_allocation();
         self.draw_frame(cr, allocation.width, allocation.height);
         self.parent_draw(widget, cr);
@@ -168,9 +167,9 @@ impl gtk::subclass::widget::WidgetImpl for NodePrivate {
     }
 }
 
-impl gtk::subclass::container::ContainerImpl for NodePrivate {}
+impl ContainerImpl for NodePrivate {}
 
-impl gtk::subclass::box_::BoxImpl for NodePrivate {}
+impl BoxImpl for NodePrivate {}
 
 impl NodePrivate {
     fn get_style_node() -> gtk::StyleContext {

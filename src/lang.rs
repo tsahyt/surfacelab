@@ -221,9 +221,7 @@ impl Default for RampParameters {
 }
 
 impl Parameters for RampParameters {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
-    }
-
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {}
 }
 
 #[derive(Clone, Debug)]

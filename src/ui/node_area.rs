@@ -8,6 +8,7 @@ use glib::subclass::prelude::*;
 use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
+use gtk::subclass::prelude::*;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -183,7 +184,7 @@ impl NodeAreaPrivate {
     }
 }
 
-impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
+impl WidgetImpl for NodeAreaPrivate {
     fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
         use gtk::subclass::widget::WidgetImplExt;
 
@@ -219,7 +220,7 @@ impl gtk::subclass::widget::WidgetImpl for NodeAreaPrivate {
     }
 }
 
-impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
+impl ContainerImpl for NodeAreaPrivate {
     // Node Areas contain nodes and nothing else
     fn child_type(&self, _container: &gtk::Container) -> glib::Type {
         Node::static_type()
@@ -253,7 +254,7 @@ impl gtk::subclass::container::ContainerImpl for NodeAreaPrivate {
     }
 }
 
-impl gtk::subclass::fixed::FixedImpl for NodeAreaPrivate {}
+impl FixedImpl for NodeAreaPrivate {}
 
 glib_wrapper! {
     pub struct NodeArea(
