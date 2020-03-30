@@ -6,7 +6,7 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 #[derive(Copy, Clone, Debug)]
@@ -18,6 +18,7 @@ struct Step {
 pub struct ColorRampPrivate {
     steps: Rc<RefCell<Vec<Step>>>,
     ramp_da: gtk::DrawingArea,
+    ramp_adjust: Rc<Cell<Option<usize>>>,
 }
 
 impl ObjectSubclass for ColorRampPrivate {
@@ -49,7 +50,14 @@ impl ObjectSubclass for ColorRampPrivate {
                     position: 1.,
                 },
             ])),
-            ramp_da: gtk::DrawingArea::new(),
+            ramp_da: gtk::DrawingAreaBuilder::new()
+                .events(
+                    gdk::EventMask::BUTTON_PRESS_MASK
+                        | gdk::EventMask::BUTTON_RELEASE_MASK
+                        | gdk::EventMask::BUTTON1_MOTION_MASK,
+                )
+                .build(),
+            ramp_adjust: Rc::new(Cell::new(None)),
         }
     }
 }
@@ -61,7 +69,36 @@ impl ObjectImpl for ColorRampPrivate {
         let color_ramp = obj.clone().downcast::<ColorRamp>().unwrap();
 
         self.ramp_da.connect_draw(
-            clone!(@strong self.steps as steps => move |w, cr| Self::draw_ramp(&steps.borrow(), w, cr)),
+            clone!(@strong self.steps as steps => move |w, cr| ramp_draw(&steps.borrow(), w, cr)),
+        );
+
+        self.ramp_da.connect_button_press_event(
+            clone!(@strong self.ramp_adjust as ramp_adjust, @strong self.steps as steps => move |w, e| {
+                let x = e.get_position().0 as _;
+                let y = e.get_position().1 as _;
+                let handle = ramp_get_handle(&steps.borrow(), w, x, y);
+                ramp_adjust.set(handle);
+                Inhibit(false)
+            }),
+        );
+
+        self.ramp_da.connect_button_release_event(
+            clone!(@strong self.ramp_adjust as ramp_adjust => move |w, e| {
+                ramp_adjust.set(None);
+                Inhibit(false)
+            }),
+        );
+
+        self.ramp_da.connect_motion_notify_event(
+            clone!(@strong self.ramp_adjust as ramp_adjust, @strong self.steps as steps => move |w, e| {
+                if let Some(handle) = ramp_adjust.get() {
+                    let mut bsteps = steps.borrow_mut();
+                    let step = bsteps.get_mut(handle).unwrap();
+                    step.position = (e.get_position().0 / 256.) as f32;
+                }
+                w.queue_draw();
+                Inhibit(false)
+            }),
         );
 
         self.ramp_da.set_size_request(256, 64);
@@ -75,25 +112,79 @@ impl ContainerImpl for ColorRampPrivate {}
 
 impl BoxImpl for ColorRampPrivate {}
 
-impl ColorRampPrivate {
-    fn draw_ramp(ramp: &[Step], da: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::Inhibit {
-        let grad = cairo::LinearGradient::new(0., 0., 256., 1.);
+impl ColorRampPrivate {}
 
-        for step in ramp {
-            grad.add_color_stop_rgba(
-                step.position as _,
-                step.color[0] as _,
-                step.color[1] as _,
-                step.color[2] as _,
-                1.0
-            );
-        }
+const HANDLE_SIZE: f64 = 6.;
 
-        cr.set_source(&grad);
-        cr.rectangle(0., 0., 256., 32.);
-        cr.fill();
-        Inhibit(false)
+fn ramp_draw(ramp: &[Step], da: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::Inhibit {
+    let allocation = da.get_allocation();
+
+    // padded geometry
+    let padding = 16.;
+    let width = allocation.width as f64 - padding;
+    let start_x = padding / 2.;
+    let start_y = padding / 2.;
+    
+    // draw the gradient
+    let grad = cairo::LinearGradient::new(start_x, start_y, width, 0.);
+    for step in ramp {
+        grad.add_color_stop_rgba(
+            step.position as _,
+            step.color[0] as _,
+            step.color[1] as _,
+            step.color[2] as _,
+            1.0,
+        );
     }
+    cr.set_source(&grad);
+    cr.rectangle(start_x, start_y, width, 32. + start_y);
+    cr.fill();
+    cr.set_source_rgba(0., 0., 0., 1.);
+    cr.rectangle(start_x, start_y, width, 32. + start_y);
+    cr.stroke();
+
+    // draw the position
+    cr.set_source_rgba(0., 0., 0., 1.);
+    for step in ramp {
+        let x = width * step.position as f64 + start_x;
+        cr.move_to(x, 24. + start_y);
+        cr.rel_line_to(0., 24.);
+        cr.stroke();
+        cr.arc(x, 48. + start_y, HANDLE_SIZE, 0., std::f64::consts::TAU);
+        cr.fill();
+    }
+
+    Inhibit(false)
+}
+
+fn ramp_get_handle(
+    ramp: &[Step],
+    da: &gtk::DrawingArea,
+    cursor_x: f64,
+    cursor_y: f64,
+) -> Option<usize> {
+    let allocation = da.get_allocation();
+
+    // padded geometry
+    let padding = 16.;
+    let width = allocation.width as f64 - padding;
+    let start_x = padding / 2.;
+    let start_y = padding / 2.;
+
+    for (i, step) in ramp.iter().enumerate() {
+        let x = width * step.position as f64 + start_x;
+        let y = start_y + 48.;
+
+        if cursor_x > x - HANDLE_SIZE / 2.
+            && cursor_x < x + HANDLE_SIZE / 2.
+            && cursor_y > y - HANDLE_SIZE / 2.
+            && cursor_y < y + HANDLE_SIZE / 2.
+        {
+            return Some(i);
+        }
+    }
+
+    None
 }
 
 glib_wrapper! {
