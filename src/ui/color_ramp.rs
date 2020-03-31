@@ -74,9 +74,8 @@ impl ObjectImpl for ColorRampPrivate {
 
         self.ramp_da.connect_button_press_event(
             clone!(@strong self.ramp_adjust as ramp_adjust, @strong self.steps as steps => move |w, e| {
-                let x = e.get_position().0 as _;
-                let y = e.get_position().1 as _;
-                let handle = ramp_get_handle(&steps.borrow(), w, x, y);
+                let (x, y) = e.get_position();
+                let handle = ramp_get_handle(&steps.borrow(), w, x as _, y as _);
                 ramp_adjust.set(handle);
                 Inhibit(false)
             }),
