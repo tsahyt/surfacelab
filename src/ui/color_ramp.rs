@@ -15,11 +15,22 @@ struct Step {
     position: f32,
 }
 
+impl Default for Step {
+    fn default() -> Self {
+        Step {
+            color: [0.5, 0.5, 0.5],
+            position: 0.5,
+        }
+    }
+}
+
 pub struct ColorRampPrivate {
     steps: Rc<RefCell<Vec<Step>>>,
     ramp_da: gtk::DrawingArea,
     selected_handle: Rc<Cell<Option<usize>>>,
     wheel: super::color_wheel::ColorWheel,
+    add_handle_button: gtk::Button,
+    remove_handle_button: gtk::Button,
 }
 
 impl ObjectSubclass for ColorRampPrivate {
@@ -62,6 +73,8 @@ impl ObjectSubclass for ColorRampPrivate {
                 .build(),
             selected_handle: Rc::new(Cell::new(Some(0))),
             wheel: super::color_wheel::ColorWheel::new(),
+            add_handle_button: gtk::Button::new_with_label("Add"),
+            remove_handle_button: gtk::Button::new_with_label("Remove"),
         }
     }
 }
@@ -76,25 +89,30 @@ impl ObjectImpl for ColorRampPrivate {
             .upcast::<gtk::Box>()
             .set_orientation(gtk::Orientation::Vertical);
 
-        self.ramp_da.connect_draw(
-            clone!(@strong self.steps as steps, @strong self.selected_handle as selected_handle => move |w, cr|
-                   ramp_draw(&steps.borrow(), selected_handle.get(), w, cr)),
-        );
+        self.ramp_da
+            .connect_draw(clone!(@strong self.steps as steps,
+                   @strong self.selected_handle as selected_handle => move |w, cr|
+                   ramp_draw(&steps.borrow(), selected_handle.get(), w, cr)));
 
         self.ramp_da.connect_button_press_event(
-            clone!(@strong self.selected_handle as selected_handle, @strong self.steps as steps, @strong self.wheel as wheel => move |w, e| {
+            clone!(@strong self.selected_handle as selected_handle,
+                   @strong self.steps as steps,
+                   @strong self.wheel as wheel => move |w, e| {
                 let (x, y) = e.get_position();
                 let handle = ramp_get_handle(&steps.borrow(), w, x as _, y as _);
                 selected_handle.set(handle);
 
-                let rgb = steps.borrow()[handle.unwrap()].color;
-                wheel.set_rgb(rgb[0].into(), rgb[1].into(), rgb[2].into());
+                if let Some(handle_idx) = handle {
+                    let rgb = steps.borrow()[handle_idx].color;
+                    wheel.set_rgb(rgb[0].into(), rgb[1].into(), rgb[2].into());
+                }
                 Inhibit(false)
             }),
         );
 
         self.ramp_da.connect_motion_notify_event(
-            clone!(@strong self.selected_handle as selected_handle, @strong self.steps as steps => move |w, e| {
+            clone!(@strong self.selected_handle as selected_handle,
+                   @strong self.steps as steps => move |w, e| {
                 if let Some(handle) = selected_handle.get() {
                     let mut bsteps = steps.borrow_mut();
                     let step = bsteps.get_mut(handle).unwrap();
@@ -105,18 +123,43 @@ impl ObjectImpl for ColorRampPrivate {
             }),
         );
 
-        self.wheel.connect_color_picked(clone!(@strong self.steps as steps, @strong self.selected_handle as selected_handle, @strong self.ramp_da as ramp => move |w, r, g, b| {
+        self.wheel
+            .connect_color_picked(clone!(@strong self.steps as steps,
+            @strong self.selected_handle as selected_handle,
+            @strong self.ramp_da as ramp => move |w, r, g, b| {
+             if let Some(handle) = selected_handle.get() {
+                 let mut steps_data = steps.borrow_mut();
+                 steps_data[handle].color[0] = r as f32;
+                 steps_data[handle].color[1] = g as f32;
+                 steps_data[handle].color[2] = b as f32;
+                 ramp.queue_draw();
+             }
+            }));
+
+        color_ramp.pack_start(&self.ramp_da, true, false, 8);
+        let aspect_frame = gtk::AspectFrame::new(None, 0.5, 0.5, 1., true);
+        aspect_frame.add(&self.wheel);
+        aspect_frame.set_shadow_type(gtk::ShadowType::None);
+        color_ramp.pack_end(&aspect_frame, true, false, 8);
+
+        self.add_handle_button
+            .connect_clicked(clone!(@strong self.steps as steps => move |_| {
+                steps.borrow_mut().push(Step::default())
+            }));
+
+        self.remove_handle_button.connect_clicked(clone!(@strong self.steps as steps, @strong self.selected_handle as selected_handle => move |_| {
             if let Some(handle) = selected_handle.get() {
-                let mut steps_data = steps.borrow_mut();
-                steps_data[handle].color[0] = r as f32;
-                steps_data[handle].color[1] = g as f32;
-                steps_data[handle].color[2] = b as f32;
-                ramp.queue_draw();
+                steps.borrow_mut().remove(handle);
+                selected_handle.set(Some(0));
             }
         }));
 
-        color_ramp.pack_start(&self.ramp_da, true, false, 8);
-        color_ramp.pack_end(&self.wheel, true, false, 8);
+        let button_box = gtk::ButtonBoxBuilder::new()
+            .layout_style(gtk::ButtonBoxStyle::Expand)
+            .build();
+        button_box.add(&self.add_handle_button);
+        button_box.add(&self.remove_handle_button);
+        color_ramp.pack_start(&button_box, true, true, 8);
     }
 }
 
