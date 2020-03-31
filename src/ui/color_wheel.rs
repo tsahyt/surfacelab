@@ -243,7 +243,7 @@ fn wheel_draw(hsv: HSV, drawing_area: &gtk::DrawingArea, cr: &cairo::Context) ->
     let ring_img: image::RgbaImage = // use rgba here for alignment!
         image::ImageBuffer::from_fn(allocation.width as _, allocation.height as _, |x, y| {
             let dx = x as f64 - center_x;
-            let dy = -(y as f64 - center_y);
+            let dy = y as f64 - center_y;
 
             // TODO: optimization by limiting calculation to within-ring pixels
 
@@ -253,7 +253,8 @@ fn wheel_draw(hsv: HSV, drawing_area: &gtk::DrawingArea, cr: &cairo::Context) ->
 
             let (r,g,b) = hsv_to_rgb(hue, 1., 1.);
 
-            image::Rgba([(r * 255. + 0.5) as u8, (g * 255. + 0.5) as u8, (b * 255. + 0.5) as u8, 255])
+            // WTF: This channel ordering is absolutely weird and I have no idea why it's required.
+            image::Rgba([(b * 255. + 0.5) as u8, (g * 255. + 0.5) as u8, (r * 255. + 0.5) as u8, 255])
         });
 
     let src_img = cairo::ImageSurface::create_for_data(
@@ -283,10 +284,11 @@ fn wheel_draw(hsv: HSV, drawing_area: &gtk::DrawingArea, cr: &cairo::Context) ->
             let yy = y as f64 / square_size;
 
             let (r, g, b) = hsv_to_rgb(hsv[0] as _, xx, yy);
+            // See above for WTF
             image::Rgba([
-                (r * 255. + 0.5) as u8,
-                (g * 255. + 0.5) as u8,
                 (b * 255. + 0.5) as u8,
+                (g * 255. + 0.5) as u8,
+                (r * 255. + 0.5) as u8,
                 255,
             ])
         });
@@ -368,7 +370,9 @@ impl ColorWheel {
     fn emit_color_picked(&self) {
         let imp = ColorWheelPrivate::from_instance(self);
         let hsv = imp.hsv.get();
-        let (r, g, b) = hsv_to_rgb(hsv[0].into(), hsv[1].into(), hsv[2].into());
+        let (r, g, b) = hsv_to_rgb(hsv[0] as f64, hsv[1] as f64, hsv[2] as f64);
+        dbg!(hsv);
+        dbg!((r, g, b));
         self.emit(COLOR_PICKED, &[&r, &g, &b]).unwrap();
     }
 }
