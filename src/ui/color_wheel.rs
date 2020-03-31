@@ -14,6 +14,9 @@ type HSV = [f32; 3];
 const THICKNESS: f64 = 16.0;
 const SQUARE_PADDING: f64 = 2.0;
 
+// Signals
+pub const COLOR_PICKED: &str = "color-picked";
+
 #[derive(Debug, Copy, Clone)]
 enum Handle {
     HueHandle,
@@ -40,7 +43,18 @@ impl ObjectSubclass for ColorWheelPrivate {
     // type is created. Here class specific settings can be performed,
     // including installation of properties and registration of signals
     // for the new type.
-    fn class_init(_class: &mut subclass::simple::ClassStruct<Self>) {}
+    fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {
+        class.add_signal(
+            COLOR_PICKED,
+            glib::SignalFlags::empty(),
+            &[
+                glib::types::Type::F64,
+                glib::types::Type::F64,
+                glib::types::Type::F64,
+            ],
+            glib::types::Type::Unit,
+        );
+    }
 
     // Called every time a new instance is created. This should return
     // a new instance of our type with its basic values.
@@ -66,6 +80,7 @@ impl ObjectImpl for ColorWheelPrivate {
 
     fn constructed(&self, obj: &Object) {
         let color_wheel_box = obj.clone().downcast::<gtk::Box>().unwrap();
+        let color_wheel = obj.clone().downcast::<ColorWheel>().unwrap();
         color_wheel_box.set_orientation(gtk::Orientation::Horizontal);
 
         self.wheel_da.connect_draw(
@@ -89,7 +104,7 @@ impl ObjectImpl for ColorWheelPrivate {
         );
 
         self.wheel_da.connect_motion_notify_event(
-            clone!(@strong self.handle as handle, @strong self.hsv as hsv => move |w, e| {
+            clone!(@strong self.handle as handle, @strong self.hsv as hsv, @strong color_wheel => move |w, e| {
                 match handle.get() {
                     Handle::None => {}
                     Handle::HueHandle => {
@@ -108,6 +123,7 @@ impl ObjectImpl for ColorWheelPrivate {
                         hsv.set(old_hsv);
 
                         w.queue_draw();
+                        color_wheel.emit_color_picked();
                     }
                     Handle::SVHandle => {
                         let allocation = w.get_allocation();
@@ -124,6 +140,7 @@ impl ObjectImpl for ColorWheelPrivate {
                         hsv.set(old_hsv);
 
                         w.queue_draw();
+                        color_wheel.emit_color_picked();
                     }
                 }
                 Inhibit(false)
@@ -327,6 +344,34 @@ impl ColorWheel {
             .downcast()
             .unwrap()
     }
+
+    pub fn connect_color_picked<F: Fn(&Self, f64, f64, f64) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_local(COLOR_PICKED, true, move |w| {
+            let color_wheel = w[0]
+                .clone()
+                .downcast::<ColorWheel>()
+                .unwrap()
+                .get()
+                .unwrap();
+            let r: f64 = w[1].get_some().unwrap();
+            let g: f64 = w[2].get_some().unwrap();
+            let b: f64 = w[3].get_some().unwrap();
+            f(&color_wheel, r, g, b);
+            None
+        })
+        .unwrap()
+    }
+
+    fn emit_color_picked(&self) {
+        let imp = ColorWheelPrivate::from_instance(self);
+        let hsv = imp.hsv.get();
+        let (r,g,b) = hsv_to_rgb(hsv[0].into(), hsv[1].into(), hsv[2].into());
+        self.emit(COLOR_PICKED, &[&r, &g, &b]).unwrap();
+    }
+
 }
 
 impl Default for ColorWheel {
