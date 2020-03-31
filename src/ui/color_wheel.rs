@@ -371,8 +371,6 @@ impl ColorWheel {
         let imp = ColorWheelPrivate::from_instance(self);
         let hsv = imp.hsv.get();
         let (r, g, b) = hsv_to_rgb(hsv[0] as f64, hsv[1] as f64, hsv[2] as f64);
-        dbg!(hsv);
-        dbg!((r, g, b));
         self.emit(COLOR_PICKED, &[&r, &g, &b]).unwrap();
     }
 }
