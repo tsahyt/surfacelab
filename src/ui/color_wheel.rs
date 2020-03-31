@@ -9,6 +9,7 @@ use gtk::subclass::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+// TODO: This should probably be f64 and we'd save a lot of conversions
 type HSV = [f32; 3];
 
 const THICKNESS: f64 = 16.0;
@@ -183,6 +184,41 @@ fn hsv_to_rgb(hue: f64, saturation: f64, value: f64) -> (f64, f64, f64) {
             _ => unreachable!(),
         }
     }
+}
+
+fn rgb_to_hsv(red: f64, green: f64, blue: f64) -> (f64, f64, f64) {
+    let max = red.max(green.max(blue));
+    let min = red.min(green.min(blue));
+    let delta = max - min;
+
+    let mut s = 0.0;
+    let mut h;
+
+    if max != 0.0 {
+        s = delta / max;
+    }
+
+    if s == 0.0 {
+        h = 0.0;
+    } else {
+        if red == max {
+            h = green - blue / delta;
+        } else if green == max {
+            h = 2.0 + (blue - red) / delta;
+        } else {
+            h = 4.0 + (red - green) / delta;
+        }
+
+        h /= 6.0;
+
+        if h < 0.0 {
+            h += 1.0;
+        } else if h > 1.0 {
+            h -= 1.0;
+        }
+    }
+
+    (h, s, max)
 }
 
 fn hue_handle_position(hsv: HSV, allocation: &gtk::Allocation) -> (f64, f64) {
@@ -372,6 +408,13 @@ impl ColorWheel {
         let hsv = imp.hsv.get();
         let (r, g, b) = hsv_to_rgb(hsv[0] as f64, hsv[1] as f64, hsv[2] as f64);
         self.emit(COLOR_PICKED, &[&r, &g, &b]).unwrap();
+    }
+
+    pub fn set_rgb(&self, red: f64, green: f64, blue: f64) {
+        let imp = ColorWheelPrivate::from_instance(self);
+        let hsv = rgb_to_hsv(red, green, blue);
+        imp.hsv.set([hsv.0 as f32, hsv.1 as f32, hsv.2 as f32]);
+        self.queue_draw();
     }
 }
 

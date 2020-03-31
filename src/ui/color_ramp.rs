@@ -82,10 +82,13 @@ impl ObjectImpl for ColorRampPrivate {
         );
 
         self.ramp_da.connect_button_press_event(
-            clone!(@strong self.selected_handle as selected_handle, @strong self.steps as steps => move |w, e| {
+            clone!(@strong self.selected_handle as selected_handle, @strong self.steps as steps, @strong self.wheel as wheel => move |w, e| {
                 let (x, y) = e.get_position();
                 let handle = ramp_get_handle(&steps.borrow(), w, x as _, y as _);
                 selected_handle.set(handle);
+
+                let rgb = steps.borrow()[handle.unwrap()].color;
+                wheel.set_rgb(rgb[0].into(), rgb[1].into(), rgb[2].into());
                 Inhibit(false)
             }),
         );
@@ -102,12 +105,13 @@ impl ObjectImpl for ColorRampPrivate {
             }),
         );
 
-        self.wheel.connect_color_picked(clone!(@strong self.steps as steps, @strong self.selected_handle as selected_handle => move |w, r, g, b| {
+        self.wheel.connect_color_picked(clone!(@strong self.steps as steps, @strong self.selected_handle as selected_handle, @strong self.ramp_da as ramp => move |w, r, g, b| {
             if let Some(handle) = selected_handle.get() {
                 let mut steps_data = steps.borrow_mut();
                 steps_data[handle].color[0] = r as f32;
                 steps_data[handle].color[1] = g as f32;
                 steps_data[handle].color[2] = b as f32;
+                ramp.queue_draw();
             }
         }));
 
