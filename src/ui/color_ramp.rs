@@ -18,7 +18,7 @@ struct Step {
 pub struct ColorRampPrivate {
     steps: Rc<RefCell<Vec<Step>>>,
     ramp_da: gtk::DrawingArea,
-    ramp_adjust: Rc<Cell<Option<usize>>>,
+    selected_handle: Rc<Cell<Option<usize>>>,
     wheel: super::color_wheel::ColorWheel,
 }
 
@@ -52,13 +52,15 @@ impl ObjectSubclass for ColorRampPrivate {
                 },
             ])),
             ramp_da: gtk::DrawingAreaBuilder::new()
+                .width_request(256)
+                .height_request(64)
                 .events(
                     gdk::EventMask::BUTTON_PRESS_MASK
                         | gdk::EventMask::BUTTON_RELEASE_MASK
                         | gdk::EventMask::BUTTON1_MOTION_MASK,
                 )
                 .build(),
-            ramp_adjust: Rc::new(Cell::new(None)),
+            selected_handle: Rc::new(Cell::new(None)),
             wheel: super::color_wheel::ColorWheel::new(),
         }
     }
@@ -69,30 +71,28 @@ impl ObjectImpl for ColorRampPrivate {
 
     fn constructed(&self, obj: &Object) {
         let color_ramp = obj.clone().downcast::<ColorRamp>().unwrap();
+        color_ramp
+            .clone()
+            .upcast::<gtk::Box>()
+            .set_orientation(gtk::Orientation::Vertical);
 
         self.ramp_da.connect_draw(
-            clone!(@strong self.steps as steps => move |w, cr| ramp_draw(&steps.borrow(), w, cr)),
+            clone!(@strong self.steps as steps, @strong self.selected_handle as selected_handle => move |w, cr|
+                   ramp_draw(&steps.borrow(), selected_handle.get(), w, cr)),
         );
 
         self.ramp_da.connect_button_press_event(
-            clone!(@strong self.ramp_adjust as ramp_adjust, @strong self.steps as steps => move |w, e| {
+            clone!(@strong self.selected_handle as selected_handle, @strong self.steps as steps => move |w, e| {
                 let (x, y) = e.get_position();
                 let handle = ramp_get_handle(&steps.borrow(), w, x as _, y as _);
-                ramp_adjust.set(handle);
-                Inhibit(false)
-            }),
-        );
-
-        self.ramp_da.connect_button_release_event(
-            clone!(@strong self.ramp_adjust as ramp_adjust => move |w, e| {
-                ramp_adjust.set(None);
+                selected_handle.set(handle);
                 Inhibit(false)
             }),
         );
 
         self.ramp_da.connect_motion_notify_event(
-            clone!(@strong self.ramp_adjust as ramp_adjust, @strong self.steps as steps => move |w, e| {
-                if let Some(handle) = ramp_adjust.get() {
+            clone!(@strong self.selected_handle as selected_handle, @strong self.steps as steps => move |w, e| {
+                if let Some(handle) = selected_handle.get() {
                     let mut bsteps = steps.borrow_mut();
                     let step = bsteps.get_mut(handle).unwrap();
                     step.position = (e.get_position().0 / 256.) as f32;
@@ -102,9 +102,17 @@ impl ObjectImpl for ColorRampPrivate {
             }),
         );
 
-        self.ramp_da.set_size_request(256, 64);
-        color_ramp.pack_end(&self.ramp_da, true, false, 8);
-        color_ramp.pack_end(&self.wheel, true, true, 8);
+        self.wheel.connect_color_picked(clone!(@strong self.steps as steps, @strong self.selected_handle as selected_handle => move |w, r, g, b| {
+            if let Some(handle) = selected_handle.get() {
+                let mut steps_data = steps.borrow_mut();
+                steps_data[handle].color[0] = r as f32;
+                steps_data[handle].color[1] = g as f32;
+                steps_data[handle].color[2] = b as f32;
+            }
+        }));
+
+        color_ramp.pack_start(&self.ramp_da, true, false, 8);
+        color_ramp.pack_end(&self.wheel, true, false, 8);
     }
 }
 
@@ -118,7 +126,12 @@ impl ColorRampPrivate {}
 
 const HANDLE_SIZE: f64 = 6.;
 
-fn ramp_draw(ramp: &[Step], da: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::Inhibit {
+fn ramp_draw(
+    ramp: &[Step],
+    selected_handle: Option<usize>,
+    da: &gtk::DrawingArea,
+    cr: &cairo::Context,
+) -> gtk::Inhibit {
     let allocation = da.get_allocation();
 
     // padded geometry
@@ -141,19 +154,31 @@ fn ramp_draw(ramp: &[Step], da: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::
     cr.set_source(&grad);
     cr.rectangle(start_x, start_y, width, 32. + start_y);
     cr.fill();
-    cr.set_source_rgba(0., 0., 0., 1.);
-    cr.rectangle(start_x, start_y, width, 32. + start_y);
-    cr.stroke();
 
     // draw the position
     cr.set_source_rgba(0., 0., 0., 1.);
-    for step in ramp {
+    for (i, step) in ramp.iter().enumerate() {
         let x = width * step.position as f64 + start_x;
         cr.move_to(x, 24. + start_y);
         cr.rel_line_to(0., 24.);
         cr.stroke();
+        cr.set_source_rgb(
+            step.color[0].into(),
+            step.color[1].into(),
+            step.color[2].into(),
+        );
         cr.arc(x, 48. + start_y, HANDLE_SIZE, 0., std::f64::consts::TAU);
         cr.fill();
+        if Some(i) == selected_handle {
+            cr.set_line_width(4.5);
+            cr.set_source_rgb(0.9, 0.9, 0.9);
+            cr.arc(x, 48. + start_y, HANDLE_SIZE, 0., std::f64::consts::TAU);
+            cr.stroke();
+        }
+        cr.set_line_width(1.5);
+        cr.set_source_rgb(0., 0., 0.);
+        cr.arc(x, 48. + start_y, HANDLE_SIZE, 0., std::f64::consts::TAU);
+        cr.stroke();
     }
 
     Inhibit(false)
