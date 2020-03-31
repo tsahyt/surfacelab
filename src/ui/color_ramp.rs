@@ -9,6 +9,7 @@ use gtk::subclass::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug)]
 struct Step {
     color: [f32; 3],
@@ -147,12 +148,14 @@ impl ObjectImpl for ColorRampPrivate {
                 steps.borrow_mut().push(Step::default())
             }));
 
-        self.remove_handle_button.connect_clicked(clone!(@strong self.steps as steps, @strong self.selected_handle as selected_handle => move |_| {
-            if let Some(handle) = selected_handle.get() {
-                steps.borrow_mut().remove(handle);
-                selected_handle.set(Some(0));
-            }
-        }));
+        self.remove_handle_button
+            .connect_clicked(clone!(@strong self.steps as steps,
+                       @strong self.selected_handle as selected_handle => move |_| {
+                if let Some(handle) = selected_handle.get() {
+                    steps.borrow_mut().remove(handle);
+                    selected_handle.set(Some(0));
+                }
+            }));
 
         let button_box = gtk::ButtonBoxBuilder::new()
             .layout_style(gtk::ButtonBoxStyle::Expand)
