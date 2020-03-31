@@ -199,13 +199,7 @@ impl NodeManager {
     fn remove_node(
         &mut self,
         resource: &lang::Resource,
-    ) -> Result<
-        (
-            Option<lang::OutputType>,
-            Connections,
-        ),
-        String,
-    > {
+    ) -> Result<(Option<lang::OutputType>, Connections), String> {
         use petgraph::visit::EdgeRef;
 
         let node = self

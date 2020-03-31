@@ -368,10 +368,9 @@ impl ColorWheel {
     fn emit_color_picked(&self) {
         let imp = ColorWheelPrivate::from_instance(self);
         let hsv = imp.hsv.get();
-        let (r,g,b) = hsv_to_rgb(hsv[0].into(), hsv[1].into(), hsv[2].into());
+        let (r, g, b) = hsv_to_rgb(hsv[0].into(), hsv[1].into(), hsv[2].into());
         self.emit(COLOR_PICKED, &[&r, &g, &b]).unwrap();
     }
-
 }
 
 impl Default for ColorWheel {

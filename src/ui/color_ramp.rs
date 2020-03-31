@@ -123,7 +123,7 @@ fn ramp_draw(ramp: &[Step], da: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::
     let width = allocation.width as f64 - padding;
     let start_x = padding / 2.;
     let start_y = padding / 2.;
-    
+
     // draw the gradient
     let grad = cairo::LinearGradient::new(start_x, start_y, width, 0.);
     for step in ramp {

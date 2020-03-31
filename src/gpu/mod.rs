@@ -5,7 +5,7 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
 pub use gfx_hal::Backend;
-pub use hal::image::{Layout, Access};
+pub use hal::image::{Access, Layout};
 pub use hal::pso::{
     Descriptor, DescriptorSetLayoutBinding, DescriptorSetWrite, DescriptorType, ShaderStageFlags,
 };
@@ -19,7 +19,6 @@ pub const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRan
     levels: 0..1,
     layers: 0..1,
 };
-
 
 // TODO: more finegrained concurrency model for GPU
 pub struct GPU<B: Backend> {

@@ -794,12 +794,10 @@ where
             cmd_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
-                &[
-                    image.barrier_to(
-                        hal::image::Access::SHADER_READ,
-                        hal::image::Layout::ShaderReadOnlyOptimal,
-                    ),
-                ],
+                &[image.barrier_to(
+                    hal::image::Access::SHADER_READ,
+                    hal::image::Layout::ShaderReadOnlyOptimal,
+                )],
             );
             cmd_buffer.finish();
 

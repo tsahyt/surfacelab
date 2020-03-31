@@ -11,8 +11,8 @@ use gtk::subclass::prelude::*;
 use gtk::subclass::widget::WidgetImplExt;
 use raw_window_handle::*;
 
-use std::cell::RefCell;
 use once_cell::unsync::OnceCell;
+use std::cell::RefCell;
 
 #[link(name = "gdk-3")]
 extern "C" {
@@ -133,7 +133,9 @@ impl WidgetImpl for RenderAreaPrivate {
         // FIXME: components exit before following signal is sent
         self.parent_unrealize(widget);
 
-        super::emit(Lang::UIEvent(UIEvent::RendererRemoved(self.unique_identifier())));
+        super::emit(Lang::UIEvent(UIEvent::RendererRemoved(
+            self.unique_identifier(),
+        )));
 
         self.renderer_window.replace(None);
     }
@@ -171,7 +173,9 @@ impl RenderArea {
             .downcast()
             .unwrap();
         let imp = RenderAreaPrivate::from_instance(&obj);
-        imp.renderer_type.set(ty).expect("Failed to set renderer type");
+        imp.renderer_type
+            .set(ty)
+            .expect("Failed to set renderer type");
         obj
     }
 
