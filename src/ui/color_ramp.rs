@@ -171,14 +171,16 @@ fn ramp_get_handle(
     let start_x = padding / 2.;
     let start_y = padding / 2.;
 
+    const HANDLE_ZONE: f64 = HANDLE_SIZE / 1.5;
+
     for (i, step) in ramp.iter().enumerate() {
         let x = width * step.position as f64 + start_x;
         let y = start_y + 48.;
 
-        if cursor_x > x - HANDLE_SIZE / 2.
-            && cursor_x < x + HANDLE_SIZE / 2.
-            && cursor_y > y - HANDLE_SIZE / 2.
-            && cursor_y < y + HANDLE_SIZE / 2.
+        if cursor_x > x - HANDLE_ZONE
+            && cursor_x < x + HANDLE_ZONE
+            && cursor_y > y - HANDLE_ZONE
+            && cursor_y < y + HANDLE_ZONE
         {
             return Some(i);
         }

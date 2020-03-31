@@ -223,22 +223,25 @@ impl Control {
     }
 
     fn construct_rgba(resource: &Resource, field: &'static str) -> gtk::Widget {
-        let button = gtk::ColorButton::new();
+        // let button = gtk::ColorButton::new();
 
-        button.connect_color_set(clone!(@strong resource => move |btn| {
-            let rgba = btn.get_rgba();
-            let mut buf = Vec::new();
-            buf.extend_from_slice(&(rgba.red as f32).to_be_bytes());
-            buf.extend_from_slice(&(rgba.green as f32).to_be_bytes());
-            buf.extend_from_slice(&(rgba.blue as f32).to_be_bytes());
-            buf.extend_from_slice(&(rgba.alpha as f32).to_be_bytes());
-            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-                resource.to_owned(),
-                field,
-                buf,
-            )))
-        }));
-        button.upcast()
+        // button.connect_color_set(clone!(@strong resource => move |btn| {
+        //     let rgba = btn.get_rgba();
+        //     let mut buf = Vec::new();
+        //     buf.extend_from_slice(&(rgba.red as f32).to_be_bytes());
+        //     buf.extend_from_slice(&(rgba.green as f32).to_be_bytes());
+        //     buf.extend_from_slice(&(rgba.blue as f32).to_be_bytes());
+        //     buf.extend_from_slice(&(rgba.alpha as f32).to_be_bytes());
+        //     super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+        //         resource.to_owned(),
+        //         field,
+        //         buf,
+        //     )))
+        // }));
+        // button.upcast()
+        //
+        let wheel = super::color_wheel::ColorWheel::new();
+        wheel.upcast()
     }
 
     fn construct_file(resource: &Resource, field: &'static str) -> gtk::Widget {

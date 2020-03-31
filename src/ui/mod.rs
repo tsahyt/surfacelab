@@ -6,12 +6,13 @@ use std::thread;
 
 pub mod application;
 pub mod color_ramp;
+pub mod color_wheel;
 pub mod node;
 pub mod node_area;
 pub mod node_socket;
 pub mod param_box;
-pub mod render_events;
 pub mod render_area;
+pub mod render_events;
 
 thread_local!(static BROKER: OnceCell<broker::BrokerSender<lang::Lang>> = OnceCell::new());
 
