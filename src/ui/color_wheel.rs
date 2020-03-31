@@ -19,8 +19,8 @@ pub const COLOR_PICKED: &str = "color-picked";
 
 #[derive(Debug, Copy, Clone)]
 enum Handle {
-    HueHandle,
-    SVHandle,
+    Hue,
+    SV,
     None,
 }
 
@@ -107,7 +107,7 @@ impl ObjectImpl for ColorWheelPrivate {
             clone!(@strong self.handle as handle, @strong self.hsv as hsv, @strong color_wheel => move |w, e| {
                 match handle.get() {
                     Handle::None => {}
-                    Handle::HueHandle => {
+                    Handle::Hue => {
                         let allocation = w.get_allocation();
                         let (x,y) = e.get_position();
                         let center_x = allocation.width as f64 / 2.;
@@ -125,7 +125,7 @@ impl ObjectImpl for ColorWheelPrivate {
                         w.queue_draw();
                         color_wheel.emit_color_picked();
                     }
-                    Handle::SVHandle => {
+                    Handle::SV => {
                         let allocation = w.get_allocation();
                         let (x,y) = e.get_position();
 
@@ -159,27 +159,27 @@ impl BoxImpl for ColorWheelPrivate {}
 
 impl ColorWheelPrivate {}
 
-fn hsv_to_rgb(h: f64, s: f64, v: f64) -> (f64, f64, f64) {
-    if s == 0. {
-        (v, v, v)
+fn hsv_to_rgb(hue: f64, saturation: f64, value: f64) -> (f64, f64, f64) {
+    if saturation == 0. {
+        (value, value, value)
     } else {
-        let mut hue = h * 6.0;
-        if hue >= 6.0 {
-            hue = 0.0;
+        let mut hue_mult = hue * 6.0;
+        if hue_mult >= 6.0 {
+            hue_mult = 0.0;
         }
 
-        let f = hue.fract();
-        let p = v * (1.0 - s);
-        let q = v * (1.0 - s * f);
-        let t = v * (1.0 - s * (1. - f));
+        let fract = hue_mult.fract();
+        let p = value * (1.0 - saturation);
+        let q = value * (1.0 - saturation * fract);
+        let t = value * (1.0 - saturation * (1. - fract));
 
-        match hue as u8 {
-            0 => (v, t, p),
-            1 => (q, v, p),
-            2 => (p, v, t),
-            3 => (p, q, v),
-            4 => (t, p, v),
-            5 => (v, p, q),
+        match hue_mult as u8 {
+            0 => (value, t, p),
+            1 => (q, value, p),
+            2 => (p, value, t),
+            3 => (p, q, value),
+            4 => (t, p, value),
+            5 => (value, p, q),
             _ => unreachable!(),
         }
     }
@@ -216,7 +216,7 @@ fn get_handle_at(hsv: HSV, allocation: &gtk::Allocation, x: f64, y: f64) -> Hand
         && y > hue_handle.1 - THICKNESS
         && y < hue_handle.1 + THICKNESS
     {
-        return Handle::HueHandle;
+        return Handle::Hue;
     }
 
     let sv_handle = sv_handle_position(hsv, allocation);
@@ -226,7 +226,7 @@ fn get_handle_at(hsv: HSV, allocation: &gtk::Allocation, x: f64, y: f64) -> Hand
         && y > sv_handle.1 - THICKNESS
         && y < sv_handle.1 + THICKNESS
     {
-        return Handle::SVHandle;
+        return Handle::SV;
     }
 
     Handle::None
