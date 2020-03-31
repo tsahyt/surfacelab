@@ -202,6 +202,10 @@ pub struct RampParameters {
     ramp_data: [[f32; 4]; 64],
 }
 
+impl RampParameters {
+    pub const RAMP: &'static str = "ramp";
+}
+
 impl std::fmt::Debug for RampParameters {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RampParameters")
@@ -214,14 +218,37 @@ impl std::fmt::Debug for RampParameters {
 impl Default for RampParameters {
     fn default() -> Self {
         RampParameters {
-            ramp_size: 0,
+            ramp_size: 2,
             ramp_data: [[0.0; 4]; 64],
         }
     }
 }
 
 impl Parameters for RampParameters {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {}
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+        match field {
+            Self::RAMP => {
+                let mut ramp: Vec<[f32; 4]> = data
+                    .chunks(std::mem::size_of::<[f32; 4]>())
+                    .map(|chunk| {
+                        let fields: Vec<f32> = chunk
+                            .chunks(4)
+                            .map(|z| {
+                                let mut arr: [u8; 4] = Default::default();
+                                arr.copy_from_slice(z);
+                                f32::from_be_bytes(arr)
+                            })
+                            .collect();
+                        [fields[0], fields[1], fields[2], fields[3]]
+                    })
+                    .collect();
+                self.ramp_size = ramp.len() as u32;
+                ramp.resize_with(64, || [0.0; 4]);
+                self.ramp_data.copy_from_slice(&ramp);
+            }
+            _ => panic!("Unknown field {}", field),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

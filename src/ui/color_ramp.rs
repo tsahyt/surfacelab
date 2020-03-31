@@ -25,6 +25,9 @@ impl Default for Step {
     }
 }
 
+// Signals
+pub const COLOR_RAMP_CHANGED: &str = "color-ramp-changed";
+
 pub struct ColorRampPrivate {
     steps: Rc<RefCell<Vec<Step>>>,
     ramp_da: gtk::DrawingArea,
@@ -47,7 +50,14 @@ impl ObjectSubclass for ColorRampPrivate {
     // type is created. Here class specific settings can be performed,
     // including installation of properties and registration of signals
     // for the new type.
-    fn class_init(_class: &mut subclass::simple::ClassStruct<Self>) {}
+    fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {
+        class.add_signal(
+            COLOR_RAMP_CHANGED,
+            glib::SignalFlags::empty(),
+            &[],
+            glib::types::Type::Unit,
+        );
+    }
 
     // Called every time a new instance is created. This should return
     // a new instance of our type with its basic values.
@@ -98,6 +108,7 @@ impl ObjectImpl for ColorRampPrivate {
         self.ramp_da.connect_button_press_event(
             clone!(@strong self.selected_handle as selected_handle,
                    @strong self.steps as steps,
+                   @strong color_ramp as color_ramp,
                    @strong self.wheel as wheel => move |w, e| {
                 let (x, y) = e.get_position();
                 let handle = ramp_get_handle(&steps.borrow(), w, x as _, y as _);
@@ -107,19 +118,24 @@ impl ObjectImpl for ColorRampPrivate {
                     let rgb = steps.borrow()[handle_idx].color;
                     wheel.set_rgb(rgb[0].into(), rgb[1].into(), rgb[2].into());
                 }
+                color_ramp.emit(COLOR_RAMP_CHANGED, &[]).unwrap();
                 Inhibit(false)
             }),
         );
 
         self.ramp_da.connect_motion_notify_event(
             clone!(@strong self.selected_handle as selected_handle,
+                   @strong color_ramp as color_ramp,
                    @strong self.steps as steps => move |w, e| {
                 if let Some(handle) = selected_handle.get() {
-                    let mut bsteps = steps.borrow_mut();
-                    let step = bsteps.get_mut(handle).unwrap();
-                    step.position = (e.get_position().0 / 256.) as f32;
+                    {
+                        let mut bsteps = steps.borrow_mut();
+                        let step = bsteps.get_mut(handle).unwrap();
+                        step.position = (e.get_position().0 / 256.) as f32;
+                        w.queue_draw();
+                    }
+                    color_ramp.emit(COLOR_RAMP_CHANGED, &[]).unwrap();
                 }
-                w.queue_draw();
                 Inhibit(false)
             }),
         );
@@ -127,13 +143,17 @@ impl ObjectImpl for ColorRampPrivate {
         self.wheel
             .connect_color_picked(clone!(@strong self.steps as steps,
             @strong self.selected_handle as selected_handle,
-            @strong self.ramp_da as ramp => move |w, r, g, b| {
+            @strong color_ramp as color_ramp,
+            @strong self.ramp_da as ramp => move |_, r, g, b| {
              if let Some(handle) = selected_handle.get() {
-                 let mut steps_data = steps.borrow_mut();
-                 steps_data[handle].color[0] = r as f32;
-                 steps_data[handle].color[1] = g as f32;
-                 steps_data[handle].color[2] = b as f32;
-                 ramp.queue_draw();
+                 {
+                    let mut steps_data = steps.borrow_mut();
+                    steps_data[handle].color[0] = r as f32;
+                    steps_data[handle].color[1] = g as f32;
+                    steps_data[handle].color[2] = b as f32;
+                    ramp.queue_draw();
+                 }
+                 color_ramp.emit(COLOR_RAMP_CHANGED, &[]).unwrap();
              }
             }));
 
@@ -144,16 +164,20 @@ impl ObjectImpl for ColorRampPrivate {
         color_ramp.pack_end(&aspect_frame, true, false, 8);
 
         self.add_handle_button
-            .connect_clicked(clone!(@strong self.steps as steps => move |_| {
-                steps.borrow_mut().push(Step::default())
+            .connect_clicked(clone!(@strong self.steps as steps,
+                                    @strong color_ramp as color_ramp => move |_| {
+                steps.borrow_mut().push(Step::default());
+                color_ramp.emit(COLOR_RAMP_CHANGED, &[]).unwrap();
             }));
 
         self.remove_handle_button
             .connect_clicked(clone!(@strong self.steps as steps,
+                                    @strong color_ramp as color_ramp,
                        @strong self.selected_handle as selected_handle => move |_| {
                 if let Some(handle) = selected_handle.get() {
                     steps.borrow_mut().remove(handle);
                     selected_handle.set(Some(0));
+                    color_ramp.emit(COLOR_RAMP_CHANGED, &[]).unwrap();
                 }
             }));
 
@@ -284,6 +308,27 @@ impl ColorRamp {
             .unwrap()
             .downcast()
             .unwrap()
+    }
+
+    pub fn get_ramp(&self) -> Vec<[f32; 4]> {
+        let imp = ColorRampPrivate::from_instance(self);
+        imp.steps
+            .borrow()
+            .iter()
+            .map(|step| [step.color[0], step.color[1], step.color[2], step.position])
+            .collect()
+    }
+
+    pub fn connect_color_ramp_changed<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_local(COLOR_RAMP_CHANGED, true, move |w| {
+            let color_wheel = w[0].clone().downcast::<ColorRamp>().unwrap().get().unwrap();
+            f(&color_wheel);
+            None
+        })
+        .unwrap()
     }
 }
 

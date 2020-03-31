@@ -243,6 +243,7 @@ impl Control {
 
     fn construct_file(resource: &Resource, field: &'static str) -> gtk::Widget {
         let button = gtk::FileChooserButton::new("Image", gtk::FileChooserAction::Open);
+
         button.connect_file_set(clone!(@strong resource => move |btn| {
             let buf = btn.get_filename().unwrap().to_str().unwrap().as_bytes().to_vec();
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
@@ -251,11 +252,28 @@ impl Control {
                 buf
             )))
         }));
+
         button.upcast()
     }
 
     fn construct_ramp(resource: &Resource, field: &'static str) -> gtk::Widget {
         let ramp = super::color_ramp::ColorRamp::new();
+
+        ramp.connect_color_ramp_changed(clone!(@strong resource => move |w| {
+            let mut buf = Vec::new();
+            for step in w.get_ramp() {
+                buf.extend_from_slice(&step[0].to_be_bytes());
+                buf.extend_from_slice(&step[1].to_be_bytes());
+                buf.extend_from_slice(&step[2].to_be_bytes());
+                buf.extend_from_slice(&step[3].to_be_bytes());
+            }
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+                resource.to_owned(),
+                field,
+                buf
+            )));
+        }));
+
         ramp.upcast()
     }
 }
@@ -391,7 +409,7 @@ pub fn ramp(res: &Resource) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Gradient",
-                field: "",
+                field: RampParameters::RAMP,
                 control: Control::Ramp,
             }],
         }],
