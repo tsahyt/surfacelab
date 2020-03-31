@@ -60,7 +60,7 @@ impl ObjectSubclass for ColorRampPrivate {
                         | gdk::EventMask::BUTTON1_MOTION_MASK,
                 )
                 .build(),
-            selected_handle: Rc::new(Cell::new(None)),
+            selected_handle: Rc::new(Cell::new(Some(0))),
             wheel: super::color_wheel::ColorWheel::new(),
         }
     }
