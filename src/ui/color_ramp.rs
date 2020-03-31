@@ -19,6 +19,7 @@ pub struct ColorRampPrivate {
     steps: Rc<RefCell<Vec<Step>>>,
     ramp_da: gtk::DrawingArea,
     ramp_adjust: Rc<Cell<Option<usize>>>,
+    wheel: super::color_wheel::ColorWheel,
 }
 
 impl ObjectSubclass for ColorRampPrivate {
@@ -58,6 +59,7 @@ impl ObjectSubclass for ColorRampPrivate {
                 )
                 .build(),
             ramp_adjust: Rc::new(Cell::new(None)),
+            wheel: super::color_wheel::ColorWheel::new(),
         }
     }
 }
@@ -101,7 +103,8 @@ impl ObjectImpl for ColorRampPrivate {
         );
 
         self.ramp_da.set_size_request(256, 64);
-        color_ramp.pack_end(&self.ramp_da, true, false, 0);
+        color_ramp.pack_end(&self.ramp_da, true, false, 8);
+        color_ramp.pack_end(&self.wheel, true, true, 8);
     }
 }
 
