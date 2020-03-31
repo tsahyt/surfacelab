@@ -9,7 +9,10 @@ use gtk::subclass::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+type HSV = [f32; 3];
+
 pub struct ColorWheelPrivate {
+    hsv: Rc<Cell<HSV>>,
     wheel_da: gtk::DrawingArea,
 }
 
@@ -32,6 +35,7 @@ impl ObjectSubclass for ColorWheelPrivate {
     // a new instance of our type with its basic values.
     fn new() -> Self {
         Self {
+            hsv: Rc::new(Cell::new([0., 0., 0.9])),
             wheel_da: gtk::DrawingAreaBuilder::new()
                 .width_request(192)
                 .height_request(192)
@@ -52,7 +56,9 @@ impl ObjectImpl for ColorWheelPrivate {
         let color_wheel_box = obj.clone().downcast::<gtk::Box>().unwrap();
         color_wheel_box.set_orientation(gtk::Orientation::Horizontal);
 
-        self.wheel_da.connect_draw(|w, da| wheel_draw(w, da));
+        self.wheel_da.connect_draw(
+            clone!(@strong self.hsv as hsv => move |w, da| wheel_draw(hsv.get(), w, da)),
+        );
 
         color_wheel_box.pack_start(&self.wheel_da, true, true, 8);
     }
@@ -92,7 +98,7 @@ fn hsv_to_rgb(h: f64, s: f64, v: f64) -> (f64, f64, f64) {
     }
 }
 
-fn wheel_draw(drawing_area: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::Inhibit {
+fn wheel_draw(hsv: HSV, drawing_area: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::Inhibit {
     let allocation = drawing_area.get_allocation();
     let thickness = 16.;
     let center_x = allocation.width as f64 / 2.;
@@ -100,7 +106,6 @@ fn wheel_draw(drawing_area: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::Inhi
     let radius = center_x - thickness / 2.0;
     let square_padding = 8.0;
     let square_size = std::f64::consts::SQRT_2 * (radius - thickness / 2.0) - square_padding;
-
 
     // Wheel Drawing
     let ring_img: image::RgbaImage = // use rgba here for alignment!
@@ -126,20 +131,22 @@ fn wheel_draw(drawing_area: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::Inhi
         allocation.height,
         cairo::Format::Rgb24
             .stride_for_width(allocation.width as _)
-            .expect("Error computing stride")
+            .expect("Error computing stride"),
     )
     .expect("Error creating color ring source image");
 
     cr.set_source_surface(&src_img, 0., 0.);
     cr.set_line_width(thickness);
-    cr.arc(
-        center_x,
-        center_y,
-        radius,
-        0.0,
-        std::f64::consts::TAU,
-    );
+    cr.arc(center_x, center_y, radius, 0.0, std::f64::consts::TAU);
     cr.stroke();
+
+    // Hue Marker
+    draw_marker(
+        cr,
+        center_x + (hsv[0] as f64 * std::f64::consts::TAU).cos() * radius,
+        center_y + (hsv[0] as f64 * std::f64::consts::TAU).sin() * radius,
+        thickness,
+    );
 
     // Saturation/Value Rectangle
     let square_img: image::RgbaImage =
@@ -147,7 +154,7 @@ fn wheel_draw(drawing_area: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::Inhi
             let xx = x as f64 / square_size;
             let yy = y as f64 / square_size;
 
-            let (r, g, b) = hsv_to_rgb(0.5, xx, yy);
+            let (r, g, b) = hsv_to_rgb(hsv[0] as _, xx, yy);
             image::Rgba([
                 (r * 255. + 0.5) as u8,
                 (g * 255. + 0.5) as u8,
@@ -163,7 +170,7 @@ fn wheel_draw(drawing_area: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::Inhi
         square_size as _,
         cairo::Format::Rgb24
             .stride_for_width(square_size as _)
-            .expect("Error computing stride")
+            .expect("Error computing stride"),
     )
     .expect("Error creating color square source image");
 
@@ -172,7 +179,26 @@ fn wheel_draw(drawing_area: &gtk::DrawingArea, cr: &cairo::Context) -> gtk::Inhi
     cr.rectangle(offset, offset, square_size, square_size);
     cr.fill();
 
+    // Saturation and Value Marker
+    draw_marker(
+        cr,
+        offset + square_size * hsv[1] as f64,
+        offset + square_size * hsv[2] as f64,
+        thickness,
+    );
+
     Inhibit(false)
+}
+
+fn draw_marker(cr: &cairo::Context, x: f64, y: f64, thickness: f64) {
+    cr.set_source_rgb(0.9, 0.9, 0.9);
+    cr.set_line_width(4.5);
+    cr.arc(x, y, thickness / 3., 0.0, std::f64::consts::TAU);
+    cr.stroke();
+    cr.set_line_width(1.5);
+    cr.set_source_rgb(0., 0., 0.);
+    cr.arc(x, y, thickness / 3., 0.0, std::f64::consts::TAU);
+    cr.stroke();
 }
 
 glib_wrapper! {
