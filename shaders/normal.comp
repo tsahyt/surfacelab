@@ -2,8 +2,9 @@
 
 layout(local_size_x = 1, local_size_y = 1) in;
 
-// layout(set = 0, binding = 0) uniform Params {
-// };
+layout(set = 0, binding = 0) uniform Params {
+    float strength;
+};
 layout(set = 0, binding = 1) uniform texture2D t_Color1;
 layout(set = 0, binding = 2) uniform sampler Sampler;
 layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
@@ -43,8 +44,8 @@ vec3 normal_sobel(ivec2 texel) {
     vec3 hill = vec3(1., 2., 1.);
     vec3 slope = vec3(1., 0., - 1.);
 
-    float gX = dot(hill, slope * neighborhood);
-    float gY = dot(slope, hill * neighborhood);
+    float gX = dot(hill, slope * neighborhood) * strength;
+    float gY = dot(slope, hill * neighborhood) * strength;
     float gZ = sqrt(1.0 - (gX * gX + gY * gY));
 
     return normalize(vec3(gX, gY, 1));

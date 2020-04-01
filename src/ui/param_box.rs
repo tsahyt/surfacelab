@@ -287,7 +287,7 @@ pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
         Operator::Rgb(..) => rgb(res),
         Operator::Grayscale(..) => grayscale(res),
         Operator::Ramp(..) => ramp(res),
-        Operator::NormalMap(..) => ParamBox::empty(),
+        Operator::NormalMap(..) => normal_map(res),
         Operator::Image { .. } => image(res),
         Operator::Output { .. } => output(res),
     }
@@ -412,6 +412,21 @@ pub fn ramp(res: &Resource) -> ParamBox {
                 name: "Gradient",
                 field: RampParameters::RAMP,
                 control: Control::Ramp,
+            }],
+        }],
+    })
+}
+
+pub fn normal_map(res: &Resource) -> ParamBox {
+    ParamBox::new(&ParamBoxDescription {
+        box_title: "Normal Map",
+        resource: res.clone(),
+        categories: &[ParamCategory {
+            name: "Basic Parameters",
+            parameters: &[Parameter {
+                name: "Strength",
+                field: NormalMapParameters::STRENGTH,
+                control: Control::Slider { min: 0., max: 2. },
             }],
         }],
     })

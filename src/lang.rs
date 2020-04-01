@@ -282,16 +282,29 @@ impl Parameters for RampParameters {
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug)]
 pub struct NormalMapParameters {
+    strength: f32,
 }
 
 impl Default for NormalMapParameters {
     fn default() -> Self {
-        Self {}
+        Self { strength: 1.0 }
     }
+}
+
+impl NormalMapParameters {
+    pub const STRENGTH: &'static str = "strength";
 }
 
 impl Parameters for NormalMapParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+        match field {
+            Self::STRENGTH => {
+                let mut arr: [u8; 4] = Default::default();
+                arr.copy_from_slice(data);
+                self.strength = f32::from_be_bytes(arr);
+            }
+            _ => panic!("Unknown field {}", field),
+        }
     }
 }
 
