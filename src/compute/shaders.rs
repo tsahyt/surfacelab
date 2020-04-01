@@ -146,6 +146,39 @@ static RAMP_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     },
 ];
 
+// Normal Map
+static NORMAL_MAP_SHADER: &[u8] = include_bytes!("../../shaders/normal.spv");
+static NORMAL_MAP_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
+    gpu::DescriptorSetLayoutBinding {
+        binding: 0,
+        ty: gpu::DescriptorType::UniformBuffer,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 1,
+        ty: gpu::DescriptorType::SampledImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 2,
+        ty: gpu::DescriptorType::Sampler,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+    gpu::DescriptorSetLayoutBinding {
+        binding: 3,
+        ty: gpu::DescriptorType::StorageImage,
+        count: 1,
+        stage_flags: gpu::ShaderStageFlags::COMPUTE,
+        immutable_samplers: false,
+    },
+];
+
 fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
     use lang::Operator;
 
@@ -160,6 +193,7 @@ fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
         Operator::Rgb(..) => RGB_SHADER,
         Operator::Grayscale(..) => GRAYSCALE_SHADER,
         Operator::Ramp(..) => RAMP_SHADER,
+        Operator::NormalMap(..) => NORMAL_MAP_SHADER,
     };
 
     Some(src)
@@ -180,6 +214,7 @@ fn operator_layout<'a>(
         Operator::Rgb(..) => RGB_LAYOUT,
         Operator::Grayscale(..) => GRAYSCALE_LAYOUT,
         Operator::Ramp(..) => RAMP_LAYOUT,
+        Operator::NormalMap(..) => NORMAL_MAP_LAYOUT,
     };
 
     Some(bindings)
@@ -343,6 +378,38 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 )],
             },
         ],
+        Operator::NormalMap(..) => vec![
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 0,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 1,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Image(
+                    inputs.get("height").unwrap().get_view().unwrap(),
+                    gpu::Layout::ShaderReadOnlyOptimal,
+                )],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 2,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Sampler(sampler)],
+            },
+            gpu::DescriptorSetWrite {
+                set: desc_set,
+                binding: 3,
+                array_offset: 0,
+                descriptors: vec![gpu::Descriptor::Image(
+                    outputs.get("normal").unwrap().get_view().unwrap(),
+                    gpu::Layout::General,
+                )],
+            },
+        ],
     }
 }
 
@@ -373,6 +440,7 @@ impl Uniforms for lang::Operator {
             Operator::Rgb(p) => p.as_bytes(),
             Operator::Grayscale(p) => p.as_bytes(),
             Operator::Ramp(p) => p.as_bytes(),
+            Operator::NormalMap(p) => p.as_bytes(),
         }
     }
 }

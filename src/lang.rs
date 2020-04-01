@@ -279,6 +279,22 @@ impl Parameters for RampParameters {
     }
 }
 
+#[repr(C)]
+#[derive(AsBytes, Clone, Copy, Debug)]
+pub struct NormalMapParameters {
+}
+
+impl Default for NormalMapParameters {
+    fn default() -> Self {
+        Self {}
+    }
+}
+
+impl Parameters for NormalMapParameters {
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Operator {
     Blend(BlendParameters),
@@ -286,6 +302,7 @@ pub enum Operator {
     Rgb(RgbParameters),
     Grayscale(GrayscaleParameters),
     Ramp(RampParameters),
+    NormalMap(NormalMapParameters),
     Image { path: std::path::PathBuf },
     Output { output_type: OutputType },
 }
@@ -312,6 +329,9 @@ impl Operator {
             },
             Self::Ramp(..) => hashmap! {
                 "factor".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
+            },
+            Self::NormalMap(..) => hashmap! {
+                "height".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
             },
             Self::Image { .. } => HashMap::new(),
             Self::Output { output_type } => hashmap! {
@@ -346,6 +366,9 @@ impl Operator {
             Self::Ramp(..) => hashmap! {
                 "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
             },
+            Self::NormalMap(..) => hashmap! {
+                "normal".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
+            },
             Self::Image { .. } => {
                 hashmap! { "image".to_string() => OperatorType::Monomorphic(ImageType::Rgb) }
             }
@@ -360,6 +383,7 @@ impl Operator {
             Self::Rgb(..) => "rgb",
             Self::Grayscale(..) => "grayscale",
             Self::Ramp(..) => "ramp",
+            Self::NormalMap(..) => "normal_map",
             Self::Image { .. } => "image",
             Self::Output { .. } => "output",
         }
@@ -372,6 +396,7 @@ impl Operator {
             Self::Rgb(..) => "RGB Color",
             Self::Grayscale(..) => "Grayscale",
             Self::Ramp(..) => "Ramp",
+            Self::NormalMap(..) => "Normal Map",
             Self::Image { .. } => "Image",
             Self::Output { .. } => "Output",
         }
@@ -384,6 +409,7 @@ impl Operator {
             Self::Rgb(RgbParameters::default()),
             Self::Grayscale(GrayscaleParameters::default()),
             Self::Ramp(RampParameters::default()),
+            Self::NormalMap(NormalMapParameters::default()),
             Self::Image {
                 path: PathBuf::new(),
             },
@@ -409,6 +435,7 @@ impl Parameters for Operator {
             Self::Rgb(p) => p.set_parameter(field, data),
             Self::Grayscale(p) => p.set_parameter(field, data),
             Self::Ramp(p) => p.set_parameter(field, data),
+            Self::NormalMap(p) => p.set_parameter(field, data),
 
             Self::Image { path } => {
                 let path_str = unsafe { std::str::from_utf8_unchecked(&data) };

@@ -287,6 +287,7 @@ pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
         Operator::Rgb(..) => rgb(res),
         Operator::Grayscale(..) => grayscale(res),
         Operator::Ramp(..) => ramp(res),
+        Operator::NormalMap(..) => ParamBox::empty(),
         Operator::Image { .. } => image(res),
         Operator::Output { .. } => output(res),
     }
