@@ -222,10 +222,14 @@ impl std::fmt::Debug for RampParameters {
 impl Default for RampParameters {
     fn default() -> Self {
         RampParameters {
-            ramp_data: [[0.0; 4]; 64],
+            ramp_data: {
+                let mut arr = [[0.0; 4]; 64];
+                arr[1] = [1., 1., 1., 1.];
+                arr
+            },
             ramp_size: 2,
             ramp_min: 0.,
-            ramp_max: 0.,
+            ramp_max: 1.,
         }
     }
 }
