@@ -255,7 +255,6 @@ impl Parameters for RampParameters {
 
                 // vector needs to be sorted because the shader assumes sortedness!
                 ramp.sort_by(|a, b| a[3].partial_cmp(&b[3]).unwrap_or(std::cmp::Ordering::Equal));
-                dbg!(&ramp);
 
                 // obtain extra information for shader
                 self.ramp_size = ramp.len() as u32;
