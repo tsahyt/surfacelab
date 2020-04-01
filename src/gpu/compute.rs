@@ -46,7 +46,7 @@ impl<B> GPUCompute<B>
 where
     B: Backend,
 {
-    const UNIFORM_BUFFER_SIZE: u64 = 1024; // bytes
+    const UNIFORM_BUFFER_SIZE: u64 = 2048; // bytes
 
     const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 1024; // bytes
     const CHUNK_SIZE: u64 = 256 * 256 * 4; // bytes

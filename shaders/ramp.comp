@@ -2,15 +2,46 @@
 
 layout(local_size_x = 1, local_size_y = 1) in;
 
-// layout(set = 0, binding = 0) uniform Params {
-// };
+layout(set = 0, binding = 0) uniform Params {
+    vec4 ramp_data[64];
+    uint ramp_size;
+    float ramp_min;
+    float ramp_max;
+};
+
 layout(set = 0, binding = 1) uniform texture2D t_Color1;
 layout(set = 0, binding = 2) uniform sampler Sampler;
 layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
+
+vec3 ramp_lookup(float f) {
+    if (ramp_size == 0) { return vec3(0.0); }
+    if (ramp_size == 1) { return ramp_data[0].rgb; }
+
+    f = clamp(f, ramp_min, ramp_max);
+
+    for (int i = 0; i < ramp_size - 1; ++i) {
+        if (ramp_data[i].w <= f && f <= ramp_data[i+1].w) {
+            // colors
+            vec3 low = ramp_data[i].rgb;
+            vec3 high = ramp_data[i+1].rgb;
+
+            // interval data
+            float interval = ramp_data[i+1].w - ramp_data[i].w;
+            float fint = f - ramp_data[i].w;
+
+            // linearly interpolate
+            return mix(low, high, fint / interval);
+        }
+    }
+
+    return vec3(0.0);
+}
 
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     ivec2 resolution = imageSize(t_Out);
     vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
-    imageStore(t_Out, idx, vec4(0.));
+    float factor = texture(sampler2D(t_Color1, Sampler), uv).r;
+
+    imageStore(t_Out, idx, vec4(ramp_lookup(factor), 1.0));
 }

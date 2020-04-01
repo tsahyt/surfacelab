@@ -198,8 +198,10 @@ impl Parameters for GrayscaleParameters {
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy)]
 pub struct RampParameters {
-    ramp_size: u32,
     ramp_data: [[f32; 4]; 64],
+    ramp_size: u32,
+    ramp_min: f32,
+    ramp_max: f32,
 }
 
 impl RampParameters {
@@ -211,6 +213,8 @@ impl std::fmt::Debug for RampParameters {
         f.debug_struct("RampParameters")
             .field("ramp_size", &self.ramp_size)
             .field("ramp_data", &[()])
+            .field("ramp_min", &self.ramp_min)
+            .field("ramp_max", &self.ramp_max)
             .finish()
     }
 }
@@ -218,8 +222,10 @@ impl std::fmt::Debug for RampParameters {
 impl Default for RampParameters {
     fn default() -> Self {
         RampParameters {
-            ramp_size: 2,
             ramp_data: [[0.0; 4]; 64],
+            ramp_size: 2,
+            ramp_min: 0.,
+            ramp_max: 0.,
         }
     }
 }
@@ -242,7 +248,25 @@ impl Parameters for RampParameters {
                         [fields[0], fields[1], fields[2], fields[3]]
                     })
                     .collect();
+
+                // vector needs to be sorted because the shader assumes sortedness!
+                ramp.sort_by(|a, b| a[3].partial_cmp(&b[3]).unwrap_or(std::cmp::Ordering::Equal));
+                dbg!(&ramp);
+
+                // obtain extra information for shader
                 self.ramp_size = ramp.len() as u32;
+                self.ramp_min = ramp
+                    .iter()
+                    .map(|x| x[3])
+                    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                    .unwrap_or(0.0);
+                self.ramp_max = ramp
+                    .iter()
+                    .map(|x| x[3])
+                    .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                    .unwrap_or(1.0);
+
+                // resize before copying, this is required by copy_from_slice
                 ramp.resize_with(64, || [0.0; 4]);
                 self.ramp_data.copy_from_slice(&ramp);
             }
