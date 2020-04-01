@@ -308,7 +308,7 @@ void main() {
     vec3 rd = camera(ro, center.xyz, uv, 1.);
     float d = rayMarch(ro, rd, itrc);
     vec3 p = ro + rd * d;
-    vec3 n = sdf_normal(p, lod_by_distance(d));
+    vec3 n = normal(p, lod_by_distance(d));
 
     col += light(p, n, rd, d, vec3(1.), light_pos.xyz, 100, 1., sitrc);
 
