@@ -186,8 +186,6 @@ impl NodeAreaPrivate {
 
 impl WidgetImpl for NodeAreaPrivate {
     fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
-        use gtk::subclass::widget::WidgetImplExt;
-
         for connection in self.connections.borrow().iter() {
             if !connection.source.get_visible() || !connection.sink.get_visible() {
                 continue;

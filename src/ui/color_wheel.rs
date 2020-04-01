@@ -6,7 +6,7 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::rc::Rc;
 
 // TODO: This should probably be f64 and we'd save a lot of conversions
@@ -186,6 +186,7 @@ fn hsv_to_rgb(hue: f64, saturation: f64, value: f64) -> (f64, f64, f64) {
     }
 }
 
+#[allow(clippy::float_cmp)]
 fn rgb_to_hsv(red: f64, green: f64, blue: f64) -> (f64, f64, f64) {
     let max = red.max(green.max(blue));
     let min = red.min(green.min(blue));
