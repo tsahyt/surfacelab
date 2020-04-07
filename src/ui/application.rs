@@ -1,4 +1,4 @@
-use super::{node, node_area, render_area, render_events};
+use super::{node, node_area, render_area, render_events, tiling};
 use crate::lang::*;
 
 use gio::prelude::*;
@@ -14,13 +14,9 @@ use gtk::subclass::prelude::*;
 use once_cell::unsync::OnceCell;
 use std::sync::Arc;
 
-#[derive(Debug)]
-struct WindowWidgets {
-    node_area: node_area::NodeArea,
-}
-
 pub struct SurfaceLabWindowPrivate {
-    widgets: OnceCell<WindowWidgets>,
+    node_area: node_area::NodeArea,
+    header_bar: gtk::HeaderBar,
 }
 
 impl ObjectSubclass for SurfaceLabWindowPrivate {
@@ -33,7 +29,11 @@ impl ObjectSubclass for SurfaceLabWindowPrivate {
 
     fn new() -> Self {
         Self {
-            widgets: OnceCell::new(),
+            node_area: node_area::NodeArea::new(),
+            header_bar: gtk::HeaderBarBuilder::new()
+                .show_close_button(true)
+                .title("SurfaceLab")
+                .build(),
         }
     }
 }
@@ -42,59 +42,24 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
-        self.parent_constructed(obj);
-        let window = obj.downcast_ref::<SurfaceLabWindow>().unwrap();
-        window.set_title("SurfaceLab");
-        window.set_default_size(1024, 768);
+        let window = obj.clone().downcast::<gtk::ApplicationWindow>().unwrap();
 
-        let paned = gtk::Paned::new(gtk::Orientation::Horizontal);
-        let vbox = gtk::Box::new(gtk::Orientation::Vertical, 16);
+        // Header Bar
+        window.set_titlebar(Some(&self.header_bar));
 
-        // Node Area
-        let node_area = node_area::NodeArea::new();
-        node_area.set_size_request(512, 512);
+        // Main Views
+        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        let tiling = tiling::TilingBox::new(gtk::Label::new(Some("foobar")).upcast(), None);
+        hbox.pack_end(&gtk::Label::new(Some("ParamBoxes")), false, false, 8);
+        hbox.pack_start(&tiling, true, true, 8);
 
-        // Buttons
-        let button_box = {
-            let button_box = gtk::ButtonBox::new(gtk::Orientation::Horizontal);
-            button_box.set_layout(gtk::ButtonBoxStyle::Expand);
+        window.add(&hbox);
 
-            for op in Operator::all_default() {
-                let new_button =
-                    gtk::Button::new_with_label(format!("New {} Node", op.title()).as_ref());
-                new_button.connect_clicked(move |_| {
-                    super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(op.clone())))
-                });
-                button_box.add(&new_button);
-            }
-
-            let force_button = gtk::Button::new_with_label("Force Recompute");
-            force_button.connect_clicked(move |_| {
-                super::emit(Lang::UserNodeEvent(UserNodeEvent::ForceRecompute));
-            });
-            button_box.add(&force_button);
-
-            button_box
-        };
-
-        vbox.add(&button_box);
-
-        // Test Render Area
-        let render_area = render_area::RenderArea::new(RendererType::Renderer3D);
-        let render_events = render_events::RenderEvents::new(render_area);
-        paned.add1(&node_area);
-        paned.add2(&render_events);
-        vbox.pack_end(&paned, true, true, 0);
-
-        window.add(&vbox);
+        // Quit on Delete Event
         window.connect_delete_event(|_, _| {
             super::emit(Lang::UserEvent(UserEvent::Quit));
             Inhibit(false)
         });
-
-        self.widgets
-            .set(WindowWidgets { node_area })
-            .expect("Failed to initialze widgets");
     }
 }
 
@@ -212,39 +177,38 @@ impl SurfaceLabApplication {
         .expect("Created application is of wrong type")
     }
 
-    fn get_widgets(&self) -> &WindowWidgets {
+    fn get_app_window(&self) -> &SurfaceLabWindowPrivate {
         let imp = SurfaceLabApplicationPrivate::from_instance(self);
         let win = imp
             .window
             .get()
             .expect("Failed to obtain Application Window");
-        let winimp = SurfaceLabWindowPrivate::from_instance(win);
-        winimp.widgets.get().expect("Failed to obtain widgets")
+        SurfaceLabWindowPrivate::from_instance(win)
     }
 
     pub fn process_event(&self, event: Arc<Lang>) {
-        let widgets = self.get_widgets();
+        let app_window = self.get_app_window();
         match &*event {
             Lang::GraphEvent(GraphEvent::NodeAdded(res, op)) => {
                 let new_node = node::Node::new_from_operator(op.clone(), res.clone());
-                widgets.node_area.add(&new_node);
+                app_window.node_area.add(&new_node);
                 new_node.show_all();
             }
             Lang::GraphEvent(GraphEvent::NodeRemoved(res)) => {
-                widgets.node_area.remove_by_resource(&res)
+                app_window.node_area.remove_by_resource(&res)
             }
             Lang::GraphEvent(GraphEvent::ConnectedSockets(source, sink)) => {
-                widgets
+                app_window
                     .node_area
                     .add_connection(source.clone(), sink.clone());
             }
             Lang::GraphEvent(GraphEvent::DisconnectedSockets(source, sink)) => {
-                widgets
+                app_window
                     .node_area
                     .remove_connection(source.clone(), sink.clone());
             }
             Lang::ComputeEvent(ComputeEvent::ThumbnailGenerated(res, thumb)) => {
-                widgets.node_area.update_thumbnail(res, thumb);
+                app_window.node_area.update_thumbnail(res, thumb);
             }
             _ => {}
         }
