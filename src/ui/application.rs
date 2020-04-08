@@ -45,8 +45,8 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         let window = obj.clone().downcast::<gtk::ApplicationWindow>().unwrap();
 
         // Header Bar
-        window.set_titlebar(Some(&self.header_bar));
-        window.set_size_request(1280, 720);
+        //window.set_titlebar(Some(&self.header_bar));
+        window.set_default_size(1280, 720);
 
         // Main Views
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);
