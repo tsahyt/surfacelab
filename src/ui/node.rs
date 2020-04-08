@@ -149,7 +149,7 @@ impl ObjectImpl for NodePrivate {
                     popover.show_all();
                     popover.popup();
                 };
-                Inhibit(false)
+                Inhibit(true)
             });
 
             node.add(&ebox);

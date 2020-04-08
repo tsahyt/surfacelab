@@ -30,6 +30,7 @@ pub struct NodeAreaPrivate {
     children: Rc<RefCell<HashMap<Resource, Node>>>,
     connections: RefCell<Vec<Connection>>,
     action: Rc<RefCell<Option<Action>>>,
+    popover_context: gtk::Popover,
 }
 
 // ObjectSubclass is the trait that defines the new type and
@@ -59,6 +60,10 @@ impl ObjectSubclass for NodeAreaPrivate {
             children: Rc::new(RefCell::new(HashMap::new())),
             connections: RefCell::new(Vec::new()),
             action: Rc::new(RefCell::new(None)),
+            popover_context: gtk::PopoverBuilder::new()
+                .modal(true)
+                .position(gtk::PositionType::Bottom)
+                .build(),
         }
     }
 }
@@ -72,6 +77,25 @@ impl ObjectImpl for NodeAreaPrivate {
 
         node_area.drag_dest_set(gtk::DestDefaults::MOTION, &[], gdk::DragAction::PRIVATE);
         node_area.drag_dest_set_track_motion(true);
+
+        // Context Popover
+        let lbox = gtk::ListBox::new();
+        for (i, op) in Operator::all_default().iter().enumerate() {
+            let row = gtk::ListBoxRow::new();
+            let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let button =
+                gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Menu);
+
+            hbox.add(&gtk::Label::new(Some(op.title())));
+            hbox.add(&button);
+            row.add(&hbox);
+
+            button.connect_clicked(clone!(@strong op => move |_| {
+                super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(op.clone())))
+            }));
+            lbox.insert(&row, i as _);
+        }
+        self.popover_context.add(&lbox);
     }
 }
 
@@ -210,9 +234,18 @@ impl WidgetImpl for NodeAreaPrivate {
     }
 
     fn button_press_event(&self, widget: &gtk::Widget, event: &gdk::EventButton) -> gtk::Inhibit {
-        use gtk::subclass::widget::*;
-
-        self.parent_button_press_event(widget, event);
+        if event.get_button() == 3 {
+            let (x, y) = event.get_position();
+            self.popover_context.set_pointing_to(&gdk::Rectangle {
+                x: x as _,
+                y: y as _,
+                width: 1,
+                height: 1,
+            });
+            self.popover_context.set_relative_to(Some(widget));
+            self.popover_context.show_all();
+            self.popover_context.popup();
+        }
 
         Inhibit(false)
     }
