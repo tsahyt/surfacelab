@@ -56,7 +56,15 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
             tiling::TilingArea::new_from_layout_description(tiling::LayoutDescription::Branch {
                 orientation: gtk::Orientation::Vertical,
                 left: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
-                    self.node_area.clone().upcast(),
+                    {
+                        let adj = gtk::Adjustment::new(0., 0., 4096., 0., 0., 0.);
+                        let viewport = gtk::Viewport::new(Some(&adj), Some(&adj));
+                        let scrolled = gtk::ScrolledWindow::new(Some(&adj), Some(&adj));
+
+                        viewport.add(&self.node_area);
+                        scrolled.add(&viewport);
+                        scrolled.upcast()
+                    },
                     None,
                 ))),
                 right: Box::new(tiling::LayoutDescription::Branch {
@@ -64,22 +72,39 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                     left: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
                         render_events::RenderEvents::new(render_area::RenderArea::new(
                             RendererType::Renderer3D,
-                        )).upcast(),
+                        ))
+                        .upcast(),
                         None,
                     ))),
                     right: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
                         render_events::RenderEvents::new(render_area::RenderArea::new(
                             RendererType::Renderer2D,
-                        )).upcast(),
+                        ))
+                        .upcast(),
                         None,
                     ))),
                 }),
             });
 
         hbox.pack_end(&gtk::Label::new(Some("Parameter Section")), false, false, 0);
-        hbox.pack_end(&gtk::Separator::new(gtk::Orientation::Vertical), false, false, 0);
-        hbox.pack_start(&gtk::Label::new(Some("Library and Explorer type stuff")), false, false, 0);
-        hbox.pack_start(&gtk::Separator::new(gtk::Orientation::Vertical), false, false, 0);
+        hbox.pack_end(
+            &gtk::Separator::new(gtk::Orientation::Vertical),
+            false,
+            false,
+            0,
+        );
+        hbox.pack_start(
+            &gtk::Label::new(Some("Library and Explorer type stuff")),
+            false,
+            false,
+            0,
+        );
+        hbox.pack_start(
+            &gtk::Separator::new(gtk::Orientation::Vertical),
+            false,
+            false,
+            0,
+        );
         hbox.pack_start(&tiling, true, true, 8);
 
         window.add(&hbox);
