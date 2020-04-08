@@ -46,10 +46,33 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
         // Header Bar
         window.set_titlebar(Some(&self.header_bar));
+        window.set_size_request(1280, 720);
 
         // Main Views
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let tiling = tiling::TilingBox::new(gtk::Label::new(Some("foobar")).upcast(), None);
+        let tiling =
+            tiling::TilingArea::new_from_layout_description(tiling::LayoutDescription::Branch {
+                orientation: gtk::Orientation::Vertical,
+                left: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
+                    self.node_area.clone().upcast(),
+                    None,
+                ))),
+                right: Box::new(tiling::LayoutDescription::Branch {
+                    orientation: gtk::Orientation::Horizontal,
+                    left: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
+                        render_events::RenderEvents::new(render_area::RenderArea::new(
+                            RendererType::Renderer3D,
+                        )).upcast(),
+                        None,
+                    ))),
+                    right: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
+                        render_events::RenderEvents::new(render_area::RenderArea::new(
+                            RendererType::Renderer2D,
+                        )).upcast(),
+                        None,
+                    ))),
+                }),
+            });
         hbox.pack_end(&gtk::Label::new(Some("ParamBoxes")), false, false, 8);
         hbox.pack_start(&tiling, true, true, 8);
 

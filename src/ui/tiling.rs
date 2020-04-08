@@ -7,10 +7,132 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
+use std::cell::RefCell;
+
+#[derive(Clone)]
+enum BSPLayout {
+    Branch {
+        splitter: gtk::Paned,
+        left: Box<BSPLayout>,
+        right: Box<BSPLayout>,
+    },
+    Leaf {
+        tbox: TilingBox,
+    },
+}
+
+enum SplitOrientation {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+enum MergeKeep {
+    First,
+    Second,
+}
+
+impl BSPLayout {
+    fn get_root_widget(&self) -> gtk::Widget {
+        match self {
+            Self::Branch { splitter, .. } => splitter.clone().upcast(),
+            Self::Leaf { tbox } => tbox.clone().upcast(),
+        }
+    }
+
+    /// Rotate a branch's orientation. If given a leaf, nothing will happen.
+    fn rotate_branch(&self) {
+        match self {
+            Self::Branch { splitter, .. } => {
+                splitter.set_orientation(match splitter.get_orientation() {
+                    gtk::Orientation::Vertical => gtk::Orientation::Horizontal,
+                    _ => gtk::Orientation::Vertical,
+                })
+            }
+            Self::Leaf { .. } => {}
+        }
+    }
+
+    /// Split the layout, retaining the given leaf on the given side of the new
+    /// split. When given a branch, it will recurse down to leftmost leaf child.
+    fn split(self, new: BSPLayout, orientation: SplitOrientation) -> Self {
+        match self {
+            Self::Leaf { tbox } => {
+                let (left, right) = match orientation {
+                    SplitOrientation::Left | SplitOrientation::Up => {
+                        (Box::new(Self::Leaf { tbox }), Box::new(new))
+                    }
+                    SplitOrientation::Right | SplitOrientation::Down => {
+                        (Box::new(new), Box::new(Self::Leaf { tbox }))
+                    }
+                };
+                Self::Branch {
+                    splitter: {
+                        let paned = gtk::Paned::new(match orientation {
+                            SplitOrientation::Left | SplitOrientation::Right => {
+                                gtk::Orientation::Horizontal
+                            }
+                            SplitOrientation::Up | SplitOrientation::Down => {
+                                gtk::Orientation::Vertical
+                            }
+                        });
+                        paned.add1(&left.get_root_widget());
+                        paned.add2(&right.get_root_widget());
+                        paned
+                    },
+                    left,
+                    right,
+                }
+            }
+            Self::Branch { left, .. } => left.split(new, orientation),
+        }
+    }
+
+    fn merge(self, keep: MergeKeep) -> Self {
+        match self {
+            Self::Leaf { .. } => self,
+            Self::Branch { left, right, .. } => match keep {
+                MergeKeep::First => *left,
+                MergeKeep::Second => *right,
+            },
+        }
+    }
+
+    fn from_layout_description(description: LayoutDescription) -> Self {
+        match description {
+            LayoutDescription::Branch {
+                orientation: o,
+                left: l,
+                right: r,
+            } => {
+                let paned = gtk::Paned::new(o);
+                let left_child = Self::from_layout_description(*l);
+                let right_child = Self::from_layout_description(*r);
+                paned.add1(&left_child.get_root_widget());
+                paned.add2(&right_child.get_root_widget());
+                Self::Branch {
+                    splitter: paned,
+                    left: Box::new(left_child),
+                    right: Box::new(right_child),
+                }
+            }
+            LayoutDescription::Leaf(tbox) => Self::Leaf { tbox },
+        }
+    }
+}
+
+pub enum LayoutDescription {
+    Branch {
+        orientation: gtk::Orientation,
+        left: Box<LayoutDescription>,
+        right: Box<LayoutDescription>,
+    },
+    Leaf(TilingBox),
+}
+
 pub struct TilingAreaPrivate {
-    stack_group: gtk::Box,
-    stack_maximized: gtk::Box,
-    group_child: gtk::Box,
+    layout: RefCell<BSPLayout>,
 }
 
 impl ObjectSubclass for TilingAreaPrivate {
@@ -30,9 +152,9 @@ impl ObjectSubclass for TilingAreaPrivate {
 
     fn new() -> Self {
         Self {
-            stack_group: gtk::Box::new(gtk::Orientation::Vertical, 0),
-            stack_maximized: gtk::Box::new(gtk::Orientation::Vertical, 0),
-            group_child: gtk::Box::new(gtk::Orientation::Vertical, 0),
+            layout: RefCell::new(BSPLayout::Leaf {
+                tbox: TilingBox::new(gtk::Label::new(Some("Placeholder")).upcast(), None),
+            }),
         }
     }
 }
@@ -41,7 +163,7 @@ impl ObjectImpl for TilingAreaPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
-        self.stack_group.add(&self.group_child);
+        let stack = obj.clone().downcast::<gtk::Stack>().unwrap();
     }
 }
 
@@ -51,7 +173,15 @@ impl ContainerImpl for TilingAreaPrivate {}
 
 impl StackImpl for TilingAreaPrivate {}
 
-impl TilingAreaPrivate {}
+impl TilingAreaPrivate {
+    fn from_layout_description(&self, stack: &gtk::Stack, description: LayoutDescription) {
+        let new_layout = BSPLayout::from_layout_description(description);
+        self.layout.replace(new_layout);
+        let w = self.layout.borrow().get_root_widget();
+        stack.add(&w);
+        stack.set_visible_child(&w);
+    }
+}
 
 glib_wrapper! {
     pub struct TilingArea(
@@ -71,6 +201,13 @@ impl TilingArea {
             .unwrap()
             .downcast()
             .unwrap()
+    }
+
+    pub fn new_from_layout_description(description: LayoutDescription) -> Self {
+        let obj = Self::new();
+        let imp = TilingAreaPrivate::from_instance(&obj);
+        imp.from_layout_description(&obj.clone().upcast(), description);
+        obj
     }
 }
 
