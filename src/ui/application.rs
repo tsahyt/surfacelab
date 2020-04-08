@@ -51,7 +51,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         window.set_default_size(1280, 720);
 
         // Main Views
-        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         let tiling =
             tiling::TilingArea::new_from_layout_description(tiling::LayoutDescription::Branch {
                 orientation: gtk::Orientation::Vertical,
@@ -75,7 +75,11 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                     ))),
                 }),
             });
-        hbox.pack_end(&gtk::Label::new(Some("ParamBoxes")), false, false, 8);
+
+        hbox.pack_end(&gtk::Label::new(Some("Parameter Section")), false, false, 0);
+        hbox.pack_end(&gtk::Separator::new(gtk::Orientation::Vertical), false, false, 0);
+        hbox.pack_start(&gtk::Label::new(Some("Library and Explorer type stuff")), false, false, 0);
+        hbox.pack_start(&gtk::Separator::new(gtk::Orientation::Vertical), false, false, 0);
         hbox.pack_start(&tiling, true, true, 8);
 
         window.add(&hbox);
