@@ -48,7 +48,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
         // Header Bar
         window.set_titlebar(Some(&self.header_bar));
-        window.set_default_size(1280, 720);
+        window.set_default_size(1920, 1080);
 
         // Main Views
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -57,8 +57,8 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 orientation: gtk::Orientation::Vertical,
                 left: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
                     {
-                        let hadj = gtk::Adjustment::new(0., 0., 4096., 0., 0., 0.);
-                        let vadj = gtk::Adjustment::new(0., 0., 4096., 0., 0., 0.);
+                        let hadj = gtk::Adjustment::new(0., 0., std::f64::MAX, 0., 0., 0.);
+                        let vadj = gtk::Adjustment::new(0., 0., std::f64::MAX, 0., 0., 0.);
                         let viewport = gtk::Viewport::new(Some(&hadj), Some(&vadj));
                         let scrolled = gtk::ScrolledWindow::new(Some(&hadj), Some(&vadj));
 
