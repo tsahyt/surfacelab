@@ -33,6 +33,7 @@ impl ObjectSubclass for SurfaceLabWindowPrivate {
             header_bar: gtk::HeaderBarBuilder::new()
                 .show_close_button(true)
                 .title("SurfaceLab")
+                .subtitle("<unsaved>")
                 .build(),
         }
     }
@@ -45,10 +46,88 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         self.parent_constructed(obj);
 
         let window = obj.clone().downcast::<gtk::ApplicationWindow>().unwrap();
+        window.set_default_size(1920, 1080);
 
         // Header Bar
+        self.header_bar.pack_start(&{
+            let btn_box = gtk::ButtonBoxBuilder::new()
+                .layout_style(gtk::ButtonBoxStyle::Expand)
+                .homogeneous(false)
+                .build();
+            let open = gtk::Button::new_with_label("Open");
+            let recent = gtk::MenuButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("pan-down-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build();
+            btn_box.add(&open);
+            btn_box.add(&recent);
+            btn_box
+        });
+        self.header_bar.pack_start(
+            &gtk::ButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("document-new-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build(),
+        );
+        self.header_bar.pack_start(&{
+            let btn_box = gtk::ButtonBoxBuilder::new()
+                .layout_style(gtk::ButtonBoxStyle::Expand)
+                .homogeneous(false)
+                .build();
+            let open = gtk::Button::new_with_label("Save");
+            let recent = gtk::MenuButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("pan-down-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build();
+            btn_box.add(&open);
+            btn_box.add(&recent);
+            btn_box
+        });
+        self.header_bar
+            .pack_start(&gtk::Separator::new(gtk::Orientation::Vertical));
+        self.header_bar.pack_start(&{
+            let btn_box = gtk::ButtonBoxBuilder::new()
+                .layout_style(gtk::ButtonBoxStyle::Expand)
+                .build();
+            let undo = gtk::ButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("edit-undo-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build();
+            let redo = gtk::ButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("edit-redo-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build();
+            btn_box.add(&undo);
+            btn_box.add(&redo);
+            btn_box
+        });
+
+        self.header_bar.pack_end(
+            &gtk::MenuButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("open-menu-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build(),
+        );
+        self.header_bar.pack_end(&{
+            let switchbox = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+            switchbox.add(&gtk::Label::new(Some("Layers")));
+            switchbox.add(&gtk::SwitchBuilder::new().state(true).build());
+            switchbox.add(&gtk::Label::new(Some("Graph")));
+            switchbox
+        });
         window.set_titlebar(Some(&self.header_bar));
-        window.set_default_size(1920, 1080);
 
         // Main Views
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
