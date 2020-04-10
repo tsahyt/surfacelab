@@ -57,9 +57,10 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 orientation: gtk::Orientation::Vertical,
                 left: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
                     {
-                        let adj = gtk::Adjustment::new(0., 0., 4096., 0., 0., 0.);
-                        let viewport = gtk::Viewport::new(Some(&adj), Some(&adj));
-                        let scrolled = gtk::ScrolledWindow::new(Some(&adj), Some(&adj));
+                        let hadj = gtk::Adjustment::new(0., 0., 4096., 0., 0., 0.);
+                        let vadj = gtk::Adjustment::new(0., 0., 4096., 0., 0., 0.);
+                        let viewport = gtk::Viewport::new(Some(&hadj), Some(&vadj));
+                        let scrolled = gtk::ScrolledWindow::new(Some(&hadj), Some(&vadj));
 
                         viewport.add(&self.node_area);
                         scrolled.add(&viewport);
