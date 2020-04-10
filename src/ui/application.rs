@@ -146,6 +146,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                         scrolled.upcast()
                     },
                     None,
+                    "Node Area",
                 ))),
                 right: Box::new(tiling::LayoutDescription::Branch {
                     orientation: gtk::Orientation::Horizontal,
@@ -155,6 +156,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                         ))
                         .upcast(),
                         None,
+                        "3D View",
                     ))),
                     right: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
                         render_events::RenderEvents::new(render_area::RenderArea::new(
@@ -162,6 +164,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                         ))
                         .upcast(),
                         None,
+                        "2D View",
                     ))),
                 }),
             });

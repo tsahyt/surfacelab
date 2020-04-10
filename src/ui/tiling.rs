@@ -153,7 +153,11 @@ impl ObjectSubclass for TilingAreaPrivate {
     fn new() -> Self {
         Self {
             layout: RefCell::new(BSPLayout::Leaf {
-                tbox: TilingBox::new(gtk::Label::new(Some("Placeholder")).upcast(), None),
+                tbox: TilingBox::new(
+                    gtk::Label::new(Some("Placeholder")).upcast(),
+                    None,
+                    "Tiling Box",
+                ),
             }),
         }
     }
@@ -311,6 +315,10 @@ impl TilingBoxPrivate {
         let popover = gtk::Popover::new_from_model(Some(&self.title_menubutton), &m);
         self.title_menubutton.set_popover(Some(&popover))
     }
+
+    fn set_title(&self, title: &str) {
+        self.title_label.set_label(title);
+    }
 }
 
 glib_wrapper! {
@@ -326,12 +334,13 @@ glib_wrapper! {
 }
 
 impl TilingBox {
-    pub fn new(inner: gtk::Widget, menu: Option<gio::Menu>) -> Self {
+    pub fn new(inner: gtk::Widget, menu: Option<gio::Menu>, title: &str) -> Self {
         let tbox: Self = glib::Object::new(Self::static_type(), &[])
             .unwrap()
             .downcast()
             .unwrap();
         tbox.set_menu(menu);
+        tbox.set_title(title);
         tbox.pack_end(&inner, true, true, 0);
         tbox
     }
@@ -339,5 +348,10 @@ impl TilingBox {
     pub fn set_menu(&self, menu: Option<gio::Menu>) {
         let imp = TilingBoxPrivate::from_instance(self);
         imp.set_menu(menu)
+    }
+
+    pub fn set_title(&self, title: &str) {
+        let imp = TilingBoxPrivate::from_instance(self);
+        imp.set_title(title);
     }
 }
