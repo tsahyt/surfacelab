@@ -7,7 +7,8 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 
 #[derive(Clone)]
 enum BSPLayout {
@@ -148,6 +149,37 @@ impl BSPLayout {
         }
     }
 
+    fn reparent_all(&self) {
+        if let Self::Branch {
+            splitter,
+            left,
+            right,
+        } = self
+        {
+            let lwidget = left.get_root_widget();
+            let rwidget = right.get_root_widget();
+
+            if let Some(parent) = lwidget.get_parent() {
+                parent
+                    .downcast::<gtk::Container>()
+                    .expect("Left layout child parented to non-container")
+                    .remove(&lwidget);
+            }
+            if let Some(parent) = rwidget.get_parent() {
+                parent
+                    .downcast::<gtk::Container>()
+                    .expect("Right layout child parented to non-container")
+                    .remove(&rwidget);
+            }
+
+            splitter.add1(&lwidget);
+            splitter.add2(&rwidget);
+
+            left.reparent_all();
+            right.reparent_all();
+        }
+    }
+
     fn iter(&self) -> BSPIter {
         BSPIter::new(self)
     }
@@ -194,7 +226,8 @@ pub enum LayoutDescription {
 }
 
 pub struct TilingAreaPrivate {
-    layout: RefCell<BSPLayout>,
+    layout: Rc<RefCell<BSPLayout>>,
+    maximized: Rc<Cell<bool>>,
 }
 
 impl ObjectSubclass for TilingAreaPrivate {
@@ -214,7 +247,8 @@ impl ObjectSubclass for TilingAreaPrivate {
 
     fn new() -> Self {
         Self {
-            layout: RefCell::new(BSPLayout::default()),
+            layout: Rc::new(RefCell::new(BSPLayout::default())),
+            maximized: Rc::new(Cell::new(false)),
         }
     }
 }
@@ -236,9 +270,23 @@ impl TilingAreaPrivate {
         let new_layout = BSPLayout::from_layout_description(description);
 
         for tbox in new_layout.iter() {
-            tbox.connect_maximize_clicked(clone!(@strong box_ => move |t| {
-                t.unparent();
-                Self::swap_widget(&box_, &t.clone().upcast());
+            tbox.connect_maximize_clicked(clone!(
+                @strong box_,
+                @strong self.maximized as maximized,
+                @strong self.layout as layout => move |t| {
+                    let max = maximized.get();
+                    if max {
+                        layout.borrow().reparent_all();
+                        let root = layout.borrow().get_root_widget();
+                        root.show_all();
+                        Self::swap_widget(&box_, &root);
+                    } else {
+                        if let Some(parent) = t.get_parent() {
+                            parent.downcast::<gtk::Container>().expect("Tiling Box parented to non-container").remove(t);
+                        }
+                        Self::swap_widget(&box_, &t.clone().upcast());
+                    }
+                    maximized.set(!max);
             }));
         }
 

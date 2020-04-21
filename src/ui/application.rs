@@ -165,8 +165,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                         .upcast(),
                         None,
                         "2D View",
-                    ))),
-                }),
+                    ))) }),
             });
 
         hbox.pack_end(&gtk::Label::new(Some("Parameter Section")), false, false, 0);
