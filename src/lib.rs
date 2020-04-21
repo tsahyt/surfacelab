@@ -1,5 +1,6 @@
 #![feature(tau_constant)]
 #![feature(clamp)]
+#![feature(box_patterns)]
 
 pub mod broker;
 pub mod compute;

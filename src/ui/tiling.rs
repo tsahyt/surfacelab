@@ -54,18 +54,20 @@ impl BSPLayout {
         }
     }
 
-    fn find_widget_path(&self, widget: &gtk::Widget) -> Option<&Self> {
+    fn find_tbox_parent(&mut self, box_: &TilingBox) -> Option<(&mut Self, MergeKeep)> {
         match self {
+            Self::Branch {
+                left: box Self::Leaf { tbox },
+                ..
+            } if tbox == box_ => Some((self, MergeKeep::First)),
+            Self::Branch {
+                right: box Self::Leaf { tbox },
+                ..
+            } if tbox == box_ => Some((self, MergeKeep::Second)),
+            Self::Leaf { .. } => None,
             Self::Branch { left, right, .. } => left
-                .find_widget_path(widget)
-                .or_else(|| right.find_widget_path(widget)),
-            Self::Leaf { tbox } => {
-                if tbox.contains(widget) {
-                    Some(self)
-                } else {
-                    None
-                }
-            }
+                .find_tbox_parent(box_)
+                .or_else(move || right.find_tbox_parent(box_)),
         }
     }
 
@@ -127,6 +129,7 @@ impl BSPLayout {
         }
     }
 
+    /// Create a layout from a layout description.
     fn from_layout_description(description: LayoutDescription) -> Self {
         match description {
             LayoutDescription::Branch {
@@ -149,6 +152,7 @@ impl BSPLayout {
         }
     }
 
+    /// Restores the parent relationships for all widgets in the layout
     fn reparent_all(&self) {
         if let Self::Branch {
             splitter,
@@ -287,6 +291,15 @@ impl TilingAreaPrivate {
                         Self::swap_widget(&box_, &t.clone().upcast());
                     }
                     maximized.set(!max);
+            }));
+
+            tbox.connect_close_clicked(clone!(@strong self.layout as layout => move |t| {
+                let mut layout_m = layout.borrow_mut();
+                if let Some((parent, keep)) = layout_m.find_tbox_parent(t) {
+                    let new_parent = parent.clone().merge(keep);
+                    *parent = new_parent;
+                }
+                layout_m.reparent_all();
             }));
         }
 
