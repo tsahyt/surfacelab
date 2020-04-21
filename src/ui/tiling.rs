@@ -33,11 +33,38 @@ enum MergeKeep {
     Second,
 }
 
+impl Default for BSPLayout {
+    fn default() -> Self {
+        Self::Leaf {
+            tbox: TilingBox::new(
+                gtk::Label::new(Some("Placeholder")).upcast(),
+                None,
+                "Tiling Box",
+            ),
+        }
+    }
+}
+
 impl BSPLayout {
     fn get_root_widget(&self) -> gtk::Widget {
         match self {
             Self::Branch { splitter, .. } => splitter.clone().upcast(),
             Self::Leaf { tbox } => tbox.clone().upcast(),
+        }
+    }
+
+    fn find_widget_path(&self, widget: &gtk::Widget) -> Option<&Self> {
+        match self {
+            Self::Branch { left, right, .. } => left
+                .find_widget_path(widget)
+                .or_else(|| right.find_widget_path(widget)),
+            Self::Leaf { tbox } => {
+                if tbox.contains(widget) {
+                    Some(self)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -120,6 +147,41 @@ impl BSPLayout {
             LayoutDescription::Leaf(tbox) => Self::Leaf { tbox },
         }
     }
+
+    fn iter(&self) -> BSPIter {
+        BSPIter::new(self)
+    }
+}
+
+struct BSPIter<'a> {
+    stack: Vec<&'a BSPLayout>,
+}
+
+impl<'a> BSPIter<'a> {
+    fn new(root: &'a BSPLayout) -> Self {
+        let mut stack = Vec::with_capacity(32);
+        stack.push(root);
+        BSPIter { stack }
+    }
+}
+
+impl<'a> Iterator for BSPIter<'a> {
+    type Item = &'a TilingBox;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(item) = self.stack.pop() {
+            match item {
+                BSPLayout::Leaf { tbox } => Some(tbox),
+                BSPLayout::Branch { left, right, .. } => {
+                    self.stack.push(&*left);
+                    self.stack.push(&*right);
+                    self.next()
+                }
+            }
+        } else {
+            None
+        }
+    }
 }
 
 pub enum LayoutDescription {
@@ -138,7 +200,7 @@ pub struct TilingAreaPrivate {
 impl ObjectSubclass for TilingAreaPrivate {
     const NAME: &'static str = "TilingArea";
 
-    type ParentType = gtk::Stack;
+    type ParentType = gtk::Box;
     type Instance = subclass::simple::InstanceStruct<Self>;
     type Class = subclass::simple::ClassStruct<Self>;
 
@@ -152,13 +214,7 @@ impl ObjectSubclass for TilingAreaPrivate {
 
     fn new() -> Self {
         Self {
-            layout: RefCell::new(BSPLayout::Leaf {
-                tbox: TilingBox::new(
-                    gtk::Label::new(Some("Placeholder")).upcast(),
-                    None,
-                    "Tiling Box",
-                ),
-            }),
+            layout: RefCell::new(BSPLayout::default()),
         }
     }
 }
@@ -166,24 +222,38 @@ impl ObjectSubclass for TilingAreaPrivate {
 impl ObjectImpl for TilingAreaPrivate {
     glib_object_impl!();
 
-    fn constructed(&self, obj: &glib::Object) {
-        let stack = obj.clone().downcast::<gtk::Stack>().unwrap();
-    }
+    fn constructed(&self, obj: &glib::Object) {}
 }
 
 impl WidgetImpl for TilingAreaPrivate {}
 
 impl ContainerImpl for TilingAreaPrivate {}
 
-impl StackImpl for TilingAreaPrivate {}
+impl BoxImpl for TilingAreaPrivate {}
 
 impl TilingAreaPrivate {
-    fn from_layout_description(&self, stack: &gtk::Stack, description: LayoutDescription) {
+    fn from_layout_description(&self, box_: &gtk::Box, description: LayoutDescription) {
         let new_layout = BSPLayout::from_layout_description(description);
+
+        for tbox in new_layout.iter() {
+            tbox.connect_maximize_clicked(clone!(@strong box_ => move |t| {
+                t.unparent();
+                Self::swap_widget(&box_, &t.clone().upcast());
+            }));
+        }
+
         self.layout.replace(new_layout);
         let w = self.layout.borrow().get_root_widget();
-        stack.add(&w);
-        stack.set_visible_child(&w);
+
+        Self::swap_widget(box_, &w);
+    }
+
+    fn swap_widget(box_: &gtk::Box, widget: &gtk::Widget) {
+        for c in box_.get_children() {
+            box_.remove(&c);
+        }
+
+        box_.pack_start(widget, true, true, 0);
     }
 }
 
@@ -192,7 +262,7 @@ glib_wrapper! {
         Object<subclass::simple::InstanceStruct<TilingAreaPrivate>,
         subclass::simple::ClassStruct<TilingAreaPrivate>,
         TilingAreaClass>)
-        @extends gtk::Widget, gtk::Container, gtk::Stack;
+        @extends gtk::Widget, gtk::Container, gtk::Box;
 
     match fn {
         get_type => || TilingAreaPrivate::get_type().to_glib(),
@@ -223,6 +293,10 @@ pub struct TilingBoxPrivate {
     maximize_button: gtk::Button,
 }
 
+// TilingBox Signals
+pub const MAXIMIZE_CLICKED: &str = "maximize-clicked";
+pub const CLOSE_CLICKED: &str = "close-clicked";
+
 impl ObjectSubclass for TilingBoxPrivate {
     const NAME: &'static str = "TilingBox";
 
@@ -236,7 +310,20 @@ impl ObjectSubclass for TilingBoxPrivate {
     // type is created. Here class specific settings can be performed,
     // including installation of properties and registration of signals
     // for the new type.
-    //fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {}
+    fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {
+        class.add_signal(
+            MAXIMIZE_CLICKED,
+            glib::SignalFlags::empty(),
+            &[],
+            glib::types::Type::Unit,
+        );
+        class.add_signal(
+            CLOSE_CLICKED,
+            glib::SignalFlags::empty(),
+            &[],
+            glib::types::Type::Unit,
+        );
+    }
 
     fn new() -> Self {
         Self {
@@ -281,12 +368,20 @@ impl ObjectImpl for TilingBoxPrivate {
         self.close_button.set_tooltip_text(Some("Close"));
         self.close_button.set_relief(gtk::ReliefStyle::None);
         self.close_button.set_focus_on_click(false);
+        self.close_button
+            .connect_clicked(clone!(@strong obj => move |_| {
+                obj.emit(CLOSE_CLICKED, &[]).unwrap();
+            }));
         self.title_box.pack_end(&self.close_button, false, false, 0);
 
         // Maximize Button
         self.maximize_button.set_tooltip_text(Some("Maximize"));
         self.maximize_button.set_relief(gtk::ReliefStyle::None);
         self.maximize_button.set_focus_on_click(false);
+        self.maximize_button
+            .connect_clicked(clone!(@strong obj => move |_| {
+                obj.emit(MAXIMIZE_CLICKED, &[]).unwrap();
+            }));
         self.title_box
             .pack_end(&self.maximize_button, false, false, 0);
 
@@ -353,5 +448,31 @@ impl TilingBox {
     pub fn set_title(&self, title: &str) {
         let imp = TilingBoxPrivate::from_instance(self);
         imp.set_title(title);
+    }
+
+    pub fn connect_close_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_local(CLOSE_CLICKED, true, move |w| {
+            let tbox = w[0].clone().downcast::<TilingBox>().unwrap().get().unwrap();
+            f(&tbox);
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn connect_maximize_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_local(MAXIMIZE_CLICKED, true, move |w| {
+            let tbox = w[0].clone().downcast::<TilingBox>().unwrap().get().unwrap();
+            f(&tbox);
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn contains(&self, widget: &gtk::Widget) -> bool {
+        if &self.get_children()[1] == widget {
+            true
+        } else {
+            false
+        }
     }
 }
