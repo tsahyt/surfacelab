@@ -83,6 +83,16 @@ impl BSPLayout {
         }
     }
 
+    fn find_tbox(&mut self, box_: &TilingBox) -> Option<&mut Self> {
+        match self {
+            Self::Branch { left, right, .. } => {
+                left.find_tbox(box_).or_else(move || right.find_tbox(box_))
+            }
+            Self::Leaf { tbox } if *tbox == *box_ => Some(self),
+            _ => None,
+        }
+    }
+
     /// Rotate a branch's orientation. If given a leaf, nothing will happen.
     fn rotate_branch(&self) {
         match self {
@@ -98,18 +108,35 @@ impl BSPLayout {
 
     /// Split the layout, retaining the given leaf on the given side of the new
     /// split. When given a branch, it will recurse down to leftmost leaf child.
-    fn split(self, new: BSPLayout, orientation: SplitOrientation) -> Self {
+    fn split(&mut self, new: BSPLayout, orientation: SplitOrientation) {
         match self {
             Self::Leaf { tbox } => {
                 let (left, right) = match orientation {
                     SplitOrientation::Left | SplitOrientation::Up => {
-                        (Box::new(Self::Leaf { tbox }), Box::new(new))
+                        (Box::new(Self::Leaf { tbox: tbox.clone() }), Box::new(new))
                     }
                     SplitOrientation::Right | SplitOrientation::Down => {
-                        (Box::new(new), Box::new(Self::Leaf { tbox }))
+                        (Box::new(new), Box::new(Self::Leaf { tbox: tbox.clone() }))
                     }
                 };
-                Self::Branch {
+
+                let lwidget = left.get_root_widget();
+                let rwidget = right.get_root_widget();
+
+                if let Some(parent) = lwidget.get_parent() {
+                    parent
+                        .downcast::<gtk::Container>()
+                        .expect("Left layout child parented to non-container")
+                        .remove(&lwidget);
+                }
+                if let Some(parent) = rwidget.get_parent() {
+                    parent
+                        .downcast::<gtk::Container>()
+                        .expect("Right layout child parented to non-container")
+                        .remove(&rwidget);
+                }
+
+                *self = Self::Branch {
                     splitter: {
                         let paned = gtk::Paned::new(match orientation {
                             SplitOrientation::Left | SplitOrientation::Right => {
@@ -119,8 +146,8 @@ impl BSPLayout {
                                 gtk::Orientation::Vertical
                             }
                         });
-                        paned.add1(&left.get_root_widget());
-                        paned.add2(&right.get_root_widget());
+                        paned.add1(&lwidget);
+                        paned.add2(&rwidget);
                         paned
                     },
                     left,
@@ -342,16 +369,41 @@ impl TilingAreaPrivate {
             tbox.connect_close_clicked(
                 clone!(@strong box_, @strong self.layout as layout => move |t| {
                     let mut layout_m = layout.borrow_mut();
-                    dbg!(&layout_m);
                     if let Some((parent, keep)) = layout_m.find_tbox_parent(t) {
                         parent.merge(keep);
                         let new_root = layout_m.rebuild_layout();
                         new_root.show_all();
-                        dbg!(&new_root);
-                        dbg!(&layout_m);
                         Self::swap_widget(&box_, &new_root);
                     }
                 }),
+            );
+
+            tbox.connect_split_v_clicked(
+                clone!(@strong box_, @strong self.layout as layout => move |t| {
+                    let mut layout_m = layout.borrow_mut();
+                    if let Some(tbox) = layout_m.find_tbox(t) {
+                        let new = BSPLayout::Leaf { tbox: TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar") };
+                        tbox.split(new, SplitOrientation::Down);
+                        let new_root = layout_m.rebuild_layout();
+                        new_root.show_all();
+                        Self::swap_widget(&box_, &new_root);
+                    }
+                }
+                ),
+            );
+
+            tbox.connect_split_h_clicked(
+                clone!(@strong box_, @strong self.layout as layout => move |t| {
+                    let mut layout_m = layout.borrow_mut();
+                    if let Some(tbox) = layout_m.find_tbox(t) {
+                        let new = BSPLayout::Leaf { tbox: TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar") };
+                        tbox.split(new, SplitOrientation::Right);
+                        let new_root = layout_m.rebuild_layout();
+                        new_root.show_all();
+                        Self::swap_widget(&box_, &new_root);
+                    }
+                }
+                ),
             );
         }
 
@@ -403,6 +455,8 @@ pub struct TilingBoxPrivate {
     title_box: gtk::Box,
     title_label: gtk::Label,
     title_menubutton: gtk::MenuButton,
+    title_popover: gtk::Popover,
+    title_popover_box: gtk::Box,
     close_button: gtk::Button,
     maximize_button: gtk::Button,
 }
@@ -410,6 +464,8 @@ pub struct TilingBoxPrivate {
 // TilingBox Signals
 pub const MAXIMIZE_CLICKED: &str = "maximize-clicked";
 pub const CLOSE_CLICKED: &str = "close-clicked";
+pub const SPLIT_V_CLICKED: &str = "split-v-clicked";
+pub const SPLIT_H_CLICKED: &str = "split-h-clicked";
 
 impl ObjectSubclass for TilingBoxPrivate {
     const NAME: &'static str = "TilingBox";
@@ -437,16 +493,32 @@ impl ObjectSubclass for TilingBoxPrivate {
             &[],
             glib::types::Type::Unit,
         );
+        class.add_signal(
+            SPLIT_V_CLICKED,
+            glib::SignalFlags::empty(),
+            &[],
+            glib::types::Type::Unit,
+        );
+        class.add_signal(
+            SPLIT_H_CLICKED,
+            glib::SignalFlags::empty(),
+            &[],
+            glib::types::Type::Unit,
+        );
     }
 
     fn new() -> Self {
+        let title_menubutton = gtk::MenuButtonBuilder::new()
+            .relief(gtk::ReliefStyle::None)
+            .focus_on_click(false)
+            .build();
+        let title_popover = gtk::Popover::new(Some(&title_menubutton));
         Self {
             title_box: gtk::Box::new(gtk::Orientation::Horizontal, 0),
             title_label: gtk::Label::new(Some("Tiling Box")),
-            title_menubutton: gtk::MenuButtonBuilder::new()
-                .relief(gtk::ReliefStyle::None)
-                .focus_on_click(false)
-                .build(),
+            title_menubutton,
+            title_popover,
+            title_popover_box: gtk::Box::new(gtk::Orientation::Vertical, 4),
             close_button: gtk::Button::new_from_icon_name(
                 Some("window-close-symbolic"),
                 gtk::IconSize::Menu,
@@ -477,6 +549,40 @@ impl ObjectImpl for TilingBoxPrivate {
         self.title_menubutton.add(&title_label_box);
         self.title_box
             .pack_start(&self.title_menubutton, false, false, 0);
+
+        // Popover
+        self.title_popover.add(&self.title_popover_box);
+
+        let split_buttons = gtk::ButtonBoxBuilder::new()
+            .layout_style(gtk::ButtonBoxStyle::Expand)
+            .build();
+        let split_vertical_button = gtk::Button::new_from_icon_name(
+            Some("object-flip-vertical-symbolic"),
+            gtk::IconSize::Menu,
+        );
+        split_vertical_button.connect_clicked(clone!(@strong obj => move |_| {
+            obj.emit(SPLIT_V_CLICKED, &[]).unwrap();
+        }));
+        split_buttons.add(&split_vertical_button);
+        let split_horizontal_button = gtk::Button::new_from_icon_name(
+            Some("object-flip-horizontal-symbolic"),
+            gtk::IconSize::Menu,
+        );
+        split_horizontal_button.connect_clicked(clone!(@strong obj => move |_| {
+            obj.emit(SPLIT_H_CLICKED, &[]).unwrap();
+        }));
+        split_buttons.add(&split_horizontal_button);
+        self.title_popover_box
+            .pack_start(&split_buttons, true, true, 4);
+        self.title_popover_box.pack_start(
+            &gtk::Separator::new(gtk::Orientation::Horizontal),
+            true,
+            true,
+            4,
+        );
+
+        self.title_popover_box.show_all();
+        self.title_menubutton.set_popover(Some(&self.title_popover));
 
         // Close Button
         self.close_button.set_tooltip_text(Some("Close"));
@@ -510,19 +616,14 @@ impl ContainerImpl for TilingBoxPrivate {}
 impl BoxImpl for TilingBoxPrivate {}
 
 impl TilingBoxPrivate {
-    fn prepend_tiling(menu: &gio::Menu) {
-        menu.prepend(Some("Split Horizontally"), None);
-        menu.prepend(Some("Split Vertically"), None);
-    }
-
     fn set_menu(&self, menu: Option<gio::Menu>) {
         let m = match menu {
             Some(m) => m,
             _ => gio::Menu::new(),
         };
-        Self::prepend_tiling(&m);
-        let popover = gtk::Popover::new_from_model(Some(&self.title_menubutton), &m);
-        self.title_menubutton.set_popover(Some(&popover))
+
+        let gtkmenu = gtk::Menu::new_from_model(&m);
+        self.title_popover_box.pack_end(&gtkmenu, true, true, 4);
     }
 
     fn set_title(&self, title: &str) {
@@ -575,6 +676,24 @@ impl TilingBox {
 
     pub fn connect_maximize_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_local(MAXIMIZE_CLICKED, true, move |w| {
+            let tbox = w[0].clone().downcast::<TilingBox>().unwrap().get().unwrap();
+            f(&tbox);
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn connect_split_v_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_local(SPLIT_V_CLICKED, true, move |w| {
+            let tbox = w[0].clone().downcast::<TilingBox>().unwrap().get().unwrap();
+            f(&tbox);
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn connect_split_h_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_local(SPLIT_H_CLICKED, true, move |w| {
             let tbox = w[0].clone().downcast::<TilingBox>().unwrap().get().unwrap();
             f(&tbox);
             None
