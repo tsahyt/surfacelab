@@ -379,6 +379,7 @@ impl TilingAreaPrivate {
             clone!(@strong box_, @strong self.layout as layout => move |t| {
                 let mut layout_m = layout.borrow_mut();
                 if let Some(tbox) = layout_m.find_tbox(t) {
+                    // TODO: Connect new TBox
                     let new_tbox = TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar");
                     let new = BSPLayout::Leaf {
                         tbox: new_tbox
@@ -396,6 +397,7 @@ impl TilingAreaPrivate {
             clone!(@strong box_, @strong self.layout as layout => move |t| {
                 let mut layout_m = layout.borrow_mut();
                 if let Some(tbox) = layout_m.find_tbox(t) {
+                    // TODO: Connect new TBox
                     let new_tbox = TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar");
                     let new = BSPLayout::Leaf {
                         tbox: new_tbox
