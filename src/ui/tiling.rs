@@ -10,7 +10,7 @@ use gtk::subclass::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum BSPLayout {
     Branch {
         splitter: gtk::Paned,
@@ -29,9 +29,21 @@ enum SplitOrientation {
     Right,
 }
 
+#[derive(Debug, Clone, Copy)]
 enum MergeKeep {
     First,
     Second,
+}
+
+impl std::ops::Not for MergeKeep {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Self::First => Self::Second,
+            Self::Second => Self::First,
+        }
+    }
 }
 
 impl Default for BSPLayout {
@@ -59,11 +71,11 @@ impl BSPLayout {
             Self::Branch {
                 left: box Self::Leaf { tbox },
                 ..
-            } if tbox == box_ => Some((self, MergeKeep::First)),
+            } if *tbox == *box_ => Some((self, MergeKeep::Second)),
             Self::Branch {
                 right: box Self::Leaf { tbox },
                 ..
-            } if tbox == box_ => Some((self, MergeKeep::Second)),
+            } if *tbox == *box_ => Some((self, MergeKeep::First)),
             Self::Leaf { .. } => None,
             Self::Branch { left, right, .. } => left
                 .find_tbox_parent(box_)
@@ -119,12 +131,14 @@ impl BSPLayout {
         }
     }
 
-    fn merge(self, keep: MergeKeep) -> Self {
+    /// Merge a branch, keeping the specified child. Returns the new root widget
+    /// of the resulting branch
+    fn merge(&mut self, keep: MergeKeep) {
         match self {
-            Self::Leaf { .. } => self,
+            Self::Leaf { .. } => {}
             Self::Branch { left, right, .. } => match keep {
-                MergeKeep::First => *left,
-                MergeKeep::Second => *right,
+                MergeKeep::First => *self = (**left).clone(),
+                MergeKeep::Second => *self = (**right).clone(),
             },
         }
     }
@@ -152,6 +166,38 @@ impl BSPLayout {
         }
     }
 
+    /// Rebuilds all layouting widgets, discarding the old ones. Returns the
+    /// rebuilt root widget
+    fn rebuild_layout(&mut self) -> gtk::Widget {
+        match self {
+            Self::Branch {
+                left,
+                right,
+                splitter,
+            } => {
+                let left_child = left.rebuild_layout();
+                let right_child = right.rebuild_layout();
+                let orientation = splitter.get_orientation();
+
+                let new_paned = gtk::Paned::new(orientation);
+                new_paned.add1(&left_child);
+                new_paned.add2(&right_child);
+
+                *splitter = new_paned.clone();
+                new_paned.upcast()
+            }
+            Self::Leaf { tbox } => {
+                if let Some(parent) = tbox.get_parent() {
+                    parent
+                        .downcast::<gtk::Container>()
+                        .expect("TilingBox parented to non-container")
+                        .remove(tbox);
+                }
+                tbox.clone().upcast()
+            }
+        }
+    }
+
     /// Restores the parent relationships for all widgets in the layout
     fn reparent_all(&self) {
         if let Self::Branch {
@@ -162,6 +208,9 @@ impl BSPLayout {
         {
             let lwidget = left.get_root_widget();
             let rwidget = right.get_root_widget();
+
+            left.reparent_all();
+            right.reparent_all();
 
             if let Some(parent) = lwidget.get_parent() {
                 parent
@@ -178,9 +227,6 @@ impl BSPLayout {
 
             splitter.add1(&lwidget);
             splitter.add2(&rwidget);
-
-            left.reparent_all();
-            right.reparent_all();
         }
     }
 
@@ -293,14 +339,20 @@ impl TilingAreaPrivate {
                     maximized.set(!max);
             }));
 
-            tbox.connect_close_clicked(clone!(@strong self.layout as layout => move |t| {
-                let mut layout_m = layout.borrow_mut();
-                if let Some((parent, keep)) = layout_m.find_tbox_parent(t) {
-                    let new_parent = parent.clone().merge(keep);
-                    *parent = new_parent;
-                }
-                layout_m.reparent_all();
-            }));
+            tbox.connect_close_clicked(
+                clone!(@strong box_, @strong self.layout as layout => move |t| {
+                    let mut layout_m = layout.borrow_mut();
+                    dbg!(&layout_m);
+                    if let Some((parent, keep)) = layout_m.find_tbox_parent(t) {
+                        parent.merge(keep);
+                        let new_root = layout_m.rebuild_layout();
+                        new_root.show_all();
+                        dbg!(&new_root);
+                        dbg!(&layout_m);
+                        Self::swap_widget(&box_, &new_root);
+                    }
+                }),
+            );
         }
 
         self.layout.replace(new_layout);
@@ -310,6 +362,7 @@ impl TilingAreaPrivate {
     }
 
     fn swap_widget(box_: &gtk::Box, widget: &gtk::Widget) {
+        // This box should only ever have one child
         for c in box_.get_children() {
             box_.remove(&c);
         }
