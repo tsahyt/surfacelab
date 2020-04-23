@@ -343,68 +343,78 @@ impl ContainerImpl for TilingAreaPrivate {}
 impl BoxImpl for TilingAreaPrivate {}
 
 impl TilingAreaPrivate {
+    fn connect_tbox(&self, box_: &gtk::Box, tbox: &TilingBox) {
+        tbox.connect_maximize_clicked(clone!(
+            @strong box_,
+            @strong self.maximized as maximized,
+            @strong self.layout as layout => move |t| {
+                let max = maximized.get();
+                if max {
+                    layout.borrow().reparent_all();
+                    let root = layout.borrow().get_root_widget();
+                    root.show_all();
+                    Self::swap_widget(&box_, &root);
+                } else {
+                    if let Some(parent) = t.get_parent() {
+                        parent.downcast::<gtk::Container>().expect("Tiling Box parented to non-container").remove(t);
+                    }
+                    Self::swap_widget(&box_, &t.clone().upcast());
+                }
+                maximized.set(!max);
+        }));
+
+        tbox.connect_close_clicked(
+            clone!(@strong box_, @strong self.layout as layout => move |t| {
+                let mut layout_m = layout.borrow_mut();
+                if let Some((parent, keep)) = layout_m.find_tbox_parent(t) {
+                    parent.merge(keep);
+                    let new_root = layout_m.rebuild_layout();
+                    new_root.show_all();
+                    Self::swap_widget(&box_, &new_root);
+                }
+            }),
+        );
+
+        tbox.connect_split_v_clicked(
+            clone!(@strong box_, @strong self.layout as layout => move |t| {
+                let mut layout_m = layout.borrow_mut();
+                if let Some(tbox) = layout_m.find_tbox(t) {
+                    let new_tbox = TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar");
+                    let new = BSPLayout::Leaf {
+                        tbox: new_tbox
+                    };
+                    tbox.split(new, SplitOrientation::Down);
+                    let new_root = layout_m.rebuild_layout();
+                    new_root.show_all();
+                    Self::swap_widget(&box_, &new_root);
+                }
+            }
+            ),
+        );
+
+        tbox.connect_split_h_clicked(
+            clone!(@strong box_, @strong self.layout as layout => move |t| {
+                let mut layout_m = layout.borrow_mut();
+                if let Some(tbox) = layout_m.find_tbox(t) {
+                    let new_tbox = TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar");
+                    let new = BSPLayout::Leaf {
+                        tbox: new_tbox
+                    };
+                    tbox.split(new, SplitOrientation::Right);
+                    let new_root = layout_m.rebuild_layout();
+                    new_root.show_all();
+                    Self::swap_widget(&box_, &new_root);
+                }
+            }
+            ),
+        );
+    }
+
     fn from_layout_description(&self, box_: &gtk::Box, description: LayoutDescription) {
         let new_layout = BSPLayout::from_layout_description(description);
 
         for tbox in new_layout.iter() {
-            tbox.connect_maximize_clicked(clone!(
-                @strong box_,
-                @strong self.maximized as maximized,
-                @strong self.layout as layout => move |t| {
-                    let max = maximized.get();
-                    if max {
-                        layout.borrow().reparent_all();
-                        let root = layout.borrow().get_root_widget();
-                        root.show_all();
-                        Self::swap_widget(&box_, &root);
-                    } else {
-                        if let Some(parent) = t.get_parent() {
-                            parent.downcast::<gtk::Container>().expect("Tiling Box parented to non-container").remove(t);
-                        }
-                        Self::swap_widget(&box_, &t.clone().upcast());
-                    }
-                    maximized.set(!max);
-            }));
-
-            tbox.connect_close_clicked(
-                clone!(@strong box_, @strong self.layout as layout => move |t| {
-                    let mut layout_m = layout.borrow_mut();
-                    if let Some((parent, keep)) = layout_m.find_tbox_parent(t) {
-                        parent.merge(keep);
-                        let new_root = layout_m.rebuild_layout();
-                        new_root.show_all();
-                        Self::swap_widget(&box_, &new_root);
-                    }
-                }),
-            );
-
-            tbox.connect_split_v_clicked(
-                clone!(@strong box_, @strong self.layout as layout => move |t| {
-                    let mut layout_m = layout.borrow_mut();
-                    if let Some(tbox) = layout_m.find_tbox(t) {
-                        let new = BSPLayout::Leaf { tbox: TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar") };
-                        tbox.split(new, SplitOrientation::Down);
-                        let new_root = layout_m.rebuild_layout();
-                        new_root.show_all();
-                        Self::swap_widget(&box_, &new_root);
-                    }
-                }
-                ),
-            );
-
-            tbox.connect_split_h_clicked(
-                clone!(@strong box_, @strong self.layout as layout => move |t| {
-                    let mut layout_m = layout.borrow_mut();
-                    if let Some(tbox) = layout_m.find_tbox(t) {
-                        let new = BSPLayout::Leaf { tbox: TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar") };
-                        tbox.split(new, SplitOrientation::Right);
-                        let new_root = layout_m.rebuild_layout();
-                        new_root.show_all();
-                        Self::swap_widget(&box_, &new_root);
-                    }
-                }
-                ),
-            );
+            self.connect_tbox(box_, tbox);
         }
 
         self.layout.replace(new_layout);
