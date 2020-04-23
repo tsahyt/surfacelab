@@ -463,6 +463,12 @@ impl TilingArea {
     }
 }
 
+impl Default for TilingArea {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct TilingBoxPrivate {
     title_box: gtk::Box,
     title_label: gtk::Label,
@@ -714,10 +720,6 @@ impl TilingBox {
     }
 
     pub fn contains(&self, widget: &gtk::Widget) -> bool {
-        if &self.get_children()[1] == widget {
-            true
-        } else {
-            false
-        }
+        &self.get_children()[1] == widget
     }
 }
