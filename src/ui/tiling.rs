@@ -22,7 +22,8 @@ enum BSPLayout {
     },
 }
 
-enum SplitOrientation {
+#[derive(Debug, Clone, Copy)]
+pub enum SplitOrientation {
     Up,
     Down,
     Left,
@@ -378,8 +379,8 @@ impl TilingAreaPrivate {
             }
         }));
 
-        tbox.connect_split_v_clicked(
-            clone!(@strong box_, @strong layout, @strong maximized => move |t| {
+        tbox.connect_split_clicked(
+            clone!(@strong box_, @strong layout, @strong maximized => move |t, dir| {
                 let mut layout_m = layout.borrow_mut();
                 if let Some(tbox) = layout_m.find_tbox(t) {
                     let new_tbox = TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar");
@@ -387,25 +388,7 @@ impl TilingAreaPrivate {
                     let new = BSPLayout::Leaf {
                         tbox: new_tbox
                     };
-                    tbox.split(new, SplitOrientation::Down);
-                    let new_root = layout_m.rebuild_layout();
-                    new_root.show_all();
-                    Self::swap_widget(&box_, &new_root);
-                }
-            }
-            ),
-        );
-
-        tbox.connect_split_h_clicked(
-            clone!(@strong box_, @strong layout, @strong maximized => move |t| {
-                let mut layout_m = layout.borrow_mut();
-                if let Some(tbox) = layout_m.find_tbox(t) {
-                    let new_tbox = TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar");
-                    Self::connect_tbox(&box_, &new_tbox, layout.clone(), maximized.clone());
-                    let new = BSPLayout::Leaf {
-                        tbox: new_tbox
-                    };
-                    tbox.split(new, SplitOrientation::Right);
+                    tbox.split(new, dir);
                     let new_root = layout_m.rebuild_layout();
                     new_root.show_all();
                     Self::swap_widget(&box_, &new_root);
@@ -485,8 +468,7 @@ pub struct TilingBoxPrivate {
 // TilingBox Signals
 pub const MAXIMIZE_CLICKED: &str = "maximize-clicked";
 pub const CLOSE_CLICKED: &str = "close-clicked";
-pub const SPLIT_V_CLICKED: &str = "split-v-clicked";
-pub const SPLIT_H_CLICKED: &str = "split-h-clicked";
+pub const SPLIT_CLICKED: &str = "split-clicked";
 
 impl ObjectSubclass for TilingBoxPrivate {
     const NAME: &'static str = "TilingBox";
@@ -515,15 +497,9 @@ impl ObjectSubclass for TilingBoxPrivate {
             glib::types::Type::Unit,
         );
         class.add_signal(
-            SPLIT_V_CLICKED,
+            SPLIT_CLICKED,
             glib::SignalFlags::empty(),
-            &[],
-            glib::types::Type::Unit,
-        );
-        class.add_signal(
-            SPLIT_H_CLICKED,
-            glib::SignalFlags::empty(),
-            &[],
+            &[glib::types::Type::U8],
             glib::types::Type::Unit,
         );
     }
@@ -577,22 +553,34 @@ impl ObjectImpl for TilingBoxPrivate {
         let split_buttons = gtk::ButtonBoxBuilder::new()
             .layout_style(gtk::ButtonBoxStyle::Expand)
             .build();
-        let split_vertical_button = gtk::Button::new_from_icon_name(
-            Some("object-flip-vertical-symbolic"),
-            gtk::IconSize::Menu,
-        );
-        split_vertical_button.connect_clicked(clone!(@strong obj => move |_| {
-            obj.emit(SPLIT_V_CLICKED, &[]).unwrap();
+        let split_left_button =
+            gtk::Button::new_from_icon_name(Some("go-previous-symbolic"), gtk::IconSize::Menu);
+        split_left_button.connect_clicked(clone!(@strong obj => move |_| {
+            obj.emit(SPLIT_CLICKED, &[&(3 as u8)]).unwrap();
         }));
-        split_buttons.add(&split_vertical_button);
-        let split_horizontal_button = gtk::Button::new_from_icon_name(
-            Some("object-flip-horizontal-symbolic"),
-            gtk::IconSize::Menu,
-        );
-        split_horizontal_button.connect_clicked(clone!(@strong obj => move |_| {
-            obj.emit(SPLIT_H_CLICKED, &[]).unwrap();
+
+        let split_right_button =
+            gtk::Button::new_from_icon_name(Some("go-next-symbolic"), gtk::IconSize::Menu);
+        split_right_button.connect_clicked(clone!(@strong obj => move |_| {
+            obj.emit(SPLIT_CLICKED, &[&(2 as u8)]).unwrap();
         }));
-        split_buttons.add(&split_horizontal_button);
+
+        let split_up_button =
+            gtk::Button::new_from_icon_name(Some("go-up-symbolic"), gtk::IconSize::Menu);
+        split_up_button.connect_clicked(clone!(@strong obj => move |_| {
+            obj.emit(SPLIT_CLICKED, &[&(1 as u8)]).unwrap();
+        }));
+
+        let split_down_button =
+            gtk::Button::new_from_icon_name(Some("go-down-symbolic"), gtk::IconSize::Menu);
+        split_down_button.connect_clicked(clone!(@strong obj => move |_| {
+            obj.emit(SPLIT_CLICKED, &[&(0 as u8)]).unwrap();
+        }));
+
+        split_buttons.add(&split_left_button);
+        split_buttons.add(&split_right_button);
+        split_buttons.add(&split_up_button);
+        split_buttons.add(&split_down_button);
         self.title_popover_box
             .pack_start(&split_buttons, true, true, 4);
         self.title_popover_box.pack_start(
@@ -704,19 +692,20 @@ impl TilingBox {
         .unwrap()
     }
 
-    pub fn connect_split_v_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_local(SPLIT_V_CLICKED, true, move |w| {
+    pub fn connect_split_clicked<F: Fn(&Self, SplitOrientation) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_local(SPLIT_CLICKED, true, move |w| {
             let tbox = w[0].clone().downcast::<TilingBox>().unwrap().get().unwrap();
-            f(&tbox);
-            None
-        })
-        .unwrap()
-    }
-
-    pub fn connect_split_h_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_local(SPLIT_H_CLICKED, true, move |w| {
-            let tbox = w[0].clone().downcast::<TilingBox>().unwrap().get().unwrap();
-            f(&tbox);
+            let dir = match w[1].get_some::<u8>().unwrap() {
+                0 => SplitOrientation::Up,
+                1 => SplitOrientation::Down,
+                2 => SplitOrientation::Left,
+                3 => SplitOrientation::Right,
+                _ => panic!("Invalid SplitOrientation in signal handler"),
+            };
+            f(&tbox, dir);
             None
         })
         .unwrap()
