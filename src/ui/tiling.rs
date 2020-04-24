@@ -343,11 +343,16 @@ impl ContainerImpl for TilingAreaPrivate {}
 impl BoxImpl for TilingAreaPrivate {}
 
 impl TilingAreaPrivate {
-    fn connect_tbox(&self, box_: &gtk::Box, tbox: &TilingBox) {
+    fn connect_tbox(
+        box_: &gtk::Box,
+        tbox: &TilingBox,
+        layout: Rc<RefCell<BSPLayout>>,
+        maximized: Rc<Cell<bool>>,
+    ) {
         tbox.connect_maximize_clicked(clone!(
             @strong box_,
-            @strong self.maximized as maximized,
-            @strong self.layout as layout => move |t| {
+            @strong maximized,
+            @strong layout => move |t| {
                 let max = maximized.get();
                 if max {
                     layout.borrow().reparent_all();
@@ -363,24 +368,22 @@ impl TilingAreaPrivate {
                 maximized.set(!max);
         }));
 
-        tbox.connect_close_clicked(
-            clone!(@strong box_, @strong self.layout as layout => move |t| {
-                let mut layout_m = layout.borrow_mut();
-                if let Some((parent, keep)) = layout_m.find_tbox_parent(t) {
-                    parent.merge(keep);
-                    let new_root = layout_m.rebuild_layout();
-                    new_root.show_all();
-                    Self::swap_widget(&box_, &new_root);
-                }
-            }),
-        );
+        tbox.connect_close_clicked(clone!(@strong box_, @strong layout => move |t| {
+            let mut layout_m = layout.borrow_mut();
+            if let Some((parent, keep)) = layout_m.find_tbox_parent(t) {
+                parent.merge(keep);
+                let new_root = layout_m.rebuild_layout();
+                new_root.show_all();
+                Self::swap_widget(&box_, &new_root);
+            }
+        }));
 
         tbox.connect_split_v_clicked(
-            clone!(@strong box_, @strong self.layout as layout => move |t| {
+            clone!(@strong box_, @strong layout, @strong maximized => move |t| {
                 let mut layout_m = layout.borrow_mut();
                 if let Some(tbox) = layout_m.find_tbox(t) {
-                    // TODO: Connect new TBox
                     let new_tbox = TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar");
+                    Self::connect_tbox(&box_, &new_tbox, layout.clone(), maximized.clone());
                     let new = BSPLayout::Leaf {
                         tbox: new_tbox
                     };
@@ -394,11 +397,11 @@ impl TilingAreaPrivate {
         );
 
         tbox.connect_split_h_clicked(
-            clone!(@strong box_, @strong self.layout as layout => move |t| {
+            clone!(@strong box_, @strong layout, @strong maximized => move |t| {
                 let mut layout_m = layout.borrow_mut();
                 if let Some(tbox) = layout_m.find_tbox(t) {
-                    // TODO: Connect new TBox
                     let new_tbox = TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar");
+                    Self::connect_tbox(&box_, &new_tbox, layout.clone(), maximized.clone());
                     let new = BSPLayout::Leaf {
                         tbox: new_tbox
                     };
@@ -416,7 +419,7 @@ impl TilingAreaPrivate {
         let new_layout = BSPLayout::from_layout_description(description);
 
         for tbox in new_layout.iter() {
-            self.connect_tbox(box_, tbox);
+            Self::connect_tbox(box_, tbox, self.layout.clone(), self.maximized.clone());
         }
 
         self.layout.replace(new_layout);
