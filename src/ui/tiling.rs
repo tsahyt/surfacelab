@@ -383,11 +383,14 @@ impl TilingAreaPrivate {
             clone!(@strong box_, @strong layout, @strong maximized => move |t, dir| {
                 let mut layout_m = layout.borrow_mut();
                 if let Some(tbox) = layout_m.find_tbox(t) {
+                    // create new tbox
                     let new_tbox = TilingBox::new(gtk::Label::new(Some("foo")).upcast(), None, "Foobar");
                     Self::connect_tbox(&box_, &new_tbox, layout.clone(), maximized.clone());
                     let new = BSPLayout::Leaf {
                         tbox: new_tbox
                     };
+
+                    // split old tbox
                     tbox.split(new, dir);
                     let new_root = layout_m.rebuild_layout();
                     new_root.show_all();
@@ -461,6 +464,7 @@ pub struct TilingBoxPrivate {
     title_menubutton: gtk::MenuButton,
     title_popover: gtk::Popover,
     title_popover_box: gtk::Box,
+    title_popover_stack: gtk::Stack,
     close_button: gtk::Button,
     maximize_button: gtk::Button,
 }
@@ -516,6 +520,7 @@ impl ObjectSubclass for TilingBoxPrivate {
             title_menubutton,
             title_popover,
             title_popover_box: gtk::Box::new(gtk::Orientation::Vertical, 4),
+            title_popover_stack: gtk::Stack::new(),
             close_button: gtk::Button::new_from_icon_name(
                 Some("window-close-symbolic"),
                 gtk::IconSize::Menu,
@@ -548,49 +553,66 @@ impl ObjectImpl for TilingBoxPrivate {
             .pack_start(&self.title_menubutton, false, false, 0);
 
         // Popover
-        self.title_popover.add(&self.title_popover_box);
+        self.title_popover_stack.add_named(&self.title_popover_box, "main-page");
+        self.title_popover.add(&self.title_popover_stack);
+
+        let view_buttons = gtk::ButtonBoxBuilder::new()
+            .layout_style(gtk::ButtonBoxStyle::Expand)
+            .orientation(gtk::Orientation::Vertical)
+            .build();
+        {
+            let view_button1 = gtk::Button::new_with_label("Node View");
+            let view_button2 = gtk::Button::new_with_label("3D View");
+            let view_button3 = gtk::Button::new_with_label("2D View");
+            view_buttons.add(&view_button1);
+            view_buttons.add(&view_button2);
+            view_buttons.add(&view_button3);
+        }
+        self.title_popover_stack.add_named(&view_buttons, "view-buttons");
 
         let split_buttons = gtk::ButtonBoxBuilder::new()
             .layout_style(gtk::ButtonBoxStyle::Expand)
             .build();
-        let split_left_button =
-            gtk::Button::new_from_icon_name(Some("go-previous-symbolic"), gtk::IconSize::Menu);
-        split_left_button.connect_clicked(clone!(@strong obj => move |_| {
-            obj.emit(SPLIT_CLICKED, &[&(3 as u8)]).unwrap();
-        }));
+        {
+            let split_left_button =
+                gtk::Button::new_from_icon_name(Some("go-previous-symbolic"), gtk::IconSize::Menu);
+            split_left_button.connect_clicked(clone!(@strong obj, @strong self.title_popover_stack as stack => move |_| {
+                obj.emit(SPLIT_CLICKED, &[&(3 as u8)]).unwrap();
+            }));
 
-        let split_right_button =
-            gtk::Button::new_from_icon_name(Some("go-next-symbolic"), gtk::IconSize::Menu);
-        split_right_button.connect_clicked(clone!(@strong obj => move |_| {
-            obj.emit(SPLIT_CLICKED, &[&(2 as u8)]).unwrap();
-        }));
+            let split_right_button =
+                gtk::Button::new_from_icon_name(Some("go-next-symbolic"), gtk::IconSize::Menu);
+            split_right_button.connect_clicked(clone!(@strong obj => move |_| {
+                obj.emit(SPLIT_CLICKED, &[&(2 as u8)]).unwrap();
+            }));
 
-        let split_up_button =
-            gtk::Button::new_from_icon_name(Some("go-up-symbolic"), gtk::IconSize::Menu);
-        split_up_button.connect_clicked(clone!(@strong obj => move |_| {
-            obj.emit(SPLIT_CLICKED, &[&(1 as u8)]).unwrap();
-        }));
+            let split_up_button =
+                gtk::Button::new_from_icon_name(Some("go-up-symbolic"), gtk::IconSize::Menu);
+            split_up_button.connect_clicked(clone!(@strong obj => move |_| {
+                obj.emit(SPLIT_CLICKED, &[&(1 as u8)]).unwrap();
+            }));
 
-        let split_down_button =
-            gtk::Button::new_from_icon_name(Some("go-down-symbolic"), gtk::IconSize::Menu);
-        split_down_button.connect_clicked(clone!(@strong obj => move |_| {
-            obj.emit(SPLIT_CLICKED, &[&(0 as u8)]).unwrap();
-        }));
+            let split_down_button =
+                gtk::Button::new_from_icon_name(Some("go-down-symbolic"), gtk::IconSize::Menu);
+            split_down_button.connect_clicked(clone!(@strong obj => move |_| {
+                obj.emit(SPLIT_CLICKED, &[&(0 as u8)]).unwrap();
+            }));
 
-        split_buttons.add(&split_left_button);
-        split_buttons.add(&split_right_button);
-        split_buttons.add(&split_up_button);
-        split_buttons.add(&split_down_button);
+            split_buttons.add(&split_left_button);
+            split_buttons.add(&split_right_button);
+            split_buttons.add(&split_up_button);
+            split_buttons.add(&split_down_button);
+        }
         self.title_popover_box
             .pack_start(&split_buttons, true, true, 4);
         self.title_popover_box.pack_start(
             &gtk::Separator::new(gtk::Orientation::Horizontal),
             true,
-            true,
-            4,
+            false,
+            0,
         );
 
-        self.title_popover_box.show_all();
+        self.title_popover_stack.show_all();
         self.title_menubutton.set_popover(Some(&self.title_popover));
 
         // Close Button
@@ -631,7 +653,7 @@ impl TilingBoxPrivate {
             _ => gio::Menu::new(),
         };
 
-        let gtkmenu = gtk::Menu::new_from_model(&m);
+        let gtkmenu = gtk::MenuBar::new_from_model(&m);
         self.title_popover_box.pack_end(&gtkmenu, true, true, 4);
     }
 
