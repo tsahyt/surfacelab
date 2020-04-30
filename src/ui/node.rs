@@ -101,7 +101,7 @@ impl ObjectImpl for NodePrivate {
             self.header_label.set_halign(gtk::Align::Start);
 
             header_evbox.connect_button_press_event(clone!(@strong node => move |_, m| {
-                let pos = m.get_position();
+                let pos = m.get_root();
                 node.emit(HEADER_BUTTON_PRESS, &[&pos.0, &pos.1]).unwrap();
                 Inhibit(false)
             }));

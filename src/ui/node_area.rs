@@ -109,11 +109,11 @@ impl NodeAreaPrivate {
     fn child_connect(&self, container: &gtk::Fixed, widget: &Node, resource: &Resource) {
         // Connect to child signals
         let action = self.action.clone();
-        let allocation = container.get_allocation();
         let widget_u = widget.clone().upcast::<gtk::Widget>();
 
-        widget.connect_header_button_press_event(clone!(@strong action => move |_, x, y| {
-            action.replace(Some(Action::DragChild(allocation.x + x as i32, allocation.y + y as i32)));
+        widget.connect_header_button_press_event(clone!(@strong action => move |w, x, y| {
+            let alloc = w.get_allocation();
+            action.replace(Some(Action::DragChild(x as i32 - alloc.x, y as i32 - alloc.y)));
         }));
 
         widget.connect_header_button_release_event(clone!(@strong action => move |_| {
