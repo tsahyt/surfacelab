@@ -400,14 +400,12 @@ impl TilingAreaPrivate {
             ),
         );
 
-        tbox.connect_rotate_clicked(
-            clone!(@strong box_, @strong layout => move |t| {
-                let mut layout_m = layout.borrow_mut();
-                if let Some((tbox, _)) = layout_m.find_tbox_parent(t) {
-                    tbox.rotate_branch();
-                }
-            })
-        );
+        tbox.connect_rotate_clicked(clone!(@strong box_, @strong layout => move |t| {
+            let mut layout_m = layout.borrow_mut();
+            if let Some((tbox, _)) = layout_m.find_tbox_parent(t) {
+                tbox.rotate_branch();
+            }
+        }));
     }
 
     fn from_layout_description(&self, box_: &gtk::Box, description: LayoutDescription) {
