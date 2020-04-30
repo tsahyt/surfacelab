@@ -10,6 +10,8 @@ pub trait Parameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]);
 }
 
+type ParameterBool = u32;
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString)]
 pub enum BlendMode {
@@ -28,6 +30,7 @@ pub enum BlendMode {
 pub struct BlendParameters {
     blend_mode: BlendMode,
     mix: f32,
+    clamp_output: ParameterBool,
 }
 
 impl Default for BlendParameters {
@@ -35,6 +38,7 @@ impl Default for BlendParameters {
         BlendParameters {
             blend_mode: BlendMode::Mix,
             mix: 0.5,
+            clamp_output: 0,
         }
     }
 }
@@ -42,6 +46,7 @@ impl Default for BlendParameters {
 impl BlendParameters {
     pub const BLEND_MODE: &'static str = "mode";
     pub const MIX: &'static str = "mix";
+    pub const CLAMP: &'static str = "clamp";
 }
 
 impl Parameters for BlendParameters {
@@ -58,6 +63,11 @@ impl Parameters for BlendParameters {
                 let idx = u32::from_be_bytes(arr);
                 let variant = BlendMode::VARIANTS[idx as usize];
                 self.blend_mode = BlendMode::from_str(variant).unwrap();
+            }
+            Self::CLAMP => {
+                let mut arr: [u8; 4] = Default::default();
+                arr.copy_from_slice(data);
+                self.clamp_output = u32::from_be_bytes(arr);
             }
             _ => panic!("Unknown field {}", field),
         }

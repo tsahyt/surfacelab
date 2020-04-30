@@ -143,6 +143,7 @@ pub enum Control {
     Enum(&'static [&'static str]),
     File,
     Ramp,
+    Toggle { def: bool },
 }
 
 impl Control {
@@ -159,7 +160,23 @@ impl Control {
             Self::Enum(entries) => Self::construct_enum(entries, resource, field),
             Self::File => Self::construct_file(resource, field),
             Self::Ramp => Self::construct_ramp(resource, field),
+            Self::Toggle { def } => Self::construct_toggle(*def, resource, field),
         }
+    }
+
+    fn construct_toggle(default: bool, resource: &Resource, field: &'static str) -> gtk::Widget {
+        let toggle = gtk::SwitchBuilder::new().active(default).build();
+
+        toggle.connect_state_set(clone!(@strong resource => move |w, active| {
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+                resource.to_owned(),
+                field,
+                (if active { 1 as u32 } else { 0 as u32 }).to_be_bytes().to_vec(),
+            )));
+            Inhibit(true)
+        }));
+
+        toggle.upcast()
     }
 
     fn construct_slider(
@@ -304,6 +321,11 @@ pub fn blend(res: &Resource) -> ParamBox {
                     name: "Blend Mode",
                     field: BlendParameters::BLEND_MODE,
                     control: Control::Enum(BlendMode::VARIANTS),
+                },
+                Parameter {
+                    name: "Clamp",
+                    field: BlendParameters::CLAMP,
+                    control: Control::Toggle { def: false },
                 },
                 Parameter {
                     name: "Mix",
