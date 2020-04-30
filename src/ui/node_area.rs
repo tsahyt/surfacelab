@@ -33,6 +33,17 @@ pub struct NodeAreaPrivate {
     popover_context: gtk::Popover,
 }
 
+/// Snapping values to multiples
+trait Snap {
+    fn snap(self, multiple: Self) -> Self;
+}
+
+impl Snap for i32 {
+    fn snap(self, multiple: Self) -> Self {
+        (self / multiple) * multiple
+    }
+}
+
 // ObjectSubclass is the trait that defines the new type and
 // contains all information needed by the GObject type system,
 // including the new type's name, parent type, etc.
@@ -126,8 +137,8 @@ impl NodeAreaPrivate {
                 if let Some(Action::DragChild(offset_x, offset_y)) = action.borrow().as_ref() {
                     let pos = motion.get_root();
 
-                    let new_x = pos.0 as i32 - offset_x;
-                    let new_y = pos.1 as i32 - offset_y;
+                    let new_x = (pos.0 as i32 - offset_x).snap(32);
+                    let new_y = (pos.1 as i32 - offset_y).snap(32);
 
                     container.move_(&widget_u, new_x, new_y);
 
