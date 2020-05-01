@@ -638,7 +638,14 @@ impl TilingBoxPrivate {
             Some(m) => m,
             _ => gio::Menu::new(),
         };
-        let gtkmenu = gtk::MenuBar::new_from_model(&m);
+
+        m.append(Some("testing things"), None);
+
+        let temp_popover = gtk::Popover::new_from_model(Some(&self.title_menubutton), &m);
+        for child in temp_popover.get_children() {
+            temp_popover.remove(&child);
+            self.title_popover.add(&child);
+        }
     }
 
     fn set_title(&self, title: &str) {
