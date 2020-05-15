@@ -131,43 +131,6 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
         // Main Views
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-        let tiling =
-            tiling::TilingArea::new_from_layout_description(tiling::LayoutDescription::Branch {
-                orientation: gtk::Orientation::Vertical,
-                left: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
-                    {
-                        let hadj = gtk::Adjustment::new(0., 0., std::f64::MAX, 0., 0., 0.);
-                        let vadj = gtk::Adjustment::new(0., 0., std::f64::MAX, 0., 0., 0.);
-                        let viewport = gtk::Viewport::new(Some(&hadj), Some(&vadj));
-                        let scrolled = gtk::ScrolledWindow::new(Some(&hadj), Some(&vadj));
-
-                        viewport.add(&self.node_area);
-                        scrolled.add(&viewport);
-                        scrolled.upcast()
-                    },
-                    None,
-                    "Node Area",
-                ))),
-                right: Box::new(tiling::LayoutDescription::Branch {
-                    orientation: gtk::Orientation::Horizontal,
-                    left: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
-                        render_events::RenderEvents::new(render_area::RenderArea::new(
-                            RendererType::Renderer3D,
-                        ))
-                        .upcast(),
-                        None,
-                        "3D View",
-                    ))),
-                    right: Box::new(tiling::LayoutDescription::Leaf(tiling::TilingBox::new(
-                        render_events::RenderEvents::new(render_area::RenderArea::new(
-                            RendererType::Renderer2D,
-                        ))
-                        .upcast(),
-                        None,
-                        "2D View",
-                    ))),
-                }),
-            });
 
         hbox.pack_end(&gtk::Label::new(Some("Parameter Section")), false, false, 0);
         hbox.pack_end(
@@ -188,7 +151,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
             false,
             0,
         );
-        hbox.pack_start(&tiling, true, true, 8);
+        // hbox.pack_start(&tiling, true, true, 8);
 
         window.add(&hbox);
 
