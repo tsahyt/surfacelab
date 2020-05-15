@@ -1,4 +1,4 @@
-use super::{node, node_area, render_area, render_events, tiling};
+use super::{node, node_area, render_area, render_events};
 use crate::lang::*;
 
 use gio::prelude::*;
@@ -151,7 +151,31 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
             false,
             0,
         );
-        // hbox.pack_start(&tiling, true, true, 8);
+
+        let main_area = {
+            let outer_paned = gtk::PanedBuilder::new()
+                .orientation(gtk::Orientation::Horizontal)
+                .build();
+            let inner_paned = gtk::PanedBuilder::new()
+                .orientation(gtk::Orientation::Vertical)
+                .build();
+
+            let node_area = node_area::NodeArea::new();
+            let view_3d = render_events::RenderEvents::new(render_area::RenderArea::new(
+                RendererType::Renderer3D,
+            ));
+            let view_2d = render_events::RenderEvents::new(render_area::RenderArea::new(
+                RendererType::Renderer2D,
+            ));
+
+            inner_paned.pack1(&view_3d, true, true);
+            inner_paned.pack2(&view_2d, true, true);
+            outer_paned.pack1(&node_area, true, true);
+            outer_paned.pack2(&inner_paned, true, true);
+
+            outer_paned
+        };
+        hbox.pack_start(&main_area, true, true, 8);
 
         window.add(&hbox);
 

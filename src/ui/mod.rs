@@ -13,7 +13,6 @@ pub mod node_socket;
 pub mod param_box;
 pub mod render_area;
 pub mod render_events;
-pub mod tiling;
 
 thread_local!(static BROKER: OnceCell<broker::BrokerSender<lang::Lang>> = OnceCell::new());
 
