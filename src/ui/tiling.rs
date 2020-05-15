@@ -127,7 +127,7 @@ glib_wrapper! {
 }
 
 impl TilingBox {
-    pub fn new(inner: gtk::Widget, menu: Option<gio::Menu>, title: &str) -> Self {
+    pub fn new(inner: gtk::Widget, title: &str) -> Self {
         let tbox: Self = glib::Object::new(Self::static_type(), &[])
             .unwrap()
             .downcast()
