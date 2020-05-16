@@ -1,3 +1,4 @@
+use super::render_area;
 use crate::lang::*;
 
 use gdk::prelude::*;
@@ -25,14 +26,6 @@ impl ObjectSubclass for RenderEventsPrivate {
 
     glib_object_subclass!();
 
-    // Called right before the first time an instance of the new
-    // type is created. Here class specific settings can be performed,
-    // including installation of properties and registration of signals
-    // for the new type.
-    // fn class_init(class: &mut subclass::simple::ClassStruct<Self>) {}
-
-    // Called every time a new instance is created. This should return
-    // a new instance of our type with its basic values.
     fn new() -> Self {
         Self {
             render_area: OnceCell::new(),
@@ -42,11 +35,11 @@ impl ObjectSubclass for RenderEventsPrivate {
     }
 }
 
-impl gtk::subclass::container::ContainerImpl for RenderEventsPrivate {}
+impl ContainerImpl for RenderEventsPrivate {}
 
-impl gtk::subclass::bin::BinImpl for RenderEventsPrivate {}
+impl BinImpl for RenderEventsPrivate {}
 
-impl gtk::subclass::event_box::EventBoxImpl for RenderEventsPrivate {}
+impl EventBoxImpl for RenderEventsPrivate {}
 
 impl ObjectImpl for RenderEventsPrivate {
     glib_object_impl!();
@@ -139,5 +132,119 @@ impl RenderEvents {
             .set(render_area)
             .expect("Failed to set render area");
         ebox
+    }
+}
+
+pub struct Renderer3DViewPrivate {
+    event_area: RenderEvents,
+}
+
+impl ObjectSubclass for Renderer3DViewPrivate {
+    const NAME: &'static str = "Renderer3DView";
+
+    type ParentType = gtk::Box;
+    type Instance = subclass::simple::InstanceStruct<Self>;
+    type Class = subclass::simple::ClassStruct<Self>;
+
+    glib_object_subclass!();
+
+    fn new() -> Self {
+        Self {
+            event_area: RenderEvents::new(render_area::RenderArea::new(RendererType::Renderer3D)),
+        }
+    }
+}
+
+impl ObjectImpl for Renderer3DViewPrivate {
+    glib_object_impl!();
+
+    fn constructed(&self, obj: &glib::Object) {
+        let box_ = obj.clone().downcast::<gtk::Box>().unwrap();
+        box_.pack_end(&self.event_area, true, true, 0);
+        box_.show_all();
+    }
+}
+
+impl WidgetImpl for Renderer3DViewPrivate {}
+
+impl ContainerImpl for Renderer3DViewPrivate {}
+
+impl BoxImpl for Renderer3DViewPrivate {}
+
+glib_wrapper! {
+    pub struct Renderer3DView(
+        Object<subclass::simple::InstanceStruct<Renderer3DViewPrivate>,
+        subclass::simple::ClassStruct<Renderer3DViewPrivate>,
+        Renderer3DViewClass>)
+        @extends gtk::Widget, gtk::Container, gtk::Bin, gtk::EventBox;
+
+    match fn {
+        get_type => || Renderer3DViewPrivate::get_type().to_glib(),
+    }
+}
+
+impl Renderer3DView {
+    pub fn new() -> Self {
+        glib::Object::new(Self::static_type(), &[])
+            .unwrap()
+            .downcast()
+            .unwrap()
+    }
+}
+
+pub struct Renderer2DViewPrivate {
+    event_area: RenderEvents,
+}
+
+impl ObjectSubclass for Renderer2DViewPrivate {
+    const NAME: &'static str = "Renderer2DView";
+
+    type ParentType = gtk::Box;
+    type Instance = subclass::simple::InstanceStruct<Self>;
+    type Class = subclass::simple::ClassStruct<Self>;
+
+    glib_object_subclass!();
+
+    fn new() -> Self {
+        Self {
+            event_area: RenderEvents::new(render_area::RenderArea::new(RendererType::Renderer2D)),
+        }
+    }
+}
+
+impl ObjectImpl for Renderer2DViewPrivate {
+    glib_object_impl!();
+
+    fn constructed(&self, obj: &glib::Object) {
+        let box_ = obj.clone().downcast::<gtk::Box>().unwrap();
+        box_.pack_end(&self.event_area, true, true, 0);
+        box_.show_all();
+    }
+}
+
+impl WidgetImpl for Renderer2DViewPrivate {}
+
+impl ContainerImpl for Renderer2DViewPrivate {}
+
+impl BoxImpl for Renderer2DViewPrivate {}
+
+glib_wrapper! {
+    pub struct Renderer2DView(
+        Object<subclass::simple::InstanceStruct<Renderer2DViewPrivate>,
+        subclass::simple::ClassStruct<Renderer2DViewPrivate>,
+        Renderer2DViewClass>)
+        @extends gtk::Widget, gtk::Container, gtk::Bin, gtk::EventBox;
+
+    match fn {
+        get_type => || Renderer2DViewPrivate::get_type().to_glib(),
+    }
+}
+
+impl Renderer2DView {
+    pub fn new() -> Self {
+        glib::Object::new(Self::static_type(), &[])
+            .unwrap()
+            .downcast()
+            .unwrap()
     }
 }

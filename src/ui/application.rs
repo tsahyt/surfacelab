@@ -1,4 +1,4 @@
-use super::{node, node_area, render_area, render_events};
+use super::{node, node_area, render_area, renderer};
 use crate::lang::*;
 
 use gio::prelude::*;
@@ -161,12 +161,8 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 .build();
 
             let node_area = node_area::NodeArea::new();
-            let view_3d = render_events::RenderEvents::new(render_area::RenderArea::new(
-                RendererType::Renderer3D,
-            ));
-            let view_2d = render_events::RenderEvents::new(render_area::RenderArea::new(
-                RendererType::Renderer2D,
-            ));
+            let view_3d = renderer::Renderer3DView::new();
+            let view_2d = renderer::Renderer2DView::new();
 
             inner_paned.pack1(&view_3d, true, true);
             inner_paned.pack2(&view_2d, true, true);
