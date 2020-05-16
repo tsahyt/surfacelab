@@ -160,6 +160,7 @@ impl ObjectImpl for Renderer3DViewPrivate {
 
     fn constructed(&self, obj: &glib::Object) {
         let box_ = obj.clone().downcast::<gtk::Box>().unwrap();
+        box_.set_orientation(gtk::Orientation::Vertical);
         box_.pack_end(&self.event_area, true, true, 0);
         box_.show_all();
     }
@@ -217,8 +218,65 @@ impl ObjectImpl for Renderer2DViewPrivate {
 
     fn constructed(&self, obj: &glib::Object) {
         let box_ = obj.clone().downcast::<gtk::Box>().unwrap();
+        box_.set_orientation(gtk::Orientation::Vertical);
         box_.pack_end(&self.event_area, true, true, 0);
         box_.show_all();
+
+        let toolbox = gtk::BoxBuilder::new()
+            .orientation(gtk::Orientation::Horizontal)
+            .build();
+
+        let channel_box = gtk::ButtonBoxBuilder::new()
+            .layout_style(gtk::ButtonBoxStyle::Expand)
+            .build();
+
+        let displacement_btn = gtk::RadioButtonBuilder::new()
+            .label("D")
+            .draw_indicator(false)
+            .build();
+        displacement_btn.connect_toggled(|_| {
+            super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
+                RenderChannel::Displacement,
+            )))
+        });
+        let albedo_btn = gtk::RadioButtonBuilder::new()
+            .label("A")
+            .draw_indicator(false)
+            .build();
+        albedo_btn.join_group(Some(&displacement_btn));
+        albedo_btn.connect_toggled(|_| {
+            super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
+                RenderChannel::Albedo,
+            )))
+        });
+        let normal_btn = gtk::RadioButtonBuilder::new()
+            .label("N")
+            .draw_indicator(false)
+            .build();
+        normal_btn.join_group(Some(&displacement_btn));
+        normal_btn.connect_toggled(|_| {
+            super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
+                RenderChannel::Normal,
+            )))
+        });
+        let roughness_btn = gtk::RadioButtonBuilder::new()
+            .label("R")
+            .draw_indicator(false)
+            .build();
+        roughness_btn.join_group(Some(&displacement_btn));
+        roughness_btn.connect_toggled(|_| {
+            super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
+                RenderChannel::Roughness,
+            )))
+        });
+
+        channel_box.add(&displacement_btn);
+        channel_box.add(&albedo_btn);
+        channel_box.add(&normal_btn);
+        channel_box.add(&roughness_btn);
+        toolbox.pack_end(&channel_box, false, false, 8);
+
+        box_.pack_start(&toolbox, false, true, 0);
     }
 }
 

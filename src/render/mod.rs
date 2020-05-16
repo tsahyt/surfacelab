@@ -42,6 +42,7 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::UserRenderEvent(UserRenderEvent::LightMove(id, x, y)) => {
                     render_manager.move_light(*id, *x, *y)
                 }
+                Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(id, channel)) => { dbg!(channel); // TODO: setting the render channel on a 2D renderer }
                 _ => {}
             }
         }

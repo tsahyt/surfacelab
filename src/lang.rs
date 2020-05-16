@@ -654,6 +654,7 @@ pub enum UserRenderEvent {
     Pan(u64, f32, f32),
     Zoom(u64, f32),
     LightMove(u64, f32, f32),
+    ChannelChange2D(u64, RenderChannel)
 }
 
 #[derive(Debug)]
@@ -697,6 +698,14 @@ pub enum ComputeEvent {
 pub enum RendererType {
     Renderer3D,
     Renderer2D,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum RenderChannel {
+    Displacement,
+    Albedo,
+    Normal,
+    Roughness
 }
 
 #[derive(Debug)]
