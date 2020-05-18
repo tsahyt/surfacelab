@@ -133,6 +133,11 @@ impl RenderEvents {
             .expect("Failed to set render area");
         ebox
     }
+
+    pub fn unique_identifier(&self) -> u64 {
+        let imp = RenderEventsPrivate::from_instance(self);
+        imp.render_area.get().unwrap().unique_identifier()
+    }
 }
 
 pub struct Renderer3DViewPrivate {
@@ -222,6 +227,8 @@ impl ObjectImpl for Renderer2DViewPrivate {
         box_.pack_end(&self.event_area, true, true, 0);
         box_.show_all();
 
+        let renderer_id = self.event_area.unique_identifier();
+
         let toolbox = gtk::BoxBuilder::new()
             .orientation(gtk::Orientation::Horizontal)
             .build();
@@ -234,8 +241,9 @@ impl ObjectImpl for Renderer2DViewPrivate {
             .label("D")
             .draw_indicator(false)
             .build();
-        displacement_btn.connect_toggled(|_| {
+        displacement_btn.connect_toggled(move |_| {
             super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
+                renderer_id,
                 RenderChannel::Displacement,
             )))
         });
@@ -244,8 +252,9 @@ impl ObjectImpl for Renderer2DViewPrivate {
             .draw_indicator(false)
             .build();
         albedo_btn.join_group(Some(&displacement_btn));
-        albedo_btn.connect_toggled(|_| {
+        albedo_btn.connect_toggled(move |_| {
             super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
+                renderer_id,
                 RenderChannel::Albedo,
             )))
         });
@@ -254,8 +263,9 @@ impl ObjectImpl for Renderer2DViewPrivate {
             .draw_indicator(false)
             .build();
         normal_btn.join_group(Some(&displacement_btn));
-        normal_btn.connect_toggled(|_| {
+        normal_btn.connect_toggled(move |_| {
             super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
+                renderer_id,
                 RenderChannel::Normal,
             )))
         });
@@ -264,8 +274,9 @@ impl ObjectImpl for Renderer2DViewPrivate {
             .draw_indicator(false)
             .build();
         roughness_btn.join_group(Some(&displacement_btn));
-        roughness_btn.connect_toggled(|_| {
+        roughness_btn.connect_toggled(move |_| {
             super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
+                renderer_id,
                 RenderChannel::Roughness,
             )))
         });
