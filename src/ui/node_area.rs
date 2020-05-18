@@ -10,7 +10,7 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -31,6 +31,7 @@ pub struct NodeAreaPrivate {
     connections: RefCell<Vec<Connection>>,
     action: Rc<RefCell<Option<Action>>>,
     popover_context: gtk::Popover,
+    zoom: Rc<Cell<f64>>,
 }
 
 /// Snapping values to multiples
@@ -75,6 +76,7 @@ impl ObjectSubclass for NodeAreaPrivate {
                 .modal(true)
                 .position(gtk::PositionType::Bottom)
                 .build(),
+            zoom: Rc::new(Cell::new(0.0)),
         }
     }
 }
@@ -85,6 +87,7 @@ impl ObjectImpl for NodeAreaPrivate {
     fn constructed(&self, obj: &glib::Object) {
         let node_area = obj.clone().downcast::<NodeArea>().unwrap();
         node_area.set_has_window(true);
+        node_area.add_events(gdk::EventMask::SMOOTH_SCROLL_MASK);
 
         node_area.drag_dest_set(gtk::DestDefaults::MOTION, &[], gdk::DragAction::PRIVATE);
         node_area.drag_dest_set_track_motion(true);
@@ -220,6 +223,10 @@ impl NodeAreaPrivate {
 
 impl WidgetImpl for NodeAreaPrivate {
     fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
+        cr.save();
+        let scale_factor = self.zoom.get().exp();
+        cr.scale(scale_factor, scale_factor);
+
         for connection in self.connections.borrow().iter() {
             if !connection.source.get_visible() || !connection.sink.get_visible() {
                 continue;
@@ -240,6 +247,8 @@ impl WidgetImpl for NodeAreaPrivate {
         }
 
         self.parent_draw(widget, cr);
+
+        cr.restore();
         Inhibit(false)
     }
 
@@ -255,6 +264,16 @@ impl WidgetImpl for NodeAreaPrivate {
             self.popover_context.set_relative_to(Some(widget));
             self.popover_context.show_all();
             self.popover_context.popup();
+        }
+
+        Inhibit(false)
+    }
+
+    fn scroll_event(&self, widget: &gtk::Widget, event: &gdk::EventScroll) -> gtk::Inhibit {
+        if event.get_state() == gdk::ModifierType::SHIFT_MASK {
+            let delta = event.get_delta().1;
+            self.zoom.update(|z| z - 0.1 * delta);
+            widget.queue_draw();
         }
 
         Inhibit(false)
