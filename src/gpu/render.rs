@@ -1082,6 +1082,12 @@ where
             view.light_pos[2] += y;
         }
     }
+
+    pub fn set_channel(&mut self, channel: u32) {
+        if let RenderView::RenderView2D(view) = &mut self.view {
+            view.channel = channel;
+        }
+    }
 }
 
 impl<B> Drop for GPURender<B>

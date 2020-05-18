@@ -43,7 +43,7 @@ pub fn start_render_thread<B: gpu::Backend>(
                     render_manager.move_light(*id, *x, *y)
                 }
                 Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(id, channel)) => {
-                    dbg!(channel); // TODO: setting the render channel on a 2D renderer
+                    render_manager.set_channel(*id, *channel)
                 }
                 _ => {}
             }
@@ -155,6 +155,17 @@ where
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.pan_camera(x, y);
             r.render();
+        }
+    }
+
+    pub fn set_channel(&mut self, renderer_id: u64, channel: RenderChannel) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_channel(match channel {
+                RenderChannel::Displacement => 0,
+                RenderChannel::Albedo => 1,
+                RenderChannel::Normal => 2,
+                RenderChannel::Roughness => 3,
+            });
         }
     }
 }

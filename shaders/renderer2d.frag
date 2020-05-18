@@ -38,11 +38,11 @@ void main() {
     if (channel == CHANNEL_DISPLACEMENT && has_displacement != 0) {
         col = texture(sampler2D(t_Displ, s_Texture), uv).rrr;
     } else if (channel == CHANNEL_ALBEDO && has_albedo != 0) {
-        col = texture(sampler2D(t_Displ, s_Texture), uv).rgb;
+        col = texture(sampler2D(t_Albedo, s_Texture), uv).rgb;
     } else if (channel == CHANNEL_NORMAL && has_normal != 0) {
-        col = texture(sampler2D(t_Displ, s_Texture), uv).rgb;
+        col = texture(sampler2D(t_Normal, s_Texture), uv).rgb;
     } else if (channel == CHANNEL_ROUGHNESS && has_roughness != 0) {
-        col = texture(sampler2D(t_Displ, s_Texture), uv).rrr;
+        col = texture(sampler2D(t_Roughness, s_Texture), uv).rrr;
     } else {
         col = vec3(0.,0.,0.);
     }
