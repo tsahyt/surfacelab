@@ -160,7 +160,16 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 .orientation(gtk::Orientation::Vertical)
                 .build();
 
-            let node_area = node_area::NodeArea::new();
+            let node_area = {
+                let vadj = gtk::Adjustment::new(0.0, 0.0, 4096.0, 1.0, 1.0, 1.0);
+                let hadj = gtk::Adjustment::new(0.0, 0.0, 4096.0, 1.0, 1.0, 1.0);
+
+                let vp = gtk::Viewport::new(Some(&hadj), Some(&vadj));
+                let sw = gtk::ScrolledWindow::new(Some(&hadj), Some(&vadj));
+                vp.add(&self.node_area);
+                sw.add(&vp);
+                sw
+            };
             let view_3d = renderer::Renderer3DView::new();
             let view_2d = renderer::Renderer2DView::new();
 
