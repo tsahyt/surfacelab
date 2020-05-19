@@ -1,4 +1,4 @@
-use super::{node, node_area, renderer};
+use super::{export, node, node_area, renderer};
 use crate::lang::*;
 
 use gio::prelude::*;
@@ -85,8 +85,19 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                     gtk::IconSize::Menu,
                 ))
                 .build();
+            let export = gtk::Button::new_from_icon_name(
+                Some("insert-object-symbolic"),
+                gtk::IconSize::Menu,
+            );
+
+            export.connect_clicked(|_| {
+                let dialog = export::ExportDialog::new();
+                dbg!(dialog.run());
+            });
+
             btn_box.add(&open);
             btn_box.add(&recent);
+            btn_box.add(&export);
             btn_box
         });
         self.header_bar

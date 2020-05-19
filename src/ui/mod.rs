@@ -7,6 +7,7 @@ use std::thread;
 pub mod application;
 pub mod color_ramp;
 pub mod color_wheel;
+pub mod export;
 pub mod node;
 pub mod node_area;
 pub mod node_socket;
