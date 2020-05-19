@@ -23,19 +23,6 @@ impl Node {
         }
     }
 
-    /// A node can be considered a Mask if and only if it has exactly one output
-    /// which produces a Value.
-    fn is_mask(&self) -> bool {
-        self.operator.outputs().len() == 1
-            && self.operator.outputs().iter().all(|(_, x)| match x {
-                lang::OperatorType::Monomorphic(z) => *z == lang::ImageType::Grayscale,
-                lang::OperatorType::Polymorphic(p) => self
-                    .type_variables
-                    .get(p)
-                    .map_or(false, |z| *z == lang::ImageType::Grayscale),
-            })
-    }
-
     fn monomorphic_type(&self, socket: &str) -> Result<lang::OperatorType, String> {
         let ty = self
             .operator

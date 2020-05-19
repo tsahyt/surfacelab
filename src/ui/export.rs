@@ -27,6 +27,10 @@ impl ObjectImpl for ExportDialogPrivate {
 
     fn constructed(&self, obj: &glib::object::Object) {
         let dialog = obj.clone().downcast::<gtk::Dialog>().unwrap();
+        dialog.set_title("Export Material");
+        dialog.add_button("Cancel", gtk::ResponseType::Cancel);
+        dialog.add_button("Export", gtk::ResponseType::Ok);
+
         let box_ = dialog.get_content_area();
 
         let label = gtk::Label::new(Some("Foobar"));
@@ -56,7 +60,7 @@ glib_wrapper! {
 
 impl ExportDialog {
     pub fn new() -> Self {
-        glib::Object::new(Self::static_type(), &[])
+        glib::Object::new(Self::static_type(), &[("use-header-bar", &true)])
             .expect("Failed to create ExportDialog")
             .downcast::<ExportDialog>()
             .expect("Created ExportDialog is of wrong type")

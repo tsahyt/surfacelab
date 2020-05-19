@@ -92,7 +92,8 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
             export.connect_clicked(|_| {
                 let dialog = export::ExportDialog::new();
-                dbg!(dialog.run());
+                let response = dialog.run();
+                dialog.hide();
             });
 
             btn_box.add(&open);
