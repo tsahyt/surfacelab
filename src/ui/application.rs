@@ -1,4 +1,4 @@
-use super::{node, node_area, render_area, renderer};
+use super::{node, node_area, renderer};
 use crate::lang::*;
 
 use gio::prelude::*;
