@@ -94,7 +94,7 @@ impl ObjectImpl for ColorRampPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &Object) {
-        let color_ramp = obj.clone().downcast::<ColorRamp>().unwrap();
+        let color_ramp = obj.downcast_ref::<ColorRamp>().unwrap();
         color_ramp
             .clone()
             .upcast::<gtk::Box>()
@@ -324,7 +324,7 @@ impl ColorRamp {
         f: F,
     ) -> glib::SignalHandlerId {
         self.connect_local(COLOR_RAMP_CHANGED, true, move |w| {
-            let color_wheel = w[0].clone().downcast::<ColorRamp>().unwrap().get().unwrap();
+            let color_wheel = w[0].downcast_ref::<ColorRamp>().unwrap().get().unwrap();
             f(&color_wheel);
             None
         })

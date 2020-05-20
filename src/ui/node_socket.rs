@@ -79,7 +79,7 @@ impl ObjectImpl for NodeSocketPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
-        let node = obj.clone().downcast::<NodeSocket>().unwrap();
+        let node = obj.downcast_ref::<NodeSocket>().unwrap();
         node.set_has_window(true);
     }
 }

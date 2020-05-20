@@ -164,7 +164,7 @@ impl ObjectImpl for Renderer3DViewPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
-        let box_ = obj.clone().downcast::<gtk::Box>().unwrap();
+        let box_ = obj.downcast_ref::<gtk::Box>().unwrap();
         box_.set_orientation(gtk::Orientation::Vertical);
         box_.pack_end(&self.event_area, true, true, 0);
         box_.show_all();
@@ -222,7 +222,7 @@ impl ObjectImpl for Renderer2DViewPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
-        let box_ = obj.clone().downcast::<gtk::Box>().unwrap();
+        let box_ = obj.downcast_ref::<gtk::Box>().unwrap();
         box_.set_orientation(gtk::Orientation::Vertical);
         box_.pack_end(&self.event_area, true, true, 0);
         box_.show_all();

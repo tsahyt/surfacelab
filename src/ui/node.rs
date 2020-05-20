@@ -84,7 +84,7 @@ impl ObjectImpl for NodePrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
-        let node = obj.clone().downcast::<Node>().unwrap();
+        let node = obj.downcast_ref::<Node>().unwrap();
 
         node.set_has_window(false);
 
@@ -292,7 +292,7 @@ impl Node {
         f: F,
     ) -> glib::SignalHandlerId {
         self.connect_local(HEADER_BUTTON_PRESS, true, move |w| {
-            let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
+            let node = w[0].downcast_ref::<Node>().unwrap().get().unwrap();
             let x: f64 = w[1].get_some().unwrap();
             let y: f64 = w[2].get_some().unwrap();
             f(&node, x, y);
@@ -306,7 +306,7 @@ impl Node {
         f: F,
     ) -> glib::SignalHandlerId {
         self.connect_local(HEADER_BUTTON_RELEASE, true, move |w| {
-            let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
+            let node = w[0].downcast_ref::<Node>().unwrap().get().unwrap();
             f(&node);
             None
         })
@@ -315,7 +315,7 @@ impl Node {
 
     pub fn connect_close_clicked<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_local(CLOSE_CLICKED, true, move |w| {
-            let node = w[0].clone().downcast::<Node>().unwrap().get().unwrap();
+            let node = w[0].downcast_ref::<Node>().unwrap().get().unwrap();
             f(&node);
             None
         })

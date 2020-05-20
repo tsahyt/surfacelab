@@ -45,7 +45,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
     fn constructed(&self, obj: &glib::Object) {
         self.parent_constructed(obj);
 
-        let window = obj.clone().downcast::<gtk::ApplicationWindow>().unwrap();
+        let window = obj.downcast_ref::<gtk::ApplicationWindow>().unwrap();
         window.set_default_size(1920, 1080);
 
         // Header Bar

@@ -85,7 +85,7 @@ impl ObjectImpl for NodeAreaPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
-        let node_area = obj.clone().downcast::<NodeArea>().unwrap();
+        let node_area = obj.downcast_ref::<NodeArea>().unwrap();
         node_area.set_has_window(true);
         node_area.add_events(gdk::EventMask::SMOOTH_SCROLL_MASK);
 
@@ -291,13 +291,15 @@ impl ContainerImpl for NodeAreaPrivate {
         use gtk::subclass::container::*;
         debug_assert!(widget.get_type() == Node::static_type());
 
-        let node = widget.clone().downcast::<Node>().unwrap();
-        let fixed = container.clone().downcast::<gtk::Fixed>().unwrap();
+        let node = widget.downcast_ref::<Node>().unwrap();
+        let fixed = container.downcast_ref::<gtk::Fixed>().unwrap();
         let resource = node
             .get_resource()
             .expect("Failed adding uninitialized node resource");
         self.child_connect(&fixed, &node, &resource);
-        self.children.borrow_mut().insert(resource.clone(), node);
+        self.children
+            .borrow_mut()
+            .insert(resource.clone(), node.clone());
 
         self.parent_add(container, widget);
     }
@@ -305,7 +307,7 @@ impl ContainerImpl for NodeAreaPrivate {
     fn remove(&self, container: &gtk::Container, widget: &gtk::Widget) {
         use gtk::subclass::container::*;
 
-        let node = widget.clone().downcast::<Node>().unwrap();
+        let node = widget.downcast_ref::<Node>().unwrap();
         let resource = node
             .get_resource()
             .expect("Failed removing uninitialized node resource");

@@ -80,8 +80,8 @@ impl ObjectImpl for ColorWheelPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &Object) {
-        let color_wheel_box = obj.clone().downcast::<gtk::Box>().unwrap();
-        let color_wheel = obj.clone().downcast::<ColorWheel>().unwrap();
+        let color_wheel_box = obj.downcast_ref::<gtk::Box>().unwrap();
+        let color_wheel = obj.downcast_ref::<ColorWheel>().unwrap();
         color_wheel_box.set_orientation(gtk::Orientation::Horizontal);
 
         self.wheel_da.connect_draw(

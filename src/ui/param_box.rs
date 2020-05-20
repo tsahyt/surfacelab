@@ -39,7 +39,7 @@ impl ObjectImpl for ParamBoxPrivate {
     glib_object_impl!();
 
     fn constructed(&self, obj: &glib::Object) {
-        let pbox = obj.clone().downcast::<ParamBox>().unwrap();
+        let pbox = obj.downcast_ref::<ParamBox>().unwrap();
         pbox.add(&self.inner);
     }
 }
