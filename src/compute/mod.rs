@@ -506,6 +506,7 @@ where
         );
 
         // generate thumbnail
+        // FIXME: the thumbnail doesn't seem to represent colours correctly. this might be a colourspace issue
         let thumbnail = self.gpu.generate_thumbnail(
             outputs
                 .values()
