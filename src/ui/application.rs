@@ -198,7 +198,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
         // Quit on Delete Event
         window.connect_delete_event(|_, _| {
-            super::emit(Lang::UserEvent(UserEvent::Quit));
+            super::emit(Lang::UserIOEvent(UserIOEvent::Quit));
             Inhibit(false)
         });
     }

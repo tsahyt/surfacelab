@@ -118,7 +118,7 @@ impl NodeManager {
                     response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
                 }
             },
-            Lang::UserEvent(UserEvent::Quit) => return None,
+            Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             _ => {}
         }
 

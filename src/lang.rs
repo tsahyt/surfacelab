@@ -657,8 +657,18 @@ pub enum UserRenderEvent {
     ChannelChange2D(u64, RenderChannel),
 }
 
+pub type ChannelSpec = (Resource, ImageChannel);
+
 #[derive(Debug)]
-pub enum UserEvent {
+pub enum ExportSpec {
+    RGBA([ChannelSpec; 4]),
+    RGB([ChannelSpec; 3]),
+    Grayscale(ChannelSpec),
+}
+
+#[derive(Debug)]
+pub enum UserIOEvent {
+    ExportImage(ExportSpec, PathBuf),
     Quit,
 }
 
@@ -708,6 +718,14 @@ pub enum RenderChannel {
     Roughness,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum ImageChannel {
+    R,
+    G,
+    B,
+    A,
+}
+
 #[derive(Debug)]
 pub enum UIEvent {
     RendererAdded(u64, WindowHandle, u32, u32, RendererType),
@@ -720,7 +738,7 @@ pub enum UIEvent {
 pub enum Lang {
     UserNodeEvent(UserNodeEvent),
     UserRenderEvent(UserRenderEvent),
-    UserEvent(UserEvent),
+    UserIOEvent(UserIOEvent),
     UIEvent(UIEvent),
     GraphEvent(GraphEvent),
     ComputeEvent(ComputeEvent),

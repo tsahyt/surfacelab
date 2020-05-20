@@ -36,7 +36,7 @@ pub fn start_ui_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinH
 fn ui_bus(gsender: glib::Sender<Arc<lang::Lang>>, receiver: broker::BrokerReceiver<lang::Lang>) {
     for event in receiver {
         gsender.send(event.clone()).unwrap();
-        if let lang::Lang::UserEvent(lang::UserEvent::Quit) = &*event {
+        if let lang::Lang::UserIOEvent(lang::UserIOEvent::Quit) = &*event {
             break;
         }
     }

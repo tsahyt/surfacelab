@@ -253,7 +253,12 @@ where
                 }
                 _ => {}
             },
-            Lang::UserEvent(UserEvent::Quit) => return None,
+            Lang::UserIOEvent(UserIOEvent::Quit) => return None,
+            Lang::UserIOEvent(UserIOEvent::ExportImage(export, path)) => match export {
+                ExportSpec::RGBA(rgba_spec) => self.export_to_rgba(rgba_spec.clone(), path),
+                ExportSpec::RGB(rgb_spec) => self.export_to_rgb(rgb_spec.clone(), path),
+                ExportSpec::Grayscale(gray_spec) => self.export_to_grayscale(gray_spec.clone(), path),
+            },
             _ => {}
         }
 
@@ -370,12 +375,6 @@ where
             .is_backed());
 
         let image = self.sockets.get_input_image(&socket_res).unwrap();
-
-        // let raw = self.gpu.download_image(image).unwrap();
-        // let ty = op.inputs()[socket]
-        //     .monomorphic()
-        //     .expect("Output Type must always be monomorphic!");
-        //
         let thumbnail = self.gpu.generate_thumbnail(image)?;
 
         Ok(vec![
@@ -389,6 +388,12 @@ where
             ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail),
         ])
     }
+
+    fn export_to_rgba(&self, spec: [ChannelSpec; 4], path: P) {}
+
+    fn export_to_rgb(&self, spec: [ChannelSpec; 3], path: P) {}
+
+    fn export_to_grayscale(&self, spec: ChannelSpec, path: P) {}
 
     fn store_image(
         raw: Vec<u8>,

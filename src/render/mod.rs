@@ -15,7 +15,7 @@ pub fn start_render_thread<B: gpu::Backend>(
 
         for event in receiver {
             match &*event {
-                Lang::UserEvent(UserEvent::Quit) => break,
+                Lang::UserIOEvent(UserIOEvent::Quit) => break,
                 Lang::UIEvent(UIEvent::RendererAdded(id, h, width, height, ty)) => render_manager
                     .new_renderer(*id, h, *width, *height, *ty)
                     .unwrap(),
