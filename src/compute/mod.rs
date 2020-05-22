@@ -446,7 +446,20 @@ where
         spec: ChannelSpec,
         path: P,
     ) -> Result<(), String> {
-        let channel_l = self.get_channel(&spec)?;
+        let image = self
+            .sockets
+            .get_input_image(&spec.0)
+            .ok_or("Trying to export non-existent socket".to_string())?;
+
+        let downloaded = convert_image(&self.gpu.download_image(image)?, ImageType::Rgb)?;
+        let luma = ImageBuffer::from_fn(IMG_SIZE, IMG_SIZE, |x, y| match spec.1 {
+            ImageChannel::R => Luma([downloaded.get_pixel(x, y)[0]]),
+            ImageChannel::G => Luma([downloaded.get_pixel(x, y)[1]]),
+            ImageChannel::B => Luma([downloaded.get_pixel(x, y)[2]]),
+            ImageChannel::A => Luma([downloaded.get_pixel(x, y)[3]]),
+        });
+
+        luma.save(path).unwrap();
 
         Ok(())
     }
@@ -621,7 +634,8 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec
         },
     };
 
-    ImageBuffer::from_raw(IMG_SIZE, IMG_SIZE, converted).ok_or("Error while creating image buffer".to_string())
+    ImageBuffer::from_raw(IMG_SIZE, IMG_SIZE, converted)
+        .ok_or("Error while creating image buffer".to_string())
 }
 
 fn load_rgba16f_image<P: AsRef<std::path::Path>>(path: P) -> Result<Vec<u16>, String> {
