@@ -1,7 +1,9 @@
 use crate::{broker, gpu, lang::*};
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use image::{ImageBuffer, Luma};
 
 pub mod shaders;
 
@@ -254,11 +256,18 @@ where
                 _ => {}
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
-            Lang::UserIOEvent(UserIOEvent::ExportImage(export, path)) => match export {
-                ExportSpec::RGBA(rgba_spec) => self.export_to_rgba(rgba_spec.clone(), path),
-                ExportSpec::RGB(rgb_spec) => self.export_to_rgb(rgb_spec.clone(), path),
-                ExportSpec::Grayscale(gray_spec) => self.export_to_grayscale(gray_spec.clone(), path),
-            },
+            Lang::UserIOEvent(UserIOEvent::ExportImage(export, path)) => {
+                let res = match export {
+                    ExportSpec::RGBA(rgba_spec) => self.export_to_rgba(rgba_spec.clone(), path),
+                    ExportSpec::RGB(rgb_spec) => self.export_to_rgb(rgb_spec.clone(), path),
+                    ExportSpec::Grayscale(gray_spec) => {
+                        self.export_to_grayscale(gray_spec.clone(), path)
+                    }
+                };
+                if let Err(e) = res {
+                    log::error!("Export failed: {}", e);
+                }
+            }
             _ => {}
         }
 
@@ -389,11 +398,54 @@ where
         ])
     }
 
-    fn export_to_rgba(&self, spec: [ChannelSpec; 4], path: P) {}
+    fn get_channel(&mut self, spec: &ChannelSpec) -> Result<ImageBuffer<Luma<u16>, Vec<u16>>, String> {
+        let raw_buffer = self.gpu.download_image(unimplemented!())?;
+        let image_buffer = convert_image(&raw_buffer, unimplemented!());
 
-    fn export_to_rgb(&self, spec: [ChannelSpec; 3], path: P) {}
+        match spec.1 {
+            ImageChannel::R => {},
+            ImageChannel::G => {},
+            ImageChannel::B => {},
+            ImageChannel::A => {},
+        };
 
-    fn export_to_grayscale(&self, spec: ChannelSpec, path: P) {}
+        ImageBuffer::from_raw(1024, 1024, converted).ok_or("Failed to build channel buffer".to_string())
+    }
+
+    fn export_to_rgba<P: AsRef<Path>>(
+        &mut self,
+        spec: [ChannelSpec; 4],
+        path: P,
+    ) -> Result<(), String> {
+        let channel_r = self.get_channel(&spec[0])?;
+        let channel_g = self.get_channel(&spec[1])?;
+        let channel_b = self.get_channel(&spec[2])?;
+        let channel_a = self.get_channel(&spec[3])?;
+
+        Ok(())
+    }
+
+    fn export_to_rgb<P: AsRef<Path>>(
+        &mut self,
+        spec: [ChannelSpec; 3],
+        path: P
+    ) -> Result<(), String> {
+        let channel_r = self.get_channel(&spec[0])?;
+        let channel_g = self.get_channel(&spec[1])?;
+        let channel_b = self.get_channel(&spec[2])?;
+
+        Ok(())
+    }
+
+    fn export_to_grayscale<P: AsRef<Path>>(
+        &mut self,
+        spec: ChannelSpec,
+        path: P,
+    ) -> Result<(), String> {
+        let channel_l = self.get_channel(&spec)?;
+
+        Ok(())
+    }
 
     fn store_image(
         raw: Vec<u8>,
