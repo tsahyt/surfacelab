@@ -1,5 +1,5 @@
 use crate::{broker, gpu, lang::*};
-use image::{ImageBuffer, Luma};
+use image::{ImageBuffer, Luma, Rgba};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -7,7 +7,7 @@ use std::thread;
 
 pub mod shaders;
 
-// TODO: Image sizes should not be hardcoded!
+// TODO: Image sizes should not be hardcoded! For now they're 1024 everywhere. Probably.
 const IMG_SIZE: u32 = 1024;
 
 pub fn start_compute_thread<B: gpu::Backend>(
@@ -412,7 +412,7 @@ where
             ImageChannel::A => {}
         };
 
-        ImageBuffer::from_raw(1024, 1024, unimplemented!())
+        ImageBuffer::from_raw(IMG_SIZE, IMG_SIZE, unimplemented!())
             .ok_or("Failed to build channel buffer".to_string())
     }
 
@@ -451,37 +451,37 @@ where
         Ok(())
     }
 
-    fn store_image(
-        raw: Vec<u8>,
-        path: std::path::PathBuf,
-        ty: ImageType,
-        size: u32,
-    ) -> Result<(), String> {
-        log::debug!("Downloaded image size {:?}", raw.len());
+    // fn store_image(
+    //     raw: Vec<u8>,
+    //     path: std::path::PathBuf,
+    //     ty: ImageType,
+    //     size: u32,
+    // ) -> Result<(), String> {
+    //     log::debug!("Downloaded image size {:?}", raw.len());
 
-        thread::spawn(move || {
-            let converted = convert_image(&raw, ty);
+    //     thread::spawn(move || {
+    //         let converted = convert_image(&raw, ty);
 
-            log::debug!("Saving converted image");
+    //         log::debug!("Saving converted image");
 
-            let r = image::save_buffer(
-                path,
-                &converted,
-                size,
-                size,
-                match ty {
-                    ImageType::Grayscale => image::ColorType::L16,
-                    ImageType::Rgb => image::ColorType::Rgb16,
-                },
-            );
-            match r {
-                Err(e) => log::error!("Error saving image: {}", e),
-                Ok(_) => log::debug!("Saved image!"),
-            };
-        });
+    //         let r = image::save_buffer(
+    //             path,
+    //             &converted,
+    //             size,
+    //             size,
+    //             match ty {
+    //                 ImageType::Grayscale => image::ColorType::L16,
+    //                 ImageType::Rgb => image::ColorType::Rgb16,
+    //             },
+    //         );
+    //         match r {
+    //             Err(e) => log::error!("Error saving image: {}", e),
+    //             Ok(_) => log::debug!("Saved image!"),
+    //         };
+    //     });
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     fn execute_operator(
         &mut self,
@@ -585,16 +585,17 @@ where
     }
 }
 
-fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
+/// Converts an image from the GPU into a standardized rgba16 image.
+fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec<u16>>, String> {
     fn to_16bit(x: f32) -> u16 {
         (x.clamp(0., 1.) * 65535.) as u16
     }
 
-    match ty {
-        // Underlying memory is formatted as rgba16f, expected to be Rgb16
+    let converted: Vec<u16> = match ty {
+        // Underlying memory is formatted as rgba16f
         ImageType::Rgb => unsafe {
             #[allow(clippy::cast_ptr_alignment)]
-            let u16s: Vec<[u16; 3]> =
+            let u16s: Vec<[u16; 4]> =
                 std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
                     .chunks(4)
                     .map(|chunk| {
@@ -602,22 +603,25 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Vec<u8> {
                             to_16bit(chunk[0].to_f32()),
                             to_16bit(chunk[1].to_f32()),
                             to_16bit(chunk[2].to_f32()),
+                            to_16bit(chunk[3].to_f32()),
                         ]
                     })
                     .collect();
-            std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2 * 3).to_owned()
+            std::slice::from_raw_parts(u16s.as_ptr() as *const u16, u16s.len() * 4).to_owned()
         },
-        // Underlying memory is formatted as r32f, expected to be L16
+        // Underlying memory is formatted as r32f, using this value for all channels
         ImageType::Grayscale => unsafe {
             #[allow(clippy::cast_ptr_alignment)]
-            let u16s: Vec<u16> =
+            let u16s: Vec<[u16; 4]> =
                 std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
                     .iter()
-                    .map(|x| to_16bit(*x))
+                    .map(|x| [to_16bit(*x); 4])
                     .collect();
-            std::slice::from_raw_parts(u16s.as_ptr() as *const u8, u16s.len() * 2).to_owned()
+            std::slice::from_raw_parts(u16s.as_ptr() as *const u16, u16s.len() * 4).to_owned()
         },
-    }
+    };
+
+    ImageBuffer::from_raw(IMG_SIZE, IMG_SIZE, converted).ok_or("Error while creating image buffer".to_string())
 }
 
 fn load_rgba16f_image<P: AsRef<std::path::Path>>(path: P) -> Result<Vec<u16>, String> {
