@@ -102,7 +102,7 @@ impl WidgetImpl for RenderAreaPrivate {
             Some(&window),
             &gdk::WindowAttr {
                 window_type: gdk::WindowType::Subsurface,
-                event_mask: gdk::EventMask::POINTER_MOTION_MASK.bits() as _,
+                event_mask: gdk::EventMask::POINTER_MOTION_MASK,
                 ..gdk::WindowAttr::default()
             },
         );

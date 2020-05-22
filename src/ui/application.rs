@@ -2,10 +2,9 @@ use super::{export, node, node_area, renderer};
 use crate::lang::*;
 
 use gio::prelude::*;
-use gio::subclass::application::ApplicationImplExt;
+use gio::subclass::prelude::*;
 use gio::ApplicationFlags;
 use glib::subclass;
-use glib::subclass::prelude::*;
 use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
