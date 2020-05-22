@@ -13,8 +13,8 @@ env_logger = "0.7.1"
 gdk = { git = "https://github.com/gtk-rs/gdk", features = ["v3_20"] }
 gdk-sys = { git = "https://github.com/gtk-rs/sys" }
 gdk-pixbuf = { git = "https://github.com/gtk-rs/gdk-pixbuf", features = ["v2_32"] }
-gfx-backend-vulkan = ""
-gfx-hal = "0.4.1"
+gfx-backend-vulkan = "0.5.6"
+gfx-hal = "0.5.0"
 gio = { git = "https://github.com/gtk-rs/gio" }
 glib = { git = "https://github.com/gtk-rs/glib" }
 glib-sys = { git = "https://github.com/gtk-rs/sys" }

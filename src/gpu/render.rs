@@ -275,7 +275,12 @@ where
                 2,
                 &[
                     DescriptorRangeDesc {
-                        ty: DescriptorType::UniformBuffer,
+                        ty: DescriptorType::Buffer {
+                            ty: BufferDescriptorType::Uniform,
+                            format: BufferDescriptorFormat::Structured {
+                                dynamic_offset: false,
+                            },
+                        },
                         count: 8,
                     },
                     DescriptorRangeDesc {
@@ -283,7 +288,11 @@ where
                         count: 2,
                     },
                     DescriptorRangeDesc {
-                        ty: DescriptorType::SampledImage,
+                        ty: DescriptorType::Image {
+                            ty: ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
                         count: 16,
                     },
                 ],
@@ -305,42 +314,68 @@ where
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 1,
-                        ty: hal::pso::DescriptorType::UniformBuffer,
+                        ty: hal::pso::DescriptorType::Buffer {
+                            ty: hal::pso::BufferDescriptorType::Uniform,
+                            format: hal::pso::BufferDescriptorFormat::Structured {
+                                dynamic_offset: false,
+                            },
+                        },
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 2,
-                        ty: hal::pso::DescriptorType::UniformBuffer,
+                        ty: hal::pso::DescriptorType::Buffer {
+                            ty: hal::pso::BufferDescriptorType::Uniform,
+                            format: hal::pso::BufferDescriptorFormat::Structured {
+                                dynamic_offset: false,
+                            },
+                        },
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 3,
-                        ty: hal::pso::DescriptorType::SampledImage,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 4,
-                        ty: hal::pso::DescriptorType::SampledImage,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 5,
-                        ty: hal::pso::DescriptorType::SampledImage,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 6,
-                        ty: hal::pso::DescriptorType::SampledImage,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
@@ -654,7 +689,13 @@ where
 
         unsafe {
             let mapping = device
-                .map_memory(&*self.uniform_memory, 0..Self::UNIFORM_BUFFER_SIZE)
+                .map_memory(
+                    &*self.uniform_memory,
+                    hal::memory::Segment {
+                        offset: 0,
+                        size: Some(Self::UNIFORM_BUFFER_SIZE),
+                    },
+                )
                 .map_err(|e| {
                     format!("Failed to map uniform buffer into CPU address space: {}", e)
                 })?;
@@ -664,7 +705,13 @@ where
 
         unsafe {
             let mapping = device
-                .map_memory(&*self.occupancy_memory, 0..Self::UNIFORM_BUFFER_SIZE)
+                .map_memory(
+                    &*self.occupancy_memory,
+                    hal::memory::Segment {
+                        offset: 0,
+                        size: Some(Self::UNIFORM_BUFFER_SIZE),
+                    },
+                )
                 .map_err(|e| {
                     format!(
                         "Failed to map occupancy buffer into CPU address space: {}",
@@ -729,13 +776,19 @@ where
                         set: &self.main_descriptor_set,
                         binding: 1,
                         array_offset: 0,
-                        descriptors: Some(Descriptor::Buffer(&*self.occupancy_buffer, None..None)),
+                        descriptors: Some(Descriptor::Buffer(
+                            &*self.occupancy_buffer,
+                            hal::buffer::SubRange::WHOLE,
+                        )),
                     },
                     DescriptorSetWrite {
                         set: &self.main_descriptor_set,
                         binding: 2,
                         array_offset: 0,
-                        descriptors: Some(Descriptor::Buffer(&*self.uniform_buffer, None..None)),
+                        descriptors: Some(Descriptor::Buffer(
+                            &*self.uniform_buffer,
+                            hal::buffer::SubRange::WHOLE,
+                        )),
                     },
                     DescriptorSetWrite {
                         set: &self.main_descriptor_set,

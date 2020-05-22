@@ -1,9 +1,9 @@
 use crate::{broker, gpu, lang::*};
+use image::{ImageBuffer, Luma};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use image::{ImageBuffer, Luma};
 
 pub mod shaders;
 
@@ -398,18 +398,22 @@ where
         ])
     }
 
-    fn get_channel(&mut self, spec: &ChannelSpec) -> Result<ImageBuffer<Luma<u16>, Vec<u16>>, String> {
+    fn get_channel(
+        &mut self,
+        spec: &ChannelSpec,
+    ) -> Result<ImageBuffer<Luma<u16>, Vec<u16>>, String> {
         let raw_buffer = self.gpu.download_image(unimplemented!())?;
         let image_buffer = convert_image(&raw_buffer, unimplemented!());
 
         match spec.1 {
-            ImageChannel::R => {},
-            ImageChannel::G => {},
-            ImageChannel::B => {},
-            ImageChannel::A => {},
+            ImageChannel::R => {}
+            ImageChannel::G => {}
+            ImageChannel::B => {}
+            ImageChannel::A => {}
         };
 
-        ImageBuffer::from_raw(1024, 1024, converted).ok_or("Failed to build channel buffer".to_string())
+        ImageBuffer::from_raw(1024, 1024, unimplemented!())
+            .ok_or("Failed to build channel buffer".to_string())
     }
 
     fn export_to_rgba<P: AsRef<Path>>(
@@ -428,7 +432,7 @@ where
     fn export_to_rgb<P: AsRef<Path>>(
         &mut self,
         spec: [ChannelSpec; 3],
-        path: P
+        path: P,
     ) -> Result<(), String> {
         let channel_r = self.get_channel(&spec[0])?;
         let channel_g = self.get_channel(&spec[1])?;

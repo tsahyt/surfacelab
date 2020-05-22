@@ -140,7 +140,12 @@ where
                 ops,
                 &[
                     DescriptorRangeDesc {
-                        ty: DescriptorType::UniformBuffer,
+                        ty: DescriptorType::Buffer {
+                            ty: BufferDescriptorType::Uniform,
+                            format: BufferDescriptorFormat::Structured {
+                                dynamic_offset: false,
+                            },
+                        },
                         count: ops,
                     },
                     DescriptorRangeDesc {
@@ -148,11 +153,17 @@ where
                         count: ops,
                     },
                     DescriptorRangeDesc {
-                        ty: DescriptorType::StorageImage,
+                        ty: DescriptorType::Image {
+                            ty: ImageDescriptorType::Storage { read_only: false },
+                        },
                         count: ops,
                     },
                     DescriptorRangeDesc {
-                        ty: DescriptorType::SampledImage,
+                        ty: DescriptorType::Image {
+                            ty: ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
                         count: 8 * ops,
                     },
                 ],
@@ -370,7 +381,13 @@ where
         unsafe {
             let mapping = lock
                 .device
-                .map_memory(&self.uniform_mem, 0..Self::UNIFORM_BUFFER_SIZE)
+                .map_memory(
+                    &self.uniform_mem,
+                    hal::memory::Segment {
+                        offset: 0,
+                        size: Some(Self::UNIFORM_BUFFER_SIZE),
+                    },
+                )
                 .map_err(|e| {
                     format!("Failed to map uniform buffer into CPU address space: {}", e)
                 })?;
@@ -602,12 +619,21 @@ where
 
         // Download
         let res = unsafe {
-            let mapping = lock.device.map_memory(&mem, 0..bytes).map_err(|e| {
-                format!(
-                    "Failed to map download buffer into CPU address space: {}",
-                    e
+            let mapping = lock
+                .device
+                .map_memory(
+                    &mem,
+                    hal::memory::Segment {
+                        offset: 0,
+                        size: Some(bytes),
+                    },
                 )
-            })?;
+                .map_err(|e| {
+                    format!(
+                        "Failed to map download buffer into CPU address space: {}",
+                        e
+                    )
+                })?;
             let slice = std::slice::from_raw_parts::<u8>(mapping as *const u8, bytes as usize);
             let owned = slice.to_owned();
             lock.device.unmap_memory(&mem);
@@ -661,7 +687,16 @@ where
 
         // Upload image to staging buffer
         unsafe {
-            let mapping = lock.device.map_memory(&mem, 0..bytes).unwrap();
+            let mapping = lock
+                .device
+                .map_memory(
+                    &mem,
+                    hal::memory::Segment {
+                        offset: 0,
+                        size: Some(bytes),
+                    },
+                )
+                .unwrap();
             let u8s: &[u8] =
                 std::slice::from_raw_parts(buffer.as_ptr() as *const u8, buffer.len() * 2);
             std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, bytes as usize);
@@ -811,7 +846,13 @@ where
         let mut res = unsafe {
             let mapping = lock
                 .device
-                .map_memory(&self.thumbnail_mem, 0..(Self::THUMBNAIL_BYTES as _))
+                .map_memory(
+                    &self.thumbnail_mem,
+                    hal::memory::Segment {
+                        offset: 0,
+                        size: Some(Self::THUMBNAIL_BYTES as _),
+                    },
+                )
                 .map_err(|e| {
                     format!(
                         "Failed to map download buffer into CPU address space: {}",

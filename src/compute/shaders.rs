@@ -7,21 +7,34 @@ static BLEND_SHADER: &[u8] = include_bytes!("../../shaders/blend.spv");
 static BLEND_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     gpu::DescriptorSetLayoutBinding {
         binding: 0,
-        ty: gpu::DescriptorType::UniformBuffer,
+        ty: gpu::DescriptorType::Buffer {
+            ty: gpu::BufferDescriptorType::Uniform,
+            format: gpu::BufferDescriptorFormat::Structured {
+                dynamic_offset: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 1,
-        ty: gpu::DescriptorType::SampledImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Sampled {
+                with_sampler: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 2,
-        ty: gpu::DescriptorType::SampledImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Sampled {
+                with_sampler: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
@@ -35,7 +48,9 @@ static BLEND_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 4,
-        ty: gpu::DescriptorType::StorageImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Storage { read_only: false },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
@@ -47,14 +62,21 @@ static PERLIN_NOISE_SHADER: &[u8] = include_bytes!("../../shaders/perlin.spv");
 static PERLIN_NOISE_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     gpu::DescriptorSetLayoutBinding {
         binding: 0,
-        ty: gpu::DescriptorType::UniformBuffer,
+        ty: gpu::DescriptorType::Buffer {
+            ty: gpu::BufferDescriptorType::Uniform,
+            format: gpu::BufferDescriptorFormat::Structured {
+                dynamic_offset: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 1,
-        ty: gpu::DescriptorType::StorageImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Storage { read_only: false },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
@@ -66,14 +88,21 @@ static RGB_SHADER: &[u8] = include_bytes!("../../shaders/rgb.spv");
 static RGB_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     gpu::DescriptorSetLayoutBinding {
         binding: 0,
-        ty: gpu::DescriptorType::UniformBuffer,
+        ty: gpu::DescriptorType::Buffer {
+            ty: gpu::BufferDescriptorType::Uniform,
+            format: gpu::BufferDescriptorFormat::Structured {
+                dynamic_offset: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 1,
-        ty: gpu::DescriptorType::StorageImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Storage { read_only: false },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
@@ -85,14 +114,23 @@ static GRAYSCALE_SHADER: &[u8] = include_bytes!("../../shaders/grayscale.spv");
 static GRAYSCALE_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     gpu::DescriptorSetLayoutBinding {
         binding: 0,
-        ty: gpu::DescriptorType::UniformBuffer,
+        ty: gpu::DescriptorType::Buffer {
+            ty: gpu::BufferDescriptorType::Uniform,
+            format: gpu::BufferDescriptorFormat::Structured {
+                dynamic_offset: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 1,
-        ty: gpu::DescriptorType::SampledImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Sampled {
+                with_sampler: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
@@ -106,7 +144,9 @@ static GRAYSCALE_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 3,
-        ty: gpu::DescriptorType::StorageImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Storage { read_only: false },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
@@ -118,14 +158,23 @@ static RAMP_SHADER: &[u8] = include_bytes!("../../shaders/ramp.spv");
 static RAMP_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     gpu::DescriptorSetLayoutBinding {
         binding: 0,
-        ty: gpu::DescriptorType::UniformBuffer,
+        ty: gpu::DescriptorType::Buffer {
+            ty: gpu::BufferDescriptorType::Uniform,
+            format: gpu::BufferDescriptorFormat::Structured {
+                dynamic_offset: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 1,
-        ty: gpu::DescriptorType::SampledImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Sampled {
+                with_sampler: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
@@ -139,7 +188,9 @@ static RAMP_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 3,
-        ty: gpu::DescriptorType::StorageImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Storage { read_only: false },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
@@ -151,14 +202,23 @@ static NORMAL_MAP_SHADER: &[u8] = include_bytes!("../../shaders/normal.spv");
 static NORMAL_MAP_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     gpu::DescriptorSetLayoutBinding {
         binding: 0,
-        ty: gpu::DescriptorType::UniformBuffer,
+        ty: gpu::DescriptorType::Buffer {
+            ty: gpu::BufferDescriptorType::Uniform,
+            format: gpu::BufferDescriptorFormat::Structured {
+                dynamic_offset: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 1,
-        ty: gpu::DescriptorType::SampledImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Sampled {
+                with_sampler: false,
+            },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
@@ -172,7 +232,9 @@ static NORMAL_MAP_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
     },
     gpu::DescriptorSetLayoutBinding {
         binding: 3,
-        ty: gpu::DescriptorType::StorageImage,
+        ty: gpu::DescriptorType::Image {
+            ty: gpu::ImageDescriptorType::Storage { read_only: false },
+        },
         count: 1,
         stage_flags: gpu::ShaderStageFlags::COMPUTE,
         immutable_samplers: false,
@@ -244,7 +306,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 set: desc_set,
                 binding: 0,
                 array_offset: 0,
-                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, gpu::SubRange::WHOLE)],
             },
             gpu::DescriptorSetWrite {
                 set: desc_set,
@@ -285,7 +347,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 set: desc_set,
                 binding: 0,
                 array_offset: 0,
-                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, gpu::SubRange::WHOLE)],
             },
             gpu::DescriptorSetWrite {
                 set: desc_set,
@@ -302,7 +364,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 set: desc_set,
                 binding: 0,
                 array_offset: 0,
-                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, gpu::SubRange::WHOLE)],
             },
             gpu::DescriptorSetWrite {
                 set: desc_set,
@@ -319,7 +381,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 set: desc_set,
                 binding: 0,
                 array_offset: 0,
-                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, gpu::SubRange::WHOLE)],
             },
             gpu::DescriptorSetWrite {
                 set: desc_set,
@@ -351,7 +413,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 set: desc_set,
                 binding: 0,
                 array_offset: 0,
-                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, gpu::SubRange::WHOLE)],
             },
             gpu::DescriptorSetWrite {
                 set: desc_set,
@@ -383,7 +445,7 @@ pub fn operator_write_desc<'a, B: gpu::Backend, S: std::hash::BuildHasher>(
                 set: desc_set,
                 binding: 0,
                 array_offset: 0,
-                descriptors: vec![gpu::Descriptor::Buffer(uniforms, None..None)],
+                descriptors: vec![gpu::Descriptor::Buffer(uniforms, gpu::SubRange::WHOLE)],
             },
             gpu::DescriptorSetWrite {
                 set: desc_set,
