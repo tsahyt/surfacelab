@@ -47,9 +47,9 @@ pub fn start_render_thread<B: gpu::Backend>(
                 }
                 _ => {}
             }
-
-            log::info!("Renderer terminating");
         }
+
+        log::info!("Renderer terminating");
     })
 }
 
