@@ -1,5 +1,5 @@
 use crate::{broker, gpu, lang::*};
-use image::{ImageBuffer, Luma, Rgba};
+use image::{ImageBuffer, Luma, Rgb, Rgba};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -398,33 +398,32 @@ where
         ])
     }
 
-    fn get_channel(
-        &mut self,
-        spec: &ChannelSpec,
-    ) -> Result<ImageBuffer<Luma<u16>, Vec<u16>>, String> {
-        let raw_buffer = self.gpu.download_image(unimplemented!())?;
-        let image_buffer = convert_image(&raw_buffer, unimplemented!());
-
-        match spec.1 {
-            ImageChannel::R => {}
-            ImageChannel::G => {}
-            ImageChannel::B => {}
-            ImageChannel::A => {}
-        };
-
-        ImageBuffer::from_raw(IMG_SIZE, IMG_SIZE, unimplemented!())
-            .ok_or("Failed to build channel buffer".to_string())
-    }
-
     fn export_to_rgba<P: AsRef<Path>>(
         &mut self,
         spec: [ChannelSpec; 4],
         path: P,
     ) -> Result<(), String> {
-        let channel_r = self.get_channel(&spec[0])?;
-        let channel_g = self.get_channel(&spec[1])?;
-        let channel_b = self.get_channel(&spec[2])?;
-        let channel_a = self.get_channel(&spec[3])?;
+        let mut images = HashMap::new();
+
+        for s in &spec {
+            let image = self
+                .sockets
+                .get_input_image(&s.0)
+                .ok_or(format!("Error loading image from resource {}", s.0))?;
+            let downloaded = convert_image(&self.gpu.download_image(image)?, ImageType::Rgb)?;
+            images.insert(s.0.clone(), downloaded);
+        }
+
+        let final_image = ImageBuffer::from_fn(IMG_SIZE, IMG_SIZE, |x, y| {
+            Rgba([
+                images.get(&spec[0].0).unwrap().get_pixel(x, y)[spec[0].1.channel_index()],
+                images.get(&spec[1].0).unwrap().get_pixel(x, y)[spec[1].1.channel_index()],
+                images.get(&spec[2].0).unwrap().get_pixel(x, y)[spec[2].1.channel_index()],
+                images.get(&spec[3].0).unwrap().get_pixel(x, y)[spec[3].1.channel_index()],
+            ])
+        });
+
+        final_image.save(path).unwrap();
 
         Ok(())
     }
@@ -434,9 +433,26 @@ where
         spec: [ChannelSpec; 3],
         path: P,
     ) -> Result<(), String> {
-        let channel_r = self.get_channel(&spec[0])?;
-        let channel_g = self.get_channel(&spec[1])?;
-        let channel_b = self.get_channel(&spec[2])?;
+        let mut images = HashMap::new();
+
+        for s in &spec {
+            let image = self
+                .sockets
+                .get_input_image(&s.0)
+                .ok_or(format!("Error loading image from resource {}", s.0))?;
+            let downloaded = convert_image(&self.gpu.download_image(image)?, ImageType::Rgb)?;
+            images.insert(s.0.clone(), downloaded);
+        }
+
+        let final_image = ImageBuffer::from_fn(IMG_SIZE, IMG_SIZE, |x, y| {
+            Rgb([
+                images.get(&spec[0].0).unwrap().get_pixel(x, y)[spec[0].1.channel_index()],
+                images.get(&spec[1].0).unwrap().get_pixel(x, y)[spec[1].1.channel_index()],
+                images.get(&spec[2].0).unwrap().get_pixel(x, y)[spec[2].1.channel_index()],
+            ])
+        });
+
+        final_image.save(path).unwrap();
 
         Ok(())
     }
@@ -452,49 +468,14 @@ where
             .ok_or("Trying to export non-existent socket".to_string())?;
 
         let downloaded = convert_image(&self.gpu.download_image(image)?, ImageType::Rgb)?;
-        let luma = ImageBuffer::from_fn(IMG_SIZE, IMG_SIZE, |x, y| match spec.1 {
-            ImageChannel::R => Luma([downloaded.get_pixel(x, y)[0]]),
-            ImageChannel::G => Luma([downloaded.get_pixel(x, y)[1]]),
-            ImageChannel::B => Luma([downloaded.get_pixel(x, y)[2]]),
-            ImageChannel::A => Luma([downloaded.get_pixel(x, y)[3]]),
+        let final_image = ImageBuffer::from_fn(IMG_SIZE, IMG_SIZE, |x, y| {
+            Luma([downloaded.get_pixel(x, y)[spec.1.channel_index()]])
         });
 
-        luma.save(path).unwrap();
+        final_image.save(path).unwrap();
 
         Ok(())
     }
-
-    // fn store_image(
-    //     raw: Vec<u8>,
-    //     path: std::path::PathBuf,
-    //     ty: ImageType,
-    //     size: u32,
-    // ) -> Result<(), String> {
-    //     log::debug!("Downloaded image size {:?}", raw.len());
-
-    //     thread::spawn(move || {
-    //         let converted = convert_image(&raw, ty);
-
-    //         log::debug!("Saving converted image");
-
-    //         let r = image::save_buffer(
-    //             path,
-    //             &converted,
-    //             size,
-    //             size,
-    //             match ty {
-    //                 ImageType::Grayscale => image::ColorType::L16,
-    //                 ImageType::Rgb => image::ColorType::Rgb16,
-    //             },
-    //         );
-    //         match r {
-    //             Err(e) => log::error!("Error saving image: {}", e),
-    //             Ok(_) => log::debug!("Saved image!"),
-    //         };
-    //     });
-
-    //     Ok(())
-    // }
 
     fn execute_operator(
         &mut self,

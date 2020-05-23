@@ -726,6 +726,17 @@ pub enum ImageChannel {
     A,
 }
 
+impl ImageChannel {
+    pub fn channel_index(&self) -> usize {
+        match self {
+            Self::R => 0,
+            Self::G => 1,
+            Self::B => 2,
+            Self::A => 3,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum UIEvent {
     RendererAdded(u64, WindowHandle, u32, u32, RendererType),
