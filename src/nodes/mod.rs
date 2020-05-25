@@ -119,6 +119,10 @@ impl NodeManager {
                 }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
+            Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {
+                let exportable = self.get_output_sockets();
+                response.push(Lang::UserIOEvent(UserIOEvent::RequestExport(Some(exportable))));
+            }
             _ => {}
         }
 
@@ -487,6 +491,35 @@ impl NodeManager {
         }
 
         traversal
+    }
+
+    /// Get all output sockets in the current node graph, as well as all
+    /// *inputs* of Output nodes, i.e. everything that can be exported.
+    fn get_output_sockets(&self) -> Vec<(lang::Resource, lang::ImageType)> {
+        let mut result = Vec::new();
+
+        for node_index in self.node_graph.node_indices() {
+            let node = self.node_graph.node_weight(node_index).unwrap();
+
+            if let lang::Operator::Output { .. } = node.operator {
+                for input in node.operator.inputs().iter() {
+                    if let Ok(lang::OperatorType::Monomorphic(ty)) = node.monomorphic_type(&input.0)
+                    {
+                        result.push((node.resource.extend_fragment(&input.0), ty))
+                    }
+                }
+            } else {
+                for output in node.operator.outputs().iter() {
+                    if let Ok(lang::OperatorType::Monomorphic(ty)) =
+                        node.monomorphic_type(&output.0)
+                    {
+                        result.push((node.resource.extend_fragment(&output.0), ty))
+                    }
+                }
+            }
+        }
+
+        result
     }
 }
 

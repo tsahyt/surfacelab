@@ -90,9 +90,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
             );
 
             export.connect_clicked(|_| {
-                let dialog = export::ExportDialog::new();
-                let response = dialog.run();
-                dialog.hide();
+                super::emit(Lang::UserIOEvent(UserIOEvent::RequestExport(None)));
             });
 
             btn_box.add(&open);
@@ -203,7 +201,14 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
     }
 }
 
-impl SurfaceLabWindowPrivate {}
+impl SurfaceLabWindowPrivate {
+    pub fn run_export_dialog(&self, exportable: &[(Resource, ImageType)]) {
+        let dialog = export::ExportDialog::new();
+        dbg!(exportable);
+        let response = dialog.run();
+        dialog.hide();
+    }
+}
 
 impl WidgetImpl for SurfaceLabWindowPrivate {}
 impl ContainerImpl for SurfaceLabWindowPrivate {}
@@ -349,6 +354,9 @@ impl SurfaceLabApplication {
             }
             Lang::ComputeEvent(ComputeEvent::ThumbnailGenerated(res, thumb)) => {
                 app_window.node_area.update_thumbnail(res, thumb);
+            }
+            Lang::UserIOEvent(UserIOEvent::RequestExport(Some(exp))) => {
+                app_window.run_export_dialog(&exp);
             }
             _ => {}
         }

@@ -669,6 +669,7 @@ pub enum ExportSpec {
 #[derive(Debug)]
 pub enum UserIOEvent {
     ExportImage(ExportSpec, PathBuf),
+    RequestExport(Option<Vec<(Resource, ImageType)>>),
     Quit,
 }
 
