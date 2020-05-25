@@ -5,130 +5,8 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
-trait SwizzleBox {
-    fn set_model<P: IsA<gtk::TreeModel>>(&self, model: Option<&P>);
-}
-
-struct SwizzleBoxesRgb {
-    layout: gtk::Grid,
-    swizzle_r: gtk::ComboBoxText,
-    swizzle_g: gtk::ComboBoxText,
-    swizzle_b: gtk::ComboBoxText,
-}
-
-impl SwizzleBoxesRgb {
-    pub fn new() -> Self {
-        let new = Self {
-            layout: gtk::GridBuilder::new()
-                .valign(gtk::Align::Center)
-                .halign(gtk::Align::Center)
-                .build(),
-            swizzle_r: gtk::ComboBoxText::new(),
-            swizzle_g: gtk::ComboBoxText::new(),
-            swizzle_b: gtk::ComboBoxText::new(),
-        };
-
-        new.layout.attach(&gtk::Label::new(Some("Red")), 0, 0, 1, 1);
-        new.layout.attach(&new.swizzle_r, 0, 1, 1, 1);
-        new.layout
-            .attach(&gtk::Label::new(Some("Green")), 1, 0, 1, 1);
-        new.layout.attach(&new.swizzle_g, 1, 1, 1, 1);
-        new.layout
-            .attach(&gtk::Label::new(Some("Blue")), 2, 0, 1, 1);
-        new.layout.attach(&new.swizzle_b, 2, 1, 1, 1);
-
-        new
-    }
-}
-
-impl SwizzleBox for SwizzleBoxesRgb {
-    fn set_model<P: IsA<gtk::TreeModel>>(&self, model: Option<&P>) {
-        self.swizzle_r.set_model(model);
-        self.swizzle_g.set_model(model);
-        self.swizzle_b.set_model(model);
-    }
-}
-
-struct SwizzleBoxesRgba {
-    layout: gtk::Grid,
-    swizzle_r: gtk::ComboBoxText,
-    swizzle_g: gtk::ComboBoxText,
-    swizzle_b: gtk::ComboBoxText,
-    swizzle_a: gtk::ComboBoxText,
-}
-
-impl SwizzleBoxesRgba {
-    pub fn new() -> Self {
-        let new = Self {
-            layout: gtk::GridBuilder::new()
-                .valign(gtk::Align::Center)
-                .halign(gtk::Align::Center)
-                .build(),
-            swizzle_r: gtk::ComboBoxText::new(),
-            swizzle_g: gtk::ComboBoxText::new(),
-            swizzle_b: gtk::ComboBoxText::new(),
-            swizzle_a: gtk::ComboBoxText::new(),
-        };
-
-        new.layout.attach(&gtk::Label::new(Some("Red")), 0, 0, 1, 1);
-        new.layout.attach(&new.swizzle_r, 0, 1, 1, 1);
-        new.layout
-            .attach(&gtk::Label::new(Some("Green")), 1, 0, 1, 1);
-        new.layout.attach(&new.swizzle_g, 1, 1, 1, 1);
-        new.layout
-            .attach(&gtk::Label::new(Some("Blue")), 2, 0, 1, 1);
-        new.layout.attach(&new.swizzle_b, 2, 1, 1, 1);
-        new.layout
-            .attach(&gtk::Label::new(Some("Alpha")), 3, 0, 1, 1);
-        new.layout.attach(&new.swizzle_a, 3, 1, 1, 1);
-
-        new
-    }
-}
-
-impl SwizzleBox for SwizzleBoxesRgba {
-    fn set_model<P: IsA<gtk::TreeModel>>(&self, model: Option<&P>) {
-        self.swizzle_r.set_model(model);
-        self.swizzle_g.set_model(model);
-        self.swizzle_b.set_model(model);
-        self.swizzle_a.set_model(model);
-    }
-}
-
-struct SwizzleBoxesGray {
-    layout: gtk::Grid,
-    swizzle_l: gtk::ComboBoxText,
-}
-
-impl SwizzleBoxesGray {
-    pub fn new() -> Self {
-        let new = Self {
-            layout: gtk::GridBuilder::new()
-                .valign(gtk::Align::Center)
-                .halign(gtk::Align::Center)
-                .build(),
-            swizzle_l: gtk::ComboBoxText::new(),
-        };
-
-        new.layout.attach(&new.swizzle_l, 0, 1, 1, 1);
-
-        new
-    }
-}
-
-impl SwizzleBox for SwizzleBoxesGray {
-    fn set_model<P: IsA<gtk::TreeModel>>(&self, model: Option<&P>) {
-        self.swizzle_l.set_model(model);
-    }
-}
-
 pub struct ExportRowPrivate {
     name_entry: gtk::Entry,
-    swizzle_stack: gtk::Stack,
-    swizzle_select: gtk::StackSwitcher,
-    swizzle_rgba: SwizzleBoxesRgba,
-    swizzle_rgb: SwizzleBoxesRgb,
-    swizzle_grayscale: SwizzleBoxesGray,
 }
 
 impl ObjectSubclass for ExportRowPrivate {
@@ -142,15 +20,6 @@ impl ObjectSubclass for ExportRowPrivate {
     fn new() -> Self {
         Self {
             name_entry: gtk::EntryBuilder::new().valign(gtk::Align::Center).build(),
-            swizzle_stack: gtk::StackBuilder::new()
-                .transition_type(gtk::StackTransitionType::SlideUp)
-                .build(),
-            swizzle_select: gtk::StackSwitcherBuilder::new()
-                .orientation(gtk::Orientation::Vertical)
-                .build(),
-            swizzle_rgba: SwizzleBoxesRgba::new(),
-            swizzle_rgb: SwizzleBoxesRgb::new(),
-            swizzle_grayscale: SwizzleBoxesGray::new(),
         }
     }
 }
@@ -167,22 +36,6 @@ impl ObjectImpl for ExportRowPrivate {
         store.insert_with_values(None, None, &[0], &[&"Two"]);
         store.insert_with_values(None, None, &[0], &[&"Three"]);
         store.insert_with_values(None, None, &[0], &[&"Four"]);
-
-        self.swizzle_rgba.set_model(Some(&store));
-        self.swizzle_rgb.set_model(Some(&store));
-        self.swizzle_grayscale.set_model(Some(&store));
-
-        box_.pack_start(&self.name_entry, false, false, 0);
-        box_.pack_start(&self.swizzle_select, true, true, 0);
-        box_.pack_start(&self.swizzle_stack, true, true, 0);
-
-        self.swizzle_select.set_stack(Some(&self.swizzle_stack));
-        self.swizzle_stack
-            .add_titled(&self.swizzle_rgba.layout, "rgba", "RGBA");
-        self.swizzle_stack
-            .add_titled(&self.swizzle_rgb.layout, "rgb", "RGB");
-        self.swizzle_stack
-            .add_titled(&self.swizzle_grayscale.layout, "gray", "Grayscale");
     }
 }
 
