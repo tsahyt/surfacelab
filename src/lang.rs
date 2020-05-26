@@ -719,7 +719,7 @@ pub enum RenderChannel {
     Roughness,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Display, Clone, Copy)]
 pub enum ImageChannel {
     R,
     G,

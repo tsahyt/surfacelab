@@ -409,6 +409,7 @@ where
             let image = self
                 .sockets
                 .get_input_image(&s.0)
+                .or(self.sockets.get_output_image(&s.0))
                 .ok_or(format!("Error loading image from resource {}", s.0))?;
             let downloaded = convert_image(&self.gpu.download_image(image)?, ImageType::Rgb)?;
             images.insert(s.0.clone(), downloaded);
@@ -439,6 +440,7 @@ where
             let image = self
                 .sockets
                 .get_input_image(&s.0)
+                .or(self.sockets.get_output_image(&s.0))
                 .ok_or(format!("Error loading image from resource {}", s.0))?;
             let downloaded = convert_image(&self.gpu.download_image(image)?, ImageType::Rgb)?;
             images.insert(s.0.clone(), downloaded);
@@ -465,7 +467,8 @@ where
         let image = self
             .sockets
             .get_input_image(&spec.0)
-            .ok_or("Trying to export non-existent socket".to_string())?;
+            .or(self.sockets.get_output_image(&spec.0))
+            .ok_or(format!("Trying to export non-existent socket {}", spec.0))?;
 
         let downloaded = convert_image(&self.gpu.download_image(image)?, ImageType::Rgb)?;
         let final_image = ImageBuffer::from_fn(IMG_SIZE, IMG_SIZE, |x, y| {
