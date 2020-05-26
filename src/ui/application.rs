@@ -203,8 +203,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
 impl SurfaceLabWindowPrivate {
     pub fn run_export_dialog(&self, exportable: &[(Resource, ImageType)]) {
-        let dialog = export::ExportDialog::new();
-        dbg!(exportable);
+        let dialog = export::ExportDialog::new(exportable);
         let response = dialog.run();
         dialog.hide();
     }

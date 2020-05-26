@@ -121,7 +121,9 @@ impl NodeManager {
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {
                 let exportable = self.get_output_sockets();
-                response.push(Lang::UserIOEvent(UserIOEvent::RequestExport(Some(exportable))));
+                response.push(Lang::UserIOEvent(UserIOEvent::RequestExport(Some(
+                    exportable,
+                ))));
             }
             _ => {}
         }
