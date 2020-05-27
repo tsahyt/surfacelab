@@ -604,7 +604,6 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec
         (x.clamp(0., 1.) * 65535.) as u16
     }
 
-    dbg!(raw.len());
     let converted: Vec<u16> = match ty {
         // Underlying memory is formatted as rgba16f
         ImageType::Rgb => unsafe {
@@ -626,18 +625,14 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec
         // Underlying memory is formatted as r32f, using this value for all channels
         ImageType::Grayscale => unsafe {
             #[allow(clippy::cast_ptr_alignment)]
-            dbg!("grayscale");
             let u16s: Vec<[u16; 4]> =
                 std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
                     .iter()
                     .map(|x| [to_16bit(*x); 4])
                     .collect();
-            dbg!(u16s.len());
             std::slice::from_raw_parts(u16s.as_ptr() as *const u16, u16s.len() * 4).to_owned()
         },
     };
-
-    dbg!("converted len {}", converted.len());
 
     ImageBuffer::from_raw(IMG_SIZE, IMG_SIZE, converted)
         .ok_or("Error while creating image buffer".to_string())
