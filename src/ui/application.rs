@@ -54,6 +54,19 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 .homogeneous(false)
                 .build();
             let open = gtk::Button::new_with_label("Open");
+            open.connect_clicked(clone!(@weak window => move |_| {
+                let dialog = gtk::FileChooserDialog::with_buttons(
+                    Some("Open Surface"), Some(&window),
+                    gtk::FileChooserAction::Open,
+                    &[("_Cancel", gtk::ResponseType::Cancel),
+                      ("_Open", gtk::ResponseType::Accept)]);
+                if let gtk::ResponseType::Accept = dialog.run() {
+                    if let Some(path) = dialog.get_filename() {
+                        super::emit(Lang::UserIOEvent(UserIOEvent::OpenSurface(path)));
+                    }
+                }
+                dialog.hide();
+            }));
             let recent = gtk::MenuButtonBuilder::new()
                 .image(&gtk::Image::new_from_icon_name(
                     Some("pan-down-symbolic"),
@@ -77,7 +90,20 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 .layout_style(gtk::ButtonBoxStyle::Expand)
                 .homogeneous(false)
                 .build();
-            let open = gtk::Button::new_with_label("Save");
+            let save = gtk::Button::new_with_label("Save");
+            save.connect_clicked(clone!(@weak window => move |_| {
+                let dialog = gtk::FileChooserDialog::with_buttons(
+                    Some("Save Surface"), Some(&window),
+                    gtk::FileChooserAction::Save,
+                    &[("_Cancel", gtk::ResponseType::Cancel),
+                      ("_Save", gtk::ResponseType::Accept)]);
+                if let gtk::ResponseType::Accept = dialog.run() {
+                    if let Some(path) = dialog.get_filename() {
+                        super::emit(Lang::UserIOEvent(UserIOEvent::OpenSurface(path)));
+                    }
+                }
+                dialog.hide();
+            }));
             let recent = gtk::MenuButtonBuilder::new()
                 .image(&gtk::Image::new_from_icon_name(
                     Some("pan-down-symbolic"),
@@ -93,7 +119,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 super::emit(Lang::UserIOEvent(UserIOEvent::RequestExport(None)));
             });
 
-            btn_box.add(&open);
+            btn_box.add(&save);
             btn_box.add(&recent);
             btn_box.add(&export);
             btn_box

@@ -670,6 +670,8 @@ pub enum ExportSpec {
 pub enum UserIOEvent {
     ExportImage(ExportSpec, PathBuf),
     RequestExport(Option<Vec<(Resource, ImageType)>>),
+    OpenSurface(PathBuf),
+    SaveSurface(PathBuf),
     Quit,
 }
 

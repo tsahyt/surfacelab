@@ -173,7 +173,6 @@ impl ExportRowPrivate {
     fn get_filename(&self) -> std::string::String {
         self.name_entry.get_text().to_string()
     }
-
 }
 
 impl ExportRow {
