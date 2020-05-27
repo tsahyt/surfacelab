@@ -85,7 +85,11 @@ where
         self.0.remove(res);
     }
 
-    pub fn add_output_socket(&mut self, res: &Resource, image: Option<(gpu::compute::Image<B>, ImageType)>) {
+    pub fn add_output_socket(
+        &mut self,
+        res: &Resource,
+        image: Option<(gpu::compute::Image<B>, ImageType)>,
+    ) {
         let sockets = self.0.entry(res.drop_fragment()).or_insert(SocketData {
             typed_outputs: HashMap::new(),
             known_outputs: HashSet::new(),
@@ -119,7 +123,10 @@ where
     }
 
     /// Obtain the output image given a socket resource along with its type
-    pub fn get_output_image_typed(&self, res: &Resource) -> Option<(&gpu::compute::Image<B>, ImageType)> {
+    pub fn get_output_image_typed(
+        &self,
+        res: &Resource,
+    ) -> Option<(&gpu::compute::Image<B>, ImageType)> {
         self.0
             .get(&res.drop_fragment())?
             .typed_outputs
@@ -133,7 +140,10 @@ where
     }
 
     /// Obtain the output image given a socket resource, mutably, along with its type
-    pub fn get_output_image_typed_mut(&mut self, res: &Resource) -> Option<(&mut gpu::compute::Image<B>, ImageType)> {
+    pub fn get_output_image_typed_mut(
+        &mut self,
+        res: &Resource,
+    ) -> Option<(&mut gpu::compute::Image<B>, ImageType)> {
         self.0
             .get_mut(&res.drop_fragment())?
             .typed_outputs
@@ -147,7 +157,10 @@ where
     }
 
     /// Obtain the input image given a socket resource along with its type
-    pub fn get_input_image_typed(&self, res: &Resource) -> Option<(&gpu::compute::Image<B>, ImageType)> {
+    pub fn get_input_image_typed(
+        &self,
+        res: &Resource,
+    ) -> Option<(&gpu::compute::Image<B>, ImageType)> {
         let sockets = self.0.get(&res.drop_fragment())?;
         let output_res = sockets.inputs.get(res.fragment()?)?;
         self.0
@@ -234,7 +247,8 @@ where
                                 .gpu
                                 .create_compute_image(IMG_SIZE, *ty, op.external_data())
                                 .unwrap();
-                            self.sockets.add_output_socket(&socket_res, Some((img, *ty)));
+                            self.sockets
+                                .add_output_socket(&socket_res, Some((img, *ty)));
                         } else {
                             self.sockets.add_output_socket(&socket_res, None);
                         }
@@ -272,6 +286,7 @@ where
                 _ => {}
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
+            // TODO: recompute sockets when needed for export
             Lang::UserIOEvent(UserIOEvent::ExportImage(export, path)) => {
                 let res = match export {
                     ExportSpec::RGBA(rgba_spec) => self.export_to_rgba(rgba_spec.clone(), path),
