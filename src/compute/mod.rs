@@ -55,8 +55,9 @@ struct ExternalImage {
 struct SocketData<B: gpu::Backend> {
     /// Output sockets always map to an image, which may or may not be
     /// allocated, and a flag determining whether the image was recently
-    /// updated.
-    typed_outputs: HashMap<String, (bool, gpu::compute::Image<B>)>,
+    /// updated. Additionally the image type is stored such that we know it at
+    /// export time.
+    typed_outputs: HashMap<String, (bool, gpu::compute::Image<B>, ImageType)>,
 
     /// Required to keep track of polymorphic outputs. Kept separately to keep
     /// output_sockets ownership structure simple.
@@ -84,17 +85,17 @@ where
         self.0.remove(res);
     }
 
-    pub fn add_output_socket(&mut self, res: &Resource, image: Option<gpu::compute::Image<B>>) {
+    pub fn add_output_socket(&mut self, res: &Resource, image: Option<(gpu::compute::Image<B>, ImageType)>) {
         let sockets = self.0.entry(res.drop_fragment()).or_insert(SocketData {
             typed_outputs: HashMap::new(),
             known_outputs: HashSet::new(),
             inputs: HashMap::new(),
         });
         let socket_name = res.fragment().unwrap().to_string();
-        if let Some(img) = image {
+        if let Some((img, ty)) = image {
             sockets
                 .typed_outputs
-                .insert(socket_name.clone(), (true, img));
+                .insert(socket_name.clone(), (true, img, ty));
         }
         sockets.known_outputs.insert(socket_name);
     }
@@ -117,33 +118,48 @@ where
         sockets.typed_outputs.remove(res.fragment().unwrap());
     }
 
-    /// Obtain the output image given a socket resource
-    pub fn get_output_image(&self, res: &Resource) -> Option<&gpu::compute::Image<B>> {
+    /// Obtain the output image given a socket resource along with its type
+    pub fn get_output_image_typed(&self, res: &Resource) -> Option<(&gpu::compute::Image<B>, ImageType)> {
         self.0
             .get(&res.drop_fragment())?
             .typed_outputs
             .get(res.fragment().unwrap())
-            .map(|x| &x.1)
+            .map(|x| (&x.1, x.2))
     }
 
-    /// Obtain the output image given a socket resource, mutably
-    pub fn get_output_image_mut(&mut self, res: &Resource) -> Option<&mut gpu::compute::Image<B>> {
+    /// Obtain the output image given a socket resource
+    pub fn get_output_image(&self, res: &Resource) -> Option<&gpu::compute::Image<B>> {
+        self.get_output_image_typed(res).map(|x| x.0)
+    }
+
+    /// Obtain the output image given a socket resource, mutably, along with its type
+    pub fn get_output_image_typed_mut(&mut self, res: &Resource) -> Option<(&mut gpu::compute::Image<B>, ImageType)> {
         self.0
             .get_mut(&res.drop_fragment())?
             .typed_outputs
             .get_mut(res.fragment().unwrap())
-            .map(|x| &mut x.1)
+            .map(|x| (&mut x.1, x.2))
     }
 
-    /// Obtain the input image given a socket resource, mutably
-    pub fn get_input_image(&self, res: &Resource) -> Option<&gpu::compute::Image<B>> {
+    /// Obtain the output image given a socket resource, mutably
+    pub fn get_output_image_mut(&mut self, res: &Resource) -> Option<&mut gpu::compute::Image<B>> {
+        self.get_output_image_typed_mut(res).map(|x| x.0)
+    }
+
+    /// Obtain the input image given a socket resource along with its type
+    pub fn get_input_image_typed(&self, res: &Resource) -> Option<(&gpu::compute::Image<B>, ImageType)> {
         let sockets = self.0.get(&res.drop_fragment())?;
         let output_res = sockets.inputs.get(res.fragment()?)?;
         self.0
             .get(&output_res.drop_fragment())?
             .typed_outputs
             .get((&output_res).fragment()?)
-            .map(|x| &x.1)
+            .map(|x| (&x.1, x.2))
+    }
+
+    /// Obtain the input image given a socket resource
+    pub fn get_input_image(&self, res: &Resource) -> Option<&gpu::compute::Image<B>> {
+        self.get_input_image_typed(res).map(|x| x.0)
     }
 
     pub fn get_input_image_updated(&self, res: &Resource) -> Option<bool> {
@@ -218,7 +234,7 @@ where
                                 .gpu
                                 .create_compute_image(IMG_SIZE, *ty, op.external_data())
                                 .unwrap();
-                            self.sockets.add_output_socket(&socket_res, Some(img));
+                            self.sockets.add_output_socket(&socket_res, Some((img, *ty)));
                         } else {
                             self.sockets.add_output_socket(&socket_res, None);
                         }
@@ -245,7 +261,7 @@ where
                     if self.sockets.is_known_output(res) {
                         log::trace!("Adding monomorphized socket {}", res);
                         let img = self.gpu.create_compute_image(IMG_SIZE, *ty, false).unwrap();
-                        self.sockets.add_output_socket(res, Some(img));
+                        self.sockets.add_output_socket(res, Some((img, *ty)));
                     }
                 }
                 GraphEvent::SocketDemonomorphized(res) => {
@@ -406,12 +422,12 @@ where
         let mut images = HashMap::new();
 
         for s in &spec {
-            let image = self
+            let (image, ty) = self
                 .sockets
-                .get_input_image(&s.0)
-                .or(self.sockets.get_output_image(&s.0))
+                .get_input_image_typed(&s.0)
+                .or(self.sockets.get_output_image_typed(&s.0))
                 .ok_or(format!("Error loading image from resource {}", s.0))?;
-            let downloaded = convert_image(&self.gpu.download_image(image)?, ImageType::Rgb)?;
+            let downloaded = convert_image(&self.gpu.download_image(image)?, ty)?;
             images.insert(s.0.clone(), downloaded);
         }
 
@@ -437,12 +453,12 @@ where
         let mut images = HashMap::new();
 
         for s in &spec {
-            let image = self
+            let (image, ty) = self
                 .sockets
-                .get_input_image(&s.0)
-                .or(self.sockets.get_output_image(&s.0))
+                .get_input_image_typed(&s.0)
+                .or(self.sockets.get_output_image_typed(&s.0))
                 .ok_or(format!("Error loading image from resource {}", s.0))?;
-            let downloaded = convert_image(&self.gpu.download_image(image)?, ImageType::Rgb)?;
+            let downloaded = convert_image(&self.gpu.download_image(image)?, ty)?;
             images.insert(s.0.clone(), downloaded);
         }
 
@@ -464,13 +480,13 @@ where
         spec: ChannelSpec,
         path: P,
     ) -> Result<(), String> {
-        let image = self
+        let (image, ty) = self
             .sockets
-            .get_input_image(&spec.0)
-            .or(self.sockets.get_output_image(&spec.0))
+            .get_input_image_typed(&spec.0)
+            .or(self.sockets.get_output_image_typed(&spec.0))
             .ok_or(format!("Trying to export non-existent socket {}", spec.0))?;
 
-        let downloaded = convert_image(&self.gpu.download_image(image)?, ImageType::Rgb)?;
+        let downloaded = convert_image(&self.gpu.download_image(image)?, ty)?;
         let final_image = ImageBuffer::from_fn(IMG_SIZE, IMG_SIZE, |x, y| {
             Luma([downloaded.get_pixel(x, y)[spec.1.channel_index()]])
         });
@@ -588,6 +604,7 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec
         (x.clamp(0., 1.) * 65535.) as u16
     }
 
+    dbg!(raw.len());
     let converted: Vec<u16> = match ty {
         // Underlying memory is formatted as rgba16f
         ImageType::Rgb => unsafe {
@@ -609,12 +626,14 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec
         // Underlying memory is formatted as r32f, using this value for all channels
         ImageType::Grayscale => unsafe {
             #[allow(clippy::cast_ptr_alignment)]
+            dbg!("grayscale");
             let u16s: Vec<[u16; 4]> =
                 std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
                     .iter()
                     .map(|x| [to_16bit(*x); 4])
                     .collect();
-            std::slice::from_raw_parts(u16s.as_ptr() as *const u16, u16s.len() * 8).to_owned()
+            dbg!(u16s.len());
+            std::slice::from_raw_parts(u16s.as_ptr() as *const u16, u16s.len() * 4).to_owned()
         },
     };
 
