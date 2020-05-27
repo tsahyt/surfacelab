@@ -169,6 +169,11 @@ impl ExportRowPrivate {
             _ => None,
         }
     }
+
+    fn get_filename(&self) -> std::string::String {
+        self.name_entry.get_text().to_string()
+    }
+
 }
 
 impl ExportRow {
@@ -192,6 +197,11 @@ impl ExportRow {
     pub fn get_image_type(&self) -> Option<ExportImageType> {
         let imp = ExportRowPrivate::from_instance(self);
         imp.get_image_type()
+    }
+
+    pub fn get_filename(&self) -> std::string::String {
+        let imp = ExportRowPrivate::from_instance(self);
+        imp.get_filename()
     }
 }
 
@@ -279,7 +289,10 @@ impl ObjectImpl for ExportDialogPrivate {
         }));
 
         let export_button = gtk::ButtonBuilder::new().label("Export").build();
-        export_button.connect_clicked(clone!(@weak dialog, @strong list => move |_| {
+        export_button.connect_clicked(clone!(@weak dialog, @strong list, @strong directory_picker, @strong prefix_entry => move |_| {
+            let directory = directory_picker.get_filename().unwrap_or(PathBuf::from("/tmp/"));
+            let prefix = prefix_entry.get_text().to_string();
+
             for child in list.get_children().iter() {
                 let list_box_row = child.downcast_ref::<gtk::ListBoxRow>().unwrap().get_child().unwrap();
                 let export_row = list_box_row.downcast::<ExportRow>().unwrap();
@@ -288,6 +301,10 @@ impl ObjectImpl for ExportDialogPrivate {
                 let spec_g = export_row.get_channel(ImageChannel::G);
                 let spec_b = export_row.get_channel(ImageChannel::B);
                 let spec_a = export_row.get_channel(ImageChannel::A);
+
+                let filename = export_row.get_filename();
+                let mut path = directory.clone();
+                path.push(format!("{}_{}.png", prefix, filename));
 
                 match export_row.get_image_type() {
                     Some(ExportImageType::RGBA) => {
@@ -298,7 +315,7 @@ impl ObjectImpl for ExportDialogPrivate {
                                     spec_g.unwrap(),
                                     spec_b.unwrap(),
                                     spec_a.unwrap()]),
-                                PathBuf::from("/tmp/foo.png")
+                                path
                             )));
                     }
                     Some(ExportImageType::RGB) => {
@@ -308,7 +325,7 @@ impl ObjectImpl for ExportDialogPrivate {
                                     spec_r.unwrap(),
                                     spec_g.unwrap(),
                                     spec_b.unwrap()]),
-                                PathBuf::from("/tmp/foo.png")
+                                path
                             )));
                     }
                     Some(ExportImageType::Grayscale) => {
@@ -316,7 +333,7 @@ impl ObjectImpl for ExportDialogPrivate {
                             UserIOEvent::ExportImage(
                                 ExportSpec::Grayscale(
                                     spec_r.unwrap()),
-                                PathBuf::from("/tmp/foo.png")
+                                path
                             )));
                     }
                     None => {}

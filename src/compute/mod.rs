@@ -614,9 +614,11 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec
                     .iter()
                     .map(|x| [to_16bit(*x); 4])
                     .collect();
-            std::slice::from_raw_parts(u16s.as_ptr() as *const u16, u16s.len() * 4).to_owned()
+            std::slice::from_raw_parts(u16s.as_ptr() as *const u16, u16s.len() * 8).to_owned()
         },
     };
+
+    dbg!("converted len {}", converted.len());
 
     ImageBuffer::from_raw(IMG_SIZE, IMG_SIZE, converted)
         .ok_or("Error while creating image buffer".to_string())
