@@ -55,17 +55,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 .build();
             let open = gtk::Button::new_with_label("Open");
             open.connect_clicked(clone!(@weak window => move |_| {
-                let dialog = gtk::FileChooserDialog::with_buttons(
-                    Some("Open Surface"), Some(&window),
-                    gtk::FileChooserAction::Open,
-                    &[("_Cancel", gtk::ResponseType::Cancel),
-                      ("_Open", gtk::ResponseType::Accept)]);
-                if let gtk::ResponseType::Accept = dialog.run() {
-                    if let Some(path) = dialog.get_filename() {
-                        super::emit(Lang::UserIOEvent(UserIOEvent::OpenSurface(path)));
-                    }
-                }
-                dialog.hide();
+                Self::run_open_dialog(&window)
             }));
             let recent = gtk::MenuButtonBuilder::new()
                 .image(&gtk::Image::new_from_icon_name(
@@ -92,17 +82,7 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 .build();
             let save = gtk::Button::new_with_label("Save");
             save.connect_clicked(clone!(@weak window => move |_| {
-                let dialog = gtk::FileChooserDialog::with_buttons(
-                    Some("Save Surface"), Some(&window),
-                    gtk::FileChooserAction::Save,
-                    &[("_Cancel", gtk::ResponseType::Cancel),
-                      ("_Save", gtk::ResponseType::Accept)]);
-                if let gtk::ResponseType::Accept = dialog.run() {
-                    if let Some(path) = dialog.get_filename() {
-                        super::emit(Lang::UserIOEvent(UserIOEvent::OpenSurface(path)));
-                    }
-                }
-                dialog.hide();
+                Self::run_save_dialog(&window)
             }));
             let recent = gtk::MenuButtonBuilder::new()
                 .image(&gtk::Image::new_from_icon_name(
@@ -228,10 +208,38 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 }
 
 impl SurfaceLabWindowPrivate {
-    pub fn run_export_dialog(&self, exportable: &[(Resource, ImageType)]) {
+    fn run_export_dialog(&self, exportable: &[(Resource, ImageType)]) {
         let dialog = export::ExportDialog::new(exportable);
-        let response = dialog.run();
-        dialog.hide();
+        let _response = dialog.run();
+        dialog.close();
+    }
+
+    fn run_open_dialog(window: &gtk::ApplicationWindow) {
+        let dialog = gtk::FileChooserDialog::with_buttons(
+            Some("Open Surface"), Some(window),
+            gtk::FileChooserAction::Open,
+            &[("_Cancel", gtk::ResponseType::Cancel),
+                ("_Open", gtk::ResponseType::Accept)]);
+        if let gtk::ResponseType::Accept = dialog.run() {
+            if let Some(path) = dialog.get_filename() {
+                super::emit(Lang::UserIOEvent(UserIOEvent::OpenSurface(path)));
+            }
+        }
+        dialog.close();
+    }
+
+    fn run_save_dialog(window: &gtk::ApplicationWindow) {
+        let dialog = gtk::FileChooserDialog::with_buttons(
+            Some("Save Surface"), Some(window),
+            gtk::FileChooserAction::Save,
+            &[("_Cancel", gtk::ResponseType::Cancel),
+                ("_Save", gtk::ResponseType::Accept)]);
+        if let gtk::ResponseType::Accept = dialog.run() {
+            if let Some(path) = dialog.get_filename() {
+                super::emit(Lang::UserIOEvent(UserIOEvent::SaveSurface(path)));
+            }
+        }
+        dialog.close();
     }
 }
 

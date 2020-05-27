@@ -125,6 +125,12 @@ impl NodeManager {
                     exportable,
                 ))));
             }
+            Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
+                log::info!("Opening from {:?}", path);
+            }
+            Lang::UserIOEvent(UserIOEvent::SaveSurface(path)) => {
+                log::info!("Saving to {:?}", path);
+            }
             _ => {}
         }
 
