@@ -1,10 +1,14 @@
 use maplit::hashmap;
+use serde_big_array::*;
+use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
 use std::str::FromStr;
 use strum::VariantNames;
 use strum_macros::*;
 use zerocopy::AsBytes;
+
+big_array! { BigArray; }
 
 pub trait Parameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]);
@@ -13,7 +17,9 @@ pub trait Parameters {
 type ParameterBool = u32;
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString)]
+#[derive(
+    AsBytes, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString, Serialize, Deserialize,
+)]
 pub enum BlendMode {
     Mix,
     Multiply,
@@ -26,7 +32,7 @@ pub enum BlendMode {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct BlendParameters {
     blend_mode: BlendMode,
     mix: f32,
@@ -75,7 +81,7 @@ impl Parameters for BlendParameters {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct PerlinNoiseParameters {
     scale: f32,
     octaves: u32,
@@ -122,7 +128,7 @@ impl Parameters for PerlinNoiseParameters {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct RgbParameters {
     rgb: [f32; 3],
 }
@@ -160,7 +166,9 @@ impl Parameters for RgbParameters {
     }
 }
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString)]
+#[derive(
+    AsBytes, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString, Serialize, Deserialize,
+)]
 pub enum GrayscaleMode {
     Luminance,
     Average,
@@ -173,7 +181,7 @@ pub enum GrayscaleMode {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct GrayscaleParameters {
     mode: GrayscaleMode,
 }
@@ -206,8 +214,9 @@ impl Parameters for GrayscaleParameters {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy)]
+#[derive(AsBytes, Clone, Copy, Serialize, Deserialize)]
 pub struct RampParameters {
+    #[serde(with = "BigArray")]
     ramp_data: [[f32; 4]; 64],
     ramp_size: u32,
     ramp_min: f32,
@@ -289,7 +298,7 @@ impl Parameters for RampParameters {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct NormalMapParameters {
     strength: f32,
 }
@@ -317,7 +326,7 @@ impl Parameters for NormalMapParameters {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Operator {
     Blend(BlendParameters),
     PerlinNoise(PerlinNoiseParameters),
@@ -482,7 +491,7 @@ pub enum Instruction {
     Move(Resource, Resource),
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum ImageType {
     Grayscale,
     Rgb,
@@ -503,7 +512,9 @@ impl ImageType {
     }
 }
 
-#[derive(PartialEq, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString)]
+#[derive(
+    PartialEq, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString, Serialize, Deserialize,
+)]
 pub enum OutputType {
     Albedo,
     Roughness,
@@ -537,7 +548,7 @@ impl OperatorType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Resource {
     scheme: String,
     resource_path: PathBuf,

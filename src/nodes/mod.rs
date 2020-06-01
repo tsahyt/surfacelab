@@ -1,11 +1,14 @@
 use crate::{broker, lang};
 use petgraph::graph;
+use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
+use std::fs::File;
+use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Node {
     operator: lang::Operator,
     resource: lang::Resource,
@@ -126,10 +129,10 @@ impl NodeManager {
                 ))));
             }
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
-                log::info!("Opening from {:?}", path);
+                self.open_node_graph(path);
             }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(path)) => {
-                log::info!("Saving to {:?}", path);
+                self.save_node_graph(path);
             }
             _ => {}
         }
@@ -528,6 +531,23 @@ impl NodeManager {
         }
 
         result
+    }
+
+    fn save_node_graph<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<(), String> {
+        log::info!("Saving to {:?}", path);
+        let output_file = File::create(path).map_err(|_| "Failed to open output file")?;
+        serde_cbor::to_writer(output_file, &self.node_graph)
+            .map_err(|e| format!("Saving failed with {}", e))
+    }
+
+    fn open_node_graph<P: AsRef<Path> + std::fmt::Debug>(&mut self, path: P) -> Result<(), String> {
+        log::info!("Opening from {:?}", path);
+        let input_file =
+            File::open(path).map_err(|e| format!("Failed to open input file {}", e))?;
+        let node_graph: NodeGraph = serde_cbor::from_reader(input_file)
+            .map_err(|e| format!("Reading failed with {}", e))?;
+        self.node_graph = node_graph;
+        Ok(())
     }
 }
 

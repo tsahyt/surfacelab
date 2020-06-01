@@ -216,10 +216,14 @@ impl SurfaceLabWindowPrivate {
 
     fn run_open_dialog(window: &gtk::ApplicationWindow) {
         let dialog = gtk::FileChooserDialog::with_buttons(
-            Some("Open Surface"), Some(window),
+            Some("Open Surface"),
+            Some(window),
             gtk::FileChooserAction::Open,
-            &[("_Cancel", gtk::ResponseType::Cancel),
-                ("_Open", gtk::ResponseType::Accept)]);
+            &[
+                ("_Cancel", gtk::ResponseType::Cancel),
+                ("_Open", gtk::ResponseType::Accept),
+            ],
+        );
         if let gtk::ResponseType::Accept = dialog.run() {
             if let Some(path) = dialog.get_filename() {
                 super::emit(Lang::UserIOEvent(UserIOEvent::OpenSurface(path)));
@@ -230,10 +234,14 @@ impl SurfaceLabWindowPrivate {
 
     fn run_save_dialog(window: &gtk::ApplicationWindow) {
         let dialog = gtk::FileChooserDialog::with_buttons(
-            Some("Save Surface"), Some(window),
+            Some("Save Surface"),
+            Some(window),
             gtk::FileChooserAction::Save,
-            &[("_Cancel", gtk::ResponseType::Cancel),
-                ("_Save", gtk::ResponseType::Accept)]);
+            &[
+                ("_Cancel", gtk::ResponseType::Cancel),
+                ("_Save", gtk::ResponseType::Accept),
+            ],
+        );
         if let gtk::ResponseType::Accept = dialog.run() {
             if let Some(path) = dialog.get_filename() {
                 super::emit(Lang::UserIOEvent(UserIOEvent::SaveSurface(path)));
