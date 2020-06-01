@@ -129,10 +129,22 @@ impl NodeManager {
                 ))));
             }
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
-                self.open_node_graph(path);
+                match self.open_node_graph(path) {
+                    Ok(mut evs) => {
+                        response.push(Lang::GraphEvent(GraphEvent::Cleared));
+                        response.append(&mut evs);
+
+                        // Automatically recompute on load
+                        let instructions = self.recompute();
+                        response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
+                    }
+                    Err(e) => log::error!("{}", e),
+                }
             }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(path)) => {
-                self.save_node_graph(path);
+                if let Err(e) = self.save_node_graph(path) {
+                    log::error!("{}", e)
+                }
             }
             _ => {}
         }
@@ -540,14 +552,44 @@ impl NodeManager {
             .map_err(|e| format!("Saving failed with {}", e))
     }
 
-    fn open_node_graph<P: AsRef<Path> + std::fmt::Debug>(&mut self, path: P) -> Result<(), String> {
+    fn open_node_graph<P: AsRef<Path> + std::fmt::Debug>(&mut self, path: P) -> Result<Vec<lang::Lang>, String> {
         log::info!("Opening from {:?}", path);
         let input_file =
             File::open(path).map_err(|e| format!("Failed to open input file {}", e))?;
-        let node_graph: NodeGraph = serde_cbor::from_reader(input_file)
+        let opened_node_graph: NodeGraph = serde_cbor::from_reader(input_file)
             .map_err(|e| format!("Reading failed with {}", e))?;
-        self.node_graph = node_graph;
-        Ok(())
+
+        // Rebuilding internal structures
+        self.node_graph = opened_node_graph;
+        self.node_indices.clear();
+        self.outputs.clear();
+
+        for idx in self.node_graph.node_indices() {
+            let node = self.node_graph.node_weight(idx).unwrap();
+
+            self.node_indices.insert(node.resource.clone(), idx);
+            if let lang::Operator::Output{..} = node.operator {
+                self.outputs.insert(idx);
+            }
+        }
+
+        // Accumulate graph events detailing reconstruction
+        let mut events = Vec::new();
+
+        for idx in self.node_graph.node_indices() {
+            let node = self.node_graph.node_weight(idx).unwrap();
+            events.push(lang::Lang::GraphEvent(lang::GraphEvent::NodeAdded(node.resource.clone(), node.operator.clone())));
+        }
+
+        for idx in self.node_graph.edge_indices() {
+            let conn = self.node_graph.edge_weight(idx).unwrap();
+            let (source_idx, sink_idx) = self.node_graph.edge_endpoints(idx).unwrap();
+            events.push(lang::Lang::GraphEvent(lang::GraphEvent::ConnectedSockets(
+                self.node_graph.node_weight(source_idx).unwrap().resource.extend_fragment(&conn.0),
+                self.node_graph.node_weight(sink_idx).unwrap().resource.extend_fragment(&conn.1))));
+        }
+
+        Ok(events)
     }
 }
 

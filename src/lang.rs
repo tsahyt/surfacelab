@@ -657,6 +657,7 @@ pub enum GraphEvent {
     SocketMonomorphized(Resource, ImageType),
     SocketDemonomorphized(Resource),
     OutputRemoved(Resource, OutputType),
+    Cleared,
 }
 
 #[derive(Debug)]

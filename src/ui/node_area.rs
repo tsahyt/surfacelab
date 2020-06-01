@@ -219,6 +219,15 @@ impl NodeAreaPrivate {
             child.set_thumbnail(thumbnail);
         }
     }
+
+    fn clear(&self, container: &gtk::Container) {
+        for child in self.children.borrow_mut().drain() {
+            self.parent_remove(container, &child.1.upcast::<gtk::Widget>());
+        }
+
+        self.connections.borrow_mut().clear();
+    }
+
 }
 
 impl WidgetImpl for NodeAreaPrivate {
@@ -304,6 +313,8 @@ impl ContainerImpl for NodeAreaPrivate {
         self.parent_add(container, widget);
     }
 
+    /// Remove node from container. Note that this does try to acquire a mutable
+    /// reference of the child map!
     fn remove(&self, container: &gtk::Container, widget: &gtk::Widget) {
         use gtk::subclass::container::*;
 
@@ -353,12 +364,17 @@ impl NodeArea {
 
     pub fn remove_by_resource(&self, node: &Resource) {
         let imp = NodeAreaPrivate::from_instance(self);
-        imp.remove_by_resource(&self.clone().upcast::<gtk::Container>(), node);
+        imp.remove_by_resource(&self.upcast_ref::<gtk::Container>(), node);
     }
 
     pub fn update_thumbnail(&self, node: &Resource, thumbnail: &[u8]) {
         let imp = NodeAreaPrivate::from_instance(self);
         imp.update_thumbnail(node, thumbnail);
+    }
+
+    pub fn clear(&self) {
+        let imp = NodeAreaPrivate::from_instance(self);
+        imp.clear(&self.upcast_ref::<gtk::Container>());
     }
 }
 

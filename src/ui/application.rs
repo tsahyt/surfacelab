@@ -393,6 +393,9 @@ impl SurfaceLabApplication {
                     .node_area
                     .remove_connection(source.clone(), sink.clone());
             }
+            Lang::GraphEvent(GraphEvent::Cleared) => {
+                app_window.node_area.clear();
+            }
             Lang::ComputeEvent(ComputeEvent::ThumbnailGenerated(res, thumb)) => {
                 app_window.node_area.update_thumbnail(res, thumb);
             }
