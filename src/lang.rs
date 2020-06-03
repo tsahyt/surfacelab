@@ -656,7 +656,7 @@ pub enum UserNodeEvent {
 
 #[derive(Debug)]
 pub enum GraphEvent {
-    NodeAdded(Resource, Operator),
+    NodeAdded(Resource, Operator, Option<(i32, i32)>),
     NodeRemoved(Resource),
     ConnectedSockets(Resource, Resource),
     DisconnectedSockets(Resource, Resource),

@@ -233,6 +233,11 @@ impl NodeAreaPrivate {
 
         self.connections.borrow_mut().clear();
     }
+
+    fn add_at(&self, container: &gtk::Fixed, node: &Node, position: (i32, i32)) {
+        container.add(node);
+        container.move_(node, position.0, position.1);
+    }
 }
 
 impl WidgetImpl for NodeAreaPrivate {
@@ -353,6 +358,12 @@ impl NodeArea {
             .unwrap()
             .downcast()
             .unwrap()
+    }
+
+    pub fn add_at(&self, node: &Node, position: (i32, i32)) {
+        let imp = NodeAreaPrivate::from_instance(self);
+        let fixed = self.upcast_ref::<gtk::Fixed>();
+        imp.add_at(fixed, node, position)
     }
 
     pub fn add_connection(&self, source: Resource, sink: Resource) {

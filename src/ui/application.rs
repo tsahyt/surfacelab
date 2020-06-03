@@ -375,9 +375,9 @@ impl SurfaceLabApplication {
     pub fn process_event(&self, event: Arc<Lang>) {
         let app_window = self.get_app_window();
         match &*event {
-            Lang::GraphEvent(GraphEvent::NodeAdded(res, op)) => {
+            Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pos)) => {
                 let new_node = node::Node::new_from_operator(op.clone(), res.clone());
-                app_window.node_area.add(&new_node);
+                app_window.node_area.add_at(&new_node, pos.unwrap_or_default());
                 new_node.show_all();
             }
             Lang::GraphEvent(GraphEvent::NodeRemoved(res)) => {

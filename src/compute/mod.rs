@@ -234,7 +234,7 @@ where
         let mut response = Vec::new();
         match &*event {
             Lang::GraphEvent(event) => match event {
-                GraphEvent::NodeAdded(res, op) => {
+                GraphEvent::NodeAdded(res, op, _) => {
                     for (socket, imgtype) in op.inputs().iter().chain(op.outputs().iter()) {
                         let socket_res = res.extend_fragment(&socket);
 

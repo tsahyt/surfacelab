@@ -78,6 +78,7 @@ impl NodeManager {
                     response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
                         resource,
                         op.clone(),
+                        None,
                     )))
                 }
                 UserNodeEvent::RemoveNode(res) => match self.remove_node(res) {
@@ -595,6 +596,7 @@ impl NodeManager {
             events.push(lang::Lang::GraphEvent(lang::GraphEvent::NodeAdded(
                 node.resource.clone(),
                 node.operator.clone(),
+                Some(node.position)
             )));
         }
 
