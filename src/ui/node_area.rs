@@ -17,6 +17,7 @@ use std::rc::Rc;
 #[derive(Debug)]
 enum Action {
     DragChild(i32, i32),
+    DragConnection((i32, i32), (i32, i32)),
 }
 
 #[derive(Debug)]
@@ -29,7 +30,7 @@ struct Connection {
 pub struct NodeAreaPrivate {
     children: Rc<RefCell<HashMap<Resource, Node>>>,
     connections: RefCell<Vec<Connection>>,
-    action: Rc<RefCell<Option<Action>>>,
+    action: Rc<RefCell<Option<Action>>>, // TODO: should be a Cell instead of a RefCell
     popover_context: gtk::Popover,
     zoom: Rc<Cell<f64>>,
 }
@@ -247,6 +248,7 @@ impl WidgetImpl for NodeAreaPrivate {
         let scale_factor = self.zoom.get().exp();
         cr.scale(scale_factor, scale_factor);
 
+        // Draw the set connections
         for connection in self.connections.borrow().iter() {
             if !connection.source.get_visible() || !connection.sink.get_visible() {
                 continue;
@@ -263,6 +265,12 @@ impl WidgetImpl for NodeAreaPrivate {
                 (alloc.x as f64 + radius, alloc.y as f64 + radius)
             };
             Self::connecting_curve(cr, source, sink);
+            cr.stroke();
+        }
+
+        // Draw the in-progress connection if the user is dragging one
+        if let Some(Action::DragConnection((x0, y0), (x1, y1))) = *self.action.borrow() {
+            Self::connecting_curve(cr, (x0 as _, y0 as _), (x1 as _, y1 as _));
             cr.stroke();
         }
 
@@ -297,6 +305,29 @@ impl WidgetImpl for NodeAreaPrivate {
         }
 
         Inhibit(false)
+    }
+
+    fn drag_motion(
+        &self,
+        widget: &gtk::Widget,
+        context: &gdk::DragContext,
+        x: i32,
+        y: i32,
+        time: u32,
+    ) -> gtk::Inhibit {
+        if let Some(source) = context
+            .drag_get_source_widget()
+            .and_then(|x| x.downcast::<node_socket::NodeSocket>().ok())
+        {
+            self.action
+                .replace(Some(Action::DragConnection(source.get_center(), (x, y))));
+            widget.queue_draw();
+        }
+        Inhibit(false)
+    }
+
+    fn drag_leave(&self, widget: &gtk::Widget, context: &gdk::DragContext, time: u32) {
+        self.action.replace(None);
     }
 }
 

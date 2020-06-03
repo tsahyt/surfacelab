@@ -114,7 +114,6 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
         _info: u32,
         _time: u32,
     ) {
-        log::trace!("Drag data get at {:?}", &widget);
         let resource = self.socket_resource.borrow().clone();
         selection_data.set(
             &selection_data.get_target(),
@@ -138,6 +137,13 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
         widget
             .emit(SOCKET_CONNECTED, &[&Value::from(socket)])
             .unwrap();
+
+        // TODO: Become a drag source, for disconnects
+        // widget.drag_source_set(
+        //     gdk::ModifierType::BUTTON1_MASK,
+        //     &self.drop_types,
+        //     gdk::DragAction::COPY,
+        // );
     }
 
     fn drag_failed(
@@ -146,7 +152,6 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
         _context: &gdk::DragContext,
         result: gtk::DragResult,
     ) -> gtk::Inhibit {
-        log::trace!("Drag failed {:?}: {:?}", &widget, &result);
         Inhibit(true)
     }
 }
@@ -239,6 +244,12 @@ impl NodeSocket {
     pub fn get_radius(&self) -> f64 {
         let imp = NodeSocketPrivate::from_instance(self);
         imp.get_radius()
+    }
+
+    pub fn get_center(&self) -> (i32, i32) {
+        let alloc = self.get_allocation();
+        let rad = self.get_radius();
+        (alloc.x + rad as i32, alloc.y + rad as i32)
     }
 
     pub fn set_io(&self, io: NodeSocketIO) {
