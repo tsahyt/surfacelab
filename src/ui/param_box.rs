@@ -152,7 +152,6 @@ pub enum Control {
     RgbaColor {
         value: [f32; 4],
     },
-    // TODO: Convert actual enums to selected for use in param boxes
     Enum {
         selected: usize,
         variants: &'static [&'static str],
@@ -353,7 +352,7 @@ pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
         Operator::Blend(params) => blend(res, params),
         Operator::PerlinNoise(params) => perlin_noise(res, params),
         Operator::Rgb(params) => rgb(res, params),
-        Operator::Grayscale(..) => grayscale(res),
+        Operator::Grayscale(params) => grayscale(res, params),
         Operator::Ramp(params) => ramp(res, params),
         Operator::NormalMap(params) => normal_map(res, params),
         Operator::Image { path } => image(res, path.to_owned()),
@@ -372,7 +371,7 @@ pub fn blend(res: &Resource, params: &BlendParameters) -> ParamBox {
                     name: "Blend Mode",
                     field: BlendParameters::BLEND_MODE,
                     control: Control::Enum {
-                        selected: 0,
+                        selected: params.blend_mode as usize,
                         variants: BlendMode::VARIANTS,
                     },
                 },
@@ -461,7 +460,7 @@ pub fn output(res: &Resource, output_type: OutputType) -> ParamBox {
                 name: "Output Type",
                 field: "output_type",
                 control: Control::Enum {
-                    selected: 0,
+                    selected: output_type as usize,
                     variants: OutputType::VARIANTS,
                 },
             }],
@@ -486,7 +485,7 @@ pub fn image(res: &Resource, path: std::path::PathBuf) -> ParamBox {
     })
 }
 
-pub fn grayscale(res: &Resource) -> ParamBox {
+pub fn grayscale(res: &Resource, params: &GrayscaleParameters) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "Grayscale",
         resource: res.clone(),
@@ -496,7 +495,7 @@ pub fn grayscale(res: &Resource) -> ParamBox {
                 name: "Conversion Mode",
                 field: GrayscaleParameters::MODE,
                 control: Control::Enum {
-                    selected: 0,
+                    selected: params.mode as usize,
                     variants: GrayscaleMode::VARIANTS,
                 },
             }],
