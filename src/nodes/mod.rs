@@ -12,6 +12,7 @@ use std::thread;
 struct Node {
     operator: lang::Operator,
     resource: lang::Resource,
+    position: (i32, i32),
     type_variables: HashMap<lang::TypeVariable, lang::ImageType>,
 }
 
@@ -22,6 +23,7 @@ impl Node {
         Node {
             operator,
             resource,
+            position: (0, 0),
             type_variables: HashMap::new(),
         }
     }
@@ -120,6 +122,8 @@ impl NodeManager {
                     let instructions = self.recompute();
                     response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
                 }
+                UserNodeEvent::PositionNode(res, (x,y)) =>
+                    self.position_node(res, *x, *y)
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {
@@ -543,6 +547,14 @@ impl NodeManager {
         }
 
         result
+    }
+
+    /// Write the layout position of a node.
+    fn position_node(&mut self, resource: &lang::Resource, x: i32, y: i32) {
+        if let Some(node) = self.node_by_uri(resource) {
+            let nw = self.node_graph.node_weight_mut(node).unwrap();
+            nw.position = (x,y);
+        }
     }
 
     fn save_node_graph<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<(), String> {

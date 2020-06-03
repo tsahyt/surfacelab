@@ -130,7 +130,13 @@ impl NodeAreaPrivate {
             action.replace(Some(Action::DragChild(x as i32 - alloc.x, y as i32 - alloc.y)));
         }));
 
-        widget.connect_header_button_release_event(clone!(@strong action => move |_| {
+        widget.connect_header_button_release_event(clone!(@strong action => move |w| {
+            let alloc = w.get_allocation();
+
+            if let Some(resource) = w.downcast_ref::<Node>().unwrap().get_resource() {
+                super::emit(Lang::UserNodeEvent(UserNodeEvent::PositionNode(resource.to_owned(), (alloc.x, alloc.y))));
+            }
+
             action.replace(None);
         }));
 
