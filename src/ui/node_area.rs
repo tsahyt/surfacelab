@@ -233,7 +233,6 @@ impl NodeAreaPrivate {
 
         self.connections.borrow_mut().clear();
     }
-
 }
 
 impl WidgetImpl for NodeAreaPrivate {

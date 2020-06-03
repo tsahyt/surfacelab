@@ -316,7 +316,13 @@ impl ColorRamp {
             let imp = ColorRampPrivate::from_instance(&ramp);
             let mut imp_steps = imp.steps.borrow_mut();
 
-            *imp_steps = steps.iter().map(|x| Step { color: [x[0], x[1], x[2]], position: x[3] }).collect();
+            *imp_steps = steps
+                .iter()
+                .map(|x| Step {
+                    color: [x[0], x[1], x[2]],
+                    position: x[3],
+                })
+                .collect();
         }
         ramp
     }

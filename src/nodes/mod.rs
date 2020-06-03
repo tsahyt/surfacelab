@@ -122,8 +122,7 @@ impl NodeManager {
                     let instructions = self.recompute();
                     response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
                 }
-                UserNodeEvent::PositionNode(res, (x,y)) =>
-                    self.position_node(res, *x, *y)
+                UserNodeEvent::PositionNode(res, (x, y)) => self.position_node(res, *x, *y),
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {
@@ -553,7 +552,7 @@ impl NodeManager {
     fn position_node(&mut self, resource: &lang::Resource, x: i32, y: i32) {
         if let Some(node) = self.node_by_uri(resource) {
             let nw = self.node_graph.node_weight_mut(node).unwrap();
-            nw.position = (x,y);
+            nw.position = (x, y);
         }
     }
 
@@ -564,7 +563,10 @@ impl NodeManager {
             .map_err(|e| format!("Saving failed with {}", e))
     }
 
-    fn open_node_graph<P: AsRef<Path> + std::fmt::Debug>(&mut self, path: P) -> Result<Vec<lang::Lang>, String> {
+    fn open_node_graph<P: AsRef<Path> + std::fmt::Debug>(
+        &mut self,
+        path: P,
+    ) -> Result<Vec<lang::Lang>, String> {
         log::info!("Opening from {:?}", path);
         let input_file =
             File::open(path).map_err(|e| format!("Failed to open input file {}", e))?;
@@ -580,7 +582,7 @@ impl NodeManager {
             let node = self.node_graph.node_weight(idx).unwrap();
 
             self.node_indices.insert(node.resource.clone(), idx);
-            if let lang::Operator::Output{..} = node.operator {
+            if let lang::Operator::Output { .. } = node.operator {
                 self.outputs.insert(idx);
             }
         }
@@ -590,15 +592,27 @@ impl NodeManager {
 
         for idx in self.node_graph.node_indices() {
             let node = self.node_graph.node_weight(idx).unwrap();
-            events.push(lang::Lang::GraphEvent(lang::GraphEvent::NodeAdded(node.resource.clone(), node.operator.clone())));
+            events.push(lang::Lang::GraphEvent(lang::GraphEvent::NodeAdded(
+                node.resource.clone(),
+                node.operator.clone(),
+            )));
         }
 
         for idx in self.node_graph.edge_indices() {
             let conn = self.node_graph.edge_weight(idx).unwrap();
             let (source_idx, sink_idx) = self.node_graph.edge_endpoints(idx).unwrap();
             events.push(lang::Lang::GraphEvent(lang::GraphEvent::ConnectedSockets(
-                self.node_graph.node_weight(source_idx).unwrap().resource.extend_fragment(&conn.0),
-                self.node_graph.node_weight(sink_idx).unwrap().resource.extend_fragment(&conn.1))));
+                self.node_graph
+                    .node_weight(source_idx)
+                    .unwrap()
+                    .resource
+                    .extend_fragment(&conn.0),
+                self.node_graph
+                    .node_weight(sink_idx)
+                    .unwrap()
+                    .resource
+                    .extend_fragment(&conn.1),
+            )));
         }
 
         Ok(events)

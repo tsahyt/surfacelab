@@ -227,7 +227,9 @@ impl RampParameters {
     pub const RAMP: &'static str = "ramp";
 
     pub fn get_steps(&self) -> Vec<[f32; 4]> {
-        (0..self.ramp_size).map(|i| self.ramp_data[i as usize]).collect()
+        (0..self.ramp_size)
+            .map(|i| self.ramp_data[i as usize])
+            .collect()
     }
 }
 
