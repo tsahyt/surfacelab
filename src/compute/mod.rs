@@ -286,7 +286,6 @@ where
                 _ => {}
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
-            // TODO: recompute sockets when needed for export
             Lang::UserIOEvent(UserIOEvent::ExportImage(export, path)) => {
                 let res = match export {
                     ExportSpec::RGBA(rgba_spec) => self.export_to_rgba(rgba_spec.clone(), path),

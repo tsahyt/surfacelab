@@ -212,9 +212,7 @@ pub fn file_filters() -> Vec<gtk::FileFilter> {
     surf.set_name(Some("SurfaceLab Surface"));
     surf.add_pattern("*.surf");
 
-    vec![
-        surf
-    ]
+    vec![surf]
 }
 
 impl SurfaceLabWindowPrivate {
