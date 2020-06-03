@@ -384,6 +384,12 @@ impl ColorWheel {
             .unwrap()
     }
 
+    pub fn new_with_rgb(r: f64, g: f64, b: f64) -> Self {
+        let wheel = Self::new();
+        wheel.set_rgb(r, g, b);
+        wheel
+    }
+
     pub fn connect_color_picked<F: Fn(&Self, f64, f64, f64) + 'static>(
         &self,
         f: F,

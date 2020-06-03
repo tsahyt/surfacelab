@@ -34,9 +34,9 @@ pub enum BlendMode {
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct BlendParameters {
-    blend_mode: BlendMode,
-    mix: f32,
-    clamp_output: ParameterBool,
+    pub blend_mode: BlendMode,
+    pub mix: f32,
+    pub clamp_output: ParameterBool,
 }
 
 impl Default for BlendParameters {
@@ -83,9 +83,9 @@ impl Parameters for BlendParameters {
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct PerlinNoiseParameters {
-    scale: f32,
-    octaves: u32,
-    attenuation: f32,
+    pub scale: f32,
+    pub octaves: u32,
+    pub attenuation: f32,
 }
 
 impl Default for PerlinNoiseParameters {
@@ -130,7 +130,7 @@ impl Parameters for PerlinNoiseParameters {
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct RgbParameters {
-    rgb: [f32; 3],
+    pub rgb: [f32; 3],
 }
 
 impl Default for RgbParameters {
@@ -183,7 +183,7 @@ pub enum GrayscaleMode {
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct GrayscaleParameters {
-    mode: GrayscaleMode,
+    pub mode: GrayscaleMode,
 }
 
 impl Default for GrayscaleParameters {
@@ -225,6 +225,10 @@ pub struct RampParameters {
 
 impl RampParameters {
     pub const RAMP: &'static str = "ramp";
+
+    pub fn get_steps(&self) -> Vec<[f32; 4]> {
+        (0..self.ramp_size).map(|i| self.ramp_data[i as usize]).collect()
+    }
 }
 
 impl std::fmt::Debug for RampParameters {
@@ -300,7 +304,7 @@ impl Parameters for RampParameters {
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct NormalMapParameters {
-    strength: f32,
+    pub strength: f32,
 }
 
 impl Default for NormalMapParameters {

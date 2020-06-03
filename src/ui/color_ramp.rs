@@ -310,6 +310,17 @@ impl ColorRamp {
             .unwrap()
     }
 
+    pub fn new_with_steps(steps: &[[f32; 4]]) -> Self {
+        let ramp = Self::new();
+        {
+            let imp = ColorRampPrivate::from_instance(&ramp);
+            let mut imp_steps = imp.steps.borrow_mut();
+
+            *imp_steps = steps.iter().map(|x| Step { color: [x[0], x[1], x[2]], position: x[3] }).collect();
+        }
+        ramp
+    }
+
     pub fn get_ramp(&self) -> Vec<[f32; 4]> {
         let imp = ColorRampPrivate::from_instance(self);
         imp.steps
