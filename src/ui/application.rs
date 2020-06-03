@@ -207,6 +207,16 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
     }
 }
 
+pub fn file_filters() -> Vec<gtk::FileFilter> {
+    let surf = gtk::FileFilter::new();
+    surf.set_name(Some("SurfaceLab Surface"));
+    surf.add_pattern("*.surf");
+
+    vec![
+        surf
+    ]
+}
+
 impl SurfaceLabWindowPrivate {
     fn run_export_dialog(&self, exportable: &[(Resource, ImageType)]) {
         let dialog = export::ExportDialog::new(exportable);
@@ -224,6 +234,10 @@ impl SurfaceLabWindowPrivate {
                 ("_Open", gtk::ResponseType::Accept),
             ],
         );
+        for f in file_filters() {
+            dialog.add_filter(&f);
+        }
+
         if let gtk::ResponseType::Accept = dialog.run() {
             if let Some(path) = dialog.get_filename() {
                 super::emit(Lang::UserIOEvent(UserIOEvent::OpenSurface(path)));
@@ -242,6 +256,10 @@ impl SurfaceLabWindowPrivate {
                 ("_Save", gtk::ResponseType::Accept),
             ],
         );
+        for f in file_filters() {
+            dialog.add_filter(&f);
+        }
+
         if let gtk::ResponseType::Accept = dialog.run() {
             if let Some(path) = dialog.get_filename() {
                 super::emit(Lang::UserIOEvent(UserIOEvent::SaveSurface(path)));
