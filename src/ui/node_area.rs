@@ -14,7 +14,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 enum Action {
     DragChild(i32, i32),
     DragConnection((i32, i32), (i32, i32)),
@@ -30,7 +30,7 @@ struct Connection {
 pub struct NodeAreaPrivate {
     children: Rc<RefCell<HashMap<Resource, Node>>>,
     connections: RefCell<Vec<Connection>>,
-    action: Rc<RefCell<Option<Action>>>, // TODO: should be a Cell instead of a RefCell
+    action: Rc<Cell<Option<Action>>>,
     popover_context: gtk::Popover,
     zoom: Rc<Cell<f64>>,
 }
@@ -72,7 +72,7 @@ impl ObjectSubclass for NodeAreaPrivate {
         Self {
             children: Rc::new(RefCell::new(HashMap::new())),
             connections: RefCell::new(Vec::new()),
-            action: Rc::new(RefCell::new(None)),
+            action: Rc::new(Cell::new(None)),
             popover_context: gtk::PopoverBuilder::new()
                 .modal(true)
                 .position(gtk::PositionType::Bottom)
@@ -143,7 +143,7 @@ impl NodeAreaPrivate {
 
         widget.connect_motion_notify_event(
             clone!(@strong action, @strong widget_u, @strong container => move |w, motion| {
-                if let Some(Action::DragChild(offset_x, offset_y)) = action.borrow().as_ref() {
+                if let Some(Action::DragChild(offset_x, offset_y)) = action.get() {
                     let pos = motion.get_root();
 
                     let new_x = (pos.0 as i32 - offset_x).snap(32);
@@ -269,7 +269,7 @@ impl WidgetImpl for NodeAreaPrivate {
         }
 
         // Draw the in-progress connection if the user is dragging one
-        if let Some(Action::DragConnection((x0, y0), (x1, y1))) = *self.action.borrow() {
+        if let Some(Action::DragConnection((x0, y0), (x1, y1))) = self.action.get() {
             Self::connecting_curve(cr, (x0 as _, y0 as _), (x1 as _, y1 as _));
             cr.stroke();
         }
