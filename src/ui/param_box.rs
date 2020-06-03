@@ -240,6 +240,8 @@ impl Control {
         adjustment.set_value(value as _);
         let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
         scale.set_size_request(Self::SLIDER_WIDTH, 0);
+        scale.set_digits(0);
+        scale.set_round_digits(0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
