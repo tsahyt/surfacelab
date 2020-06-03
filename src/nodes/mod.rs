@@ -596,7 +596,7 @@ impl NodeManager {
             events.push(lang::Lang::GraphEvent(lang::GraphEvent::NodeAdded(
                 node.resource.clone(),
                 node.operator.clone(),
-                Some(node.position)
+                Some(node.position),
             )));
         }
 

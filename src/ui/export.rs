@@ -204,6 +204,12 @@ impl ExportRow {
     }
 }
 
+impl Default for ExportRow {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct ExportDialogPrivate {
     exportable: gtk::ListStore,
 }
@@ -289,7 +295,7 @@ impl ObjectImpl for ExportDialogPrivate {
 
         let export_button = gtk::ButtonBuilder::new().label("Export").build();
         export_button.connect_clicked(clone!(@weak dialog, @strong list, @strong directory_picker, @strong prefix_entry => move |_| {
-            let directory = directory_picker.get_filename().unwrap_or(PathBuf::from("/tmp/"));
+            let directory = directory_picker.get_filename().unwrap_or_else(|| PathBuf::from("/tmp/"));
             let prefix = prefix_entry.get_text().to_string();
 
             for child in list.get_children().iter() {
@@ -379,7 +385,7 @@ impl ExportDialogPrivate {
                     self.exportable.insert_with_values(
                         None,
                         &[0],
-                        &[&format!("{}", &socket.to_string()[5..])],
+                        &[&socket.to_string()[5..].to_string()],
                     );
                 }
             }

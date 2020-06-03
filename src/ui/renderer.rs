@@ -198,6 +198,12 @@ impl Renderer3DView {
     }
 }
 
+impl Default for Renderer3DView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct Renderer2DViewPrivate {
     event_area: RenderEvents,
 }
@@ -315,5 +321,11 @@ impl Renderer2DView {
             .unwrap()
             .downcast()
             .unwrap()
+    }
+}
+
+impl Default for Renderer2DView {
+    fn default() -> Self {
+        Self::new()
     }
 }

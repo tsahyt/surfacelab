@@ -377,7 +377,9 @@ impl SurfaceLabApplication {
         match &*event {
             Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pos)) => {
                 let new_node = node::Node::new_from_operator(op.clone(), res.clone());
-                app_window.node_area.add_at(&new_node, pos.unwrap_or_default());
+                app_window
+                    .node_area
+                    .add_at(&new_node, pos.unwrap_or_default());
                 new_node.show_all();
             }
             Lang::GraphEvent(GraphEvent::NodeRemoved(res)) => {
