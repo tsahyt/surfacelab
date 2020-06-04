@@ -7,10 +7,10 @@ use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::convert::TryFrom;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NodeSocketIO {
     Source,
     Sink(Option<NodeSocket>),
@@ -18,8 +18,8 @@ pub enum NodeSocketIO {
 }
 
 pub struct NodeSocketPrivate {
-    rgba: RefCell<(f64, f64, f64, f64)>,
-    radius: RefCell<f64>,
+    rgba: Cell<(f64, f64, f64, f64)>,
+    radius: Cell<f64>,
     io: RefCell<NodeSocketIO>,
     drop_types: Vec<gtk::TargetEntry>,
     socket_resource: RefCell<lang::Resource>,
@@ -56,7 +56,7 @@ impl ObjectSubclass for NodeSocketPrivate {
         class.add_signal(
             SOCKET_DRAG_START,
             glib::SignalFlags::empty(),
-            &[],
+            &[glib::types::Type::BaseObject],
             glib::types::Type::Unit,
         );
         class.add_signal(
@@ -71,8 +71,8 @@ impl ObjectSubclass for NodeSocketPrivate {
     // a new instance of our type with its basic values.
     fn new() -> Self {
         Self {
-            rgba: RefCell::new((0.53, 0.71, 0.3, 1.)),
-            radius: RefCell::new(8.0),
+            rgba: Cell::new((0.53, 0.71, 0.3, 1.)),
+            radius: Cell::new(8.0),
             io: RefCell::new(NodeSocketIO::Disable),
             drop_types: vec![gtk::TargetEntry::new(
                 "node-socket",
@@ -101,18 +101,18 @@ impl ObjectImpl for NodeSocketPrivate {
 
 impl WidgetImpl for NodeSocketPrivate {
     fn get_preferred_width(&self, _widget: &gtk::Widget) -> (i32, i32) {
-        let s = *self.radius.borrow() as i32 * 2;
+        let s = self.radius.get() as i32 * 2;
         (s, s)
     }
 
     fn get_preferred_height(&self, _widget: &gtk::Widget) -> (i32, i32) {
-        let s = *self.radius.borrow() as i32 * 2;
+        let s = self.radius.get() as i32 * 2;
         (s, s)
     }
 
     fn draw(&self, _widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
-        let r = *self.radius.borrow();
-        let (red, green, blue, alpha) = *self.rgba.borrow();
+        let r = self.radius.get();
+        let (red, green, blue, alpha) = self.rgba.get();
 
         cr.set_source_rgba(red, green, blue, alpha);
         cr.arc(r, r, r, 0.0, std::f64::consts::TAU);
@@ -122,7 +122,17 @@ impl WidgetImpl for NodeSocketPrivate {
     }
 
     fn drag_begin(&self, widget: &gtk::Widget, _context: &gdk::DragContext) {
-        widget.emit(SOCKET_DRAG_START, &[]).unwrap();
+        match &*self.io.borrow() {
+            NodeSocketIO::Source => {
+                widget
+                    .emit(SOCKET_DRAG_START, &[widget.upcast_ref::<Object>()])
+                    .unwrap();
+            }
+            NodeSocketIO::Sink(Some(w)) => {
+                widget.emit(SOCKET_DRAG_START, &[w.upcast_ref::<Object>()]).unwrap();
+            }
+            _ => {}
+        }
     }
 
     fn drag_data_get(
@@ -145,7 +155,7 @@ impl WidgetImpl for NodeSocketPrivate {
     fn drag_data_received(
         &self,
         widget: &gtk::Widget,
-        _context: &gdk::DragContext,
+        context: &gdk::DragContext,
         _x: i32,
         _y: i32,
         selection_data: &gtk::SelectionData,
@@ -158,12 +168,21 @@ impl WidgetImpl for NodeSocketPrivate {
             .emit(SOCKET_CONNECTED, &[&Value::from(socket)])
             .unwrap();
 
-        // TODO: Become a drag source, for disconnects
-        widget.drag_source_set(
-            gdk::ModifierType::BUTTON1_MASK,
-            &self.drop_types,
-            gdk::DragAction::COPY,
-        );
+        let mut io = self.io.borrow_mut();
+        if let NodeSocketIO::Sink(_) = *io {
+            *io = NodeSocketIO::Sink(Some(
+                context
+                    .drag_get_source_widget()
+                    .expect("Missing source widget of drag")
+                    .downcast()
+                    .expect("Source widget is not a node socket"),
+            ));
+            widget.drag_source_set(
+                gdk::ModifierType::BUTTON1_MASK,
+                &self.drop_types,
+                gdk::DragAction::COPY,
+            );
+        }
     }
 
     fn drag_failed(
@@ -183,7 +202,7 @@ impl NodeSocketPrivate {
     }
 
     fn get_rgba(&self) -> (f64, f64, f64, f64) {
-        *self.rgba.borrow()
+        self.rgba.get()
     }
 
     fn set_radius(&self, radius: f64) {
@@ -191,7 +210,7 @@ impl NodeSocketPrivate {
     }
 
     fn get_radius(&self) -> f64 {
-        *self.radius.borrow()
+        self.radius.get()
     }
 
     fn set_io(&self, widget: &gtk::Widget, io: NodeSocketIO) {
@@ -312,7 +331,7 @@ impl NodeSocket {
         .unwrap()
     }
 
-    pub fn connect_socket_drag_start<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    pub fn connect_socket_drag_start<F: Fn(&Self, &Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_local(SOCKET_DRAG_START, true, move |w| {
             let node_socket = w[0]
                 .clone()
@@ -320,7 +339,8 @@ impl NodeSocket {
                 .unwrap()
                 .get()
                 .unwrap();
-            f(&node_socket);
+            let other_socket = w[1].clone().downcast::<Object>().unwrap().get().unwrap();
+            f(&node_socket, &other_socket.downcast::<NodeSocket>().unwrap());
 
             None
         })

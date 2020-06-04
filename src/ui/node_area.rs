@@ -142,16 +142,16 @@ impl NodeAreaPrivate {
             action.replace(None);
         }));
 
-        widget.connect_socket_drag_start(
-            clone!(@strong self.action as action => move |_, x, y| {
+        widget.connect_socket_drag_start(clone!(@strong self.action as action => move |_, x, y| {
                 action.replace(Some(Action::DragConnection((x,y), (x,y))));
         }));
 
         widget.connect_socket_drag_stop(
             clone!(@strong self.action as action, @weak container => move |_| {
-                action.replace(None);
-                container.queue_draw();
-        }));
+                    action.replace(None);
+                    container.queue_draw();
+            }),
+        );
 
         widget.connect_motion_notify_event(
             clone!(@strong action, @strong widget_u, @strong container => move |w, motion| {
@@ -328,7 +328,7 @@ impl WidgetImpl for NodeAreaPrivate {
         _time: u32,
     ) -> gtk::Inhibit {
         if let Some(Action::DragConnection(start, _)) = self.action.get() {
-            self.action.set(Some(Action::DragConnection(start, (x,y))));
+            self.action.set(Some(Action::DragConnection(start, (x, y))));
             widget.queue_draw();
         }
         Inhibit(false)

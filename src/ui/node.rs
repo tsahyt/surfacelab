@@ -221,8 +221,8 @@ impl NodePrivate {
             )));
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(from, to)))
         });
-        node_socket.connect_socket_drag_start(clone!(@strong node => move |w| {
-            let (x,y) = w.get_center();
+        node_socket.connect_socket_drag_start(clone!(@strong node => move |_, other| {
+            let (x,y) = other.get_center();
             node.emit(SOCKET_DRAG_START, &[&x, &y]).unwrap();
         }));
         node_socket.connect_socket_drag_stop(clone!(@strong node => move |_| {
