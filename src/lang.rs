@@ -648,7 +648,7 @@ pub enum UserNodeEvent {
     NewNode(Operator),
     RemoveNode(Resource),
     ConnectSockets(Resource, Resource),
-    DisconnectSockets(Resource, Resource),
+    DisconnectSinkSocket(Resource),
     ParameterChange(Resource, &'static str, Vec<u8>),
     PositionNode(Resource, (i32, i32)),
     ForceRecompute,

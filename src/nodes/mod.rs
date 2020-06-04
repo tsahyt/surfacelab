@@ -110,9 +110,13 @@ impl NodeManager {
                     }
                     Err(e) => log::error!("{}", e),
                 },
-                UserNodeEvent::DisconnectSockets(from, to) => self
-                    .disconnect_sockets(from, to)
-                    .unwrap_or_else(|e| log::error!("{}", e)),
+                UserNodeEvent::DisconnectSinkSocket(sink) => {
+                    match self.disconnect_sink_socket(sink) {
+                        Ok(Some(r)) => response.push(r),
+                        Ok(None) => {},
+                        Err(e) => log::error!("Error while disconnecting sink {}", e),
+                    }
+                }
                 UserNodeEvent::ParameterChange(res, field, data) => {
                     self.parameter_change(res, field, data)
                         .unwrap_or_else(|e| log::error!("{}", e));
@@ -280,7 +284,8 @@ impl NodeManager {
         Ok((output_type, es))
     }
 
-    /// Connect two sockets in the node graph.
+    /// Connect two sockets in the node graph. If there is already a connection
+    /// on the sink, it will be replaced!
     ///
     /// **Errors** and aborts if either of the two Resources does not exist!
     fn connect_sockets(
@@ -304,6 +309,9 @@ impl NodeManager {
             .fragment()
             .ok_or("Missing socket specification")?
             .to_string();
+
+        // TODO: Disconnect anything that's connected to the sink socket
+        //
 
         // Handle type checking/inference
         let from_type = self.socket_type(from).unwrap();
@@ -349,58 +357,41 @@ impl NodeManager {
         Ok(response)
     }
 
-    /// Disconnect two sockets in the node graph. If the two nodes are not
-    /// connected, the graph remains the same.
-    ///
-    /// **Errors** and aborts if either of the two URIs does not exist!
-    fn disconnect_sockets(
+    /// Disconnect all (1) inputs from a sink socket.
+    fn disconnect_sink_socket(
         &mut self,
-        from: &lang::Resource,
-        to: &lang::Resource,
-    ) -> Result<(), String> {
+        sink: &lang::Resource,
+    ) -> Result<Option<lang::Lang>, String> {
         use petgraph::visit::EdgeRef;
 
-        let from_path = self
-            .node_by_uri(&from)
-            .ok_or(format!("Node for URI {} not found!", &from))?;
-        let from_socket = from
+        let sink_path = self
+            .node_by_uri(&sink)
+            .ok_or(format!("Sink for URI {} not found", &sink))?;
+        let sink_socket = sink
             .fragment()
-            .ok_or("Missing socket specification")?
-            .to_string();
-        let to_path = self
-            .node_by_uri(&to)
-            .ok_or(format!("Node for URI {} not found!", &to))?;
-        let to_socket = to
-            .fragment()
-            .ok_or("Missing socket specification")?
+            .ok_or("Missing sink socket specification")?
             .to_string();
 
-        log::trace!(
-            "Disconnecting {:?} with {:?} from socket {:?} to socket {:?}",
-            from_path,
-            to_path,
-            from_socket,
-            to_socket,
-        );
+        let source = self
+            .node_graph
+            .edges_directed(sink_path, petgraph::Direction::Incoming)
+            .filter(|e| e.weight().1 == sink_socket)
+            .map(|e| {
+                (self.node_graph
+                    .node_weight(e.source())
+                    .unwrap()
+                    .resource
+                    .extend_fragment(&e.weight().0), e.id())
+            })
+            .next();
 
-        let mut to_delete: Vec<graph::EdgeIndex> = vec![];
-
-        // Accumulate edges to be deleted first. This should only be one.
-        for e in self.node_graph.edges_connecting(from_path, to_path) {
-            if e.weight().0 == from_socket && e.weight().1 == to_socket {
-                to_delete.push(e.id());
-            }
+        for s in &source {
+            self.node_graph.remove_edge(s.1);
         }
 
-        // Ensure no double edges existed
-        debug_assert_eq!(to_delete.len(), 1);
-
-        // Delete accumulated edges
-        for id in to_delete {
-            self.node_graph.remove_edge(id);
-        }
-
-        Ok(())
+        Ok(source.map(|s| {
+            lang::Lang::GraphEvent(lang::GraphEvent::DisconnectedSockets(s.0, sink.clone()))
+        }))
     }
 
     fn node_by_uri(&self, resource: &lang::Resource) -> Option<graph::NodeIndex> {

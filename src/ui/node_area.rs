@@ -135,7 +135,8 @@ impl NodeAreaPrivate {
             let alloc = w.get_allocation();
 
             if let Some(resource) = w.downcast_ref::<Node>().unwrap().get_resource() {
-                super::emit(Lang::UserNodeEvent(UserNodeEvent::PositionNode(resource.to_owned(), (alloc.x, alloc.y))));
+                super::emit(Lang::UserNodeEvent(
+                    UserNodeEvent::PositionNode(resource.to_owned(), (alloc.x, alloc.y))));
             }
 
             action.replace(None);

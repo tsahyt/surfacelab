@@ -202,6 +202,7 @@ impl NodePrivate {
         node_socket.set_io(io);
         node_socket.set_socket_resource(resource);
         node_socket.connect_socket_connected(|_, to, from| {
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(to.clone())));
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(from, to)))
         });
         node.add(&node_socket);
