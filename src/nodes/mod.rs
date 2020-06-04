@@ -113,7 +113,7 @@ impl NodeManager {
                 UserNodeEvent::DisconnectSinkSocket(sink) => {
                     match self.disconnect_sink_socket(sink) {
                         Ok(Some(r)) => response.push(r),
-                        Ok(None) => {},
+                        Ok(None) => {}
                         Err(e) => log::error!("Error while disconnecting sink {}", e),
                     }
                 }
@@ -310,8 +310,24 @@ impl NodeManager {
             .ok_or("Missing socket specification")?
             .to_string();
 
-        // TODO: Disconnect anything that's connected to the sink socket
-        //
+        // Check that from is a source and to is a sink
+        if !(self
+            .node_graph
+            .node_weight(from_path)
+            .unwrap()
+            .operator
+            .outputs()
+            .contains_key(&from_socket)
+            && self
+                .node_graph
+                .node_weight(to_path)
+                .unwrap()
+                .operator
+                .inputs()
+                .contains_key(&to_socket))
+        {
+            return Err("Tried to connect from a sink to a source".into());
+        }
 
         // Handle type checking/inference
         let from_type = self.socket_type(from).unwrap();
@@ -377,11 +393,14 @@ impl NodeManager {
             .edges_directed(sink_path, petgraph::Direction::Incoming)
             .filter(|e| e.weight().1 == sink_socket)
             .map(|e| {
-                (self.node_graph
-                    .node_weight(e.source())
-                    .unwrap()
-                    .resource
-                    .extend_fragment(&e.weight().0), e.id())
+                (
+                    self.node_graph
+                        .node_weight(e.source())
+                        .unwrap()
+                        .resource
+                        .extend_fragment(&e.weight().0),
+                    e.id(),
+                )
             })
             .next();
 

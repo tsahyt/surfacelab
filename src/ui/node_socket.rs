@@ -139,11 +139,11 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
             .unwrap();
 
         // TODO: Become a drag source, for disconnects
-        // widget.drag_source_set(
-        //     gdk::ModifierType::BUTTON1_MASK,
-        //     &self.drop_types,
-        //     gdk::DragAction::COPY,
-        // );
+        widget.drag_source_set(
+            gdk::ModifierType::BUTTON1_MASK,
+            &self.drop_types,
+            gdk::DragAction::COPY,
+        );
     }
 
     fn drag_failed(
