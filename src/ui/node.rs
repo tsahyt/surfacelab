@@ -29,6 +29,8 @@ const MARGIN: i32 = 8;
 pub const HEADER_BUTTON_PRESS: &str = "header-button-press";
 pub const HEADER_BUTTON_RELEASE: &str = "header-button-release";
 pub const CLOSE_CLICKED: &str = "close-clicked";
+pub const SOCKET_DRAG_START: &str = "socket-drag-start";
+pub const SOCKET_DRAG_STOP: &str = "socket-drag-stop";
 
 // ObjectSubclass is the trait that defines the new type and
 // contains all information needed by the GObject type system,
@@ -61,6 +63,18 @@ impl ObjectSubclass for NodePrivate {
         );
         class.add_signal(
             CLOSE_CLICKED,
+            glib::SignalFlags::empty(),
+            &[],
+            glib::types::Type::Unit,
+        );
+        class.add_signal(
+            SOCKET_DRAG_START,
+            glib::SignalFlags::empty(),
+            &[glib::types::Type::I32, glib::types::Type::I32],
+            glib::types::Type::Unit,
+        );
+        class.add_signal(
+            SOCKET_DRAG_STOP,
             glib::SignalFlags::empty(),
             &[],
             glib::types::Type::Unit,
@@ -193,7 +207,7 @@ impl NodePrivate {
                 node_socket.set_rgba(0.3, 0.2, 0.5, 1.0);
                 node_socket.set_halign(gtk::Align::End);
             }
-            NodeSocketIO::Sink => {
+            NodeSocketIO::Sink(_) => {
                 node_socket.set_rgba(0.3, 0.7, 0.3, 1.0);
                 node_socket.set_halign(gtk::Align::Start);
             }
@@ -207,6 +221,13 @@ impl NodePrivate {
             )));
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(from, to)))
         });
+        node_socket.connect_socket_drag_start(clone!(@strong node => move |w| {
+            let (x,y) = w.get_center();
+            node.emit(SOCKET_DRAG_START, &[&x, &y]).unwrap();
+        }));
+        node_socket.connect_socket_drag_stop(clone!(@strong node => move |_| {
+            node.emit(SOCKET_DRAG_STOP, &[]).unwrap();
+        }));
         node.add(&node_socket);
         self.sockets.borrow_mut().push(node_socket);
     }
@@ -259,7 +280,7 @@ impl Node {
 
         for (input, _) in op.inputs().iter() {
             let res = resource.extend_fragment(input);
-            node.add_socket(res, NodeSocketIO::Sink);
+            node.add_socket(res, NodeSocketIO::Sink(None));
         }
 
         for (output, _) in op.outputs().iter() {
@@ -299,6 +320,29 @@ impl Node {
             let x: f64 = w[1].get_some().unwrap();
             let y: f64 = w[2].get_some().unwrap();
             f(&node, x, y);
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn connect_socket_drag_start<F: Fn(&Self, i32, i32) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_local(SOCKET_DRAG_START, true, move |w| {
+            let node = w[0].downcast_ref::<Node>().unwrap().get().unwrap();
+            let x: i32 = w[1].get_some().unwrap();
+            let y: i32 = w[2].get_some().unwrap();
+            f(&node, x, y);
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn connect_socket_drag_stop<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_local(SOCKET_DRAG_STOP, true, move |w| {
+            let node = w[0].downcast_ref::<Node>().unwrap().get().unwrap();
+            f(&node);
             None
         })
         .unwrap()

@@ -6,13 +6,14 @@ use glib::subclass::prelude::*;
 use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
+use gtk::subclass::prelude::*;
 use std::cell::RefCell;
 use std::convert::TryFrom;
 
 #[derive(Debug)]
 pub enum NodeSocketIO {
     Source,
-    Sink,
+    Sink(Option<NodeSocket>),
     Disable,
 }
 
@@ -26,6 +27,8 @@ pub struct NodeSocketPrivate {
 
 // Signals
 pub const SOCKET_CONNECTED: &str = "socket-connected";
+pub const SOCKET_DRAG_START: &str = "socket-drag-start";
+pub const SOCKET_DRAG_STOP: &str = "socket-drag-stop";
 
 // ObjectSubclass is the trait that defines the new type and
 // contains all information needed by the GObject type system,
@@ -50,6 +53,18 @@ impl ObjectSubclass for NodeSocketPrivate {
             &[glib::types::Type::String],
             glib::types::Type::Unit,
         );
+        class.add_signal(
+            SOCKET_DRAG_START,
+            glib::SignalFlags::empty(),
+            &[],
+            glib::types::Type::Unit,
+        );
+        class.add_signal(
+            SOCKET_DRAG_STOP,
+            glib::SignalFlags::empty(),
+            &[],
+            glib::types::Type::Unit,
+        );
     }
 
     // Called every time a new instance is created. This should return
@@ -69,11 +84,11 @@ impl ObjectSubclass for NodeSocketPrivate {
     }
 }
 
-impl gtk::subclass::container::ContainerImpl for NodeSocketPrivate {}
+impl ContainerImpl for NodeSocketPrivate {}
 
-impl gtk::subclass::bin::BinImpl for NodeSocketPrivate {}
+impl BinImpl for NodeSocketPrivate {}
 
-impl gtk::subclass::event_box::EventBoxImpl for NodeSocketPrivate {}
+impl EventBoxImpl for NodeSocketPrivate {}
 
 impl ObjectImpl for NodeSocketPrivate {
     glib_object_impl!();
@@ -84,7 +99,7 @@ impl ObjectImpl for NodeSocketPrivate {
     }
 }
 
-impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
+impl WidgetImpl for NodeSocketPrivate {
     fn get_preferred_width(&self, _widget: &gtk::Widget) -> (i32, i32) {
         let s = *self.radius.borrow() as i32 * 2;
         (s, s)
@@ -106,6 +121,10 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
         Inhibit(false)
     }
 
+    fn drag_begin(&self, widget: &gtk::Widget, _context: &gdk::DragContext) {
+        widget.emit(SOCKET_DRAG_START, &[]).unwrap();
+    }
+
     fn drag_data_get(
         &self,
         widget: &gtk::Widget,
@@ -120,6 +139,7 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
             8,
             resource.to_string().as_ref(),
         );
+        widget.emit(SOCKET_DRAG_STOP, &[]).unwrap();
     }
 
     fn drag_data_received(
@@ -150,8 +170,9 @@ impl gtk::subclass::widget::WidgetImpl for NodeSocketPrivate {
         &self,
         widget: &gtk::Widget,
         _context: &gdk::DragContext,
-        result: gtk::DragResult,
+        _result: gtk::DragResult,
     ) -> gtk::Inhibit {
+        widget.emit(SOCKET_DRAG_STOP, &[]).unwrap();
         Inhibit(true)
     }
 }
@@ -182,7 +203,7 @@ impl NodeSocketPrivate {
                     gdk::DragAction::COPY,
                 );
             }
-            NodeSocketIO::Sink => {
+            NodeSocketIO::Sink(_) => {
                 widget.drag_dest_set(
                     gtk::DestDefaults::ALL,
                     &self.drop_types,
@@ -286,6 +307,36 @@ impl NodeSocket {
             .unwrap();
 
             f(&node_socket, local_resource.clone(), foreign_resource);
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn connect_socket_drag_start<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_local(SOCKET_DRAG_START, true, move |w| {
+            let node_socket = w[0]
+                .clone()
+                .downcast::<NodeSocket>()
+                .unwrap()
+                .get()
+                .unwrap();
+            f(&node_socket);
+
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn connect_socket_drag_stop<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_local(SOCKET_DRAG_STOP, true, move |w| {
+            let node_socket = w[0]
+                .clone()
+                .downcast::<NodeSocket>()
+                .unwrap()
+                .get()
+                .unwrap();
+            f(&node_socket);
+
             None
         })
         .unwrap()

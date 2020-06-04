@@ -142,6 +142,17 @@ impl NodeAreaPrivate {
             action.replace(None);
         }));
 
+        widget.connect_socket_drag_start(
+            clone!(@strong self.action as action => move |_, x, y| {
+                action.replace(Some(Action::DragConnection((x,y), (x,y))));
+        }));
+
+        widget.connect_socket_drag_stop(
+            clone!(@strong self.action as action, @weak container => move |_| {
+                action.replace(None);
+                container.queue_draw();
+        }));
+
         widget.connect_motion_notify_event(
             clone!(@strong action, @strong widget_u, @strong container => move |w, motion| {
                 if let Some(Action::DragChild(offset_x, offset_y)) = action.get() {
@@ -311,24 +322,16 @@ impl WidgetImpl for NodeAreaPrivate {
     fn drag_motion(
         &self,
         widget: &gtk::Widget,
-        context: &gdk::DragContext,
+        _context: &gdk::DragContext,
         x: i32,
         y: i32,
-        time: u32,
+        _time: u32,
     ) -> gtk::Inhibit {
-        if let Some(source) = context
-            .drag_get_source_widget()
-            .and_then(|x| x.downcast::<node_socket::NodeSocket>().ok())
-        {
-            self.action
-                .replace(Some(Action::DragConnection(source.get_center(), (x, y))));
+        if let Some(Action::DragConnection(start, _)) = self.action.get() {
+            self.action.set(Some(Action::DragConnection(start, (x,y))));
             widget.queue_draw();
         }
         Inhibit(false)
-    }
-
-    fn drag_leave(&self, widget: &gtk::Widget, context: &gdk::DragContext, time: u32) {
-        self.action.replace(None);
     }
 }
 
