@@ -21,6 +21,8 @@ layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
 #define MODE_OVERLAY 5
 #define MODE_DARKEN 6
 #define MODE_LIGHTEN 7
+#define MODE_SMOOTH_DARKEN 8
+#define MODE_SMOOTH_LIGHTEN 9
 
 float overlay_f(float a, float b) {
     if (a < 0.5) {
@@ -32,6 +34,16 @@ float overlay_f(float a, float b) {
 
 vec4 overlay(vec4 a, vec4 b) {
     return vec4(overlay_f(a.r, b.r), overlay_f(a.g, b.g), overlay_f(a.b, b.b), overlay_f(a.a, b.a));
+}
+
+vec4 smin(vec4 a, vec4 b, float k)
+{
+    return -(log(exp(k*-a)+exp(k*-b))/k);
+}
+
+vec4 smax(vec4 a, vec4 b, float k)
+{
+    return log(exp(k*a)+exp(k*b))/k;
 }
 
 void main() {
@@ -59,6 +71,10 @@ void main() {
         res = mix(col1, min(col1, col2), mix_factor);
     else if (mode == MODE_LIGHTEN)
         res = mix(col1, max(col1, col2), mix_factor);
+    else if (mode == MODE_SMOOTH_DARKEN)
+        res = mix(col1, smin(col1, col2, 16), mix_factor);
+    else if (mode == MODE_SMOOTH_LIGHTEN)
+        res = mix(col1, smax(col1, col2, 16), mix_factor);
 
     if (clamp_output != 0) {
         res = clamp(res, 0., 1.);

@@ -29,6 +29,8 @@ pub enum BlendMode {
     Overlay,
     Darken,
     Lighten,
+    SmoothDarken,
+    SmoothLighten,
 }
 
 #[repr(C)]
