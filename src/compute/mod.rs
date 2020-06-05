@@ -623,10 +623,16 @@ where
     }
 }
 
-/// Converts an image from the GPU into a standardized rgba16 image.
+/// Converts an image from the GPU into a standardized rgba16 image. If the
+/// input image type is Rgb, a reverse gamma curve will be applied such that the
+/// output image matches what is displayed in the renderers.
 fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec<u16>>, String> {
     fn to_16bit(x: f32) -> u16 {
         (x.clamp(0., 1.) * 65535.) as u16
+    }
+
+    fn to_16bit_gamma(x: f32) -> u16 {
+        (x.powf(1.0 / 2.2).clamp(0., 1.) * 65535.) as u16
     }
 
     let converted: Vec<u16> = match ty {
@@ -638,9 +644,9 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec
                     .chunks(4)
                     .map(|chunk| {
                         [
-                            to_16bit(chunk[0].to_f32()),
-                            to_16bit(chunk[1].to_f32()),
-                            to_16bit(chunk[2].to_f32()),
+                            to_16bit_gamma(chunk[0].to_f32()),
+                            to_16bit_gamma(chunk[1].to_f32()),
+                            to_16bit_gamma(chunk[2].to_f32()),
                             to_16bit(chunk[3].to_f32()),
                         ]
                     })

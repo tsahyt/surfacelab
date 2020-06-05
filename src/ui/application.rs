@@ -190,8 +190,10 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
             inner_paned.pack1(&view_3d, true, true);
             inner_paned.pack2(&view_2d, true, true);
+            inner_paned.set_position(640);
             outer_paned.pack1(&node_area, true, true);
             outer_paned.pack2(&inner_paned, true, true);
+            outer_paned.set_position(720);
 
             outer_paned
         };

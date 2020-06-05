@@ -334,6 +334,7 @@ impl NodeManager {
         let to_type = self.socket_type(to).unwrap();
         match (from_type, to_type) {
             (lang::OperatorType::Polymorphic(..), lang::OperatorType::Polymorphic(..)) => {
+                // TODO: polymorphism over multiple arcs
                 return Err("Unable to connect polymorphic socket to polymorphic socket".into())
             }
             (lang::OperatorType::Monomorphic(ty1), lang::OperatorType::Monomorphic(ty2)) => {
