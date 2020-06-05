@@ -2,6 +2,7 @@ use crate::{broker, gpu, lang::*};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use strum::IntoEnumIterator;
 
 pub fn start_render_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
@@ -16,6 +17,7 @@ pub fn start_render_thread<B: gpu::Backend>(
         for event in receiver {
             match &*event {
                 Lang::UserIOEvent(UserIOEvent::Quit) => break,
+                Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => render_manager.reset_all(),
                 Lang::UIEvent(UIEvent::RendererAdded(id, h, width, height, ty)) => render_manager
                     .new_renderer(*id, h, *width, *height, *ty)
                     .unwrap(),
@@ -27,8 +29,8 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::ComputeEvent(ComputeEvent::OutputReady(res, img, layout, access, out_ty)) => {
                     render_manager.transfer_output(res, img, *layout, *access, *out_ty)
                 }
-                Lang::GraphEvent(GraphEvent::OutputRemoved(res, out_ty)) => {
-                    render_manager.disconnect_output(res, *out_ty)
+                Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
+                    render_manager.disconnect_output(*out_ty)
                 }
                 Lang::UserRenderEvent(UserRenderEvent::Rotate(id, theta, phi)) => {
                     render_manager.rotate_camera(*id, *theta, *phi)
@@ -94,6 +96,13 @@ where
         }
     }
 
+    pub fn reset_all(&mut self) {
+        for output in OutputType::iter() {
+            self.disconnect_output(output);
+        }
+        self.redraw_all();
+    }
+
     pub fn redraw(&mut self, renderer_id: u64) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.render()
@@ -124,7 +133,7 @@ where
         }
     }
 
-    pub fn disconnect_output(&mut self, _res: &Resource, output_type: OutputType) {
+    pub fn disconnect_output(&mut self, output_type: OutputType) {
         for r in self.renderers.values_mut() {
             r.vacate_image(output_type);
         }
