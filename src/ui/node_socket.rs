@@ -27,6 +27,7 @@ pub struct NodeSocketPrivate {
 
 // Signals
 pub const SOCKET_CONNECTED: &str = "socket-connected";
+pub const SOCKET_DISCONNECTED: &str = "socket-disconnected";
 pub const SOCKET_DRAG_START: &str = "socket-drag-start";
 pub const SOCKET_DRAG_STOP: &str = "socket-drag-stop";
 
@@ -51,6 +52,12 @@ impl ObjectSubclass for NodeSocketPrivate {
             SOCKET_CONNECTED,
             glib::SignalFlags::empty(),
             &[glib::types::Type::String],
+            glib::types::Type::Unit,
+        );
+        class.add_signal(
+            SOCKET_DISCONNECTED,
+            glib::SignalFlags::empty(),
+            &[],
             glib::types::Type::Unit,
         );
         class.add_signal(
@@ -129,7 +136,10 @@ impl WidgetImpl for NodeSocketPrivate {
                     .unwrap();
             }
             NodeSocketIO::Sink(Some(w)) => {
-                widget.emit(SOCKET_DRAG_START, &[w.upcast_ref::<Object>()]).unwrap();
+                widget.emit(SOCKET_DISCONNECTED, &[]).unwrap();
+                widget
+                    .emit(SOCKET_DRAG_START, &[w.upcast_ref::<Object>()])
+                    .unwrap();
             }
             _ => {}
         }
@@ -143,13 +153,33 @@ impl WidgetImpl for NodeSocketPrivate {
         _info: u32,
         _time: u32,
     ) {
-        let resource = self.socket_resource.borrow().clone();
-        selection_data.set(
-            &selection_data.get_target(),
-            8,
-            resource.to_string().as_ref(),
-        );
+        let mut clear_sink = false;
+
+        match &*self.io.borrow() {
+            NodeSocketIO::Source => {
+                let resource = self.socket_resource.borrow().clone();
+                selection_data.set(
+                    &selection_data.get_target(),
+                    8,
+                    resource.to_string().as_ref(),
+                );
+            }
+            NodeSocketIO::Sink(Some(source)) => {
+                let resource = source.get_socket_resource();
+                selection_data.set(
+                    &selection_data.get_target(),
+                    8,
+                    resource.to_string().as_ref(),
+                );
+                clear_sink = true;
+            }
+            _ => {
+                log::error!("Received drag get event at disabled socket or unoccupied sink socket!")
+            }
+        }
         widget.emit(SOCKET_DRAG_STOP, &[]).unwrap();
+
+        if clear_sink { self.io.replace(NodeSocketIO::Sink(None)); }
     }
 
     fn drag_data_received(
@@ -167,22 +197,6 @@ impl WidgetImpl for NodeSocketPrivate {
         widget
             .emit(SOCKET_CONNECTED, &[&Value::from(socket)])
             .unwrap();
-
-        let mut io = self.io.borrow_mut();
-        if let NodeSocketIO::Sink(_) = *io {
-            *io = NodeSocketIO::Sink(Some(
-                context
-                    .drag_get_source_widget()
-                    .expect("Missing source widget of drag")
-                    .downcast()
-                    .expect("Source widget is not a node socket"),
-            ));
-            widget.drag_source_set(
-                gdk::ModifierType::BUTTON1_MASK,
-                &self.drop_types,
-                gdk::DragAction::COPY,
-            );
-        }
     }
 
     fn drag_failed(
@@ -222,9 +236,16 @@ impl NodeSocketPrivate {
                     gdk::DragAction::COPY,
                 );
             }
-            NodeSocketIO::Sink(_) => {
+            NodeSocketIO::Sink(None) => {
                 widget.drag_dest_set(
                     gtk::DestDefaults::ALL,
+                    &self.drop_types,
+                    gdk::DragAction::COPY,
+                );
+            }
+            NodeSocketIO::Sink(_) => {
+                widget.drag_source_set(
+                    gdk::ModifierType::BUTTON1_MASK,
                     &self.drop_types,
                     gdk::DragAction::COPY,
                 );
@@ -331,7 +352,30 @@ impl NodeSocket {
         .unwrap()
     }
 
-    pub fn connect_socket_drag_start<F: Fn(&Self, &Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    pub fn connect_socket_disconnected<F: Fn(&Self, lang::Resource) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        let local_resource = self.get_socket_resource();
+
+        self.connect_local(SOCKET_DISCONNECTED, true, move |w| {
+            let node_socket = w[0]
+                .clone()
+                .downcast::<NodeSocket>()
+                .unwrap()
+                .get()
+                .unwrap();
+
+            f(&node_socket, local_resource.clone());
+            None
+        })
+        .unwrap()
+    }
+
+    pub fn connect_socket_drag_start<F: Fn(&Self, &Self) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
         self.connect_local(SOCKET_DRAG_START, true, move |w| {
             let node_socket = w[0]
                 .clone()
@@ -340,7 +384,10 @@ impl NodeSocket {
                 .get()
                 .unwrap();
             let other_socket = w[1].clone().downcast::<Object>().unwrap().get().unwrap();
-            f(&node_socket, &other_socket.downcast::<NodeSocket>().unwrap());
+            f(
+                &node_socket,
+                &other_socket.downcast::<NodeSocket>().unwrap(),
+            );
 
             None
         })

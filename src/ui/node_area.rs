@@ -190,6 +190,8 @@ impl NodeAreaPrivate {
             .get(&sink.drop_fragment())?
             .get_socket(&sink)?;
 
+        sink_socket.set_io(node_socket::NodeSocketIO::Sink(Some(source_socket.clone())));
+
         self.connections.borrow_mut().push(Connection {
             source: source_socket,
             sink: sink_socket,

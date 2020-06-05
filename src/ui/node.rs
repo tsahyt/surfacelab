@@ -221,6 +221,11 @@ impl NodePrivate {
             )));
             super::emit(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(from, to)))
         });
+        node_socket.connect_socket_disconnected(|_, to| {
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
+                to.clone(),
+            )));
+        });
         node_socket.connect_socket_drag_start(clone!(@strong node => move |_, other| {
             let (x,y) = other.get_center();
             node.emit(SOCKET_DRAG_START, &[&x, &y]).unwrap();
