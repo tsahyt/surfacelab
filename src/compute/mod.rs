@@ -77,6 +77,10 @@ where
         Sockets(HashMap::new())
     }
 
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
     /// Remove all sockets for the given node.
     ///
     /// The resource *must* point to a node!
@@ -286,6 +290,7 @@ where
                 _ => {}
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
+            Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset(),
             Lang::UserIOEvent(UserIOEvent::ExportImage(export, path)) => {
                 let res = match export {
                     ExportSpec::RGBA(rgba_spec) => self.export_to_rgba(rgba_spec.clone(), path),
@@ -302,6 +307,12 @@ where
         }
 
         Some(response)
+    }
+
+    pub fn reset(&mut self) {
+        self.sockets.clear();
+        self.external_images.clear();
+        self.last_known.clear();
     }
 
     fn interpret(&mut self, instr: &Instruction) -> Result<Vec<ComputeEvent>, String> {
