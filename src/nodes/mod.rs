@@ -627,6 +627,25 @@ impl NodeManager {
             )));
         }
 
+        // Create monomorphization events for all known type variables
+        for idx in self.node_graph.node_indices() {
+            let node = self.node_graph.node_weight(idx).unwrap();
+            for tvar in node.type_variables.iter() {
+                for res in node
+                    .operator
+                    .inputs()
+                    .iter()
+                    .chain(node.operator.outputs().iter())
+                    .filter(|(_, t)| **t == lang::OperatorType::Polymorphic(*tvar.0))
+                    .map(|x| node.resource.extend_fragment(x.0))
+                {
+                    events.push(lang::Lang::GraphEvent(
+                        lang::GraphEvent::SocketMonomorphized(res, *tvar.1),
+                    ));
+                }
+            }
+        }
+
         Ok(events)
     }
 }

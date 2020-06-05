@@ -179,7 +179,9 @@ impl WidgetImpl for NodeSocketPrivate {
         }
         widget.emit(SOCKET_DRAG_STOP, &[]).unwrap();
 
-        if clear_sink { self.io.replace(NodeSocketIO::Sink(None)); }
+        if clear_sink {
+            self.io.replace(NodeSocketIO::Sink(None));
+        }
     }
 
     fn drag_data_received(
