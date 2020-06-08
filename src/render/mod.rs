@@ -18,6 +18,7 @@ pub fn start_render_thread<B: gpu::Backend>(
             match &*event {
                 Lang::UserIOEvent(UserIOEvent::Quit) => break,
                 Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => render_manager.reset_all(),
+                Lang::UserIOEvent(UserIOEvent::NewSurface) => render_manager.reset_all(),
                 Lang::UIEvent(UIEvent::RendererAdded(id, h, width, height, ty)) => render_manager
                     .new_renderer(*id, h, *width, *height, *ty)
                     .unwrap(),

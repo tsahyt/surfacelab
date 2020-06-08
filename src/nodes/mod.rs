@@ -154,10 +154,20 @@ impl NodeManager {
                     log::error!("{}", e)
                 }
             }
+            Lang::UserIOEvent(UserIOEvent::NewSurface) => {
+                self.reset();
+                response.push(Lang::GraphEvent(GraphEvent::Cleared));
+            }
             _ => {}
         }
 
         Some(response)
+    }
+
+    fn reset(&mut self) {
+        self.outputs.clear();
+        self.node_indices.clear();
+        self.node_graph.clear();
     }
 
     fn parameter_change(

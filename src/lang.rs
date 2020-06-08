@@ -693,6 +693,7 @@ pub enum UserIOEvent {
     RequestExport(Option<Vec<(Resource, ImageType)>>),
     OpenSurface(PathBuf),
     SaveSurface(PathBuf),
+    NewSurface,
     Quit,
 }
 

@@ -67,14 +67,16 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
             btn_box.add(&recent);
             btn_box
         });
-        self.header_bar.pack_start(
-            &gtk::ButtonBuilder::new()
+        self.header_bar.pack_start(&{
+            let new_button = gtk::ButtonBuilder::new()
                 .image(&gtk::Image::new_from_icon_name(
                     Some("document-new-symbolic"),
                     gtk::IconSize::Menu,
                 ))
-                .build(),
-        );
+                .build();
+            new_button.connect_clicked(|_| super::emit(Lang::UserIOEvent(UserIOEvent::NewSurface)));
+            new_button
+        });
         self.header_bar.pack_start(&{
             let btn_box = gtk::ButtonBoxBuilder::new()
                 .layout_style(gtk::ButtonBoxStyle::Expand)

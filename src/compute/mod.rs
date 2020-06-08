@@ -291,6 +291,7 @@ where
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset(),
+            Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset(),
             Lang::UserIOEvent(UserIOEvent::ExportImage(export, path)) => {
                 let res = match export {
                     ExportSpec::RGBA(rgba_spec) => self.export_to_rgba(rgba_spec.clone(), path),
