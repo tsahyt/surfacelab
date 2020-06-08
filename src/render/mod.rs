@@ -175,6 +175,7 @@ where
                 RenderChannel::Albedo => 1,
                 RenderChannel::Normal => 2,
                 RenderChannel::Roughness => 3,
+                RenderChannel::Metallic => 4
             });
         }
     }

@@ -741,6 +741,7 @@ pub enum RenderChannel {
     Albedo,
     Normal,
     Roughness,
+    Metallic,
 }
 
 #[derive(Debug, Display, Clone, Copy)]

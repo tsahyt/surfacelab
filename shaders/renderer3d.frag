@@ -23,6 +23,7 @@ layout(set = 0, binding = 3) uniform texture2D t_Displ;
 layout(set = 0, binding = 4) uniform texture2D t_Albedo;
 layout(set = 0, binding = 5) uniform texture2D t_Normal;
 layout(set = 0, binding = 6) uniform texture2D t_Roughness;
+layout(set = 0, binding = 7) uniform texture2D t_Metallic;
 
 const float PI = 3.141592654;
 
@@ -99,6 +100,15 @@ float roughness(vec2 p, float lod) {
         return r;
     } else {
         return 0.5;
+    }
+}
+
+float metallic(vec2 p, float lod) {
+    if(has_metallic != 0) {
+        float r = textureLod(sampler2D(t_Metallic, s_Texture), p / TEX_SCALE, lod).x;
+        return r;
+    } else {
+        return 0.;
     }
 }
 
@@ -238,10 +248,9 @@ float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 
 vec3 light(vec3 p, vec3 n, vec3 rd, float d, vec3 lightColor, vec3 lightPos, float intensity, float w, out float sitr) {
     rd *= -1;
-    //lightPos.xz += vec2(sin(u_Time), cos(u_Time));
 
     vec3 albedo = albedo(p.xz, lod_by_distance(d));
-    float metallic = 0.;
+    float metallic = metallic(p.xz, lod_by_distance(d));
     float roughness = roughness(p.xz, lod_by_distance(d));
 
     vec3 F0 = vec3(0.04);

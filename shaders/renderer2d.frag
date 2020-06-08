@@ -21,11 +21,13 @@ layout(set = 0, binding = 3) uniform texture2D t_Displ;
 layout(set = 0, binding = 4) uniform texture2D t_Albedo;
 layout(set = 0, binding = 5) uniform texture2D t_Normal;
 layout(set = 0, binding = 6) uniform texture2D t_Roughness;
+layout(set = 0, binding = 7) uniform texture2D t_Metallic;
 
 #define CHANNEL_DISPLACEMENT 0
 #define CHANNEL_ALBEDO 1
 #define CHANNEL_NORMAL 2
 #define CHANNEL_ROUGHNESS 3
+#define CHANNEL_METALLIC 4
 
 #define TEX_SCALE 1.0
 #define TEX_GRID 0.01
@@ -43,6 +45,8 @@ void main() {
         col = texture(sampler2D(t_Normal, s_Texture), uv).rgb;
     } else if (channel == CHANNEL_ROUGHNESS && has_roughness != 0) {
         col = vec3(pow(texture(sampler2D(t_Roughness, s_Texture), uv).r, 2.2));
+    } else if (channel == CHANNEL_METALLIC && has_metallic != 0) {
+        col = vec3(pow(texture(sampler2D(t_Metallic, s_Texture), uv).r, 2.2));
     } else {
         col = vec3(0.,0.,0.);
     }

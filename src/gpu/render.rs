@@ -380,6 +380,17 @@ where
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 7,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
                 ],
                 &[],
             )
@@ -826,6 +837,15 @@ where
                             hal::image::Layout::ShaderReadOnlyOptimal,
                         )),
                     },
+                    DescriptorSetWrite {
+                        set: &self.main_descriptor_set,
+                        binding: 7,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Image(
+                            &*self.image_slots.metallic.view,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
                 ])
             }
 
@@ -876,6 +896,16 @@ where
                                     hal::image::Layout::ShaderReadOnlyOptimal,
                                 ),
                             target: &*self.image_slots.roughness.image,
+                            families: None,
+                            range: super::COLOR_RANGE.clone(),
+                        },
+                        hal::memory::Barrier::Image {
+                            states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                                ..(
+                                    hal::image::Access::SHADER_READ,
+                                    hal::image::Layout::ShaderReadOnlyOptimal,
+                                ),
+                            target: &*self.image_slots.metallic.image,
                             families: None,
                             range: super::COLOR_RANGE.clone(),
                         },

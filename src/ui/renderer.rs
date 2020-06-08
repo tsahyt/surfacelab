@@ -286,11 +286,23 @@ impl ObjectImpl for Renderer2DViewPrivate {
                 RenderChannel::Roughness,
             )))
         });
+        let metallic_btn = gtk::RadioButtonBuilder::new()
+            .label("M")
+            .draw_indicator(false)
+            .build();
+        metallic_btn.join_group(Some(&displacement_btn));
+        metallic_btn.connect_toggled(move |_| {
+            super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
+                renderer_id,
+                RenderChannel::Metallic,
+            )))
+        });
 
         channel_box.add(&displacement_btn);
         channel_box.add(&albedo_btn);
         channel_box.add(&normal_btn);
         channel_box.add(&roughness_btn);
+        channel_box.add(&metallic_btn);
         toolbox.pack_end(&channel_box, false, false, 8);
 
         box_.pack_start(&toolbox, false, true, 0);
