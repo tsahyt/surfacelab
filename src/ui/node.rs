@@ -12,13 +12,12 @@ use gtk::subclass::prelude::*;
 
 use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
-use std::rc::Rc;
 
 pub struct NodePrivate {
     sockets: RefCell<Vec<NodeSocket>>,
     header_label: gtk::Label,
     resource: OnceCell<Resource>,
-    popover: Rc<gtk::Popover>,
+    popover: gtk::Popover,
     thumbnail: gtk::Image,
 }
 
@@ -88,7 +87,7 @@ impl ObjectSubclass for NodePrivate {
             sockets: RefCell::new(Vec::new()),
             header_label: gtk::Label::new(Some("Node")),
             resource: OnceCell::new(),
-            popover: Rc::new(gtk::Popover::new::<gtk::Widget>(None)),
+            popover: gtk::Popover::new::<gtk::Widget>(None),
             thumbnail: gtk::Image::new(),
         }
     }
