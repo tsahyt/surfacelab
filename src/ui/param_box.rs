@@ -182,6 +182,7 @@ pub enum Control {
     Toggle {
         def: bool,
     },
+    Entry,
 }
 
 impl Control {
@@ -209,7 +210,15 @@ impl Control {
             Self::File { selected } => Self::construct_file(selected, resource, transmitter),
             Self::Ramp { steps } => Self::construct_ramp(steps, resource, transmitter),
             Self::Toggle { def } => Self::construct_toggle(*def, resource, transmitter),
+            Self::Entry => Self::construct_entry(resource, transmitter),
         }
+    }
+
+    fn construct_entry<T: 'static + Transmitter>(
+        resource: &Resource,
+        transmitter: T,
+    ) -> gtk::Widget {
+        gtk::Entry::new().upcast()
     }
 
     fn construct_toggle<T: 'static + Transmitter>(
@@ -366,6 +375,28 @@ pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
         Operator::Image { path } => image(res, path.to_owned()),
         Operator::Output { output_type } => output(res, *output_type),
     }
+}
+
+pub fn node_attributes(res: &Resource) -> ParamBox {
+    ParamBox::new(&ParamBoxDescription {
+        box_title: "Node Attributes",
+        resource: res.clone(),
+        categories: &[ParamCategory {
+            name: "Node",
+            parameters: &[
+                Parameter {
+                    name: "Node Resource",
+                    transmitter: Field(""),
+                    control: Control::Entry,
+                },
+                Parameter {
+                    name: "Node Description",
+                    transmitter: Field(""),
+                    control: Control::Entry,
+                },
+            ],
+        }],
+    })
 }
 
 pub fn blend(res: &Resource, params: &BlendParameters) -> ParamBox {
