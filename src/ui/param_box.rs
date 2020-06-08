@@ -51,7 +51,7 @@ impl ContainerImpl for ParamBoxPrivate {}
 impl BinImpl for ParamBoxPrivate {}
 
 impl ParamBoxPrivate {
-    fn construct(&self, description: &ParamBoxDescription) {
+    fn construct<T: 'static + Transmitter + Copy>(&self, description: &ParamBoxDescription<T>) {
         // size groups
         let param_label_group = gtk::SizeGroup::new(gtk::SizeGroupMode::Horizontal);
         let param_control_group = gtk::SizeGroup::new(gtk::SizeGroupMode::Horizontal);
@@ -74,7 +74,7 @@ impl ParamBoxPrivate {
                 param_label_group.add_widget(&param_label);
                 let param_control = parameter
                     .control
-                    .construct(&description.resource, parameter.field);
+                    .construct(&description.resource, parameter.transmitter);
                 param_control_group.add_widget(&param_control);
 
                 param_layout.pack_start(&param_label, false, false, 4);
@@ -99,7 +99,7 @@ glib_wrapper! {
 }
 
 impl ParamBox {
-    pub fn new(description: &ParamBoxDescription) -> Self {
+    pub fn new<T: 'static + Transmitter + Copy>(description: &ParamBoxDescription<T>) -> Self {
         let pbox = glib::Object::new(Self::static_type(), &[])
             .unwrap()
             .downcast()
@@ -110,7 +110,7 @@ impl ParamBox {
     }
 
     pub fn empty() -> Self {
-        Self::new(&ParamBoxDescription {
+        Self::new::<Field>(&ParamBoxDescription {
             box_title: "",
             resource: Resource::unregistered_node(),
             categories: &[],
@@ -118,20 +118,37 @@ impl ParamBox {
     }
 }
 
-pub struct ParamBoxDescription<'a> {
+pub trait Transmitter {
+    fn transmit(&self, resource: &Resource, data: &[u8]);
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Field(&'static str);
+
+impl Transmitter for Field {
+    fn transmit(&self, resource: &Resource, data: &[u8]) {
+        super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+            resource.to_owned(),
+            self.0,
+            data.to_vec(),
+        )))
+    }
+}
+
+pub struct ParamBoxDescription<'a, T: Transmitter> {
     pub box_title: &'static str,
     pub resource: Resource,
-    pub categories: &'a [ParamCategory<'a>],
+    pub categories: &'a [ParamCategory<'a, T>],
 }
 
-pub struct ParamCategory<'a> {
+pub struct ParamCategory<'a, T: Transmitter> {
     pub name: &'static str,
-    pub parameters: &'a [Parameter],
+    pub parameters: &'a [Parameter<T>],
 }
 
-pub struct Parameter {
+pub struct Parameter<T: Transmitter> {
     pub name: &'static str,
-    pub field: &'static str,
+    pub transmitter: T,
     pub control: Control,
 }
 
@@ -170,48 +187,53 @@ pub enum Control {
 impl Control {
     const SLIDER_WIDTH: i32 = 256;
 
-    pub fn construct(&self, resource: &Resource, field: &'static str) -> gtk::Widget {
+    pub fn construct<T: 'static + Transmitter>(
+        &self,
+        resource: &Resource,
+        transmitter: T,
+    ) -> gtk::Widget {
         match self {
             Self::Slider { value, min, max } => {
-                Self::construct_slider(*value, *min, *max, resource, field)
+                Self::construct_slider(*value, *min, *max, resource, transmitter)
             }
             Self::DiscreteSlider { value, min, max } => {
-                Self::construct_discrete_slider(*value, *min, *max, resource, field)
+                Self::construct_discrete_slider(*value, *min, *max, resource, transmitter)
             }
             Self::RgbColor { value } => {
-                Self::construct_rgba(resource, field, [value[0], value[1], value[2], 1.0])
+                Self::construct_rgba(resource, transmitter, [value[0], value[1], value[2], 1.0])
             }
-            Self::RgbaColor { value } => Self::construct_rgba(resource, field, *value),
+            Self::RgbaColor { value } => Self::construct_rgba(resource, transmitter, *value),
             Self::Enum { selected, variants } => {
-                Self::construct_enum(*selected, variants, resource, field)
+                Self::construct_enum(*selected, variants, resource, transmitter)
             }
-            Self::File { selected } => Self::construct_file(selected, resource, field),
-            Self::Ramp { steps } => Self::construct_ramp(steps, resource, field),
-            Self::Toggle { def } => Self::construct_toggle(*def, resource, field),
+            Self::File { selected } => Self::construct_file(selected, resource, transmitter),
+            Self::Ramp { steps } => Self::construct_ramp(steps, resource, transmitter),
+            Self::Toggle { def } => Self::construct_toggle(*def, resource, transmitter),
         }
     }
 
-    fn construct_toggle(default: bool, resource: &Resource, field: &'static str) -> gtk::Widget {
+    fn construct_toggle<T: 'static + Transmitter>(
+        default: bool,
+        resource: &Resource,
+        transmitter: T,
+    ) -> gtk::Widget {
         let toggle = gtk::SwitchBuilder::new().active(default).build();
 
         toggle.connect_state_set(clone!(@strong resource => move |_, active| {
-            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-                resource.to_owned(),
-                field,
-                (if active { 1 as u32 } else { 0 as u32 }).to_be_bytes().to_vec(),
-            )));
+            transmitter.transmit(&resource,
+                &(if active { 1 as u32 } else { 0 as u32 }).to_be_bytes());
             Inhibit(true)
         }));
 
         toggle.upcast()
     }
 
-    fn construct_slider(
+    fn construct_slider<T: 'static + Transmitter>(
         value: f32,
         min: f32,
         max: f32,
         resource: &Resource,
-        field: &'static str,
+        transmitter: T,
     ) -> gtk::Widget {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 0.01, 0.01, 0.);
         adjustment.set_value(value as _);
@@ -219,22 +241,18 @@ impl Control {
         scale.set_size_request(Self::SLIDER_WIDTH, 0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
-            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-                resource.to_owned(),
-                field,
-                (a.get_value() as f32).to_be_bytes().to_vec(),
-            )));
+            transmitter.transmit(&resource, &(a.get_value() as f32).to_be_bytes());
         }));
 
         scale.upcast()
     }
 
-    fn construct_discrete_slider(
+    fn construct_discrete_slider<T: 'static + Transmitter>(
         value: i32,
         min: i32,
         max: i32,
         resource: &Resource,
-        field: &'static str,
+        transmitter: T,
     ) -> gtk::Widget {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 1., 1., 0.);
         adjustment.set_value(value as _);
@@ -244,21 +262,17 @@ impl Control {
         scale.set_round_digits(0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
-            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-                resource.to_owned(),
-                field,
-                (a.get_value() as u32).to_be_bytes().to_vec(),
-            )));
+            transmitter.transmit(&resource, &(a.get_value() as u32).to_be_bytes());
         }));
 
         scale.upcast()
     }
 
-    fn construct_enum(
+    fn construct_enum<T: 'static + Transmitter>(
         selected: usize,
         entries: &[&str],
         resource: &Resource,
-        field: &'static str,
+        transmitter: T,
     ) -> gtk::Widget {
         let combo = gtk::ComboBoxText::new();
 
@@ -269,17 +283,17 @@ impl Control {
         combo.set_active(Some(selected as _));
 
         combo.connect_changed(clone!(@strong resource => move |c| {
-            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-                resource.to_owned(),
-                field,
-                (c.get_active().unwrap_or(0)).to_be_bytes().to_vec()
-            )))
+            transmitter.transmit(&resource, &(c.get_active().unwrap_or(0)).to_be_bytes());
         }));
 
         combo.upcast()
     }
 
-    fn construct_rgba(resource: &Resource, field: &'static str, color: [f32; 4]) -> gtk::Widget {
+    fn construct_rgba<T: 'static + Transmitter>(
+        resource: &Resource,
+        transmitter: T,
+        color: [f32; 4],
+    ) -> gtk::Widget {
         let wheel = super::color_wheel::ColorWheel::new_with_rgb(
             color[0] as _,
             color[1] as _,
@@ -292,20 +306,16 @@ impl Control {
             buf.extend_from_slice(&(g as f32).to_be_bytes());
             buf.extend_from_slice(&(b as f32).to_be_bytes());
             buf.extend_from_slice(&(1.0 as f32).to_be_bytes());
-            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-                resource.to_owned(),
-                field,
-                buf,
-            )));
+            transmitter.transmit(&resource, &buf);
         }));
 
         wheel.upcast()
     }
 
-    fn construct_file(
+    fn construct_file<T: 'static + Transmitter>(
         selected: &Option<std::path::PathBuf>,
         resource: &Resource,
-        field: &'static str,
+        transmitter: T,
     ) -> gtk::Widget {
         let button = gtk::FileChooserButton::new("Image", gtk::FileChooserAction::Open);
 
@@ -315,17 +325,17 @@ impl Control {
 
         button.connect_file_set(clone!(@strong resource => move |btn| {
             let buf = btn.get_filename().unwrap().to_str().unwrap().as_bytes().to_vec();
-            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-                resource.to_owned(),
-                field,
-                buf
-            )))
+            transmitter.transmit(&resource, &buf);
         }));
 
         button.upcast()
     }
 
-    fn construct_ramp(steps: &[[f32; 4]], resource: &Resource, field: &'static str) -> gtk::Widget {
+    fn construct_ramp<T: 'static + Transmitter>(
+        steps: &[[f32; 4]],
+        resource: &Resource,
+        transmitter: T,
+    ) -> gtk::Widget {
         let ramp = super::color_ramp::ColorRamp::new_with_steps(steps);
 
         ramp.connect_color_ramp_changed(clone!(@strong resource => move |w| {
@@ -336,11 +346,7 @@ impl Control {
                 buf.extend_from_slice(&step[2].to_be_bytes());
                 buf.extend_from_slice(&step[3].to_be_bytes());
             }
-            super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-                resource.to_owned(),
-                field,
-                buf
-            )));
+            transmitter.transmit(&resource, &buf);
         }));
 
         ramp.upcast()
@@ -371,7 +377,7 @@ pub fn blend(res: &Resource, params: &BlendParameters) -> ParamBox {
             parameters: &[
                 Parameter {
                     name: "Blend Mode",
-                    field: BlendParameters::BLEND_MODE,
+                    transmitter: Field(BlendParameters::BLEND_MODE),
                     control: Control::Enum {
                         selected: params.blend_mode as usize,
                         variants: BlendMode::VARIANTS,
@@ -379,14 +385,14 @@ pub fn blend(res: &Resource, params: &BlendParameters) -> ParamBox {
                 },
                 Parameter {
                     name: "Clamp",
-                    field: BlendParameters::CLAMP,
+                    transmitter: Field(BlendParameters::CLAMP),
                     control: Control::Toggle {
                         def: params.clamp_output == 1,
                     },
                 },
                 Parameter {
                     name: "Mix",
-                    field: BlendParameters::MIX,
+                    transmitter: Field(BlendParameters::MIX),
                     control: Control::Slider {
                         value: params.mix,
                         min: 0.,
@@ -407,7 +413,7 @@ pub fn perlin_noise(res: &Resource, params: &PerlinNoiseParameters) -> ParamBox 
             parameters: &[
                 Parameter {
                     name: "Scale",
-                    field: PerlinNoiseParameters::SCALE,
+                    transmitter: Field(PerlinNoiseParameters::SCALE),
                     control: Control::Slider {
                         value: params.scale,
                         min: 0.,
@@ -416,7 +422,7 @@ pub fn perlin_noise(res: &Resource, params: &PerlinNoiseParameters) -> ParamBox 
                 },
                 Parameter {
                     name: "Octaves",
-                    field: PerlinNoiseParameters::OCTAVES,
+                    transmitter: Field(PerlinNoiseParameters::OCTAVES),
                     control: Control::DiscreteSlider {
                         value: params.octaves as _,
                         min: 0,
@@ -425,7 +431,7 @@ pub fn perlin_noise(res: &Resource, params: &PerlinNoiseParameters) -> ParamBox 
                 },
                 Parameter {
                     name: "Attenuation",
-                    field: PerlinNoiseParameters::ATTENUATION,
+                    transmitter: Field(PerlinNoiseParameters::ATTENUATION),
                     control: Control::Slider {
                         value: params.attenuation,
                         min: 0.,
@@ -445,7 +451,7 @@ pub fn rgb(res: &Resource, params: &RgbParameters) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Color",
-                field: RgbParameters::RGB,
+                transmitter: Field(RgbParameters::RGB),
                 control: Control::RgbColor { value: params.rgb },
             }],
         }],
@@ -460,7 +466,7 @@ pub fn output(res: &Resource, output_type: OutputType) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Output Type",
-                field: "output_type",
+                transmitter: Field("output_type"),
                 control: Control::Enum {
                     selected: output_type as usize,
                     variants: OutputType::VARIANTS,
@@ -478,7 +484,7 @@ pub fn image(res: &Resource, path: std::path::PathBuf) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Image Path",
-                field: "image_path",
+                transmitter: Field("image_path"),
                 control: Control::File {
                     selected: Some(path),
                 },
@@ -495,7 +501,7 @@ pub fn grayscale(res: &Resource, params: &GrayscaleParameters) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Conversion Mode",
-                field: GrayscaleParameters::MODE,
+                transmitter: Field(GrayscaleParameters::MODE),
                 control: Control::Enum {
                     selected: params.mode as usize,
                     variants: GrayscaleMode::VARIANTS,
@@ -513,7 +519,7 @@ pub fn ramp(res: &Resource, params: &RampParameters) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Gradient",
-                field: RampParameters::RAMP,
+                transmitter: Field(RampParameters::RAMP),
                 control: Control::Ramp {
                     steps: params.get_steps(),
                 },
@@ -530,7 +536,7 @@ pub fn normal_map(res: &Resource, params: &NormalMapParameters) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Strength",
-                field: NormalMapParameters::STRENGTH,
+                transmitter: Field(NormalMapParameters::STRENGTH),
                 control: Control::Slider {
                     value: params.strength,
                     min: 0.,

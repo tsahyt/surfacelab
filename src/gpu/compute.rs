@@ -872,7 +872,7 @@ where
                     chunk[1] = chunk[0];
                     chunk[2] = chunk[0];
                 }
-            },
+            }
             hal::format::Format::Rgba16Sfloat => {
                 for chunk in res.chunks_mut(4) {
                     chunk[0] = ((chunk[0] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
@@ -880,7 +880,7 @@ where
                     chunk[2] = ((chunk[2] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
                 }
             }
-            _ => { log::warn!("Unsupported image format found in GPU during thumbnail creation") }
+            _ => log::warn!("Unsupported image format found in GPU during thumbnail creation"),
         };
 
         Ok(res)

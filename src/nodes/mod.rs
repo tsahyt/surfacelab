@@ -335,7 +335,7 @@ impl NodeManager {
         match (from_type, to_type) {
             (lang::OperatorType::Polymorphic(..), lang::OperatorType::Polymorphic(..)) => {
                 // TODO: polymorphism over multiple arcs
-                return Err("Unable to connect polymorphic socket to polymorphic socket".into())
+                return Err("Unable to connect polymorphic socket to polymorphic socket".into());
             }
             (lang::OperatorType::Monomorphic(ty1), lang::OperatorType::Monomorphic(ty2)) => {
                 if ty1 != ty2 {
