@@ -219,9 +219,9 @@ fn ramp_draw(
     for step in ramp {
         grad.add_color_stop_rgba(
             step.position as _,
-            step.color[0] as _,
-            step.color[1] as _,
-            step.color[2] as _,
+            step.color[0].powf(1.0 / 2.2) as _,
+            step.color[1].powf(1.0 / 2.2) as _,
+            step.color[2].powf(1.0 / 2.2) as _,
             1.0,
         );
     }
