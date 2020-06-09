@@ -7,19 +7,19 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# gtk = { git = "https://github.com/tsahyt/gtk", branch = "scroll-event", features = ["v3_22"] }
+# gtk = { version = "0.8.1", path = "../gtk-rs/gtk", features = ["v3_22"] }
 cairo-rs = { git = "https://github.com/gtk-rs/cairo" }
 crossbeam-channel = "0.4.0"
 env_logger = "0.7.1"
 gdk = { git = "https://github.com/gtk-rs/gdk", features = ["v3_20"] }
-gdk-sys = { git = "https://github.com/gtk-rs/sys" }
 gdk-pixbuf = { git = "https://github.com/gtk-rs/gdk-pixbuf", features = ["v2_32"] }
+gdk-sys = { git = "https://github.com/gtk-rs/sys" }
 gfx-backend-vulkan = "0.5.6"
 gfx-hal = "0.5.0"
 gio = { git = "https://github.com/gtk-rs/gio" }
 glib = { git = "https://github.com/gtk-rs/glib" }
 glib-sys = { git = "https://github.com/gtk-rs/sys" }
-# gtk = { version = "0.8.1", path = "../gtk-rs/gtk", features = ["v3_22"] }
-# gtk = { git = "https://github.com/tsahyt/gtk", branch = "scroll-event", features = ["v3_22"] }
 gtk = { git = "https://github.com/gtk-rs/gtk", features = ["v3_22"] }
 gtk-sys = { git = "https://github.com/gtk-rs/sys" }
 half = "1.4.1"
@@ -29,15 +29,16 @@ log = "0.4.8"
 maplit = "1.0.2"
 multiqueue2 = "0.1.6"
 once_cell = "1.3.1"
+palette = "0.5.0"
 petgraph = { version = "0.5.0", features = ["serde-1"] }
 raw-window-handle = "0.3.3"
+serde = "1.0.110"
+serde-big-array = "0.3.0"
+serde_cbor = "0.11.1"
+serde_derive = "1.0.110"
 strum = "0.18.0"
 strum_macros = "0.18.0"
 zerocopy = "0.3.0"
-serde = "1.0.110"
-serde_derive = "1.0.110"
-serde_cbor = "0.11.1"
-serde-big-array = "0.3.0"
 
 [build-dependencies]
 shaderc = "0.6"

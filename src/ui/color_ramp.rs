@@ -9,6 +9,8 @@ use gtk::subclass::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use palette::*;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 struct Step {
@@ -116,7 +118,8 @@ impl ObjectImpl for ColorRampPrivate {
 
                 if let Some(handle_idx) = handle {
                     let rgb = steps.borrow()[handle_idx].color;
-                    wheel.set_rgb(rgb[0].into(), rgb[1].into(), rgb[2].into());
+                    //wheel.set_rgb(rgb[0].into(), rgb[1].into(), rgb[2].into());
+                    wheel.set_rgb(LinSrgb::new(rgb[0], rgb[1], rgb[2]));
                 }
                 color_ramp.emit(COLOR_RAMP_CHANGED, &[]).unwrap();
                 Inhibit(false)
