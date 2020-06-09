@@ -9,8 +9,7 @@ use gtk::subclass::prelude::*;
 use std::cell::Cell;
 use std::rc::Rc;
 
-// TODO: This should probably be f64 and we'd save a lot of conversions
-type HSV = [f32; 3];
+type HSV = [f64; 3];
 
 const THICKNESS: f64 = 16.0;
 const SQUARE_PADDING: f64 = 2.0;
@@ -120,7 +119,7 @@ impl ObjectImpl for ColorWheelPrivate {
                         if angle < 0. { angle += std::f64::consts::TAU; }
 
                         let mut old_hsv = hsv.get();
-                        old_hsv[0] = (angle / std::f64::consts::TAU) as f32;
+                        old_hsv[0] = angle / std::f64::consts::TAU;
                         hsv.set(old_hsv);
 
                         w.queue_draw();
@@ -136,8 +135,8 @@ impl ObjectImpl for ColorWheelPrivate {
                         let offset = (allocation.width as f64 - square_size) / 2.;
 
                         let mut old_hsv = hsv.get();
-                        old_hsv[1] = (((x as f64).clamp(offset, offset+square_size) - offset) / square_size) as f32;
-                        old_hsv[2] = (((y as f64).clamp(offset, offset+square_size) - offset) / square_size) as f32;
+                        old_hsv[1] = ((x as f64).clamp(offset, offset+square_size) - offset) / square_size;
+                        old_hsv[2] = ((y as f64).clamp(offset, offset+square_size) - offset) / square_size;
                         hsv.set(old_hsv);
 
                         w.queue_draw();
@@ -420,7 +419,7 @@ impl ColorWheel {
     pub fn set_rgb(&self, red: f64, green: f64, blue: f64) {
         let imp = ColorWheelPrivate::from_instance(self);
         let hsv = rgb_to_hsv(red, green, blue);
-        imp.hsv.set([hsv.0 as f32, hsv.1 as f32, hsv.2 as f32]);
+        imp.hsv.set([hsv.0, hsv.1, hsv.2]);
         self.queue_draw();
     }
 }
