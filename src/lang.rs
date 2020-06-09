@@ -464,6 +464,15 @@ impl Operator {
             _ => false,
         }
     }
+
+    pub fn sockets_by_type_variable(&self, var: TypeVariable) -> Vec<String> {
+        self.inputs()
+            .iter()
+            .chain(self.outputs().iter())
+            .filter(|(_, t)| **t == OperatorType::Polymorphic(var))
+            .map(|x| x.0.to_owned())
+            .collect()
+    }
 }
 
 impl Parameters for Operator {

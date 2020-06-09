@@ -4,6 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::fs::File;
+use std::iter::FromIterator;
 use std::path::Path;
 use std::sync::Arc;
 use std::thread;
@@ -112,8 +113,7 @@ impl NodeManager {
                 },
                 UserNodeEvent::DisconnectSinkSocket(sink) => {
                     match self.disconnect_sink_socket(sink) {
-                        Ok(Some(r)) => response.push(r),
-                        Ok(None) => {}
+                        Ok(mut r) => response.append(&mut r),
                         Err(e) => log::error!("Error while disconnecting sink {}", e),
                     }
                 }
@@ -385,10 +385,7 @@ impl NodeManager {
     }
 
     /// Disconnect all (1) inputs from a sink socket.
-    fn disconnect_sink_socket(
-        &mut self,
-        sink: &lang::Resource,
-    ) -> Result<Option<lang::Lang>, String> {
+    fn disconnect_sink_socket(&mut self, sink: &lang::Resource) -> Result<Vec<lang::Lang>, String> {
         use petgraph::visit::EdgeRef;
 
         let sink_path = self
@@ -398,6 +395,36 @@ impl NodeManager {
             .fragment()
             .ok_or("Missing sink socket specification")?
             .to_string();
+
+        let mut resp = Vec::new();
+
+        // Demonomorphize if nothing else keeps the type variable occupied
+        let node = self.node_graph.node_weight(sink_path).unwrap();
+        if let lang::OperatorType::Polymorphic(tvar) =
+            node.operator.inputs().get(&sink_socket).unwrap()
+        {
+            let others: HashSet<String> =
+                HashSet::from_iter(node.operator.sockets_by_type_variable(*tvar));
+
+            if self
+                .node_graph
+                .edges_directed(sink_path, petgraph::EdgeDirection::Incoming)
+                .filter(|e| others.contains(&e.weight().1))
+                .chain(
+                    self.node_graph
+                        .edges_directed(sink_path, petgraph::EdgeDirection::Outgoing)
+                        .filter(|e| others.contains(&e.weight().0)),
+                )
+                .next()
+                .is_none()
+            {
+                self.set_type_variable(&sink.drop_fragment(), *tvar, None)
+                    .unwrap();
+                resp.push(lang::Lang::GraphEvent(
+                    lang::GraphEvent::SocketDemonomorphized(sink.clone()),
+                ));
+            }
+        }
 
         let source = self
             .node_graph
@@ -415,13 +442,14 @@ impl NodeManager {
             })
             .next();
 
-        for s in &source {
+        if let Some(s) = &source {
             self.node_graph.remove_edge(s.1);
+            resp.push(lang::Lang::GraphEvent(
+                lang::GraphEvent::DisconnectedSockets(s.0.clone(), sink.clone()),
+            ));
         }
 
-        Ok(source.map(|s| {
-            lang::Lang::GraphEvent(lang::GraphEvent::DisconnectedSockets(s.0, sink.clone()))
-        }))
+        Ok(resp)
     }
 
     fn node_by_uri(&self, resource: &lang::Resource) -> Option<graph::NodeIndex> {
@@ -468,11 +496,9 @@ impl NodeManager {
 
         let affected = node_data
             .operator
-            .inputs()
+            .sockets_by_type_variable(variable)
             .iter()
-            .chain(node_data.operator.outputs().iter())
-            .filter(|(_, t)| **t == lang::OperatorType::Polymorphic(variable))
-            .map(|x| node.extend_fragment(x.0))
+            .map(|x| node.extend_fragment(x))
             .collect();
 
         Ok(affected)

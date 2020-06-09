@@ -284,6 +284,7 @@ where
                 }
                 GraphEvent::SocketDemonomorphized(res) => {
                     if self.sockets.is_known_output(res) {
+                        log::trace!("Removing monomorphized socket {}", res);
                         self.sockets.remove_image(res);
                     }
                 }
