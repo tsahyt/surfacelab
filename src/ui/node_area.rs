@@ -258,7 +258,6 @@ impl NodeAreaPrivate {
 impl WidgetImpl for NodeAreaPrivate {
     fn draw(&self, widget: &gtk::Widget, cr: &cairo::Context) -> gtk::Inhibit {
         cr.save();
-        // TODO: zoom needs to be respected by events and the viewport doesn't react to it either, so it's utterly broken
         let scale_factor = self.zoom.get().exp();
         cr.scale(scale_factor, scale_factor);
 
