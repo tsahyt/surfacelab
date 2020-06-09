@@ -429,3 +429,74 @@ impl Default for ColorWheel {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::*;
+    use quickcheck::*;
+    use rand::{Rng, RngCore};
+
+    #[derive(Clone, Debug)]
+    struct ColVal(f64);
+
+    impl Arbitrary for ColVal {
+        fn arbitrary<G: Gen>(g: &mut G) -> ColVal {
+            ColVal(g.gen_range(0.0, 1.0))
+        }
+    }
+
+    quickcheck! {
+        fn rgb_hsv_roundtrip(r: ColVal, g: ColVal, b: ColVal) -> bool {
+            let (h,s,v) = rgb_to_hsv(r.0, g.0, b.0);
+            let (r2, g2, b2) = hsv_to_rgb(h, s, v);
+            abs_diff_eq!(r.0, r2) && abs_diff_eq!(g.0, g2) && abs_diff_eq!(b.0, b2)
+        }
+    }
+
+    #[test]
+    fn rgb_hsv_roundtrip_m0() {
+        let (r,g,b) = (0.705, 0.469, 0.545);
+        let (h,s,v) = rgb_to_hsv(r, g, b);
+        let (r2, g2, b2) = hsv_to_rgb(h, s, v);
+        assert_abs_diff_eq!(r, r2);
+        assert_abs_diff_eq!(g, g2);
+        assert_abs_diff_eq!(b, b2)
+    }
+
+    #[test]
+    fn hsv_pure_colors() {
+        let (r,g,b) = hsv_to_rgb(0.0, 1.0, 1.0);
+        assert_abs_diff_eq!(r, 1.0);
+        assert_abs_diff_eq!(g, 0.0);
+        assert_abs_diff_eq!(b, 0.0);
+
+        let (r,g,b) = hsv_to_rgb(1.0 / 3.0, 1.0, 1.0);
+        assert_abs_diff_eq!(r, 0.0);
+        assert_abs_diff_eq!(g, 1.0);
+        assert_abs_diff_eq!(b, 0.0);
+
+        let (r,g,b) = hsv_to_rgb(2.0 / 3.0, 1.0, 1.0);
+        assert_abs_diff_eq!(r, 0.0);
+        assert_abs_diff_eq!(g, 0.0);
+        assert_abs_diff_eq!(b, 1.0);
+    }
+
+    #[test]
+    fn rgb_pure_colors() {
+        let (h,s,v) = rgb_to_hsv(1.0, 0.0, 0.0);
+        assert_abs_diff_eq!(h, 0.0);
+        assert_abs_diff_eq!(s, 1.0);
+        assert_abs_diff_eq!(v, 1.0);
+
+        let (h,s,v) = rgb_to_hsv(0.0, 1.0, 0.0);
+        assert_abs_diff_eq!(h, 1.0 / 3.0);
+        assert_abs_diff_eq!(s, 1.0);
+        assert_abs_diff_eq!(v, 1.0);
+
+        let (h,s,v) = rgb_to_hsv(0.0, 0.0, 1.0);
+        assert_abs_diff_eq!(h, 2.0 / 3.0);
+        assert_abs_diff_eq!(s, 1.0);
+        assert_abs_diff_eq!(v, 1.0);
+    }
+}
