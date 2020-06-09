@@ -224,7 +224,7 @@ fn wheel_draw(hsv: Hsv, drawing_area: &gtk::DrawingArea, cr: &cairo::Context) ->
             if angle < 0. { angle += std::f64::consts::TAU; }
             let hue = angle;
 
-            let col: LinSrgb = Hsv::new(hue as f32, 1., 1.).into_rgb();
+            let col: LinSrgb = Hsv::new(RgbHue::from_radians(hue as f32), 1., 1.).into_rgb();
 
             // For one reason or another GTK requires BGRA ordering without really telling anyone about it
             image::Rgba([(col.blue * 255. + 0.5) as u8, (col.green * 255. + 0.5) as u8, (col.red * 255. + 0.5) as u8, 255])
