@@ -350,7 +350,7 @@ impl ColorWheel {
         let imp = ColorWheelPrivate::from_instance(self);
         let hsv = imp.hsv.get();
         let rgb: LinSrgb = hsv.into_rgb();
-        self.emit(COLOR_PICKED, &[&rgb.red, &rgb.green, &rgb.blue]).unwrap();
+        self.emit(COLOR_PICKED, &[&(rgb.red as f64), &(rgb.green as f64), &(rgb.blue as f64)]).unwrap();
     }
 
     pub fn set_rgb(&self, rgb: LinSrgb) {
