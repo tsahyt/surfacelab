@@ -131,7 +131,7 @@ impl ObjectImpl for ColorRampPrivate {
                     {
                         let mut bsteps = steps.borrow_mut();
                         let step = bsteps.get_mut(handle).unwrap();
-                        step.position = (e.get_position().0 / 256.) as f32;
+                        step.position = ((e.get_position().0 / 256.) as f32).clamp(0.0, 1.0);
                         w.queue_draw();
                     }
                     color_ramp.emit(COLOR_RAMP_CHANGED, &[]).unwrap();
