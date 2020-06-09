@@ -187,38 +187,31 @@ fn hsv_to_rgb(hue: f64, saturation: f64, value: f64) -> (f64, f64, f64) {
 
 #[allow(clippy::float_cmp)]
 fn rgb_to_hsv(red: f64, green: f64, blue: f64) -> (f64, f64, f64) {
-    let max = red.max(green.max(blue));
-    let min = red.min(green.min(blue));
-    let delta = max - min;
-
-    let mut s = 0.0;
-    let mut h;
-
-    if max != 0.0 {
-        s = delta / max;
-    }
-
-    if s == 0.0 {
-        h = 0.0;
-    } else {
-        if red == max {
-            h = green - blue / delta;
-        } else if green == max {
-            h = 2.0 + (blue - red) / delta;
+    let (max, min, sep, coeff) = {
+        let (max, min, sep, coeff) = if red > green {
+            (red, green, green - blue, 0.0)
         } else {
-            h = 4.0 + (red - green) / delta;
+            (green, red, blue - red, 2.0)
+        };
+        if blue > max {
+            (blue, min, red - green, 4.0)
+        } else {
+            let min_val = if blue < min { blue } else { min };
+            (max, min_val, sep, coeff)
         }
+    };
 
-        h /= 6.0;
+    let mut h = 0.0;
+    let mut s = 0.0;
+    let v = max;
 
-        if h < 0.0 {
-            h += 1.0;
-        } else if h > 1.0 {
-            h -= 1.0;
-        }
-    }
+    if max != min {
+        let d = max - min;
+        s = d / max;
+        h = ((sep / d) + coeff) * 60.0 / 360.0;
+    };
 
-    (h, s, max)
+    (h, s, v)
 }
 
 fn hue_handle_position(hsv: HSV, allocation: &gtk::Allocation) -> (f64, f64) {
@@ -420,6 +413,7 @@ impl ColorWheel {
         let imp = ColorWheelPrivate::from_instance(self);
         let hsv = rgb_to_hsv(red, green, blue);
         imp.hsv.set([hsv.0, hsv.1, hsv.2]);
+        dbg!((red, green, blue), hsv);
         self.queue_draw();
     }
 }
@@ -456,7 +450,7 @@ mod tests {
 
     #[test]
     fn rgb_hsv_roundtrip_m0() {
-        let (r,g,b) = (0.705, 0.469, 0.545);
+        let (r,g,b) = (0.653706138831377, 0.28974543928331586, 0.31952971618106907);
         let (h,s,v) = rgb_to_hsv(r, g, b);
         let (r2, g2, b2) = hsv_to_rgb(h, s, v);
         assert_abs_diff_eq!(r, r2);
@@ -466,17 +460,17 @@ mod tests {
 
     #[test]
     fn hsv_pure_colors() {
-        let (r,g,b) = hsv_to_rgb(0.0, 1.0, 1.0);
+        let (r, g, b) = hsv_to_rgb(0.0, 1.0, 1.0);
         assert_abs_diff_eq!(r, 1.0);
         assert_abs_diff_eq!(g, 0.0);
         assert_abs_diff_eq!(b, 0.0);
 
-        let (r,g,b) = hsv_to_rgb(1.0 / 3.0, 1.0, 1.0);
+        let (r, g, b) = hsv_to_rgb(1.0 / 3.0, 1.0, 1.0);
         assert_abs_diff_eq!(r, 0.0);
         assert_abs_diff_eq!(g, 1.0);
         assert_abs_diff_eq!(b, 0.0);
 
-        let (r,g,b) = hsv_to_rgb(2.0 / 3.0, 1.0, 1.0);
+        let (r, g, b) = hsv_to_rgb(2.0 / 3.0, 1.0, 1.0);
         assert_abs_diff_eq!(r, 0.0);
         assert_abs_diff_eq!(g, 0.0);
         assert_abs_diff_eq!(b, 1.0);
@@ -484,17 +478,17 @@ mod tests {
 
     #[test]
     fn rgb_pure_colors() {
-        let (h,s,v) = rgb_to_hsv(1.0, 0.0, 0.0);
+        let (h, s, v) = rgb_to_hsv(1.0, 0.0, 0.0);
         assert_abs_diff_eq!(h, 0.0);
         assert_abs_diff_eq!(s, 1.0);
         assert_abs_diff_eq!(v, 1.0);
 
-        let (h,s,v) = rgb_to_hsv(0.0, 1.0, 0.0);
+        let (h, s, v) = rgb_to_hsv(0.0, 1.0, 0.0);
         assert_abs_diff_eq!(h, 1.0 / 3.0);
         assert_abs_diff_eq!(s, 1.0);
         assert_abs_diff_eq!(v, 1.0);
 
-        let (h,s,v) = rgb_to_hsv(0.0, 0.0, 1.0);
+        let (h, s, v) = rgb_to_hsv(0.0, 0.0, 1.0);
         assert_abs_diff_eq!(h, 2.0 / 3.0);
         assert_abs_diff_eq!(s, 1.0);
         assert_abs_diff_eq!(v, 1.0);
