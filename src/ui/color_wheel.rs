@@ -322,9 +322,9 @@ fn wheel_draw(hsv: HSV, drawing_area: &gtk::DrawingArea, cr: &cairo::Context) ->
             let (r, g, b) = hsv_to_rgb(hsv[0] as _, xx, yy);
             // See above for WTF
             image::Rgba([
-                (b * 255. + 0.5) as u8,
-                (g * 255. + 0.5) as u8,
-                (r * 255. + 0.5) as u8,
+                (b.powf(1.0 / 2.2) * 255. + 0.5) as u8,
+                (g.powf(1.0 / 2.2) * 255. + 0.5) as u8,
+                (r.powf(1.0 / 2.2) * 255. + 0.5) as u8,
                 255,
             ])
         });
