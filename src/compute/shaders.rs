@@ -2,285 +2,269 @@ use crate::{gpu, lang};
 use std::collections::HashMap;
 use zerocopy::AsBytes;
 
-// Blend
-static BLEND_SHADER: &[u8] = include_bytes!("../../shaders/blend.spv");
-static BLEND_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
-    gpu::DescriptorSetLayoutBinding {
-        binding: 0,
-        ty: gpu::DescriptorType::Buffer {
-            ty: gpu::BufferDescriptorType::Uniform,
-            format: gpu::BufferDescriptorFormat::Structured {
-                dynamic_offset: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 1,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Sampled {
-                with_sampler: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 2,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Sampled {
-                with_sampler: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 3,
-        ty: gpu::DescriptorType::Sampler,
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 4,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Storage { read_only: false },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-];
-
-// Perlin Noise
-static PERLIN_NOISE_SHADER: &[u8] = include_bytes!("../../shaders/perlin.spv");
-static PERLIN_NOISE_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
-    gpu::DescriptorSetLayoutBinding {
-        binding: 0,
-        ty: gpu::DescriptorType::Buffer {
-            ty: gpu::BufferDescriptorType::Uniform,
-            format: gpu::BufferDescriptorFormat::Structured {
-                dynamic_offset: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 1,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Storage { read_only: false },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-];
-
-// Rgb
-static RGB_SHADER: &[u8] = include_bytes!("../../shaders/rgb.spv");
-static RGB_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
-    gpu::DescriptorSetLayoutBinding {
-        binding: 0,
-        ty: gpu::DescriptorType::Buffer {
-            ty: gpu::BufferDescriptorType::Uniform,
-            format: gpu::BufferDescriptorFormat::Structured {
-                dynamic_offset: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 1,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Storage { read_only: false },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-];
-
-// Grayscale
-static GRAYSCALE_SHADER: &[u8] = include_bytes!("../../shaders/grayscale.spv");
-static GRAYSCALE_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
-    gpu::DescriptorSetLayoutBinding {
-        binding: 0,
-        ty: gpu::DescriptorType::Buffer {
-            ty: gpu::BufferDescriptorType::Uniform,
-            format: gpu::BufferDescriptorFormat::Structured {
-                dynamic_offset: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 1,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Sampled {
-                with_sampler: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 2,
-        ty: gpu::DescriptorType::Sampler,
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 3,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Storage { read_only: false },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-];
-
-// Ramp
-static RAMP_SHADER: &[u8] = include_bytes!("../../shaders/ramp.spv");
-static RAMP_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
-    gpu::DescriptorSetLayoutBinding {
-        binding: 0,
-        ty: gpu::DescriptorType::Buffer {
-            ty: gpu::BufferDescriptorType::Uniform,
-            format: gpu::BufferDescriptorFormat::Structured {
-                dynamic_offset: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 1,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Sampled {
-                with_sampler: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 2,
-        ty: gpu::DescriptorType::Sampler,
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 3,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Storage { read_only: false },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-];
-
-// Normal Map
-static NORMAL_MAP_SHADER: &[u8] = include_bytes!("../../shaders/normal.spv");
-static NORMAL_MAP_LAYOUT: &[gpu::DescriptorSetLayoutBinding] = &[
-    gpu::DescriptorSetLayoutBinding {
-        binding: 0,
-        ty: gpu::DescriptorType::Buffer {
-            ty: gpu::BufferDescriptorType::Uniform,
-            format: gpu::BufferDescriptorFormat::Structured {
-                dynamic_offset: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 1,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Sampled {
-                with_sampler: false,
-            },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 2,
-        ty: gpu::DescriptorType::Sampler,
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-    gpu::DescriptorSetLayoutBinding {
-        binding: 3,
-        ty: gpu::DescriptorType::Image {
-            ty: gpu::ImageDescriptorType::Storage { read_only: false },
-        },
-        count: 1,
-        stage_flags: gpu::ShaderStageFlags::COMPUTE,
-        immutable_samplers: false,
-    },
-];
-
-fn operator_shader_src<'a>(op: &'a lang::Operator) -> Option<&'static [u8]> {
-    use lang::Operator;
-
-    let src = match op {
-        // Image and Output are special
-        Operator::Image { .. } => return None,
-        Operator::Output { .. } => return None,
-
-        // Operators
-        Operator::Blend(..) => BLEND_SHADER,
-        Operator::PerlinNoise(..) => PERLIN_NOISE_SHADER,
-        Operator::Rgb(..) => RGB_SHADER,
-        Operator::Grayscale(..) => GRAYSCALE_SHADER,
-        Operator::Ramp(..) => RAMP_SHADER,
-        Operator::NormalMap(..) => NORMAL_MAP_SHADER,
-    };
-
-    Some(src)
+struct OperatorShader {
+    spirv: &'static [u8],
+    layout: &'static [gpu::DescriptorSetLayoutBinding],
 }
 
-fn operator_layout<'a>(
-    op: &'a lang::Operator,
-) -> Option<&'static [gpu::DescriptorSetLayoutBinding]> {
-    use lang::Operator;
+impl OperatorShader {
+    pub fn from_operator(op: &lang::Operator) -> Option<&'static Self> {
+        use lang::Operator;
 
-    let bindings = match op {
-        // Image and Output are special
-        Operator::Image { .. } => return None,
-        Operator::Output { .. } => return None,
+        match op {
+            // Image and Output are special
+            Operator::Image { .. } => None,
+            Operator::Output { .. } => None,
 
-        Operator::Blend(..) => BLEND_LAYOUT,
-        Operator::PerlinNoise(..) => PERLIN_NOISE_LAYOUT,
-        Operator::Rgb(..) => RGB_LAYOUT,
-        Operator::Grayscale(..) => GRAYSCALE_LAYOUT,
-        Operator::Ramp(..) => RAMP_LAYOUT,
-        Operator::NormalMap(..) => NORMAL_MAP_LAYOUT,
-    };
-
-    Some(bindings)
+            Operator::Blend(..) => Some(&BLEND),
+            Operator::PerlinNoise(..) => Some(&PERLIN_NOISE),
+            Operator::Rgb(..) => Some(&RGB),
+            Operator::Grayscale(..) => Some(&GRAYSCALE),
+            Operator::Ramp(..) => Some(&RAMP),
+            Operator::NormalMap(..) => Some(&NORMAL_MAP),
+        }
+    }
 }
+
+static BLEND: OperatorShader = OperatorShader {
+    spirv: include_bytes!("../../shaders/blend.spv"),
+    layout: &[
+        gpu::DescriptorSetLayoutBinding {
+            binding: 0,
+            ty: gpu::DescriptorType::Buffer {
+                ty: gpu::BufferDescriptorType::Uniform,
+                format: gpu::BufferDescriptorFormat::Structured {
+                    dynamic_offset: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 1,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Sampled {
+                    with_sampler: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 2,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Sampled {
+                    with_sampler: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 3,
+            ty: gpu::DescriptorType::Sampler,
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 4,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Storage { read_only: false },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+    ],
+};
+static PERLIN_NOISE: OperatorShader = OperatorShader {
+    spirv: include_bytes!("../../shaders/perlin.spv"),
+    layout: &[
+        gpu::DescriptorSetLayoutBinding {
+            binding: 0,
+            ty: gpu::DescriptorType::Buffer {
+                ty: gpu::BufferDescriptorType::Uniform,
+                format: gpu::BufferDescriptorFormat::Structured {
+                    dynamic_offset: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 1,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Storage { read_only: false },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+    ],
+};
+static RGB: OperatorShader = OperatorShader {
+    spirv: include_bytes!("../../shaders/rgb.spv"),
+    layout: &[
+        gpu::DescriptorSetLayoutBinding {
+            binding: 0,
+            ty: gpu::DescriptorType::Buffer {
+                ty: gpu::BufferDescriptorType::Uniform,
+                format: gpu::BufferDescriptorFormat::Structured {
+                    dynamic_offset: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 1,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Storage { read_only: false },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+    ],
+};
+static GRAYSCALE: OperatorShader = OperatorShader {
+    spirv: include_bytes!("../../shaders/grayscale.spv"),
+    layout: &[
+        gpu::DescriptorSetLayoutBinding {
+            binding: 0,
+            ty: gpu::DescriptorType::Buffer {
+                ty: gpu::BufferDescriptorType::Uniform,
+                format: gpu::BufferDescriptorFormat::Structured {
+                    dynamic_offset: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 1,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Sampled {
+                    with_sampler: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 2,
+            ty: gpu::DescriptorType::Sampler,
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 3,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Storage { read_only: false },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+    ],
+};
+static RAMP: OperatorShader = OperatorShader {
+    spirv: include_bytes!("../../shaders/ramp.spv"),
+    layout: &[
+        gpu::DescriptorSetLayoutBinding {
+            binding: 0,
+            ty: gpu::DescriptorType::Buffer {
+                ty: gpu::BufferDescriptorType::Uniform,
+                format: gpu::BufferDescriptorFormat::Structured {
+                    dynamic_offset: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 1,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Sampled {
+                    with_sampler: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 2,
+            ty: gpu::DescriptorType::Sampler,
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 3,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Storage { read_only: false },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+    ],
+};
+static NORMAL_MAP: OperatorShader = OperatorShader {
+    spirv: include_bytes!("../../shaders/normal.spv"),
+    layout: &[
+        gpu::DescriptorSetLayoutBinding {
+            binding: 0,
+            ty: gpu::DescriptorType::Buffer {
+                ty: gpu::BufferDescriptorType::Uniform,
+                format: gpu::BufferDescriptorFormat::Structured {
+                    dynamic_offset: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 1,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Sampled {
+                    with_sampler: false,
+                },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 2,
+            ty: gpu::DescriptorType::Sampler,
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+        gpu::DescriptorSetLayoutBinding {
+            binding: 3,
+            ty: gpu::DescriptorType::Image {
+                ty: gpu::ImageDescriptorType::Storage { read_only: false },
+            },
+            count: 1,
+            stage_flags: gpu::ShaderStageFlags::COMPUTE,
+            immutable_samplers: false,
+        },
+    ],
+};
 
 /// Create descriptor set writes for given operator with its inputs and outputs.
 /// This assumes that all given inputs and outputs are already bound!
@@ -524,11 +508,10 @@ where
         let mut descriptor_sets = HashMap::new();
         for op in lang::Operator::all_default() {
             log::trace!("Initializing operator {}", op.title());
-            if let Some(shader_src) = operator_shader_src(&op) {
-                let shader: gpu::Shader<B> = gpu.create_shader(shader_src)?;
-                let layout = operator_layout(&op).ok_or("Failed to fetch Operator layout")?;
+            if let Some(operator_shader) = OperatorShader::from_operator(&op) {
+                let shader: gpu::Shader<B> = gpu.create_shader(operator_shader.spirv)?;
                 let pipeline: gpu::compute::ComputePipeline<B> =
-                    gpu.create_pipeline(&shader, layout)?;
+                    gpu.create_pipeline(&shader, operator_shader.layout)?;
                 let desc_set = gpu.allocate_descriptor_set(pipeline.set_layout())?;
 
                 shaders.insert(op.default_name(), shader);
