@@ -416,7 +416,7 @@ pub fn blend(res: &Resource, params: &BlendParameters) -> ParamBox {
                 },
                 Parameter {
                     name: "Clamp",
-                    transmitter: Field(BlendParameters::CLAMP),
+                    transmitter: Field(BlendParameters::CLAMP_OUTPUT),
                     control: Control::Toggle {
                         def: params.clamp_output == 1,
                     },

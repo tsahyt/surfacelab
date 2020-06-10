@@ -8,6 +8,8 @@ use strum::VariantNames;
 use strum_macros::*;
 use zerocopy::AsBytes;
 
+use surfacelab_derive::*;
+
 big_array! { BigArray; }
 
 pub trait Parameters {
@@ -34,7 +36,7 @@ pub enum BlendMode {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct BlendParameters {
     pub blend_mode: BlendMode,
     pub mix: f32,
@@ -49,12 +51,6 @@ impl Default for BlendParameters {
             clamp_output: 0,
         }
     }
-}
-
-impl BlendParameters {
-    pub const BLEND_MODE: &'static str = "mode";
-    pub const MIX: &'static str = "mix";
-    pub const CLAMP: &'static str = "clamp";
 }
 
 impl Parameters for BlendParameters {
@@ -72,7 +68,7 @@ impl Parameters for BlendParameters {
                 let variant = BlendMode::VARIANTS[idx as usize];
                 self.blend_mode = BlendMode::from_str(variant).unwrap();
             }
-            Self::CLAMP => {
+            Self::CLAMP_OUTPUT => {
                 let mut arr: [u8; 4] = Default::default();
                 arr.copy_from_slice(data);
                 self.clamp_output = u32::from_be_bytes(arr);
@@ -83,7 +79,7 @@ impl Parameters for BlendParameters {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct PerlinNoiseParameters {
     pub scale: f32,
     pub octaves: u32,
@@ -98,12 +94,6 @@ impl Default for PerlinNoiseParameters {
             attenuation: 2.0,
         }
     }
-}
-
-impl PerlinNoiseParameters {
-    pub const SCALE: &'static str = "scale";
-    pub const OCTAVES: &'static str = "octaves";
-    pub const ATTENUATION: &'static str = "attenuation";
 }
 
 impl Parameters for PerlinNoiseParameters {
@@ -130,7 +120,7 @@ impl Parameters for PerlinNoiseParameters {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct RgbParameters {
     pub rgb: [f32; 3],
 }
@@ -141,10 +131,6 @@ impl Default for RgbParameters {
             rgb: [0.5, 0.7, 0.3],
         }
     }
-}
-
-impl RgbParameters {
-    pub const RGB: &'static str = "rgb";
 }
 
 impl Parameters for RgbParameters {
@@ -183,7 +169,7 @@ pub enum GrayscaleMode {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct GrayscaleParameters {
     pub mode: GrayscaleMode,
 }
@@ -194,10 +180,6 @@ impl Default for GrayscaleParameters {
             mode: GrayscaleMode::Luminance,
         }
     }
-}
-
-impl GrayscaleParameters {
-    pub const MODE: &'static str = "mode";
 }
 
 impl Parameters for GrayscaleParameters {
@@ -306,7 +288,7 @@ impl Parameters for RampParameters {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct NormalMapParameters {
     pub strength: f32,
 }
@@ -315,10 +297,6 @@ impl Default for NormalMapParameters {
     fn default() -> Self {
         Self { strength: 1.0 }
     }
-}
-
-impl NormalMapParameters {
-    pub const STRENGTH: &'static str = "strength";
 }
 
 impl Parameters for NormalMapParameters {
