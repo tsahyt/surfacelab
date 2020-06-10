@@ -587,7 +587,7 @@ where
         let pipeline = self.shader_library.pipeline_for(&op);
         let desc_set = self.shader_library.descriptor_set_for(&op);
         let uniforms = op.uniforms();
-        let descriptors = shaders::operator_write_desc(
+        let descriptors = shaders::ShaderLibrary::write_desc(
             op,
             desc_set,
             self.gpu.uniform_buffer(),

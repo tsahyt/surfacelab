@@ -2,6 +2,7 @@ use crate::lang;
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
+use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
@@ -403,11 +404,15 @@ where
     }
 
     /// Create a new compute pipeline, given a shader and a set of bindings.
-    pub fn create_pipeline(
+    pub fn create_pipeline<I>(
         &self,
         shader: &Shader<B>,
-        bindings: &[hal::pso::DescriptorSetLayoutBinding],
-    ) -> Result<ComputePipeline<B>, String> {
+        bindings: I,
+    ) -> Result<ComputePipeline<B>, String>
+    where
+        I: IntoIterator,
+        I::Item: Borrow<hal::pso::DescriptorSetLayoutBinding>,
+    {
         let lock = self.gpu.lock().unwrap();
 
         // Layouts
