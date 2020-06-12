@@ -230,7 +230,7 @@ impl Control {
 
         toggle.connect_state_set(clone!(@strong resource => move |_, active| {
             transmitter.transmit(&resource,
-                &(if active { 1 as u32 } else { 0 as u32 }).to_be_bytes());
+                &(if active { 1 as u32 } else { 0 as u32 }).to_data());
             Inhibit(true)
         }));
 
@@ -250,7 +250,7 @@ impl Control {
         scale.set_size_request(Self::SLIDER_WIDTH, 0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
-            transmitter.transmit(&resource, &(a.get_value() as f32).to_be_bytes());
+            transmitter.transmit(&resource, &(a.get_value() as f32).to_data());
         }));
 
         scale.upcast()
@@ -271,7 +271,7 @@ impl Control {
         scale.set_round_digits(0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
-            transmitter.transmit(&resource, &(a.get_value() as u32).to_be_bytes());
+            transmitter.transmit(&resource, &(a.get_value() as u32).to_data());
         }));
 
         scale.upcast()
@@ -292,7 +292,7 @@ impl Control {
         combo.set_active(Some(selected as _));
 
         combo.connect_changed(clone!(@strong resource => move |c| {
-            transmitter.transmit(&resource, &(c.get_active().unwrap_or(0)).to_be_bytes());
+            transmitter.transmit(&resource, &(c.get_active().unwrap_or(0)).to_data());
         }));
 
         combo.upcast()
@@ -310,12 +310,7 @@ impl Control {
         );
 
         wheel.connect_color_picked(clone!(@strong resource => move |_, r, g, b| {
-            let mut buf = Vec::new();
-            buf.extend_from_slice(&(r as f32).to_be_bytes());
-            buf.extend_from_slice(&(g as f32).to_be_bytes());
-            buf.extend_from_slice(&(b as f32).to_be_bytes());
-            buf.extend_from_slice(&(1.0 as f32).to_be_bytes());
-            transmitter.transmit(&resource, &buf);
+            transmitter.transmit(&resource, &[r as f32, g as f32, b as f32].to_data());
         }));
 
         wheel.upcast()
