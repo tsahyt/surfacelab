@@ -3,8 +3,6 @@ use serde_big_array::*;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
-use std::str::FromStr;
-use strum::VariantNames;
 use strum_macros::*;
 use zerocopy::AsBytes;
 
@@ -55,7 +53,8 @@ impl ParameterField for [f32; 3] {
                 let mut arr: [u8; 4] = Default::default();
                 arr.copy_from_slice(z);
                 f32::from_be_bytes(arr)
-            }).collect();
+            })
+            .collect();
         [cols[0], cols[1], cols[2]]
     }
 
@@ -82,7 +81,16 @@ impl ParameterField for PathBuf {
 
 #[repr(C)]
 #[derive(
-    AsBytes, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString, Serialize, Deserialize, ParameterField
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    ParameterField,
 )]
 pub enum BlendMode {
     Mix,
@@ -119,21 +127,13 @@ impl Parameters for BlendParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
             Self::MIX => {
-                let mut arr: [u8; 4] = Default::default();
-                arr.copy_from_slice(data);
-                self.mix = f32::from_be_bytes(arr);
+                self.mix = f32::from_data(data);
             }
             Self::BLEND_MODE => {
-                let mut arr: [u8; 4] = Default::default();
-                arr.copy_from_slice(data);
-                let idx = u32::from_be_bytes(arr);
-                let variant = BlendMode::VARIANTS[idx as usize];
-                self.blend_mode = BlendMode::from_str(variant).unwrap();
+                self.blend_mode = BlendMode::from_data(data);
             }
             Self::CLAMP_OUTPUT => {
-                let mut arr: [u8; 4] = Default::default();
-                arr.copy_from_slice(data);
-                self.clamp_output = u32::from_be_bytes(arr);
+                self.clamp_output = u32::from_data(data);
             }
             _ => panic!("Unknown field {}", field),
         }
@@ -162,19 +162,13 @@ impl Parameters for PerlinNoiseParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
             Self::SCALE => {
-                let mut arr: [u8; 4] = Default::default();
-                arr.copy_from_slice(data);
-                self.scale = f32::from_be_bytes(arr);
+                self.scale = f32::from_data(data);
             }
             Self::OCTAVES => {
-                let mut arr: [u8; 4] = Default::default();
-                arr.copy_from_slice(data);
-                self.octaves = u32::from_be_bytes(arr);
+                self.octaves = u32::from_data(data);
             }
             Self::ATTENUATION => {
-                let mut arr: [u8; 4] = Default::default();
-                arr.copy_from_slice(data);
-                self.attenuation = f32::from_be_bytes(arr);
+                self.attenuation = f32::from_data(data);
             }
             _ => panic!("Unknown field {}", field),
         }
@@ -199,17 +193,7 @@ impl Parameters for RgbParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
             Self::RGB => {
-                let cols: Vec<f32> = data
-                    .chunks(4)
-                    .map(|z| {
-                        let mut arr: [u8; 4] = Default::default();
-                        arr.copy_from_slice(z);
-                        f32::from_be_bytes(arr)
-                    })
-                    .collect();
-                self.rgb[0] = cols[0];
-                self.rgb[1] = cols[1];
-                self.rgb[2] = cols[2];
+                self.rgb = <[f32; 3]>::from_data(data);
             }
             _ => panic!("Unknown field {}", field),
         }
@@ -217,7 +201,16 @@ impl Parameters for RgbParameters {
 }
 #[repr(C)]
 #[derive(
-    AsBytes, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString, Serialize, Deserialize, ParameterField
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    ParameterField,
 )]
 pub enum GrayscaleMode {
     Luminance,
@@ -248,11 +241,7 @@ impl Parameters for GrayscaleParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
             Self::MODE => {
-                let mut arr: [u8; 4] = Default::default();
-                arr.copy_from_slice(data);
-                let idx = u32::from_be_bytes(arr);
-                let variant = GrayscaleMode::VARIANTS[idx as usize];
-                self.mode = GrayscaleMode::from_str(variant).unwrap();
+                self.mode = GrayscaleMode::from_data(data);
             }
             _ => panic!("Unknown field {}", field),
         }
@@ -305,6 +294,8 @@ impl Default for RampParameters {
     }
 }
 
+/// RampParameters has a manual Parameters implementation since the GPU side
+/// representation and the broker representation differ.
 impl Parameters for RampParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
@@ -365,9 +356,7 @@ impl Parameters for NormalMapParameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
             Self::STRENGTH => {
-                let mut arr: [u8; 4] = Default::default();
-                arr.copy_from_slice(data);
-                self.strength = f32::from_be_bytes(arr);
+                self.strength = f32::from_data(data);
             }
             _ => panic!("Unknown field {}", field),
         }
@@ -529,9 +518,7 @@ impl Parameters for Operator {
                 *path = PathBuf::from_data(data);
             }
 
-            Self::Output { output_type } => {
-                *output_type = OutputType::from_data(data)
-            }
+            Self::Output { output_type } => *output_type = OutputType::from_data(data),
         }
     }
 }
@@ -565,7 +552,16 @@ impl ImageType {
 
 #[repr(C)]
 #[derive(
-    PartialEq, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString, Serialize, Deserialize, ParameterField
+    PartialEq,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    ParameterField,
 )]
 pub enum OutputType {
     Albedo,
