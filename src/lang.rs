@@ -123,23 +123,6 @@ impl Default for BlendParameters {
     }
 }
 
-impl Parameters for BlendParameters {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
-        match field {
-            Self::MIX => {
-                self.mix = f32::from_data(data);
-            }
-            Self::BLEND_MODE => {
-                self.blend_mode = BlendMode::from_data(data);
-            }
-            Self::CLAMP_OUTPUT => {
-                self.clamp_output = u32::from_data(data);
-            }
-            _ => panic!("Unknown field {}", field),
-        }
-    }
-}
-
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct PerlinNoiseParameters {
@@ -158,23 +141,6 @@ impl Default for PerlinNoiseParameters {
     }
 }
 
-impl Parameters for PerlinNoiseParameters {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
-        match field {
-            Self::SCALE => {
-                self.scale = f32::from_data(data);
-            }
-            Self::OCTAVES => {
-                self.octaves = u32::from_data(data);
-            }
-            Self::ATTENUATION => {
-                self.attenuation = f32::from_data(data);
-            }
-            _ => panic!("Unknown field {}", field),
-        }
-    }
-}
-
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct RgbParameters {
@@ -189,16 +155,6 @@ impl Default for RgbParameters {
     }
 }
 
-impl Parameters for RgbParameters {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
-        match field {
-            Self::RGB => {
-                self.rgb = <[f32; 3]>::from_data(data);
-            }
-            _ => panic!("Unknown field {}", field),
-        }
-    }
-}
 #[repr(C)]
 #[derive(
     AsBytes,
@@ -233,17 +189,6 @@ impl Default for GrayscaleParameters {
     fn default() -> Self {
         GrayscaleParameters {
             mode: GrayscaleMode::Luminance,
-        }
-    }
-}
-
-impl Parameters for GrayscaleParameters {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
-        match field {
-            Self::MODE => {
-                self.mode = GrayscaleMode::from_data(data);
-            }
-            _ => panic!("Unknown field {}", field),
         }
     }
 }
@@ -349,17 +294,6 @@ pub struct NormalMapParameters {
 impl Default for NormalMapParameters {
     fn default() -> Self {
         Self { strength: 1.0 }
-    }
-}
-
-impl Parameters for NormalMapParameters {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
-        match field {
-            Self::STRENGTH => {
-                self.strength = f32::from_data(data);
-            }
-            _ => panic!("Unknown field {}", field),
-        }
     }
 }
 

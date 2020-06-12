@@ -1,5 +1,5 @@
 extern crate proc_macro;
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_derive(Parameters)]
@@ -12,29 +12,35 @@ pub fn derive_parameters(input: proc_macro::TokenStream) -> proc_macro::TokenStr
         _ => panic!("Expected struct for Parameters derivation"),
     };
 
-    let field_names = fields.iter().filter_map(|x| {
+    let field_consts = fields.iter().filter_map(|x| {
         x.ident
             .clone()
             .map(|z| syn::Ident::new(&z.to_string().to_uppercase(), z.span()))
     });
+    let field_names = fields.iter().filter_map(|x| x.ident.clone());
 
-    // let cases: Vec<_> = fields.iter().filter_map(|x| {
-    //     let field_const = x.ident.clone().map(|z| syn::Ident::new(&z.to_string().to_uppercase(), z.span()))?;
-    //     let field_reader = match x.ty.clone() {
-    //         e => panic!("Unsupported Parameter type {}", e.to_token_stream().to_string()),
-    //     };
-
-    //     Some(quote! { #field_const })
-    // }).collect();
+    let field_consts2 = field_consts.clone();
+    let field_names2 = fields.iter().filter_map(|x| x.ident.clone());
+    let field_tys = fields.iter().map(|x| x.ty.clone());
 
     let expanded = quote! {
         impl #name {
-            #(pub const #field_names: &'static str = stringify!(#field_names); )*
+            #(pub const #field_consts: &'static str = stringify!(#field_names); )*
+        }
+
+        impl Parameters for #name {
+            fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+                match field {
+                    #( Self::#field_consts2 => { self.#field_names2 = <#field_tys>::from_data(data); })*
+                    _ => panic!("Unknown field {}", field),
+                }
+            }
         }
     };
 
     proc_macro::TokenStream::from(expanded)
 }
+
 
 #[proc_macro_derive(ParameterField)]
 pub fn derive_parameter_field(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
