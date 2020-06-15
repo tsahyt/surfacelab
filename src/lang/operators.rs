@@ -35,15 +35,15 @@ pub enum BlendMode {
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
-pub struct BlendParameters {
+pub struct Blend {
     pub blend_mode: BlendMode,
     pub mix: f32,
     pub clamp_output: ParameterBool,
 }
 
-impl Default for BlendParameters {
+impl Default for Blend {
     fn default() -> Self {
-        BlendParameters {
+        Self {
             blend_mode: BlendMode::Mix,
             mix: 0.5,
             clamp_output: 0,
@@ -53,15 +53,15 @@ impl Default for BlendParameters {
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
-pub struct PerlinNoiseParameters {
+pub struct PerlinNoise {
     pub scale: f32,
     pub octaves: u32,
     pub attenuation: f32,
 }
 
-impl Default for PerlinNoiseParameters {
+impl Default for PerlinNoise {
     fn default() -> Self {
-        PerlinNoiseParameters {
+        Self {
             scale: 3.0,
             octaves: 2,
             attenuation: 2.0,
@@ -71,13 +71,13 @@ impl Default for PerlinNoiseParameters {
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
-pub struct RgbParameters {
+pub struct Rgb {
     pub rgb: [f32; 3],
 }
 
-impl Default for RgbParameters {
+impl Default for Rgb {
     fn default() -> Self {
-        RgbParameters {
+        Self {
             rgb: [0.5, 0.7, 0.3],
         }
     }
@@ -109,13 +109,13 @@ pub enum GrayscaleMode {
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
-pub struct GrayscaleParameters {
+pub struct Grayscale {
     pub mode: GrayscaleMode,
 }
 
-impl Default for GrayscaleParameters {
+impl Default for Grayscale {
     fn default() -> Self {
-        GrayscaleParameters {
+        Self {
             mode: GrayscaleMode::Luminance,
         }
     }
@@ -123,7 +123,7 @@ impl Default for GrayscaleParameters {
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Serialize, Deserialize)]
-pub struct RampParameters {
+pub struct Ramp {
     #[serde(with = "BigArray")]
     ramp_data: [[f32; 4]; 64],
     ramp_size: u32,
@@ -131,7 +131,7 @@ pub struct RampParameters {
     ramp_max: f32,
 }
 
-impl RampParameters {
+impl Ramp {
     pub const RAMP: &'static str = "ramp";
 
     pub fn get_steps(&self) -> Vec<[f32; 4]> {
@@ -141,7 +141,7 @@ impl RampParameters {
     }
 }
 
-impl std::fmt::Debug for RampParameters {
+impl std::fmt::Debug for Ramp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RampParameters")
             .field("ramp_size", &self.ramp_size)
@@ -152,9 +152,9 @@ impl std::fmt::Debug for RampParameters {
     }
 }
 
-impl Default for RampParameters {
+impl Default for Ramp {
     fn default() -> Self {
-        RampParameters {
+        Self {
             ramp_data: {
                 let mut arr = [[0.0; 4]; 64];
                 arr[1] = [1., 1., 1., 1.];
@@ -169,7 +169,7 @@ impl Default for RampParameters {
 
 /// RampParameters has a manual Parameters implementation since the GPU side
 /// representation and the broker representation differ.
-impl Parameters for RampParameters {
+impl Parameters for Ramp {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
         match field {
             Self::RAMP => {
@@ -215,11 +215,11 @@ impl Parameters for RampParameters {
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
-pub struct NormalMapParameters {
+pub struct NormalMap {
     pub strength: f32,
 }
 
-impl Default for NormalMapParameters {
+impl Default for NormalMap {
     fn default() -> Self {
         Self { strength: 1.0 }
     }

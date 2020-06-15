@@ -9,6 +9,7 @@ use std::path::*;
 use strum_macros::*;
 use serde_derive::{Deserialize, Serialize};
 use surfacelab_derive::*;
+use enum_dispatch::*;
 
 pub use resource::*;
 pub use parameters::*;
@@ -17,12 +18,12 @@ pub use operators::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Operator {
-    Blend(BlendParameters),
-    PerlinNoise(PerlinNoiseParameters),
-    Rgb(RgbParameters),
-    Grayscale(GrayscaleParameters),
-    Ramp(RampParameters),
-    NormalMap(NormalMapParameters),
+    Blend(Blend),
+    PerlinNoise(PerlinNoise),
+    Rgb(Rgb),
+    Grayscale(Grayscale),
+    Ramp(Ramp),
+    NormalMap(NormalMap),
     Image { path: std::path::PathBuf },
     Output { output_type: OutputType },
 }
@@ -124,12 +125,12 @@ impl Operator {
 
     pub fn all_default() -> Vec<Self> {
         vec![
-            Self::Blend(BlendParameters::default()),
-            Self::PerlinNoise(PerlinNoiseParameters::default()),
-            Self::Rgb(RgbParameters::default()),
-            Self::Grayscale(GrayscaleParameters::default()),
-            Self::Ramp(RampParameters::default()),
-            Self::NormalMap(NormalMapParameters::default()),
+            Self::Blend(Blend::default()),
+            Self::PerlinNoise(PerlinNoise::default()),
+            Self::Rgb(Rgb::default()),
+            Self::Grayscale(Grayscale::default()),
+            Self::Ramp(Ramp::default()),
+            Self::NormalMap(NormalMap::default()),
             Self::Image {
                 path: PathBuf::new(),
             },

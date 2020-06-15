@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use enum_dispatch::*;
 
 use super::{OperatorType, TypeVariable};
 
+#[enum_dispatch]
 trait Socketed {
     fn inputs(&self) -> HashMap<String, OperatorType>;
 

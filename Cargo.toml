@@ -12,6 +12,7 @@ edition = "2018"
 cairo-rs = { git = "https://github.com/gtk-rs/cairo" }
 crossbeam-channel = "0.4.0"
 env_logger = "0.7.1"
+enum_dispatch = "0.3.1"
 gdk = { git = "https://github.com/gtk-rs/gdk", features = ["v3_20"] }
 gdk-pixbuf = { git = "https://github.com/gtk-rs/gdk-pixbuf", features = ["v2_32"] }
 gdk-sys = { git = "https://github.com/gtk-rs/sys" }

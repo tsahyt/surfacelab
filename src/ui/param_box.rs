@@ -394,7 +394,7 @@ pub fn node_attributes(res: &Resource) -> ParamBox {
     })
 }
 
-pub fn blend(res: &Resource, params: &BlendParameters) -> ParamBox {
+pub fn blend(res: &Resource, params: &Blend) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "Blend",
         resource: res.clone(),
@@ -403,7 +403,7 @@ pub fn blend(res: &Resource, params: &BlendParameters) -> ParamBox {
             parameters: &[
                 Parameter {
                     name: "Blend Mode",
-                    transmitter: Field(BlendParameters::BLEND_MODE),
+                    transmitter: Field(Blend::BLEND_MODE),
                     control: Control::Enum {
                         selected: params.blend_mode as usize,
                         variants: BlendMode::VARIANTS,
@@ -411,14 +411,14 @@ pub fn blend(res: &Resource, params: &BlendParameters) -> ParamBox {
                 },
                 Parameter {
                     name: "Clamp",
-                    transmitter: Field(BlendParameters::CLAMP_OUTPUT),
+                    transmitter: Field(Blend::CLAMP_OUTPUT),
                     control: Control::Toggle {
                         def: params.clamp_output == 1,
                     },
                 },
                 Parameter {
                     name: "Mix",
-                    transmitter: Field(BlendParameters::MIX),
+                    transmitter: Field(Blend::MIX),
                     control: Control::Slider {
                         value: params.mix,
                         min: 0.,
@@ -430,7 +430,7 @@ pub fn blend(res: &Resource, params: &BlendParameters) -> ParamBox {
     })
 }
 
-pub fn perlin_noise(res: &Resource, params: &PerlinNoiseParameters) -> ParamBox {
+pub fn perlin_noise(res: &Resource, params: &PerlinNoise) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "Perlin Noise",
         resource: res.clone(),
@@ -439,7 +439,7 @@ pub fn perlin_noise(res: &Resource, params: &PerlinNoiseParameters) -> ParamBox 
             parameters: &[
                 Parameter {
                     name: "Scale",
-                    transmitter: Field(PerlinNoiseParameters::SCALE),
+                    transmitter: Field(PerlinNoise::SCALE),
                     control: Control::Slider {
                         value: params.scale,
                         min: 0.,
@@ -448,7 +448,7 @@ pub fn perlin_noise(res: &Resource, params: &PerlinNoiseParameters) -> ParamBox 
                 },
                 Parameter {
                     name: "Octaves",
-                    transmitter: Field(PerlinNoiseParameters::OCTAVES),
+                    transmitter: Field(PerlinNoise::OCTAVES),
                     control: Control::DiscreteSlider {
                         value: params.octaves as _,
                         min: 0,
@@ -457,7 +457,7 @@ pub fn perlin_noise(res: &Resource, params: &PerlinNoiseParameters) -> ParamBox 
                 },
                 Parameter {
                     name: "Attenuation",
-                    transmitter: Field(PerlinNoiseParameters::ATTENUATION),
+                    transmitter: Field(PerlinNoise::ATTENUATION),
                     control: Control::Slider {
                         value: params.attenuation,
                         min: 0.,
@@ -469,7 +469,7 @@ pub fn perlin_noise(res: &Resource, params: &PerlinNoiseParameters) -> ParamBox 
     })
 }
 
-pub fn rgb(res: &Resource, params: &RgbParameters) -> ParamBox {
+pub fn rgb(res: &Resource, params: &Rgb) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "RGB Color",
         resource: res.clone(),
@@ -477,7 +477,7 @@ pub fn rgb(res: &Resource, params: &RgbParameters) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Color",
-                transmitter: Field(RgbParameters::RGB),
+                transmitter: Field(Rgb::RGB),
                 control: Control::RgbColor { value: params.rgb },
             }],
         }],
@@ -519,7 +519,7 @@ pub fn image(res: &Resource, path: std::path::PathBuf) -> ParamBox {
     })
 }
 
-pub fn grayscale(res: &Resource, params: &GrayscaleParameters) -> ParamBox {
+pub fn grayscale(res: &Resource, params: &Grayscale) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "Grayscale",
         resource: res.clone(),
@@ -527,7 +527,7 @@ pub fn grayscale(res: &Resource, params: &GrayscaleParameters) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Conversion Mode",
-                transmitter: Field(GrayscaleParameters::MODE),
+                transmitter: Field(Grayscale::MODE),
                 control: Control::Enum {
                     selected: params.mode as usize,
                     variants: GrayscaleMode::VARIANTS,
@@ -537,7 +537,7 @@ pub fn grayscale(res: &Resource, params: &GrayscaleParameters) -> ParamBox {
     })
 }
 
-pub fn ramp(res: &Resource, params: &RampParameters) -> ParamBox {
+pub fn ramp(res: &Resource, params: &Ramp) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "Ramp",
         resource: res.clone(),
@@ -545,7 +545,7 @@ pub fn ramp(res: &Resource, params: &RampParameters) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Gradient",
-                transmitter: Field(RampParameters::RAMP),
+                transmitter: Field(Ramp::RAMP),
                 control: Control::Ramp {
                     steps: params.get_steps(),
                 },
@@ -554,7 +554,7 @@ pub fn ramp(res: &Resource, params: &RampParameters) -> ParamBox {
     })
 }
 
-pub fn normal_map(res: &Resource, params: &NormalMapParameters) -> ParamBox {
+pub fn normal_map(res: &Resource, params: &NormalMap) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "Normal Map",
         resource: res.clone(),
@@ -562,7 +562,7 @@ pub fn normal_map(res: &Resource, params: &NormalMapParameters) -> ParamBox {
             name: "Basic Parameters",
             parameters: &[Parameter {
                 name: "Strength",
-                transmitter: Field(NormalMapParameters::STRENGTH),
+                transmitter: Field(NormalMap::STRENGTH),
                 control: Control::Slider {
                     value: params.strength,
                     min: 0.,
