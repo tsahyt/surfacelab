@@ -15,7 +15,7 @@ pub use parameters::*;
 pub use resource::*;
 pub use socketed::*;
 
-#[enum_dispatch(Socketed)]
+#[enum_dispatch(Socketed, Parameters)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Operator {
     Blend,
@@ -54,21 +54,6 @@ impl Operator {
         match self {
             Self::Output { .. } => true,
             _ => false,
-        }
-    }
-}
-
-impl Parameters for Operator {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
-        match self {
-            Self::Blend(p) => p.set_parameter(field, data),
-            Self::PerlinNoise(p) => p.set_parameter(field, data),
-            Self::Rgb(p) => p.set_parameter(field, data),
-            Self::Grayscale(p) => p.set_parameter(field, data),
-            Self::Ramp(p) => p.set_parameter(field, data),
-            Self::NormalMap(p) => p.set_parameter(field, data),
-            Self::Image(p) => p.set_parameter(field, data),
-            Self::Output(p) => p.set_parameter(field, data),
         }
     }
 }

@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
+use enum_dispatch::*;
 
+#[enum_dispatch]
 pub trait Parameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]);
 }
