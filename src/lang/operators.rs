@@ -1,5 +1,7 @@
 use super::parameters::*;
 use super::socketed::*;
+use crate::compute::shaders::{Shader, OperatorShader, OperatorDescriptor, OperatorDescriptorUse};
+
 use maplit::hashmap;
 use serde_big_array::*;
 use serde_derive::{Deserialize, Serialize};
@@ -77,6 +79,36 @@ impl Socketed for Blend {
     }
 }
 
+impl Shader for Blend {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        Some(OperatorShader {
+            spirv: include_bytes!("../../shaders/blend.spv"),
+            descriptors: &[
+                OperatorDescriptor {
+                    binding: 0,
+                    descriptor: OperatorDescriptorUse::Uniforms,
+                },
+                OperatorDescriptor {
+                    binding: 1,
+                    descriptor: OperatorDescriptorUse::InputImage("background"),
+                },
+                OperatorDescriptor {
+                    binding: 2,
+                    descriptor: OperatorDescriptorUse::InputImage("foreground"),
+                },
+                OperatorDescriptor {
+                    binding: 3,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 4,
+                    descriptor: OperatorDescriptorUse::OutputImage("color"),
+                },
+            ],
+        })
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct PerlinNoise {
@@ -114,6 +146,24 @@ impl Socketed for PerlinNoise {
     }
 }
 
+impl Shader for PerlinNoise {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        Some(OperatorShader {
+            spirv: include_bytes!("../../shaders/perlin.spv"),
+            descriptors: &[
+                OperatorDescriptor {
+                    binding: 0,
+                    descriptor: OperatorDescriptorUse::Uniforms,
+                },
+                OperatorDescriptor {
+                    binding: 1,
+                    descriptor: OperatorDescriptorUse::OutputImage("noise"),
+                },
+            ],
+        })
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct Rgb {
@@ -145,6 +195,24 @@ impl Socketed for Rgb {
 
     fn title(&self) -> &'static str {
         "RGB Color"
+    }
+}
+
+impl Shader for Rgb {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        Some(OperatorShader {
+            spirv: include_bytes!("../../shaders/rgb.spv"),
+            descriptors: &[
+                OperatorDescriptor {
+                    binding: 0,
+                    descriptor: OperatorDescriptorUse::Uniforms,
+                },
+                OperatorDescriptor {
+                    binding: 1,
+                    descriptor: OperatorDescriptorUse::OutputImage("color"),
+                },
+            ],
+        })
     }
 }
 
@@ -205,6 +273,32 @@ impl Socketed for Grayscale {
 
     fn title(&self) -> &'static str {
         "Grayscale"
+    }
+}
+
+impl Shader for Grayscale {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        Some(OperatorShader {
+            spirv: include_bytes!("../../shaders/grayscale.spv"),
+            descriptors: &[
+                OperatorDescriptor {
+                    binding: 0,
+                    descriptor: OperatorDescriptorUse::Uniforms,
+                },
+                OperatorDescriptor {
+                    binding: 1,
+                    descriptor: OperatorDescriptorUse::InputImage("color"),
+                },
+                OperatorDescriptor {
+                    binding: 2,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 3,
+                    descriptor: OperatorDescriptorUse::OutputImage("value"),
+                },
+            ],
+        })
     }
 }
 
@@ -322,6 +416,32 @@ impl Socketed for Ramp {
     }
 }
 
+impl Shader for Ramp {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        Some(OperatorShader {
+            spirv: include_bytes!("../../shaders/ramp.spv"),
+            descriptors: &[
+                OperatorDescriptor {
+                    binding: 0,
+                    descriptor: OperatorDescriptorUse::Uniforms,
+                },
+                OperatorDescriptor {
+                    binding: 1,
+                    descriptor: OperatorDescriptorUse::InputImage("factor"),
+                },
+                OperatorDescriptor {
+                    binding: 2,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 3,
+                    descriptor: OperatorDescriptorUse::OutputImage("color"),
+                },
+            ],
+        })
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct NormalMap {
@@ -356,6 +476,32 @@ impl Socketed for NormalMap {
     }
 }
 
+impl Shader for NormalMap {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        Some(OperatorShader {
+            spirv: include_bytes!("../../shaders/normal.spv"),
+            descriptors: &[
+                OperatorDescriptor {
+                    binding: 0,
+                    descriptor: OperatorDescriptorUse::Uniforms,
+                },
+                OperatorDescriptor {
+                    binding: 1,
+                    descriptor: OperatorDescriptorUse::InputImage("height"),
+                },
+                OperatorDescriptor {
+                    binding: 2,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 3,
+                    descriptor: OperatorDescriptorUse::OutputImage("normal"),
+                },
+            ],
+        })
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters)]
 pub struct Image {
     pub path: std::path::PathBuf,
@@ -386,6 +532,12 @@ impl Socketed for Image {
 
     fn title(&self) -> &'static str {
         "Image"
+    }
+}
+
+impl Shader for Image {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        None
     }
 }
 
@@ -427,5 +579,11 @@ impl Socketed for Output {
 
     fn title(&self) -> &'static str {
         "Output"
+    }
+}
+
+impl Shader for Output {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        None
     }
 }

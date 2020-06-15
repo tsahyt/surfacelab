@@ -2,44 +2,28 @@ use crate::{
     gpu,
     lang::{self, Socketed},
 };
+use enum_dispatch::*;
 use std::collections::HashMap;
 use zerocopy::AsBytes;
 
-enum OperatorDescriptorUse {
+pub enum OperatorDescriptorUse {
     InputImage(&'static str),
     OutputImage(&'static str),
     Sampler,
     Uniforms,
 }
 
-struct OperatorDescriptor {
-    binding: u32,
-    descriptor: OperatorDescriptorUse,
+pub struct OperatorDescriptor {
+    pub binding: u32,
+    pub descriptor: OperatorDescriptorUse,
 }
 
-struct OperatorShader {
-    spirv: &'static [u8],
-    descriptors: &'static [OperatorDescriptor],
+pub struct OperatorShader {
+    pub spirv: &'static [u8],
+    pub descriptors: &'static [OperatorDescriptor],
 }
 
 impl OperatorShader {
-    pub fn from_operator(op: &lang::Operator) -> Option<&'static Self> {
-        use lang::Operator;
-
-        match op {
-            // Image and Output are special
-            Operator::Image { .. } => None,
-            Operator::Output { .. } => None,
-
-            Operator::Blend(..) => Some(&BLEND),
-            Operator::PerlinNoise(..) => Some(&PERLIN_NOISE),
-            Operator::Rgb(..) => Some(&RGB),
-            Operator::Grayscale(..) => Some(&GRAYSCALE),
-            Operator::Ramp(..) => Some(&RAMP),
-            Operator::NormalMap(..) => Some(&NORMAL_MAP),
-        }
-    }
-
     pub fn layout(&self) -> impl Iterator<Item = gpu::DescriptorSetLayoutBinding> {
         self.descriptors.iter().map(|desc| match desc.descriptor {
             OperatorDescriptorUse::OutputImage(..) => gpu::DescriptorSetLayoutBinding {
@@ -129,121 +113,12 @@ impl OperatorShader {
     }
 }
 
-static BLEND: OperatorShader = OperatorShader {
-    spirv: include_bytes!("../../shaders/blend.spv"),
-    descriptors: &[
-        OperatorDescriptor {
-            binding: 0,
-            descriptor: OperatorDescriptorUse::Uniforms,
-        },
-        OperatorDescriptor {
-            binding: 1,
-            descriptor: OperatorDescriptorUse::InputImage("background"),
-        },
-        OperatorDescriptor {
-            binding: 2,
-            descriptor: OperatorDescriptorUse::InputImage("foreground"),
-        },
-        OperatorDescriptor {
-            binding: 3,
-            descriptor: OperatorDescriptorUse::Sampler,
-        },
-        OperatorDescriptor {
-            binding: 4,
-            descriptor: OperatorDescriptorUse::OutputImage("color"),
-        },
-    ],
-};
-static PERLIN_NOISE: OperatorShader = OperatorShader {
-    spirv: include_bytes!("../../shaders/perlin.spv"),
-    descriptors: &[
-        OperatorDescriptor {
-            binding: 0,
-            descriptor: OperatorDescriptorUse::Uniforms,
-        },
-        OperatorDescriptor {
-            binding: 1,
-            descriptor: OperatorDescriptorUse::OutputImage("noise"),
-        },
-    ],
-};
-static RGB: OperatorShader = OperatorShader {
-    spirv: include_bytes!("../../shaders/rgb.spv"),
-    descriptors: &[
-        OperatorDescriptor {
-            binding: 0,
-            descriptor: OperatorDescriptorUse::Uniforms,
-        },
-        OperatorDescriptor {
-            binding: 1,
-            descriptor: OperatorDescriptorUse::OutputImage("color"),
-        },
-    ],
-};
-static GRAYSCALE: OperatorShader = OperatorShader {
-    spirv: include_bytes!("../../shaders/grayscale.spv"),
-    descriptors: &[
-        OperatorDescriptor {
-            binding: 0,
-            descriptor: OperatorDescriptorUse::Uniforms,
-        },
-        OperatorDescriptor {
-            binding: 1,
-            descriptor: OperatorDescriptorUse::InputImage("color"),
-        },
-        OperatorDescriptor {
-            binding: 2,
-            descriptor: OperatorDescriptorUse::Sampler,
-        },
-        OperatorDescriptor {
-            binding: 3,
-            descriptor: OperatorDescriptorUse::OutputImage("value"),
-        },
-    ],
-};
-static RAMP: OperatorShader = OperatorShader {
-    spirv: include_bytes!("../../shaders/ramp.spv"),
-    descriptors: &[
-        OperatorDescriptor {
-            binding: 0,
-            descriptor: OperatorDescriptorUse::Uniforms,
-        },
-        OperatorDescriptor {
-            binding: 1,
-            descriptor: OperatorDescriptorUse::InputImage("factor"),
-        },
-        OperatorDescriptor {
-            binding: 2,
-            descriptor: OperatorDescriptorUse::Sampler,
-        },
-        OperatorDescriptor {
-            binding: 3,
-            descriptor: OperatorDescriptorUse::OutputImage("color"),
-        },
-    ],
-};
-static NORMAL_MAP: OperatorShader = OperatorShader {
-    spirv: include_bytes!("../../shaders/normal.spv"),
-    descriptors: &[
-        OperatorDescriptor {
-            binding: 0,
-            descriptor: OperatorDescriptorUse::Uniforms,
-        },
-        OperatorDescriptor {
-            binding: 1,
-            descriptor: OperatorDescriptorUse::InputImage("height"),
-        },
-        OperatorDescriptor {
-            binding: 2,
-            descriptor: OperatorDescriptorUse::Sampler,
-        },
-        OperatorDescriptor {
-            binding: 3,
-            descriptor: OperatorDescriptorUse::OutputImage("normal"),
-        },
-    ],
-};
+#[enum_dispatch]
+pub trait Shader {
+    fn operator_shader(&self) -> Option<OperatorShader>;
+}
 
+#[enum_dispatch]
 pub trait Uniforms {
     fn uniforms(&self) -> &[u8];
     fn uniform_hash(&self) -> u64 {
@@ -256,23 +131,23 @@ pub trait Uniforms {
     }
 }
 
-impl Uniforms for lang::Operator {
+impl<T> Uniforms for T where T: AsBytes {
     fn uniforms(&self) -> &[u8] {
-        use lang::Operator;
+        self.as_bytes()
+    }
+}
 
-        match self {
-            // Image and Output are special and don't have uniforms
-            Operator::Image { .. } => &[],
-            Operator::Output { .. } => &[],
+/// Image is special and doesn't have uniforms. Therefore the output is empty
+impl Uniforms for lang::Image {
+    fn uniforms(&self) -> &[u8] {
+        &[]
+    }
+}
 
-            // Operators
-            Operator::Blend(p) => p.as_bytes(),
-            Operator::PerlinNoise(p) => p.as_bytes(),
-            Operator::Rgb(p) => p.as_bytes(),
-            Operator::Grayscale(p) => p.as_bytes(),
-            Operator::Ramp(p) => p.as_bytes(),
-            Operator::NormalMap(p) => p.as_bytes(),
-        }
+/// Output is special and doesn't have uniforms. Therefore the output is empty
+impl Uniforms for lang::Output {
+    fn uniforms(&self) -> &[u8] {
+        &[]
     }
 }
 
@@ -293,7 +168,7 @@ where
         let mut descriptor_sets = HashMap::new();
         for op in lang::Operator::all_default() {
             log::trace!("Initializing operator {}", op.title());
-            if let Some(operator_shader) = OperatorShader::from_operator(&op) {
+            if let Some(operator_shader) = op.operator_shader() {
                 let shader: gpu::Shader<B> = gpu.create_shader(operator_shader.spirv)?;
                 let pipeline: gpu::compute::ComputePipeline<B> =
                     gpu.create_pipeline(&shader, operator_shader.layout())?;
@@ -334,7 +209,7 @@ where
         inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
         outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
     ) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
-        match OperatorShader::from_operator(&op) {
+        match op.operator_shader() {
             Some(operator_shader) => operator_shader
                 .writers(desc_set, uniforms, sampler, inputs, outputs)
                 .collect(),
