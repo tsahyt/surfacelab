@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use enum_dispatch::*;
 
-use super::{OperatorType, TypeVariable};
+pub use super::{OperatorType, TypeVariable, ImageType};
 
 #[enum_dispatch]
-trait Socketed {
+pub trait Socketed {
     fn inputs(&self) -> HashMap<String, OperatorType>;
 
     fn outputs(&self) -> HashMap<String, OperatorType>;

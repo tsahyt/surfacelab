@@ -1,9 +1,12 @@
 use super::parameters::*;
+use super::socketed::*;
+use std::collections::HashMap;
 use zerocopy::AsBytes;
 use serde_big_array::*;
 use strum_macros::*;
 use surfacelab_derive::*;
 use serde_derive::{Deserialize, Serialize};
+use maplit::hashmap;
 
 big_array! { BigArray; }
 
@@ -51,6 +54,29 @@ impl Default for Blend {
     }
 }
 
+impl Socketed for Blend {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "background".to_string() => OperatorType::Polymorphic(0),
+            "foreground".to_string() => OperatorType::Polymorphic(0)
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "color".to_string() => OperatorType::Polymorphic(0),
+        }
+    }
+
+    fn default_name(&self) -> &'static str {
+        "blend"
+    }
+
+    fn title(&self) -> &'static str {
+        "Blend"
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct PerlinNoise {
@@ -69,6 +95,26 @@ impl Default for PerlinNoise {
     }
 }
 
+impl Socketed for PerlinNoise {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! { "noise".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+        }
+    }
+
+    fn default_name(&self) -> &'static str {
+        "perlin_noise"
+    }
+
+    fn title(&self) -> &'static str {
+        "Perlin Noise"
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct Rgb {
@@ -80,6 +126,27 @@ impl Default for Rgb {
         Self {
             rgb: [0.5, 0.7, 0.3],
         }
+    }
+}
+
+impl Socketed for Rgb {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
+        }
+    }
+
+    fn default_name(&self) -> &'static str {
+        "rgb"
+    }
+
+    fn title(&self) -> &'static str {
+        "RGB Color"
     }
 }
 
@@ -118,6 +185,28 @@ impl Default for Grayscale {
         Self {
             mode: GrayscaleMode::Luminance,
         }
+    }
+}
+
+impl Socketed for Grayscale {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb),
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "value".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+        }
+    }
+
+    fn default_name(&self) -> &'static str {
+        "grayscale"
+    }
+
+    fn title(&self) -> &'static str {
+        "Grayscale"
     }
 }
 
@@ -213,6 +302,28 @@ impl Parameters for Ramp {
     }
 }
 
+impl Socketed for Ramp {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "factor".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb),
+        }
+    }
+
+    fn default_name(&self) -> &'static str {
+        "ramp"
+    }
+
+    fn title(&self) -> &'static str {
+        "Ramp"
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct NormalMap {
@@ -222,5 +333,86 @@ pub struct NormalMap {
 impl Default for NormalMap {
     fn default() -> Self {
         Self { strength: 1.0 }
+    }
+}
+
+impl Socketed for NormalMap {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "height".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "normal".to_string() => OperatorType::Monomorphic(ImageType::Rgb),
+        }
+    }
+
+    fn default_name(&self) -> &'static str {
+        "normal_map"
+    }
+
+    fn title(&self) -> &'static str {
+        "Normal Map"
+    }
+}
+
+
+pub struct Image {
+    pub path: std::path::PathBuf,
+}
+
+impl Socketed for Image {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "image".to_string() => OperatorType::Monomorphic(ImageType::Rgb),
+        }
+    }
+
+    fn default_name(&self) -> &'static str {
+        "image"
+    }
+
+    fn title(&self) -> &'static str {
+        "Image"
+    }
+}
+
+pub struct Output {
+    pub output_type: super::OutputType,
+}
+
+impl Socketed for Output {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "data".to_string() => match self.output_type {
+                super::OutputType::Albedo => OperatorType::Monomorphic(ImageType::Rgb),
+                super::OutputType::Roughness => OperatorType::Monomorphic(ImageType::Grayscale),
+                super::OutputType::Normal => OperatorType::Monomorphic(ImageType::Rgb),
+                super::OutputType::Displacement => OperatorType::Monomorphic(ImageType::Grayscale),
+                super::OutputType::Metallic => OperatorType::Monomorphic(ImageType::Grayscale),
+                super::OutputType::Value => OperatorType::Monomorphic(ImageType::Grayscale),
+                super::OutputType::Rgb => OperatorType::Monomorphic(ImageType::Rgb),
+        }
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+        }
+    }
+
+    fn default_name(&self) -> &'static str {
+        "output"
+    }
+
+    fn title(&self) -> &'static str {
+        "Output"
     }
 }
