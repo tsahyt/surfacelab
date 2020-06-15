@@ -1,0 +1,79 @@
+use super::super::parameters::*;
+use super::super::socketed::*;
+use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
+use crate::ui::param_box::*;
+
+use maplit::hashmap;
+use serde_derive::{Deserialize, Serialize};
+use std::collections::HashMap;
+use surfacelab_derive::*;
+use zerocopy::AsBytes;
+
+#[repr(C)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
+pub struct Rgb {
+    pub rgb: [f32; 3],
+}
+
+impl Default for Rgb {
+    fn default() -> Self {
+        Self {
+            rgb: [0.5, 0.7, 0.3],
+        }
+    }
+}
+
+impl Socketed for Rgb {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {}
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
+        }
+    }
+
+    fn default_name(&self) -> &'static str {
+        "rgb"
+    }
+
+    fn title(&self) -> &'static str {
+        "RGB Color"
+    }
+}
+
+impl Shader for Rgb {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        Some(OperatorShader {
+            spirv: include_bytes!("../../../shaders/rgb.spv"),
+            descriptors: &[
+                OperatorDescriptor {
+                    binding: 0,
+                    descriptor: OperatorDescriptorUse::Uniforms,
+                },
+                OperatorDescriptor {
+                    binding: 1,
+                    descriptor: OperatorDescriptorUse::OutputImage("color"),
+                },
+            ],
+        })
+    }
+}
+
+impl OperatorParamBox for Rgb {
+    fn param_box(&self, res: &crate::lang::Resource) -> ParamBox {
+        ParamBox::new(&ParamBoxDescription {
+            box_title: self.title(),
+            resource: res.clone(),
+            categories: &[ParamCategory {
+                name: "Basic Parameters",
+                parameters: &[Parameter {
+                    name: "Color",
+                    transmitter: Field(Rgb::RGB),
+                    control: Control::RgbColor { value: self.rgb },
+                }],
+            }],
+        })
+    }
+}
