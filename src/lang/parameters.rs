@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use enum_dispatch::*;
+use std::path::{Path, PathBuf};
 
 #[enum_dispatch]
 pub trait Parameters {

@@ -1,5 +1,5 @@
 use super::node_socket::{NodeSocket, NodeSocketIO};
-use super::param_box;
+use super::param_box::OperatorParamBox;
 use crate::lang::*;
 
 use gdk::prelude::*;
@@ -276,7 +276,7 @@ impl Node {
         priv_.header_label.set_label(op.title());
         priv_
             .popover
-            .add(&param_box::param_box_for_operator(&op, &resource));
+            .add(&op.param_box(&resource));
         priv_
             .resource
             .set(resource.clone())

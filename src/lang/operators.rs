@@ -1,11 +1,13 @@
 use super::parameters::*;
 use super::socketed::*;
-use crate::compute::shaders::{Shader, OperatorShader, OperatorDescriptor, OperatorDescriptorUse};
+use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
+use crate::ui::param_box::*;
 
 use maplit::hashmap;
 use serde_big_array::*;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum::VariantNames;
 use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
@@ -109,6 +111,44 @@ impl Shader for Blend {
     }
 }
 
+impl OperatorParamBox for Blend {
+    fn param_box(&self, res: &super::Resource) -> ParamBox {
+        ParamBox::new(&ParamBoxDescription {
+            box_title: self.title(),
+            resource: res.clone(),
+            categories: &[ParamCategory {
+                name: "Basic Parameters",
+                parameters: &[
+                    Parameter {
+                        name: "Blend Mode",
+                        transmitter: Field(Blend::BLEND_MODE),
+                        control: Control::Enum {
+                            selected: self.blend_mode as usize,
+                            variants: BlendMode::VARIANTS,
+                        },
+                    },
+                    Parameter {
+                        name: "Clamp",
+                        transmitter: Field(Blend::CLAMP_OUTPUT),
+                        control: Control::Toggle {
+                            def: self.clamp_output == 1,
+                        },
+                    },
+                    Parameter {
+                        name: "Mix",
+                        transmitter: Field(Blend::MIX),
+                        control: Control::Slider {
+                            value: self.mix,
+                            min: 0.,
+                            max: 1.,
+                        },
+                    },
+                ],
+            }],
+        })
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct PerlinNoise {
@@ -164,6 +204,47 @@ impl Shader for PerlinNoise {
     }
 }
 
+impl OperatorParamBox for PerlinNoise {
+    fn param_box(&self, res: &super::Resource) -> ParamBox {
+        ParamBox::new(&ParamBoxDescription {
+            box_title: self.title(),
+            resource: res.clone(),
+            categories: &[ParamCategory {
+                name: "Basic Parameters",
+                parameters: &[
+                    Parameter {
+                        name: "Scale",
+                        transmitter: Field(PerlinNoise::SCALE),
+                        control: Control::Slider {
+                            value: self.scale,
+                            min: 0.,
+                            max: 16.,
+                        },
+                    },
+                    Parameter {
+                        name: "Octaves",
+                        transmitter: Field(PerlinNoise::OCTAVES),
+                        control: Control::DiscreteSlider {
+                            value: self.octaves as _,
+                            min: 0,
+                            max: 24,
+                        },
+                    },
+                    Parameter {
+                        name: "Attenuation",
+                        transmitter: Field(PerlinNoise::ATTENUATION),
+                        control: Control::Slider {
+                            value: self.attenuation,
+                            min: 0.,
+                            max: 4.,
+                        },
+                    },
+                ],
+            }],
+        })
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct Rgb {
@@ -212,6 +293,23 @@ impl Shader for Rgb {
                     descriptor: OperatorDescriptorUse::OutputImage("color"),
                 },
             ],
+        })
+    }
+}
+
+impl OperatorParamBox for Rgb {
+    fn param_box(&self, res: &super::Resource) -> ParamBox {
+        ParamBox::new(&ParamBoxDescription {
+            box_title: self.title(),
+            resource: res.clone(),
+            categories: &[ParamCategory {
+                name: "Basic Parameters",
+                parameters: &[Parameter {
+                    name: "Color",
+                    transmitter: Field(Rgb::RGB),
+                    control: Control::RgbColor { value: self.rgb },
+                }],
+            }],
         })
     }
 }
@@ -298,6 +396,26 @@ impl Shader for Grayscale {
                     descriptor: OperatorDescriptorUse::OutputImage("value"),
                 },
             ],
+        })
+    }
+}
+
+impl OperatorParamBox for Grayscale {
+    fn param_box(&self, res: &super::Resource) -> ParamBox {
+        ParamBox::new(&ParamBoxDescription {
+            box_title: self.title(),
+            resource: res.clone(),
+            categories: &[ParamCategory {
+                name: "Basic Parameters",
+                parameters: &[Parameter {
+                    name: "Conversion Mode",
+                    transmitter: Field(Grayscale::MODE),
+                    control: Control::Enum {
+                        selected: self.mode as usize,
+                        variants: GrayscaleMode::VARIANTS,
+                    },
+                }],
+            }],
         })
     }
 }
@@ -442,6 +560,25 @@ impl Shader for Ramp {
     }
 }
 
+impl OperatorParamBox for Ramp {
+    fn param_box(&self, res: &super::Resource) -> ParamBox {
+        ParamBox::new(&ParamBoxDescription {
+            box_title: self.title(),
+            resource: res.clone(),
+            categories: &[ParamCategory {
+                name: "Basic Parameters",
+                parameters: &[Parameter {
+                    name: "Gradient",
+                    transmitter: Field(Ramp::RAMP),
+                    control: Control::Ramp {
+                        steps: self.get_steps(),
+                    },
+                }],
+            }],
+        })
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct NormalMap {
@@ -502,6 +639,27 @@ impl Shader for NormalMap {
     }
 }
 
+impl OperatorParamBox for NormalMap {
+    fn param_box(&self, res: &super::Resource) -> ParamBox {
+        ParamBox::new(&ParamBoxDescription {
+            box_title: self.title(),
+            resource: res.clone(),
+            categories: &[ParamCategory {
+                name: "Basic Parameters",
+                parameters: &[Parameter {
+                    name: "Strength",
+                    transmitter: Field(NormalMap::STRENGTH),
+                    control: Control::Slider {
+                        value: self.strength,
+                        min: 0.,
+                        max: 2.,
+                    },
+                }],
+            }],
+        })
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters)]
 pub struct Image {
     pub path: std::path::PathBuf,
@@ -538,6 +696,25 @@ impl Socketed for Image {
 impl Shader for Image {
     fn operator_shader(&self) -> Option<OperatorShader> {
         None
+    }
+}
+
+impl OperatorParamBox for Image {
+    fn param_box(&self, res: &super::Resource) -> ParamBox {
+        ParamBox::new(&ParamBoxDescription {
+            box_title: self.title(),
+            resource: res.clone(),
+            categories: &[ParamCategory {
+                name: "Basic Parameters",
+                parameters: &[Parameter {
+                    name: "Image Path",
+                    transmitter: Field("image_path"), // TODO: consts
+                    control: Control::File {
+                        selected: Some(self.path.to_owned()), // TODO: probably not necessary to clone the path
+                    },
+                }],
+            }],
+        })
     }
 }
 
@@ -585,5 +762,25 @@ impl Socketed for Output {
 impl Shader for Output {
     fn operator_shader(&self) -> Option<OperatorShader> {
         None
+    }
+}
+
+impl OperatorParamBox for Output {
+    fn param_box(&self, res: &super::Resource) -> ParamBox {
+        ParamBox::new(&ParamBoxDescription {
+            box_title: self.title(),
+            resource: res.clone(),
+            categories: &[ParamCategory {
+                name: "Basic Parameters",
+                parameters: &[Parameter {
+                    name: "Output Type",
+                    transmitter: Field("output_type"), // TODO: consts
+                    control: Control::Enum {
+                        selected: self.output_type as usize,
+                        variants: super::OutputType::VARIANTS,
+                    },
+                }],
+            }],
+        })
     }
 }

@@ -1,4 +1,4 @@
-use crate::compute::shaders::{Uniforms, Shader, OperatorShader};
+use crate::compute::shaders::{OperatorShader, Shader, Uniforms};
 pub mod operators;
 pub mod parameters;
 pub mod resource;
@@ -16,7 +16,7 @@ pub use parameters::*;
 pub use resource::*;
 pub use socketed::*;
 
-#[enum_dispatch(Socketed, Parameters, Uniforms, Shader)]
+#[enum_dispatch(Socketed, Parameters, Uniforms, Shader, OperatorParamBox)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Operator {
     Blend,

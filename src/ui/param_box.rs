@@ -1,13 +1,13 @@
 use crate::lang::*;
 
+use enum_dispatch::*;
+
 use glib::subclass;
 use glib::subclass::prelude::*;
 use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-
-use strum::VariantNames;
 
 pub struct ParamBoxPrivate {
     inner: gtk::Box,
@@ -123,7 +123,7 @@ pub trait Transmitter {
 }
 
 #[derive(Copy, Clone, Debug)]
-struct Field(&'static str);
+pub struct Field(pub &'static str);
 
 impl Transmitter for Field {
     fn transmit(&self, resource: &Resource, data: &[u8]) {
@@ -357,21 +357,6 @@ impl Control {
     }
 }
 
-// Parameter Boxes for Nodes
-
-pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
-    match op {
-        Operator::Blend(params) => blend(res, params),
-        Operator::PerlinNoise(params) => perlin_noise(res, params),
-        Operator::Rgb(params) => rgb(res, params),
-        Operator::Grayscale(params) => grayscale(res, params),
-        Operator::Ramp(params) => ramp(res, params),
-        Operator::NormalMap(params) => normal_map(res, params),
-        Operator::Image(Image { path }) => image(res, path.to_owned()),
-        Operator::Output(Output { output_type }) => output(res, *output_type),
-    }
-}
-
 pub fn node_attributes(res: &Resource) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "Node Attributes",
@@ -394,181 +379,7 @@ pub fn node_attributes(res: &Resource) -> ParamBox {
     })
 }
 
-pub fn blend(res: &Resource, params: &Blend) -> ParamBox {
-    ParamBox::new(&ParamBoxDescription {
-        box_title: "Blend",
-        resource: res.clone(),
-        categories: &[ParamCategory {
-            name: "Basic Parameters",
-            parameters: &[
-                Parameter {
-                    name: "Blend Mode",
-                    transmitter: Field(Blend::BLEND_MODE),
-                    control: Control::Enum {
-                        selected: params.blend_mode as usize,
-                        variants: BlendMode::VARIANTS,
-                    },
-                },
-                Parameter {
-                    name: "Clamp",
-                    transmitter: Field(Blend::CLAMP_OUTPUT),
-                    control: Control::Toggle {
-                        def: params.clamp_output == 1,
-                    },
-                },
-                Parameter {
-                    name: "Mix",
-                    transmitter: Field(Blend::MIX),
-                    control: Control::Slider {
-                        value: params.mix,
-                        min: 0.,
-                        max: 1.,
-                    },
-                },
-            ],
-        }],
-    })
-}
-
-pub fn perlin_noise(res: &Resource, params: &PerlinNoise) -> ParamBox {
-    ParamBox::new(&ParamBoxDescription {
-        box_title: "Perlin Noise",
-        resource: res.clone(),
-        categories: &[ParamCategory {
-            name: "Basic Parameters",
-            parameters: &[
-                Parameter {
-                    name: "Scale",
-                    transmitter: Field(PerlinNoise::SCALE),
-                    control: Control::Slider {
-                        value: params.scale,
-                        min: 0.,
-                        max: 16.,
-                    },
-                },
-                Parameter {
-                    name: "Octaves",
-                    transmitter: Field(PerlinNoise::OCTAVES),
-                    control: Control::DiscreteSlider {
-                        value: params.octaves as _,
-                        min: 0,
-                        max: 24,
-                    },
-                },
-                Parameter {
-                    name: "Attenuation",
-                    transmitter: Field(PerlinNoise::ATTENUATION),
-                    control: Control::Slider {
-                        value: params.attenuation,
-                        min: 0.,
-                        max: 4.,
-                    },
-                },
-            ],
-        }],
-    })
-}
-
-pub fn rgb(res: &Resource, params: &Rgb) -> ParamBox {
-    ParamBox::new(&ParamBoxDescription {
-        box_title: "RGB Color",
-        resource: res.clone(),
-        categories: &[ParamCategory {
-            name: "Basic Parameters",
-            parameters: &[Parameter {
-                name: "Color",
-                transmitter: Field(Rgb::RGB),
-                control: Control::RgbColor { value: params.rgb },
-            }],
-        }],
-    })
-}
-
-pub fn output(res: &Resource, output_type: OutputType) -> ParamBox {
-    ParamBox::new(&ParamBoxDescription {
-        box_title: "Output",
-        resource: res.clone(),
-        categories: &[ParamCategory {
-            name: "Basic Parameters",
-            parameters: &[Parameter {
-                name: "Output Type",
-                transmitter: Field("output_type"),
-                control: Control::Enum {
-                    selected: output_type as usize,
-                    variants: OutputType::VARIANTS,
-                },
-            }],
-        }],
-    })
-}
-
-pub fn image(res: &Resource, path: std::path::PathBuf) -> ParamBox {
-    ParamBox::new(&ParamBoxDescription {
-        box_title: "Image",
-        resource: res.clone(),
-        categories: &[ParamCategory {
-            name: "Basic Parameters",
-            parameters: &[Parameter {
-                name: "Image Path",
-                transmitter: Field("image_path"),
-                control: Control::File {
-                    selected: Some(path),
-                },
-            }],
-        }],
-    })
-}
-
-pub fn grayscale(res: &Resource, params: &Grayscale) -> ParamBox {
-    ParamBox::new(&ParamBoxDescription {
-        box_title: "Grayscale",
-        resource: res.clone(),
-        categories: &[ParamCategory {
-            name: "Basic Parameters",
-            parameters: &[Parameter {
-                name: "Conversion Mode",
-                transmitter: Field(Grayscale::MODE),
-                control: Control::Enum {
-                    selected: params.mode as usize,
-                    variants: GrayscaleMode::VARIANTS,
-                },
-            }],
-        }],
-    })
-}
-
-pub fn ramp(res: &Resource, params: &Ramp) -> ParamBox {
-    ParamBox::new(&ParamBoxDescription {
-        box_title: "Ramp",
-        resource: res.clone(),
-        categories: &[ParamCategory {
-            name: "Basic Parameters",
-            parameters: &[Parameter {
-                name: "Gradient",
-                transmitter: Field(Ramp::RAMP),
-                control: Control::Ramp {
-                    steps: params.get_steps(),
-                },
-            }],
-        }],
-    })
-}
-
-pub fn normal_map(res: &Resource, params: &NormalMap) -> ParamBox {
-    ParamBox::new(&ParamBoxDescription {
-        box_title: "Normal Map",
-        resource: res.clone(),
-        categories: &[ParamCategory {
-            name: "Basic Parameters",
-            parameters: &[Parameter {
-                name: "Strength",
-                transmitter: Field(NormalMap::STRENGTH),
-                control: Control::Slider {
-                    value: params.strength,
-                    min: 0.,
-                    max: 2.,
-                },
-            }],
-        }],
-    })
+#[enum_dispatch]
+pub trait OperatorParamBox {
+    fn param_box(&self, res: &Resource) -> ParamBox;
 }

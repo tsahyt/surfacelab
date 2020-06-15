@@ -131,7 +131,10 @@ pub trait Uniforms {
     }
 }
 
-impl<T> Uniforms for T where T: AsBytes {
+impl<T> Uniforms for T
+where
+    T: AsBytes,
+{
     fn uniforms(&self) -> &[u8] {
         self.as_bytes()
     }
