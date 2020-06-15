@@ -3,7 +3,6 @@ pub mod parameters;
 pub mod socketed;
 pub mod operators;
 
-use maplit::hashmap;
 use std::collections::HashMap;
 use std::path::*;
 use strum_macros::*;
@@ -16,6 +15,7 @@ pub use parameters::*;
 pub use socketed::*;
 pub use operators::*;
 
+#[enum_dispatch(Socketed)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Operator {
     Blend(Blend),
@@ -37,92 +37,6 @@ impl Operator {
         }
     }
 
-    pub fn inputs(&self) -> HashMap<String, OperatorType> {
-        match self {
-            Self::Blend(..) => hashmap! {
-                "background".to_string() => OperatorType::Polymorphic(0),
-                "foreground".to_string() => OperatorType::Polymorphic(0)
-            },
-            Self::PerlinNoise(..) => HashMap::new(),
-            Self::Rgb(..) => HashMap::new(),
-            Self::Grayscale(..) => hashmap! {
-                "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb),
-            },
-            Self::Ramp(..) => hashmap! {
-                "factor".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
-            },
-            Self::NormalMap(..) => hashmap! {
-                "height".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
-            },
-            Self::Image(..) => HashMap::new(),
-            Self::Output(Output { output_type }) => hashmap! {
-                "data".to_string() => match output_type {
-                    OutputType::Albedo => OperatorType::Monomorphic(ImageType::Rgb),
-                    OutputType::Roughness => OperatorType::Monomorphic(ImageType::Grayscale),
-                    OutputType::Normal => OperatorType::Monomorphic(ImageType::Rgb),
-                    OutputType::Displacement => OperatorType::Monomorphic(ImageType::Grayscale),
-                    OutputType::Metallic => OperatorType::Monomorphic(ImageType::Grayscale),
-                    OutputType::Value => OperatorType::Monomorphic(ImageType::Grayscale),
-                    OutputType::Rgb => OperatorType::Monomorphic(ImageType::Rgb),
-                }
-            },
-        }
-    }
-
-    pub fn outputs(&self) -> HashMap<String, OperatorType> {
-        match self {
-            Self::Blend(..) => hashmap! {
-                "color".to_string() => OperatorType::Polymorphic(0),
-            },
-            Self::Rgb(..) => hashmap! {
-                "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
-            },
-            Self::PerlinNoise(..) => {
-                hashmap! { "noise".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
-                }
-            }
-            Self::Grayscale(..) => hashmap! {
-                "value".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
-            },
-            Self::Ramp(..) => hashmap! {
-                "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
-            },
-            Self::NormalMap(..) => hashmap! {
-                "normal".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
-            },
-            Self::Image { .. } => {
-                hashmap! { "image".to_string() => OperatorType::Monomorphic(ImageType::Rgb) }
-            }
-            Self::Output { .. } => HashMap::new(),
-        }
-    }
-
-    pub fn default_name<'a>(&'a self) -> &'static str {
-        match self {
-            Self::Blend(..) => "blend",
-            Self::PerlinNoise(..) => "perlin_noise",
-            Self::Rgb(..) => "rgb",
-            Self::Grayscale(..) => "grayscale",
-            Self::Ramp(..) => "ramp",
-            Self::NormalMap(..) => "normal_map",
-            Self::Image { .. } => "image",
-            Self::Output { .. } => "output",
-        }
-    }
-
-    pub fn title(&self) -> &'static str {
-        match self {
-            Self::Blend(..) => "Blend",
-            Self::PerlinNoise(..) => "Perlin Noise",
-            Self::Rgb(..) => "RGB Color",
-            Self::Grayscale(..) => "Grayscale",
-            Self::Ramp(..) => "Ramp",
-            Self::NormalMap(..) => "Normal Map",
-            Self::Image { .. } => "Image",
-            Self::Output { .. } => "Output",
-        }
-    }
-
     pub fn all_default() -> Vec<Self> {
         vec![
             Self::Blend(Blend::default()),
@@ -141,15 +55,6 @@ impl Operator {
             Self::Output { .. } => true,
             _ => false,
         }
-    }
-
-    pub fn sockets_by_type_variable(&self, var: TypeVariable) -> Vec<String> {
-        self.inputs()
-            .iter()
-            .chain(self.outputs().iter())
-            .filter(|(_, t)| **t == OperatorType::Polymorphic(var))
-            .map(|x| x.0.to_owned())
-            .collect()
     }
 }
 
