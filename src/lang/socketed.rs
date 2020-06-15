@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use enum_dispatch::*;
+use std::collections::HashMap;
 
-pub use super::{OperatorType, TypeVariable, ImageType};
+pub use super::{ImageType, OperatorType, TypeVariable};
 
 #[enum_dispatch]
 pub trait Socketed {

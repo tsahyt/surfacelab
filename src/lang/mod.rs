@@ -1,31 +1,31 @@
-pub mod resource;
-pub mod parameters;
-pub mod socketed;
 pub mod operators;
+pub mod parameters;
+pub mod resource;
+pub mod socketed;
 
+use enum_dispatch::*;
+use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
 use strum_macros::*;
-use serde_derive::{Deserialize, Serialize};
 use surfacelab_derive::*;
-use enum_dispatch::*;
 
-pub use resource::*;
-pub use parameters::*;
-pub use socketed::*;
 pub use operators::*;
+pub use parameters::*;
+pub use resource::*;
+pub use socketed::*;
 
 #[enum_dispatch(Socketed)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Operator {
-    Blend(Blend),
-    PerlinNoise(PerlinNoise),
-    Rgb(Rgb),
-    Grayscale(Grayscale),
-    Ramp(Ramp),
-    NormalMap(NormalMap),
-    Image(Image),
-    Output(Output),
+    Blend,
+    PerlinNoise,
+    Rgb,
+    Grayscale,
+    Ramp,
+    NormalMap,
+    Image,
+    Output,
 }
 
 impl Operator {
@@ -46,7 +46,7 @@ impl Operator {
             Self::Ramp(Ramp::default()),
             Self::NormalMap(NormalMap::default()),
             Self::Image(Image::default()),
-            Self::Output(Output::default())
+            Self::Output(Output::default()),
         ]
     }
 

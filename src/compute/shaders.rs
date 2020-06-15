@@ -1,4 +1,7 @@
-use crate::{gpu, lang::{self, Socketed}};
+use crate::{
+    gpu,
+    lang::{self, Socketed},
+};
 use std::collections::HashMap;
 use zerocopy::AsBytes;
 

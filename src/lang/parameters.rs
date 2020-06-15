@@ -1,4 +1,4 @@
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 pub trait Parameters {
     fn set_parameter(&mut self, field: &'static str, data: &[u8]);

@@ -1,4 +1,7 @@
-use crate::{broker, lang::{self, Socketed}};
+use crate::{
+    broker,
+    lang::{self, Socketed},
+};
 use petgraph::graph;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};

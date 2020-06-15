@@ -1,12 +1,12 @@
 use super::parameters::*;
 use super::socketed::*;
-use std::collections::HashMap;
-use zerocopy::AsBytes;
+use maplit::hashmap;
 use serde_big_array::*;
+use serde_derive::{Deserialize, Serialize};
+use std::collections::HashMap;
 use strum_macros::*;
 use surfacelab_derive::*;
-use serde_derive::{Deserialize, Serialize};
-use maplit::hashmap;
+use zerocopy::AsBytes;
 
 big_array! { BigArray; }
 
@@ -97,8 +97,7 @@ impl Default for PerlinNoise {
 
 impl Socketed for PerlinNoise {
     fn inputs(&self) -> HashMap<String, OperatorType> {
-        hashmap! {
-        }
+        hashmap! {}
     }
 
     fn outputs(&self) -> HashMap<String, OperatorType> {
@@ -131,8 +130,7 @@ impl Default for Rgb {
 
 impl Socketed for Rgb {
     fn inputs(&self) -> HashMap<String, OperatorType> {
-        hashmap! {
-        }
+        hashmap! {}
     }
 
     fn outputs(&self) -> HashMap<String, OperatorType> {
@@ -373,8 +371,7 @@ impl Default for Image {
 
 impl Socketed for Image {
     fn inputs(&self) -> HashMap<String, OperatorType> {
-        hashmap! {
-        }
+        hashmap! {}
     }
 
     fn outputs(&self) -> HashMap<String, OperatorType> {
@@ -400,7 +397,7 @@ pub struct Output {
 impl Default for Output {
     fn default() -> Self {
         Self {
-            output_type: super::OutputType::default()
+            output_type: super::OutputType::default(),
         }
     }
 }
@@ -421,8 +418,7 @@ impl Socketed for Output {
     }
 
     fn outputs(&self) -> HashMap<String, OperatorType> {
-        hashmap! {
-        }
+        hashmap! {}
     }
 
     fn default_name(&self) -> &'static str {
