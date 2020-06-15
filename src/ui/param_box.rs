@@ -214,9 +214,10 @@ impl Control {
         }
     }
 
+    // TODO: ParamBox entries
     fn construct_entry<T: 'static + Transmitter>(
-        resource: &Resource,
-        transmitter: T,
+        _resource: &Resource,
+        _transmitter: T,
     ) -> gtk::Widget {
         gtk::Entry::new().upcast()
     }

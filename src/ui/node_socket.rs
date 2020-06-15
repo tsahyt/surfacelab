@@ -187,7 +187,7 @@ impl WidgetImpl for NodeSocketPrivate {
     fn drag_data_received(
         &self,
         widget: &gtk::Widget,
-        context: &gdk::DragContext,
+        _context: &gdk::DragContext,
         _x: i32,
         _y: i32,
         selection_data: &gtk::SelectionData,

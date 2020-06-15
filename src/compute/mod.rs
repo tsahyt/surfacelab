@@ -449,6 +449,7 @@ where
         let mut images = HashMap::new();
 
         for s in &spec {
+            #[allow(clippy::or_fun_call)]
             let (image, ty) = self
                 .sockets
                 .get_input_image_typed(&s.0)
@@ -480,6 +481,7 @@ where
         let mut images = HashMap::new();
 
         for s in &spec {
+            #[allow(clippy::or_fun_call)]
             let (image, ty) = self
                 .sockets
                 .get_input_image_typed(&s.0)
@@ -507,6 +509,7 @@ where
         spec: ChannelSpec,
         path: P,
     ) -> Result<(), String> {
+        #[allow(clippy::or_fun_call)]
         let (image, ty) = self
             .sockets
             .get_input_image_typed(&spec.0)
@@ -667,7 +670,7 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec
     };
 
     ImageBuffer::from_raw(IMG_SIZE, IMG_SIZE, converted)
-        .ok_or("Error while creating image buffer".to_string())
+        .ok_or_else(|| "Error while creating image buffer".to_string())
 }
 
 fn load_rgba16f_image<P: AsRef<std::path::Path>>(path: P) -> Result<Vec<u16>, String> {
