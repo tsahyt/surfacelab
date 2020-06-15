@@ -249,7 +249,7 @@ impl NodeManager {
         // Remove from output vector
         let operator = &self.node_graph.node_weight(node).unwrap().operator;
         let mut output_type = None;
-        if let lang::Operator::Output { output_type: ty } = operator {
+        if let lang::Operator::Output(lang::Output { output_type: ty }) = operator {
             self.outputs.remove(&node);
             output_type = Some(*ty)
         }

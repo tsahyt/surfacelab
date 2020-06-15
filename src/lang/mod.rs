@@ -24,8 +24,8 @@ pub enum Operator {
     Grayscale(Grayscale),
     Ramp(Ramp),
     NormalMap(NormalMap),
-    Image { path: std::path::PathBuf },
-    Output { output_type: OutputType },
+    Image(Image),
+    Output(Output),
 }
 
 impl Operator {
@@ -54,8 +54,8 @@ impl Operator {
             Self::NormalMap(..) => hashmap! {
                 "height".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
             },
-            Self::Image { .. } => HashMap::new(),
-            Self::Output { output_type } => hashmap! {
+            Self::Image(..) => HashMap::new(),
+            Self::Output(Output { output_type }) => hashmap! {
                 "data".to_string() => match output_type {
                     OutputType::Albedo => OperatorType::Monomorphic(ImageType::Rgb),
                     OutputType::Roughness => OperatorType::Monomorphic(ImageType::Grayscale),
@@ -131,12 +131,8 @@ impl Operator {
             Self::Grayscale(Grayscale::default()),
             Self::Ramp(Ramp::default()),
             Self::NormalMap(NormalMap::default()),
-            Self::Image {
-                path: PathBuf::new(),
-            },
-            Self::Output {
-                output_type: OutputType::default(),
-            },
+            Self::Image(Image::default()),
+            Self::Output(Output::default())
         ]
     }
 
@@ -166,12 +162,8 @@ impl Parameters for Operator {
             Self::Grayscale(p) => p.set_parameter(field, data),
             Self::Ramp(p) => p.set_parameter(field, data),
             Self::NormalMap(p) => p.set_parameter(field, data),
-
-            Self::Image { path } => {
-                *path = PathBuf::from_data(data);
-            }
-
-            Self::Output { output_type } => *output_type = OutputType::from_data(data),
+            Self::Image(p) => p.set_parameter(field, data),
+            Self::Output(p) => p.set_parameter(field, data),
         }
     }
 }

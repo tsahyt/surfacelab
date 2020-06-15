@@ -367,8 +367,8 @@ pub fn param_box_for_operator(op: &Operator, res: &Resource) -> ParamBox {
         Operator::Grayscale(params) => grayscale(res, params),
         Operator::Ramp(params) => ramp(res, params),
         Operator::NormalMap(params) => normal_map(res, params),
-        Operator::Image { path } => image(res, path.to_owned()),
-        Operator::Output { output_type } => output(res, *output_type),
+        Operator::Image(Image { path }) => image(res, path.to_owned()),
+        Operator::Output(Output { output_type }) => output(res, *output_type),
     }
 }
 

@@ -358,9 +358,17 @@ impl Socketed for NormalMap {
     }
 }
 
-
+#[derive(Clone, Debug, Serialize, Deserialize, Parameters)]
 pub struct Image {
     pub path: std::path::PathBuf,
+}
+
+impl Default for Image {
+    fn default() -> Self {
+        Self {
+            path: std::path::PathBuf::new(),
+        }
+    }
 }
 
 impl Socketed for Image {
@@ -384,8 +392,17 @@ impl Socketed for Image {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Parameters)]
 pub struct Output {
     pub output_type: super::OutputType,
+}
+
+impl Default for Output {
+    fn default() -> Self {
+        Self {
+            output_type: super::OutputType::default()
+        }
+    }
 }
 
 impl Socketed for Output {

@@ -328,12 +328,12 @@ where
                 self.sockets.connect_input(from, to);
             }
             Instruction::Execute(res, op) => match op {
-                Operator::Image { path } => {
+                Operator::Image(Image { path }) => {
                     if let Some(res) = self.execute_image(res, path)? {
                         response.push(res);
                     }
                 }
-                Operator::Output { .. } => {
+                Operator::Output(..) => {
                     for res in self.execute_output(op, res)? {
                         response.push(res);
                     }
@@ -411,7 +411,7 @@ where
     ) -> Result<Vec<ComputeEvent>, String> {
         let socket = "data";
         let output_type = match op {
-            Operator::Output { output_type } => output_type,
+            Operator::Output(Output { output_type }) => output_type,
             _ => panic!("Output execution on non-output"),
         };
 
