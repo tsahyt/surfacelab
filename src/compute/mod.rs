@@ -191,7 +191,13 @@ where
     }
 
     pub fn get_output_image_updated(&mut self, node: &Resource) -> Option<u64> {
-        self.0.get(&node).unwrap().typed_outputs.values().map(|x| x.0).max()
+        self.0
+            .get(&node)
+            .unwrap()
+            .typed_outputs
+            .values()
+            .map(|x| x.0)
+            .max()
     }
 
     pub fn set_output_image_updated(&mut self, node: &Resource, updated: u64) {
@@ -563,12 +569,16 @@ where
 
         // skip execution if neither uniforms nor input changed
         let uniform_hash = op.uniform_hash();
-        let op_seq = self.sockets.get_output_image_updated(res).expect("Missing sequence for operator");
+        let op_seq = self
+            .sockets
+            .get_output_image_updated(res)
+            .expect("Missing sequence for operator");
         let inputs_updated = op.inputs().iter().any(|(socket, _)| {
             let socket_res = res.extend_fragment(&socket);
             self.sockets
                 .get_input_image_updated(&socket_res)
-                .expect("Missing input image") > op_seq
+                .expect("Missing input image")
+                > op_seq
         });
         match self.last_known.get(res) {
             Some(hash) if *hash == uniform_hash && !inputs_updated => {

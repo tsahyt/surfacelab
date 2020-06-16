@@ -168,6 +168,26 @@ impl ObjectImpl for Renderer3DViewPrivate {
         box_.set_orientation(gtk::Orientation::Vertical);
         box_.pack_end(&self.event_area, true, true, 0);
         box_.show_all();
+
+        let renderer_id = self.event_area.unique_identifier();
+        let toolbox = gtk::BoxBuilder::new()
+            .orientation(gtk::Orientation::Horizontal)
+            .build();
+
+        let displacement_amount = gtk::Adjustment::new(0.5, 0.0, 2.0, 0.01, 0.01, 0.01);
+        let displacement_amount_btn = gtk::ScaleButtonBuilder::new()
+            .label("Displacement")
+            .adjustment(&displacement_amount)
+            .build();
+        displacement_amount_btn.connect_value_changed(move |_,x| {
+            super::emit(Lang::UserRenderEvent(UserRenderEvent::DisplacementAmount(
+                renderer_id, x as f32,
+            )))
+        });
+
+        toolbox.pack_start(&displacement_amount_btn, false, false, 8);
+
+        box_.pack_start(&toolbox, false, true, 0);
     }
 }
 

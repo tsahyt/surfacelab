@@ -164,6 +164,7 @@ pub enum UserRenderEvent {
     Zoom(u64, f32),
     LightMove(u64, f32, f32),
     ChannelChange2D(u64, RenderChannel),
+    DisplacementAmount(u64, f32),
 }
 
 pub type ChannelSpec = (Resource, ImageChannel);

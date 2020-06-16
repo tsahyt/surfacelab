@@ -48,6 +48,9 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(id, channel)) => {
                     render_manager.set_channel(*id, *channel)
                 }
+                Lang::UserRenderEvent(UserRenderEvent::DisplacementAmount(id, displ)) => {
+                    render_manager.set_displacement_amount(*id, *displ)
+                }
                 _ => {}
             }
         }
@@ -177,6 +180,14 @@ where
                 RenderChannel::Roughness => 3,
                 RenderChannel::Metallic => 4,
             });
+            r.render();
+        }
+    }
+
+    pub fn set_displacement_amount(&mut self, renderer_id: u64, displacement: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_displacement_amount(displacement);
+            r.render();
         }
     }
 }

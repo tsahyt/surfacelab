@@ -18,6 +18,7 @@ layout(set = 0, binding = 2) uniform Camera {
     float phi;
     float theta;
     float radius;
+    float displacement_amount;
 };
 layout(set = 0, binding = 3) uniform texture2D t_Displ;
 layout(set = 0, binding = 4) uniform texture2D t_Albedo;
@@ -32,7 +33,6 @@ const int MAX_STEPS_AO = 6;
 const float MAX_DIST = 24.0;
 const float SURF_DIST = .0002;
 const float TEX_SCALE = 8.;
-const float TEX_DISPL = .5;
 const float TEX_MIDLEVEL = .5;
 
 #define SHADOW
@@ -114,7 +114,7 @@ float metallic(vec2 p, float lod) {
 
 float sdf(vec3 p, float lod) {
     float height = heightfield(p.xz, lod);
-    float planeDist = p.y  - (height * TEX_DISPL);
+    float planeDist = p.y  - (height * displacement_amount);
 
     return planeDist / 2.;
 }

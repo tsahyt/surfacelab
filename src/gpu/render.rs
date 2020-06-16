@@ -40,6 +40,7 @@ struct RenderView3D {
     phi: f32,
     theta: f32,
     rad: f32,
+    displacement: f32,
 }
 
 impl Default for RenderView3D {
@@ -51,6 +52,7 @@ impl Default for RenderView3D {
             phi: 1.,
             theta: 1.,
             rad: 6.,
+            displacement: 0.5,
         }
     }
 }
@@ -1169,6 +1171,12 @@ where
     pub fn set_channel(&mut self, channel: u32) {
         if let RenderView::RenderView2D(view) = &mut self.view {
             view.channel = channel;
+        }
+    }
+
+    pub fn set_displacement_amount(&mut self, displacement: f32) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.displacement = displacement;
         }
     }
 }
