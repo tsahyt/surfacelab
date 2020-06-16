@@ -54,10 +54,10 @@ struct ExternalImage {
 
 struct SocketData<B: gpu::Backend> {
     /// Output sockets always map to an image, which may or may not be
-    /// allocated, and a flag determining whether the image was recently
-    /// updated. Additionally the image type is stored such that we know it at
-    /// export time.
-    typed_outputs: HashMap<String, (bool, gpu::compute::Image<B>, ImageType)>,
+    /// allocated, and a counter determining in which execution the image was
+    /// most recently updated. Additionally the image type is stored such that
+    /// we know it at export time.
+    typed_outputs: HashMap<String, (u64, gpu::compute::Image<B>, ImageType)>,
 
     /// Required to keep track of polymorphic outputs. Kept separately to keep
     /// output_sockets ownership structure simple.
@@ -65,6 +65,7 @@ struct SocketData<B: gpu::Backend> {
 
     /// Input sockets only map to the output sockets they are connected to
     inputs: HashMap<String, Resource>,
+    // TODO: look for a way to reference inputs instead of using resources and two lookups
 }
 
 struct Sockets<B: gpu::Backend>(HashMap<Resource, SocketData<B>>);
@@ -103,7 +104,7 @@ where
         if let Some((img, ty)) = image {
             sockets
                 .typed_outputs
-                .insert(socket_name.clone(), (true, img, ty));
+                .insert(socket_name.clone(), (0, img, ty));
         }
         sockets.known_outputs.insert(socket_name);
     }
@@ -179,7 +180,7 @@ where
         self.get_input_image_typed(res).map(|x| x.0)
     }
 
-    pub fn get_input_image_updated(&self, res: &Resource) -> Option<bool> {
+    pub fn get_input_image_updated(&self, res: &Resource) -> Option<u64> {
         let sockets = self.0.get(&res.drop_fragment())?;
         let output_res = sockets.inputs.get(res.fragment()?)?;
         self.0
@@ -189,7 +190,11 @@ where
             .map(|x| x.0)
     }
 
-    pub fn output_image_set_updated(&mut self, node: &Resource, updated: bool) {
+    pub fn get_output_image_updated(&mut self, node: &Resource) -> Option<u64> {
+        self.0.get(&node).unwrap().typed_outputs.values().map(|x| x.0).max()
+    }
+
+    pub fn set_output_image_updated(&mut self, node: &Resource, updated: u64) {
         for img in self.0.get_mut(&node).unwrap().typed_outputs.values_mut() {
             img.0 = updated;
         }
@@ -212,6 +217,9 @@ struct ComputeManager<B: gpu::Backend> {
     shader_library: shaders::ShaderLibrary<B>,
     external_images: HashMap<std::path::PathBuf, ExternalImage>,
 
+    /// Number of executions, kept for cache invalidation
+    seq: u64,
+
     /// The Compute Manager remembers the hash of the last executed set of
     /// uniforms for each resource. On the next execution this is checked, and
     /// if no changes happen, execution can be skipped entirely.
@@ -230,6 +238,7 @@ where
             sockets: Sockets::new(),
             shader_library,
             external_images: HashMap::new(),
+            seq: 0,
             last_known: HashMap::new(),
         }
     }
@@ -260,6 +269,7 @@ where
                 }
                 GraphEvent::NodeRemoved(res) => self.sockets.remove_all_for_node(res),
                 GraphEvent::Recomputed(instrs) => {
+                    self.seq += 1;
                     for i in instrs.iter() {
                         match self.interpret(i) {
                             Err(e) => {
@@ -376,12 +386,12 @@ where
                     log::trace!("Uploading image to GPU");
                     image.ensure_alloc(&self.gpu)?;
                     self.gpu.upload_image(&image, &external_image.buffer)?;
-                    self.sockets.output_image_set_updated(res, true);
+                    self.sockets.set_output_image_updated(res, self.seq);
                     external_image.state = ExternalImageState::Uploaded;
                     true
                 }
                 ExternalImageState::Uploaded => {
-                    self.sockets.output_image_set_updated(res, false);
+                    self.sockets.set_output_image_updated(res, self.seq);
                     log::trace!("Reusing uploaded image");
                     false
                 }
@@ -553,16 +563,16 @@ where
 
         // skip execution if neither uniforms nor input changed
         let uniform_hash = op.uniform_hash();
+        let op_seq = self.sockets.get_output_image_updated(res).expect("Missing sequence for operator");
         let inputs_updated = op.inputs().iter().any(|(socket, _)| {
             let socket_res = res.extend_fragment(&socket);
             self.sockets
                 .get_input_image_updated(&socket_res)
-                .unwrap_or(true)
+                .expect("Missing input image") > op_seq
         });
         match self.last_known.get(res) {
             Some(hash) if *hash == uniform_hash && !inputs_updated => {
-                log::trace!("Reusing known image");
-                self.sockets.output_image_set_updated(res, false);
+                log::trace!("Reusing cached image");
                 return Ok(None);
             }
             _ => {}
@@ -618,7 +628,7 @@ where
         )?;
 
         self.last_known.insert(res.clone(), uniform_hash);
-        self.sockets.output_image_set_updated(res, true);
+        self.sockets.set_output_image_updated(res, self.seq);
 
         Ok(Some(ComputeEvent::ThumbnailGenerated(
             res.clone(),
