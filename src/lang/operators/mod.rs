@@ -71,9 +71,9 @@ impl OperatorParamBox for Image {
                 name: "Basic Parameters",
                 parameters: &[Parameter {
                     name: "Image Path",
-                    transmitter: Field("image_path"), // TODO: consts
+                    transmitter: Field(Self::PATH),
                     control: Control::File {
-                        selected: Some(self.path.to_owned()), // TODO: probably not necessary to clone the path
+                        selected: Some(self.path.to_owned()),
                     },
                 }],
             }],
@@ -137,7 +137,7 @@ impl OperatorParamBox for Output {
                 name: "Basic Parameters",
                 parameters: &[Parameter {
                     name: "Output Type",
-                    transmitter: Field("output_type"), // TODO: consts
+                    transmitter: Field(Self::OUTPUT_TYPE),
                     control: Control::Enum {
                         selected: self.output_type as usize,
                         variants: super::OutputType::VARIANTS,
