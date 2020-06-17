@@ -55,7 +55,8 @@ struct ExternalImage {
 struct TypedOutput<B: gpu::Backend> {
     seq: u64,
     image: gpu::compute::Image<B>,
-    ty: ImageType
+    ty: ImageType,
+    size: u32,
 }
 
 struct SocketData<B: gpu::Backend> {
@@ -96,21 +97,31 @@ where
         self.0.remove(res);
     }
 
+    pub fn ensure_node_exists(&mut self, res: &Resource) -> &mut SocketData<B> {
+        self.0.entry(res.drop_fragment()).or_insert(SocketData {
+            typed_outputs: HashMap::new(),
+            known_outputs: HashSet::new(),
+            inputs: HashMap::new(),
+        })
+    }
+
     pub fn add_output_socket(
         &mut self,
         res: &Resource,
         image: Option<(gpu::compute::Image<B>, ImageType)>,
     ) {
-        let sockets = self.0.entry(res.drop_fragment()).or_insert(SocketData {
-            typed_outputs: HashMap::new(),
-            known_outputs: HashSet::new(),
-            inputs: HashMap::new(),
-        });
+        let sockets = self.ensure_node_exists(res);
         let socket_name = res.fragment().unwrap().to_string();
         if let Some((img, ty)) = image {
-            sockets
-                .typed_outputs
-                .insert(socket_name.clone(), TypedOutput { seq: 0, image: img, ty });
+            sockets.typed_outputs.insert(
+                socket_name.clone(),
+                TypedOutput {
+                    seq: 0,
+                    image: img,
+                    ty,
+                    size: 1024,
+                },
+            );
         }
         sockets.known_outputs.insert(socket_name);
     }
@@ -260,7 +271,11 @@ where
         match &*event {
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, op, _) => {
-                    for (socket, imgtype) in op.inputs().iter().chain(op.outputs().iter()) {
+                    // Ensure socket data exists
+                    self.sockets.ensure_node_exists(res);
+
+                    // Create (unallocated) compute images if possible for all outputs
+                    for (socket, imgtype) in op.outputs().iter() {
                         let socket_res = res.extend_fragment(&socket);
 
                         if let OperatorType::Monomorphic(ty) = imgtype {
