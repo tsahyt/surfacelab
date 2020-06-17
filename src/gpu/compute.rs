@@ -280,11 +280,8 @@ where
             // entire 16 bit wide channel. The reason here is that the Vulkan
             // spec does not require Rgb16 support. Many GPUs do support it but
             // some may not, and thus requiring it would impose an arbitrary
-            // restriction. There is also no obvious way to make this
-            // conditional on the specific GPU or implementation, since it would
-            // require recompilation of shaders. There might be some way to do
-            // it using specialization constants though and it is worth
-            // exploring this in the future.
+            // restriction. It might be possible to make this conditional on the
+            // specific GPU.
             lang::ImageType::Rgb => hal::format::Format::Rgba16Sfloat,
         };
         let px_width = ty.gpu_bytes_per_pixel();
