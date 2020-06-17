@@ -52,12 +52,18 @@ struct ExternalImage {
     buffer: Vec<u16>,
 }
 
+struct TypedOutput<B: gpu::Backend> {
+    seq: u64,
+    image: gpu::compute::Image<B>,
+    ty: ImageType
+}
+
 struct SocketData<B: gpu::Backend> {
     /// Output sockets always map to an image, which may or may not be
     /// allocated, and a counter determining in which execution the image was
     /// most recently updated. Additionally the image type is stored such that
     /// we know it at export time.
-    typed_outputs: HashMap<String, (u64, gpu::compute::Image<B>, ImageType)>,
+    typed_outputs: HashMap<String, TypedOutput<B>>,
 
     /// Required to keep track of polymorphic outputs. Kept separately to keep
     /// output_sockets ownership structure simple.
@@ -104,7 +110,7 @@ where
         if let Some((img, ty)) = image {
             sockets
                 .typed_outputs
-                .insert(socket_name.clone(), (0, img, ty));
+                .insert(socket_name.clone(), TypedOutput { seq: 0, image: img, ty });
         }
         sockets.known_outputs.insert(socket_name);
     }
@@ -136,7 +142,7 @@ where
             .get(&res.drop_fragment())?
             .typed_outputs
             .get(res.fragment().unwrap())
-            .map(|x| (&x.1, x.2))
+            .map(|x| (&x.image, x.ty))
     }
 
     /// Obtain the output image given a socket resource
@@ -153,7 +159,7 @@ where
             .get_mut(&res.drop_fragment())?
             .typed_outputs
             .get_mut(res.fragment().unwrap())
-            .map(|x| (&mut x.1, x.2))
+            .map(|x| (&mut x.image, x.ty))
     }
 
     /// Obtain the output image given a socket resource, mutably
@@ -172,7 +178,7 @@ where
             .get(&output_res.drop_fragment())?
             .typed_outputs
             .get((&output_res).fragment()?)
-            .map(|x| (&x.1, x.2))
+            .map(|x| (&x.image, x.ty))
     }
 
     /// Obtain the input image given a socket resource
@@ -187,7 +193,7 @@ where
             .get(&output_res.drop_fragment())?
             .typed_outputs
             .get((&output_res).fragment()?)
-            .map(|x| x.0)
+            .map(|x| x.seq)
     }
 
     pub fn get_output_image_updated(&mut self, node: &Resource) -> Option<u64> {
@@ -196,13 +202,13 @@ where
             .unwrap()
             .typed_outputs
             .values()
-            .map(|x| x.0)
+            .map(|x| x.seq)
             .max()
     }
 
     pub fn set_output_image_updated(&mut self, node: &Resource, updated: u64) {
         for img in self.0.get_mut(&node).unwrap().typed_outputs.values_mut() {
-            img.0 = updated;
+            img.seq = updated;
         }
     }
 
