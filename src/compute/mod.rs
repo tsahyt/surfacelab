@@ -56,9 +56,10 @@ struct TypedOutput<B: gpu::Backend> {
     seq: u64,
     image: gpu::compute::Image<B>,
     ty: ImageType,
-    size: u32,
 }
 
+/// Per "node" socket data. Note that we don't really have a notion of node here
+/// in the compute component, but this still very closely corresponds to that.
 struct SocketData<B: gpu::Backend> {
     /// Output sockets always map to an image, which may or may not be
     /// allocated, and a counter determining in which execution the image was
@@ -69,6 +70,9 @@ struct SocketData<B: gpu::Backend> {
     /// Required to keep track of polymorphic outputs. Kept separately to keep
     /// output_sockets ownership structure simple.
     known_outputs: HashSet<String>,
+
+    /// The image size of output images for sockets managed here.
+    output_size: u32,
 
     /// Input sockets only map to the output sockets they are connected to
     inputs: HashMap<String, Resource>,
@@ -97,10 +101,11 @@ where
         self.0.remove(res);
     }
 
-    pub fn ensure_node_exists(&mut self, res: &Resource) -> &mut SocketData<B> {
+    pub fn ensure_node_exists(&mut self, res: &Resource, size: u32) -> &mut SocketData<B> {
         self.0.entry(res.drop_fragment()).or_insert(SocketData {
             typed_outputs: HashMap::new(),
             known_outputs: HashSet::new(),
+            output_size: size,
             inputs: HashMap::new(),
         })
     }
@@ -110,7 +115,7 @@ where
         res: &Resource,
         image: Option<(gpu::compute::Image<B>, ImageType)>,
     ) {
-        let sockets = self.ensure_node_exists(res);
+        let sockets = self.ensure_node_exists(res, IMG_SIZE);
         let socket_name = res.fragment().unwrap().to_string();
         if let Some((img, ty)) = image {
             sockets.typed_outputs.insert(
@@ -119,7 +124,6 @@ where
                     seq: 0,
                     image: img,
                     ty,
-                    size: 1024,
                 },
             );
         }
@@ -231,6 +235,10 @@ where
             .inputs
             .insert(to.fragment().unwrap().to_string(), from.to_owned());
     }
+
+    pub fn get_image_size(&self, res: &Resource) -> u32 {
+        self.0.get(&res.drop_fragment()).unwrap().output_size
+    }
 }
 
 struct ComputeManager<B: gpu::Backend> {
@@ -272,7 +280,7 @@ where
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, op, _) => {
                     // Ensure socket data exists
-                    self.sockets.ensure_node_exists(res);
+                    self.sockets.ensure_node_exists(res, IMG_SIZE);
 
                     // Create (unallocated) compute images if possible for all outputs
                     for (socket, imgtype) in op.outputs().iter() {
@@ -285,7 +293,7 @@ where
                             log::trace!("Adding monomorphic socket {}", socket_res);
                             let img = self
                                 .gpu
-                                .create_compute_image(IMG_SIZE, *ty, op.external_data())
+                                .create_compute_image(self.sockets.get_image_size(res), *ty, op.external_data())
                                 .unwrap();
                             self.sockets
                                 .add_output_socket(&socket_res, Some((img, *ty)));
@@ -315,7 +323,7 @@ where
                 GraphEvent::SocketMonomorphized(res, ty) => {
                     if self.sockets.is_known_output(res) {
                         log::trace!("Adding monomorphized socket {}", res);
-                        let img = self.gpu.create_compute_image(IMG_SIZE, *ty, false).unwrap();
+                        let img = self.gpu.create_compute_image(self.sockets.get_image_size(res), *ty, false).unwrap();
                         self.sockets.add_output_socket(res, Some((img, *ty)));
                     }
                 }
@@ -472,6 +480,7 @@ where
                 gpu::BrokerImage::from::<B>(image.get_raw()),
                 image.get_layout(),
                 image.get_access(),
+                self.sockets.get_image_size(res),
                 *output_type,
             ),
             ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail),
@@ -643,7 +652,7 @@ where
         self.gpu.fill_uniforms(uniforms)?;
         self.gpu.write_descriptor_sets(descriptors);
         self.gpu.run_pipeline(
-            IMG_SIZE,
+            self.sockets.get_image_size(res),
             inputs.values().copied().collect(),
             outputs.values().copied().collect(),
             pipeline,

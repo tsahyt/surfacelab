@@ -27,8 +27,8 @@ pub fn start_render_thread<B: gpu::Backend>(
                     render_manager.resize(*id, *width, *height)
                 }
                 Lang::UIEvent(UIEvent::RendererRemoved(id)) => render_manager.remove(*id),
-                Lang::ComputeEvent(ComputeEvent::OutputReady(res, img, layout, access, out_ty)) => {
-                    render_manager.transfer_output(res, img, *layout, *access, *out_ty)
+                Lang::ComputeEvent(ComputeEvent::OutputReady(_res, img, layout, access, size, out_ty)) => {
+                    render_manager.transfer_output(img, *layout, *access, *size as i32, *out_ty)
                 }
                 Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
                     render_manager.disconnect_output(*out_ty)
@@ -84,7 +84,7 @@ where
         ty: RendererType,
     ) -> Result<(), String> {
         let surface = gpu::render::create_surface(&self.gpu, handle);
-        let renderer = gpu::render::GPURender::new(&self.gpu, surface, width, height, ty)?;
+        let renderer = gpu::render::GPURender::new(&self.gpu, surface, width, height, 1024, ty)?;
         self.renderers.insert(id, renderer);
 
         Ok(())
@@ -124,14 +124,14 @@ where
 
     pub fn transfer_output(
         &mut self,
-        _res: &Resource,
         image: &gpu::BrokerImage,
         layout: gpu::Layout,
         access: gpu::Access,
+        image_size: i32,
         output_type: OutputType,
     ) {
         for r in self.renderers.values_mut() {
-            r.transfer_image(image.to::<B>(), layout, access, output_type)
+            r.transfer_image(image.to::<B>(), layout, access, image_size, output_type)
                 .unwrap();
             r.render();
         }

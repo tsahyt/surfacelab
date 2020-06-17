@@ -213,6 +213,7 @@ pub enum ComputeEvent {
         crate::gpu::BrokerImage,
         crate::gpu::Layout,
         crate::gpu::Access,
+        u32,
         OutputType,
     ),
     ThumbnailGenerated(Resource, Vec<u8>),

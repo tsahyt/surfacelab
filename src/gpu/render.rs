@@ -135,6 +135,11 @@ pub struct ImageSlot<B: Backend> {
     view: ManuallyDrop<B::ImageView>,
     memory: ManuallyDrop<B::Memory>,
     mip_levels: u8,
+
+    /// Image Size is stored as an i32 because the gfx-hal API expects i32s for
+    /// blitting dimensions and this way we save a bunch of casts at the expense
+    /// of one upfront cast
+    image_size: i32,
     occupied: bool,
 }
 
@@ -147,13 +152,14 @@ where
     pub fn new(
         device: &B::Device,
         memory_properties: &hal::adapter::MemoryProperties,
+        image_size: u32,
     ) -> Result<Self, String> {
         let mip_levels = 8;
 
         // Create Image
         let mut image = unsafe {
             device.create_image(
-                hal::image::Kind::D2(1024, 1024, 1, 1),
+                hal::image::Kind::D2(image_size, image_size, 1, 1),
                 mip_levels,
                 Self::FORMAT,
                 hal::image::Tiling::Optimal,
@@ -195,6 +201,7 @@ where
             view: ManuallyDrop::new(image_view),
             memory: ManuallyDrop::new(image_memory),
             mip_levels: 8,
+            image_size: image_size as i32,
             occupied: false,
         })
     }
@@ -223,6 +230,7 @@ where
         mut surface: B::Surface,
         width: u32,
         height: u32,
+        image_size: u32,
         ty: crate::lang::RendererType,
     ) -> Result<Self, String> {
         log::info!("Obtaining GPU Render Resources");
@@ -446,11 +454,11 @@ where
 
         // Image slots
         let image_slots = ImageSlots {
-            albedo: ImageSlot::new(&lock.device, &lock.memory_properties)?,
-            roughness: ImageSlot::new(&lock.device, &lock.memory_properties)?,
-            normal: ImageSlot::new(&lock.device, &lock.memory_properties)?,
-            displacement: ImageSlot::new(&lock.device, &lock.memory_properties)?,
-            metallic: ImageSlot::new(&lock.device, &lock.memory_properties)?,
+            albedo: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
+            roughness: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
+            normal: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
+            displacement: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
+            metallic: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
         };
 
         Ok(GPURender {
@@ -984,6 +992,7 @@ where
         source: &B::Image,
         source_layout: hal::image::Layout,
         source_access: hal::image::Access,
+        source_size: i32,
         image_use: crate::lang::OutputType,
     ) -> Result<(), String> {
         let image_slot = match image_use {
@@ -1005,8 +1014,8 @@ where
                     layers: 0..1,
                 },
                 src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-                    x: 1024,
-                    y: 1024,
+                    x: source_size,
+                    y: source_size,
                     z: 1,
                 },
                 dst_subresource: hal::image::SubresourceLayers {
@@ -1015,8 +1024,8 @@ where
                     layers: 0..1,
                 },
                 dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-                    x: 1024 >> level,
-                    y: 1024 >> level,
+                    x: image_slot.image_size >> level,
+                    y: image_slot.image_size >> level,
                     z: 1,
                 },
             })
