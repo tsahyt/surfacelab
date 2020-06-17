@@ -179,9 +179,10 @@ impl ObjectImpl for Renderer3DViewPrivate {
             .label("Displacement")
             .adjustment(&displacement_amount)
             .build();
-        displacement_amount_btn.connect_value_changed(move |_,x| {
+        displacement_amount_btn.connect_value_changed(move |_, x| {
             super::emit(Lang::UserRenderEvent(UserRenderEvent::DisplacementAmount(
-                renderer_id, x as f32,
+                renderer_id,
+                x as f32,
             )))
         });
 
