@@ -141,6 +141,7 @@ pub enum UserNodeEvent {
     DisconnectSinkSocket(Resource),
     ParameterChange(Resource, &'static str, Vec<u8>),
     PositionNode(Resource, (i32, i32)),
+    RenameNode(Resource, Resource),
     ForceRecompute,
 }
 

@@ -87,6 +87,12 @@ impl Resource {
     pub fn is_fragment_of(&self, other: &Resource) -> bool {
         other.scheme == self.scheme && other.resource_path == self.resource_path
     }
+
+    pub fn modify_path<F: FnOnce(&mut PathBuf) -> ()>(&self, func: F) -> Self {
+        let mut other = self.clone();
+        func(&mut other.resource_path);
+        other
+    }
 }
 
 #[cfg(test)]

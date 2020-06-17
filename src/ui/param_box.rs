@@ -135,6 +135,28 @@ impl Transmitter for Field {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum ResourceField {
+    Name,
+}
+
+impl Transmitter for ResourceField {
+    fn transmit(&self, resource: &Resource, data: &[u8]) {
+        match self {
+            Self::Name => {
+                let new = unsafe { std::str::from_utf8_unchecked(&data) };
+                super::emit(Lang::UserNodeEvent(UserNodeEvent::RenameNode(
+                    resource.clone(),
+                    resource.modify_path(|p| {
+                        p.pop();
+                        p.push(new);
+                    }),
+                )))
+            }
+        }
+    }
+}
+
 pub struct ParamBoxDescription<'a, T: Transmitter> {
     pub box_title: &'static str,
     pub resource: Resource,
@@ -143,16 +165,16 @@ pub struct ParamBoxDescription<'a, T: Transmitter> {
 
 pub struct ParamCategory<'a, T: Transmitter> {
     pub name: &'static str,
-    pub parameters: &'a [Parameter<T>],
+    pub parameters: &'a [Parameter<'a, T>],
 }
 
-pub struct Parameter<T: Transmitter> {
+pub struct Parameter<'a, T: Transmitter> {
     pub name: &'static str,
     pub transmitter: T,
-    pub control: Control,
+    pub control: Control<'a>,
 }
 
-pub enum Control {
+pub enum Control<'a> {
     Slider {
         value: f32,
         min: f32,
@@ -182,10 +204,12 @@ pub enum Control {
     Toggle {
         def: bool,
     },
-    Entry,
+    Entry {
+        value: &'a str
+    },
 }
 
-impl Control {
+impl<'a> Control<'a> {
     const SLIDER_WIDTH: i32 = 256;
 
     pub fn construct<T: 'static + Transmitter>(
@@ -210,16 +234,24 @@ impl Control {
             Self::File { selected } => Self::construct_file(selected, resource, transmitter),
             Self::Ramp { steps } => Self::construct_ramp(steps, resource, transmitter),
             Self::Toggle { def } => Self::construct_toggle(*def, resource, transmitter),
-            Self::Entry => Self::construct_entry(resource, transmitter),
+            Self::Entry { value } => Self::construct_entry(value, resource, transmitter),
         }
     }
 
     // TODO: ParamBox entries
     fn construct_entry<T: 'static + Transmitter>(
-        _resource: &Resource,
-        _transmitter: T,
+        value: &str,
+        resource: &Resource,
+        transmitter: T,
     ) -> gtk::Widget {
-        gtk::Entry::new().upcast()
+        let entry = gtk::EntryBuilder::new().text(value).build();
+
+        entry.connect_activate(clone!(@strong resource => move |w| {
+            let buf = w.get_text().to_string().as_bytes().to_vec();
+            transmitter.transmit(&resource, &buf)
+        }));
+
+        entry.upcast()
     }
 
     fn construct_toggle<T: 'static + Transmitter>(
@@ -367,14 +399,14 @@ pub fn node_attributes(res: &Resource) -> ParamBox {
             parameters: &[
                 Parameter {
                     name: "Node Resource",
-                    transmitter: Field(""),
-                    control: Control::Entry,
+                    transmitter: ResourceField::Name,
+                    control: Control::Entry { value: res.path().to_str().unwrap() },
                 },
-                Parameter {
-                    name: "Node Description",
-                    transmitter: Field(""),
-                    control: Control::Entry,
-                },
+                // Parameter {
+                //     name: "Node Description",
+                //     transmitter: Field(""),
+                //     control: Control::Entry,
+                // },
             ],
         }],
     })

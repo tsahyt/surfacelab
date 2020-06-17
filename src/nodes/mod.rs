@@ -131,6 +131,7 @@ impl NodeManager {
                     response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
                 }
                 UserNodeEvent::PositionNode(res, (x, y)) => self.position_node(res, *x, *y),
+                UserNodeEvent::RenameNode(from, to) => self.rename_node(from, to),
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {
@@ -687,6 +688,15 @@ impl NodeManager {
         }
 
         Ok(events)
+    }
+
+    fn rename_node(&mut self, from: &lang::Resource, to: &lang::Resource) {
+        log::trace!("Renaming node {} to {}", from, to);
+        if let Some(idx) = self.node_indices.remove(from) {
+            let node = self.node_graph.node_weight_mut(idx).unwrap();
+            node.resource = to.clone();
+            self.node_indices.insert(to.clone(), idx);
+        }
     }
 }
 

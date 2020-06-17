@@ -1,5 +1,5 @@
 use super::node_socket::{NodeSocket, NodeSocketIO};
-use super::param_box::OperatorParamBox;
+use super::param_box::{node_attributes, OperatorParamBox};
 use crate::lang::*;
 
 use gdk::prelude::*;
@@ -18,6 +18,7 @@ pub struct NodePrivate {
     header_label: gtk::Label,
     resource: OnceCell<Resource>,
     popover: gtk::Popover,
+    popover_box: gtk::Box,
     thumbnail: gtk::Image,
 }
 
@@ -88,6 +89,7 @@ impl ObjectSubclass for NodePrivate {
             header_label: gtk::Label::new(Some("Node")),
             resource: OnceCell::new(),
             popover: gtk::Popover::new::<gtk::Widget>(None),
+            popover_box: gtk::Box::new(gtk::Orientation::Vertical, 8),
             thumbnail: gtk::Image::new(),
         }
     }
@@ -152,6 +154,7 @@ impl ObjectImpl for NodePrivate {
 
             self.popover.set_relative_to(Some(&self.thumbnail));
             self.popover.set_position(gtk::PositionType::Right);
+            self.popover.add(&self.popover_box);
 
             let ebox = gtk::EventBox::new();
             ebox.add(&self.thumbnail);
@@ -274,7 +277,8 @@ impl Node {
         let node = Self::new();
         let priv_ = NodePrivate::from_instance(&node);
         priv_.header_label.set_label(op.title());
-        priv_.popover.add(&op.param_box(&resource));
+        priv_.popover_box.add(&node_attributes(&resource));
+        priv_.popover_box.add(&op.param_box(&resource));
         priv_
             .resource
             .set(resource.clone())

@@ -27,9 +27,14 @@ pub fn start_render_thread<B: gpu::Backend>(
                     render_manager.resize(*id, *width, *height)
                 }
                 Lang::UIEvent(UIEvent::RendererRemoved(id)) => render_manager.remove(*id),
-                Lang::ComputeEvent(ComputeEvent::OutputReady(_res, img, layout, access, size, out_ty)) => {
-                    render_manager.transfer_output(img, *layout, *access, *size as i32, *out_ty)
-                }
+                Lang::ComputeEvent(ComputeEvent::OutputReady(
+                    _res,
+                    img,
+                    layout,
+                    access,
+                    size,
+                    out_ty,
+                )) => render_manager.transfer_output(img, *layout, *access, *size as i32, *out_ty),
                 Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
                     render_manager.disconnect_output(*out_ty)
                 }
