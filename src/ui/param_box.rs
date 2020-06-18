@@ -407,11 +407,6 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>) -> ParamBox {
                         value: res.borrow().path().to_str().unwrap(),
                     },
                 },
-                // Parameter {
-                //     name: "Node Description",
-                //     transmitter: Field(""),
-                //     control: Control::Entry,
-                // },
             ],
         }],
     })

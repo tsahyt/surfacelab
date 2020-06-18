@@ -49,6 +49,16 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
 
         // Header Bar
         self.header_bar.pack_start(&{
+            let new_button = gtk::ButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("document-new-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build();
+            new_button.connect_clicked(|_| super::emit(Lang::UserIOEvent(UserIOEvent::NewSurface)));
+            new_button
+        });
+        self.header_bar.pack_start(&{
             let btn_box = gtk::ButtonBoxBuilder::new()
                 .layout_style(gtk::ButtonBoxStyle::Expand)
                 .homogeneous(false)
@@ -66,16 +76,6 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
             btn_box.add(&open);
             btn_box.add(&recent);
             btn_box
-        });
-        self.header_bar.pack_start(&{
-            let new_button = gtk::ButtonBuilder::new()
-                .image(&gtk::Image::new_from_icon_name(
-                    Some("document-new-symbolic"),
-                    gtk::IconSize::Menu,
-                ))
-                .build();
-            new_button.connect_clicked(|_| super::emit(Lang::UserIOEvent(UserIOEvent::NewSurface)));
-            new_button
         });
         self.header_bar.pack_start(&{
             let btn_box = gtk::ButtonBoxBuilder::new()
@@ -137,13 +137,14 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                 ))
                 .build(),
         );
-        self.header_bar.pack_end(&{
-            let switchbox = gtk::Box::new(gtk::Orientation::Horizontal, 4);
-            switchbox.add(&gtk::Label::new(Some("Layers")));
-            switchbox.add(&gtk::SwitchBuilder::new().state(true).build());
-            switchbox.add(&gtk::Label::new(Some("Graph")));
-            switchbox
-        });
+        self.header_bar.pack_end(
+            &gtk::MenuButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("document-properties-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build(),
+        );
         window.set_titlebar(Some(&self.header_bar));
 
         // Main Views
