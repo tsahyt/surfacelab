@@ -16,7 +16,7 @@ use std::cell::RefCell;
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
 pub struct PerlinNoise {
     pub scale: f32,
-    pub octaves: u32,
+    pub octaves: f32,
     pub attenuation: f32,
 }
 
@@ -24,7 +24,7 @@ impl Default for PerlinNoise {
     fn default() -> Self {
         Self {
             scale: 3.0,
-            octaves: 2,
+            octaves: 2.0,
             attenuation: 2.0,
         }
     }
@@ -87,10 +87,10 @@ impl OperatorParamBox for PerlinNoise {
                     Parameter {
                         name: "Octaves",
                         transmitter: Field(PerlinNoise::OCTAVES),
-                        control: Control::DiscreteSlider {
+                        control: Control::Slider {
                             value: self.octaves as _,
-                            min: 0,
-                            max: 24,
+                            min: 0.,
+                            max: 16.,
                         },
                     },
                     Parameter {
