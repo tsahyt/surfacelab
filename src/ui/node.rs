@@ -11,11 +11,12 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
 use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct NodePrivate {
     sockets: RefCell<Vec<NodeSocket>>,
     header_label: gtk::Label,
-    resource: RefCell<Resource>,
+    resource: Rc<RefCell<Resource>>,
     popover: gtk::Popover,
     popover_box: gtk::Box,
     thumbnail: gtk::Image,
@@ -86,7 +87,7 @@ impl ObjectSubclass for NodePrivate {
         Self {
             sockets: RefCell::new(Vec::new()),
             header_label: gtk::Label::new(Some("Node")),
-            resource: RefCell::new(Resource::unregistered_node()),
+            resource: Rc::new(RefCell::new(Resource::unregistered_node())),
             popover: gtk::Popover::new::<gtk::Widget>(None),
             popover_box: gtk::Box::new(gtk::Orientation::Vertical, 8),
             thumbnail: gtk::Image::new(),
@@ -284,9 +285,9 @@ impl Node {
         let node = Self::new();
         let priv_ = NodePrivate::from_instance(&node);
         priv_.header_label.set_label(op.title());
-        priv_.popover_box.add(&node_attributes(&resource));
-        priv_.popover_box.add(&op.param_box(&resource));
         priv_.resource.replace(resource.clone());
+        priv_.popover_box.add(&node_attributes(priv_.resource.clone()));
+        priv_.popover_box.add(&op.param_box(priv_.resource.clone()));
 
         for (input, _) in op.inputs().iter() {
             let res = resource.extend_fragment(input);

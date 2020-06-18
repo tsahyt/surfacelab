@@ -9,6 +9,9 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
+use std::rc::Rc;
+use std::cell::RefCell;
+
 pub struct ParamBoxPrivate {
     inner: gtk::Box,
 }
@@ -74,7 +77,7 @@ impl ParamBoxPrivate {
                 param_label_group.add_widget(&param_label);
                 let param_control = parameter
                     .control
-                    .construct(&description.resource, parameter.transmitter);
+                    .construct(description.resource.clone(), parameter.transmitter);
                 param_control_group.add_widget(&param_control);
 
                 param_layout.pack_start(&param_label, false, false, 4);
@@ -112,23 +115,23 @@ impl ParamBox {
     pub fn empty() -> Self {
         Self::new::<Field>(&ParamBoxDescription {
             box_title: "",
-            resource: Resource::unregistered_node(),
+            resource: Rc::new(RefCell::new(Resource::unregistered_node())),
             categories: &[],
         })
     }
 }
 
 pub trait Transmitter {
-    fn transmit(&self, resource: &Resource, data: &[u8]);
+    fn transmit(&self, resource: Resource, data: &[u8]);
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Field(pub &'static str);
 
 impl Transmitter for Field {
-    fn transmit(&self, resource: &Resource, data: &[u8]) {
+    fn transmit(&self, resource: Resource, data: &[u8]) {
         super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-            resource.to_owned(),
+            resource,
             self.0,
             data.to_vec(),
         )))
@@ -141,7 +144,7 @@ pub enum ResourceField {
 }
 
 impl Transmitter for ResourceField {
-    fn transmit(&self, resource: &Resource, data: &[u8]) {
+    fn transmit(&self, resource: Resource, data: &[u8]) {
         match self {
             Self::Name => {
                 let new = unsafe { std::str::from_utf8_unchecked(&data) };
@@ -159,7 +162,7 @@ impl Transmitter for ResourceField {
 
 pub struct ParamBoxDescription<'a, T: Transmitter> {
     pub box_title: &'static str,
-    pub resource: Resource,
+    pub resource: Rc<RefCell<Resource>>,
     pub categories: &'a [ParamCategory<'a, T>],
 }
 
@@ -214,7 +217,7 @@ impl<'a> Control<'a> {
 
     pub fn construct<T: 'static + Transmitter>(
         &self,
-        resource: &Resource,
+        resource: Rc<RefCell<Resource>>,
         transmitter: T,
     ) -> gtk::Widget {
         match self {
@@ -241,14 +244,14 @@ impl<'a> Control<'a> {
     // TODO: ParamBox entries
     fn construct_entry<T: 'static + Transmitter>(
         value: &str,
-        resource: &Resource,
+        resource: Rc<RefCell<Resource>>,
         transmitter: T,
     ) -> gtk::Widget {
         let entry = gtk::EntryBuilder::new().text(value).build();
 
         entry.connect_activate(clone!(@strong resource => move |w| {
             let buf = w.get_text().to_string().as_bytes().to_vec();
-            transmitter.transmit(&resource, &buf)
+            transmitter.transmit(resource.borrow().clone(), &buf)
         }));
 
         entry.upcast()
@@ -256,13 +259,13 @@ impl<'a> Control<'a> {
 
     fn construct_toggle<T: 'static + Transmitter>(
         default: bool,
-        resource: &Resource,
+        resource: Rc<RefCell<Resource>>,
         transmitter: T,
     ) -> gtk::Widget {
         let toggle = gtk::SwitchBuilder::new().active(default).build();
 
         toggle.connect_state_set(clone!(@strong resource => move |_, active| {
-            transmitter.transmit(&resource,
+            transmitter.transmit(resource.borrow().clone(),
                 &(if active { 1 as u32 } else { 0 as u32 }).to_data());
             Inhibit(true)
         }));
@@ -274,7 +277,7 @@ impl<'a> Control<'a> {
         value: f32,
         min: f32,
         max: f32,
-        resource: &Resource,
+        resource: Rc<RefCell<Resource>>,
         transmitter: T,
     ) -> gtk::Widget {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 0.01, 0.01, 0.);
@@ -283,7 +286,7 @@ impl<'a> Control<'a> {
         scale.set_size_request(Self::SLIDER_WIDTH, 0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
-            transmitter.transmit(&resource, &(a.get_value() as f32).to_data());
+            transmitter.transmit(resource.borrow().clone(), &(a.get_value() as f32).to_data());
         }));
 
         scale.upcast()
@@ -293,7 +296,7 @@ impl<'a> Control<'a> {
         value: i32,
         min: i32,
         max: i32,
-        resource: &Resource,
+        resource: Rc<RefCell<Resource>>,
         transmitter: T,
     ) -> gtk::Widget {
         let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 1., 1., 0.);
@@ -304,7 +307,7 @@ impl<'a> Control<'a> {
         scale.set_round_digits(0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
-            transmitter.transmit(&resource, &(a.get_value() as u32).to_data());
+            transmitter.transmit(resource.borrow().clone(), &(a.get_value() as u32).to_data());
         }));
 
         scale.upcast()
@@ -313,7 +316,7 @@ impl<'a> Control<'a> {
     fn construct_enum<T: 'static + Transmitter>(
         selected: usize,
         entries: &[&str],
-        resource: &Resource,
+        resource: Rc<RefCell<Resource>>,
         transmitter: T,
     ) -> gtk::Widget {
         let combo = gtk::ComboBoxText::new();
@@ -325,14 +328,14 @@ impl<'a> Control<'a> {
         combo.set_active(Some(selected as _));
 
         combo.connect_changed(clone!(@strong resource => move |c| {
-            transmitter.transmit(&resource, &(c.get_active().unwrap_or(0)).to_data());
+            transmitter.transmit(resource.borrow().clone(), &(c.get_active().unwrap_or(0)).to_data());
         }));
 
         combo.upcast()
     }
 
     fn construct_rgba<T: 'static + Transmitter>(
-        resource: &Resource,
+        resource: Rc<RefCell<Resource>>,
         transmitter: T,
         color: [f32; 4],
     ) -> gtk::Widget {
@@ -343,7 +346,7 @@ impl<'a> Control<'a> {
         );
 
         wheel.connect_color_picked(clone!(@strong resource => move |_, r, g, b| {
-            transmitter.transmit(&resource, &[r as f32, g as f32, b as f32].to_data());
+            transmitter.transmit(resource.borrow().clone(), &[r as f32, g as f32, b as f32].to_data());
         }));
 
         wheel.upcast()
@@ -351,7 +354,7 @@ impl<'a> Control<'a> {
 
     fn construct_file<T: 'static + Transmitter>(
         selected: &Option<std::path::PathBuf>,
-        resource: &Resource,
+        resource: Rc<RefCell<Resource>>,
         transmitter: T,
     ) -> gtk::Widget {
         let button = gtk::FileChooserButton::new("Image", gtk::FileChooserAction::Open);
@@ -362,7 +365,7 @@ impl<'a> Control<'a> {
 
         button.connect_file_set(clone!(@strong resource => move |btn| {
             let buf = btn.get_filename().unwrap().to_str().unwrap().as_bytes().to_vec();
-            transmitter.transmit(&resource, &buf);
+            transmitter.transmit(resource.borrow().clone(), &buf);
         }));
 
         button.upcast()
@@ -370,7 +373,7 @@ impl<'a> Control<'a> {
 
     fn construct_ramp<T: 'static + Transmitter>(
         steps: &[[f32; 4]],
-        resource: &Resource,
+        resource: Rc<RefCell<Resource>>,
         transmitter: T,
     ) -> gtk::Widget {
         let ramp = super::color_ramp::ColorRamp::new_with_steps(steps);
@@ -383,14 +386,14 @@ impl<'a> Control<'a> {
                 buf.extend_from_slice(&step[2].to_be_bytes());
                 buf.extend_from_slice(&step[3].to_be_bytes());
             }
-            transmitter.transmit(&resource, &buf);
+            transmitter.transmit(resource.borrow().clone(), &buf);
         }));
 
         ramp.upcast()
     }
 }
 
-pub fn node_attributes(res: &Resource) -> ParamBox {
+pub fn node_attributes(res: Rc<RefCell<Resource>>) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "Node Attributes",
         resource: res.clone(),
@@ -401,7 +404,7 @@ pub fn node_attributes(res: &Resource) -> ParamBox {
                     name: "Node Resource",
                     transmitter: ResourceField::Name,
                     control: Control::Entry {
-                        value: res.path().to_str().unwrap(),
+                        value: res.borrow().path().to_str().unwrap(),
                     },
                 },
                 // Parameter {
@@ -416,5 +419,5 @@ pub fn node_attributes(res: &Resource) -> ParamBox {
 
 #[enum_dispatch]
 pub trait OperatorParamBox {
-    fn param_box(&self, res: &Resource) -> ParamBox;
+    fn param_box(&self, res: Rc<RefCell<Resource>>) -> ParamBox;
 }

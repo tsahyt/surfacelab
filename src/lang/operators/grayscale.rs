@@ -11,6 +11,9 @@ use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
+use std::rc::Rc;
+use std::cell::RefCell;
+
 #[repr(C)]
 #[derive(
     AsBytes,
@@ -98,7 +101,7 @@ impl Shader for Grayscale {
 }
 
 impl OperatorParamBox for Grayscale {
-    fn param_box(&self, res: &crate::lang::Resource) -> ParamBox {
+    fn param_box(&self, res: Rc<RefCell<crate::lang::Resource>>) -> ParamBox {
         ParamBox::new(&ParamBoxDescription {
             box_title: self.title(),
             resource: res.clone(),

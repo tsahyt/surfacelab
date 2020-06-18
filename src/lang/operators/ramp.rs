@@ -9,6 +9,9 @@ use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use zerocopy::AsBytes;
 
+use std::rc::Rc;
+use std::cell::RefCell;
+
 big_array! { BigArray; }
 
 #[repr(C)]
@@ -152,7 +155,7 @@ impl Shader for Ramp {
 }
 
 impl OperatorParamBox for Ramp {
-    fn param_box(&self, res: &crate::lang::Resource) -> ParamBox {
+    fn param_box(&self, res: Rc<RefCell<crate::lang::Resource>>) -> ParamBox {
         ParamBox::new(&ParamBoxDescription {
             box_title: self.title(),
             resource: res.clone(),

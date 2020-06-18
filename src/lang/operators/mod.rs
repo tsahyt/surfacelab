@@ -9,6 +9,9 @@ use std::collections::HashMap;
 use strum::VariantNames;
 use surfacelab_derive::*;
 
+use std::rc::Rc;
+use std::cell::RefCell;
+
 pub mod blend;
 pub mod grayscale;
 pub mod normal_map;
@@ -63,7 +66,7 @@ impl Shader for Image {
 }
 
 impl OperatorParamBox for Image {
-    fn param_box(&self, res: &super::Resource) -> ParamBox {
+    fn param_box(&self, res: Rc<RefCell<super::Resource>>) -> ParamBox {
         ParamBox::new(&ParamBoxDescription {
             box_title: self.title(),
             resource: res.clone(),
@@ -129,7 +132,7 @@ impl Shader for Output {
 }
 
 impl OperatorParamBox for Output {
-    fn param_box(&self, res: &super::Resource) -> ParamBox {
+    fn param_box(&self, res: Rc<RefCell<super::Resource>>) -> ParamBox {
         ParamBox::new(&ParamBoxDescription {
             box_title: self.title(),
             resource: res.clone(),
