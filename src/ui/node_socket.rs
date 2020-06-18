@@ -263,6 +263,10 @@ impl NodeSocketPrivate {
         self.socket_resource.replace(resource);
     }
 
+    fn get_socket_resource(&self) -> lang::Resource {
+        self.socket_resource.borrow().clone()
+    }
+
     fn get_socket_uri(&self) -> lang::Resource {
         self.socket_resource.borrow().to_owned()
     }
@@ -409,6 +413,12 @@ impl NodeSocket {
             None
         })
         .unwrap()
+    }
+
+    pub fn rename_node_resource(&self, to: &lang::Resource) {
+        let imp = NodeSocketPrivate::from_instance(self);
+        let res = imp.get_socket_resource().modify_path(|p| *p = std::path::PathBuf::from(to.path()));
+        imp.set_socket_resource(self, res);
     }
 }
 

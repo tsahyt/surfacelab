@@ -239,6 +239,13 @@ where
     pub fn get_image_size(&self, res: &Resource) -> u32 {
         self.0.get(&res.drop_fragment()).unwrap().output_size
     }
+
+    /// Rename a resource, moving all its sockets to the new name
+    pub fn rename(&mut self, from: &Resource, to: &Resource) {
+        if let Some(x) = self.0.remove(from) {
+            self.0.insert(to.clone(), x);
+        }
+    }
 }
 
 struct ComputeManager<B: gpu::Backend> {
@@ -307,6 +314,7 @@ where
                     }
                 }
                 GraphEvent::NodeRemoved(res) => self.sockets.remove_all_for_node(res),
+                GraphEvent::NodeRenamed(from, to) => self.rename(from, to),
                 GraphEvent::Recomputed(instrs) => {
                     self.seq += 1;
                     for i in instrs.iter() {
@@ -361,6 +369,16 @@ where
         }
 
         Some(response)
+    }
+
+    fn rename(&mut self, from: &Resource, to: &Resource) {
+        // Move last known hash so we can save on a recomputation
+        if let Some(h) = self.last_known.remove(from) {
+            self.last_known.insert(to.clone(), h);
+        }
+
+        // Move sockets
+        self.sockets.rename(from, to);
     }
 
     pub fn reset(&mut self) {

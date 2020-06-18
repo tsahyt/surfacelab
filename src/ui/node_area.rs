@@ -134,10 +134,8 @@ impl NodeAreaPrivate {
         widget.connect_header_button_release_event(clone!(@strong action => move |w| {
             let alloc = w.get_allocation();
 
-            if let Some(resource) = w.downcast_ref::<Node>().unwrap().get_resource() {
-                super::emit(Lang::UserNodeEvent(
-                    UserNodeEvent::PositionNode(resource.to_owned(), (alloc.x, alloc.y))));
-            }
+            let resource = w.downcast_ref::<Node>().unwrap().get_resource();
+            super::emit(Lang::UserNodeEvent(UserNodeEvent::PositionNode(resource.to_owned(), (alloc.x, alloc.y))));
 
             action.replace(None);
         }));
@@ -253,6 +251,15 @@ impl NodeAreaPrivate {
         container.add(node);
         container.move_(node, position.0, position.1);
     }
+
+    fn rename_node(&self, from: &Resource, to: &Resource) {
+        let mut children = self.children.borrow_mut();
+        if let Some(child) = children.remove(from) {
+            child.rename_resource(to);
+            children.insert(to.clone(), child);
+        }
+    }
+
 }
 
 impl WidgetImpl for NodeAreaPrivate {
@@ -348,9 +355,7 @@ impl ContainerImpl for NodeAreaPrivate {
 
         let node = widget.downcast_ref::<Node>().unwrap();
         let fixed = container.downcast_ref::<gtk::Fixed>().unwrap();
-        let resource = node
-            .get_resource()
-            .expect("Failed adding uninitialized node resource");
+        let resource = node.get_resource();
         self.child_connect(&fixed, &node, &resource);
         self.children
             .borrow_mut()
@@ -365,10 +370,8 @@ impl ContainerImpl for NodeAreaPrivate {
         use gtk::subclass::container::*;
 
         let node = widget.downcast_ref::<Node>().unwrap();
-        let resource = node
-            .get_resource()
-            .expect("Failed removing uninitialized node resource");
-        self.children.borrow_mut().remove(resource);
+        let resource = node.get_resource();
+        self.children.borrow_mut().remove(&resource);
 
         self.parent_remove(container, widget);
     }
@@ -417,6 +420,11 @@ impl NodeArea {
     pub fn remove_by_resource(&self, node: &Resource) {
         let imp = NodeAreaPrivate::from_instance(self);
         imp.remove_by_resource(&self.upcast_ref::<gtk::Container>(), node);
+    }
+
+    pub fn rename_node(&self, from: &Resource, to: &Resource) {
+        let imp = NodeAreaPrivate::from_instance(self);
+        imp.rename_node(from, to);
     }
 
     pub fn update_thumbnail(&self, node: &Resource, thumbnail: &[u8]) {

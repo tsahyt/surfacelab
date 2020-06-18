@@ -10,13 +10,12 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
-use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
 
 pub struct NodePrivate {
     sockets: RefCell<Vec<NodeSocket>>,
     header_label: gtk::Label,
-    resource: OnceCell<Resource>,
+    resource: RefCell<Resource>,
     popover: gtk::Popover,
     popover_box: gtk::Box,
     thumbnail: gtk::Image,
@@ -87,7 +86,7 @@ impl ObjectSubclass for NodePrivate {
         Self {
             sockets: RefCell::new(Vec::new()),
             header_label: gtk::Label::new(Some("Node")),
-            resource: OnceCell::new(),
+            resource: RefCell::new(Resource::unregistered_node()),
             popover: gtk::Popover::new::<gtk::Widget>(None),
             popover_box: gtk::Box::new(gtk::Orientation::Vertical, 8),
             thumbnail: gtk::Image::new(),
@@ -251,6 +250,14 @@ impl NodePrivate {
         );
         self.thumbnail.set_from_pixbuf(Some(&pixbuf));
     }
+
+    pub fn rename_resource(&self, to: &Resource) {
+        self.resource.replace(to.clone());
+
+        for socket in self.sockets.borrow().iter() {
+            socket.rename_node_resource(to);
+        }
+    }
 }
 
 glib_wrapper! {
@@ -279,10 +286,7 @@ impl Node {
         priv_.header_label.set_label(op.title());
         priv_.popover_box.add(&node_attributes(&resource));
         priv_.popover_box.add(&op.param_box(&resource));
-        priv_
-            .resource
-            .set(resource.clone())
-            .expect("Failed to set resource for new node");
+        priv_.resource.replace(resource.clone());
 
         for (input, _) in op.inputs().iter() {
             let res = resource.extend_fragment(input);
@@ -297,9 +301,9 @@ impl Node {
         node
     }
 
-    pub fn get_resource(&self) -> Option<&Resource> {
+    pub fn get_resource(&self) -> Resource {
         let priv_ = NodePrivate::from_instance(self);
-        priv_.resource.get()
+        priv_.resource.borrow().clone()
     }
 
     pub fn get_socket(&self, resource: &Resource) -> Option<NodeSocket> {
@@ -378,6 +382,11 @@ impl Node {
     pub fn set_thumbnail(&self, thumbnail: &[u8]) {
         let imp = NodePrivate::from_instance(self);
         imp.set_thumbnail(thumbnail);
+    }
+
+    pub fn rename_resource(&self, to: &Resource) {
+        let imp = NodePrivate::from_instance(self);
+        imp.rename_resource(to);
     }
 }
 

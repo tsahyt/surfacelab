@@ -205,7 +205,7 @@ pub enum Control<'a> {
         def: bool,
     },
     Entry {
-        value: &'a str
+        value: &'a str,
     },
 }
 
@@ -400,7 +400,9 @@ pub fn node_attributes(res: &Resource) -> ParamBox {
                 Parameter {
                     name: "Node Resource",
                     transmitter: ResourceField::Name,
-                    control: Control::Entry { value: res.path().to_str().unwrap() },
+                    control: Control::Entry {
+                        value: res.path().to_str().unwrap(),
+                    },
                 },
                 // Parameter {
                 //     name: "Node Description",

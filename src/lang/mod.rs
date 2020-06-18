@@ -149,6 +149,7 @@ pub enum UserNodeEvent {
 pub enum GraphEvent {
     NodeAdded(Resource, Operator, Option<(i32, i32)>),
     NodeRemoved(Resource),
+    NodeRenamed(Resource, Resource),
     ConnectedSockets(Resource, Resource),
     DisconnectedSockets(Resource, Resource),
     Recomputed(Vec<Instruction>),

@@ -405,6 +405,9 @@ impl SurfaceLabApplication {
             Lang::GraphEvent(GraphEvent::NodeRemoved(res)) => {
                 app_window.node_area.remove_by_resource(&res)
             }
+            Lang::GraphEvent(GraphEvent::NodeRenamed(from, to)) => {
+                app_window.node_area.rename_node(from, to)
+            }
             Lang::GraphEvent(GraphEvent::ConnectedSockets(source, sink)) => {
                 app_window
                     .node_area
