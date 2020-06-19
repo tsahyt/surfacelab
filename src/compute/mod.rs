@@ -57,6 +57,16 @@ struct TypedOutput<B: gpu::Backend> {
     ty: ImageType,
 }
 
+impl<B> TypedOutput<B>
+where
+    B: gpu::Backend,
+{
+    /// Reinitialize the GPU image with a (possibly new) size.
+    fn reinit_image(&mut self, gpu: &gpu::compute::GPUCompute<B>, size: u32) {
+        self.image = gpu.create_compute_image(size, self.ty, false).unwrap();
+    }
+}
+
 /// Per "node" socket data. Note that we don't really have a notion of node here
 /// in the compute component, but this still very closely corresponds to that.
 struct SocketData<B: gpu::Backend> {
@@ -145,6 +155,20 @@ where
             .get_mut(&res.drop_fragment())
             .expect("Trying to remove image from unknown resource");
         sockets.typed_outputs.remove(res.fragment().unwrap());
+    }
+
+    pub fn reinit_output_images(
+        &mut self,
+        res: &Resource,
+        gpu: &gpu::compute::GPUCompute<B>,
+        size: u32,
+    ) {
+        if let Some(socket_data) = self.0.get_mut(&res)
+        {
+            for out in socket_data.typed_outputs.values_mut() {
+                out.reinit_image(gpu, size);
+            }
+        }
     }
 
     /// Obtain the output image given a socket resource along with its type
@@ -322,7 +346,9 @@ where
                 GraphEvent::NodeRemoved(res) => self.sockets.remove_all_for_node(res),
                 GraphEvent::NodeRenamed(from, to) => self.rename(from, to),
                 GraphEvent::NodeResized(res, new_size) => {
-                    self.sockets.resize(res, *new_size as u32)
+                    self.sockets.resize(res, *new_size as u32);
+                    self.sockets
+                        .reinit_output_images(res, &mut self.gpu, *new_size as u32);
                 }
                 GraphEvent::Recomputed(instrs) => {
                     self.seq += 1;

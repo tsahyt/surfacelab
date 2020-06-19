@@ -812,8 +812,8 @@ where
                         layers: 0..1,
                     },
                     src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-                        x: 1024,
-                        y: 1024,
+                        x: image.size as i32,
+                        y: image.size as i32,
                         z: 1,
                     },
                     dst_subresource: hal::image::SubresourceLayers {
