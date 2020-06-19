@@ -141,6 +141,8 @@ impl Transmitter for Field {
 #[derive(Copy, Clone, Debug)]
 pub enum ResourceField {
     Name,
+    Size,
+    AbsoluteSize,
 }
 
 impl Transmitter for ResourceField {
@@ -156,6 +158,8 @@ impl Transmitter for ResourceField {
                     }),
                 )))
             }
+            Self::Size => {}
+            Self::AbsoluteSize => {}
         }
     }
 }
@@ -398,13 +402,29 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>) -> ParamBox {
         resource: res.clone(),
         categories: &[ParamCategory {
             name: "Node",
-            parameters: &[Parameter {
-                name: "Node Resource",
-                transmitter: ResourceField::Name,
-                control: Control::Entry {
-                    value: res.borrow().path().to_str().unwrap(),
+            parameters: &[
+                Parameter {
+                    name: "Node Resource",
+                    transmitter: ResourceField::Name,
+                    control: Control::Entry {
+                        value: res.borrow().path().to_str().unwrap(),
+                    },
                 },
-            }],
+                Parameter {
+                    name: "Size",
+                    transmitter: ResourceField::Size,
+                    control: Control::DiscreteSlider {
+                        value: 0,
+                        min: -8,
+                        max: 8,
+                    },
+                },
+                Parameter {
+                    name: "Absolute Size",
+                    transmitter: ResourceField::AbsoluteSize,
+                    control: Control::Toggle { def: false },
+                },
+            ],
         }],
     })
 }
