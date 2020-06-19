@@ -325,9 +325,8 @@ where
 
     /// Find the first set of chunks of contiguous free memory that fits the
     /// requested number of bytes
-    // FIXME: Fails for image sizes <= 128x128 even when memory is available
     fn find_free_image_memory(&self, bytes: u64) -> Option<(u64, Vec<usize>)> {
-        let request = bytes / Self::CHUNK_SIZE;
+        let request = bytes.max(Self::CHUNK_SIZE) / Self::CHUNK_SIZE;
         let mut free = Vec::with_capacity(request as usize);
         let mut offset = 0;
 
