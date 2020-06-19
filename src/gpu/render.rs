@@ -987,6 +987,7 @@ where
     ///
     /// Blitting is performed once per MIP level of the image slot, such that
     /// the MIP hierarchy is created.
+    // TODO: Ugly seams on images smaller than the render image
     pub fn transfer_image(
         &mut self,
         source: &B::Image,
@@ -1069,7 +1070,7 @@ where
                 hal::image::Layout::TransferSrcOptimal,
                 &*image_slot.image,
                 hal::image::Layout::TransferDstOptimal,
-                hal::image::Filter::Nearest,
+                hal::image::Filter::Linear,
                 &blits,
             );
             cmd_buffer.pipeline_barrier(
