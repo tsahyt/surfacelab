@@ -263,6 +263,11 @@ where
         self.0.get(&res.drop_fragment()).unwrap().output_size
     }
 
+    pub fn get_input_resource(&self, res: &Resource) -> Option<&Resource> {
+        let sockets = self.0.get(&res.drop_fragment())?;
+        sockets.inputs.get(res.fragment()?)
+    }
+
     /// Rename a resource, moving all its sockets to the new name
     pub fn rename(&mut self, from: &Resource, to: &Resource) {
         if let Some(x) = self.0.remove(from) {
@@ -540,7 +545,7 @@ where
                 gpu::BrokerImage::from::<B>(image.get_raw()),
                 image.get_layout(),
                 image.get_access(),
-                self.sockets.get_image_size(res),
+                self.sockets.get_image_size(self.sockets.get_input_resource(&socket_res).unwrap()),
                 *output_type,
             ),
             ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail),
