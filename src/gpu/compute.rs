@@ -325,6 +325,7 @@ where
 
     /// Find the first set of chunks of contiguous free memory that fits the
     /// requested number of bytes
+    // FIXME: Fails for image sizes <= 128x128 even when memory is available
     fn find_free_image_memory(&self, bytes: u64) -> Option<(u64, Vec<usize>)> {
         let request = bytes / Self::CHUNK_SIZE;
         let mut free = Vec::with_capacity(request as usize);
@@ -506,7 +507,7 @@ where
                 Some(descriptors),
                 &[],
             );
-            command_buffer.dispatch([image_size, image_size, 1]);
+            command_buffer.dispatch([image_size / 8, image_size / 8, 1]);
             command_buffer.finish();
             command_buffer
         };
@@ -1003,7 +1004,7 @@ where
 
     /// Allocate fresh memory to the image from the underlying memory pool in compute.
     pub fn allocate_memory(&mut self, compute: &GPUCompute<B>) -> Result<(), String> {
-        log::trace!("Allocating memory for image");
+        log::trace!("Allocating memory for {}x{} image", self.size, self.size);
         debug_assert!(self.alloc.is_none());
 
         // Handle memory manager
