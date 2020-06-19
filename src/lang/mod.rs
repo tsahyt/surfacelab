@@ -142,6 +142,8 @@ pub enum UserNodeEvent {
     ParameterChange(Resource, &'static str, Vec<u8>),
     PositionNode(Resource, (i32, i32)),
     RenameNode(Resource, Resource),
+    OutputSizeChange(Resource, i32),
+    OutputSizeAbsolute(Resource, bool),
     ForceRecompute,
 }
 
@@ -150,6 +152,7 @@ pub enum GraphEvent {
     NodeAdded(Resource, Operator, Option<(i32, i32)>),
     NodeRemoved(Resource),
     NodeRenamed(Resource, Resource),
+    NodeResized(Resource, i32),
     ConnectedSockets(Resource, Resource),
     DisconnectedSockets(Resource, Resource),
     Recomputed(Vec<Instruction>),

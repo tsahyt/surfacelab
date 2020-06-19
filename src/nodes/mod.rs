@@ -17,6 +17,8 @@ struct Node {
     operator: lang::Operator,
     resource: lang::Resource,
     position: (i32, i32),
+    absolute_size: bool,
+    size: i32,
     type_variables: HashMap<lang::TypeVariable, lang::ImageType>,
 }
 
@@ -28,6 +30,8 @@ impl Node {
             operator,
             resource,
             position: (0, 0),
+            size: 0,
+            absolute_size: false,
             type_variables: HashMap::new(),
         }
     }
@@ -55,6 +59,7 @@ type EdgeLabel = (String, String);
 type NodeGraph = graph::Graph<Node, EdgeLabel, petgraph::Directed>;
 
 struct NodeManager {
+    parent_size: i32,
     node_graph: NodeGraph,
     node_indices: HashMap<lang::Resource, graph::NodeIndex>,
     outputs: HashSet<graph::NodeIndex>,
@@ -65,6 +70,7 @@ impl NodeManager {
     pub fn new() -> Self {
         let node_graph = graph::Graph::new();
         NodeManager {
+            parent_size: 1024,
             node_graph,
             node_indices: HashMap::new(),
             outputs: HashSet::new(),
@@ -135,6 +141,16 @@ impl NodeManager {
                     if let Some(r) = self.rename_node(from, to) {
                         response.push(r);
                     }
+                }
+                UserNodeEvent::OutputSizeChange(res, size) => {
+                    if let Some(r) = self.resize_node(res, Some(*size), None) {
+                        response.push(r);
+                    };
+                }
+                UserNodeEvent::OutputSizeAbsolute(res, abs) => {
+                    if let Some(r) = self.resize_node(res, None, Some(*abs)) {
+                        response.push(r);
+                    };
                 }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
@@ -707,6 +723,44 @@ impl NodeManager {
         } else {
             None
         }
+    }
+
+    fn resize_node(
+        &mut self,
+        res: &lang::Resource,
+        size: Option<i32>,
+        absolute: Option<bool>,
+    ) -> Option<lang::Lang> {
+        let idx = self.node_by_uri(res)?;
+        let mut node = self.node_graph.node_weight_mut(idx).unwrap();
+
+        if let Some(s) = size {
+            node.size = s;
+        }
+
+        if let Some(a) = absolute {
+            node.absolute_size = a;
+        }
+
+        let new_size: i32 = if node.absolute_size {
+            if node.size > 0 {
+                2 << node.size as i16
+            } else {
+                2 >> -node.size as i16
+            }
+        } else {
+            if node.size > 0 {
+                self.parent_size << node.size as i16
+            } else {
+                self.parent_size >> -node.size as i16
+            }
+        }
+        .clamp(32, 16384);
+
+        Some(lang::Lang::GraphEvent(lang::GraphEvent::NodeResized(
+            res.clone(),
+            new_size,
+        )))
     }
 }
 

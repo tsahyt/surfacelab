@@ -7,7 +7,6 @@ use std::thread;
 
 pub mod shaders;
 
-// TODO: Image sizes should not be hardcoded! For now they're 1024 everywhere. Probably.
 const IMG_SIZE: u32 = 1024;
 
 pub fn start_compute_thread<B: gpu::Backend>(
@@ -246,6 +245,13 @@ where
             self.0.insert(to.clone(), x);
         }
     }
+
+    /// Resize outputs
+    pub fn resize(&mut self, res: &Resource, new_size: u32) {
+        if let Some(x) = self.0.get_mut(res) {
+            x.output_size = new_size;
+        }
+    }
 }
 
 struct ComputeManager<B: gpu::Backend> {
@@ -315,6 +321,9 @@ where
                 }
                 GraphEvent::NodeRemoved(res) => self.sockets.remove_all_for_node(res),
                 GraphEvent::NodeRenamed(from, to) => self.rename(from, to),
+                GraphEvent::NodeResized(res, new_size) => {
+                    self.sockets.resize(res, *new_size as u32)
+                }
                 GraphEvent::Recomputed(instrs) => {
                     self.seq += 1;
                     for i in instrs.iter() {

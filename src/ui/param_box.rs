@@ -1,3 +1,4 @@
+use crate::lang::parameters::ParameterField;
 use crate::lang::*;
 
 use enum_dispatch::*;
@@ -81,7 +82,7 @@ impl ParamBoxPrivate {
                 param_control_group.add_widget(&param_control);
 
                 param_layout.pack_start(&param_label, false, false, 4);
-                param_layout.pack_end(&param_control, true, true, 4);
+                param_layout.pack_end(&param_control, false, true, 4);
 
                 cat_box.add(&param_layout);
             }
@@ -158,8 +159,15 @@ impl Transmitter for ResourceField {
                     }),
                 )))
             }
-            Self::Size => {}
-            Self::AbsoluteSize => {}
+            Self::Size => {
+                super::emit(Lang::UserNodeEvent(UserNodeEvent::OutputSizeChange(
+                    resource,
+                    i32::from_data(data),
+                )));
+            }
+            Self::AbsoluteSize => super::emit(Lang::UserNodeEvent(
+                UserNodeEvent::OutputSizeAbsolute(resource, data != [0]),
+            )),
         }
     }
 }
@@ -310,7 +318,7 @@ impl<'a> Control<'a> {
         scale.set_round_digits(0);
 
         adjustment.connect_value_changed(clone!(@strong resource => move |a| {
-            transmitter.transmit(resource.borrow().clone(), &(a.get_value() as u32).to_data());
+            transmitter.transmit(resource.borrow().clone(), &(a.get_value() as i32).to_data());
         }));
 
         scale.upcast()
@@ -415,8 +423,8 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>) -> ParamBox {
                     transmitter: ResourceField::Size,
                     control: Control::DiscreteSlider {
                         value: 0,
-                        min: -8,
-                        max: 8,
+                        min: -16,
+                        max: 16,
                     },
                 },
                 Parameter {

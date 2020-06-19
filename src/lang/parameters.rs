@@ -37,6 +37,18 @@ impl ParameterField for u32 {
     }
 }
 
+impl ParameterField for i32 {
+    fn from_data(data: &[u8]) -> Self {
+        let mut arr: [u8; 4] = Default::default();
+        arr.copy_from_slice(data);
+        i32::from_be_bytes(arr)
+    }
+
+    fn to_data(&self) -> Vec<u8> {
+        self.to_be_bytes().to_vec()
+    }
+}
+
 impl ParameterField for [f32; 3] {
     fn from_data(data: &[u8]) -> Self {
         let cols: Vec<f32> = data
