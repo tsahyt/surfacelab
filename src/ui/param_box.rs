@@ -9,8 +9,8 @@ use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct ParamBoxPrivate {
     inner: gtk::Box,
@@ -241,7 +241,6 @@ impl<'a> Control<'a> {
         }
     }
 
-    // TODO: ParamBox entries
     fn construct_entry<T: 'static + Transmitter>(
         value: &str,
         resource: Rc<RefCell<Resource>>,
@@ -399,15 +398,13 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>) -> ParamBox {
         resource: res.clone(),
         categories: &[ParamCategory {
             name: "Node",
-            parameters: &[
-                Parameter {
-                    name: "Node Resource",
-                    transmitter: ResourceField::Name,
-                    control: Control::Entry {
-                        value: res.borrow().path().to_str().unwrap(),
-                    },
+            parameters: &[Parameter {
+                name: "Node Resource",
+                transmitter: ResourceField::Name,
+                control: Control::Entry {
+                    value: res.borrow().path().to_str().unwrap(),
                 },
-            ],
+            }],
         }],
     })
 }

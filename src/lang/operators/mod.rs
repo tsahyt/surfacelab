@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use strum::VariantNames;
 use surfacelab_derive::*;
 
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 pub mod blend;
 pub mod grayscale;

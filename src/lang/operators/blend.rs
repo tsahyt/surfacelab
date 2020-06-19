@@ -11,8 +11,8 @@ use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 #[repr(C)]
 #[derive(

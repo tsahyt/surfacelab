@@ -9,8 +9,8 @@ use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use zerocopy::AsBytes;
 
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 big_array! { BigArray; }
 

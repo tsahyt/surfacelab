@@ -417,7 +417,9 @@ impl NodeSocket {
 
     pub fn rename_node_resource(&self, to: &lang::Resource) {
         let imp = NodeSocketPrivate::from_instance(self);
-        let res = imp.get_socket_resource().modify_path(|p| *p = std::path::PathBuf::from(to.path()));
+        let res = imp
+            .get_socket_resource()
+            .modify_path(|p| *p = std::path::PathBuf::from(to.path()));
         imp.set_socket_resource(self, res);
     }
 }

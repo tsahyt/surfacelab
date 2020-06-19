@@ -259,7 +259,6 @@ impl NodeAreaPrivate {
             children.insert(to.clone(), child);
         }
     }
-
 }
 
 impl WidgetImpl for NodeAreaPrivate {

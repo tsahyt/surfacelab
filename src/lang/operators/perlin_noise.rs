@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
