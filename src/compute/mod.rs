@@ -55,15 +55,18 @@ struct TypedOutput<B: gpu::Backend> {
     seq: u64,
     image: gpu::compute::Image<B>,
     ty: ImageType,
+    force: bool,
 }
 
 impl<B> TypedOutput<B>
 where
     B: gpu::Backend,
 {
-    /// Reinitialize the GPU image with a (possibly new) size.
+    /// Reinitialize the GPU image with a (possibly new) size. This will also
+    /// force the image on the next evaluation.
     fn reinit_image(&mut self, gpu: &gpu::compute::GPUCompute<B>, size: u32) {
         self.image = gpu.create_compute_image(size, self.ty, false).unwrap();
+        self.force = true;
     }
 }
 
@@ -133,6 +136,7 @@ where
                     seq: 0,
                     image: img,
                     ty,
+                    force: false,
                 },
             );
         }
@@ -243,9 +247,14 @@ where
             .max()
     }
 
+    pub fn get_force(&self, node: &Resource) -> bool {
+        self.0.get(&node).unwrap().typed_outputs.values().any(|x| x.force)
+    }
+
     pub fn set_output_image_updated(&mut self, node: &Resource, updated: u64) {
         for img in self.0.get_mut(&node).unwrap().typed_outputs.values_mut() {
             img.seq = updated;
+            img.force = false;
         }
     }
 
@@ -676,7 +685,7 @@ where
                 > op_seq
         });
         match self.last_known.get(res) {
-            Some(hash) if *hash == uniform_hash && !inputs_updated => {
+            Some(hash) if *hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) => {
                 log::trace!("Reusing cached image");
                 return Ok(None);
             }
