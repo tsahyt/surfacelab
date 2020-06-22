@@ -641,6 +641,20 @@ where
         Ok((render_pass, pipeline, pipeline_layout))
     }
 
+    pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), String> {
+        let lock = self.gpu.lock().unwrap();
+
+        self.image_slots = ImageSlots {
+            albedo: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
+            roughness: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
+            normal: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
+            displacement: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
+            metallic: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
+        };
+
+        Ok(())
+    }
+
     pub fn set_dimensions(&mut self, width: u32, height: u32) {
         self.dimensions.width = width;
         self.dimensions.height = height;

@@ -183,7 +183,10 @@ impl NodeManager {
                 response.push(Lang::GraphEvent(GraphEvent::Cleared));
             }
             Lang::UserIOEvent(UserIOEvent::SetParentSize(size)) => {
-                response.append(&mut self.resize_all(*size as i32))
+                response.append(&mut self.resize_all(*size as i32));
+                // Recompute on size change
+                let instructions = self.recompute();
+                response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
             }
             _ => {}
         }

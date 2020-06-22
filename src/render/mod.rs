@@ -19,6 +19,9 @@ pub fn start_render_thread<B: gpu::Backend>(
                 Lang::UserIOEvent(UserIOEvent::Quit) => break,
                 Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => render_manager.reset_all(),
                 Lang::UserIOEvent(UserIOEvent::NewSurface) => render_manager.reset_all(),
+                Lang::UserIOEvent(UserIOEvent::SetParentSize(new_size)) => {
+                    render_manager.resize_images(*new_size)
+                }
                 Lang::UIEvent(UIEvent::RendererAdded(id, h, width, height, ty)) => render_manager
                     .new_renderer(*id, h, *width, *height, *ty)
                     .unwrap(),
@@ -117,6 +120,12 @@ where
             r.render()
         } else {
             log::error!("Trying to redraw on non-existent renderer!");
+        }
+    }
+
+    pub fn resize_images(&mut self, new_size: u32) {
+        for r in self.renderers.values_mut() {
+            r.recreate_image_slots(new_size).expect("Failed to resize images in renderer");
         }
     }
 
