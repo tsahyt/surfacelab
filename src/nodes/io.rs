@@ -54,7 +54,7 @@ impl NodeManager {
                 node.resource.clone(),
                 node.operator.clone(),
                 Some(node.position),
-                1024,
+                node.node_size(self.parent_size) as u32,
             )));
         }
 

@@ -12,6 +12,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 
+// TODO: Unify image size type throughout the entire codebase
+
 pub mod io;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,12 +105,12 @@ impl NodeManager {
         match &*event {
             Lang::UserNodeEvent(event) => match event {
                 UserNodeEvent::NewNode(op) => {
-                    let resource = self.new_node(op);
+                    let (resource, size) = self.new_node(op);
                     response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
                         resource,
                         op.clone(),
                         None,
-                        1024,
+                        size as u32,
                     )))
                 }
                 UserNodeEvent::RemoveNode(res) => match self.remove_node(res) {
@@ -256,7 +258,7 @@ impl NodeManager {
     }
 
     /// Add a new node to the node graph, defined by the operator.
-    fn new_node(&mut self, op: &lang::Operator) -> lang::Resource {
+    fn new_node(&mut self, op: &lang::Operator) -> (lang::Resource, i32) {
         let node_id = self.next_free_name(op.default_name());
 
         log::trace!(
@@ -265,6 +267,7 @@ impl NodeManager {
             node_id
         );
         let node = Node::new(op.clone(), node_id.clone());
+        let size = node.node_size(self.parent_size);
         let idx = self.node_graph.add_node(node);
         self.node_indices.insert(node_id.clone(), idx);
 
@@ -272,7 +275,7 @@ impl NodeManager {
             self.outputs.insert(idx);
         }
 
-        node_id
+        (node_id, size)
     }
 
     /// Remove a node with the given Resource if it exists.
