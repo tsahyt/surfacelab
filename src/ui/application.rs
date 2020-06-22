@@ -171,6 +171,17 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                     .adjustment(&self.parent_size)
                     .build(),
             );
+            let quick_sizes = gtk::ButtonBoxBuilder::new()
+                .layout_style(gtk::ButtonBoxStyle::Expand)
+                .build();
+            for (lbl, res) in [("½k", 512), ("1k", 1024), ("2k", 2048), ("4k", 4096)].iter() {
+                let btn = gtk::Button::new_with_label(lbl);
+                btn.connect_clicked(
+                    clone!(@strong self.parent_size as psize => move |_| psize.set_value(*res as f64)),
+                );
+                quick_sizes.add(&btn);
+            }
+            parent_size_box.add(&quick_sizes);
             document_properties_box.add(&parent_size_box);
         }
         self.document_properties.add(&document_properties_box);

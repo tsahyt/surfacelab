@@ -248,7 +248,12 @@ where
     }
 
     pub fn get_force(&self, node: &Resource) -> bool {
-        self.0.get(&node).unwrap().typed_outputs.values().any(|x| x.force)
+        self.0
+            .get(&node)
+            .unwrap()
+            .typed_outputs
+            .values()
+            .any(|x| x.force)
     }
 
     pub fn set_output_image_updated(&mut self, node: &Resource, updated: u64) {
@@ -685,7 +690,9 @@ where
                 > op_seq
         });
         match self.last_known.get(res) {
-            Some(hash) if *hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) => {
+            Some(hash)
+                if *hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) =>
+            {
                 log::trace!("Reusing cached image");
                 return Ok(None);
             }
