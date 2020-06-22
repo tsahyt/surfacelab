@@ -182,6 +182,9 @@ impl NodeManager {
                 self.reset();
                 response.push(Lang::GraphEvent(GraphEvent::Cleared));
             }
+            Lang::UserIOEvent(UserIOEvent::SetParentSize(size)) => {
+                response.append(&mut self.resize_all(*size as i32))
+            }
             _ => {}
         }
 
@@ -761,6 +764,27 @@ impl NodeManager {
             res.clone(),
             new_size,
         )))
+    }
+
+    fn resize_all(&mut self, parent: i32) -> Vec<lang::Lang> {
+        log::debug!("Resizing all nodes");
+        self.parent_size = parent;
+
+        self.node_graph
+            .node_indices()
+            .filter_map(|idx| {
+                self.node_graph.node_weight(idx).and_then(|x| {
+                    if !x.absolute_size {
+                        Some(lang::Lang::GraphEvent(lang::GraphEvent::NodeResized(
+                            x.resource.clone(),
+                            (self.parent_size << x.size as i16).clamp(32, 16384),
+                        )))
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect()
     }
 }
 

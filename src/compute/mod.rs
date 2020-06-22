@@ -163,8 +163,7 @@ where
         gpu: &gpu::compute::GPUCompute<B>,
         size: u32,
     ) {
-        if let Some(socket_data) = self.0.get_mut(&res)
-        {
+        if let Some(socket_data) = self.0.get_mut(&res) {
             for out in socket_data.typed_outputs.values_mut() {
                 out.reinit_image(gpu, size);
             }
@@ -545,7 +544,8 @@ where
                 gpu::BrokerImage::from::<B>(image.get_raw()),
                 image.get_layout(),
                 image.get_access(),
-                self.sockets.get_image_size(self.sockets.get_input_resource(&socket_res).unwrap()),
+                self.sockets
+                    .get_image_size(self.sockets.get_input_resource(&socket_res).unwrap()),
                 *output_type,
             ),
             ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail),

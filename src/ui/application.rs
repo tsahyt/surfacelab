@@ -16,6 +16,8 @@ use std::sync::Arc;
 pub struct SurfaceLabWindowPrivate {
     node_area: node_area::NodeArea,
     header_bar: gtk::HeaderBar,
+    document_properties: gtk::Popover,
+    parent_size: gtk::Adjustment,
 }
 
 impl ObjectSubclass for SurfaceLabWindowPrivate {
@@ -34,6 +36,8 @@ impl ObjectSubclass for SurfaceLabWindowPrivate {
                 .title("SurfaceLab")
                 .subtitle("<unsaved>")
                 .build(),
+            document_properties: gtk::Popover::new(None::<&gtk::Widget>),
+            parent_size: gtk::Adjustment::new(1024.0, 32.0, 16384.0, 32.0, 512.0, 1024.0),
         }
     }
 }
@@ -143,9 +147,34 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
                     Some("document-properties-symbolic"),
                     gtk::IconSize::Menu,
                 ))
+                .popover(&self.document_properties)
                 .build(),
         );
         window.set_titlebar(Some(&self.header_bar));
+
+        // Document Properties
+        let document_properties_box = gtk::BoxBuilder::new()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(4)
+            .margin(8)
+            .build();
+        {
+            let parent_size_box = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+            self.parent_size.connect_value_changed(|a| {
+                super::emit(Lang::UserIOEvent(UserIOEvent::SetParentSize(
+                    a.get_value() as u32
+                )));
+            });
+            parent_size_box.add(&gtk::Label::new(Some("Size")));
+            parent_size_box.add(
+                &gtk::SpinButtonBuilder::new()
+                    .adjustment(&self.parent_size)
+                    .build(),
+            );
+            document_properties_box.add(&parent_size_box);
+        }
+        self.document_properties.add(&document_properties_box);
+        self.document_properties.show_all();
 
         // Main Views
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);

@@ -187,6 +187,7 @@ pub enum UserIOEvent {
     RequestExport(Option<Vec<(Resource, ImageType)>>),
     OpenSurface(PathBuf),
     SaveSurface(PathBuf),
+    SetParentSize(u32),
     NewSurface,
     Quit,
 }
