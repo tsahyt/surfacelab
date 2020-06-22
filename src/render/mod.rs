@@ -125,7 +125,8 @@ where
 
     pub fn resize_images(&mut self, new_size: u32) {
         for r in self.renderers.values_mut() {
-            r.recreate_image_slots(new_size).expect("Failed to resize images in renderer");
+            r.recreate_image_slots(new_size)
+                .expect("Failed to resize images in renderer");
         }
     }
 

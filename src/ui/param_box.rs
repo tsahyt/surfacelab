@@ -71,7 +71,7 @@ impl ParamBoxPrivate {
             let cat_box = gtk::Box::new(gtk::Orientation::Vertical, 4);
             cat_expander.add(&cat_box);
 
-            for parameter in category.parameters {
+            for parameter in category.parameters.iter().filter(|x| x.available) {
                 let param_layout = gtk::Box::new(gtk::Orientation::Horizontal, 16);
 
                 let param_label = gtk::Label::new(Some(parameter.name));
@@ -187,6 +187,7 @@ pub struct Parameter<'a, T: Transmitter> {
     pub name: &'static str,
     pub transmitter: T,
     pub control: Control<'a>,
+    pub available: bool,
 }
 
 pub enum Control<'a> {
@@ -404,7 +405,7 @@ impl<'a> Control<'a> {
     }
 }
 
-pub fn node_attributes(res: Rc<RefCell<Resource>>) -> ParamBox {
+pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "Node Attributes",
         resource: res.clone(),
@@ -417,6 +418,7 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>) -> ParamBox {
                     control: Control::Entry {
                         value: res.borrow().path().to_str().unwrap(),
                     },
+                    available: true,
                 },
                 Parameter {
                     name: "Size",
@@ -426,11 +428,13 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>) -> ParamBox {
                         min: -16,
                         max: 16,
                     },
+                    available: scalable,
                 },
                 Parameter {
                     name: "Absolute Size",
                     transmitter: ResourceField::AbsoluteSize,
                     control: Control::Toggle { def: false },
+                    available: scalable,
                 },
             ],
         }],

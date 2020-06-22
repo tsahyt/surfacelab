@@ -78,6 +78,7 @@ impl OperatorParamBox for Image {
                     control: Control::File {
                         selected: Some(self.path.to_owned()),
                     },
+                    available: true,
                 }],
             }],
         })
@@ -145,6 +146,7 @@ impl OperatorParamBox for Output {
                         selected: self.output_type as usize,
                         variants: super::OutputType::VARIANTS,
                     },
+                    available: true,
                 }],
             }],
         })

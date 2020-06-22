@@ -167,6 +167,7 @@ impl OperatorParamBox for Ramp {
                     control: Control::Ramp {
                         steps: self.get_steps(),
                     },
+                    available: true,
                 }],
             }],
         })

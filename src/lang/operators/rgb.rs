@@ -75,6 +75,7 @@ impl OperatorParamBox for Rgb {
                     name: "Color",
                     transmitter: Field(Rgb::RGB),
                     control: Control::RgbColor { value: self.rgb },
+                    available: true,
                 }],
             }],
         })

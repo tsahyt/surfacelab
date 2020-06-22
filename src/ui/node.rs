@@ -286,9 +286,10 @@ impl Node {
         let priv_ = NodePrivate::from_instance(&node);
         priv_.header_label.set_label(op.title());
         priv_.resource.replace(resource.clone());
-        priv_
-            .popover_box
-            .add(&node_attributes(priv_.resource.clone()));
+        priv_.popover_box.add(&node_attributes(
+            priv_.resource.clone(),
+            !(op.is_output() || op.external_data()),
+        ));
         priv_.popover_box.add(&op.param_box(priv_.resource.clone()));
 
         for (input, _) in op.inputs().iter() {

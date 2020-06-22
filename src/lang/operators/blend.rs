@@ -126,6 +126,7 @@ impl OperatorParamBox for Blend {
                             selected: self.blend_mode as usize,
                             variants: BlendMode::VARIANTS,
                         },
+                        available: true,
                     },
                     Parameter {
                         name: "Clamp",
@@ -133,6 +134,7 @@ impl OperatorParamBox for Blend {
                         control: Control::Toggle {
                             def: self.clamp_output == 1,
                         },
+                        available: true,
                     },
                     Parameter {
                         name: "Mix",
@@ -142,6 +144,7 @@ impl OperatorParamBox for Blend {
                             min: 0.,
                             max: 1.,
                         },
+                        available: true,
                     },
                 ],
             }],

@@ -114,6 +114,7 @@ impl OperatorParamBox for Grayscale {
                         selected: self.mode as usize,
                         variants: GrayscaleMode::VARIANTS,
                     },
+                    available: true,
                 }],
             }],
         })

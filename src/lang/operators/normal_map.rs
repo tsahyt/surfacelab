@@ -87,6 +87,7 @@ impl OperatorParamBox for NormalMap {
                         min: 0.,
                         max: 2.,
                     },
+                    available: true,
                 }],
             }],
         })
