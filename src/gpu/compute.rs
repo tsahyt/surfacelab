@@ -49,7 +49,7 @@ where
 {
     const UNIFORM_BUFFER_SIZE: u64 = 2048; // bytes
 
-    const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 1024; // bytes
+    const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 128; // bytes
     const CHUNK_SIZE: u64 = 256 * 256 * 4; // bytes
     const N_CHUNKS: u64 = Self::IMAGE_MEMORY_SIZE / Self::CHUNK_SIZE;
 

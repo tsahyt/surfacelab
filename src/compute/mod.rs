@@ -333,9 +333,9 @@ where
         let mut response = Vec::new();
         match &*event {
             Lang::GraphEvent(event) => match event {
-                GraphEvent::NodeAdded(res, op, _) => {
+                GraphEvent::NodeAdded(res, op, _, size) => {
                     // Ensure socket data exists
-                    self.sockets.ensure_node_exists(res, IMG_SIZE);
+                    self.sockets.ensure_node_exists(res, *size);
 
                     // Create (unallocated) compute images if possible for all outputs
                     for (socket, imgtype) in op.outputs().iter() {

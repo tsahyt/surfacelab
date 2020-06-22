@@ -12,7 +12,9 @@ use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 
-#[derive(Debug, Serialize, Deserialize)]
+pub mod io;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Node {
     operator: lang::Operator,
     resource: lang::Resource,
@@ -53,6 +55,23 @@ impl Node {
             Ok(ty)
         }
     }
+
+    pub fn node_size(&self, parent: i32) -> i32 {
+        if self.absolute_size {
+            if self.size > 0 {
+                2 << self.size as i16
+            } else {
+                2 >> -self.size as i16
+            }
+        } else {
+            if self.size > 0 {
+                parent << self.size as i16
+            } else {
+                parent >> -self.size as i16
+            }
+        }
+        .clamp(32, 16384)
+    }
 }
 
 type EdgeLabel = (String, String);
@@ -89,6 +108,7 @@ impl NodeManager {
                         resource,
                         op.clone(),
                         None,
+                        1024,
                     )))
                 }
                 UserNodeEvent::RemoveNode(res) => match self.remove_node(res) {
@@ -634,88 +654,6 @@ impl NodeManager {
         }
     }
 
-    fn save_node_graph<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<(), String> {
-        log::info!("Saving to {:?}", path);
-        let output_file = File::create(path).map_err(|_| "Failed to open output file")?;
-        serde_cbor::to_writer(output_file, &self.node_graph)
-            .map_err(|e| format!("Saving failed with {}", e))
-    }
-
-    fn open_node_graph<P: AsRef<Path> + std::fmt::Debug>(
-        &mut self,
-        path: P,
-    ) -> Result<Vec<lang::Lang>, String> {
-        log::info!("Opening from {:?}", path);
-        let input_file =
-            File::open(path).map_err(|e| format!("Failed to open input file {}", e))?;
-        let opened_node_graph: NodeGraph = serde_cbor::from_reader(input_file)
-            .map_err(|e| format!("Reading failed with {}", e))?;
-
-        // Rebuilding internal structures
-        self.node_graph = opened_node_graph;
-        self.node_indices.clear();
-        self.outputs.clear();
-
-        for idx in self.node_graph.node_indices() {
-            let node = self.node_graph.node_weight(idx).unwrap();
-
-            self.node_indices.insert(node.resource.clone(), idx);
-            if let lang::Operator::Output { .. } = node.operator {
-                self.outputs.insert(idx);
-            }
-        }
-
-        // Accumulate graph events detailing reconstruction
-        let mut events = Vec::new();
-
-        for idx in self.node_graph.node_indices() {
-            let node = self.node_graph.node_weight(idx).unwrap();
-            events.push(lang::Lang::GraphEvent(lang::GraphEvent::NodeAdded(
-                node.resource.clone(),
-                node.operator.clone(),
-                Some(node.position),
-            )));
-        }
-
-        for idx in self.node_graph.edge_indices() {
-            let conn = self.node_graph.edge_weight(idx).unwrap();
-            let (source_idx, sink_idx) = self.node_graph.edge_endpoints(idx).unwrap();
-            events.push(lang::Lang::GraphEvent(lang::GraphEvent::ConnectedSockets(
-                self.node_graph
-                    .node_weight(source_idx)
-                    .unwrap()
-                    .resource
-                    .extend_fragment(&conn.0),
-                self.node_graph
-                    .node_weight(sink_idx)
-                    .unwrap()
-                    .resource
-                    .extend_fragment(&conn.1),
-            )));
-        }
-
-        // Create monomorphization events for all known type variables
-        for idx in self.node_graph.node_indices() {
-            let node = self.node_graph.node_weight(idx).unwrap();
-            for tvar in node.type_variables.iter() {
-                for res in node
-                    .operator
-                    .inputs()
-                    .iter()
-                    .chain(node.operator.outputs().iter())
-                    .filter(|(_, t)| **t == lang::OperatorType::Polymorphic(*tvar.0))
-                    .map(|x| node.resource.extend_fragment(x.0))
-                {
-                    events.push(lang::Lang::GraphEvent(
-                        lang::GraphEvent::SocketMonomorphized(res, *tvar.1),
-                    ));
-                }
-            }
-        }
-
-        Ok(events)
-    }
-
     fn rename_node(&mut self, from: &lang::Resource, to: &lang::Resource) -> Option<lang::Lang> {
         log::trace!("Renaming node {} to {}", from, to);
         if let Some(idx) = self.node_indices.remove(from) {
@@ -748,20 +686,7 @@ impl NodeManager {
             node.absolute_size = a;
         }
 
-        let new_size: i32 = if node.absolute_size {
-            if node.size > 0 {
-                2 << node.size as i16
-            } else {
-                2 >> -node.size as i16
-            }
-        } else {
-            if node.size > 0 {
-                self.parent_size << node.size as i16
-            } else {
-                self.parent_size >> -node.size as i16
-            }
-        }
-        .clamp(32, 16384);
+        let new_size = node.node_size(self.parent_size);
 
         Some(lang::Lang::GraphEvent(lang::GraphEvent::NodeResized(
             res.clone(),
@@ -780,7 +705,7 @@ impl NodeManager {
                     if !x.absolute_size {
                         Some(lang::Lang::GraphEvent(lang::GraphEvent::NodeResized(
                             x.resource.clone(),
-                            (self.parent_size << x.size as i16).clamp(32, 16384),
+                            x.node_size(self.parent_size)
                         )))
                     } else {
                         None
