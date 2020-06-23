@@ -12,8 +12,6 @@ use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 
-// TODO: Unify image size type throughout the entire codebase
-
 pub mod io;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,7 +56,7 @@ impl Node {
         }
     }
 
-    pub fn node_size(&self, parent: i32) -> i32 {
+    pub fn node_size(&self, parent: i32) -> u32 {
         if self.absolute_size {
             if self.size > 0 {
                 2 << self.size as i16
@@ -72,7 +70,7 @@ impl Node {
                 parent >> -self.size as i16
             }
         }
-        .clamp(32, 16384)
+        .clamp(32, 16384) as u32
     }
 }
 
@@ -258,7 +256,7 @@ impl NodeManager {
     }
 
     /// Add a new node to the node graph, defined by the operator.
-    fn new_node(&mut self, op: &lang::Operator) -> (lang::Resource, i32) {
+    fn new_node(&mut self, op: &lang::Operator) -> (lang::Resource, u32) {
         let node_id = self.next_free_name(op.default_name());
 
         log::trace!(
