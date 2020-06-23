@@ -1073,6 +1073,10 @@ where
         self.access.get()
     }
 
+    pub fn get_size(&self) -> u32 {
+        self.size
+    }
+
     /// Get the raw image
     pub fn get_raw(&self) -> &B::Image {
         &*self.raw

@@ -212,6 +212,7 @@ impl Default for ExportRow {
 
 pub struct ExportDialogPrivate {
     exportable: gtk::ListStore,
+    parent_size: gtk::Adjustment,
 }
 
 impl ObjectSubclass for ExportDialogPrivate {
@@ -225,6 +226,7 @@ impl ObjectSubclass for ExportDialogPrivate {
     fn new() -> Self {
         Self {
             exportable: gtk::ListStore::new(&[glib::types::Type::String]),
+            parent_size: gtk::Adjustment::new(1024.0, 32.0, 16384.0, 32.0, 512.0, 1024.0),
         }
     }
 }
@@ -253,6 +255,13 @@ impl ObjectImpl for ExportDialogPrivate {
             .label("File Prefix")
             .build();
         let prefix_entry = gtk::Entry::new();
+        let size_label = gtk::LabelBuilder::new()
+            .halign(gtk::Align::End)
+            .label("Output Size")
+            .build();
+        let size_spinner = gtk::SpinButtonBuilder::new()
+            .adjustment(&self.parent_size)
+            .build();
 
         let list = gtk::ListBoxBuilder::new()
             .height_request(128)
@@ -274,9 +283,11 @@ impl ObjectImpl for ExportDialogPrivate {
         grid.attach(&directory_picker, 1, 0, 1, 1);
         grid.attach(&prefix_label, 0, 1, 1, 1);
         grid.attach(&prefix_entry, 1, 1, 1, 1);
-        grid.attach(&list, 0, 2, 2, 1);
-        grid.attach(&new_image_button, 0, 3, 2, 1);
-        grid.attach(&default_outputs, 0, 4, 2, 1);
+        grid.attach(&size_label, 0, 2, 1, 1);
+        grid.attach(&size_spinner, 1, 2, 1, 1);
+        grid.attach(&list, 0, 3, 2, 1);
+        grid.attach(&new_image_button, 0, 4, 2, 1);
+        grid.attach(&default_outputs, 0, 5, 2, 1);
 
         box_.add(&grid);
 
@@ -294,7 +305,7 @@ impl ObjectImpl for ExportDialogPrivate {
         }));
 
         let export_button = gtk::ButtonBuilder::new().label("Export").build();
-        export_button.connect_clicked(clone!(@weak dialog, @strong list, @strong directory_picker, @strong prefix_entry => move |_| {
+        export_button.connect_clicked(clone!(@weak dialog, @strong self.parent_size as psize, @strong list, @strong directory_picker, @strong prefix_entry => move |_| {
             let directory = directory_picker.get_filename().unwrap_or_else(|| PathBuf::from("/tmp/"));
             let prefix = prefix_entry.get_text().to_string();
 
@@ -320,6 +331,7 @@ impl ObjectImpl for ExportDialogPrivate {
                                     spec_g.unwrap(),
                                     spec_b.unwrap(),
                                     spec_a.unwrap()]),
+                                psize.get_value() as u32,
                                 path
                             )));
                     }
@@ -330,6 +342,7 @@ impl ObjectImpl for ExportDialogPrivate {
                                     spec_r.unwrap(),
                                     spec_g.unwrap(),
                                     spec_b.unwrap()]),
+                                psize.get_value() as u32,
                                 path
                             )));
                     }
@@ -338,6 +351,7 @@ impl ObjectImpl for ExportDialogPrivate {
                             UserIOEvent::ExportImage(
                                 ExportSpec::Grayscale(
                                     spec_r.unwrap()),
+                                psize.get_value() as u32,
                                 path
                             )));
                     }
@@ -406,13 +420,14 @@ glib_wrapper! {
 }
 
 impl ExportDialog {
-    pub fn new(exportable: &[(Resource, ImageType)]) -> Self {
+    pub fn new(exportable: &[(Resource, ImageType)], parent_size: f64) -> Self {
         let dlg = glib::Object::new(Self::static_type(), &[("use-header-bar", &1i32)])
             .expect("Failed to create ExportDialog")
             .downcast::<ExportDialog>()
             .expect("Created ExportDialog is of wrong type");
         let imp = ExportDialogPrivate::from_instance(&dlg);
         imp.fill_exportable_store(exportable);
+        imp.parent_size.set_value(parent_size);
         dlg
     }
 }

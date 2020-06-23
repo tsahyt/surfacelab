@@ -262,7 +262,7 @@ pub fn file_filters() -> Vec<gtk::FileFilter> {
 
 impl SurfaceLabWindowPrivate {
     fn run_export_dialog(&self, exportable: &[(Resource, ImageType)]) {
-        let dialog = export::ExportDialog::new(exportable);
+        let dialog = export::ExportDialog::new(exportable, self.parent_size.get_value());
         let _response = dialog.run();
         dialog.close();
     }

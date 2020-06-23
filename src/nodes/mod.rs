@@ -708,7 +708,7 @@ impl NodeManager {
                     if !x.absolute_size {
                         Some(lang::Lang::GraphEvent(lang::GraphEvent::NodeResized(
                             x.resource.clone(),
-                            x.node_size(self.parent_size)
+                            x.node_size(self.parent_size),
                         )))
                     } else {
                         None

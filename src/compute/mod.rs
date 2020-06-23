@@ -1,13 +1,11 @@
 use crate::{broker, gpu, lang::*};
-use image::{ImageBuffer, Luma, Rgb, Rgba};
+use image::{imageops, ImageBuffer, Luma, Rgb, Rgba};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub mod shaders;
-
-const IMG_SIZE: u32 = 1024;
 
 pub fn start_compute_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
@@ -126,8 +124,9 @@ where
         &mut self,
         res: &Resource,
         image: Option<(gpu::compute::Image<B>, ImageType)>,
+        size: u32,
     ) {
-        let sockets = self.ensure_node_exists(res, IMG_SIZE);
+        let sockets = self.ensure_node_exists(res, size);
         let socket_name = res.fragment().unwrap().to_string();
         if let Some((img, ty)) = image {
             sockets.typed_outputs.insert(
@@ -355,9 +354,9 @@ where
                                 )
                                 .unwrap();
                             self.sockets
-                                .add_output_socket(&socket_res, Some((img, *ty)));
+                                .add_output_socket(&socket_res, Some((img, *ty)), *size);
                         } else {
-                            self.sockets.add_output_socket(&socket_res, None);
+                            self.sockets.add_output_socket(&socket_res, None, *size);
                         }
                     }
                 }
@@ -392,7 +391,10 @@ where
                             .gpu
                             .create_compute_image(self.sockets.get_image_size(res), *ty, false)
                             .unwrap();
-                        self.sockets.add_output_socket(res, Some((img, *ty)));
+                        // The socket is a known output, and thus the actual
+                        // size should also already be known!
+                        // TODO: Rework add_output_socket API
+                        self.sockets.add_output_socket(res, Some((img, *ty)), 1024);
                     }
                 }
                 GraphEvent::SocketDemonomorphized(res) => {
@@ -406,12 +408,14 @@ where
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset(),
             Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset(),
-            Lang::UserIOEvent(UserIOEvent::ExportImage(export, path)) => {
+            Lang::UserIOEvent(UserIOEvent::ExportImage(export, size, path)) => {
                 let res = match export {
-                    ExportSpec::RGBA(rgba_spec) => self.export_to_rgba(rgba_spec.clone(), path),
-                    ExportSpec::RGB(rgb_spec) => self.export_to_rgb(rgb_spec.clone(), path),
+                    ExportSpec::RGBA(rgba_spec) => {
+                        self.export_to_rgba(rgba_spec.clone(), *size, path)
+                    }
+                    ExportSpec::RGB(rgb_spec) => self.export_to_rgb(rgb_spec.clone(), *size, path),
                     ExportSpec::Grayscale(gray_spec) => {
-                        self.export_to_grayscale(gray_spec.clone(), path)
+                        self.export_to_grayscale(gray_spec.clone(), *size, path)
                     }
                 };
                 if let Err(e) = res {
@@ -569,6 +573,7 @@ where
     fn export_to_rgba<P: AsRef<Path>>(
         &mut self,
         spec: [ChannelSpec; 4],
+        size: u32,
         path: P,
     ) -> Result<(), String> {
         let mut images = HashMap::new();
@@ -580,11 +585,17 @@ where
                 .get_input_image_typed(&s.0)
                 .or(self.sockets.get_output_image_typed(&s.0))
                 .ok_or(format!("Error loading image from resource {}", s.0))?;
-            let downloaded = convert_image(&self.gpu.download_image(image)?, ty)?;
+            let img_size = image.get_size();
+            let downloaded = imageops::resize(
+                &convert_image(&self.gpu.download_image(image)?, img_size, ty)?,
+                size,
+                size,
+                imageops::Triangle,
+            );
             images.insert(s.0.clone(), downloaded);
         }
 
-        let final_image = ImageBuffer::from_fn(IMG_SIZE, IMG_SIZE, |x, y| {
+        let final_image = ImageBuffer::from_fn(size, size, |x, y| {
             Rgba([
                 images.get(&spec[0].0).unwrap().get_pixel(x, y)[spec[0].1.channel_index()],
                 images.get(&spec[1].0).unwrap().get_pixel(x, y)[spec[1].1.channel_index()],
@@ -601,6 +612,7 @@ where
     fn export_to_rgb<P: AsRef<Path>>(
         &mut self,
         spec: [ChannelSpec; 3],
+        size: u32,
         path: P,
     ) -> Result<(), String> {
         let mut images = HashMap::new();
@@ -612,11 +624,17 @@ where
                 .get_input_image_typed(&s.0)
                 .or(self.sockets.get_output_image_typed(&s.0))
                 .ok_or(format!("Error loading image from resource {}", s.0))?;
-            let downloaded = convert_image(&self.gpu.download_image(image)?, ty)?;
+            let img_size = image.get_size();
+            let downloaded = imageops::resize(
+                &convert_image(&self.gpu.download_image(image)?, img_size, ty)?,
+                size,
+                size,
+                imageops::Triangle,
+            );
             images.insert(s.0.clone(), downloaded);
         }
 
-        let final_image = ImageBuffer::from_fn(IMG_SIZE, IMG_SIZE, |x, y| {
+        let final_image = ImageBuffer::from_fn(size, size, |x, y| {
             Rgb([
                 images.get(&spec[0].0).unwrap().get_pixel(x, y)[spec[0].1.channel_index()],
                 images.get(&spec[1].0).unwrap().get_pixel(x, y)[spec[1].1.channel_index()],
@@ -632,6 +650,7 @@ where
     fn export_to_grayscale<P: AsRef<Path>>(
         &mut self,
         spec: ChannelSpec,
+        size: u32,
         path: P,
     ) -> Result<(), String> {
         #[allow(clippy::or_fun_call)]
@@ -640,9 +659,15 @@ where
             .get_input_image_typed(&spec.0)
             .or(self.sockets.get_output_image_typed(&spec.0))
             .ok_or(format!("Trying to export non-existent socket {}", spec.0))?;
+        let img_size = image.get_size();
 
-        let downloaded = convert_image(&self.gpu.download_image(image)?, ty)?;
-        let final_image = ImageBuffer::from_fn(IMG_SIZE, IMG_SIZE, |x, y| {
+        let downloaded = imageops::resize(
+            &convert_image(&self.gpu.download_image(image)?, img_size, ty)?,
+            size,
+            size,
+            imageops::Triangle,
+        );
+        let final_image = ImageBuffer::from_fn(size, size, |x, y| {
             Luma([downloaded.get_pixel(x, y)[spec.1.channel_index()]])
         });
 
@@ -761,7 +786,11 @@ where
 /// Converts an image from the GPU into a standardized rgba16 image. If the
 /// input image type is Rgb, a reverse gamma curve will be applied such that the
 /// output image matches what is displayed in the renderers.
-fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec<u16>>, String> {
+fn convert_image(
+    raw: &[u8],
+    size: u32,
+    ty: ImageType,
+) -> Result<ImageBuffer<Rgba<u16>, Vec<u16>>, String> {
     fn to_16bit(x: f32) -> u16 {
         (x.clamp(0., 1.) * 65535.) as u16
     }
@@ -800,7 +829,7 @@ fn convert_image(raw: &[u8], ty: ImageType) -> Result<ImageBuffer<Rgba<u16>, Vec
         },
     };
 
-    ImageBuffer::from_raw(IMG_SIZE, IMG_SIZE, converted)
+    ImageBuffer::from_raw(size, size, converted)
         .ok_or_else(|| "Error while creating image buffer".to_string())
 }
 

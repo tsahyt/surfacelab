@@ -16,8 +16,7 @@ impl NodeManager {
         };
 
         let output_file = File::create(path).map_err(|_| "Failed to open output file")?;
-        serde_cbor::to_writer(output_file, &surf)
-            .map_err(|e| format!("Saving failed with {}", e))
+        serde_cbor::to_writer(output_file, &surf).map_err(|e| format!("Saving failed with {}", e))
     }
 
     pub fn open_node_graph<P: AsRef<Path> + std::fmt::Debug>(
@@ -96,5 +95,4 @@ impl NodeManager {
 
         Ok(events)
     }
-
 }
