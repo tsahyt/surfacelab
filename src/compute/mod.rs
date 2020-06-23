@@ -408,20 +408,13 @@ where
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset(),
             Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset(),
-            Lang::UserIOEvent(UserIOEvent::ExportImage(export, size, path)) => {
-                let res = match export {
-                    ExportSpec::RGBA(rgba_spec) => {
-                        self.export_to_rgba(rgba_spec.clone(), *size, path)
-                    }
-                    ExportSpec::RGB(rgb_spec) => self.export_to_rgb(rgb_spec.clone(), *size, path),
-                    ExportSpec::Grayscale(gray_spec) => {
-                        self.export_to_grayscale(gray_spec.clone(), *size, path)
-                    }
-                };
-                if let Err(e) = res {
-                    log::error!("Export failed: {}", e);
+            Lang::UserIOEvent(UserIOEvent::ExportImage(export, size, path)) => match export {
+                ExportSpec::RGBA(rgba_spec) => self.export_to_rgba(rgba_spec.clone(), *size, path),
+                ExportSpec::RGB(rgb_spec) => self.export_to_rgb(rgb_spec.clone(), *size, path),
+                ExportSpec::Grayscale(gray_spec) => {
+                    self.export_to_grayscale(gray_spec.clone(), *size, path)
                 }
-            }
+            },
             _ => {}
         }
 
@@ -570,29 +563,27 @@ where
         ])
     }
 
-    fn export_to_rgba<P: AsRef<Path>>(
-        &mut self,
-        spec: [ChannelSpec; 4],
-        size: u32,
-        path: P,
-    ) -> Result<(), String> {
+    fn export_to_rgba<P: AsRef<Path>>(&mut self, spec: [ChannelSpec; 4], size: u32, path: P) {
         let mut images = HashMap::new();
 
         for s in &spec {
-            #[allow(clippy::or_fun_call)]
-            let (image, ty) = self
-                .sockets
-                .get_input_image_typed(&s.0)
-                .or(self.sockets.get_output_image_typed(&s.0))
-                .ok_or(format!("Error loading image from resource {}", s.0))?;
-            let img_size = image.get_size();
-            let downloaded = imageops::resize(
-                &convert_image(&self.gpu.download_image(image)?, img_size, ty)?,
-                size,
-                size,
-                imageops::Triangle,
-            );
-            images.insert(s.0.clone(), downloaded);
+            let entry = images.entry(s.0.clone());
+            entry.or_insert_with(|| {
+                #[allow(clippy::or_fun_call)]
+                let (image, ty) = self
+                    .sockets
+                    .get_input_image_typed(&s.0)
+                    .or(self.sockets.get_output_image_typed(&s.0))
+                    .expect("Trying to export non-existent socket");
+                let img_size = image.get_size();
+                imageops::resize(
+                    &convert_image(&self.gpu.download_image(image).unwrap(), img_size, ty)
+                        .expect("Image conversion failed"),
+                    size,
+                    size,
+                    imageops::Triangle,
+                )
+            });
         }
 
         let final_image = ImageBuffer::from_fn(size, size, |x, y| {
@@ -605,34 +596,32 @@ where
         });
 
         final_image.save(path).unwrap();
-
-        Ok(())
     }
 
-    fn export_to_rgb<P: AsRef<Path>>(
-        &mut self,
-        spec: [ChannelSpec; 3],
-        size: u32,
-        path: P,
-    ) -> Result<(), String> {
+    fn export_to_rgb<P: AsRef<Path>>(&mut self, spec: [ChannelSpec; 3], size: u32, path: P) {
         let mut images = HashMap::new();
 
         for s in &spec {
-            #[allow(clippy::or_fun_call)]
-            let (image, ty) = self
-                .sockets
-                .get_input_image_typed(&s.0)
-                .or(self.sockets.get_output_image_typed(&s.0))
-                .ok_or(format!("Error loading image from resource {}", s.0))?;
-            let img_size = image.get_size();
-            let downloaded = imageops::resize(
-                &convert_image(&self.gpu.download_image(image)?, img_size, ty)?,
-                size,
-                size,
-                imageops::Triangle,
-            );
-            images.insert(s.0.clone(), downloaded);
+            let entry = images.entry(s.0.clone());
+            entry.or_insert_with(|| {
+                #[allow(clippy::or_fun_call)]
+                let (image, ty) = self
+                    .sockets
+                    .get_input_image_typed(&s.0)
+                    .or(self.sockets.get_output_image_typed(&s.0))
+                    .expect("Trying to export non-existent socket");
+                let img_size = image.get_size();
+                imageops::resize(
+                    &convert_image(&self.gpu.download_image(image).unwrap(), img_size, ty)
+                        .expect("Image conversion failed"),
+                    size,
+                    size,
+                    imageops::Triangle,
+                )
+            });
         }
+
+        dbg!(images.len());
 
         let final_image = ImageBuffer::from_fn(size, size, |x, y| {
             Rgb([
@@ -643,26 +632,19 @@ where
         });
 
         final_image.save(path).unwrap();
-
-        Ok(())
     }
 
-    fn export_to_grayscale<P: AsRef<Path>>(
-        &mut self,
-        spec: ChannelSpec,
-        size: u32,
-        path: P,
-    ) -> Result<(), String> {
+    fn export_to_grayscale<P: AsRef<Path>>(&mut self, spec: ChannelSpec, size: u32, path: P) {
         #[allow(clippy::or_fun_call)]
         let (image, ty) = self
             .sockets
             .get_input_image_typed(&spec.0)
             .or(self.sockets.get_output_image_typed(&spec.0))
-            .ok_or(format!("Trying to export non-existent socket {}", spec.0))?;
+            .expect("Trying to export non-existent socket {}");
         let img_size = image.get_size();
 
         let downloaded = imageops::resize(
-            &convert_image(&self.gpu.download_image(image)?, img_size, ty)?,
+            &convert_image(&self.gpu.download_image(image).unwrap(), img_size, ty).unwrap(),
             size,
             size,
             imageops::Triangle,
@@ -672,8 +654,6 @@ where
         });
 
         final_image.save(path).unwrap();
-
-        Ok(())
     }
 
     fn execute_operator(
