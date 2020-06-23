@@ -2,6 +2,7 @@
 #![feature(clamp)]
 #![feature(box_patterns)]
 #![feature(cell_update)]
+#![feature(drain_filter)]
 
 pub mod broker;
 pub mod compute;

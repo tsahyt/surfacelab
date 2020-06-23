@@ -46,17 +46,11 @@ impl<T: std::fmt::Debug> Broker<T> {
         (self.sender(), r, BrokerDisconnect(alive))
     }
 
-    pub fn run(&self) {
+    pub fn run(&mut self) {
         for ev in &self.receiver {
+            self.subscribers.drain_filter(|(_,alive)| !alive.load(Ordering::Relaxed));
             let arc = Arc::new(ev);
-            // TODO: cull dead subscribers
-            for subscriber in self.subscribers.iter().filter_map(|(s, alive)| {
-                if alive.load(Ordering::Relaxed) {
-                    Some(s)
-                } else {
-                    None
-                }
-            }) {
+            for (subscriber, _) in &self.subscribers {
                 let res = subscriber.send(Arc::clone(&arc));
                 if let Err(e) = res {
                     log::error!("Disconnected Component: {}", e);
