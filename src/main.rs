@@ -1,7 +1,6 @@
 use std::thread;
 use surfacelab::{broker, gpu, lang};
 
-// TODO: find a way to reboot components when their thread panics. may not be feasible!
 fn main() {
     env_logger::init();
 
