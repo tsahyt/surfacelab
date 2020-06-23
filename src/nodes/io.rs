@@ -1,10 +1,11 @@
 use super::*;
+use std::borrow::Cow;
 
 /// Struct defining a .surf file.
 #[derive(Debug, Serialize, Deserialize)]
-struct SurfaceFile {
+struct SurfaceFile<'a> {
     parent_size: i32,
-    node_graph: NodeGraph,
+    node_graph: Cow<'a, NodeGraph>,
 }
 
 impl NodeManager {
@@ -12,7 +13,7 @@ impl NodeManager {
         log::info!("Saving to {:?}", path);
         let surf = SurfaceFile {
             parent_size: self.parent_size,
-            node_graph: self.node_graph.to_owned(), // TODO: make serde work with references
+            node_graph: Cow::Borrowed(&self.node_graph),
         };
 
         let output_file = File::create(path).map_err(|_| "Failed to open output file")?;
@@ -30,7 +31,7 @@ impl NodeManager {
             .map_err(|e| format!("Reading failed with {}", e))?;
 
         // Rebuilding internal structures
-        self.node_graph = surf.node_graph;
+        self.node_graph = surf.node_graph.into_owned();
         self.parent_size = surf.parent_size;
         self.node_indices.clear();
         self.outputs.clear();
