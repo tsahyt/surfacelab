@@ -28,15 +28,20 @@ fn emit(ev: lang::Lang) {
 pub fn start_ui_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinHandle<()> {
     log::info!("Starting UI");
 
-    let (sender, receiver) = broker.subscribe();
+    let (sender, receiver, disconnector) = broker.subscribe();
 
-    thread::spawn(move || gtk_main(sender, receiver))
+    thread::spawn(move || gtk_main(sender, receiver, disconnector))
 }
 
-fn ui_bus(gsender: glib::Sender<Arc<lang::Lang>>, receiver: broker::BrokerReceiver<lang::Lang>) {
+fn ui_bus(
+    gsender: glib::Sender<Arc<lang::Lang>>,
+    receiver: broker::BrokerReceiver<lang::Lang>,
+    disconnector: broker::BrokerDisconnect,
+) {
     for event in receiver {
         gsender.send(event.clone()).unwrap();
         if let lang::Lang::UserIOEvent(lang::UserIOEvent::Quit) = &*event {
+            disconnector.disconnect();
             break;
         }
     }
@@ -45,6 +50,7 @@ fn ui_bus(gsender: glib::Sender<Arc<lang::Lang>>, receiver: broker::BrokerReceiv
 fn gtk_main(
     sender: broker::BrokerSender<lang::Lang>,
     receiver: broker::BrokerReceiver<lang::Lang>,
+    disconnector: broker::BrokerDisconnect,
 ) {
     gtk::init().expect("Failed to initialize gtk");
 
@@ -56,7 +62,7 @@ fn gtk_main(
     let application = application::SurfaceLabApplication::new();
 
     let (gsender, greceiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-    let ui_thread = thread::spawn(move || ui_bus(gsender, receiver));
+    let ui_thread = thread::spawn(move || ui_bus(gsender, receiver, disconnector));
 
     let application_clone = application.clone();
     greceiver.attach(None, move |event: Arc<lang::Lang>| {

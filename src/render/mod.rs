@@ -8,7 +8,7 @@ pub fn start_render_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,
 ) -> thread::JoinHandle<()> {
-    let (_sender, receiver) = broker.subscribe();
+    let (_sender, receiver, disconnector) = broker.subscribe();
     thread::spawn(move || {
         log::info!("Starting Renderer");
 
@@ -64,6 +64,7 @@ pub fn start_render_thread<B: gpu::Backend>(
         }
 
         log::info!("Renderer terminating");
+        disconnector.disconnect();
     })
 }
 

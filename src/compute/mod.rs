@@ -12,7 +12,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
     gpu: Arc<Mutex<gpu::GPU<B>>>,
 ) -> thread::JoinHandle<()> {
     log::info!("Starting GPU Compute Handler");
-    let (sender, receiver) = broker.subscribe();
+    let (sender, receiver, disconnector) = broker.subscribe();
     match gpu::compute::GPUCompute::new(gpu) {
         Err(e) => {
             log::error!("Failed to initialize GPU Compute: {}", e);
@@ -34,6 +34,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
             }
 
             log::info!("GPU Compute Handler terminating");
+            disconnector.disconnect();
         }),
     }
 }

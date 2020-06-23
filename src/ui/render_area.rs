@@ -130,7 +130,6 @@ impl WidgetImpl for RenderAreaPrivate {
     }
 
     fn unrealize(&self, widget: &gtk::Widget) {
-        // FIXME: components exit before following signal is sent
         self.parent_unrealize(widget);
 
         super::emit(Lang::UIEvent(UIEvent::RendererRemoved(

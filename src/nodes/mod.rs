@@ -721,7 +721,7 @@ impl NodeManager {
 
 pub fn start_nodes_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinHandle<()> {
     log::info!("Starting Node Manager");
-    let (sender, receiver) = broker.subscribe();
+    let (sender, receiver, disconnector) = broker.subscribe();
 
     thread::spawn(move || {
         let mut node_mgr = NodeManager::new();
@@ -740,5 +740,6 @@ pub fn start_nodes_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::Jo
         }
 
         log::info!("Node Manager terminating");
+        disconnector.disconnect();
     })
 }
