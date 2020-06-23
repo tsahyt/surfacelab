@@ -162,14 +162,16 @@ pub enum GraphEvent {
     Cleared,
 }
 
+pub type RendererID = u64;
+
 #[derive(Debug)]
 pub enum UserRenderEvent {
-    Rotate(u64, f32, f32),
-    Pan(u64, f32, f32),
-    Zoom(u64, f32),
-    LightMove(u64, f32, f32),
-    ChannelChange2D(u64, RenderChannel),
-    DisplacementAmount(u64, f32),
+    Rotate(RendererID, f32, f32),
+    Pan(RendererID, f32, f32),
+    Zoom(RendererID, f32),
+    LightMove(RendererID, f32, f32),
+    ChannelChange2D(RendererID, RenderChannel),
+    DisplacementAmount(RendererID, f32),
 }
 
 pub type ChannelSpec = (Resource, ImageChannel);
@@ -261,10 +263,10 @@ impl ImageChannel {
 
 #[derive(Debug)]
 pub enum UIEvent {
-    RendererAdded(u64, WindowHandle, u32, u32, RendererType),
-    RendererRedraw(u64),
-    RendererResize(u64, u32, u32),
-    RendererRemoved(u64),
+    RendererAdded(RendererID, WindowHandle, u32, u32, RendererType),
+    RendererRedraw(RendererID),
+    RendererResize(RendererID, u32, u32),
+    RendererRemoved(RendererID),
 }
 
 #[derive(Debug)]

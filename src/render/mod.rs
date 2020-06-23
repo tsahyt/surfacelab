@@ -70,7 +70,7 @@ pub fn start_render_thread<B: gpu::Backend>(
 
 struct RenderManager<B: gpu::Backend> {
     gpu: Arc<Mutex<gpu::GPU<B>>>,
-    renderers: HashMap<u64, gpu::render::GPURender<B>>,
+    renderers: HashMap<RendererID, gpu::render::GPURender<B>>,
 }
 
 impl<B> RenderManager<B>
@@ -86,7 +86,7 @@ where
 
     pub fn new_renderer<H: raw_window_handle::HasRawWindowHandle>(
         &mut self,
-        id: u64,
+        id: RendererID,
         handle: &H,
         width: u32,
         height: u32,
@@ -99,7 +99,7 @@ where
         Ok(())
     }
 
-    pub fn remove(&mut self, renderer_id: u64) {
+    pub fn remove(&mut self, renderer_id: RendererID) {
         self.renderers.remove(&renderer_id);
     }
 
@@ -116,7 +116,7 @@ where
         self.redraw_all();
     }
 
-    pub fn redraw(&mut self, renderer_id: u64) {
+    pub fn redraw(&mut self, renderer_id: RendererID) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.render()
         } else {
@@ -131,7 +131,7 @@ where
         }
     }
 
-    pub fn resize(&mut self, renderer_id: u64, width: u32, height: u32) {
+    pub fn resize(&mut self, renderer_id: RendererID, width: u32, height: u32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_dimensions(width, height);
             r.recreate_swapchain();
@@ -159,35 +159,35 @@ where
         }
     }
 
-    pub fn rotate_camera(&mut self, renderer_id: u64, phi: f32, theta: f32) {
+    pub fn rotate_camera(&mut self, renderer_id: RendererID, phi: f32, theta: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.rotate_camera(phi, theta);
             r.render();
         }
     }
 
-    pub fn zoom_camera(&mut self, renderer_id: u64, z: f32) {
+    pub fn zoom_camera(&mut self, renderer_id: RendererID, z: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.zoom_camera(z);
             r.render();
         }
     }
 
-    pub fn move_light(&mut self, renderer_id: u64, x: f32, y: f32) {
+    pub fn move_light(&mut self, renderer_id: RendererID, x: f32, y: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.move_light(x, y);
             r.render();
         }
     }
 
-    pub fn pan_camera(&mut self, renderer_id: u64, x: f32, y: f32) {
+    pub fn pan_camera(&mut self, renderer_id: RendererID, x: f32, y: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.pan_camera(x, y);
             r.render();
         }
     }
 
-    pub fn set_channel(&mut self, renderer_id: u64, channel: RenderChannel) {
+    pub fn set_channel(&mut self, renderer_id: RendererID, channel: RenderChannel) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_channel(match channel {
                 RenderChannel::Displacement => 0,
@@ -200,7 +200,7 @@ where
         }
     }
 
-    pub fn set_displacement_amount(&mut self, renderer_id: u64, displacement: f32) {
+    pub fn set_displacement_amount(&mut self, renderer_id: RendererID, displacement: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_displacement_amount(displacement);
             r.render();
