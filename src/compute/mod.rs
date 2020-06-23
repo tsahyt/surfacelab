@@ -87,7 +87,6 @@ struct SocketData<B: gpu::Backend> {
 
     /// Input sockets only map to the output sockets they are connected to
     inputs: HashMap<String, Resource>,
-    // TODO: look for a way to reference inputs instead of using resources and two lookups
 }
 
 struct Sockets<B: gpu::Backend>(HashMap<Resource, SocketData<B>>);
