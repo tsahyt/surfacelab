@@ -434,10 +434,9 @@ where
         .map_err(|_| "Failed to create pipeline")?;
 
         Ok(ComputePipeline {
-            parent: self,
-            raw: ManuallyDrop::new(pipeline),
-            set_layout: ManuallyDrop::new(set_layout),
-            pipeline_layout: ManuallyDrop::new(pipeline_layout),
+            raw: pipeline,
+            set_layout,
+            pipeline_layout,
         })
     }
 
@@ -499,9 +498,9 @@ where
                 hal::memory::Dependencies::empty(),
                 &pre_barriers,
             );
-            command_buffer.bind_compute_pipeline(&*pipeline.raw);
+            command_buffer.bind_compute_pipeline(&pipeline.raw);
             command_buffer.bind_compute_descriptor_sets(
-                &*pipeline.pipeline_layout,
+                &pipeline.pipeline_layout,
                 0,
                 Some(descriptors),
                 &[],
@@ -1104,11 +1103,15 @@ where
     }
 }
 
+// NOTE: The resources claimed by a compute pipeline are never cleaned up.
+// gfx-hal has functions to do so, but it of course requires a handle back to
+// the parent GPU object, which is difficult to do in Rust with our design. A
+// previous solution caused a Poison Error on cleanup. It seems like the current
+// approach actually works and there are no errors from the validation layers.
 pub struct ComputePipeline<B: Backend> {
-    parent: *const GPUCompute<B>,
-    raw: ManuallyDrop<B::ComputePipeline>,
-    set_layout: ManuallyDrop<B::DescriptorSetLayout>,
-    pipeline_layout: ManuallyDrop<B::PipelineLayout>,
+    raw: B::ComputePipeline,
+    set_layout: B::DescriptorSetLayout,
+    pipeline_layout: B::PipelineLayout,
 }
 
 impl<B> ComputePipeline<B>
@@ -1117,33 +1120,6 @@ where
 {
     /// Get descriptor set layout.
     pub fn set_layout(&self) -> &B::DescriptorSetLayout {
-        &*self.set_layout
-    }
-}
-
-impl<B> Drop for ComputePipeline<B>
-where
-    B: Backend,
-{
-    fn drop(&mut self) {
-        log::debug!("Dropping compute pipeline");
-
-        let parent = unsafe { &*self.parent };
-
-        {
-            // FIXME: Compute Pipeline Drop Poison Error
-            // The GPU Compute Resources get dropped before this thing does.
-            // therefore the parent pointer is probably invalid, and then
-            // everything else goes to hell.
-            let lock = parent.gpu.lock().unwrap();
-            unsafe {
-                lock.device
-                    .destroy_descriptor_set_layout(ManuallyDrop::take(&mut self.set_layout));
-                lock.device
-                    .destroy_pipeline_layout(ManuallyDrop::take(&mut self.pipeline_layout));
-                lock.device
-                    .destroy_compute_pipeline(ManuallyDrop::take(&mut self.raw));
-            }
-        }
+        &self.set_layout
     }
 }
