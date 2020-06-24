@@ -529,7 +529,8 @@ where
         }
     }
 
-    // HACK: Images sent as OutputReady could technically get dropped before the renderer is done copying them.
+    // NOTE: Images sent as OutputReady could technically get dropped before the
+    // renderer is done copying them.
     fn execute_output(
         &mut self,
         op: &Operator,
