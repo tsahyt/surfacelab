@@ -1132,6 +1132,9 @@ where
 
         {
             // FIXME: Compute Pipeline Drop Poison Error
+            // The GPU Compute Resources get dropped before this thing does.
+            // therefore the parent pointer is probably invalid, and then
+            // everything else goes to hell.
             let lock = parent.gpu.lock().unwrap();
             unsafe {
                 lock.device
