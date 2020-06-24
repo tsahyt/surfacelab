@@ -40,7 +40,7 @@ impl NodeManager {
             let node = self.node_graph.node_weight(idx).unwrap();
 
             self.node_indices.insert(node.resource.clone(), idx);
-            if let lang::Operator::Output { .. } = node.operator {
+            if let NodeOperator::Atomic(lang::Operator::Output { .. }) = node.operator {
                 self.outputs.insert(idx);
             }
         }
@@ -52,7 +52,7 @@ impl NodeManager {
             let node = self.node_graph.node_weight(idx).unwrap();
             events.push(lang::Lang::GraphEvent(lang::GraphEvent::NodeAdded(
                 node.resource.clone(),
-                node.operator.clone(),
+                node.operator.atomic().expect("Complex operators not yet supported in file IO").clone(),
                 Some(node.position),
                 node.node_size(self.parent_size) as u32,
             )));

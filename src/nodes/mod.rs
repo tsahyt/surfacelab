@@ -15,8 +15,62 @@ use std::thread;
 pub mod io;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+enum NodeOperator {
+    Atomic(lang::Operator),
+    Complex
+}
+
+impl NodeOperator {
+    pub fn atomic(&self) -> Option<&lang::Operator> {
+        match self {
+            Self::Atomic(op) => Some(op),
+            _ => None
+        }
+    }
+}
+
+impl lang::Socketed for NodeOperator {
+    fn inputs(&self) -> HashMap<String, lang::OperatorType> {
+        match self {
+            Self::Atomic(op) => op.inputs(),
+            _ => HashMap::new(),
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, lang::OperatorType> {
+        match self {
+            Self::Atomic(op) => op.outputs(),
+            _ => HashMap::new(),
+        }
+    }
+
+    fn default_name<'a>(&'a self) -> &'static str {
+        match self {
+            Self::Atomic(op) => op.default_name(),
+            _ => "unknown",
+        }
+    }
+
+    fn title(&self) -> &'static str {
+        match self {
+            Self::Atomic(op) => op.title(),
+            _ => "Unknown",
+        }
+    }
+}
+
+impl lang::Parameters for NodeOperator {
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+        match self {
+            Self::Atomic(op) => op.set_parameter(field, data),
+            _ => {}
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Node {
-    operator: lang::Operator,
+    operator: NodeOperator,
     resource: lang::Resource,
     position: (i32, i32),
     absolute_size: bool,
@@ -29,7 +83,7 @@ type Connections = Vec<(lang::Resource, lang::Resource)>;
 impl Node {
     fn new(operator: lang::Operator, resource: lang::Resource) -> Self {
         Node {
-            operator,
+            operator: NodeOperator::Atomic(operator),
             resource,
             position: (0, 0),
             size: 0,
@@ -300,7 +354,7 @@ impl NodeManager {
         // Remove from output vector
         let operator = &self.node_graph.node_weight(node).unwrap().operator;
         let mut output_type = None;
-        if let lang::Operator::Output(lang::Output { output_type: ty }) = operator {
+        if let NodeOperator::Atomic(lang::Operator::Output(lang::Output { output_type: ty })) = operator {
             self.outputs.remove(&node);
             output_type = Some(*ty)
         }
@@ -597,7 +651,7 @@ impl NodeManager {
                 }
                 Action::Visit(l) => {
                     let node = self.node_graph.node_weight(nx).unwrap();
-                    let op = node.operator.to_owned();
+                    let op = node.operator.atomic().expect("Complex nodes are not yet supported").to_owned();
                     let res = node.resource.to_owned();
                     traversal.push(lang::Instruction::Execute(res.clone(), op));
                     if let Some(((source, sink), idx)) = l {
@@ -626,7 +680,7 @@ impl NodeManager {
         for node_index in self.node_graph.node_indices() {
             let node = self.node_graph.node_weight(node_index).unwrap();
 
-            if let lang::Operator::Output { .. } = node.operator {
+            if let NodeOperator::Atomic(lang::Operator::Output { .. }) = node.operator {
                 for input in node.operator.inputs().iter() {
                     if let Ok(lang::OperatorType::Monomorphic(ty)) = node.monomorphic_type(&input.0)
                     {
