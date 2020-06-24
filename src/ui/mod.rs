@@ -30,7 +30,10 @@ pub fn start_ui_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinH
 
     let (sender, receiver, disconnector) = broker.subscribe();
 
-    thread::spawn(move || gtk_main(sender, receiver, disconnector))
+    thread::Builder::new()
+        .name("ui".to_string())
+        .spawn(move || gtk_main(sender, receiver, disconnector))
+        .expect("Failed to spawn UI thread!")
 }
 
 fn ui_bus(
@@ -62,7 +65,10 @@ fn gtk_main(
     let application = application::SurfaceLabApplication::new();
 
     let (gsender, greceiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-    let ui_thread = thread::spawn(move || ui_bus(gsender, receiver, disconnector));
+    let ui_thread = thread::Builder::new()
+        .name("ui-bus".to_string())
+        .spawn(move || ui_bus(gsender, receiver, disconnector))
+        .expect("Failed to spawn UI bus thread!");
 
     let application_clone = application.clone();
     greceiver.attach(None, move |event: Arc<lang::Lang>| {

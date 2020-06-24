@@ -721,23 +721,29 @@ pub fn start_nodes_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::Jo
     log::info!("Starting Node Manager");
     let (sender, receiver, disconnector) = broker.subscribe();
 
-    thread::spawn(move || {
-        let mut node_mgr = NodeManager::new();
+    thread::Builder::new()
+        .name("nodes".to_string())
+        .spawn(move || {
+            let mut node_mgr = NodeManager::new();
 
-        for event in receiver {
-            match node_mgr.process_event(event) {
-                None => break,
-                Some(response) => {
-                    for ev in response {
-                        if let Err(e) = sender.send(ev) {
-                            log::error!("Node Manager lost connection to application bus! {}", e);
+            for event in receiver {
+                match node_mgr.process_event(event) {
+                    None => break,
+                    Some(response) => {
+                        for ev in response {
+                            if let Err(e) = sender.send(ev) {
+                                log::error!(
+                                    "Node Manager lost connection to application bus! {}",
+                                    e
+                                );
+                            }
                         }
                     }
                 }
             }
-        }
 
-        log::info!("Node Manager terminating");
-        disconnector.disconnect();
-    })
+            log::info!("Node Manager terminating");
+            disconnector.disconnect();
+        })
+        .expect("Failed to start nodes thread!")
 }

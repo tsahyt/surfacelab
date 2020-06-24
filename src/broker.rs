@@ -48,7 +48,8 @@ impl<T: std::fmt::Debug> Broker<T> {
 
     pub fn run(&mut self) {
         for ev in &self.receiver {
-            self.subscribers.drain_filter(|(_,alive)| !alive.load(Ordering::Relaxed));
+            self.subscribers
+                .drain_filter(|(_, alive)| !alive.load(Ordering::Relaxed));
             let arc = Arc::new(ev);
             for (subscriber, _) in &self.subscribers {
                 let res = subscriber.send(Arc::clone(&arc));

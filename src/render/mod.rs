@@ -9,63 +9,70 @@ pub fn start_render_thread<B: gpu::Backend>(
     gpu: Arc<Mutex<gpu::GPU<B>>>,
 ) -> thread::JoinHandle<()> {
     let (_sender, receiver, disconnector) = broker.subscribe();
-    thread::spawn(move || {
-        log::info!("Starting Renderer");
+    thread::Builder::new()
+        .name("render".to_string())
+        .spawn(move || {
+            log::info!("Starting Renderer");
 
-        let mut render_manager = RenderManager::new(gpu);
+            let mut render_manager = RenderManager::new(gpu);
 
-        for event in receiver {
-            match &*event {
-                Lang::UserIOEvent(UserIOEvent::Quit) => break,
-                Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => render_manager.reset_all(),
-                Lang::UserIOEvent(UserIOEvent::NewSurface) => render_manager.reset_all(),
-                Lang::UserIOEvent(UserIOEvent::SetParentSize(new_size)) => {
-                    render_manager.resize_images(*new_size)
+            for event in receiver {
+                match &*event {
+                    Lang::UserIOEvent(UserIOEvent::Quit) => break,
+                    Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => render_manager.reset_all(),
+                    Lang::UserIOEvent(UserIOEvent::NewSurface) => render_manager.reset_all(),
+                    Lang::UserIOEvent(UserIOEvent::SetParentSize(new_size)) => {
+                        render_manager.resize_images(*new_size)
+                    }
+                    Lang::UIEvent(UIEvent::RendererAdded(id, h, width, height, ty)) => {
+                        render_manager
+                            .new_renderer(*id, h, *width, *height, *ty)
+                            .unwrap()
+                    }
+                    Lang::UIEvent(UIEvent::RendererRedraw(id)) => render_manager.redraw(*id),
+                    Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
+                        render_manager.resize(*id, *width, *height)
+                    }
+                    Lang::UIEvent(UIEvent::RendererRemoved(id)) => render_manager.remove(*id),
+                    Lang::ComputeEvent(ComputeEvent::OutputReady(
+                        _res,
+                        img,
+                        layout,
+                        access,
+                        size,
+                        out_ty,
+                    )) => {
+                        render_manager.transfer_output(img, *layout, *access, *size as i32, *out_ty)
+                    }
+                    Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
+                        render_manager.disconnect_output(*out_ty)
+                    }
+                    Lang::UserRenderEvent(UserRenderEvent::Rotate(id, theta, phi)) => {
+                        render_manager.rotate_camera(*id, *theta, *phi)
+                    }
+                    Lang::UserRenderEvent(UserRenderEvent::Pan(id, x, y)) => {
+                        render_manager.pan_camera(*id, *x, *y)
+                    }
+                    Lang::UserRenderEvent(UserRenderEvent::Zoom(id, z)) => {
+                        render_manager.zoom_camera(*id, *z)
+                    }
+                    Lang::UserRenderEvent(UserRenderEvent::LightMove(id, x, y)) => {
+                        render_manager.move_light(*id, *x, *y)
+                    }
+                    Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(id, channel)) => {
+                        render_manager.set_channel(*id, *channel)
+                    }
+                    Lang::UserRenderEvent(UserRenderEvent::DisplacementAmount(id, displ)) => {
+                        render_manager.set_displacement_amount(*id, *displ)
+                    }
+                    _ => {}
                 }
-                Lang::UIEvent(UIEvent::RendererAdded(id, h, width, height, ty)) => render_manager
-                    .new_renderer(*id, h, *width, *height, *ty)
-                    .unwrap(),
-                Lang::UIEvent(UIEvent::RendererRedraw(id)) => render_manager.redraw(*id),
-                Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
-                    render_manager.resize(*id, *width, *height)
-                }
-                Lang::UIEvent(UIEvent::RendererRemoved(id)) => render_manager.remove(*id),
-                Lang::ComputeEvent(ComputeEvent::OutputReady(
-                    _res,
-                    img,
-                    layout,
-                    access,
-                    size,
-                    out_ty,
-                )) => render_manager.transfer_output(img, *layout, *access, *size as i32, *out_ty),
-                Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
-                    render_manager.disconnect_output(*out_ty)
-                }
-                Lang::UserRenderEvent(UserRenderEvent::Rotate(id, theta, phi)) => {
-                    render_manager.rotate_camera(*id, *theta, *phi)
-                }
-                Lang::UserRenderEvent(UserRenderEvent::Pan(id, x, y)) => {
-                    render_manager.pan_camera(*id, *x, *y)
-                }
-                Lang::UserRenderEvent(UserRenderEvent::Zoom(id, z)) => {
-                    render_manager.zoom_camera(*id, *z)
-                }
-                Lang::UserRenderEvent(UserRenderEvent::LightMove(id, x, y)) => {
-                    render_manager.move_light(*id, *x, *y)
-                }
-                Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(id, channel)) => {
-                    render_manager.set_channel(*id, *channel)
-                }
-                Lang::UserRenderEvent(UserRenderEvent::DisplacementAmount(id, displ)) => {
-                    render_manager.set_displacement_amount(*id, *displ)
-                }
-                _ => {}
             }
-        }
 
-        log::info!("Renderer terminating");
-        disconnector.disconnect();
-    })
+            log::info!("Renderer terminating");
+            disconnector.disconnect();
+        })
+        .expect("Failed to spawn render thread!")
 }
 
 struct RenderManager<B: gpu::Backend> {

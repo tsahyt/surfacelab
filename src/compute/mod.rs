@@ -18,24 +18,30 @@ pub fn start_compute_thread<B: gpu::Backend>(
             log::error!("Failed to initialize GPU Compute: {}", e);
             panic!("Critical Error");
         }
-        Ok(gpu) => thread::spawn(move || {
-            let mut compute_mgr = ComputeManager::new(gpu);
-            for event in receiver {
-                match compute_mgr.process_event(event) {
-                    None => break,
-                    Some(response) => {
-                        for ev in response {
-                            if let Err(e) = sender.send(ev) {
-                                log::error!("Compute lost connection to application bus! {}", e);
+        Ok(gpu) => thread::Builder::new()
+            .name("compute".to_string())
+            .spawn(move || {
+                let mut compute_mgr = ComputeManager::new(gpu);
+                for event in receiver {
+                    match compute_mgr.process_event(event) {
+                        None => break,
+                        Some(response) => {
+                            for ev in response {
+                                if let Err(e) = sender.send(ev) {
+                                    log::error!(
+                                        "Compute lost connection to application bus! {}",
+                                        e
+                                    );
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            log::info!("GPU Compute Handler terminating");
-            disconnector.disconnect();
-        }),
+                log::info!("GPU Compute Handler terminating");
+                disconnector.disconnect();
+            })
+            .expect("Failed to spawn compute thread!"),
     }
 }
 
