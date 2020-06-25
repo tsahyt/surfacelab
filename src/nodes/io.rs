@@ -1,11 +1,15 @@
-use super::*;
+use crate::lang::Lang;
+use super::{nodegraph, NodeManager};
 use std::borrow::Cow;
+use std::path::Path;
+use std::fs::File;
+use serde_derive::{Deserialize, Serialize};
 
 /// Struct defining a .surf file.
 #[derive(Debug, Serialize, Deserialize)]
 struct SurfaceFile<'a> {
-    parent_size: i32,
-    node_graph: Cow<'a, NodeGraph>,
+    parent_size: u32,
+    node_graph: Cow<'a, nodegraph::Graph>,
 }
 
 impl NodeManager {
@@ -13,7 +17,7 @@ impl NodeManager {
         log::info!("Saving to {:?}", path);
         let surf = SurfaceFile {
             parent_size: self.parent_size,
-            node_graph: Cow::Borrowed(&self.node_graph),
+            node_graph: Cow::Borrowed(self.graph.raw_graph()),
         };
 
         let output_file = File::create(path).map_err(|_| "Failed to open output file")?;
@@ -23,7 +27,7 @@ impl NodeManager {
     pub fn open_node_graph<P: AsRef<Path> + std::fmt::Debug>(
         &mut self,
         path: P,
-    ) -> Result<Vec<lang::Lang>, String> {
+    ) -> Result<Vec<Lang>, String> {
         log::info!("Opening from {:?}", path);
         let input_file =
             File::open(path).map_err(|e| format!("Failed to open input file {}", e))?;
@@ -31,69 +35,10 @@ impl NodeManager {
             .map_err(|e| format!("Reading failed with {}", e))?;
 
         // Rebuilding internal structures
-        self.node_graph = surf.node_graph.into_owned();
+        let (g, ev) = nodegraph::NodeGraph::from_graph(surf.node_graph.into_owned(), surf.parent_size);
+        self.graph = g;
         self.parent_size = surf.parent_size;
-        self.node_indices.clear();
-        self.outputs.clear();
 
-        for idx in self.node_graph.node_indices() {
-            let node = self.node_graph.node_weight(idx).unwrap();
-
-            self.node_indices.insert(node.resource.clone(), idx);
-            if let NodeOperator::Atomic(lang::Operator::Output { .. }) = node.operator {
-                self.outputs.insert(idx);
-            }
-        }
-
-        // Accumulate graph events detailing reconstruction
-        let mut events = Vec::new();
-
-        for idx in self.node_graph.node_indices() {
-            let node = self.node_graph.node_weight(idx).unwrap();
-            events.push(lang::Lang::GraphEvent(lang::GraphEvent::NodeAdded(
-                node.resource.clone(),
-                node.operator.atomic().expect("Complex operators not yet supported in file IO").clone(),
-                Some(node.position),
-                node.node_size(self.parent_size) as u32,
-            )));
-        }
-
-        for idx in self.node_graph.edge_indices() {
-            let conn = self.node_graph.edge_weight(idx).unwrap();
-            let (source_idx, sink_idx) = self.node_graph.edge_endpoints(idx).unwrap();
-            events.push(lang::Lang::GraphEvent(lang::GraphEvent::ConnectedSockets(
-                self.node_graph
-                    .node_weight(source_idx)
-                    .unwrap()
-                    .resource
-                    .extend_fragment(&conn.0),
-                self.node_graph
-                    .node_weight(sink_idx)
-                    .unwrap()
-                    .resource
-                    .extend_fragment(&conn.1),
-            )));
-        }
-
-        // Create monomorphization events for all known type variables
-        for idx in self.node_graph.node_indices() {
-            let node = self.node_graph.node_weight(idx).unwrap();
-            for tvar in node.type_variables.iter() {
-                for res in node
-                    .operator
-                    .inputs()
-                    .iter()
-                    .chain(node.operator.outputs().iter())
-                    .filter(|(_, t)| **t == lang::OperatorType::Polymorphic(*tvar.0))
-                    .map(|x| node.resource.extend_fragment(x.0))
-                {
-                    events.push(lang::Lang::GraphEvent(
-                        lang::GraphEvent::SocketMonomorphized(res, *tvar.1),
-                    ));
-                }
-            }
-        }
-
-        Ok(events)
+        Ok(ev)
     }
 }
