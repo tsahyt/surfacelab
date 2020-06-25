@@ -1,9 +1,9 @@
-use crate::lang::Lang;
 use super::{nodegraph, NodeManager};
-use std::borrow::Cow;
-use std::path::Path;
-use std::fs::File;
+use crate::lang::Lang;
 use serde_derive::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::fs::File;
+use std::path::Path;
 
 /// Struct defining a .surf file.
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,10 +35,11 @@ impl NodeManager {
             .map_err(|e| format!("Reading failed with {}", e))?;
 
         // Rebuilding internal structures
-        let (g, ev) = nodegraph::NodeGraph::from_graph(surf.node_graph.into_owned(), surf.parent_size);
-        self.graph = g;
+        // let (g, ev) = nodegraph::NodeGraph::from_graph(surf.node_graph.into_owned(), surf.parent_size);
+        // self.graph = g;
         self.parent_size = surf.parent_size;
 
-        Ok(ev)
+        //Ok(ev)
+        Ok(vec![])
     }
 }

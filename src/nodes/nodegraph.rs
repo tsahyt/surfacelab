@@ -77,7 +77,6 @@ impl Parameters for NodeOperator {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
     operator: NodeOperator,
-    resource: Resource,
     position: (i32, i32),
     absolute_size: bool,
     size: i32,
@@ -85,10 +84,9 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(operator: Operator, resource: Resource) -> Self {
+    pub fn new(operator: Operator) -> Self {
         Node {
             operator: NodeOperator::Atomic(operator),
-            resource,
             position: (0, 0),
             size: 0,
             absolute_size: false,
@@ -147,73 +145,73 @@ impl NodeGraph {
         }
     }
 
-    pub fn from_graph(graph: Graph, parent_size: u32) -> (Self, Vec<Lang>) {
-        let mut new = Self::new();
-        new.graph = graph;
+    // pub fn from_graph(graph: Graph, parent_size: u32) -> (Self, Vec<Lang>) {
+    //     let mut new = Self::new();
+    //     new.graph = graph;
 
-        for idx in new.graph.node_indices() {
-            let node = new.graph.node_weight(idx).unwrap();
+    //     for idx in new.graph.node_indices() {
+    //         let node = new.graph.node_weight(idx).unwrap();
 
-            new.indices.insert(node.resource.clone(), idx);
-            if let NodeOperator::Atomic(Operator::Output { .. }) = node.operator {
-                new.outputs.insert(idx);
-            }
-        }
+    //         new.indices.insert(node.resource.clone(), idx);
+    //         if let NodeOperator::Atomic(Operator::Output { .. }) = node.operator {
+    //             new.outputs.insert(idx);
+    //         }
+    //     }
 
-        // Accumulate graph events detailing reconstruction
-        let mut events = Vec::new();
+    //     // Accumulate graph events detailing reconstruction
+    //     let mut events = Vec::new();
 
-        for idx in new.graph.node_indices() {
-            let node = new.graph.node_weight(idx).unwrap();
-            events.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-                node.resource.clone(),
-                node.operator
-                    .to_atomic()
-                    .expect("Complex operators not yet supported in file IO")
-                    .clone(),
-                Some(node.position),
-                node.node_size(parent_size) as u32,
-            )));
-        }
+    //     for idx in new.graph.node_indices() {
+    //         let node = new.graph.node_weight(idx).unwrap();
+    //         events.push(Lang::GraphEvent(GraphEvent::NodeAdded(
+    //             node.resource.clone(),
+    //             node.operator
+    //                 .to_atomic()
+    //                 .expect("Complex operators not yet supported in file IO")
+    //                 .clone(),
+    //             Some(node.position),
+    //             node.node_size(parent_size) as u32,
+    //         )));
+    //     }
 
-        for idx in new.graph.edge_indices() {
-            let conn = new.graph.edge_weight(idx).unwrap();
-            let (source_idx, sink_idx) = new.graph.edge_endpoints(idx).unwrap();
-            events.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                new.graph
-                    .node_weight(source_idx)
-                    .unwrap()
-                    .resource
-                    .extend_fragment(&conn.0),
-                new.graph
-                    .node_weight(sink_idx)
-                    .unwrap()
-                    .resource
-                    .extend_fragment(&conn.1),
-            )));
-        }
+    //     for idx in new.graph.edge_indices() {
+    //         let conn = new.graph.edge_weight(idx).unwrap();
+    //         let (source_idx, sink_idx) = new.graph.edge_endpoints(idx).unwrap();
+    //         events.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+    //             new.graph
+    //                 .node_weight(source_idx)
+    //                 .unwrap()
+    //                 .resource
+    //                 .extend_fragment(&conn.0),
+    //             new.graph
+    //                 .node_weight(sink_idx)
+    //                 .unwrap()
+    //                 .resource
+    //                 .extend_fragment(&conn.1),
+    //         )));
+    //     }
 
-        // Create monomorphization events for all known type variables
-        for idx in new.graph.node_indices() {
-            let node = new.graph.node_weight(idx).unwrap();
-            for tvar in node.type_variables.iter() {
-                for res in node
-                    .operator
-                    .inputs()
-                    .iter()
-                    .chain(node.operator.outputs().iter())
-                    .filter(|(_, t)| **t == OperatorType::Polymorphic(*tvar.0))
-                    .map(|x| node.resource.extend_fragment(x.0))
-                {
-                    events.push(Lang::GraphEvent(
-                        GraphEvent::SocketMonomorphized(res, *tvar.1),
-                    ));
-                }
-            }
-        }
+    //     // Create monomorphization events for all known type variables
+    //     for idx in new.graph.node_indices() {
+    //         let node = new.graph.node_weight(idx).unwrap();
+    //         for tvar in node.type_variables.iter() {
+    //             for res in node
+    //                 .operator
+    //                 .inputs()
+    //                 .iter()
+    //                 .chain(node.operator.outputs().iter())
+    //                 .filter(|(_, t)| **t == OperatorType::Polymorphic(*tvar.0))
+    //                 .map(|x| node.resource.extend_fragment(x.0))
+    //             {
+    //                 events.push(Lang::GraphEvent(
+    //                     GraphEvent::SocketMonomorphized(res, *tvar.1),
+    //                 ));
+    //             }
+    //         }
+    //     }
 
-        (new, events)
-    }
+    //     (new, events)
+    // }
 
     pub fn raw_graph(&self) -> &Graph {
         &self.graph
@@ -251,7 +249,7 @@ impl NodeGraph {
             op,
             node_id
         );
-        let node = Node::new(op.clone(), node_id.clone());
+        let node = Node::new(op.clone());
         let size = node.node_size(parent_size);
         let idx = self.graph.add_node(node);
         self.indices.insert(node_id.clone(), idx);
@@ -304,8 +302,8 @@ impl NodeGraph {
         };
         let es: Vec<_> = edges
             .map(|x| {
-                let source = &self.graph.node_weight(x.source()).unwrap().resource;
-                let sink = &self.graph.node_weight(x.target()).unwrap().resource;
+                let source = self.indices.get_by_right(&x.source()).unwrap();
+                let sink = self.indices.get_by_right(&x.target()).unwrap();
                 let sockets = x.weight();
                 (
                     source.extend_fragment(&sockets.0),
@@ -316,11 +314,10 @@ impl NodeGraph {
 
         // Obtain last node before removal for reindexing
         let last = self
-            .graph
-            .node_weight(self.graph.node_indices().next_back().unwrap())
+            .indices
+            .get_by_right(&self.graph.node_indices().next_back().unwrap())
             .unwrap()
-            .resource
-            .clone();
+            .to_owned();
 
         // Remove node
         self.graph.remove_node(node);
@@ -483,10 +480,9 @@ impl NodeGraph {
             .filter(|e| e.weight().1 == sink_socket)
             .map(|e| {
                 (
-                    self.graph
-                        .node_weight(e.source())
+                    self.indices
+                        .get_by_right(&e.source())
                         .unwrap()
-                        .resource
                         .extend_fragment(&e.weight().0),
                     e.id(),
                 )
@@ -567,8 +563,6 @@ impl NodeGraph {
     pub fn rename_node(&mut self, from: &Resource, to: &Resource) -> Option<Lang> {
         log::trace!("Renaming node {} to {}", from, to);
         if let Some((_, idx)) = self.indices.remove_by_left(from) {
-            let node = self.graph.node_weight_mut(idx).unwrap();
-            node.resource = to.clone();
             self.indices.insert(to.clone(), idx);
             Some(Lang::GraphEvent(GraphEvent::NodeRenamed(
                 from.clone(),
@@ -613,7 +607,7 @@ impl NodeGraph {
                 self.graph.node_weight(idx).and_then(|x| {
                     if !x.absolute_size {
                         Some(Lang::GraphEvent(GraphEvent::NodeResized(
-                            x.resource.clone(),
+                            self.indices.get_by_right(&idx).unwrap().to_owned(),
                             x.node_size(parent_size),
                         )))
                     } else {
@@ -631,17 +625,18 @@ impl NodeGraph {
 
         for node_index in self.graph.node_indices() {
             let node = self.graph.node_weight(node_index).unwrap();
+            let res = self.indices.get_by_right(&node_index).unwrap();
 
             if let NodeOperator::Atomic(Operator::Output { .. }) = node.operator {
                 for input in node.operator.inputs().iter() {
                     if let Ok(OperatorType::Monomorphic(ty)) = node.monomorphic_type(&input.0) {
-                        result.push((node.resource.extend_fragment(&input.0), ty))
+                        result.push((res.extend_fragment(&input.0), ty))
                     }
                 }
             } else {
                 for output in node.operator.outputs().iter() {
                     if let Ok(OperatorType::Monomorphic(ty)) = node.monomorphic_type(&output.0) {
-                        result.push((node.resource.extend_fragment(&output.0), ty))
+                        result.push((res.extend_fragment(&output.0), ty))
                     }
                 }
             }
@@ -692,10 +687,10 @@ impl NodeGraph {
                         .to_atomic()
                         .expect("Complex nodes are not yet supported")
                         .to_owned();
-                    let res = node.resource.to_owned();
+                    let res = self.indices.get_by_right(&nx).unwrap().to_owned();
                     traversal.push(Instruction::Execute(res.clone(), op));
                     if let Some(((source, sink), idx)) = l {
-                        let to_node = self.graph.node_weight(idx).unwrap().resource.to_owned();
+                        let to_node = self.indices.get_by_right(&idx).unwrap().to_owned();
                         let from = res.extend_fragment(&source);
                         let to = to_node.extend_fragment(&sink);
                         traversal.push(Instruction::Move(from, to));

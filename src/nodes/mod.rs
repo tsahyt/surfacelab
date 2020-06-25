@@ -1,7 +1,4 @@
-use crate::{
-    broker,
-    lang,
-};
+use crate::{broker, lang};
 use std::sync::Arc;
 use std::thread;
 
@@ -92,12 +89,18 @@ impl NodeManager {
                     }
                 }
                 UserNodeEvent::OutputSizeChange(res, size) => {
-                    if let Some(r) = self.graph.resize_node(res, Some(*size), None, self.parent_size) {
+                    if let Some(r) =
+                        self.graph
+                            .resize_node(res, Some(*size), None, self.parent_size)
+                    {
                         response.push(r);
                     };
                 }
                 UserNodeEvent::OutputSizeAbsolute(res, abs) => {
-                    if let Some(r) = self.graph.resize_node(res, None, Some(*abs), self.parent_size) {
+                    if let Some(r) = self
+                        .graph
+                        .resize_node(res, None, Some(*abs), self.parent_size)
+                    {
                         response.push(r);
                     };
                 }
