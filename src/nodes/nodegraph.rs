@@ -1,5 +1,6 @@
 use crate::lang::*;
 
+use bimap::BiHashMap;
 use petgraph::graph;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -133,7 +134,7 @@ impl Node {
 
 pub struct NodeGraph {
     graph: graph::Graph<Node, EdgeLabel, petgraph::Directed>,
-    indices: HashMap<Resource, graph::NodeIndex>,
+    indices: BiHashMap<Resource, graph::NodeIndex>,
     outputs: HashSet<graph::NodeIndex>,
 }
 
@@ -141,7 +142,7 @@ impl NodeGraph {
     pub fn new() -> Self {
         NodeGraph {
             graph: graph::Graph::default(),
-            indices: HashMap::new(),
+            indices: BiHashMap::new(),
             outputs: HashSet::new(),
         }
     }
@@ -232,7 +233,7 @@ impl NodeGraph {
         for i in 1.. {
             let name = Resource::try_from(format!("node:{}.{}", base_name, i).as_ref()).unwrap();
 
-            if !self.indices.contains_key(&name) {
+            if !self.indices.contains_left(&name) {
                 resource = name;
                 break;
             }
@@ -323,7 +324,7 @@ impl NodeGraph {
 
         // Remove node
         self.graph.remove_node(node);
-        self.indices.remove(&resource);
+        self.indices.remove_by_left(&resource);
 
         // Reindex last node
         self.indices.insert(last, node);
@@ -351,7 +352,7 @@ impl NodeGraph {
     }
 
     fn node_by_uri(&self, resource: &Resource) -> Option<graph::NodeIndex> {
-        self.indices.get(&resource.drop_fragment()).cloned()
+        self.indices.get_by_left(&resource.drop_fragment()).cloned()
     }
 
     /// Connect two sockets in the node graph. If there is already a connection
@@ -565,7 +566,7 @@ impl NodeGraph {
     /// namespaced correctly for this graph!
     pub fn rename_node(&mut self, from: &Resource, to: &Resource) -> Option<Lang> {
         log::trace!("Renaming node {} to {}", from, to);
-        if let Some(idx) = self.indices.remove(from) {
+        if let Some((_, idx)) = self.indices.remove_by_left(from) {
             let node = self.graph.node_weight_mut(idx).unwrap();
             node.resource = to.clone();
             self.indices.insert(to.clone(), idx);

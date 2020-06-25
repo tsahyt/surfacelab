@@ -9,10 +9,11 @@ edition = "2018"
 [dependencies]
 # gtk = { git = "https://github.com/tsahyt/gtk", branch = "scroll-event", features = ["v3_22"] }
 # gtk = { version = "0.8.1", path = "../gtk-rs/gtk", features = ["v3_22"] }
+bimap = "0.4.0"
 cairo-rs = { git = "https://github.com/gtk-rs/cairo" }
 crossbeam-channel = "0.4.0"
-env_logger = "0.7.1"
 enum_dispatch = "0.3.1"
+env_logger = "0.7.1"
 gdk = { git = "https://github.com/gtk-rs/gdk", features = ["v3_20"] }
 gdk-pixbuf = { git = "https://github.com/gtk-rs/gdk-pixbuf", features = ["v2_32"] }
 gdk-sys = { git = "https://github.com/gtk-rs/sys" }
