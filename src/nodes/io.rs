@@ -9,7 +9,7 @@ use std::path::Path;
 #[derive(Debug, Serialize, Deserialize)]
 struct SurfaceFile<'a> {
     parent_size: u32,
-    node_graph: Cow<'a, nodegraph::Graph>,
+    node_graph: Cow<'a, nodegraph::NodeGraph>,
 }
 
 impl NodeManager {
@@ -17,7 +17,7 @@ impl NodeManager {
         log::info!("Saving to {:?}", path);
         let surf = SurfaceFile {
             parent_size: self.parent_size,
-            node_graph: Cow::Borrowed(self.graph.raw_graph()),
+            node_graph: Cow::Borrowed(&self.graph),
         };
 
         let output_file = File::create(path).map_err(|_| "Failed to open output file")?;
@@ -35,11 +35,8 @@ impl NodeManager {
             .map_err(|e| format!("Reading failed with {}", e))?;
 
         // Rebuilding internal structures
-        // let (g, ev) = nodegraph::NodeGraph::from_graph(surf.node_graph.into_owned(), surf.parent_size);
-        // self.graph = g;
+        self.graph = surf.node_graph.into_owned();
         self.parent_size = surf.parent_size;
-
-        //Ok(ev)
-        Ok(vec![])
+        Ok(self.graph.rebuild_events(self.parent_size))
     }
 }

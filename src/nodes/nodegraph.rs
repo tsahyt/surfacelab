@@ -130,6 +130,7 @@ impl Node {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeGraph {
     graph: graph::Graph<Node, EdgeLabel, petgraph::Directed>,
     indices: BiHashMap<Resource, graph::NodeIndex>,
@@ -145,76 +146,62 @@ impl NodeGraph {
         }
     }
 
-    // pub fn from_graph(graph: Graph, parent_size: u32) -> (Self, Vec<Lang>) {
-    //     let mut new = Self::new();
-    //     new.graph = graph;
+    pub fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {
+        let mut events = Vec::new();
 
-    //     for idx in new.graph.node_indices() {
-    //         let node = new.graph.node_weight(idx).unwrap();
+        for idx in self.graph.node_indices() {
+            let node = self.graph.node_weight(idx).unwrap();
+            events.push(Lang::GraphEvent(GraphEvent::NodeAdded(
+                self.indices.get_by_right(&idx).unwrap().to_owned(),
+                node.operator
+                    .to_atomic()
+                    .expect("Complex operators not yet supported in file IO")
+                    .clone(),
+                Some(node.position),
+                node.node_size(parent_size) as u32,
+            )));
+        }
 
-    //         new.indices.insert(node.resource.clone(), idx);
-    //         if let NodeOperator::Atomic(Operator::Output { .. }) = node.operator {
-    //             new.outputs.insert(idx);
-    //         }
-    //     }
+        for idx in self.graph.edge_indices() {
+            let conn = self.graph.edge_weight(idx).unwrap();
+            let (source_idx, sink_idx) = self.graph.edge_endpoints(idx).unwrap();
+            events.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                self.indices
+                    .get_by_right(&source_idx)
+                    .unwrap()
+                    .extend_fragment(&conn.0),
+                self.indices
+                    .get_by_right(&sink_idx)
+                    .unwrap()
+                    .extend_fragment(&conn.1),
+            )));
+        }
 
-    //     // Accumulate graph events detailing reconstruction
-    //     let mut events = Vec::new();
+        // Create monomorphization events for all known type variables
+        for idx in self.graph.node_indices() {
+            let node = self.graph.node_weight(idx).unwrap();
+            for tvar in node.type_variables.iter() {
+                for res in node
+                    .operator
+                    .inputs()
+                    .iter()
+                    .chain(node.operator.outputs().iter())
+                    .filter(|(_, t)| **t == OperatorType::Polymorphic(*tvar.0))
+                    .map(|x| {
+                        self.indices
+                            .get_by_right(&idx)
+                            .unwrap()
+                            .extend_fragment(x.0)
+                    })
+                {
+                    events.push(Lang::GraphEvent(GraphEvent::SocketMonomorphized(
+                        res, *tvar.1,
+                    )));
+                }
+            }
+        }
 
-    //     for idx in new.graph.node_indices() {
-    //         let node = new.graph.node_weight(idx).unwrap();
-    //         events.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-    //             node.resource.clone(),
-    //             node.operator
-    //                 .to_atomic()
-    //                 .expect("Complex operators not yet supported in file IO")
-    //                 .clone(),
-    //             Some(node.position),
-    //             node.node_size(parent_size) as u32,
-    //         )));
-    //     }
-
-    //     for idx in new.graph.edge_indices() {
-    //         let conn = new.graph.edge_weight(idx).unwrap();
-    //         let (source_idx, sink_idx) = new.graph.edge_endpoints(idx).unwrap();
-    //         events.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-    //             new.graph
-    //                 .node_weight(source_idx)
-    //                 .unwrap()
-    //                 .resource
-    //                 .extend_fragment(&conn.0),
-    //             new.graph
-    //                 .node_weight(sink_idx)
-    //                 .unwrap()
-    //                 .resource
-    //                 .extend_fragment(&conn.1),
-    //         )));
-    //     }
-
-    //     // Create monomorphization events for all known type variables
-    //     for idx in new.graph.node_indices() {
-    //         let node = new.graph.node_weight(idx).unwrap();
-    //         for tvar in node.type_variables.iter() {
-    //             for res in node
-    //                 .operator
-    //                 .inputs()
-    //                 .iter()
-    //                 .chain(node.operator.outputs().iter())
-    //                 .filter(|(_, t)| **t == OperatorType::Polymorphic(*tvar.0))
-    //                 .map(|x| node.resource.extend_fragment(x.0))
-    //             {
-    //                 events.push(Lang::GraphEvent(
-    //                     GraphEvent::SocketMonomorphized(res, *tvar.1),
-    //                 ));
-    //             }
-    //         }
-    //     }
-
-    //     (new, events)
-    // }
-
-    pub fn raw_graph(&self) -> &Graph {
-        &self.graph
+        events
     }
 
     /// Reset, i.e. clear, the node graph entirely. This removes all nodes and
