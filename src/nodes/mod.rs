@@ -1,7 +1,7 @@
 use crate::{broker, lang};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
-use std::collections::HashMap;
 
 use maplit::hashmap;
 
@@ -28,8 +28,13 @@ impl NodeManager {
 
         match &*event {
             Lang::UserNodeEvent(event) => match event {
-                UserNodeEvent::NewNode(op) => {
-                    let (resource, size) = self.graphs.get_mut("base").unwrap().new_node(op, self.parent_size);
+                UserNodeEvent::NewNode(graph, op) => {
+                    let graph_name = graph.path().to_str().unwrap();
+                    let (resource, size) = self
+                        .graphs
+                        .get_mut(graph_name)
+                        .unwrap()
+                        .new_node(op, self.parent_size);
                     response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
                         resource,
                         op.clone(),
@@ -37,27 +42,36 @@ impl NodeManager {
                         size as u32,
                     )))
                 }
-                UserNodeEvent::RemoveNode(res) => match self.graphs.get_mut("base").unwrap().remove_node(res) {
-                    Ok((ty, removed_conns)) => {
-                        response = removed_conns
-                            .iter()
-                            .map(|c| {
-                                Lang::GraphEvent(GraphEvent::DisconnectedSockets(
-                                    c.0.clone(),
-                                    c.1.clone(),
-                                ))
-                            })
-                            .collect();
-                        response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(res.clone())));
-                        if let Some(ty) = ty {
-                            response
-                                .push(Lang::GraphEvent(GraphEvent::OutputRemoved(res.clone(), ty)))
+                UserNodeEvent::RemoveNode(res) => {
+                    match self.graphs.get_mut("base").unwrap().remove_node(res) {
+                        Ok((ty, removed_conns)) => {
+                            response = removed_conns
+                                .iter()
+                                .map(|c| {
+                                    Lang::GraphEvent(GraphEvent::DisconnectedSockets(
+                                        c.0.clone(),
+                                        c.1.clone(),
+                                    ))
+                                })
+                                .collect();
+                            response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(res.clone())));
+                            if let Some(ty) = ty {
+                                response.push(Lang::GraphEvent(GraphEvent::OutputRemoved(
+                                    res.clone(),
+                                    ty,
+                                )))
+                            }
                         }
+                        Err(e) => log::error!("{}", e),
                     }
-                    Err(e) => log::error!("{}", e),
-                },
+                }
                 UserNodeEvent::ConnectSockets(from, to) => {
-                    match self.graphs.get_mut("base").unwrap().connect_sockets(from, to) {
+                    match self
+                        .graphs
+                        .get_mut("base")
+                        .unwrap()
+                        .connect_sockets(from, to)
+                    {
                         Ok(mut res) => {
                             response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
                                 from.clone(),
@@ -69,13 +83,20 @@ impl NodeManager {
                     }
                 }
                 UserNodeEvent::DisconnectSinkSocket(sink) => {
-                    match self.graphs.get_mut("base").unwrap().disconnect_sink_socket(sink) {
+                    match self
+                        .graphs
+                        .get_mut("base")
+                        .unwrap()
+                        .disconnect_sink_socket(sink)
+                    {
                         Ok(mut r) => response.append(&mut r),
                         Err(e) => log::error!("Error while disconnecting sink {}", e),
                     }
                 }
                 UserNodeEvent::ParameterChange(res, field, data) => {
-                    self.graphs.get_mut("base").unwrap()
+                    self.graphs
+                        .get_mut("base")
+                        .unwrap()
                         .parameter_change(res, field, data)
                         .unwrap_or_else(|e| log::error!("{}", e));
                     let instructions = self.graphs.get_mut("base").unwrap().linearize();
@@ -85,25 +106,33 @@ impl NodeManager {
                     let instructions = self.graphs.get_mut("base").unwrap().linearize();
                     response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
                 }
-                UserNodeEvent::PositionNode(res, (x, y)) => self.graphs.get_mut("base").unwrap().position_node(res, *x, *y),
+                UserNodeEvent::PositionNode(res, (x, y)) => self
+                    .graphs
+                    .get_mut("base")
+                    .unwrap()
+                    .position_node(res, *x, *y),
                 UserNodeEvent::RenameNode(from, to) => {
                     if let Some(r) = self.graphs.get_mut("base").unwrap().rename_node(from, to) {
                         response.push(r);
                     }
                 }
                 UserNodeEvent::OutputSizeChange(res, size) => {
-                    if let Some(r) =
-                        self.graphs.get_mut("base").unwrap()
-                            .resize_node(res, Some(*size), None, self.parent_size)
-                    {
+                    if let Some(r) = self.graphs.get_mut("base").unwrap().resize_node(
+                        res,
+                        Some(*size),
+                        None,
+                        self.parent_size,
+                    ) {
                         response.push(r);
                     };
                 }
                 UserNodeEvent::OutputSizeAbsolute(res, abs) => {
-                    if let Some(r) = self
-                        .graphs.get_mut("base").unwrap()
-                        .resize_node(res, None, Some(*abs), self.parent_size)
-                    {
+                    if let Some(r) = self.graphs.get_mut("base").unwrap().resize_node(
+                        res,
+                        None,
+                        Some(*abs),
+                        self.parent_size,
+                    ) {
                         response.push(r);
                     };
                 }
@@ -139,7 +168,13 @@ impl NodeManager {
             }
             Lang::UserIOEvent(UserIOEvent::SetParentSize(size)) => {
                 self.parent_size = *size;
-                response.append(&mut self.graphs.get_mut("base").unwrap().resize_all(self.parent_size));
+                response.append(
+                    &mut self
+                        .graphs
+                        .get_mut("base")
+                        .unwrap()
+                        .resize_all(self.parent_size),
+                );
 
                 // Recompute on size change
                 let instructions = self.graphs.get_mut("base").unwrap().linearize();

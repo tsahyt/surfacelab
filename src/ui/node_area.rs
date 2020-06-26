@@ -29,6 +29,7 @@ struct Connection {
 #[derive(Debug)]
 pub struct NodeAreaPrivate {
     children: Rc<RefCell<HashMap<Resource, Node>>>,
+    graph: Rc<RefCell<Resource>>,
     connections: RefCell<Vec<Connection>>,
     action: Rc<Cell<Option<Action>>>,
     popover_context: gtk::Popover,
@@ -71,6 +72,7 @@ impl ObjectSubclass for NodeAreaPrivate {
     fn new() -> Self {
         Self {
             children: Rc::new(RefCell::new(HashMap::new())),
+            graph: Rc::new(RefCell::new(Resource::graph("base", None))),
             connections: RefCell::new(Vec::new()),
             action: Rc::new(Cell::new(None)),
             popover_context: gtk::PopoverBuilder::new()
@@ -105,8 +107,8 @@ impl ObjectImpl for NodeAreaPrivate {
             hbox.add(&button);
             row.add(&hbox);
 
-            button.connect_clicked(clone!(@strong op => move |_| {
-                super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(op.clone())))
+            button.connect_clicked(clone!(@strong op, @strong self.graph as graph => move |_| {
+                super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(graph.borrow().clone(), op.clone())))
             }));
             lbox.insert(&row, i as _);
         }

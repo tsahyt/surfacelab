@@ -135,7 +135,7 @@ impl OperatorType {
 /// Events concerning node operation triggered by the user
 #[derive(Debug)]
 pub enum UserNodeEvent {
-    NewNode(Operator),
+    NewNode(Resource, Operator),
     RemoveNode(Resource),
     ConnectSockets(Resource, Resource),
     DisconnectSinkSocket(Resource),

@@ -1,8 +1,8 @@
 use super::{nodegraph, NodeManager};
 use crate::lang::Lang;
 use serde_derive::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
 
@@ -38,6 +38,10 @@ impl NodeManager {
         // Rebuilding internal structures
         self.graphs = surf.graphs.into_owned();
         self.parent_size = surf.parent_size;
-        Ok(self.graphs.get("base").unwrap().rebuild_events(self.parent_size))
+        Ok(self
+            .graphs
+            .get("base")
+            .unwrap()
+            .rebuild_events(self.parent_size))
     }
 }

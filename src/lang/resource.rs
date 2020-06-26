@@ -1,13 +1,13 @@
 use serde_derive::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use std::convert::TryFrom;
+use std::path::{Path, PathBuf};
 
 pub type ResourcePart = String;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Scheme {
     Node,
-    Graph
+    Graph,
 }
 
 impl std::fmt::Display for Scheme {
@@ -26,7 +26,7 @@ impl TryFrom<&str> for Scheme {
         match value {
             "node" => Ok(Self::Node),
             "graph" => Ok(Self::Graph),
-            _ => Err("Unknown Scheme")
+            _ => Err("Unknown Scheme"),
         }
     }
 }
@@ -65,9 +65,11 @@ impl TryFrom<&str> for Resource {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let pieces: Vec<&str> = value.split(':').collect();
 
-        let scheme = Scheme::try_from(*pieces
-            .get(0)
-            .ok_or("Missing schema in resource identifier")?)?;
+        let scheme = Scheme::try_from(
+            *pieces
+                .get(0)
+                .ok_or("Missing schema in resource identifier")?,
+        )?;
         let resource_path =
             PathBuf::from(pieces.get(1).ok_or("Missing path in resource identifier")?);
         let fragment = pieces.get(2).map(|x| (*x).to_string());
@@ -81,8 +83,21 @@ impl TryFrom<&str> for Resource {
 }
 
 impl Resource {
-    // pub fn new<P: AsRef<Path>>(scheme: Scheme, path: P, fragment: Option<String>) -> Self {
-    // }
+    pub fn new<P: AsRef<Path>>(scheme: Scheme, path: P, fragment: Option<String>) -> Self {
+        Self {
+            scheme,
+            resource_path: path.as_ref().to_path_buf(),
+            fragment,
+        }
+    }
+
+    pub fn node<P: AsRef<Path>>(path: P, fragment: Option<String>) -> Self {
+        Self::new(Scheme::Node, path, fragment)
+    }
+
+    pub fn graph<P: AsRef<Path>>(path: P, fragment: Option<String>) -> Self {
+        Self::new(Scheme::Graph, path, fragment)
+    }
 
     pub fn fragment(&self) -> Option<&str> {
         self.fragment.as_ref().map(|x| x.as_ref())
