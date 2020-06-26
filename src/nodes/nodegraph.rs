@@ -16,6 +16,12 @@ type EdgeLabel = (String, String);
 /// A vector of resource tuples describing connections between sockets.
 type Connections = Vec<(Resource, Resource)>;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ComplexOperator {
+    graph: Resource,
+    instance: ResourcePart,
+}
+
 /// Enum to differentiate between atomic and complex operators. An atomic
 /// operator is an Operator proper as defined in the language module and
 /// understood by the compute components. A complex operator is a node graph in
@@ -23,7 +29,7 @@ type Connections = Vec<(Resource, Resource)>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum NodeOperator {
     Atomic(Operator),
-    Complex,
+    Complex(ComplexOperator),
 }
 
 impl NodeOperator {

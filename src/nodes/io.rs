@@ -1,6 +1,7 @@
 use super::{nodegraph, NodeManager};
 use crate::lang::Lang;
 use serde_derive::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::borrow::Cow;
 use std::fs::File;
 use std::path::Path;
@@ -9,7 +10,7 @@ use std::path::Path;
 #[derive(Debug, Serialize, Deserialize)]
 struct SurfaceFile<'a> {
     parent_size: u32,
-    node_graph: Cow<'a, nodegraph::NodeGraph>,
+    graphs: Cow<'a, HashMap<String, nodegraph::NodeGraph>>,
 }
 
 impl NodeManager {
@@ -17,7 +18,7 @@ impl NodeManager {
         log::info!("Saving to {:?}", path);
         let surf = SurfaceFile {
             parent_size: self.parent_size,
-            node_graph: Cow::Borrowed(&self.graph),
+            graphs: Cow::Borrowed(&self.graphs),
         };
 
         let output_file = File::create(path).map_err(|_| "Failed to open output file")?;
@@ -35,8 +36,8 @@ impl NodeManager {
             .map_err(|e| format!("Reading failed with {}", e))?;
 
         // Rebuilding internal structures
-        self.graph = surf.node_graph.into_owned();
+        self.graphs = surf.graphs.into_owned();
         self.parent_size = surf.parent_size;
-        Ok(self.graph.rebuild_events(self.parent_size))
+        Ok(self.graphs.get("base").unwrap().rebuild_events(self.parent_size))
     }
 }

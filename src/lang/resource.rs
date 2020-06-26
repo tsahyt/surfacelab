@@ -1,6 +1,8 @@
 use serde_derive::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+pub type ResourcePart = String;
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Resource {
     scheme: String,
