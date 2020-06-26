@@ -151,12 +151,14 @@ impl Transmitter for ResourceField {
         match self {
             Self::Name => {
                 let new = unsafe { std::str::from_utf8_unchecked(&data) };
+                let mut res_new = resource.clone();
+                res_new.modify_path(|p| {
+                    p.pop();
+                    p.push(new);
+                });
                 super::emit(Lang::UserNodeEvent(UserNodeEvent::RenameNode(
                     resource.clone(),
-                    resource.modify_path(|p| {
-                        p.pop();
-                        p.push(new);
-                    }),
+                    res_new,
                 )))
             }
             Self::Size => {

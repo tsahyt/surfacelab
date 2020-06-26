@@ -2,6 +2,7 @@ use crate::{broker, lang};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
+use std::path::PathBuf;
 
 use maplit::hashmap;
 
@@ -29,14 +30,16 @@ impl NodeManager {
         match &*event {
             Lang::UserNodeEvent(event) => match event {
                 UserNodeEvent::NewNode(graph, op) => {
-                    let graph_name = graph.path().to_str().unwrap();
-                    let (resource, size) = self
+                    let graph_name = graph.path();
+                    let (node_id, size) = self
                         .graphs
-                        .get_mut(graph_name)
+                        .get_mut(graph_name.to_str().unwrap())
                         .unwrap()
                         .new_node(op, self.parent_size);
+                    let mut path = graph_name.to_path_buf();
+                    path.push(node_id);
                     response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-                        resource,
+                        Resource::node(path, None),
                         op.clone(),
                         None,
                         size as u32,

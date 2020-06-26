@@ -234,7 +234,7 @@ impl NodeGraph {
     }
 
     /// Add a new node to the node graph, defined by the operator.
-    pub fn new_node(&mut self, op: &Operator, parent_size: u32) -> (Resource, u32) {
+    pub fn new_node(&mut self, op: &Operator, parent_size: u32) -> (String, u32) {
         let node_id = self.next_free_name(op.default_name());
 
         log::trace!(
@@ -251,7 +251,7 @@ impl NodeGraph {
             self.outputs.insert(idx);
         }
 
-        (node_id, size)
+        (node_id.path().to_str().unwrap().to_owned(), size)
     }
 
     /// Remove a node with the given Resource if it exists.

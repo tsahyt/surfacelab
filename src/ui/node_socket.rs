@@ -7,7 +7,7 @@ use glib::translate::*;
 use glib::*;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 use std::convert::TryFrom;
 
 #[derive(Debug, Clone)]
@@ -267,6 +267,10 @@ impl NodeSocketPrivate {
         self.socket_resource.borrow().clone()
     }
 
+    fn get_socket_resource_mut(&self) -> RefMut<lang::Resource> {
+        self.socket_resource.borrow_mut()
+    }
+
     fn get_socket_uri(&self) -> lang::Resource {
         self.socket_resource.borrow().to_owned()
     }
@@ -417,10 +421,8 @@ impl NodeSocket {
 
     pub fn rename_node_resource(&self, to: &lang::Resource) {
         let imp = NodeSocketPrivate::from_instance(self);
-        let res = imp
-            .get_socket_resource()
+        imp.get_socket_resource_mut()
             .modify_path(|p| *p = std::path::PathBuf::from(to.path()));
-        imp.set_socket_resource(self, res);
     }
 }
 
