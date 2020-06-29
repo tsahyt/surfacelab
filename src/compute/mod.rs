@@ -628,8 +628,6 @@ where
             });
         }
 
-        dbg!(images.len());
-
         let final_image = ImageBuffer::from_fn(size, size, |x, y| {
             Rgb([
                 images.get(&spec[0].0).unwrap().get_pixel(x, y)[spec[0].1.channel_index()],
