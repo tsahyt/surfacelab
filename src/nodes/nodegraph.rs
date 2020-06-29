@@ -4,7 +4,6 @@ use bimap::BiHashMap;
 use petgraph::graph;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
 use std::iter::FromIterator;
 
 pub type Graph = graph::Graph<Node, EdgeLabel, petgraph::Directed>;
@@ -139,17 +138,28 @@ impl Node {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeGraph {
     graph: graph::Graph<Node, EdgeLabel, petgraph::Directed>,
-    indices: BiHashMap<Resource, graph::NodeIndex>,
+    name: String,
+    indices: BiHashMap<String, graph::NodeIndex>,
     outputs: HashSet<graph::NodeIndex>,
 }
 
 impl NodeGraph {
-    pub fn new() -> Self {
+    pub fn new(name: &str) -> Self {
         NodeGraph {
             graph: graph::Graph::default(),
+            name: name.to_string(),
             indices: BiHashMap::new(),
             outputs: HashSet::new(),
         }
+    }
+
+    fn node_resource(&self, idx: &petgraph::graph::NodeIndex) -> Resource {
+        Resource::node(
+            [&self.name, self.indices.get_by_right(idx).unwrap()]
+                .iter()
+                .collect::<std::path::PathBuf>(),
+            None,
+        )
     }
 
     pub fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {
@@ -158,7 +168,7 @@ impl NodeGraph {
         for idx in self.graph.node_indices() {
             let node = self.graph.node_weight(idx).unwrap();
             events.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-                self.indices.get_by_right(&idx).unwrap().to_owned(),
+                self.node_resource(&idx),
                 node.operator
                     .to_atomic()
                     .expect("Complex operators not yet supported in file IO")
@@ -172,14 +182,8 @@ impl NodeGraph {
             let conn = self.graph.edge_weight(idx).unwrap();
             let (source_idx, sink_idx) = self.graph.edge_endpoints(idx).unwrap();
             events.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                self.indices
-                    .get_by_right(&source_idx)
-                    .unwrap()
-                    .extend_fragment(&conn.0),
-                self.indices
-                    .get_by_right(&sink_idx)
-                    .unwrap()
-                    .extend_fragment(&conn.1),
+                self.node_resource(&source_idx).extend_fragment(&conn.0),
+                self.node_resource(&sink_idx).extend_fragment(&conn.1),
             )));
         }
 
@@ -193,12 +197,7 @@ impl NodeGraph {
                     .iter()
                     .chain(node.operator.outputs().iter())
                     .filter(|(_, t)| **t == OperatorType::Polymorphic(*tvar.0))
-                    .map(|x| {
-                        self.indices
-                            .get_by_right(&idx)
-                            .unwrap()
-                            .extend_fragment(x.0)
-                    })
+                    .map(|x| self.node_resource(&idx).extend_fragment(x.0))
                 {
                     events.push(Lang::GraphEvent(GraphEvent::SocketMonomorphized(
                         res, *tvar.1,
@@ -218,11 +217,11 @@ impl NodeGraph {
         self.graph.clear();
     }
 
-    fn next_free_name(&self, base_name: &str) -> Resource {
-        let mut resource = Resource::unregistered_node();
+    fn next_free_name(&self, base_name: &str) -> String {
+        let mut resource = String::new();
 
         for i in 1.. {
-            let name = Resource::try_from(format!("node:{}.{}", base_name, i).as_ref()).unwrap();
+            let name = format!("{}.{}", base_name, i);
 
             if !self.indices.contains_left(&name) {
                 resource = name;
@@ -251,7 +250,7 @@ impl NodeGraph {
             self.outputs.insert(idx);
         }
 
-        (node_id.path().to_str().unwrap().to_owned(), size)
+        (node_id, size)
     }
 
     /// Remove a node with the given Resource if it exists.
@@ -259,13 +258,15 @@ impl NodeGraph {
     /// **Errors** if the node does not exist.
     pub fn remove_node(
         &mut self,
-        resource: &Resource,
+        resource: &str,
     ) -> Result<(Option<OutputType>, Connections), String> {
         use petgraph::visit::EdgeRef;
 
         let node = self
-            .node_by_uri(resource)
-            .ok_or(format!("Node for URI {} not found!", resource))?;
+            .indices
+            .get_by_left(&resource.to_string())
+            .ok_or(format!("Node for URI {} not found!", resource))?
+            .clone();
 
         log::trace!(
             "Removing node with identifier {:?}, indexed {:?}",
@@ -295,8 +296,8 @@ impl NodeGraph {
         };
         let es: Vec<_> = edges
             .map(|x| {
-                let source = self.indices.get_by_right(&x.source()).unwrap();
-                let sink = self.indices.get_by_right(&x.target()).unwrap();
+                let source = self.node_resource(&x.source());
+                let sink = self.node_resource(&x.target());
                 let sockets = x.weight();
                 (
                     source.extend_fragment(&sockets.0),
@@ -314,7 +315,7 @@ impl NodeGraph {
 
         // Remove node
         self.graph.remove_node(node);
-        self.indices.remove_by_left(&resource);
+        self.indices.remove_by_left(&resource.to_string());
 
         // Reindex last node
         self.indices.insert(last, node);
@@ -326,14 +327,15 @@ impl NodeGraph {
     /// the resource does not exist in this graph.
     pub fn parameter_change(
         &mut self,
-        res: &Resource,
+        res: &str,
         field: &'static str,
         data: &[u8],
     ) -> Result<(), String> {
         let node = self
-            .node_by_uri(res)
+            .indices
+            .get_by_left(&res.to_string())
             .ok_or("Missing node for parameter change")?;
-        let node_data = self.graph.node_weight_mut(node).unwrap();
+        let node_data = self.graph.node_weight_mut(*node).unwrap();
         node_data.operator.set_parameter(field, data);
 
         log::trace!("Parameter changed to {:?}", node_data.operator);
@@ -341,31 +343,29 @@ impl NodeGraph {
         Ok(())
     }
 
-    fn node_by_uri(&self, resource: &Resource) -> Option<graph::NodeIndex> {
-        self.indices.get_by_left(&resource.drop_fragment()).cloned()
-    }
-
     /// Connect two sockets in the node graph. If there is already a connection
     /// on the sink, it will be replaced!
     ///
     /// **Errors** and aborts if either of the two Resources does not exist!
-    pub fn connect_sockets(&mut self, from: &Resource, to: &Resource) -> Result<Vec<Lang>, String> {
+    pub fn connect_sockets(
+        &mut self,
+        from_node: &str,
+        from_socket: &str,
+        to_node: &str,
+        to_socket: &str,
+    ) -> Result<Vec<Lang>, String> {
         let mut response = Vec::new();
         // Get relevant resources
         let from_path = self
-            .node_by_uri(from)
-            .ok_or(format!("Node for URI {} not found!", &from))?;
-        let from_socket = from
-            .fragment()
-            .ok_or("Missing socket specification")?
-            .to_string();
+            .indices
+            .get_by_left(&from_node.to_string())
+            .ok_or(format!("Node for URI {} not found!", &from_node))?
+            .clone();
         let to_path = self
-            .node_by_uri(to)
-            .ok_or(format!("Node for URI {} not found!", &to))?;
-        let to_socket = to
-            .fragment()
-            .ok_or("Missing socket specification")?
-            .to_string();
+            .indices
+            .get_by_left(&to_node.to_string())
+            .ok_or(format!("Node for URI {} not found!", &to_node))?
+            .clone();
 
         // Check that from is a source and to is a sink
         if !(self
@@ -374,21 +374,21 @@ impl NodeGraph {
             .unwrap()
             .operator
             .outputs()
-            .contains_key(&from_socket)
+            .contains_key(from_socket)
             && self
                 .graph
                 .node_weight(to_path)
                 .unwrap()
                 .operator
                 .inputs()
-                .contains_key(&to_socket))
+                .contains_key(to_socket))
         {
             return Err("Tried to connect from a sink to a source".into());
         }
 
         // Handle type checking/inference
-        let from_type = self.socket_type(from).unwrap();
-        let to_type = self.socket_type(to).unwrap();
+        let from_type = self.socket_type(from_node, from_socket).unwrap();
+        let to_type = self.socket_type(to_node, to_socket).unwrap();
         match (from_type, to_type) {
             (OperatorType::Polymorphic(..), OperatorType::Polymorphic(..)) => {
                 // TODO: polymorphism over multiple arcs
@@ -400,13 +400,13 @@ impl NodeGraph {
                 }
             }
             (OperatorType::Monomorphic(ty), OperatorType::Polymorphic(p)) => {
-                let affected = self.set_type_variable(&to.drop_fragment(), p, Some(ty))?;
+                let affected = self.set_type_variable(&to_node, p, Some(ty))?;
                 for res in affected {
                     response.push(Lang::GraphEvent(GraphEvent::SocketMonomorphized(res, ty)))
                 }
             }
             (OperatorType::Polymorphic(p), OperatorType::Monomorphic(ty)) => {
-                let affected = self.set_type_variable(&from.drop_fragment(), p, Some(ty))?;
+                let affected = self.set_type_variable(&from_node, p, Some(ty))?;
                 for res in affected {
                     response.push(Lang::GraphEvent(GraphEvent::SocketMonomorphized(res, ty)))
                 }
@@ -421,29 +421,35 @@ impl NodeGraph {
             from_socket,
             to_socket,
         );
-        self.graph
-            .add_edge(from_path, to_path, (from_socket, to_socket));
+        self.graph.add_edge(
+            from_path,
+            to_path,
+            (from_socket.to_string(), to_socket.to_string()),
+        );
 
         Ok(response)
     }
 
     /// Disconnect all (1) inputs from a sink socket.
-    pub fn disconnect_sink_socket(&mut self, sink: &Resource) -> Result<Vec<Lang>, String> {
+    pub fn disconnect_sink_socket(
+        &mut self,
+        sink_node: &str,
+        sink_socket: &str,
+    ) -> Result<Vec<Lang>, String> {
         use petgraph::visit::EdgeRef;
 
         let sink_path = self
-            .node_by_uri(&sink)
-            .ok_or(format!("Sink for URI {} not found", &sink))?;
-        let sink_socket = sink
-            .fragment()
-            .ok_or("Missing sink socket specification")?
-            .to_string();
+            .indices
+            .get_by_left(&sink_node.to_string())
+            .ok_or(format!("Sink for URI {} not found", &sink_node))?
+            .clone();
+        let sink = self.node_resource(&sink_path).extend_fragment(sink_socket);
 
         let mut resp = Vec::new();
 
         // Demonomorphize if nothing else keeps the type variable occupied
         let node = self.graph.node_weight(sink_path).unwrap();
-        if let OperatorType::Polymorphic(tvar) = node.operator.inputs().get(&sink_socket).unwrap() {
+        if let OperatorType::Polymorphic(tvar) = node.operator.inputs().get(sink_socket).unwrap() {
             let others: HashSet<String> =
                 HashSet::from_iter(node.operator.sockets_by_type_variable(*tvar));
 
@@ -459,8 +465,7 @@ impl NodeGraph {
                 .next()
                 .is_none()
             {
-                self.set_type_variable(&sink.drop_fragment(), *tvar, None)
-                    .unwrap();
+                self.set_type_variable(sink_node, *tvar, None).unwrap();
                 resp.push(Lang::GraphEvent(GraphEvent::SocketDemonomorphized(
                     sink.clone(),
                 )));
@@ -473,9 +478,7 @@ impl NodeGraph {
             .filter(|e| e.weight().1 == sink_socket)
             .map(|e| {
                 (
-                    self.indices
-                        .get_by_right(&e.source())
-                        .unwrap()
+                    self.node_resource(&e.source())
                         .extend_fragment(&e.weight().0),
                     e.id(),
                 )
@@ -486,7 +489,7 @@ impl NodeGraph {
             self.graph.remove_edge(s.1);
             resp.push(Lang::GraphEvent(GraphEvent::DisconnectedSockets(
                 s.0.clone(),
-                sink.clone(),
+                sink,
             )));
         }
 
@@ -497,13 +500,16 @@ impl NodeGraph {
     /// Returns a vector of all affected sockets.
     fn set_type_variable(
         &mut self,
-        node: &Resource,
+        node: &str,
         variable: TypeVariable,
         ty: Option<ImageType>,
     ) -> Result<Vec<Resource>, String> {
         let path = self
-            .node_by_uri(node)
-            .ok_or(format!("Node for URI {} not found!", &node))?;
+            .indices
+            .get_by_left(&node.to_string())
+            .ok_or(format!("Node for URI {} not found!", &node))?
+            .clone();
+        let node_res = self.node_resource(&path);
 
         let node_data = self
             .graph
@@ -519,47 +525,47 @@ impl NodeGraph {
             .operator
             .sockets_by_type_variable(variable)
             .iter()
-            .map(|x| node.extend_fragment(x))
+            .map(|x| node_res.extend_fragment(x))
             .collect();
 
         Ok(affected)
     }
 
-    fn socket_type(&self, socket: &Resource) -> Result<OperatorType, String> {
+    fn socket_type(&self, socket_node: &str, socket_name: &str) -> Result<OperatorType, String> {
         let path = self
-            .node_by_uri(socket)
-            .ok_or(format!("Node for URI {} not found!", &socket))?;
-        let socket_name = socket
-            .fragment()
-            .ok_or("Missing socket specification")?
-            .to_string();
+            .indices
+            .get_by_left(&socket_node.to_string())
+            .ok_or(format!("Node for URI {} not found!", &socket_node))?;
 
         let node = self
             .graph
-            .node_weight(path)
+            .node_weight(*path)
             .expect("Missing node during type lookup");
         node.monomorphic_type(&socket_name)
     }
 
     /// Write the layout position of a node.
-    pub fn position_node(&mut self, resource: &Resource, x: i32, y: i32) {
-        if let Some(node) = self.node_by_uri(resource) {
-            let nw = self.graph.node_weight_mut(node).unwrap();
+    pub fn position_node(&mut self, name: &str, x: i32, y: i32) {
+        if let Some(node) = self.indices.get_by_left(&name.to_string()) {
+            let nw = self.graph.node_weight_mut(*node).unwrap();
             nw.position = (x, y);
         }
     }
 
     /// Rename a node from a resource to a resource.
-    ///
-    /// This function does currently not check whether the resource is
-    /// namespaced correctly for this graph!
-    pub fn rename_node(&mut self, from: &Resource, to: &Resource) -> Option<Lang> {
+    pub fn rename_node(&mut self, from: &str, to: &str) -> Option<Lang> {
         log::trace!("Renaming node {} to {}", from, to);
-        if let Some((_, idx)) = self.indices.remove_by_left(from) {
-            self.indices.insert(to.clone(), idx);
+        if let Some((_, idx)) = self.indices.remove_by_left(&from.to_string()) {
+            self.indices.insert(to.to_string(), idx);
             Some(Lang::GraphEvent(GraphEvent::NodeRenamed(
-                from.clone(),
-                to.clone(),
+                Resource::node(
+                    [&self.name, from].iter().collect::<std::path::PathBuf>(),
+                    None,
+                ),
+                Resource::node(
+                    [&self.name, to].iter().collect::<std::path::PathBuf>(),
+                    None,
+                ),
             )))
         } else {
             None
@@ -569,13 +575,13 @@ impl NodeGraph {
     /// Resize a node given potential changes to absolute and size.
     pub fn resize_node(
         &mut self,
-        res: &Resource,
+        node: &str,
         size: Option<i32>,
         absolute: Option<bool>,
         parent_size: u32,
     ) -> Option<Lang> {
-        let idx = self.node_by_uri(res)?;
-        let mut node = self.graph.node_weight_mut(idx).unwrap();
+        let idx = self.indices.get_by_left(&node.to_string())?;
+        let mut node = self.graph.node_weight_mut(*idx).unwrap();
 
         if let Some(s) = size {
             node.size = s;
@@ -588,7 +594,7 @@ impl NodeGraph {
         let new_size = node.node_size(parent_size);
 
         Some(Lang::GraphEvent(GraphEvent::NodeResized(
-            res.clone(),
+            self.node_resource(idx),
             new_size,
         )))
     }
@@ -600,7 +606,7 @@ impl NodeGraph {
                 self.graph.node_weight(idx).and_then(|x| {
                     if !x.absolute_size {
                         Some(Lang::GraphEvent(GraphEvent::NodeResized(
-                            self.indices.get_by_right(&idx).unwrap().to_owned(),
+                            self.node_resource(&idx),
                             x.node_size(parent_size),
                         )))
                     } else {
@@ -618,7 +624,7 @@ impl NodeGraph {
 
         for node_index in self.graph.node_indices() {
             let node = self.graph.node_weight(node_index).unwrap();
-            let res = self.indices.get_by_right(&node_index).unwrap();
+            let res = self.node_resource(&node_index);
 
             if let NodeOperator::Atomic(Operator::Output { .. }) = node.operator {
                 for input in node.operator.inputs().iter() {
@@ -680,10 +686,10 @@ impl NodeGraph {
                         .to_atomic()
                         .expect("Complex nodes are not yet supported")
                         .to_owned();
-                    let res = self.indices.get_by_right(&nx).unwrap().to_owned();
+                    let res = self.node_resource(&nx);
                     traversal.push(Instruction::Execute(res.clone(), op));
                     if let Some(((source, sink), idx)) = l {
-                        let to_node = self.indices.get_by_right(&idx).unwrap().to_owned();
+                        let to_node = self.node_resource(&idx);
                         let from = res.extend_fragment(&source);
                         let to = to_node.extend_fragment(&sink);
                         traversal.push(Instruction::Move(from, to));

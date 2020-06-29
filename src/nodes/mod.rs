@@ -2,7 +2,6 @@ use crate::{broker, lang};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
-use std::path::PathBuf;
 
 use maplit::hashmap;
 
@@ -19,7 +18,7 @@ impl NodeManager {
     pub fn new() -> Self {
         NodeManager {
             parent_size: 1024,
-            graphs: hashmap! { "base".to_string() => nodegraph::NodeGraph::new() },
+            graphs: hashmap! { "base".to_string() => nodegraph::NodeGraph::new("base") },
         }
     }
 
@@ -30,23 +29,27 @@ impl NodeManager {
         match &*event {
             Lang::UserNodeEvent(event) => match event {
                 UserNodeEvent::NewNode(graph, op) => {
-                    let graph_name = graph.path();
+                    let graph_name = graph.path().to_str().unwrap();
                     let (node_id, size) = self
                         .graphs
-                        .get_mut(graph_name.to_str().unwrap())
+                        .get_mut(graph_name)
                         .unwrap()
                         .new_node(op, self.parent_size);
-                    let mut path = graph_name.to_path_buf();
-                    path.push(node_id);
                     response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-                        Resource::node(path, None),
+                        Resource::node(
+                            [graph_name, &node_id]
+                                .iter()
+                                .collect::<std::path::PathBuf>(),
+                            None,
+                        ),
                         op.clone(),
                         None,
                         size as u32,
                     )))
                 }
                 UserNodeEvent::RemoveNode(res) => {
-                    match self.graphs.get_mut("base").unwrap().remove_node(res) {
+                    let node = res.path().file_name().and_then(|x| x.to_str()).unwrap();
+                    match self.graphs.get_mut("base").unwrap().remove_node(node) {
                         Ok((ty, removed_conns)) => {
                             response = removed_conns
                                 .iter()
@@ -69,12 +72,16 @@ impl NodeManager {
                     }
                 }
                 UserNodeEvent::ConnectSockets(from, to) => {
-                    match self
-                        .graphs
-                        .get_mut("base")
-                        .unwrap()
-                        .connect_sockets(from, to)
-                    {
+                    let from_node = from.path().file_name().and_then(|x| x.to_str()).unwrap();
+                    let from_socket = from.fragment().unwrap();
+                    let to_node = to.path().file_name().and_then(|x| x.to_str()).unwrap();
+                    let to_socket = to.fragment().unwrap();
+                    match self.graphs.get_mut("base").unwrap().connect_sockets(
+                        from_node,
+                        from_socket,
+                        to_node,
+                        to_socket,
+                    ) {
                         Ok(mut res) => {
                             response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
                                 from.clone(),
@@ -86,21 +93,24 @@ impl NodeManager {
                     }
                 }
                 UserNodeEvent::DisconnectSinkSocket(sink) => {
+                    let node = sink.path().file_name().and_then(|x| x.to_str()).unwrap();
+                    let socket = sink.fragment().unwrap();
                     match self
                         .graphs
                         .get_mut("base")
                         .unwrap()
-                        .disconnect_sink_socket(sink)
+                        .disconnect_sink_socket(node, socket)
                     {
                         Ok(mut r) => response.append(&mut r),
                         Err(e) => log::error!("Error while disconnecting sink {}", e),
                     }
                 }
                 UserNodeEvent::ParameterChange(res, field, data) => {
+                    let node = res.path().file_name().and_then(|x| x.to_str()).unwrap();
                     self.graphs
                         .get_mut("base")
                         .unwrap()
-                        .parameter_change(res, field, data)
+                        .parameter_change(node, field, data)
                         .unwrap_or_else(|e| log::error!("{}", e));
                     let instructions = self.graphs.get_mut("base").unwrap().linearize();
                     response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
@@ -109,19 +119,29 @@ impl NodeManager {
                     let instructions = self.graphs.get_mut("base").unwrap().linearize();
                     response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
                 }
-                UserNodeEvent::PositionNode(res, (x, y)) => self
-                    .graphs
-                    .get_mut("base")
-                    .unwrap()
-                    .position_node(res, *x, *y),
+                UserNodeEvent::PositionNode(res, (x, y)) => {
+                    let node = res.path().file_name().and_then(|x| x.to_str()).unwrap();
+                    self.graphs
+                        .get_mut("base")
+                        .unwrap()
+                        .position_node(node, *x, *y);
+                }
                 UserNodeEvent::RenameNode(from, to) => {
-                    if let Some(r) = self.graphs.get_mut("base").unwrap().rename_node(from, to) {
+                    let from_node = from.path().file_name().and_then(|x| x.to_str()).unwrap();
+                    let to_node = to.path().file_name().and_then(|x| x.to_str()).unwrap();
+                    if let Some(r) = self
+                        .graphs
+                        .get_mut("base")
+                        .unwrap()
+                        .rename_node(from_node, to_node)
+                    {
                         response.push(r);
                     }
                 }
                 UserNodeEvent::OutputSizeChange(res, size) => {
+                    let node = res.path().file_name().and_then(|x| x.to_str()).unwrap();
                     if let Some(r) = self.graphs.get_mut("base").unwrap().resize_node(
-                        res,
+                        node,
                         Some(*size),
                         None,
                         self.parent_size,
@@ -130,8 +150,9 @@ impl NodeManager {
                     };
                 }
                 UserNodeEvent::OutputSizeAbsolute(res, abs) => {
+                    let node = res.path().file_name().and_then(|x| x.to_str()).unwrap();
                     if let Some(r) = self.graphs.get_mut("base").unwrap().resize_node(
-                        res,
+                        node,
                         None,
                         Some(*abs),
                         self.parent_size,

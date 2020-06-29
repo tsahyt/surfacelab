@@ -418,7 +418,12 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
                     name: "Node Resource",
                     transmitter: ResourceField::Name,
                     control: Control::Entry {
-                        value: res.borrow().path().to_str().unwrap(),
+                        value: res
+                            .borrow()
+                            .path()
+                            .file_name()
+                            .and_then(|x| x.to_str())
+                            .unwrap(),
                     },
                     available: true,
                 },
