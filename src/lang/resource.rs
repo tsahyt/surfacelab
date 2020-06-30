@@ -138,6 +138,14 @@ impl Resource {
     pub fn modify_path<F: FnOnce(&mut PathBuf) -> ()>(&mut self, func: F) {
         func(&mut self.resource_path);
     }
+
+    pub fn file(&self) -> Option<&str> {
+        self.path().file_name().and_then(|x| x.to_str())
+    }
+
+    pub fn directory(&self) -> Option<&str> {
+        self.path().parent().and_then(|x| x.to_str())
+    }
 }
 
 #[cfg(test)]
