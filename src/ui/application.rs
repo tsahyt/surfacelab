@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 pub struct SurfaceLabWindowPrivate {
     node_area: node_area::NodeArea,
+    graph_select: gtk::ComboBoxText,
     header_bar: gtk::HeaderBar,
     document_properties: gtk::Popover,
     parent_size: gtk::Adjustment,
@@ -31,10 +32,10 @@ impl ObjectSubclass for SurfaceLabWindowPrivate {
     fn new() -> Self {
         Self {
             node_area: node_area::NodeArea::new(),
+            graph_select: gtk::ComboBoxText::new(),
             header_bar: gtk::HeaderBarBuilder::new()
                 .show_close_button(true)
                 .title("SurfaceLab")
-                .subtitle("<unsaved>")
                 .build(),
             document_properties: gtk::Popover::new(None::<&gtk::Widget>),
             parent_size: gtk::Adjustment::new(1024.0, 32.0, 16384.0, 32.0, 512.0, 1024.0),
@@ -52,118 +53,11 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
         window.set_default_size(1920, 1080);
 
         // Header Bar
-        self.header_bar.pack_start(&{
-            let new_button = gtk::ButtonBuilder::new()
-                .image(&gtk::Image::new_from_icon_name(
-                    Some("document-new-symbolic"),
-                    gtk::IconSize::Menu,
-                ))
-                .build();
-            new_button.connect_clicked(|_| super::emit(Lang::UserIOEvent(UserIOEvent::NewSurface)));
-            new_button
-        });
-        self.header_bar.pack_start(&{
-            let btn_box = gtk::ButtonBoxBuilder::new()
-                .layout_style(gtk::ButtonBoxStyle::Expand)
-                .homogeneous(false)
-                .build();
-            let open = gtk::Button::new_with_label("Open");
-            open.connect_clicked(clone!(@weak window => move |_| {
-                Self::run_open_dialog(&window)
-            }));
-            let recent = gtk::MenuButtonBuilder::new()
-                .image(&gtk::Image::new_from_icon_name(
-                    Some("pan-down-symbolic"),
-                    gtk::IconSize::Menu,
-                ))
-                .build();
-            btn_box.add(&open);
-            btn_box.add(&recent);
-            btn_box
-        });
-        self.header_bar.pack_start(&{
-            let btn_box = gtk::ButtonBoxBuilder::new()
-                .layout_style(gtk::ButtonBoxStyle::Expand)
-                .homogeneous(false)
-                .build();
-            let save = gtk::Button::new_with_label("Save");
-            save.connect_clicked(clone!(@weak window => move |_| {
-                Self::run_save_dialog(&window)
-            }));
-            let recent = gtk::MenuButtonBuilder::new()
-                .image(&gtk::Image::new_from_icon_name(
-                    Some("pan-down-symbolic"),
-                    gtk::IconSize::Menu,
-                ))
-                .build();
-            let export = gtk::Button::new_from_icon_name(
-                Some("insert-object-symbolic"),
-                gtk::IconSize::Menu,
-            );
-
-            export.connect_clicked(|_| {
-                super::emit(Lang::UserIOEvent(UserIOEvent::RequestExport(None)));
-            });
-
-            btn_box.add(&save);
-            btn_box.add(&recent);
-            btn_box.add(&export);
-            btn_box
-        });
-
-        self.header_bar.pack_end(
-            &gtk::MenuButtonBuilder::new()
-                .image(&gtk::Image::new_from_icon_name(
-                    Some("open-menu-symbolic"),
-                    gtk::IconSize::Menu,
-                ))
-                .build(),
-        );
-        self.header_bar.pack_end(
-            &gtk::MenuButtonBuilder::new()
-                .image(&gtk::Image::new_from_icon_name(
-                    Some("document-properties-symbolic"),
-                    gtk::IconSize::Menu,
-                ))
-                .popover(&self.document_properties)
-                .build(),
-        );
+        self.build_headerbar(window);
         window.set_titlebar(Some(&self.header_bar));
 
         // Document Properties
-        let document_properties_box = gtk::BoxBuilder::new()
-            .orientation(gtk::Orientation::Vertical)
-            .spacing(4)
-            .margin(8)
-            .build();
-        {
-            let parent_size_box = gtk::Box::new(gtk::Orientation::Horizontal, 4);
-            self.parent_size.connect_value_changed(|a| {
-                super::emit(Lang::UserIOEvent(UserIOEvent::SetParentSize(
-                    a.get_value() as u32
-                )));
-            });
-            parent_size_box.add(&gtk::Label::new(Some("Size")));
-            parent_size_box.add(
-                &gtk::SpinButtonBuilder::new()
-                    .adjustment(&self.parent_size)
-                    .build(),
-            );
-            let quick_sizes = gtk::ButtonBoxBuilder::new()
-                .layout_style(gtk::ButtonBoxStyle::Expand)
-                .build();
-            for (lbl, res) in [("½k", 512), ("1k", 1024), ("2k", 2048), ("4k", 4096)].iter() {
-                let btn = gtk::Button::new_with_label(lbl);
-                btn.connect_clicked(
-                    clone!(@strong self.parent_size as psize => move |_| psize.set_value(*res as f64)),
-                );
-                quick_sizes.add(&btn);
-            }
-            parent_size_box.add(&quick_sizes);
-            document_properties_box.add(&parent_size_box);
-        }
-        self.document_properties.add(&document_properties_box);
-        self.document_properties.show_all();
+        self.build_document_properties();
 
         // Main Views
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -288,6 +182,136 @@ impl SurfaceLabWindowPrivate {
         }
         dialog.close();
     }
+
+    fn build_headerbar(&self, window: &gtk::ApplicationWindow) {
+        self.header_bar.pack_start(&{
+            let new_button = gtk::ButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("document-new-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build();
+            new_button.connect_clicked(|_| super::emit(Lang::UserIOEvent(UserIOEvent::NewSurface)));
+            new_button
+        });
+        self.header_bar.pack_start(&{
+            let btn_box = gtk::ButtonBoxBuilder::new()
+                .layout_style(gtk::ButtonBoxStyle::Expand)
+                .homogeneous(false)
+                .build();
+            let open = gtk::Button::new_with_label("Open");
+            open.connect_clicked(clone!(@weak window => move |_| {
+                Self::run_open_dialog(&window)
+            }));
+            let recent = gtk::MenuButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("pan-down-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build();
+            btn_box.add(&open);
+            btn_box.add(&recent);
+            btn_box
+        });
+        self.header_bar.pack_start(&{
+            let btn_box = gtk::ButtonBoxBuilder::new()
+                .layout_style(gtk::ButtonBoxStyle::Expand)
+                .homogeneous(false)
+                .build();
+            let save = gtk::Button::new_with_label("Save");
+            save.connect_clicked(clone!(@weak window => move |_| {
+                Self::run_save_dialog(&window)
+            }));
+            let recent = gtk::MenuButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("pan-down-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build();
+            let export = gtk::Button::new_from_icon_name(
+                Some("insert-object-symbolic"),
+                gtk::IconSize::Menu,
+            );
+
+            export.connect_clicked(|_| {
+                super::emit(Lang::UserIOEvent(UserIOEvent::RequestExport(None)));
+            });
+
+            btn_box.add(&save);
+            btn_box.add(&recent);
+            btn_box.add(&export);
+            btn_box
+        });
+
+        self.header_bar.pack_end(
+            &gtk::MenuButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("open-menu-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build(),
+        );
+        self.header_bar.pack_end(
+            &gtk::MenuButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("document-properties-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .popover(&self.document_properties)
+                .build(),
+        );
+        self.header_bar.pack_end(&{
+            let btn_box = gtk::ButtonBoxBuilder::new()
+                .layout_style(gtk::ButtonBoxStyle::Expand)
+                .homogeneous(false)
+                .build();
+            let graph_properties = gtk::MenuButtonBuilder::new()
+                .image(&gtk::Image::new_from_icon_name(
+                    Some("network-wired-symbolic"),
+                    gtk::IconSize::Menu,
+                ))
+                .build();
+            btn_box.add(&graph_properties);
+            btn_box.add(&self.graph_select);
+            btn_box
+        });
+    }
+
+    fn build_document_properties(&self) {
+        let document_properties_box = gtk::BoxBuilder::new()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(4)
+            .margin(8)
+            .build();
+
+        let parent_size_box = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+        self.parent_size.connect_value_changed(|a| {
+            super::emit(Lang::UserIOEvent(UserIOEvent::SetParentSize(
+                a.get_value() as u32
+            )));
+        });
+        parent_size_box.add(&gtk::Label::new(Some("Size")));
+        parent_size_box.add(
+            &gtk::SpinButtonBuilder::new()
+                .adjustment(&self.parent_size)
+                .build(),
+        );
+        let quick_sizes = gtk::ButtonBoxBuilder::new()
+            .layout_style(gtk::ButtonBoxStyle::Expand)
+            .build();
+        for (lbl, res) in [("½k", 512), ("1k", 1024), ("2k", 2048), ("4k", 4096)].iter() {
+            let btn = gtk::Button::new_with_label(lbl);
+            btn.connect_clicked(
+                clone!(@strong self.parent_size as psize => move |_| psize.set_value(*res as f64)),
+            );
+            quick_sizes.add(&btn);
+        }
+        parent_size_box.add(&quick_sizes);
+        document_properties_box.add(&parent_size_box);
+
+        self.document_properties.add(&document_properties_box);
+        self.document_properties.show_all();
+    }
 }
 
 impl WidgetImpl for SurfaceLabWindowPrivate {}
@@ -371,6 +395,7 @@ impl ApplicationImpl for SurfaceLabApplicationPrivate {
         self.window
             .set(window)
             .expect("Failed to initialize application window");
+        super::emit(Lang::UserIOEvent(UserIOEvent::NewSurface));
     }
 }
 
@@ -414,6 +439,11 @@ impl SurfaceLabApplication {
     pub fn process_event(&self, event: Arc<Lang>) {
         let app_window = self.get_app_window();
         match &*event {
+            Lang::GraphEvent(GraphEvent::GraphAdded(res)) => {
+                app_window
+                    .graph_select
+                    .append_text(&res.path().display().to_string());
+            }
             Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pos, _)) => {
                 let new_node = node::Node::new_from_operator(op.clone(), res.clone());
                 app_window

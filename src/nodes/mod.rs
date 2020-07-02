@@ -198,15 +198,17 @@ impl NodeManager {
             }
             Lang::UserIOEvent(UserIOEvent::NewSurface) => {
                 self.graphs.clear();
-                self.graphs.insert("base".to_string(), nodegraph::NodeGraph::new("base"));
+                self.graphs
+                    .insert("base".to_string(), nodegraph::NodeGraph::new("base"));
                 response.push(Lang::GraphEvent(GraphEvent::Cleared));
+                response.push(Lang::GraphEvent(GraphEvent::GraphAdded(Resource::graph(
+                    "base", None,
+                ))));
             }
             Lang::UserIOEvent(UserIOEvent::SetParentSize(size)) => {
                 self.parent_size = *size;
                 for g in self.graphs.values_mut() {
-                    response.append(
-                        &mut g.resize_all(self.parent_size),
-                    );
+                    response.append(&mut g.resize_all(self.parent_size));
                 }
 
                 // Recompute on size change

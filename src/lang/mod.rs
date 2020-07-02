@@ -149,6 +149,7 @@ pub enum UserNodeEvent {
 
 #[derive(Debug)]
 pub enum GraphEvent {
+    GraphAdded(Resource),
     NodeAdded(Resource, Operator, Option<(i32, i32)>, u32),
     NodeRemoved(Resource),
     NodeRenamed(Resource, Resource),
