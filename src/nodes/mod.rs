@@ -167,6 +167,15 @@ impl NodeManager {
                     };
                 }
             },
+            Lang::UserGraphEvent(event) => match event {
+                UserGraphEvent::AddGraph(name) => {
+                    self.graphs
+                        .insert(name.clone(), nodegraph::NodeGraph::new(&name));
+                    response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphAdded(
+                        Resource::graph(name, None),
+                    )));
+                }
+            },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {
                 let exportable = self.graphs.get_mut("base").unwrap().get_output_sockets();

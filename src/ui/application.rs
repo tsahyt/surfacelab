@@ -309,6 +309,27 @@ impl SurfaceLabWindowPrivate {
         parent_size_box.add(&quick_sizes);
         document_properties_box.add(&parent_size_box);
 
+        let graph_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        graph_box.get_style_context().add_class("linked");
+        graph_box.set_hexpand(true);
+        let graph_name = gtk::Entry::new();
+        graph_box.add(&graph_name);
+        let graph_add = gtk::Button::new_with_label("Add Graph");
+        graph_add.connect_clicked(clone!(@strong graph_name => move |_|
+        super::emit(Lang::UserGraphEvent(
+            UserGraphEvent::AddGraph(
+                graph_name.get_text().to_string()
+            )))));
+        graph_box.add(&graph_add);
+        let layer_add = gtk::Button::new_with_label("Add Layer");
+        layer_add.connect_clicked(clone!(@strong graph_name => move |_|
+        super::emit(Lang::UserGraphEvent(
+            UserGraphEvent::AddGraph(
+                graph_name.get_text().to_string()
+            )))));
+        graph_box.add(&layer_add);
+        document_properties_box.add(&graph_box);
+
         self.document_properties.add(&document_properties_box);
         self.document_properties.show_all();
     }
@@ -469,6 +490,7 @@ impl SurfaceLabApplication {
             }
             Lang::GraphEvent(GraphEvent::Cleared) => {
                 app_window.node_area.clear();
+                app_window.graph_select.remove_all();
             }
             Lang::ComputeEvent(ComputeEvent::ThumbnailGenerated(res, thumb)) => {
                 app_window.node_area.update_thumbnail(res, thumb);

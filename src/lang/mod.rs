@@ -147,6 +147,11 @@ pub enum UserNodeEvent {
 }
 
 #[derive(Debug)]
+pub enum UserGraphEvent {
+    AddGraph(String),
+}
+
+#[derive(Debug)]
 pub enum GraphEvent {
     GraphAdded(Resource),
     NodeAdded(Resource, Operator, Option<(i32, i32)>, u32),
@@ -272,6 +277,7 @@ pub enum UIEvent {
 #[derive(Debug)]
 pub enum Lang {
     UserNodeEvent(UserNodeEvent),
+    UserGraphEvent(UserGraphEvent),
     UserRenderEvent(UserRenderEvent),
     UserIOEvent(UserIOEvent),
     UIEvent(UIEvent),
