@@ -144,7 +144,6 @@ pub enum UserNodeEvent {
     RenameNode(Resource, Resource),
     OutputSizeChange(Resource, i32),
     OutputSizeAbsolute(Resource, bool),
-    ForceRecompute,
 }
 
 #[derive(Debug)]

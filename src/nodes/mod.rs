@@ -120,10 +120,6 @@ impl NodeManager {
                     let instructions = self.graphs.get_mut(graph).unwrap().linearize();
                     response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
                 }
-                UserNodeEvent::ForceRecompute => {
-                    let instructions = self.graphs.get_mut("base").unwrap().linearize();
-                    response.push(Lang::GraphEvent(GraphEvent::Recomputed(instructions)));
-                }
                 UserNodeEvent::PositionNode(res, (x, y)) => {
                     let node = res.file().unwrap();
                     let graph = res.directory().unwrap();
