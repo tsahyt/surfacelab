@@ -110,28 +110,6 @@ impl ObjectImpl for SurfaceLabWindowPrivate {
             btn_box.add(&export);
             btn_box
         });
-        self.header_bar
-            .pack_start(&gtk::Separator::new(gtk::Orientation::Vertical));
-        self.header_bar.pack_start(&{
-            let btn_box = gtk::ButtonBoxBuilder::new()
-                .layout_style(gtk::ButtonBoxStyle::Expand)
-                .build();
-            let undo = gtk::ButtonBuilder::new()
-                .image(&gtk::Image::new_from_icon_name(
-                    Some("edit-undo-symbolic"),
-                    gtk::IconSize::Menu,
-                ))
-                .build();
-            let redo = gtk::ButtonBuilder::new()
-                .image(&gtk::Image::new_from_icon_name(
-                    Some("edit-redo-symbolic"),
-                    gtk::IconSize::Menu,
-                ))
-                .build();
-            btn_box.add(&undo);
-            btn_box.add(&redo);
-            btn_box
-        });
 
         self.header_bar.pack_end(
             &gtk::MenuButtonBuilder::new()
