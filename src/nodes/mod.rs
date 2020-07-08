@@ -194,7 +194,7 @@ impl NodeManager {
                 ))));
             }
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
-                match self.open_node_graph(path) {
+                match self.open_surface(path) {
                     Ok(mut evs) => {
                         response.push(Lang::GraphEvent(GraphEvent::Cleared));
                         response.append(&mut evs);
@@ -207,7 +207,7 @@ impl NodeManager {
                 }
             }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(path)) => {
-                if let Err(e) = self.save_node_graph(path) {
+                if let Err(e) = self.save_surface(path) {
                     log::error!("{}", e)
                 }
             }

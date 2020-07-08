@@ -1,5 +1,5 @@
 use super::{nodegraph, NodeManager};
-use crate::lang::Lang;
+use crate::lang::{GraphEvent, Lang, Resource, UserGraphEvent};
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -14,7 +14,7 @@ struct SurfaceFile<'a> {
 }
 
 impl NodeManager {
-    pub fn save_node_graph<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<(), String> {
+    pub fn save_surface<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<(), String> {
         log::info!("Saving to {:?}", path);
         let surf = SurfaceFile {
             parent_size: self.parent_size,
@@ -25,7 +25,7 @@ impl NodeManager {
         serde_cbor::to_writer(output_file, &surf).map_err(|e| format!("Saving failed with {}", e))
     }
 
-    pub fn open_node_graph<P: AsRef<Path> + std::fmt::Debug>(
+    pub fn open_surface<P: AsRef<Path> + std::fmt::Debug>(
         &mut self,
         path: P,
     ) -> Result<Vec<Lang>, String> {
@@ -38,10 +38,21 @@ impl NodeManager {
         // Rebuilding internal structures
         self.graphs = surf.graphs.into_owned();
         self.parent_size = surf.parent_size;
-        Ok(self
-            .graphs
-            .get("base")
-            .unwrap()
-            .rebuild_events(self.parent_size))
+
+        // Rebuild events for all graphs in the surface file
+        let mut events = Vec::new();
+        for (name, graph) in self.graphs.iter() {
+            events.push(Lang::GraphEvent(GraphEvent::GraphAdded(Resource::graph(
+                &name, None,
+            ))));
+            events.append(&mut graph.rebuild_events(self.parent_size));
+        }
+
+        // Finally make sure base is picked
+        events.push(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
+            Resource::graph("base", None),
+        )));
+
+        Ok(events)
     }
 }
