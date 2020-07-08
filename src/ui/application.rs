@@ -271,6 +271,14 @@ impl SurfaceLabWindowPrivate {
                     gtk::IconSize::Menu,
                 ))
                 .build();
+            self.graph_select.connect_changed(|w| {
+                let selected = w
+                    .get_active_text()
+                    .map(|x| x.to_string())
+                    .unwrap_or("base".to_string());
+                let res = Resource::graph(selected, None);
+                super::emit(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(res)));
+            });
             btn_box.add(&graph_properties);
             btn_box.add(&self.graph_select);
             btn_box
@@ -461,9 +469,9 @@ impl SurfaceLabApplication {
         let app_window = self.get_app_window();
         match &*event {
             Lang::GraphEvent(GraphEvent::GraphAdded(res)) => {
-                app_window
-                    .graph_select
-                    .append_text(&res.path().display().to_string());
+                let name = res.path().display().to_string();
+                app_window.graph_select.append(Some(&name), &name);
+                app_window.graph_select.set_active_id(Some(&name));
             }
             Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pos, _)) => {
                 let new_node = node::Node::new_from_operator(op.clone(), res.clone());
@@ -492,11 +500,27 @@ impl SurfaceLabApplication {
                 app_window.node_area.clear();
                 app_window.graph_select.remove_all();
             }
+            Lang::GraphEvent(GraphEvent::Report(nodes, connections)) => {
+                for (res, op, pos) in nodes {
+                    let new_node = node::Node::new_from_operator(op.clone(), res.clone());
+                    app_window.node_area.add_at(&new_node, *pos);
+                    new_node.show_all();
+                }
+
+                for (source, sink) in connections {
+                    app_window
+                        .node_area
+                        .add_connection(source.clone(), sink.clone());
+                }
+            }
             Lang::ComputeEvent(ComputeEvent::ThumbnailGenerated(res, thumb)) => {
                 app_window.node_area.update_thumbnail(res, thumb);
             }
             Lang::UserIOEvent(UserIOEvent::RequestExport(Some(exp))) => {
                 app_window.run_export_dialog(&exp);
+            }
+            Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(res)) => {
+                app_window.node_area.change_graph(res);
             }
             _ => {}
         }

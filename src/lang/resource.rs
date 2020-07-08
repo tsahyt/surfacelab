@@ -123,6 +123,10 @@ impl Resource {
         &self.resource_path
     }
 
+    pub fn path_str(&self) -> Option<&str> {
+        self.path().to_str()
+    }
+
     pub fn unregistered_node() -> Resource {
         Resource {
             scheme: Scheme::Node,

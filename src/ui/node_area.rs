@@ -261,6 +261,11 @@ impl NodeAreaPrivate {
             children.insert(to.clone(), child);
         }
     }
+
+    fn change_graph(&self, container: &gtk::Container, graph: &Resource) {
+        self.graph.replace(graph.clone());
+        self.clear(container);
+    }
 }
 
 impl WidgetImpl for NodeAreaPrivate {
@@ -436,6 +441,11 @@ impl NodeArea {
     pub fn clear(&self) {
         let imp = NodeAreaPrivate::from_instance(self);
         imp.clear(&self.upcast_ref::<gtk::Container>());
+    }
+
+    pub fn change_graph(&self, graph: &Resource) {
+        let imp = NodeAreaPrivate::from_instance(self);
+        imp.change_graph(&self.upcast_ref::<gtk::Container>(), graph);
     }
 }
 

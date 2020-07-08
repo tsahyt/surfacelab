@@ -149,6 +149,7 @@ pub enum UserNodeEvent {
 #[derive(Debug)]
 pub enum UserGraphEvent {
     AddGraph(String),
+    ChangeGraph(Resource),
 }
 
 #[derive(Debug)]
@@ -164,6 +165,10 @@ pub enum GraphEvent {
     SocketMonomorphized(Resource, ImageType),
     SocketDemonomorphized(Resource),
     OutputRemoved(Resource, OutputType),
+    Report(
+        Vec<(Resource, Operator, (i32, i32))>,
+        Vec<(Resource, Resource)>,
+    ),
     Cleared,
 }
 

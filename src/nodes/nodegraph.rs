@@ -209,6 +209,39 @@ impl NodeGraph {
         events
     }
 
+    pub fn nodes(&self) -> Vec<(Resource, Operator, (i32, i32))> {
+        self.graph
+            .node_indices()
+            .map(|idx| {
+                let node = self.graph.node_weight(idx).unwrap();
+                let res = self.node_resource(&idx);
+                (
+                    res,
+                    node.operator
+                        .to_atomic()
+                        .expect("Complex nodes are currently not supported")
+                        .clone(),
+                    node.position,
+                )
+            })
+            .collect()
+    }
+
+    pub fn connections(&self) -> Vec<(Resource, Resource)> {
+        self.graph
+            .edge_indices()
+            .map(|idx| {
+                let (source_idx, sink_idx) = self.graph.edge_endpoints(idx).unwrap();
+                let (source_socket, sink_socket) = self.graph.edge_weight(idx).unwrap();
+                (
+                    self.node_resource(&source_idx)
+                        .extend_fragment(source_socket),
+                    self.node_resource(&sink_idx).extend_fragment(sink_socket),
+                )
+            })
+            .collect()
+    }
+
     /// Reset, i.e. clear, the node graph entirely. This removes all nodes and
     /// connections.
     pub fn reset(&mut self) {

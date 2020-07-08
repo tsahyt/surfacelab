@@ -175,6 +175,16 @@ impl NodeManager {
                         Resource::graph(name, None),
                     )));
                 }
+                UserGraphEvent::ChangeGraph(res) => {
+                    let graph = self
+                        .graphs
+                        .get(res.path_str().unwrap())
+                        .expect("Node Graph not found");
+                    response.push(lang::Lang::GraphEvent(lang::GraphEvent::Report(
+                        graph.nodes(),
+                        graph.connections(),
+                    )));
+                }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {
