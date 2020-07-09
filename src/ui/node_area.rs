@@ -33,6 +33,7 @@ pub struct NodeAreaPrivate {
     connections: RefCell<Vec<Connection>>,
     action: Rc<Cell<Option<Action>>>,
     popover_context: gtk::Popover,
+    operator_list: gtk::ListBox,
     zoom: Rc<Cell<f64>>,
 }
 
@@ -79,6 +80,7 @@ impl ObjectSubclass for NodeAreaPrivate {
                 .modal(true)
                 .position(gtk::PositionType::Bottom)
                 .build(),
+            operator_list: gtk::ListBox::new(),
             zoom: Rc::new(Cell::new(0.0)),
         }
     }
@@ -96,7 +98,6 @@ impl ObjectImpl for NodeAreaPrivate {
         node_area.drag_dest_set_track_motion(true);
 
         // Context Popover
-        let lbox = gtk::ListBox::new();
         for (i, op) in Operator::all_default().iter().enumerate() {
             let row = gtk::ListBoxRow::new();
             let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 6);
@@ -110,9 +111,9 @@ impl ObjectImpl for NodeAreaPrivate {
             button.connect_clicked(clone!(@strong op, @strong self.graph as graph => move |_| {
                 super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(graph.borrow().clone(), op.clone())))
             }));
-            lbox.insert(&row, i as _);
+            self.operator_list.insert(&row, i as _);
         }
-        self.popover_context.add(&lbox);
+        self.popover_context.add(&self.operator_list);
     }
 }
 
@@ -265,6 +266,9 @@ impl NodeAreaPrivate {
     fn change_graph(&self, container: &gtk::Container, graph: &Resource) {
         self.graph.replace(graph.clone());
         self.clear(container);
+    }
+
+    fn register_complex_operator(&self) {
     }
 }
 
@@ -446,6 +450,11 @@ impl NodeArea {
     pub fn change_graph(&self, graph: &Resource) {
         let imp = NodeAreaPrivate::from_instance(self);
         imp.change_graph(&self.upcast_ref::<gtk::Container>(), graph);
+    }
+
+    pub fn register_complex_operator(&self) {
+        let imp = NodeAreaPrivate::from_instance(self);
+        imp.register_complex_operator();
     }
 }
 

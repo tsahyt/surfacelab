@@ -18,7 +18,6 @@ type Connections = Vec<(Resource, Resource)>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ComplexOperator {
     graph: Resource,
-    instance: ResourcePart,
 }
 
 /// Enum to differentiate between atomic and complex operators. An atomic

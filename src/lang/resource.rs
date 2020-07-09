@@ -8,6 +8,8 @@ pub type ResourcePart = String;
 pub enum Scheme {
     Node,
     Graph,
+    Parameter,
+    // TODO: Socket scheme
 }
 
 impl std::fmt::Display for Scheme {
@@ -15,6 +17,7 @@ impl std::fmt::Display for Scheme {
         match self {
             Self::Node => write!(f, "node"),
             Self::Graph => write!(f, "graph"),
+            Self::Parameter => write!(f, "param"),
         }
     }
 }
@@ -26,6 +29,7 @@ impl TryFrom<&str> for Scheme {
         match value {
             "node" => Ok(Self::Node),
             "graph" => Ok(Self::Graph),
+            "param" => Ok(Self::Parameter),
             _ => Err("Unknown Scheme"),
         }
     }

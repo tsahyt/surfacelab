@@ -281,14 +281,15 @@ impl Node {
             .unwrap()
     }
 
-    pub fn new_from_operator(op: Operator, resource: Resource) -> Self {
+    pub fn new_from_operator<T: Socketed + OperatorParamBox>(op: T, resource: Resource) -> Self {
         let node = Self::new();
         let priv_ = NodePrivate::from_instance(&node);
         priv_.header_label.set_label(op.title());
         priv_.resource.replace(resource.clone());
         priv_.popover_box.add(&node_attributes(
             priv_.resource.clone(),
-            !(op.is_output() || op.external_data()),
+            // TODO: !(op.is_output() || op.external_data()),
+            true,
         ));
         priv_.popover_box.add(&op.param_box(priv_.resource.clone()));
 
