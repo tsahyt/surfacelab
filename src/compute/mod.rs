@@ -454,12 +454,12 @@ where
                 self.sockets.connect_input(from, to);
             }
             Instruction::Execute(res, op) => match op {
-                Operator::Image(Image { path }) => {
+                AtomicOperator::Image(Image { path }) => {
                     if let Some(res) = self.execute_image(res, path)? {
                         response.push(res);
                     }
                 }
-                Operator::Output(..) => {
+                AtomicOperator::Output(..) => {
                     for res in self.execute_output(op, res)? {
                         response.push(res);
                     }
@@ -533,12 +533,12 @@ where
     // renderer is done copying them.
     fn execute_output(
         &mut self,
-        op: &Operator,
+        op: &AtomicOperator,
         res: &Resource,
     ) -> Result<Vec<ComputeEvent>, String> {
         let socket = "data";
         let output_type = match op {
-            Operator::Output(Output { output_type }) => output_type,
+            AtomicOperator::Output(Output { output_type }) => output_type,
             _ => panic!("Output execution on non-output"),
         };
 
@@ -663,7 +663,7 @@ where
 
     fn execute_operator(
         &mut self,
-        op: &Operator,
+        op: &AtomicOperator,
         res: &Resource,
     ) -> Result<Option<ComputeEvent>, String> {
         use shaders::Uniforms;

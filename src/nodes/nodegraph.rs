@@ -26,12 +26,12 @@ struct ComplexOperator {
 /// and of itself.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum NodeOperator {
-    Atomic(Operator),
+    Atomic(AtomicOperator),
     Complex(ComplexOperator),
 }
 
 impl NodeOperator {
-    pub fn to_atomic(&self) -> Option<&Operator> {
+    pub fn to_atomic(&self) -> Option<&AtomicOperator> {
         match self {
             Self::Atomic(op) => Some(op),
             _ => None,
@@ -88,7 +88,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(operator: Operator) -> Self {
+    pub fn new(operator: AtomicOperator) -> Self {
         Node {
             operator: NodeOperator::Atomic(operator),
             position: (0, 0),
@@ -208,7 +208,7 @@ impl NodeGraph {
         events
     }
 
-    pub fn nodes(&self) -> Vec<(Resource, Operator, (i32, i32))> {
+    pub fn nodes(&self) -> Vec<(Resource, AtomicOperator, (i32, i32))> {
         self.graph
             .node_indices()
             .map(|idx| {
@@ -265,7 +265,7 @@ impl NodeGraph {
     }
 
     /// Add a new node to the node graph, defined by the operator.
-    pub fn new_node(&mut self, op: &Operator, parent_size: u32) -> (String, u32) {
+    pub fn new_node(&mut self, op: &AtomicOperator, parent_size: u32) -> (String, u32) {
         let node_id = self.next_free_name(op.default_name());
 
         log::trace!(
@@ -311,7 +311,7 @@ impl NodeGraph {
         // Remove from output vector
         let operator = &self.graph.node_weight(node).unwrap().operator;
         let mut output_type = None;
-        if let NodeOperator::Atomic(Operator::Output(Output { output_type: ty })) = operator {
+        if let NodeOperator::Atomic(AtomicOperator::Output(Output { output_type: ty })) = operator {
             self.outputs.remove(&node);
             output_type = Some(*ty)
         }
@@ -658,7 +658,7 @@ impl NodeGraph {
             let node = self.graph.node_weight(node_index).unwrap();
             let res = self.node_resource(&node_index);
 
-            if let NodeOperator::Atomic(Operator::Output { .. }) = node.operator {
+            if let NodeOperator::Atomic(AtomicOperator::Output { .. }) = node.operator {
                 for input in node.operator.inputs().iter() {
                     if let Ok(OperatorType::Monomorphic(ty)) = node.monomorphic_type(&input.0) {
                         result.push((res.extend_fragment(&input.0), ty))

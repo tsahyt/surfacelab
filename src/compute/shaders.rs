@@ -169,7 +169,7 @@ where
         let mut shaders = HashMap::new();
         let mut pipelines = HashMap::new();
         let mut descriptor_sets = HashMap::new();
-        for op in lang::Operator::all_default() {
+        for op in lang::AtomicOperator::all_default() {
             log::trace!("Initializing operator {}", op.title());
             if let Some(operator_shader) = op.operator_shader() {
                 let shader: gpu::Shader<B> = gpu.create_shader(operator_shader.spirv)?;
@@ -192,12 +192,12 @@ where
         })
     }
 
-    pub fn pipeline_for(&self, op: &lang::Operator) -> &gpu::compute::ComputePipeline<B> {
+    pub fn pipeline_for(&self, op: &lang::AtomicOperator) -> &gpu::compute::ComputePipeline<B> {
         debug_assert!(op.default_name() != "image" && op.default_name() != "output");
         self.pipelines.get(op.default_name()).unwrap()
     }
 
-    pub fn descriptor_set_for(&self, op: &lang::Operator) -> &B::DescriptorSet {
+    pub fn descriptor_set_for(&self, op: &lang::AtomicOperator) -> &B::DescriptorSet {
         debug_assert!(op.default_name() != "image" && op.default_name() != "output");
         self.descriptor_sets.get(op.default_name()).unwrap()
     }
@@ -205,7 +205,7 @@ where
     /// Create descriptor set writes for given operator with its inputs and outputs.
     /// This assumes that all given inputs and outputs are already bound!
     pub fn write_desc<'a>(
-        op: &lang::Operator,
+        op: &lang::AtomicOperator,
         desc_set: &'a B::DescriptorSet,
         uniforms: &'a B::Buffer,
         sampler: &'a B::Sampler,

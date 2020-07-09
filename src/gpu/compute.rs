@@ -135,7 +135,7 @@ where
         // size large enough to accomodate all the nodes.
         let descriptor_pool = unsafe {
             use hal::pso::*;
-            let ops = crate::lang::Operator::all_default().len();
+            let ops = crate::lang::AtomicOperator::all_default().len();
 
             lock.device.create_descriptor_pool(
                 ops,

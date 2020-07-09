@@ -18,7 +18,7 @@ pub use socketed::*;
 
 #[enum_dispatch(Socketed, Parameters, Uniforms, Shader, OperatorParamBox)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Operator {
+pub enum AtomicOperator {
     Blend,
     PerlinNoise,
     Rgb,
@@ -29,11 +29,11 @@ pub enum Operator {
     Output,
 }
 
-impl Operator {
+impl AtomicOperator {
     /// Returns whether an operator can use external data.
     pub fn external_data(&self) -> bool {
         match self {
-            Operator::Image { .. } => true,
+            Self::Image { .. } => true,
             _ => false,
         }
     }
@@ -61,7 +61,7 @@ impl Operator {
 
 #[derive(Clone, Debug)]
 pub enum Instruction {
-    Execute(Resource, Operator),
+    Execute(Resource, AtomicOperator),
     Move(Resource, Resource),
 }
 
@@ -135,7 +135,7 @@ impl OperatorType {
 /// Events concerning node operation triggered by the user
 #[derive(Debug)]
 pub enum UserNodeEvent {
-    NewNode(Resource, Operator),
+    NewNode(Resource, AtomicOperator),
     RemoveNode(Resource),
     ConnectSockets(Resource, Resource),
     DisconnectSinkSocket(Resource),
@@ -155,7 +155,7 @@ pub enum UserGraphEvent {
 #[derive(Debug)]
 pub enum GraphEvent {
     GraphAdded(Resource),
-    NodeAdded(Resource, Operator, Option<(i32, i32)>, u32),
+    NodeAdded(Resource, AtomicOperator, Option<(i32, i32)>, u32),
     NodeRemoved(Resource),
     NodeRenamed(Resource, Resource),
     NodeResized(Resource, u32),
@@ -166,7 +166,7 @@ pub enum GraphEvent {
     SocketDemonomorphized(Resource),
     OutputRemoved(Resource, OutputType),
     Report(
-        Vec<(Resource, Operator, (i32, i32))>,
+        Vec<(Resource, AtomicOperator, (i32, i32))>,
         Vec<(Resource, Resource)>,
     ),
     Cleared,

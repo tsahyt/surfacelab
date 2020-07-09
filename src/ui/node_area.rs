@@ -98,7 +98,7 @@ impl ObjectImpl for NodeAreaPrivate {
         node_area.drag_dest_set_track_motion(true);
 
         // Context Popover
-        for (i, op) in Operator::all_default().iter().enumerate() {
+        for (i, op) in AtomicOperator::all_default().iter().enumerate() {
             let row = gtk::ListBoxRow::new();
             let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 6);
             let button =
