@@ -20,67 +20,9 @@ struct ComplexOperator {
     graph: Resource,
 }
 
-/// Enum to differentiate between atomic and complex operators. An atomic
-/// operator is an Operator proper as defined in the language module and
-/// understood by the compute components. A complex operator is a node graph in
-/// and of itself.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum NodeOperator {
-    Atomic(AtomicOperator),
-    Complex(ComplexOperator),
-}
-
-impl NodeOperator {
-    pub fn to_atomic(&self) -> Option<&AtomicOperator> {
-        match self {
-            Self::Atomic(op) => Some(op),
-            _ => None,
-        }
-    }
-}
-
-impl Socketed for NodeOperator {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
-        match self {
-            Self::Atomic(op) => op.inputs(),
-            _ => HashMap::new(),
-        }
-    }
-
-    fn outputs(&self) -> HashMap<String, OperatorType> {
-        match self {
-            Self::Atomic(op) => op.outputs(),
-            _ => HashMap::new(),
-        }
-    }
-
-    fn default_name<'a>(&'a self) -> &'static str {
-        match self {
-            Self::Atomic(op) => op.default_name(),
-            _ => "unknown",
-        }
-    }
-
-    fn title(&self) -> &'static str {
-        match self {
-            Self::Atomic(op) => op.title(),
-            _ => "Unknown",
-        }
-    }
-}
-
-impl Parameters for NodeOperator {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
-        match self {
-            Self::Atomic(op) => op.set_parameter(field, data),
-            _ => {}
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
-    operator: NodeOperator,
+    operator: Operator,
     position: (i32, i32),
     absolute_size: bool,
     size: i32,
@@ -90,7 +32,7 @@ pub struct Node {
 impl Node {
     pub fn new(operator: AtomicOperator) -> Self {
         Node {
-            operator: NodeOperator::Atomic(operator),
+            operator: Operator::AtomicOperator(operator),
             position: (0, 0),
             size: 0,
             absolute_size: false,
@@ -311,7 +253,7 @@ impl NodeGraph {
         // Remove from output vector
         let operator = &self.graph.node_weight(node).unwrap().operator;
         let mut output_type = None;
-        if let NodeOperator::Atomic(AtomicOperator::Output(Output { output_type: ty })) = operator {
+        if let Operator::AtomicOperator(AtomicOperator::Output(Output { output_type: ty })) = operator {
             self.outputs.remove(&node);
             output_type = Some(*ty)
         }
@@ -658,7 +600,7 @@ impl NodeGraph {
             let node = self.graph.node_weight(node_index).unwrap();
             let res = self.node_resource(&node_index);
 
-            if let NodeOperator::Atomic(AtomicOperator::Output { .. }) = node.operator {
+            if let Operator::AtomicOperator(AtomicOperator::Output { .. }) = node.operator {
                 for input in node.operator.inputs().iter() {
                     if let Ok(OperatorType::Monomorphic(ty)) = node.monomorphic_type(&input.0) {
                         result.push((res.extend_fragment(&input.0), ty))

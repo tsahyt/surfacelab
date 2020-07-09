@@ -59,6 +59,66 @@ impl AtomicOperator {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplexOperator {
+    graph: Resource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Operator {
+    AtomicOperator(AtomicOperator),
+    ComplexOperator(ComplexOperator)
+}
+
+impl Operator {
+    pub fn to_atomic(&self) -> Option<&AtomicOperator> {
+        match self {
+            Self::AtomicOperator(op) => Some(op),
+            _ => None,
+        }
+    }
+}
+
+impl Socketed for Operator {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        match self {
+            Self::AtomicOperator(op) => op.inputs(),
+            _ => HashMap::new(),
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        match self {
+            Self::AtomicOperator(op) => op.outputs(),
+            _ => HashMap::new(),
+        }
+    }
+
+    fn default_name<'a>(&'a self) -> &'static str {
+        match self {
+            Self::AtomicOperator(op) => op.default_name(),
+            _ => "unknown",
+        }
+    }
+
+    fn title(&self) -> &'static str {
+        match self {
+            Self::AtomicOperator(op) => op.title(),
+            _ => "Unknown",
+        }
+    }
+}
+
+impl Parameters for Operator {
+    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+        match self {
+            Self::AtomicOperator(op) => op.set_parameter(field, data),
+            _ => {}
+        }
+    }
+}
+
+
 #[derive(Clone, Debug)]
 pub enum Instruction {
     Execute(Resource, AtomicOperator),
