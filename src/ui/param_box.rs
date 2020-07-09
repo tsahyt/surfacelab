@@ -452,3 +452,13 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
 pub trait OperatorParamBox {
     fn param_box(&self, res: Rc<RefCell<Resource>>) -> ParamBox;
 }
+
+impl OperatorParamBox for ComplexOperator {
+    fn param_box(&self, res: Rc<RefCell<Resource>>) -> ParamBox {
+        ParamBox::new(&ParamBoxDescription {
+            box_title: "Complex",
+            resource: res.clone(),
+            categories: (&[] as &[ParamCategory<Field>]),
+        })
+    }
+}

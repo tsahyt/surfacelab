@@ -109,7 +109,11 @@ impl ObjectImpl for NodeAreaPrivate {
             row.add(&hbox);
 
             button.connect_clicked(clone!(@strong op, @strong self.graph as graph => move |_| {
-                super::emit(Lang::UserNodeEvent(UserNodeEvent::NewNode(graph.borrow().clone(), op.clone())))
+                super::emit(
+                    Lang::UserNodeEvent(
+                        UserNodeEvent::NewNode(graph.borrow().clone(),
+                                               Operator::AtomicOperator(op.clone()))
+                    ))
             }));
             self.operator_list.insert(&row, i as _);
         }
@@ -268,8 +272,7 @@ impl NodeAreaPrivate {
         self.clear(container);
     }
 
-    fn register_complex_operator(&self) {
-    }
+    fn register_complex_operator(&self) {}
 }
 
 impl WidgetImpl for NodeAreaPrivate {

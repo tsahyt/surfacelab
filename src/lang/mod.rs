@@ -64,10 +64,11 @@ pub struct ComplexOperator {
     graph: Resource,
 }
 
+#[enum_dispatch(OperatorParamBox)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Operator {
     AtomicOperator(AtomicOperator),
-    ComplexOperator(ComplexOperator)
+    ComplexOperator(ComplexOperator),
 }
 
 impl Operator {
@@ -117,7 +118,6 @@ impl Parameters for Operator {
         }
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub enum Instruction {
@@ -195,7 +195,7 @@ impl OperatorType {
 /// Events concerning node operation triggered by the user
 #[derive(Debug)]
 pub enum UserNodeEvent {
-    NewNode(Resource, AtomicOperator),
+    NewNode(Resource, Operator),
     RemoveNode(Resource),
     ConnectSockets(Resource, Resource),
     DisconnectSinkSocket(Resource),
@@ -215,7 +215,7 @@ pub enum UserGraphEvent {
 #[derive(Debug)]
 pub enum GraphEvent {
     GraphAdded(Resource),
-    NodeAdded(Resource, AtomicOperator, Option<(i32, i32)>, u32),
+    NodeAdded(Resource, Operator, Option<(i32, i32)>, u32),
     NodeRemoved(Resource),
     NodeRenamed(Resource, Resource),
     NodeResized(Resource, u32),

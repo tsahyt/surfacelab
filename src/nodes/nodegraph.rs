@@ -110,10 +110,7 @@ impl NodeGraph {
             let node = self.graph.node_weight(idx).unwrap();
             events.push(Lang::GraphEvent(GraphEvent::NodeAdded(
                 self.node_resource(&idx),
-                node.operator
-                    .to_atomic()
-                    .expect("Complex operators not yet supported in file IO")
-                    .clone(),
+                node.operator.clone(),
                 Some(node.position),
                 node.node_size(parent_size) as u32,
             )));
@@ -253,7 +250,9 @@ impl NodeGraph {
         // Remove from output vector
         let operator = &self.graph.node_weight(node).unwrap().operator;
         let mut output_type = None;
-        if let Operator::AtomicOperator(AtomicOperator::Output(Output { output_type: ty })) = operator {
+        if let Operator::AtomicOperator(AtomicOperator::Output(Output { output_type: ty })) =
+            operator
+        {
             self.outputs.remove(&node);
             output_type = Some(*ty)
         }
