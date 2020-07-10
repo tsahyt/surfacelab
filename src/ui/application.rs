@@ -475,7 +475,9 @@ impl SurfaceLabApplication {
                 let name = res.path().display().to_string();
                 app_window.graph_select.append(Some(&name), &name);
                 app_window.graph_select.set_active_id(Some(&name));
-                app_window.node_area.register_complex_operator(ComplexOperator::new(res.clone()));
+                app_window
+                    .node_area
+                    .register_complex_operator(ComplexOperator::new(res.clone()));
             }
             Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pos, _)) => {
                 let new_node = node::Node::new_from_operator(op.clone(), res.clone());

@@ -61,14 +61,21 @@ impl AtomicOperator {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplexOperator {
-    graph: Resource,
+    pub graph: Resource,
     title: String,
+    pub inputs: HashMap<String, OperatorType>,
+    pub outputs: HashMap<String, OperatorType>,
 }
 
 impl ComplexOperator {
     pub fn new(graph: Resource) -> Self {
         ComplexOperator {
-            title: graph.file().map(|x| x.to_string()).unwrap_or("Unnamed Graph".to_string()),
+            title: graph
+                .file()
+                .map(|x| x.to_string())
+                .unwrap_or("Unnamed Graph".to_string()),
+            inputs: HashMap::new(),
+            outputs: HashMap::new(),
             graph,
         }
     }
@@ -76,11 +83,11 @@ impl ComplexOperator {
 
 impl Socketed for ComplexOperator {
     fn inputs(&self) -> HashMap<String, OperatorType> {
-        HashMap::new()
+        self.inputs.clone()
     }
 
     fn outputs(&self) -> HashMap<String, OperatorType> {
-        HashMap::new()
+        self.outputs.clone()
     }
 
     fn title(&self) -> &str {
@@ -175,7 +182,7 @@ impl Default for OutputType {
 
 pub type TypeVariable = u8;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum OperatorType {
     Monomorphic(ImageType),
     Polymorphic(TypeVariable),

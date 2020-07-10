@@ -30,11 +30,22 @@ impl NodeManager {
             Lang::UserNodeEvent(event) => match event {
                 UserNodeEvent::NewNode(graph, op) => {
                     let graph_name = graph.path().to_str().unwrap();
+
+                    let op = match op {
+                        lang::Operator::ComplexOperator(co) => {
+                            let mut co = co.clone();
+                            co.outputs =
+                                self.graphs.get(co.graph.file().unwrap()).unwrap().outputs();
+                            lang::Operator::ComplexOperator(co)
+                        }
+                        lang::Operator::AtomicOperator(_) => op.clone(),
+                    };
+
                     let (node_id, size) = self
                         .graphs
                         .get_mut(graph_name)
                         .unwrap()
-                        .new_node(op, self.parent_size);
+                        .new_node(&op, self.parent_size);
                     response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
                         Resource::node(
                             [graph_name, &node_id]

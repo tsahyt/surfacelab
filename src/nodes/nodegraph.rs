@@ -94,6 +94,25 @@ impl NodeGraph {
         }
     }
 
+    pub fn outputs(&self) -> HashMap<String, OperatorType> {
+        let mut result = HashMap::new();
+
+        for idx in self.outputs.iter() {
+            let name = self.node_resource(idx).file().unwrap().to_string();
+            let ty = *self
+                .graph
+                .node_weight(*idx)
+                .unwrap()
+                .operator
+                .inputs()
+                .get("data")
+                .unwrap();
+            result.insert(name, ty);
+        }
+
+        result
+    }
+
     fn node_resource(&self, idx: &petgraph::graph::NodeIndex) -> Resource {
         Resource::node(
             [&self.name, self.indices.get_by_right(idx).unwrap()]
