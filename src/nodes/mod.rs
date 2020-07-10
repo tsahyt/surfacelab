@@ -34,7 +34,7 @@ impl NodeManager {
                         .graphs
                         .get_mut(graph_name)
                         .unwrap()
-                        .new_node(op.to_atomic().unwrap(), self.parent_size);
+                        .new_node(op, self.parent_size);
                     response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
                         Resource::node(
                             [graph_name, &node_id]

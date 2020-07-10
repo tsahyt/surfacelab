@@ -30,9 +30,9 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(operator: AtomicOperator) -> Self {
+    pub fn new(operator: Operator) -> Self {
         Node {
-            operator: Operator::AtomicOperator(operator),
+            operator,
             position: (0, 0),
             size: 0,
             absolute_size: false,
@@ -204,7 +204,7 @@ impl NodeGraph {
     }
 
     /// Add a new node to the node graph, defined by the operator.
-    pub fn new_node(&mut self, op: &AtomicOperator, parent_size: u32) -> (String, u32) {
+    pub fn new_node(&mut self, op: &Operator, parent_size: u32) -> (String, u32) {
         let node_id = self.next_free_name(op.default_name());
 
         log::trace!(
@@ -217,7 +217,7 @@ impl NodeGraph {
         let idx = self.graph.add_node(node);
         self.indices.insert(node_id.clone(), idx);
 
-        if op.is_output() {
+        if op.to_atomic().map(|x| x.is_output()).unwrap_or(false) {
             self.outputs.insert(idx);
         }
 

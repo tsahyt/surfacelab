@@ -99,22 +99,7 @@ impl ObjectImpl for NodeAreaPrivate {
 
         // Context Popover
         for (i, op) in AtomicOperator::all_default().iter().enumerate() {
-            let row = gtk::ListBoxRow::new();
-            let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-            let button =
-                gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Menu);
-
-            hbox.add(&gtk::Label::new(Some(op.title())));
-            hbox.add(&button);
-            row.add(&hbox);
-
-            button.connect_clicked(clone!(@strong op, @strong self.graph as graph => move |_| {
-                super::emit(
-                    Lang::UserNodeEvent(
-                        UserNodeEvent::NewNode(graph.borrow().clone(),
-                                               Operator::AtomicOperator(op.clone()))
-                    ))
-            }));
+            let row = self.operator_row(Operator::AtomicOperator(op.clone()));
             self.operator_list.insert(&row, i as _);
         }
         self.popover_context.add(&self.operator_list);
@@ -122,6 +107,26 @@ impl ObjectImpl for NodeAreaPrivate {
 }
 
 impl NodeAreaPrivate {
+    fn operator_row(&self, op: Operator) -> gtk::ListBoxRow {
+        let row = gtk::ListBoxRow::new();
+        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        let button =
+            gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Menu);
+
+        hbox.add(&gtk::Label::new(Some(op.title())));
+        hbox.add(&button);
+        row.add(&hbox);
+
+        button.connect_clicked(clone!(@strong op, @strong self.graph as graph => move |_| {
+            super::emit(
+                Lang::UserNodeEvent(
+                    UserNodeEvent::NewNode(graph.borrow().clone(), op.clone())
+                ))
+        }));
+
+        row
+    }
+
     fn connecting_curve(cr: &cairo::Context, source: (f64, f64), sink: (f64, f64)) {
         cr.move_to(source.0, source.1);
         let d = (sink.0 - source.0).abs() / 2.0;
@@ -272,7 +277,10 @@ impl NodeAreaPrivate {
         self.clear(container);
     }
 
-    fn register_complex_operator(&self) {}
+    fn register_complex_operator(&self, op: ComplexOperator) {
+        let row = self.operator_row(Operator::ComplexOperator(op));
+        self.operator_list.insert(&row, -1);
+    }
 }
 
 impl WidgetImpl for NodeAreaPrivate {
@@ -455,9 +463,9 @@ impl NodeArea {
         imp.change_graph(&self.upcast_ref::<gtk::Container>(), graph);
     }
 
-    pub fn register_complex_operator(&self) {
+    pub fn register_complex_operator(&self, op: ComplexOperator) {
         let imp = NodeAreaPrivate::from_instance(self);
-        imp.register_complex_operator();
+        imp.register_complex_operator(op);
     }
 }
 

@@ -64,6 +64,14 @@ pub struct ComplexOperator {
     graph: Resource,
 }
 
+impl ComplexOperator {
+    pub fn new(graph: Resource) -> Self {
+        ComplexOperator {
+            graph
+        }
+    }
+}
+
 #[enum_dispatch(OperatorParamBox)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Operator {
