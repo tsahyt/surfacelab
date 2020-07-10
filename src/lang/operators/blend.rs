@@ -72,11 +72,11 @@ impl Socketed for Blend {
         }
     }
 
-    fn default_name(&self) -> &'static str {
+    fn default_name(&self) -> &str {
         "blend"
     }
 
-    fn title(&self) -> &'static str {
+    fn title(&self) -> &str {
         "Blend"
     }
 }

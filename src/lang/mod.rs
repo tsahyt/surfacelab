@@ -62,17 +62,37 @@ impl AtomicOperator {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplexOperator {
     graph: Resource,
+    title: String,
 }
 
 impl ComplexOperator {
     pub fn new(graph: Resource) -> Self {
         ComplexOperator {
-            graph
+            title: graph.file().map(|x| x.to_string()).unwrap_or("Unnamed Graph".to_string()),
+            graph,
         }
     }
 }
 
-#[enum_dispatch(OperatorParamBox)]
+impl Socketed for ComplexOperator {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        HashMap::new()
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        HashMap::new()
+    }
+
+    fn title(&self) -> &str {
+        &self.title
+    }
+
+    fn default_name<'a>(&'a self) -> &str {
+        self.graph.file().unwrap_or("unknown")
+    }
+}
+
+#[enum_dispatch(Socketed, OperatorParamBox)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Operator {
     AtomicOperator(AtomicOperator),
@@ -84,36 +104,6 @@ impl Operator {
         match self {
             Self::AtomicOperator(op) => Some(op),
             _ => None,
-        }
-    }
-}
-
-impl Socketed for Operator {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
-        match self {
-            Self::AtomicOperator(op) => op.inputs(),
-            _ => HashMap::new(),
-        }
-    }
-
-    fn outputs(&self) -> HashMap<String, OperatorType> {
-        match self {
-            Self::AtomicOperator(op) => op.outputs(),
-            _ => HashMap::new(),
-        }
-    }
-
-    fn default_name<'a>(&'a self) -> &'static str {
-        match self {
-            Self::AtomicOperator(op) => op.default_name(),
-            _ => "unknown",
-        }
-    }
-
-    fn title(&self) -> &'static str {
-        match self {
-            Self::AtomicOperator(op) => op.title(),
-            _ => "Unknown",
         }
     }
 }

@@ -175,7 +175,7 @@ impl Transmitter for ResourceField {
 }
 
 pub struct ParamBoxDescription<'a, T: Transmitter> {
-    pub box_title: &'static str,
+    pub box_title: &'a str,
     pub resource: Rc<RefCell<Resource>>,
     pub categories: &'a [ParamCategory<'a, T>],
 }

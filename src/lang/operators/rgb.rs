@@ -37,11 +37,11 @@ impl Socketed for Rgb {
         }
     }
 
-    fn default_name(&self) -> &'static str {
+    fn default_name(&self) -> &str {
         "rgb"
     }
 
-    fn title(&self) -> &'static str {
+    fn title(&self) -> &str {
         "RGB Color"
     }
 }

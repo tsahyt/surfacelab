@@ -40,11 +40,11 @@ impl Socketed for PerlinNoise {
         }
     }
 
-    fn default_name(&self) -> &'static str {
+    fn default_name(&self) -> &str {
         "perlin_noise"
     }
 
-    fn title(&self) -> &'static str {
+    fn title(&self) -> &str {
         "Perlin Noise"
     }
 }

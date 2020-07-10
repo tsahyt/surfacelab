@@ -65,11 +65,11 @@ impl Socketed for Grayscale {
         }
     }
 
-    fn default_name(&self) -> &'static str {
+    fn default_name(&self) -> &str {
         "grayscale"
     }
 
-    fn title(&self) -> &'static str {
+    fn title(&self) -> &str {
         "Grayscale"
     }
 }

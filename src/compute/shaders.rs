@@ -155,9 +155,9 @@ impl Uniforms for lang::Output {
 }
 
 pub struct ShaderLibrary<B: gpu::Backend> {
-    _shaders: HashMap<&'static str, gpu::Shader<B>>,
-    pipelines: HashMap<&'static str, gpu::compute::ComputePipeline<B>>,
-    descriptor_sets: HashMap<&'static str, B::DescriptorSet>,
+    _shaders: HashMap<String, gpu::Shader<B>>,
+    pipelines: HashMap<String, gpu::compute::ComputePipeline<B>>,
+    descriptor_sets: HashMap<String, B::DescriptorSet>,
 }
 
 impl<B> ShaderLibrary<B>
@@ -177,9 +177,9 @@ where
                     gpu.create_pipeline(&shader, operator_shader.layout())?;
                 let desc_set = gpu.allocate_descriptor_set(pipeline.set_layout())?;
 
-                shaders.insert(op.default_name(), shader);
-                pipelines.insert(op.default_name(), pipeline);
-                descriptor_sets.insert(op.default_name(), desc_set);
+                shaders.insert(op.default_name().to_string(), shader);
+                pipelines.insert(op.default_name().to_string(), pipeline);
+                descriptor_sets.insert(op.default_name().to_string(), desc_set);
             }
         }
 

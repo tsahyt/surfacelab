@@ -18,6 +18,7 @@ pub struct SurfaceLabWindowPrivate {
     graph_select: gtk::ComboBoxText,
     header_bar: gtk::HeaderBar,
     document_properties: gtk::Popover,
+    graph_properties: gtk::Popover,
     parent_size: gtk::Adjustment,
 }
 
@@ -38,6 +39,7 @@ impl ObjectSubclass for SurfaceLabWindowPrivate {
                 .title("SurfaceLab")
                 .build(),
             document_properties: gtk::Popover::new(None::<&gtk::Widget>),
+            graph_properties: gtk::Popover::new(None::<&gtk::Widget>),
             parent_size: gtk::Adjustment::new(1024.0, 32.0, 16384.0, 32.0, 512.0, 1024.0),
         }
     }
@@ -270,6 +272,7 @@ impl SurfaceLabWindowPrivate {
                     Some("network-wired-symbolic"),
                     gtk::IconSize::Menu,
                 ))
+                .popover(&self.graph_properties)
                 .build();
             self.graph_select.connect_changed(|w| {
                 let selected = w

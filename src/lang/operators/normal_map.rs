@@ -37,11 +37,11 @@ impl Socketed for NormalMap {
         }
     }
 
-    fn default_name(&self) -> &'static str {
+    fn default_name(&self) -> &str {
         "normal_map"
     }
 
-    fn title(&self) -> &'static str {
+    fn title(&self) -> &str {
         "Normal Map"
     }
 }

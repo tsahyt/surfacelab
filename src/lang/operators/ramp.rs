@@ -119,11 +119,11 @@ impl Socketed for Ramp {
         }
     }
 
-    fn default_name(&self) -> &'static str {
+    fn default_name(&self) -> &str {
         "ramp"
     }
 
-    fn title(&self) -> &'static str {
+    fn title(&self) -> &str {
         "Ramp"
     }
 }

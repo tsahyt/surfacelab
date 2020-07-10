@@ -18,7 +18,7 @@ pub trait Socketed {
             .collect()
     }
 
-    fn default_name<'a>(&'a self) -> &'static str;
+    fn default_name<'a>(&'a self) -> &'a str;
 
-    fn title(&self) -> &'static str;
+    fn title<'a>(&'a self) -> &'a str;
 }
