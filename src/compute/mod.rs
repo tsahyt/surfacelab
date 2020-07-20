@@ -380,8 +380,10 @@ where
                     self.sockets
                         .reinit_output_images(res, &mut self.gpu, *new_size as u32);
                 }
-                GraphEvent::Recomputed(graph, instrs) => {
+                GraphEvent::Relinearized(graph, instrs) => {
                     self.linearizations.insert(graph.clone(), instrs.clone());
+                }
+                GraphEvent::Recompute(graph) => {
                     match self.interpret_linearization(graph) {
                         Err(e) => {
                             log::error!("Error during compute interpretation: {}", e);
