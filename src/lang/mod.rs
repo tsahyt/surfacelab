@@ -226,7 +226,7 @@ pub enum GraphEvent {
     NodeResized(Resource, u32),
     ConnectedSockets(Resource, Resource),
     DisconnectedSockets(Resource, Resource),
-    Recomputed(Vec<Instruction>),
+    Recomputed(Resource, Vec<Instruction>),
     SocketMonomorphized(Resource, ImageType),
     SocketDemonomorphized(Resource),
     OutputRemoved(Resource, OutputType),

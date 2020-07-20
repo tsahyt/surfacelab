@@ -304,9 +304,15 @@ where
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
 
+    /// Sockets contain all the relevant information for individual node outputs
+    /// and inputs.
     sockets: Sockets<B>,
+
     shader_library: shaders::ShaderLibrary<B>,
     external_images: HashMap<std::path::PathBuf, ExternalImage>,
+
+    /// Last known linearization of a graph
+    linearizations: HashMap<Resource, Vec<Instruction>>,
 
     /// Number of executions, kept for cache invalidation
     seq: u64,
@@ -329,6 +335,7 @@ where
             sockets: Sockets::new(),
             shader_library,
             external_images: HashMap::new(),
+            linearizations: HashMap::new(),
             seq: 0,
             last_known: HashMap::new(),
         }
@@ -373,19 +380,16 @@ where
                     self.sockets
                         .reinit_output_images(res, &mut self.gpu, *new_size as u32);
                 }
-                GraphEvent::Recomputed(instrs) => {
-                    self.seq += 1;
-                    for i in instrs.iter() {
-                        match self.interpret(i) {
-                            Err(e) => {
-                                log::error!("Error during compute interpretation: {}", e);
-                                log::error!("Aborting compute!");
-                                break;
-                            }
-                            Ok(r) => {
-                                for ev in r {
-                                    response.push(Lang::ComputeEvent(ev))
-                                }
+                GraphEvent::Recomputed(graph, instrs) => {
+                    self.linearizations.insert(graph.clone(), instrs.clone());
+                    match self.interpret_linearization(graph) {
+                        Err(e) => {
+                            log::error!("Error during compute interpretation: {}", e);
+                            log::error!("Aborting compute!");
+                        }
+                        Ok(r) => {
+                            for ev in r {
+                                response.push(Lang::ComputeEvent(ev))
                             }
                         }
                     }
@@ -442,6 +446,20 @@ where
         self.external_images.clear();
         self.last_known.clear();
     }
+
+    fn interpret_linearization(&mut self, graph: &Resource) -> Result<Vec<ComputeEvent>, String> {
+        self.seq += 1;
+        let instrs = self.linearizations.get(graph).ok_or_else(|| "Unknown graph")?.clone();
+        let mut response = Vec::new();
+
+        for i in instrs.iter() {
+            let mut r = self.interpret(i)?;
+            response.append(&mut r);
+        }
+
+        Ok(response)
+    }
+
 
     fn interpret(&mut self, instr: &Instruction) -> Result<Vec<ComputeEvent>, String> {
         let mut response = Vec::new();
