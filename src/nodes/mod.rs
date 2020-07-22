@@ -11,6 +11,7 @@ pub mod nodegraph;
 struct NodeManager {
     parent_size: u32,
     graphs: HashMap<String, nodegraph::NodeGraph>,
+    active_graph: String,
 }
 
 // FIXME: Changing output socket type after connection has already been made does not propagate type changes into preceeding polymorphic nodes!
@@ -19,6 +20,7 @@ impl NodeManager {
         NodeManager {
             parent_size: 1024,
             graphs: hashmap! { "base".to_string() => nodegraph::NodeGraph::new("base") },
+            active_graph: "base".to_string(),
         }
     }
 
@@ -193,10 +195,9 @@ impl NodeManager {
                     )));
                 }
                 UserGraphEvent::ChangeGraph(res) => {
-                    let graph = self
-                        .graphs
-                        .get(res.path_str().unwrap())
-                        .expect("Node Graph not found");
+                    let graph_name = res.path_str().unwrap();
+                    let graph = self.graphs.get(graph_name).expect("Node Graph not found");
+                    self.active_graph = graph_name.to_owned();
                     response.push(lang::Lang::GraphEvent(lang::GraphEvent::Report(
                         graph.nodes(),
                         graph.connections(),
@@ -223,7 +224,8 @@ impl NodeManager {
                             instructions,
                         )));
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(Resource::graph(
-                            "base", None,
+                            &self.active_graph,
+                            None,
                         ))));
                     }
                     Err(e) => log::error!("{}", e),
@@ -256,7 +258,8 @@ impl NodeManager {
                     instructions,
                 )));
                 response.push(Lang::GraphEvent(GraphEvent::Recompute(Resource::graph(
-                    "base", None,
+                    &self.active_graph,
+                    None,
                 ))));
             }
             _ => {}

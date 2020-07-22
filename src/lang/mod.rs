@@ -65,7 +65,7 @@ pub struct ComplexOperator {
     title: String,
     pub inputs: HashMap<String, OperatorType>,
     pub outputs: HashMap<String, OperatorType>,
-    substitutions: Vec<ParamSubstitution>
+    substitutions: Vec<ParamSubstitution>,
 }
 
 impl ComplexOperator {

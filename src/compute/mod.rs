@@ -514,7 +514,8 @@ where
                             response.push(res);
                         }
                     }
-            }},
+                }
+            }
         }
 
         Ok(response)
