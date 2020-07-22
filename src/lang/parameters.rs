@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 #[enum_dispatch]
 pub trait Parameters {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]);
+    fn set_parameter(&mut self, field: &str, data: &[u8]);
 }
 
 pub type ParameterBool = u32;

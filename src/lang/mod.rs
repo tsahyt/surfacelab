@@ -65,6 +65,7 @@ pub struct ComplexOperator {
     title: String,
     pub inputs: HashMap<String, OperatorType>,
     pub outputs: HashMap<String, OperatorType>,
+    substitutions: Vec<ParamSubstitution>
 }
 
 impl ComplexOperator {
@@ -77,6 +78,7 @@ impl ComplexOperator {
             inputs: HashMap::new(),
             outputs: HashMap::new(),
             graph,
+            substitutions: Vec::new(),
         }
     }
 }
@@ -99,9 +101,10 @@ impl Socketed for ComplexOperator {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParamSubstitution {
     pub resource: Resource,
-    field: &'static str,
+    field: String,
     value: Vec<u8>,
 }
 
@@ -128,7 +131,7 @@ impl Operator {
 }
 
 impl Parameters for Operator {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+    fn set_parameter(&mut self, field: &str, data: &[u8]) {
         match self {
             Self::AtomicOperator(op) => op.set_parameter(field, data),
             _ => {}

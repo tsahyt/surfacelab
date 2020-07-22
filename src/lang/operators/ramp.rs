@@ -63,7 +63,7 @@ impl Default for Ramp {
 /// RampParameters has a manual Parameters implementation since the GPU side
 /// representation and the broker representation differ.
 impl Parameters for Ramp {
-    fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+    fn set_parameter(&mut self, field: &str, data: &[u8]) {
         match field {
             Self::RAMP => {
                 let mut ramp: Vec<[f32; 4]> = data

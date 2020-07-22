@@ -29,7 +29,7 @@ pub fn derive_parameters(input: proc_macro::TokenStream) -> proc_macro::TokenStr
         }
 
         impl Parameters for #name {
-            fn set_parameter(&mut self, field: &'static str, data: &[u8]) {
+            fn set_parameter(&mut self, field: &str, data: &[u8]) {
                 match field {
                     #( Self::#field_consts2 => { self.#field_names2 = <#field_tys>::from_data(data); })*
                     _ => panic!("Unknown field {}", field),
