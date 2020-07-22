@@ -129,8 +129,13 @@ impl NodeManager {
                         .parameter_change(node, field, data)
                         .unwrap_or_else(|e| log::error!("{}", e));
                     let instructions = self.graphs.get_mut(graph).unwrap().linearize();
-                    response.push(Lang::GraphEvent(GraphEvent::Relinearized(Resource::graph(graph, None), instructions)));
-                    response.push(Lang::GraphEvent(GraphEvent::Recompute(Resource::graph(graph, None))));
+                    response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                        Resource::graph(graph, None),
+                        instructions,
+                    )));
+                    response.push(Lang::GraphEvent(GraphEvent::Recompute(Resource::graph(
+                        graph, None,
+                    ))));
                 }
                 UserNodeEvent::PositionNode(res, (x, y)) => {
                     let node = res.file().unwrap();
@@ -213,8 +218,13 @@ impl NodeManager {
 
                         // Automatically recompute on load
                         let instructions = self.graphs.get_mut("base").unwrap().linearize();
-                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(Resource::graph("base", None), instructions)));
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(Resource::graph("base", None))));
+                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                            Resource::graph("base", None),
+                            instructions,
+                        )));
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(Resource::graph(
+                            "base", None,
+                        ))));
                     }
                     Err(e) => log::error!("{}", e),
                 }
@@ -241,8 +251,13 @@ impl NodeManager {
 
                 // Recompute on size change
                 let instructions = self.graphs.get_mut("base").unwrap().linearize();
-                response.push(Lang::GraphEvent(GraphEvent::Relinearized(Resource::graph("base", None), instructions)));
-                response.push(Lang::GraphEvent(GraphEvent::Recompute(Resource::graph("base", None))));
+                response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                    Resource::graph("base", None),
+                    instructions,
+                )));
+                response.push(Lang::GraphEvent(GraphEvent::Recompute(Resource::graph(
+                    "base", None,
+                ))));
             }
             _ => {}
         }

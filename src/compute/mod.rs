@@ -383,19 +383,17 @@ where
                 GraphEvent::Relinearized(graph, instrs) => {
                     self.linearizations.insert(graph.clone(), instrs.clone());
                 }
-                GraphEvent::Recompute(graph) => {
-                    match self.interpret_linearization(graph) {
-                        Err(e) => {
-                            log::error!("Error during compute interpretation: {}", e);
-                            log::error!("Aborting compute!");
-                        }
-                        Ok(r) => {
-                            for ev in r {
-                                response.push(Lang::ComputeEvent(ev))
-                            }
+                GraphEvent::Recompute(graph) => match self.interpret_linearization(graph, &[]) {
+                    Err(e) => {
+                        log::error!("Error during compute interpretation: {}", e);
+                        log::error!("Aborting compute!");
+                    }
+                    Ok(r) => {
+                        for ev in r {
+                            response.push(Lang::ComputeEvent(ev))
                         }
                     }
-                }
+                },
                 GraphEvent::SocketMonomorphized(res, ty) => {
                     if self.sockets.is_known_output(res) {
                         log::trace!("Adding monomorphized socket {}", res);
@@ -449,10 +447,20 @@ where
         self.last_known.clear();
     }
 
-    fn interpret_linearization(&mut self, graph: &Resource) -> Result<Vec<ComputeEvent>, String> {
+    fn interpret_linearization(
+        &mut self,
+        graph: &Resource,
+        substitutions: &[ParamSubstitution],
+    ) -> Result<Vec<ComputeEvent>, String> {
         self.seq += 1;
-        let instrs = self.linearizations.get(graph).ok_or_else(|| "Unknown graph")?.clone();
+        let instrs = self
+            .linearizations
+            .get(graph)
+            .ok_or_else(|| "Unknown graph")?
+            .clone();
         let mut response = Vec::new();
+
+        let substitutions_map: HashMap<Resource, &ParamSubstitution> = substitutions.iter().map(|s| (s.resource, s)).from_iter();
 
         for i in instrs.iter() {
             let mut r = self.interpret(i)?;
@@ -461,7 +469,6 @@ where
 
         Ok(response)
     }
-
 
     fn interpret(&mut self, instr: &Instruction) -> Result<Vec<ComputeEvent>, String> {
         let mut response = Vec::new();
