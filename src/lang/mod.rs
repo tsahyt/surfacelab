@@ -99,6 +99,18 @@ impl Socketed for ComplexOperator {
     }
 }
 
+pub struct ParamSubstitution {
+    pub resource: Resource,
+    field: &'static str,
+    value: Vec<u8>,
+}
+
+impl ParamSubstitution {
+    pub fn substitute<T: Parameters>(&self, on: &mut T) {
+        on.set_parameter(&self.field, &self.value);
+    }
+}
+
 #[enum_dispatch(Socketed, OperatorParamBox)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Operator {

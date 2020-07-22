@@ -460,17 +460,27 @@ where
             .clone();
         let mut response = Vec::new();
 
-        let substitutions_map: HashMap<Resource, &ParamSubstitution> = substitutions.iter().map(|s| (s.resource, s)).from_iter();
+        let mut substitutions_map: HashMap<Resource, Vec<&ParamSubstitution>> = HashMap::new();
+        for s in substitutions {
+            substitutions_map
+                .entry(s.resource.clone())
+                .and_modify(|x| x.push(s))
+                .or_insert(vec![s]);
+        }
 
         for i in instrs.iter() {
-            let mut r = self.interpret(i)?;
+            let mut r = self.interpret(i, &substitutions_map)?;
             response.append(&mut r);
         }
 
         Ok(response)
     }
 
-    fn interpret(&mut self, instr: &Instruction) -> Result<Vec<ComputeEvent>, String> {
+    fn interpret(
+        &mut self,
+        instr: &Instruction,
+        substitutions: &HashMap<Resource, Vec<&ParamSubstitution>>,
+    ) -> Result<Vec<ComputeEvent>, String> {
         let mut response = Vec::new();
 
         match instr {
@@ -480,23 +490,31 @@ where
 
                 self.sockets.connect_input(from, to);
             }
-            Instruction::Execute(res, op) => match op {
-                AtomicOperator::Image(Image { path }) => {
-                    if let Some(res) = self.execute_image(res, path)? {
-                        response.push(res);
+            Instruction::Execute(res, op) => {
+                let mut op = op.clone();
+                if let Some(subs) = substitutions.get(res) {
+                    for s in subs {
+                        s.substitute(&mut op);
                     }
                 }
-                AtomicOperator::Output(..) => {
-                    for res in self.execute_output(op, res)? {
-                        response.push(res);
+
+                match op {
+                    AtomicOperator::Image(Image { path }) => {
+                        if let Some(res) = self.execute_image(res, &path)? {
+                            response.push(res);
+                        }
                     }
-                }
-                _ => {
-                    if let Some(res) = self.execute_operator(op, res)? {
-                        response.push(res);
+                    AtomicOperator::Output(..) => {
+                        for res in self.execute_output(&op, res)? {
+                            response.push(res);
+                        }
                     }
-                }
-            },
+                    _ => {
+                        if let Some(res) = self.execute_operator(&op, res)? {
+                            response.push(res);
+                        }
+                    }
+            }},
         }
 
         Ok(response)
