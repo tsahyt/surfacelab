@@ -769,6 +769,82 @@ where
         Ok(())
     }
 
+    /// Copy data between images. This assumes that both images are already allocated!
+    pub fn copy_image(&mut self, from: &Image<B>, to: &Image<B>) -> Result<(), String> {
+        let mut lock = self.gpu.lock().unwrap();
+
+        unsafe { lock.device.reset_fence(&self.fence).unwrap() };
+
+        unsafe {
+            let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
+            cmd_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
+                hal::memory::Dependencies::empty(),
+                &[
+                    hal::memory::Barrier::Image {
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                            ..(
+                                hal::image::Access::TRANSFER_WRITE,
+                                hal::image::Layout::TransferDstOptimal,
+                            ),
+                        target: &*self.thumbnail_image,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    },
+                    from.barrier_to(
+                        hal::image::Access::TRANSFER_READ,
+                        hal::image::Layout::TransferSrcOptimal,
+                    ),
+                ],
+            );
+            cmd_buffer.blit_image(
+                &*from.raw,
+                hal::image::Layout::TransferSrcOptimal,
+                &*to.raw,
+                hal::image::Layout::TransferDstOptimal,
+                hal::image::Filter::Nearest,
+                &[hal::command::ImageBlit {
+                    src_subresource: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 0,
+                        layers: 0..1,
+                    },
+                    src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                        x: from.size as i32,
+                        y: from.size as i32,
+                        z: 1,
+                    },
+                    dst_subresource: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 0,
+                        layers: 0..1,
+                    },
+                    dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                        x: to.size as i32,
+                        y: to.size as i32,
+                        z: 1,
+                    },
+                }],
+            );
+            cmd_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::memory::Dependencies::empty(),
+                &[from.barrier_to(
+                    hal::image::Access::SHADER_READ,
+                    hal::image::Layout::ShaderReadOnlyOptimal,
+                )],
+            );
+            cmd_buffer.finish();
+
+            lock.queue_group.queues[0]
+                .submit_without_semaphores(Some(&cmd_buffer), Some(&self.fence));
+            lock.device.wait_for_fence(&self.fence, !0).unwrap();
+            self.command_pool.free(Some(cmd_buffer));
+        }
+
+        Ok(())
+    }
+
     /// Create a thumbnail of the given image and return it
     pub fn generate_thumbnail(&mut self, image: &Image<B>) -> Result<Vec<u8>, String> {
         let mut lock = self.gpu.lock().unwrap();

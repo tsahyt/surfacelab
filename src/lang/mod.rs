@@ -132,7 +132,7 @@ impl Operator {
     pub fn external_data(&self) -> bool {
         match self {
             Self::AtomicOperator(op) => op.external_data(),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -151,6 +151,7 @@ pub enum Instruction {
     Execute(Resource, AtomicOperator),
     Call(Resource, ComplexOperator),
     Move(Resource, Resource),
+    Copy(Resource, Resource),
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Serialize, Deserialize)]

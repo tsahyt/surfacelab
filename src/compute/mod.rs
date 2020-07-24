@@ -520,9 +520,29 @@ where
                 log::trace!("Calling complex operator of {}", res);
                 self.interpret_linearization(&op.graph, &op.substitutions)?;
             }
+            Instruction::Copy(from, to) => {
+                self.execute_copy(from, to)?;
+            }
         }
 
         Ok(response)
+    }
+
+    fn execute_copy(&mut self, from: &Resource, to: &Resource) -> Result<(), String> {
+        let from_image = self
+            .sockets
+            .get_output_image(from)
+            .or(self.sockets.get_input_image(from))
+            .expect("Unable to find source image for copy");
+        let to_image = self
+            .sockets
+            .get_output_image(to)
+            .or(self.sockets.get_input_image(to))
+            .expect("Unable to find source image for copy");
+
+        self.gpu.copy_image(from_image, to_image)?;
+
+        Ok(())
     }
 
     fn execute_image(

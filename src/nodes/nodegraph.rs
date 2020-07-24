@@ -172,11 +172,7 @@ impl NodeGraph {
             .map(|idx| {
                 let node = self.graph.node_weight(idx).unwrap();
                 let res = self.node_resource(&idx);
-                (
-                    res,
-                    node.operator.clone(),
-                    node.position,
-                )
+                (res, node.operator.clone(), node.position)
             })
             .collect()
     }
