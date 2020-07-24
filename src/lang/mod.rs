@@ -65,7 +65,7 @@ pub struct ComplexOperator {
     title: String,
     pub inputs: HashMap<String, OperatorType>,
     pub outputs: HashMap<String, OperatorType>,
-    substitutions: Vec<ParamSubstitution>,
+    pub substitutions: Vec<ParamSubstitution>,
 }
 
 impl ComplexOperator {
@@ -128,6 +128,13 @@ impl Operator {
             _ => None,
         }
     }
+
+    pub fn external_data(&self) -> bool {
+        match self {
+            Self::AtomicOperator(op) => op.external_data(),
+            _ => false
+        }
+    }
 }
 
 impl Parameters for Operator {
@@ -142,6 +149,7 @@ impl Parameters for Operator {
 #[derive(Clone, Debug)]
 pub enum Instruction {
     Execute(Resource, AtomicOperator),
+    Call(Resource, ComplexOperator),
     Move(Resource, Resource),
 }
 
@@ -247,7 +255,7 @@ pub enum GraphEvent {
     SocketDemonomorphized(Resource),
     OutputRemoved(Resource, OutputType),
     Report(
-        Vec<(Resource, AtomicOperator, (i32, i32))>,
+        Vec<(Resource, Operator, (i32, i32))>,
         Vec<(Resource, Resource)>,
     ),
     Cleared,

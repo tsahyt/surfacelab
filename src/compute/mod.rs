@@ -345,7 +345,7 @@ where
         let mut response = Vec::new();
         match &*event {
             Lang::GraphEvent(event) => match event {
-                GraphEvent::NodeAdded(res, Operator::AtomicOperator(op), _, size) => {
+                GraphEvent::NodeAdded(res, op, _, size) => {
                     // Ensure socket data exists
                     self.sockets.ensure_node_exists(res, *size);
 
@@ -515,6 +515,10 @@ where
                         }
                     }
                 }
+            }
+            Instruction::Call(res, op) => {
+                log::trace!("Calling complex operator of {}", res);
+                self.interpret_linearization(&op.graph, &op.substitutions)?;
             }
         }
 

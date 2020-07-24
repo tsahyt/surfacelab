@@ -166,7 +166,7 @@ impl NodeGraph {
         events
     }
 
-    pub fn nodes(&self) -> Vec<(Resource, AtomicOperator, (i32, i32))> {
+    pub fn nodes(&self) -> Vec<(Resource, Operator, (i32, i32))> {
         self.graph
             .node_indices()
             .map(|idx| {
@@ -174,10 +174,7 @@ impl NodeGraph {
                 let res = self.node_resource(&idx);
                 (
                     res,
-                    node.operator
-                        .to_atomic()
-                        .expect("Complex nodes are currently not supported")
-                        .clone(),
+                    node.operator.clone(),
                     node.position,
                 )
             })
@@ -673,13 +670,15 @@ impl NodeGraph {
                 }
                 Action::Visit(l) => {
                     let node = self.graph.node_weight(nx).unwrap();
-                    let op = node
-                        .operator
-                        .to_atomic()
-                        .expect("Complex nodes are not yet supported")
-                        .to_owned();
                     let res = self.node_resource(&nx);
-                    traversal.push(Instruction::Execute(res.clone(), op));
+                    match &node.operator {
+                        Operator::AtomicOperator(op) => {
+                            traversal.push(Instruction::Execute(res.clone(), op.to_owned()))
+                        }
+                        Operator::ComplexOperator(op) => {
+                            traversal.push(Instruction::Call(res.clone(), op.to_owned()))
+                        }
+                    }
                     if let Some(((source, sink), idx)) = l {
                         let to_node = self.node_resource(&idx);
                         let from = res.extend_fragment(&source);
