@@ -519,6 +519,13 @@ where
             Instruction::Call(res, op) => {
                 log::trace!("Calling complex operator of {}", res);
                 self.interpret_linearization(&op.graph, &op.substitutions)?;
+                for (socket, _) in op.outputs().iter() {
+                    let socket_res = res.extend_fragment(&socket);
+                    self.sockets
+                        .get_output_image_mut(&socket_res)
+                        .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
+                        .ensure_alloc(&self.gpu)?;
+                }
             }
             Instruction::Copy(from, to) => {
                 self.execute_copy(from, to)?;
@@ -539,7 +546,6 @@ where
         let to_image = self
             .sockets
             .get_output_image(to)
-            .or(self.sockets.get_input_image(to))
             .expect("Unable to find source image for copy");
 
         self.gpu.copy_image(from_image, to_image)?;
