@@ -535,6 +535,10 @@ where
         Ok(response)
     }
 
+    /// Execute a copy instructions.
+    ///
+    /// *Note*: Both images have to exist. This is *not* checked and may result
+    /// in segfaults or all sorts of nasty behaviour.
     fn execute_copy(&mut self, from: &Resource, to: &Resource) -> Result<(), String> {
         log::trace!("Executing copy from {} to {}", from, to);
 
