@@ -94,11 +94,12 @@ impl NodeGraph {
         }
     }
 
-    pub fn outputs(&self) -> HashMap<String, OperatorType> {
+    pub fn outputs(&self) -> HashMap<String, (OperatorType, Resource)> {
         let mut result = HashMap::new();
 
         for idx in self.outputs.iter() {
-            let name = self.node_resource(idx).file().unwrap().to_string();
+            let res = self.node_resource(idx);
+            let name = res.file().unwrap().to_string();
             let ty = *self
                 .graph
                 .node_weight(*idx)
@@ -107,7 +108,7 @@ impl NodeGraph {
                 .inputs()
                 .get("data")
                 .unwrap();
-            result.insert(name, ty);
+            result.insert(name, (ty, res));
         }
 
         result
@@ -669,10 +670,16 @@ impl NodeGraph {
                     let res = self.node_resource(&nx);
                     match &node.operator {
                         Operator::AtomicOperator(op) => {
-                            traversal.push(Instruction::Execute(res.clone(), op.to_owned()))
+                            traversal.push(Instruction::Execute(res.clone(), op.to_owned()));
                         }
                         Operator::ComplexOperator(op) => {
-                            traversal.push(Instruction::Call(res.clone(), op.to_owned()))
+                            traversal.push(Instruction::Call(res.clone(), op.to_owned()));
+                            for (socket, (_, output)) in op.outputs.iter() {
+                                traversal.push(Instruction::Copy(
+                                    output.extend_fragment("data"),
+                                    res.extend_fragment(socket),
+                                ))
+                            }
                         }
                     }
                     if let Some(((source, sink), idx)) = l {

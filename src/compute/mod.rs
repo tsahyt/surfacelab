@@ -529,6 +529,8 @@ where
     }
 
     fn execute_copy(&mut self, from: &Resource, to: &Resource) -> Result<(), String> {
+        log::trace!("Executing copy from {} to {}", from, to);
+
         let from_image = self
             .sockets
             .get_output_image(from)

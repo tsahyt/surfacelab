@@ -64,7 +64,7 @@ pub struct ComplexOperator {
     pub graph: Resource,
     title: String,
     pub inputs: HashMap<String, OperatorType>,
-    pub outputs: HashMap<String, OperatorType>,
+    pub outputs: HashMap<String, (OperatorType, Resource)>,
     pub substitutions: Vec<ParamSubstitution>,
 }
 
@@ -89,7 +89,7 @@ impl Socketed for ComplexOperator {
     }
 
     fn outputs(&self) -> HashMap<String, OperatorType> {
-        self.outputs.clone()
+        self.outputs.iter().map(|(k, v)| (k.clone(), v.0)).collect()
     }
 
     fn title(&self) -> &str {
