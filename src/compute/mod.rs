@@ -595,6 +595,7 @@ where
             .expect("Unable to find source image for copy");
 
         self.gpu.copy_image(from_image, to_image)?;
+        self.sockets.set_output_image_updated(&to.drop_fragment(), self.seq);
 
         Ok(())
     }
