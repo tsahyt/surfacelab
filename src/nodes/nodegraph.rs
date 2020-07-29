@@ -684,9 +684,11 @@ impl NodeGraph {
                     }
 
                     if let Some(thumbnail_output) = node.operator.outputs().keys().next() {
-                        traversal.push(Instruction::Thumbnail(res.extend_fragment(thumbnail_output)));
+                        traversal.push(Instruction::Thumbnail(
+                            res.extend_fragment(thumbnail_output),
+                        ));
                     }
-                   
+
                     if let Some(((source, sink), idx)) = l {
                         let to_node = self.node_resource(&idx);
                         let from = res.extend_fragment(&source);

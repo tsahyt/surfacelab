@@ -519,7 +519,9 @@ where
                 self.execute_copy(from, to)?;
             }
             Instruction::Thumbnail(socket) => {
-                response.push(self.execute_thumbnail(socket)?);
+                if let Some(r) = self.execute_thumbnail(socket)? {
+                    response.push(r)
+                }
             }
         }
 
@@ -528,19 +530,31 @@ where
 
     /// Execute a thumbnail instruction.
     ///
-    /// This will generate a thumbnail for the given socket. This assumes the
+    /// This will generate a thumbnail for the given output socket. This assumes the
     /// socket to be valid, allocated, and containing proper data!
-    fn execute_thumbnail(&mut self, socket: &Resource) -> Result<ComputeEvent, String> {
-        log::trace!("Generating thumbnail for {}", socket);
-        let image = self
+    ///
+    /// The thumbnail generation will only happen if the output socket has been
+    /// updated in the current seq step.
+    fn execute_thumbnail(&mut self, socket: &Resource) -> Result<Option<ComputeEvent>, String> {
+        let updated = self
             .sockets
-            .get_output_image(socket)
-            .unwrap();
-        let thumbnail = self.gpu.generate_thumbnail(image)?;
-        Ok(ComputeEvent::ThumbnailGenerated(
-            socket.drop_fragment(),
-            thumbnail,
-        ))
+            .get_output_image_updated(&socket.drop_fragment())
+            .expect("Missing sequence for socket");
+        if updated == self.seq {
+            log::trace!("Generating thumbnail for {}", socket);
+            let image = self
+                .sockets
+                .get_output_image(socket)
+                .expect("Missing output image for socket");
+            let thumbnail = self.gpu.generate_thumbnail(image)?;
+            Ok(Some(ComputeEvent::ThumbnailGenerated(
+                socket.drop_fragment(),
+                thumbnail,
+            )))
+        } else {
+            log::trace!("Skipping thumbnail generation");
+            Ok(None)
+        }
     }
 
     /// Execute a call instruction.
@@ -585,60 +599,38 @@ where
         Ok(())
     }
 
-    fn execute_image(
-        &mut self,
-        res: &Resource,
-        path: &std::path::PathBuf,
-    ) -> Result<(), String> {
+    fn execute_image(&mut self, res: &Resource, path: &std::path::PathBuf) -> Result<(), String> {
         log::trace!("Processing Image operator {}", res);
 
-        let uploaded = {
-            let image = self
-                .sockets
-                .get_output_image_mut(&res.extend_fragment("image"))
-                .expect("Trying to process missing socket");
+        let image = self
+            .sockets
+            .get_output_image_mut(&res.extend_fragment("image"))
+            .expect("Trying to process missing socket");
 
-            let external_image = self.external_images.entry(path.clone()).or_insert_with(|| {
-                log::trace!("Loading external image {:?}", path);
-                let buf = load_rgba16f_image(path).expect("Failed to read image");
-                ExternalImage {
-                    state: ExternalImageState::InMemory,
-                    buffer: buf,
-                }
-            });
-
-            match external_image.state {
-                ExternalImageState::InMemory => {
-                    log::trace!("Uploading image to GPU");
-                    image.ensure_alloc(&self.gpu)?;
-                    self.gpu.upload_image(&image, &external_image.buffer)?;
-                    self.sockets.set_output_image_updated(res, self.seq);
-                    external_image.state = ExternalImageState::Uploaded;
-                    true
-                }
-                ExternalImageState::Uploaded => {
-                    self.sockets.set_output_image_updated(res, self.seq);
-                    log::trace!("Reusing uploaded image");
-                    false
-                }
+        let external_image = self.external_images.entry(path.clone()).or_insert_with(|| {
+            log::trace!("Loading external image {:?}", path);
+            let buf = load_rgba16f_image(path).expect("Failed to read image");
+            ExternalImage {
+                state: ExternalImageState::InMemory,
+                buffer: buf,
             }
-        };
+        });
+
+        match external_image.state {
+            ExternalImageState::InMemory => {
+                log::trace!("Uploading image to GPU");
+                image.ensure_alloc(&self.gpu)?;
+                self.gpu.upload_image(&image, &external_image.buffer)?;
+                self.sockets.set_output_image_updated(res, self.seq);
+                external_image.state = ExternalImageState::Uploaded;
+            }
+            ExternalImageState::Uploaded => {
+                self.sockets.set_output_image_updated(res, self.seq);
+                log::trace!("Reusing uploaded image");
+            }
+        }
 
         Ok(())
-
-        // if uploaded {
-        //     let image = self
-        //         .sockets
-        //         .get_output_image(&res.extend_fragment("image"))
-        //         .unwrap();
-        //     let thumbnail = self.gpu.generate_thumbnail(image)?;
-        //     Ok(Some(ComputeEvent::ThumbnailGenerated(
-        //         res.clone(),
-        //         thumbnail,
-        //     )))
-        // } else {
-        //     Ok(None)
-        // }
     }
 
     // NOTE: Images sent as OutputReady could technically get dropped before the
@@ -678,7 +670,7 @@ where
                     .get_image_size(self.sockets.get_input_resource(&socket_res).unwrap()),
                 *output_type,
             ),
-            ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail)
+            ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail),
         ])
     }
 
@@ -773,11 +765,7 @@ where
         final_image.save(path).unwrap();
     }
 
-    fn execute_operator(
-        &mut self,
-        op: &AtomicOperator,
-        res: &Resource,
-    ) -> Result<(), String> {
+    fn execute_operator(&mut self, op: &AtomicOperator, res: &Resource) -> Result<(), String> {
         use shaders::Uniforms;
 
         log::trace!("Executing operator {:?} of {}", op, res);
