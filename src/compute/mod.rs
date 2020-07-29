@@ -500,9 +500,7 @@ where
 
                 match op {
                     AtomicOperator::Image(Image { path }) => {
-                        if let Some(res) = self.execute_image(res, &path)? {
-                            response.push(res);
-                        }
+                        self.execute_image(res, &path)?;
                     }
                     AtomicOperator::Output(..) => {
                         for res in self.execute_output(&op, res)? {
@@ -510,29 +508,59 @@ where
                         }
                     }
                     _ => {
-                        if let Some(res) = self.execute_operator(&op, res)? {
-                            response.push(res);
-                        }
+                        self.execute_operator(&op, res)?;
                     }
                 }
             }
             Instruction::Call(res, op) => {
-                log::trace!("Calling complex operator of {}", res);
-                self.interpret_linearization(&op.graph, &op.substitutions)?;
-                for (socket, _) in op.outputs().iter() {
-                    let socket_res = res.extend_fragment(&socket);
-                    self.sockets
-                        .get_output_image_mut(&socket_res)
-                        .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
-                        .ensure_alloc(&self.gpu)?;
-                }
+                self.execute_call(res, op)?;
             }
             Instruction::Copy(from, to) => {
                 self.execute_copy(from, to)?;
             }
+            Instruction::Thumbnail(socket) => {
+                response.push(self.execute_thumbnail(socket)?);
+            }
         }
 
         Ok(response)
+    }
+
+    /// Execute a thumbnail instruction.
+    ///
+    /// This will generate a thumbnail for the given socket. This assumes the
+    /// socket to be valid, allocated, and containing proper data!
+    fn execute_thumbnail(&mut self, socket: &Resource) -> Result<ComputeEvent, String> {
+        log::trace!("Generating thumbnail for {}", socket);
+        let image = self
+            .sockets
+            .get_output_image(socket)
+            .unwrap();
+        let thumbnail = self.gpu.generate_thumbnail(image)?;
+        Ok(ComputeEvent::ThumbnailGenerated(
+            socket.drop_fragment(),
+            thumbnail,
+        ))
+    }
+
+    /// Execute a call instruction.
+    ///
+    /// This will recurse into the subgraph, interpret its entire linearization,
+    /// and then ensure that all output sockets of the complex operator are
+    /// backed by GPU images to make them ready for copying.
+    fn execute_call(&mut self, res: &Resource, op: &ComplexOperator) -> Result<(), String> {
+        log::trace!("Calling complex operator of {}", res);
+        self.interpret_linearization(&op.graph, &op.substitutions)?;
+
+        for (socket, _) in op.outputs().iter() {
+            let socket_res = res.extend_fragment(&socket);
+            self.sockets
+                .get_output_image_mut(&socket_res)
+                .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
+                .ensure_alloc(&self.gpu)?;
+        }
+
+        Ok(())
     }
 
     /// Execute a copy instructions.
@@ -561,7 +589,7 @@ where
         &mut self,
         res: &Resource,
         path: &std::path::PathBuf,
-    ) -> Result<Option<ComputeEvent>, String> {
+    ) -> Result<(), String> {
         log::trace!("Processing Image operator {}", res);
 
         let uploaded = {
@@ -596,19 +624,21 @@ where
             }
         };
 
-        if uploaded {
-            let image = self
-                .sockets
-                .get_output_image(&res.extend_fragment("image"))
-                .unwrap();
-            let thumbnail = self.gpu.generate_thumbnail(image)?;
-            Ok(Some(ComputeEvent::ThumbnailGenerated(
-                res.clone(),
-                thumbnail,
-            )))
-        } else {
-            Ok(None)
-        }
+        Ok(())
+
+        // if uploaded {
+        //     let image = self
+        //         .sockets
+        //         .get_output_image(&res.extend_fragment("image"))
+        //         .unwrap();
+        //     let thumbnail = self.gpu.generate_thumbnail(image)?;
+        //     Ok(Some(ComputeEvent::ThumbnailGenerated(
+        //         res.clone(),
+        //         thumbnail,
+        //     )))
+        // } else {
+        //     Ok(None)
+        // }
     }
 
     // NOTE: Images sent as OutputReady could technically get dropped before the
@@ -648,7 +678,7 @@ where
                     .get_image_size(self.sockets.get_input_resource(&socket_res).unwrap()),
                 *output_type,
             ),
-            ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail),
+            ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail)
         ])
     }
 
@@ -747,7 +777,7 @@ where
         &mut self,
         op: &AtomicOperator,
         res: &Resource,
-    ) -> Result<Option<ComputeEvent>, String> {
+    ) -> Result<(), String> {
         use shaders::Uniforms;
 
         log::trace!("Executing operator {:?} of {}", op, res);
@@ -786,7 +816,7 @@ where
                 if *hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) =>
             {
                 log::trace!("Reusing cached image");
-                return Ok(None);
+                return Ok(());
             }
             _ => {}
         };
@@ -832,21 +862,10 @@ where
             desc_set,
         );
 
-        // generate thumbnail
-        let thumbnail = self.gpu.generate_thumbnail(
-            outputs
-                .values()
-                .next()
-                .expect("Cannot generate thumbnail for operator without outputs"),
-        )?;
-
         self.last_known.insert(res.clone(), uniform_hash);
         self.sockets.set_output_image_updated(res, self.seq);
 
-        Ok(Some(ComputeEvent::ThumbnailGenerated(
-            res.clone(),
-            thumbnail,
-        )))
+        Ok(())
     }
 }
 

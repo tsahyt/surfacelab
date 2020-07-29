@@ -152,6 +152,7 @@ pub enum Instruction {
     Call(Resource, ComplexOperator),
     Move(Resource, Resource),
     Copy(Resource, Resource),
+    Thumbnail(Resource),
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Serialize, Deserialize)]
