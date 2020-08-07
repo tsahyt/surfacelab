@@ -82,6 +82,7 @@ pub struct NodeGraph {
     name: String,
     indices: BiHashMap<String, graph::NodeIndex>,
     outputs: HashSet<graph::NodeIndex>,
+    parameters: HashMap<String, GraphParameter>,
 }
 
 impl NodeGraph {
@@ -91,7 +92,17 @@ impl NodeGraph {
             name: name.to_string(),
             indices: BiHashMap::new(),
             outputs: HashSet::new(),
+            parameters: HashMap::new(),
         }
+    }
+
+    /// Construct the default map of parameter substitutions from this graph.
+    /// This will include all parameters with their default values.
+    pub fn default_substitutions(&self) -> HashMap<String, ParamSubstitution> {
+        self.parameters
+            .values()
+            .map(|v| (v.graph_field.clone(), v.to_substitution()))
+            .collect()
     }
 
     pub fn outputs(&self) -> HashMap<String, (OperatorType, Resource)> {

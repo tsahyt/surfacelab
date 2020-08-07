@@ -1,4 +1,5 @@
 use enum_dispatch::*;
+use serde_derive::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 #[enum_dispatch]
@@ -80,5 +81,44 @@ impl ParameterField for PathBuf {
 
     fn to_data(&self) -> Vec<u8> {
         self.to_str().unwrap().as_bytes().to_vec()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum GraphParameterType {
+    Real,
+    Discrete,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphParameter {
+    pub graph_field: String,
+    child_field: String,
+    title: String,
+    resource: super::Resource,
+    ty: GraphParameterType,
+    default_value: Vec<u8>,
+}
+
+impl GraphParameter {
+    pub fn to_substitution(&self) -> ParamSubstitution {
+        ParamSubstitution {
+            resource: self.resource.clone(),
+            field: self.child_field.clone(),
+            value: self.default_value.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParamSubstitution {
+    pub resource: super::Resource,
+    pub field: String,
+    pub value: Vec<u8>,
+}
+
+impl ParamSubstitution {
+    pub fn substitute<T: Parameters>(&self, on: &mut T) {
+        on.set_parameter(&self.field, &self.value);
     }
 }

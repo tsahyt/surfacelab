@@ -65,7 +65,7 @@ pub struct ComplexOperator {
     title: String,
     pub inputs: HashMap<String, OperatorType>,
     pub outputs: HashMap<String, (OperatorType, Resource)>,
-    pub substitutions: Vec<ParamSubstitution>,
+    pub substitutions: HashMap<String, ParamSubstitution>,
 }
 
 impl ComplexOperator {
@@ -78,7 +78,7 @@ impl ComplexOperator {
             inputs: HashMap::new(),
             outputs: HashMap::new(),
             graph,
-            substitutions: Vec::new(),
+            substitutions: HashMap::new(),
         }
     }
 }
@@ -98,19 +98,6 @@ impl Socketed for ComplexOperator {
 
     fn default_name<'a>(&'a self) -> &str {
         self.graph.file().unwrap_or("unknown")
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ParamSubstitution {
-    pub resource: Resource,
-    field: String,
-    value: Vec<u8>,
-}
-
-impl ParamSubstitution {
-    pub fn substitute<T: Parameters>(&self, on: &mut T) {
-        on.set_parameter(&self.field, &self.value);
     }
 }
 

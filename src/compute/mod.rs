@@ -383,17 +383,19 @@ where
                 GraphEvent::Relinearized(graph, instrs) => {
                     self.linearizations.insert(graph.clone(), instrs.clone());
                 }
-                GraphEvent::Recompute(graph) => match self.interpret_linearization(graph, &[]) {
-                    Err(e) => {
-                        log::error!("Error during compute interpretation: {}", e);
-                        log::error!("Aborting compute!");
-                    }
-                    Ok(r) => {
-                        for ev in r {
-                            response.push(Lang::ComputeEvent(ev))
+                GraphEvent::Recompute(graph) => {
+                    match self.interpret_linearization(graph, std::iter::empty()) {
+                        Err(e) => {
+                            log::error!("Error during compute interpretation: {}", e);
+                            log::error!("Aborting compute!");
+                        }
+                        Ok(r) => {
+                            for ev in r {
+                                response.push(Lang::ComputeEvent(ev))
+                            }
                         }
                     }
-                },
+                }
                 GraphEvent::SocketMonomorphized(res, ty) => {
                     if self.sockets.is_known_output(res) {
                         log::trace!("Adding monomorphized socket {}", res);
@@ -447,11 +449,14 @@ where
         self.last_known.clear();
     }
 
-    fn interpret_linearization(
+    fn interpret_linearization<'a, I>(
         &mut self,
         graph: &Resource,
-        substitutions: &[ParamSubstitution],
-    ) -> Result<Vec<ComputeEvent>, String> {
+        substitutions: I,
+    ) -> Result<Vec<ComputeEvent>, String>
+    where
+        I: Iterator<Item = &'a ParamSubstitution>,
+    {
         self.seq += 1;
         let instrs = self
             .linearizations
@@ -564,7 +569,7 @@ where
     /// backed by GPU images to make them ready for copying.
     fn execute_call(&mut self, res: &Resource, op: &ComplexOperator) -> Result<(), String> {
         log::trace!("Calling complex operator of {}", res);
-        self.interpret_linearization(&op.graph, &op.substitutions)?;
+        self.interpret_linearization(&op.graph, op.substitutions.values())?;
 
         for (socket, _) in op.outputs().iter() {
             let socket_res = res.extend_fragment(&socket);
@@ -595,7 +600,8 @@ where
             .expect("Unable to find source image for copy");
 
         self.gpu.copy_image(from_image, to_image)?;
-        self.sockets.set_output_image_updated(&to.drop_fragment(), self.seq);
+        self.sockets
+            .set_output_image_updated(&to.drop_fragment(), self.seq);
 
         Ok(())
     }
