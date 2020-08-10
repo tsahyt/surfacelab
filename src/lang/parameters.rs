@@ -1,6 +1,8 @@
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[enum_dispatch]
 pub trait Parameters {
@@ -121,4 +123,109 @@ impl ParamSubstitution {
     pub fn substitute<T: Parameters>(&self, on: &mut T) {
         on.set_parameter(&self.field, &self.value);
     }
+}
+
+pub trait MessageWriter {
+    fn transmit(&self, resource: super::Resource, data: &[u8]) -> super::Lang;
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Field(pub &'static str);
+
+impl MessageWriter for Field {
+    fn transmit(&self, resource: super::Resource, data: &[u8]) -> super::Lang {
+        super::Lang::UserNodeEvent(super::UserNodeEvent::ParameterChange(
+            resource,
+            self.0,
+            data.to_vec(),
+        ))
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum ResourceField {
+    Name,
+    Size,
+    AbsoluteSize,
+}
+
+impl MessageWriter for ResourceField {
+    fn transmit(&self, resource: super::Resource, data: &[u8]) -> super::Lang {
+        match self {
+            Self::Name => {
+                let new = unsafe { std::str::from_utf8_unchecked(&data) };
+                let mut res_new = resource.clone();
+                res_new.modify_path(|p| {
+                    p.pop();
+                    p.push(new);
+                });
+                super::Lang::UserNodeEvent(super::UserNodeEvent::RenameNode(
+                    resource.clone(),
+                    res_new,
+                ))
+            }
+            Self::Size => {
+                super::Lang::UserNodeEvent(super::UserNodeEvent::OutputSizeChange(
+                    resource,
+                    i32::from_data(data),
+                ))
+            }
+            Self::AbsoluteSize => super::Lang::UserNodeEvent(
+                super::UserNodeEvent::OutputSizeAbsolute(resource, data != [0]),
+            ),
+        }
+    }
+}
+
+pub struct ParamBoxDescription<'a, T: MessageWriter> {
+    pub box_title: &'a str,
+    pub resource: Rc<RefCell<super::Resource>>,
+    pub categories: &'a [ParamCategory<'a, T>],
+}
+
+pub struct ParamCategory<'a, T: MessageWriter> {
+    pub name: &'static str,
+    pub parameters: &'a [Parameter<'a, T>],
+}
+
+pub struct Parameter<'a, T: MessageWriter> {
+    pub name: &'static str,
+    pub transmitter: T,
+    pub control: Control<'a>,
+    pub available: bool,
+}
+
+pub enum Control<'a> {
+    Slider {
+        value: f32,
+        min: f32,
+        max: f32,
+    },
+    DiscreteSlider {
+        value: i32,
+        min: i32,
+        max: i32,
+    },
+    RgbColor {
+        value: [f32; 3],
+    },
+    RgbaColor {
+        value: [f32; 4],
+    },
+    Enum {
+        selected: usize,
+        variants: &'static [&'static str],
+    },
+    File {
+        selected: Option<std::path::PathBuf>,
+    },
+    Ramp {
+        steps: Vec<[f32; 4]>,
+    },
+    Toggle {
+        def: bool,
+    },
+    Entry {
+        value: &'a str,
+    },
 }

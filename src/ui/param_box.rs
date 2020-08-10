@@ -55,7 +55,7 @@ impl ContainerImpl for ParamBoxPrivate {}
 impl BinImpl for ParamBoxPrivate {}
 
 impl ParamBoxPrivate {
-    fn construct<T: 'static + Transmitter + Copy>(&self, description: &ParamBoxDescription<T>) {
+    fn construct<T: 'static + MessageWriter + Copy>(&self, description: &ParamBoxDescription<T>) {
         // size groups
         let param_label_group = gtk::SizeGroup::new(gtk::SizeGroupMode::Horizontal);
         let param_control_group = gtk::SizeGroup::new(gtk::SizeGroupMode::Horizontal);
@@ -76,9 +76,11 @@ impl ParamBoxPrivate {
 
                 let param_label = gtk::Label::new(Some(parameter.name));
                 param_label_group.add_widget(&param_label);
-                let param_control = parameter
-                    .control
-                    .construct(description.resource.clone(), parameter.transmitter);
+                let param_control = construct(
+                    &parameter.control,
+                    description.resource.clone(),
+                    parameter.transmitter,
+                );
                 param_control_group.add_widget(&param_control);
 
                 param_layout.pack_start(&param_label, false, false, 4);
@@ -103,7 +105,7 @@ glib_wrapper! {
 }
 
 impl ParamBox {
-    pub fn new<T: 'static + Transmitter + Copy>(description: &ParamBoxDescription<T>) -> Self {
+    pub fn new<T: 'static + MessageWriter + Copy>(description: &ParamBoxDescription<T>) -> Self {
         let pbox = glib::Object::new(Self::static_type(), &[])
             .unwrap()
             .downcast()
@@ -122,289 +124,179 @@ impl ParamBox {
     }
 }
 
-pub trait Transmitter {
-    fn transmit(&self, resource: Resource, data: &[u8]);
-}
+const SLIDER_WIDTH: i32 = 256;
 
-#[derive(Copy, Clone, Debug)]
-pub struct Field(pub &'static str);
-
-impl Transmitter for Field {
-    fn transmit(&self, resource: Resource, data: &[u8]) {
-        super::emit(Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-            resource,
-            self.0,
-            data.to_vec(),
-        )))
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum ResourceField {
-    Name,
-    Size,
-    AbsoluteSize,
-}
-
-impl Transmitter for ResourceField {
-    fn transmit(&self, resource: Resource, data: &[u8]) {
-        match self {
-            Self::Name => {
-                let new = unsafe { std::str::from_utf8_unchecked(&data) };
-                let mut res_new = resource.clone();
-                res_new.modify_path(|p| {
-                    p.pop();
-                    p.push(new);
-                });
-                super::emit(Lang::UserNodeEvent(UserNodeEvent::RenameNode(
-                    resource.clone(),
-                    res_new,
-                )))
-            }
-            Self::Size => {
-                super::emit(Lang::UserNodeEvent(UserNodeEvent::OutputSizeChange(
-                    resource,
-                    i32::from_data(data),
-                )));
-            }
-            Self::AbsoluteSize => super::emit(Lang::UserNodeEvent(
-                UserNodeEvent::OutputSizeAbsolute(resource, data != [0]),
-            )),
+pub fn construct<T: 'static + MessageWriter>(
+    control: &Control,
+    resource: Rc<RefCell<Resource>>,
+    transmitter: T,
+) -> gtk::Widget {
+    match control {
+        Control::Slider { value, min, max } => {
+            construct_slider(*value, *min, *max, resource, transmitter)
         }
-    }
-}
-
-pub struct ParamBoxDescription<'a, T: Transmitter> {
-    pub box_title: &'a str,
-    pub resource: Rc<RefCell<Resource>>,
-    pub categories: &'a [ParamCategory<'a, T>],
-}
-
-pub struct ParamCategory<'a, T: Transmitter> {
-    pub name: &'static str,
-    pub parameters: &'a [Parameter<'a, T>],
-}
-
-pub struct Parameter<'a, T: Transmitter> {
-    pub name: &'static str,
-    pub transmitter: T,
-    pub control: Control<'a>,
-    pub available: bool,
-}
-
-pub enum Control<'a> {
-    Slider {
-        value: f32,
-        min: f32,
-        max: f32,
-    },
-    DiscreteSlider {
-        value: i32,
-        min: i32,
-        max: i32,
-    },
-    RgbColor {
-        value: [f32; 3],
-    },
-    RgbaColor {
-        value: [f32; 4],
-    },
-    Enum {
-        selected: usize,
-        variants: &'static [&'static str],
-    },
-    File {
-        selected: Option<std::path::PathBuf>,
-    },
-    Ramp {
-        steps: Vec<[f32; 4]>,
-    },
-    Toggle {
-        def: bool,
-    },
-    Entry {
-        value: &'a str,
-    },
-}
-
-impl<'a> Control<'a> {
-    const SLIDER_WIDTH: i32 = 256;
-
-    pub fn construct<T: 'static + Transmitter>(
-        &self,
-        resource: Rc<RefCell<Resource>>,
-        transmitter: T,
-    ) -> gtk::Widget {
-        match self {
-            Self::Slider { value, min, max } => {
-                Self::construct_slider(*value, *min, *max, resource, transmitter)
-            }
-            Self::DiscreteSlider { value, min, max } => {
-                Self::construct_discrete_slider(*value, *min, *max, resource, transmitter)
-            }
-            Self::RgbColor { value } => {
-                Self::construct_rgba(resource, transmitter, [value[0], value[1], value[2], 1.0])
-            }
-            Self::RgbaColor { value } => Self::construct_rgba(resource, transmitter, *value),
-            Self::Enum { selected, variants } => {
-                Self::construct_enum(*selected, variants, resource, transmitter)
-            }
-            Self::File { selected } => Self::construct_file(selected, resource, transmitter),
-            Self::Ramp { steps } => Self::construct_ramp(steps, resource, transmitter),
-            Self::Toggle { def } => Self::construct_toggle(*def, resource, transmitter),
-            Self::Entry { value } => Self::construct_entry(value, resource, transmitter),
+        Control::DiscreteSlider { value, min, max } => {
+            construct_discrete_slider(*value, *min, *max, resource, transmitter)
         }
-    }
-
-    fn construct_entry<T: 'static + Transmitter>(
-        value: &str,
-        resource: Rc<RefCell<Resource>>,
-        transmitter: T,
-    ) -> gtk::Widget {
-        let entry = gtk::EntryBuilder::new().text(value).build();
-
-        entry.connect_activate(clone!(@strong resource => move |w| {
-            let buf = w.get_text().to_string().as_bytes().to_vec();
-            transmitter.transmit(resource.borrow().clone(), &buf)
-        }));
-
-        entry.upcast()
-    }
-
-    fn construct_toggle<T: 'static + Transmitter>(
-        default: bool,
-        resource: Rc<RefCell<Resource>>,
-        transmitter: T,
-    ) -> gtk::Widget {
-        let toggle = gtk::SwitchBuilder::new().active(default).build();
-
-        toggle.connect_state_set(clone!(@strong resource => move |_, active| {
-            transmitter.transmit(resource.borrow().clone(),
-                &(if active { 1 as u32 } else { 0 as u32 }).to_data());
-            Inhibit(true)
-        }));
-
-        toggle.upcast()
-    }
-
-    fn construct_slider<T: 'static + Transmitter>(
-        value: f32,
-        min: f32,
-        max: f32,
-        resource: Rc<RefCell<Resource>>,
-        transmitter: T,
-    ) -> gtk::Widget {
-        let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 0.01, 0.01, 0.);
-        adjustment.set_value(value as _);
-        let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
-        scale.set_size_request(Self::SLIDER_WIDTH, 0);
-
-        adjustment.connect_value_changed(clone!(@strong resource => move |a| {
-            transmitter.transmit(resource.borrow().clone(), &(a.get_value() as f32).to_data());
-        }));
-
-        scale.upcast()
-    }
-
-    fn construct_discrete_slider<T: 'static + Transmitter>(
-        value: i32,
-        min: i32,
-        max: i32,
-        resource: Rc<RefCell<Resource>>,
-        transmitter: T,
-    ) -> gtk::Widget {
-        let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 1., 1., 0.);
-        adjustment.set_value(value as _);
-        let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
-        scale.set_size_request(Self::SLIDER_WIDTH, 0);
-        scale.set_digits(0);
-        scale.set_round_digits(0);
-
-        adjustment.connect_value_changed(clone!(@strong resource => move |a| {
-            transmitter.transmit(resource.borrow().clone(), &(a.get_value() as i32).to_data());
-        }));
-
-        scale.upcast()
-    }
-
-    fn construct_enum<T: 'static + Transmitter>(
-        selected: usize,
-        entries: &[&str],
-        resource: Rc<RefCell<Resource>>,
-        transmitter: T,
-    ) -> gtk::Widget {
-        let combo = gtk::ComboBoxText::new();
-
-        for (i, entry) in entries.iter().enumerate() {
-            combo.insert_text(i as _, entry);
+        Control::RgbColor { value } => {
+            construct_rgba(resource, transmitter, [value[0], value[1], value[2], 1.0])
         }
-
-        combo.set_active(Some(selected as _));
-
-        combo.connect_changed(clone!(@strong resource => move |c| {
-            transmitter.transmit(resource.borrow().clone(), &(c.get_active().unwrap_or(0)).to_data());
-        }));
-
-        combo.upcast()
-    }
-
-    fn construct_rgba<T: 'static + Transmitter>(
-        resource: Rc<RefCell<Resource>>,
-        transmitter: T,
-        color: [f32; 4],
-    ) -> gtk::Widget {
-        let wheel = super::color_wheel::ColorWheel::new_with_rgb(
-            color[0] as _,
-            color[1] as _,
-            color[2] as _,
-        );
-
-        wheel.connect_color_picked(clone!(@strong resource => move |_, r, g, b| {
-            transmitter.transmit(resource.borrow().clone(), &[r as f32, g as f32, b as f32].to_data());
-        }));
-
-        wheel.upcast()
-    }
-
-    fn construct_file<T: 'static + Transmitter>(
-        selected: &Option<std::path::PathBuf>,
-        resource: Rc<RefCell<Resource>>,
-        transmitter: T,
-    ) -> gtk::Widget {
-        let button = gtk::FileChooserButton::new("Image", gtk::FileChooserAction::Open);
-
-        if let Some(p) = selected {
-            button.set_filename(&p);
+        Control::RgbaColor { value } => construct_rgba(resource, transmitter, *value),
+        Control::Enum { selected, variants } => {
+            construct_enum(*selected, variants, resource, transmitter)
         }
+        Control::File { selected } => construct_file(selected, resource, transmitter),
+        Control::Ramp { steps } => construct_ramp(steps, resource, transmitter),
+        Control::Toggle { def } => construct_toggle(*def, resource, transmitter),
+        Control::Entry { value } => construct_entry(value, resource, transmitter),
+    }
+}
 
-        button.connect_file_set(clone!(@strong resource => move |btn| {
-            let buf = btn.get_filename().unwrap().to_str().unwrap().as_bytes().to_vec();
-            transmitter.transmit(resource.borrow().clone(), &buf);
-        }));
+fn construct_entry<T: 'static + MessageWriter>(
+    value: &str,
+    resource: Rc<RefCell<Resource>>,
+    transmitter: T,
+) -> gtk::Widget {
+    let entry = gtk::EntryBuilder::new().text(value).build();
 
-        button.upcast()
+    entry.connect_activate(clone!(@strong resource => move |w| {
+        let buf = w.get_text().to_string().as_bytes().to_vec();
+        super::emit(transmitter.transmit(resource.borrow().clone(), &buf));
+    }));
+
+    entry.upcast()
+}
+
+fn construct_toggle<T: 'static + MessageWriter>(
+    default: bool,
+    resource: Rc<RefCell<Resource>>,
+    transmitter: T,
+) -> gtk::Widget {
+    let toggle = gtk::SwitchBuilder::new().active(default).build();
+
+    toggle.connect_state_set(clone!(@strong resource => move |_, active| {
+        super::emit(transmitter.transmit(resource.borrow().clone(),
+            &(if active { 1 as u32 } else { 0 as u32 }).to_data()));
+        Inhibit(true)
+    }));
+
+    toggle.upcast()
+}
+
+fn construct_slider<T: 'static + MessageWriter>(
+    value: f32,
+    min: f32,
+    max: f32,
+    resource: Rc<RefCell<Resource>>,
+    transmitter: T,
+) -> gtk::Widget {
+    let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 0.01, 0.01, 0.);
+    adjustment.set_value(value as _);
+    let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
+    scale.set_size_request(SLIDER_WIDTH, 0);
+
+    adjustment.connect_value_changed(clone!(@strong resource => move |a| {
+        super::emit(transmitter.transmit(resource.borrow().clone(), &(a.get_value() as f32).to_data()));
+    }));
+
+    scale.upcast()
+}
+
+fn construct_discrete_slider<T: 'static + MessageWriter>(
+    value: i32,
+    min: i32,
+    max: i32,
+    resource: Rc<RefCell<Resource>>,
+    transmitter: T,
+) -> gtk::Widget {
+    let adjustment = gtk::Adjustment::new(min as _, min as _, max as _, 1., 1., 0.);
+    adjustment.set_value(value as _);
+    let scale = gtk::Scale::new(gtk::Orientation::Horizontal, Some(&adjustment));
+    scale.set_size_request(SLIDER_WIDTH, 0);
+    scale.set_digits(0);
+    scale.set_round_digits(0);
+
+    adjustment.connect_value_changed(clone!(@strong resource => move |a| {
+        super::emit(transmitter.transmit(resource.borrow().clone(), &(a.get_value() as i32).to_data()));
+    }));
+
+    scale.upcast()
+}
+
+fn construct_enum<T: 'static + MessageWriter>(
+    selected: usize,
+    entries: &[&str],
+    resource: Rc<RefCell<Resource>>,
+    transmitter: T,
+) -> gtk::Widget {
+    let combo = gtk::ComboBoxText::new();
+
+    for (i, entry) in entries.iter().enumerate() {
+        combo.insert_text(i as _, entry);
     }
 
-    fn construct_ramp<T: 'static + Transmitter>(
-        steps: &[[f32; 4]],
-        resource: Rc<RefCell<Resource>>,
-        transmitter: T,
-    ) -> gtk::Widget {
-        let ramp = super::color_ramp::ColorRamp::new_with_steps(steps);
+    combo.set_active(Some(selected as _));
 
-        ramp.connect_color_ramp_changed(clone!(@strong resource => move |w| {
-            let mut buf = Vec::new();
-            for step in w.get_ramp() {
-                buf.extend_from_slice(&step[0].to_be_bytes());
-                buf.extend_from_slice(&step[1].to_be_bytes());
-                buf.extend_from_slice(&step[2].to_be_bytes());
-                buf.extend_from_slice(&step[3].to_be_bytes());
-            }
-            transmitter.transmit(resource.borrow().clone(), &buf);
-        }));
+    combo.connect_changed(clone!(@strong resource => move |c| {
+        super::emit(transmitter.transmit(resource.borrow().clone(), &(c.get_active().unwrap_or(0)).to_data()));
+    }));
 
-        ramp.upcast()
+    combo.upcast()
+}
+
+fn construct_rgba<T: 'static + MessageWriter>(
+    resource: Rc<RefCell<Resource>>,
+    transmitter: T,
+    color: [f32; 4],
+) -> gtk::Widget {
+    let wheel =
+        super::color_wheel::ColorWheel::new_with_rgb(color[0] as _, color[1] as _, color[2] as _);
+
+    wheel.connect_color_picked(clone!(@strong resource => move |_, r, g, b| {
+        super::emit(transmitter.transmit(resource.borrow().clone(), &[r as f32, g as f32, b as f32].to_data()));
+    }));
+
+    wheel.upcast()
+}
+
+fn construct_file<T: 'static + MessageWriter>(
+    selected: &Option<std::path::PathBuf>,
+    resource: Rc<RefCell<Resource>>,
+    transmitter: T,
+) -> gtk::Widget {
+    let button = gtk::FileChooserButton::new("Image", gtk::FileChooserAction::Open);
+
+    if let Some(p) = selected {
+        button.set_filename(&p);
     }
+
+    button.connect_file_set(clone!(@strong resource => move |btn| {
+        let buf = btn.get_filename().unwrap().to_str().unwrap().as_bytes().to_vec();
+        super::emit(transmitter.transmit(resource.borrow().clone(), &buf));
+    }));
+
+    button.upcast()
+}
+
+fn construct_ramp<T: 'static + MessageWriter>(
+    steps: &[[f32; 4]],
+    resource: Rc<RefCell<Resource>>,
+    transmitter: T,
+) -> gtk::Widget {
+    let ramp = super::color_ramp::ColorRamp::new_with_steps(steps);
+
+    ramp.connect_color_ramp_changed(clone!(@strong resource => move |w| {
+        let mut buf = Vec::new();
+        for step in w.get_ramp() {
+            buf.extend_from_slice(&step[0].to_be_bytes());
+            buf.extend_from_slice(&step[1].to_be_bytes());
+            buf.extend_from_slice(&step[2].to_be_bytes());
+            buf.extend_from_slice(&step[3].to_be_bytes());
+        }
+        super::emit(transmitter.transmit(resource.borrow().clone(), &buf));
+    }));
+
+    ramp.upcast()
 }
 
 pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
