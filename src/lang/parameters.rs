@@ -1,8 +1,8 @@
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::cell::RefCell;
 
 #[enum_dispatch]
 pub trait Parameters {
@@ -135,8 +135,7 @@ pub struct Field(pub &'static str);
 impl MessageWriter for Field {
     fn transmit(&self, resource: super::Resource, data: &[u8]) -> super::Lang {
         super::Lang::UserNodeEvent(super::UserNodeEvent::ParameterChange(
-            resource,
-            self.0,
+            super::Resource::parameter(resource.path(), self.0),
             data.to_vec(),
         ))
     }
@@ -164,12 +163,10 @@ impl MessageWriter for ResourceField {
                     res_new,
                 ))
             }
-            Self::Size => {
-                super::Lang::UserNodeEvent(super::UserNodeEvent::OutputSizeChange(
-                    resource,
-                    i32::from_data(data),
-                ))
-            }
+            Self::Size => super::Lang::UserNodeEvent(super::UserNodeEvent::OutputSizeChange(
+                resource,
+                i32::from_data(data),
+            )),
             Self::AbsoluteSize => super::Lang::UserNodeEvent(
                 super::UserNodeEvent::OutputSizeAbsolute(resource, data != [0]),
             ),

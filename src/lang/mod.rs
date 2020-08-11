@@ -216,7 +216,7 @@ pub enum UserNodeEvent {
     RemoveNode(Resource),
     ConnectSockets(Resource, Resource),
     DisconnectSinkSocket(Resource),
-    ParameterChange(Resource, &'static str, Vec<u8>),
+    ParameterChange(Resource, Vec<u8>),
     PositionNode(Resource, (i32, i32)),
     RenameNode(Resource, Resource),
     OutputSizeChange(Resource, i32),

@@ -322,12 +322,7 @@ impl NodeGraph {
 
     /// Change a parameter in a resource in this graph. Will return an error if
     /// the resource does not exist in this graph.
-    pub fn parameter_change(
-        &mut self,
-        res: &str,
-        field: &'static str,
-        data: &[u8],
-    ) -> Result<(), String> {
+    pub fn parameter_change(&mut self, res: &str, field: &str, data: &[u8]) -> Result<(), String> {
         let node = self
             .indices
             .get_by_left(&res.to_string())

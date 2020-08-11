@@ -123,8 +123,9 @@ impl NodeManager {
                         Err(e) => log::error!("Error while disconnecting sink {}", e),
                     }
                 }
-                UserNodeEvent::ParameterChange(res, field, data) => {
+                UserNodeEvent::ParameterChange(res, data) => {
                     let node = res.file().unwrap();
+                    let field = res.fragment().unwrap();
                     let graph = res.directory().unwrap();
                     self.graphs
                         .get_mut(graph)
@@ -206,12 +207,8 @@ impl NodeManager {
                         graph.connections(),
                     )));
                 }
-                UserGraphEvent::ExposeParameter(res) => {
-
-                }
-                UserGraphEvent::ConcealParameter(res) => {
-
-                }
+                UserGraphEvent::ExposeParameter(res) => {}
+                UserGraphEvent::ConcealParameter(res) => {}
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {

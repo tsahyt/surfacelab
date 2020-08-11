@@ -8,7 +8,6 @@ pub type ResourcePart = String;
 pub enum Scheme {
     Node,
     Graph,
-    // TODO: Use parameter scheme instead of explicit fields throughout
     Parameter,
     // TODO: Socket scheme
 }
@@ -102,6 +101,10 @@ impl Resource {
 
     pub fn graph<P: AsRef<Path>>(path: P, fragment: Option<String>) -> Self {
         Self::new(Scheme::Graph, path, fragment)
+    }
+
+    pub fn parameter<P: AsRef<Path>>(path: P, fragment: &str) -> Self {
+        Self::new(Scheme::Parameter, path, Some(fragment.to_string()))
     }
 
     pub fn fragment(&self) -> Option<&str> {
