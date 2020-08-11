@@ -207,8 +207,20 @@ impl NodeManager {
                         graph.connections(),
                     )));
                 }
-                UserGraphEvent::ExposeParameter(res) => {}
-                UserGraphEvent::ConcealParameter(res) => {}
+                UserGraphEvent::ExposeParameter(res, graph_field, title, ty, default) => {
+                    let graph = self
+                        .graphs
+                        .get_mut(res.directory().unwrap())
+                        .expect("Node Graph not found");
+                    graph.expose_parameter(res.clone(), graph_field, title, *ty, default);
+                }
+                UserGraphEvent::ConcealParameter(graph_res, graph_field) => {
+                    let graph = self
+                        .graphs
+                        .get_mut(graph_res.path_str().unwrap())
+                        .expect("Node Graph not found");
+                    graph.conceal_parameter(graph_field);
+                }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {

@@ -1,3 +1,4 @@
+use super::Resource;
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -86,7 +87,7 @@ impl ParameterField for PathBuf {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum GraphParameterType {
     Real,
     Discrete,
@@ -95,18 +96,17 @@ pub enum GraphParameterType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphParameter {
     pub graph_field: String,
-    child_field: String,
-    title: String,
-    resource: super::Resource,
-    ty: GraphParameterType,
-    default_value: Vec<u8>,
+    pub parameter: Resource,
+    pub title: String,
+    pub ty: GraphParameterType,
+    pub default_value: Vec<u8>,
 }
 
 impl GraphParameter {
     pub fn to_substitution(&self) -> ParamSubstitution {
         ParamSubstitution {
-            resource: self.resource.clone(),
-            field: self.child_field.clone(),
+            resource: Resource::node(self.parameter.path(), None),
+            field: self.parameter.fragment().unwrap().to_owned(),
             value: self.default_value.clone(),
         }
     }
@@ -126,16 +126,16 @@ impl ParamSubstitution {
 }
 
 pub trait MessageWriter {
-    fn transmit(&self, resource: super::Resource, data: &[u8]) -> super::Lang;
+    fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang;
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Field(pub &'static str);
 
 impl MessageWriter for Field {
-    fn transmit(&self, resource: super::Resource, data: &[u8]) -> super::Lang {
+    fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang {
         super::Lang::UserNodeEvent(super::UserNodeEvent::ParameterChange(
-            super::Resource::parameter(resource.path(), self.0),
+            Resource::parameter(resource.path(), self.0),
             data.to_vec(),
         ))
     }
@@ -149,7 +149,7 @@ pub enum ResourceField {
 }
 
 impl MessageWriter for ResourceField {
-    fn transmit(&self, resource: super::Resource, data: &[u8]) -> super::Lang {
+    fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang {
         match self {
             Self::Name => {
                 let new = unsafe { std::str::from_utf8_unchecked(&data) };
@@ -176,7 +176,7 @@ impl MessageWriter for ResourceField {
 
 pub struct ParamBoxDescription<'a, T: MessageWriter> {
     pub box_title: &'a str,
-    pub resource: Rc<RefCell<super::Resource>>,
+    pub resource: Rc<RefCell<Resource>>,
     pub categories: &'a [ParamCategory<'a, T>],
 }
 

@@ -707,4 +707,28 @@ impl NodeGraph {
 
         traversal
     }
+
+    pub fn expose_parameter(
+        &mut self,
+        parameter: Resource,
+        graph_field: &str,
+        title: &str,
+        ty: GraphParameterType,
+        default: &[u8],
+    ) {
+        self.parameters.insert(
+            graph_field.to_owned(),
+            GraphParameter {
+                graph_field: graph_field.to_owned(),
+                parameter,
+                title: title.to_string(),
+                ty,
+                default_value: default.to_owned(),
+            },
+        );
+    }
+
+    pub fn conceal_parameter(&mut self, graph_field: &str) {
+        self.parameters.remove(graph_field);
+    }
 }
