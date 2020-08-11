@@ -340,6 +340,7 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
     })
 }
 
+// TODO: Ideally this should not return a parambox but just its description. decoupling UI from backend
 #[enum_dispatch]
 pub trait OperatorParamBox {
     fn param_box(&self, res: Rc<RefCell<Resource>>) -> ParamBox;
