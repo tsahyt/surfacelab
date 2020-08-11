@@ -8,6 +8,7 @@ pub type ResourcePart = String;
 pub enum Scheme {
     Node,
     Graph,
+    // TODO: Use parameter scheme instead of explicit fields throughout
     Parameter,
     // TODO: Socket scheme
 }

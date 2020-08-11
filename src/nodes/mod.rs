@@ -206,6 +206,12 @@ impl NodeManager {
                         graph.connections(),
                     )));
                 }
+                UserGraphEvent::ExposeParameter(res) => {
+
+                }
+                UserGraphEvent::ConcealParameter(res) => {
+
+                }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {
