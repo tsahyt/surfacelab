@@ -87,14 +87,14 @@ impl ParamBoxPrivate {
                 if let Some(field) = parameter.transmitter.as_field() {
                     let param_expose = gtk::Button::new_with_label("Expose");
                     let field_name = field.0.clone();
-                    param_expose.connect_clicked(clone!(@strong res => move |_| {
+                    param_expose.connect_clicked(clone!(@strong res,
+                                                        @strong parameter.control as control => move |_| {
                         let p_res = Resource::parameter(res.borrow().path(), field_name);
                         super::emit(Lang::UserGraphEvent(UserGraphEvent::ExposeParameter(
                             p_res,
                             "foo".to_string(),
                             "bar".to_string(),
-                            GraphParameterType::Real,
-                            vec![],
+                            control.clone(),
                         )))
                     }));
                     param_layout.pack_end(&param_expose, false, true, 4);
@@ -241,14 +241,14 @@ fn construct_discrete_slider<T: 'static + MessageWriter>(
 
 fn construct_enum<T: 'static + MessageWriter>(
     selected: usize,
-    entries: &[&str],
+    entries: &[std::string::String],
     resource: Rc<RefCell<Resource>>,
     transmitter: T,
 ) -> gtk::Widget {
     let combo = gtk::ComboBoxText::new();
 
     for (i, entry) in entries.iter().enumerate() {
-        combo.insert_text(i as _, entry);
+        combo.insert_text(i as _, &entry);
     }
 
     combo.set_active(Some(selected as _));
@@ -331,6 +331,7 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
                             .path()
                             .file_name()
                             .and_then(|x| x.to_str())
+                            .map(|x| x.to_string())
                             .unwrap(),
                     },
                     available: true,

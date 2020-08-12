@@ -124,7 +124,7 @@ impl OperatorParamBox for Blend {
                         transmitter: Field(Blend::BLEND_MODE),
                         control: Control::Enum {
                             selected: self.blend_mode as usize,
-                            variants: BlendMode::VARIANTS,
+                            variants: BlendMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
                         },
                         available: true,
                     },

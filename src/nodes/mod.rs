@@ -207,19 +207,19 @@ impl NodeManager {
                         graph.connections(),
                     )));
                 }
-                UserGraphEvent::ExposeParameter(res, graph_field, title, ty, default) => {
+                UserGraphEvent::ExposeParameter(res, graph_field, title, control) => {
                     let graph = self
                         .graphs
                         .get_mut(res.directory().unwrap())
                         .expect("Node Graph not found");
                     log::trace!(
-                        "Exposing Parameter {} as {}, titled {}, with type {:?}",
+                        "Exposing Parameter {} as {}, titled {}, with control {:?}",
                         res,
                         graph_field,
                         title,
-                        ty
+                        control,
                     );
-                    graph.expose_parameter(res.clone(), graph_field, title, *ty, default);
+                    graph.expose_parameter(res.clone(), graph_field, title, control.clone());
                 }
                 UserGraphEvent::ConcealParameter(graph_res, graph_field) => {
                     let graph = self

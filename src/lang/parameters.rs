@@ -87,19 +87,12 @@ impl ParameterField for PathBuf {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub enum GraphParameterType {
-    Real,
-    Discrete,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphParameter {
     pub graph_field: String,
     pub parameter: Resource,
     pub title: String,
-    pub ty: GraphParameterType,
-    pub default_value: Vec<u8>,
+    pub control: Control,
 }
 
 impl GraphParameter {
@@ -107,7 +100,7 @@ impl GraphParameter {
         ParamSubstitution {
             resource: Resource::node(self.parameter.path(), None),
             field: self.parameter.fragment().unwrap().to_owned(),
-            value: self.default_value.clone(),
+            value: self.control.default_value(),
         }
     }
 }
@@ -193,17 +186,18 @@ pub struct ParamBoxDescription<'a, T: MessageWriter> {
 
 pub struct ParamCategory<'a, T: MessageWriter> {
     pub name: &'static str,
-    pub parameters: &'a [Parameter<'a, T>],
+    pub parameters: &'a [Parameter<T>],
 }
 
-pub struct Parameter<'a, T: MessageWriter> {
+pub struct Parameter<T: MessageWriter> {
     pub name: &'static str,
     pub transmitter: T,
-    pub control: Control<'a>,
+    pub control: Control,
     pub available: bool,
 }
 
-pub enum Control<'a> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Control {
     Slider {
         value: f32,
         min: f32,
@@ -222,7 +216,7 @@ pub enum Control<'a> {
     },
     Enum {
         selected: usize,
-        variants: &'static [&'static str],
+        variants: Vec<String>,
     },
     File {
         selected: Option<std::path::PathBuf>,
@@ -234,6 +228,17 @@ pub enum Control<'a> {
         def: bool,
     },
     Entry {
-        value: &'a str,
+        value: String,
     },
+}
+
+impl Control {
+    fn default_value(&self) -> Vec<u8> {
+        match self {
+            Self::Slider { value, .. } => value.to_data(),
+            Self::DiscreteSlider { value, ..} => value.to_data(),
+            Self::RgbColor { value, .. } => value.to_data(),
+            _ => unimplemented!(), // TODO: default values for other control types
+        }
+    }
 }

@@ -713,8 +713,7 @@ impl NodeGraph {
         parameter: Resource,
         graph_field: &str,
         title: &str,
-        ty: GraphParameterType,
-        default: &[u8],
+        control: Control,
     ) {
         self.parameters.insert(
             graph_field.to_owned(),
@@ -722,8 +721,7 @@ impl NodeGraph {
                 graph_field: graph_field.to_owned(),
                 parameter,
                 title: title.to_string(),
-                ty,
-                default_value: default.to_owned(),
+                control,
             },
         );
     }

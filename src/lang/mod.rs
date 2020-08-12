@@ -227,7 +227,7 @@ pub enum UserNodeEvent {
 pub enum UserGraphEvent {
     AddGraph(String),
     ChangeGraph(Resource),
-    ExposeParameter(Resource, String, String, GraphParameterType, Vec<u8>),
+    ExposeParameter(Resource, String, String, Control),
     ConcealParameter(Resource, String),
 }
 

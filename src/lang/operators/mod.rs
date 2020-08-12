@@ -144,7 +144,7 @@ impl OperatorParamBox for Output {
                     transmitter: Field(Self::OUTPUT_TYPE),
                     control: Control::Enum {
                         selected: self.output_type as usize,
-                        variants: super::OutputType::VARIANTS,
+                        variants: super::OutputType::VARIANTS.iter().map(|x| x.to_string()).collect(),
                     },
                     available: true,
                 }],

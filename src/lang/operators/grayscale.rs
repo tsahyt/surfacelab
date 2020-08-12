@@ -89,8 +89,7 @@ impl Shader for Grayscale {
                 },
                 OperatorDescriptor {
                     binding: 2,
-                    descriptor: OperatorDescriptorUse::Sampler,
-                },
+                    descriptor: OperatorDescriptorUse::Sampler,},
                 OperatorDescriptor {
                     binding: 3,
                     descriptor: OperatorDescriptorUse::OutputImage("value"),
@@ -112,7 +111,7 @@ impl OperatorParamBox for Grayscale {
                     transmitter: Field(Grayscale::MODE),
                     control: Control::Enum {
                         selected: self.mode as usize,
-                        variants: GrayscaleMode::VARIANTS,
+                        variants: GrayscaleMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
                     },
                     available: true,
                 }],
