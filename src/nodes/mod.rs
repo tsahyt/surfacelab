@@ -212,6 +212,13 @@ impl NodeManager {
                         .graphs
                         .get_mut(res.directory().unwrap())
                         .expect("Node Graph not found");
+                    log::trace!(
+                        "Exposing Parameter {} as {}, titled {}, with type {:?}",
+                        res,
+                        graph_field,
+                        title,
+                        ty
+                    );
                     graph.expose_parameter(res.clone(), graph_field, title, *ty, default);
                 }
                 UserGraphEvent::ConcealParameter(graph_res, graph_field) => {

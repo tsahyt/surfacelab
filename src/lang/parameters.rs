@@ -127,6 +127,8 @@ impl ParamSubstitution {
 
 pub trait MessageWriter {
     fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang;
+
+    fn as_field(&self) -> Option<&Field>;
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -139,6 +141,11 @@ impl MessageWriter for Field {
             data.to_vec(),
         ))
     }
+
+    fn as_field(&self) -> Option<&Field> {
+        Some(self)
+    }
+
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -171,6 +178,10 @@ impl MessageWriter for ResourceField {
                 super::UserNodeEvent::OutputSizeAbsolute(resource, data != [0]),
             ),
         }
+    }
+
+    fn as_field(&self) -> Option<&Field> {
+        None
     }
 }
 

@@ -75,15 +75,31 @@ impl ParamBoxPrivate {
                 let param_layout = gtk::Box::new(gtk::Orientation::Horizontal, 16);
 
                 let param_label = gtk::Label::new(Some(parameter.name));
+                let res = description.resource.clone();
+
                 param_label_group.add_widget(&param_label);
-                let param_control = construct(
-                    &parameter.control,
-                    description.resource.clone(),
-                    parameter.transmitter,
-                );
+                let param_control =
+                    construct(&parameter.control, res.clone(), parameter.transmitter);
                 param_control_group.add_widget(&param_control);
 
                 param_layout.pack_start(&param_label, false, false, 4);
+
+                if let Some(field) = parameter.transmitter.as_field() {
+                    let param_expose = gtk::Button::new_with_label("Expose");
+                    let field_name = field.0.clone();
+                    param_expose.connect_clicked(clone!(@strong res => move |_| {
+                        let p_res = Resource::parameter(res.borrow().path(), field_name);
+                        super::emit(Lang::UserGraphEvent(UserGraphEvent::ExposeParameter(
+                            p_res,
+                            "foo".to_string(),
+                            "bar".to_string(),
+                            GraphParameterType::Real,
+                            vec![],
+                        )))
+                    }));
+                    param_layout.pack_end(&param_expose, false, true, 4);
+                }
+
                 param_layout.pack_end(&param_control, false, true, 4);
 
                 cat_box.add(&param_layout);
