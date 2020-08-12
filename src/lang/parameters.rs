@@ -107,14 +107,18 @@ impl GraphParameter {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParamSubstitution {
-    pub resource: super::Resource,
-    pub field: String,
-    pub value: Vec<u8>,
+    resource: super::Resource,
+    field: String,
+    value: Vec<u8>,
 }
 
 impl ParamSubstitution {
     pub fn substitute<T: Parameters>(&self, on: &mut T) {
         on.set_parameter(&self.field, &self.value);
+    }
+
+    pub fn resource(&self) -> &super::Resource {
+        &self.resource
     }
 }
 

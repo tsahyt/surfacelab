@@ -65,7 +65,7 @@ pub struct ComplexOperator {
     title: String,
     pub inputs: HashMap<String, OperatorType>,
     pub outputs: HashMap<String, (OperatorType, Resource)>,
-    pub substitutions: HashMap<String, ParamSubstitution>,
+    pub parameters: HashMap<String, ParamSubstitution>,
 }
 
 impl ComplexOperator {
@@ -78,7 +78,7 @@ impl ComplexOperator {
             inputs: HashMap::new(),
             outputs: HashMap::new(),
             graph,
-            substitutions: HashMap::new(),
+            parameters: HashMap::new(),
         }
     }
 }

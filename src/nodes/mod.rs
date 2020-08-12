@@ -38,7 +38,7 @@ impl NodeManager {
                             let graph = self.graphs.get(co.graph.file().unwrap()).unwrap();
                             let mut co = co.clone();
                             co.outputs = graph.outputs();
-                            co.substitutions = graph.default_substitutions();
+                            co.parameters = graph.default_substitutions();
                             lang::Operator::ComplexOperator(co)
                         }
                         lang::Operator::AtomicOperator(_) => op.clone(),

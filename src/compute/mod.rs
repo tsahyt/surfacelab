@@ -468,7 +468,7 @@ where
         let mut substitutions_map: HashMap<Resource, Vec<&ParamSubstitution>> = HashMap::new();
         for s in substitutions {
             substitutions_map
-                .entry(s.resource.clone())
+                .entry(s.resource().clone())
                 .and_modify(|x| x.push(s))
                 .or_insert(vec![s]);
         }
@@ -569,7 +569,7 @@ where
     /// backed by GPU images to make them ready for copying.
     fn execute_call(&mut self, res: &Resource, op: &ComplexOperator) -> Result<(), String> {
         log::trace!("Calling complex operator of {}", res);
-        self.interpret_linearization(&op.graph, op.substitutions.values())?;
+        self.interpret_linearization(&op.graph, op.parameters.values())?;
 
         for (socket, _) in op.outputs().iter() {
             let socket_res = res.extend_fragment(&socket);
