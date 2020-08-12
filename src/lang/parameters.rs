@@ -120,6 +120,10 @@ impl ParamSubstitution {
     pub fn resource(&self) -> &super::Resource {
         &self.resource
     }
+
+    pub fn set_value(&mut self, value: &[u8]) {
+        self.value = value.to_vec();
+    }
 }
 
 pub trait MessageWriter {

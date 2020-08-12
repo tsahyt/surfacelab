@@ -83,6 +83,14 @@ impl ComplexOperator {
     }
 }
 
+impl Parameters for ComplexOperator {
+    fn set_parameter(&mut self, field: &str, data: &[u8]) {
+        if let Some(p) = self.parameters.get_mut(field) {
+            p.set_value(data);
+        }
+    }
+}
+
 impl Socketed for ComplexOperator {
     fn inputs(&self) -> HashMap<String, OperatorType> {
         self.inputs.clone()
@@ -101,7 +109,7 @@ impl Socketed for ComplexOperator {
     }
 }
 
-#[enum_dispatch(Socketed, OperatorParamBox)]
+#[enum_dispatch(Socketed, OperatorParamBox, Parameters)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Operator {
     AtomicOperator(AtomicOperator),
@@ -120,15 +128,6 @@ impl Operator {
         match self {
             Self::AtomicOperator(op) => op.external_data(),
             _ => false,
-        }
-    }
-}
-
-impl Parameters for Operator {
-    fn set_parameter(&mut self, field: &str, data: &[u8]) {
-        match self {
-            Self::AtomicOperator(op) => op.set_parameter(field, data),
-            _ => {}
         }
     }
 }
