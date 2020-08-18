@@ -130,11 +130,7 @@ impl ParamBox {
     }
 
     pub fn empty() -> Self {
-        Self::new::<Field>(&ParamBoxDescription {
-            box_title: "",
-            resource: Rc::new(RefCell::new(Resource::unregistered_node())),
-            categories: vec![],
-        })
+        Self::new::<Field>(&ParamBoxDescription::empty())
     }
 }
 

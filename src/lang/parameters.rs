@@ -191,6 +191,16 @@ pub struct ParamBoxDescription<'a, T: MessageWriter> {
     pub categories: Vec<ParamCategory<T>>,
 }
 
+impl<'a, T> ParamBoxDescription<'a, T> where T: MessageWriter {
+    pub fn empty() -> Self {
+        ParamBoxDescription {
+            box_title: "",
+            resource: Rc::new(RefCell::new(Resource::unregistered_node())),
+            categories: vec![],
+        }
+    }
+}
+
 pub struct ParamCategory<T: MessageWriter> {
     pub name: &'static str,
     pub parameters: Vec<Parameter<T>>,
