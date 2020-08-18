@@ -146,7 +146,6 @@ impl MessageWriter for Field {
     fn as_field(&self) -> Option<&Field> {
         Some(self)
     }
-
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -189,12 +188,12 @@ impl MessageWriter for ResourceField {
 pub struct ParamBoxDescription<'a, T: MessageWriter> {
     pub box_title: &'a str,
     pub resource: Rc<RefCell<Resource>>,
-    pub categories: &'a [ParamCategory<'a, T>],
+    pub categories: Vec<ParamCategory<T>>,
 }
 
-pub struct ParamCategory<'a, T: MessageWriter> {
+pub struct ParamCategory<T: MessageWriter> {
     pub name: &'static str,
-    pub parameters: &'a [Parameter<T>],
+    pub parameters: Vec<Parameter<T>>,
 }
 
 pub struct Parameter<T: MessageWriter> {
@@ -244,9 +243,14 @@ impl Control {
     fn default_value(&self) -> Vec<u8> {
         match self {
             Self::Slider { value, .. } => value.to_data(),
-            Self::DiscreteSlider { value, ..} => value.to_data(),
+            Self::DiscreteSlider { value, .. } => value.to_data(),
             Self::RgbColor { value, .. } => value.to_data(),
             _ => unimplemented!(), // TODO: default values for other control types
         }
     }
+}
+
+#[enum_dispatch]
+pub trait OperatorParamBox {
+    fn param_box_description(&self, res: Rc<RefCell<Resource>>) -> ParamBoxDescription<Field>;
 }

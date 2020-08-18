@@ -8,6 +8,8 @@ use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
+use std::rc::Rc;
+use std::cell::RefCell;
 use strum_macros::*;
 use surfacelab_derive::*;
 
@@ -106,6 +108,16 @@ impl Socketed for ComplexOperator {
 
     fn default_name<'a>(&'a self) -> &str {
         self.graph.file().unwrap_or("unknown")
+    }
+}
+
+impl OperatorParamBox for ComplexOperator {
+    fn param_box_description(&self, res: Rc<RefCell<Resource>>) -> ParamBoxDescription<Field> {
+        ParamBoxDescription {
+            box_title: "Complex",
+            resource: res.clone(),
+            categories: vec![],
+        }
     }
 }
 

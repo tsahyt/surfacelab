@@ -1,5 +1,5 @@
 use super::node_socket::{NodeSocket, NodeSocketIO};
-use super::param_box::{node_attributes, OperatorParamBox};
+use super::param_box::{node_attributes, ParamBox};
 use crate::lang::*;
 
 use gdk::prelude::*;
@@ -291,7 +291,9 @@ impl Node {
             // TODO: !(op.is_output() || op.external_data()),
             true,
         ));
-        priv_.popover_box.add(&op.param_box(priv_.resource.clone()));
+        priv_.popover_box.add(&ParamBox::new(
+            &op.param_box_description(priv_.resource.clone()),
+        ));
 
         for (input, _) in op.inputs().iter() {
             let res = resource.extend_fragment(input);

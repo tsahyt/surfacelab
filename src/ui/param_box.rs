@@ -1,8 +1,6 @@
 use crate::lang::parameters::ParameterField;
 use crate::lang::*;
 
-use enum_dispatch::*;
-
 use glib::subclass;
 use glib::subclass::prelude::*;
 use glib::translate::*;
@@ -64,7 +62,7 @@ impl ParamBoxPrivate {
         let title_label = gtk::Label::new(Some(description.box_title));
         self.inner.add(&title_label);
 
-        for category in description.categories {
+        for category in description.categories.iter() {
             let cat_expander = gtk::Expander::new(Some(category.name));
             self.inner.add(&cat_expander);
 
@@ -135,7 +133,7 @@ impl ParamBox {
         Self::new::<Field>(&ParamBoxDescription {
             box_title: "",
             resource: Rc::new(RefCell::new(Resource::unregistered_node())),
-            categories: &[],
+            categories: vec![],
         })
     }
 }
@@ -319,9 +317,9 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
     ParamBox::new(&ParamBoxDescription {
         box_title: "Node Attributes",
         resource: res.clone(),
-        categories: &[ParamCategory {
+        categories: vec![ParamCategory {
             name: "Node",
-            parameters: &[
+            parameters: vec![
                 Parameter {
                     name: "Node Resource",
                     transmitter: ResourceField::Name,
@@ -355,20 +353,4 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
             ],
         }],
     })
-}
-
-// TODO: Ideally this should not return a parambox but just its description. decoupling UI from backend
-#[enum_dispatch]
-pub trait OperatorParamBox {
-    fn param_box(&self, res: Rc<RefCell<Resource>>) -> ParamBox;
-}
-
-impl OperatorParamBox for ComplexOperator {
-    fn param_box(&self, res: Rc<RefCell<Resource>>) -> ParamBox {
-        ParamBox::new(&ParamBoxDescription {
-            box_title: "Complex",
-            resource: res.clone(),
-            categories: (&[] as &[ParamCategory<Field>]),
-        })
-    }
 }

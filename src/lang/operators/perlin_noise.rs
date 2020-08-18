@@ -1,7 +1,6 @@
 use super::super::parameters::*;
 use super::super::socketed::*;
 use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
-use crate::ui::param_box::*;
 
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
@@ -68,13 +67,16 @@ impl Shader for PerlinNoise {
 }
 
 impl OperatorParamBox for PerlinNoise {
-    fn param_box(&self, res: Rc<RefCell<crate::lang::Resource>>) -> ParamBox {
-        ParamBox::new(&ParamBoxDescription {
+    fn param_box_description(
+        &self,
+        res: Rc<RefCell<crate::lang::Resource>>,
+    ) -> ParamBoxDescription<Field> {
+        ParamBoxDescription {
             box_title: self.title(),
             resource: res.clone(),
-            categories: &[ParamCategory {
+            categories: vec![ParamCategory {
                 name: "Basic Parameters",
-                parameters: &[
+                parameters: vec![
                     Parameter {
                         name: "Scale",
                         transmitter: Field(PerlinNoise::SCALE),
@@ -107,6 +109,6 @@ impl OperatorParamBox for PerlinNoise {
                     },
                 ],
             }],
-        })
+        }
     }
 }
