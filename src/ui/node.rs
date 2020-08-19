@@ -281,7 +281,11 @@ impl Node {
             .unwrap()
     }
 
-    pub fn new_from_operator<T: Socketed + OperatorParamBox>(op: T, resource: Resource) -> Self {
+    pub fn new_from_operator<T: Socketed>(
+        op: T,
+        pboxd: &ParamBoxDescription<Field>,
+        resource: Resource,
+    ) -> Self {
         let node = Self::new();
         let priv_ = NodePrivate::from_instance(&node);
         priv_.header_label.set_label(op.title());
@@ -291,9 +295,9 @@ impl Node {
             // TODO: !(op.is_output() || op.external_data()),
             true,
         ));
-        priv_.popover_box.add(&ParamBox::new(
-            &op.param_box_description(priv_.resource.clone()),
-        ));
+        priv_
+            .popover_box
+            .add(&ParamBox::new(&pboxd, priv_.resource.clone()));
 
         for (input, _) in op.inputs().iter() {
             let res = resource.extend_fragment(input);

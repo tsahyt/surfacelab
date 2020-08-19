@@ -8,8 +8,6 @@ use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
-use std::rc::Rc;
-use std::cell::RefCell;
 use strum_macros::*;
 use surfacelab_derive::*;
 
@@ -111,17 +109,7 @@ impl Socketed for ComplexOperator {
     }
 }
 
-impl OperatorParamBox for ComplexOperator {
-    fn param_box_description(&self, res: Rc<RefCell<Resource>>) -> ParamBoxDescription<Field> {
-        ParamBoxDescription {
-            box_title: "Complex",
-            resource: res.clone(),
-            categories: vec![],
-        }
-    }
-}
-
-#[enum_dispatch(Socketed, OperatorParamBox, Parameters)]
+#[enum_dispatch(Socketed, Parameters)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Operator {
     AtomicOperator(AtomicOperator),
@@ -245,7 +233,13 @@ pub enum UserGraphEvent {
 #[derive(Debug)]
 pub enum GraphEvent {
     GraphAdded(Resource),
-    NodeAdded(Resource, Operator, Option<(i32, i32)>, u32),
+    NodeAdded(
+        Resource,
+        Operator,
+        ParamBoxDescription<Field>,
+        Option<(i32, i32)>,
+        u32,
+    ),
     NodeRemoved(Resource),
     NodeRenamed(Resource, Resource),
     NodeResized(Resource, u32),
@@ -257,7 +251,7 @@ pub enum GraphEvent {
     SocketDemonomorphized(Resource),
     OutputRemoved(Resource, OutputType),
     Report(
-        Vec<(Resource, Operator, (i32, i32))>,
+        Vec<(Resource, Operator, ParamBoxDescription<Field>, (i32, i32))>,
         Vec<(Resource, Resource)>,
     ),
     Cleared,

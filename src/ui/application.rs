@@ -479,8 +479,8 @@ impl SurfaceLabApplication {
                     .node_area
                     .register_complex_operator(ComplexOperator::new(res.clone()));
             }
-            Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pos, _)) => {
-                let new_node = node::Node::new_from_operator(op.clone(), res.clone());
+            Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pboxd, pos, _)) => {
+                let new_node = node::Node::new_from_operator(op.clone(), pboxd, res.clone());
                 app_window
                     .node_area
                     .add_at(&new_node, pos.unwrap_or_default());
@@ -507,8 +507,8 @@ impl SurfaceLabApplication {
                 app_window.graph_select.remove_all();
             }
             Lang::GraphEvent(GraphEvent::Report(nodes, connections)) => {
-                for (res, op, pos) in nodes {
-                    let new_node = node::Node::new_from_operator(op.clone(), res.clone());
+                for (res, op, pbox, pos) in nodes {
+                    let new_node = node::Node::new_from_operator(op.clone(), pbox, res.clone());
                     app_window.node_area.add_at(&new_node, *pos);
                     new_node.show_all();
                 }

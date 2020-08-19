@@ -1,9 +1,7 @@
 use super::Resource;
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
-use std::cell::RefCell;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 #[enum_dispatch]
 pub trait Parameters {
@@ -185,27 +183,31 @@ impl MessageWriter for ResourceField {
     }
 }
 
-pub struct ParamBoxDescription<'a, T: MessageWriter> {
-    pub box_title: &'a str,
-    pub resource: Rc<RefCell<Resource>>,
+#[derive(Debug)]
+pub struct ParamBoxDescription<T: MessageWriter> {
+    pub box_title: String,
     pub categories: Vec<ParamCategory<T>>,
 }
 
-impl<'a, T> ParamBoxDescription<'a, T> where T: MessageWriter {
+impl<T> ParamBoxDescription<T>
+where
+    T: MessageWriter,
+{
     pub fn empty() -> Self {
         ParamBoxDescription {
-            box_title: "",
-            resource: Rc::new(RefCell::new(Resource::unregistered_node())),
+            box_title: "".to_string(),
             categories: vec![],
         }
     }
 }
 
+#[derive(Debug)]
 pub struct ParamCategory<T: MessageWriter> {
     pub name: &'static str,
     pub parameters: Vec<Parameter<T>>,
 }
 
+#[derive(Debug)]
 pub struct Parameter<T: MessageWriter> {
     pub name: &'static str,
     pub transmitter: T,
@@ -262,5 +264,5 @@ impl Control {
 
 #[enum_dispatch]
 pub trait OperatorParamBox {
-    fn param_box_description(&self, res: Rc<RefCell<Resource>>) -> ParamBoxDescription<Field>;
+    fn param_box_description(&self) -> ParamBoxDescription<Field>;
 }

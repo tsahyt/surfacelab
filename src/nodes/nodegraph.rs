@@ -105,6 +105,26 @@ impl NodeGraph {
             .collect()
     }
 
+    /// Construct a ParamBoxDescription from the current graph for its exposed parameters.
+    pub fn param_box_description(&self) -> ParamBoxDescription<Field> {
+        ParamBoxDescription {
+            box_title: self.name.clone(),
+            categories: vec![
+                ParamCategory {
+                    name: "Exposed Parameters",
+                    parameters: self.parameters.iter().map(|(_k,v)| {
+                        Parameter {
+                            name: "parameter",
+                            transmitter: Field("bar"), // Field(k.clone()),
+                            control: v.control.clone(),
+                            available: true
+                        }
+                    }).collect()
+                }
+            ]
+        }
+    }
+
     pub fn outputs(&self) -> HashMap<String, (OperatorType, Resource)> {
         let mut result = HashMap::new();
 
@@ -142,6 +162,7 @@ impl NodeGraph {
             events.push(Lang::GraphEvent(GraphEvent::NodeAdded(
                 self.node_resource(&idx),
                 node.operator.clone(),
+                ParamBoxDescription::empty(),
                 Some(node.position),
                 node.node_size(parent_size) as u32,
             )));

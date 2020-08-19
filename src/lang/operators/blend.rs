@@ -10,9 +10,6 @@ use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 #[repr(C)]
 #[derive(
     AsBytes,
@@ -111,13 +108,9 @@ impl Shader for Blend {
 }
 
 impl OperatorParamBox for Blend {
-    fn param_box_description(
-        &self,
-        res: Rc<RefCell<crate::lang::Resource>>,
-    ) -> ParamBoxDescription<Field> {
+    fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
-            box_title: self.title(),
-            resource: res.clone(),
+            box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "Basic Parameters",
                 parameters: vec![

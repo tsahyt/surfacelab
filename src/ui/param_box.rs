@@ -53,13 +53,17 @@ impl ContainerImpl for ParamBoxPrivate {}
 impl BinImpl for ParamBoxPrivate {}
 
 impl ParamBoxPrivate {
-    fn construct<T: 'static + MessageWriter + Copy>(&self, description: &ParamBoxDescription<T>) {
+    fn construct<T: 'static + MessageWriter + Copy>(
+        &self,
+        res: Rc<RefCell<Resource>>,
+        description: &ParamBoxDescription<T>,
+    ) {
         // size groups
         let param_label_group = gtk::SizeGroup::new(gtk::SizeGroupMode::Horizontal);
         let param_control_group = gtk::SizeGroup::new(gtk::SizeGroupMode::Horizontal);
 
         // title
-        let title_label = gtk::Label::new(Some(description.box_title));
+        let title_label = gtk::Label::new(Some(&description.box_title));
         self.inner.add(&title_label);
 
         for category in description.categories.iter() {
@@ -73,7 +77,6 @@ impl ParamBoxPrivate {
                 let param_layout = gtk::Box::new(gtk::Orientation::Horizontal, 16);
 
                 let param_label = gtk::Label::new(Some(parameter.name));
-                let res = description.resource.clone();
 
                 param_label_group.add_widget(&param_label);
                 let param_control =
@@ -119,18 +122,21 @@ glib_wrapper! {
 }
 
 impl ParamBox {
-    pub fn new<T: 'static + MessageWriter + Copy>(description: &ParamBoxDescription<T>) -> Self {
+    pub fn new<T: 'static + MessageWriter + Copy>(
+        description: &ParamBoxDescription<T>,
+        resource: Rc<RefCell<Resource>>,
+    ) -> Self {
         let pbox = glib::Object::new(Self::static_type(), &[])
             .unwrap()
             .downcast()
             .unwrap();
         let private = ParamBoxPrivate::from_instance(&pbox);
-        private.construct(description);
+        private.construct(resource, description);
         pbox
     }
 
-    pub fn empty() -> Self {
-        Self::new::<Field>(&ParamBoxDescription::empty())
+    pub fn empty(resource: Rc<RefCell<Resource>>) -> Self {
+        Self::new::<Field>(&ParamBoxDescription::empty(), resource)
     }
 }
 
@@ -310,43 +316,45 @@ fn construct_ramp<T: 'static + MessageWriter>(
 }
 
 pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
-    ParamBox::new(&ParamBoxDescription {
-        box_title: "Node Attributes",
-        resource: res.clone(),
-        categories: vec![ParamCategory {
-            name: "Node",
-            parameters: vec![
-                Parameter {
-                    name: "Node Resource",
-                    transmitter: ResourceField::Name,
-                    control: Control::Entry {
-                        value: res
-                            .borrow()
-                            .path()
-                            .file_name()
-                            .and_then(|x| x.to_str())
-                            .map(|x| x.to_string())
-                            .unwrap(),
+    ParamBox::new(
+        &ParamBoxDescription {
+            box_title: "Node Attributes".to_string(),
+            categories: vec![ParamCategory {
+                name: "Node",
+                parameters: vec![
+                    Parameter {
+                        name: "Node Resource",
+                        transmitter: ResourceField::Name,
+                        control: Control::Entry {
+                            value: res
+                                .borrow()
+                                .path()
+                                .file_name()
+                                .and_then(|x| x.to_str())
+                                .map(|x| x.to_string())
+                                .unwrap(),
+                        },
+                        available: true,
                     },
-                    available: true,
-                },
-                Parameter {
-                    name: "Size",
-                    transmitter: ResourceField::Size,
-                    control: Control::DiscreteSlider {
-                        value: 0,
-                        min: -16,
-                        max: 16,
+                    Parameter {
+                        name: "Size",
+                        transmitter: ResourceField::Size,
+                        control: Control::DiscreteSlider {
+                            value: 0,
+                            min: -16,
+                            max: 16,
+                        },
+                        available: scalable,
                     },
-                    available: scalable,
-                },
-                Parameter {
-                    name: "Absolute Size",
-                    transmitter: ResourceField::AbsoluteSize,
-                    control: Control::Toggle { def: false },
-                    available: scalable,
-                },
-            ],
-        }],
-    })
+                    Parameter {
+                        name: "Absolute Size",
+                        transmitter: ResourceField::AbsoluteSize,
+                        control: Control::Toggle { def: false },
+                        available: scalable,
+                    },
+                ],
+            }],
+        },
+        res.clone(),
+    )
 }

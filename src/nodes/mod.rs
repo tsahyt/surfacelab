@@ -1,4 +1,4 @@
-use crate::{broker, lang};
+use crate::{broker, lang, lang::OperatorParamBox};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
@@ -21,6 +21,22 @@ impl NodeManager {
             parent_size: 1024,
             graphs: hashmap! { "base".to_string() => nodegraph::NodeGraph::new("base") },
             active_graph: lang::Resource::graph("base", None),
+        }
+    }
+
+    pub fn operator_param_box(
+        &self,
+        operator: &lang::Operator,
+    ) -> lang::ParamBoxDescription<lang::Field> {
+        match operator {
+            lang::Operator::AtomicOperator(ao) => ao.param_box_description(),
+            lang::Operator::ComplexOperator(co) => {
+                if let Some(g) = self.graphs.get(co.graph.path().to_str().unwrap()) {
+                    g.param_box_description()
+                } else {
+                    lang::ParamBoxDescription::empty()
+                }
+            }
         }
     }
 
@@ -57,6 +73,7 @@ impl NodeManager {
                             None,
                         ),
                         op.clone(),
+                        self.operator_param_box(&op),
                         None,
                         size as u32,
                     )))
@@ -203,7 +220,11 @@ impl NodeManager {
                         .expect("Node Graph not found");
                     self.active_graph = res.clone();
                     response.push(lang::Lang::GraphEvent(lang::GraphEvent::Report(
-                        graph.nodes(),
+                        graph
+                            .nodes()
+                            .iter()
+                            .map(|(r, o, p)| (r.clone(), o.clone(), self.operator_param_box(o), *p))
+                            .collect(),
                         graph.connections(),
                     )));
                 }
