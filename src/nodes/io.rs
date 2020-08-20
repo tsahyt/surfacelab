@@ -42,10 +42,10 @@ impl NodeManager {
         // Rebuild events for all graphs in the surface file
         let mut events = Vec::new();
         for (name, graph) in self.graphs.iter() {
-            events.push(Lang::GraphEvent(GraphEvent::GraphAdded(Resource::graph(
-                &name, None,
-            ))));
+            let res = Resource::graph(&name, None);
+            events.push(Lang::GraphEvent(GraphEvent::GraphAdded(res.clone())));
             events.append(&mut graph.rebuild_events(self.parent_size));
+            events.push(Lang::GraphEvent(GraphEvent::Relinearized(res, graph.linearize())))
         }
 
         // Finally make sure base is picked
