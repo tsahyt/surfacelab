@@ -7,6 +7,7 @@ use maplit::hashmap;
 
 pub mod io;
 pub mod nodegraph;
+pub mod layers;
 
 struct NodeManager {
     parent_size: u32,
@@ -264,11 +265,6 @@ impl NodeManager {
                         response.append(&mut evs);
 
                         // Automatically recompute on load
-                        let instructions = self.graphs.get_mut("base").unwrap().linearize();
-                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                            self.active_graph.clone(),
-                            instructions,
-                        )));
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
                         )));
