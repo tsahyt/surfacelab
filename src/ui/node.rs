@@ -292,8 +292,7 @@ impl Node {
         priv_.resource.replace(resource.clone());
         priv_.popover_box.add(&node_attributes(
             priv_.resource.clone(),
-            // TODO: !(op.is_output() || op.external_data()),
-            true,
+            !(op.is_output() || op.external_data()),
         ));
         priv_
             .popover_box

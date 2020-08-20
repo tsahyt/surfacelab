@@ -119,6 +119,10 @@ impl Socketed for Output {
     fn title(&self) -> &'static str {
         "Output"
     }
+
+    fn is_output(&self) -> bool {
+        true
+    }
 }
 
 impl Shader for Output {

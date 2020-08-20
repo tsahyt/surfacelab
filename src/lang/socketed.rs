@@ -21,4 +21,12 @@ pub trait Socketed {
     fn default_name<'a>(&'a self) -> &'a str;
 
     fn title<'a>(&'a self) -> &'a str;
+
+    fn external_data(&self) -> bool {
+        false
+    }
+
+    fn is_output(&self) -> bool {
+        false
+    }
 }
