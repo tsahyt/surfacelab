@@ -68,8 +68,8 @@ impl OperatorParamBox for Image {
             categories: vec![ParamCategory {
                 name: "Basic Parameters",
                 parameters: vec![Parameter {
-                    name: "Image Path",
-                    transmitter: Field(Self::PATH),
+                    name: "Image Path".to_string(),
+                    transmitter: Field(Self::PATH.to_string()),
                     control: Control::File {
                         selected: Some(self.path.to_owned()),
                     },
@@ -134,8 +134,8 @@ impl OperatorParamBox for Output {
             categories: vec![ParamCategory {
                 name: "Basic Parameters",
                 parameters: vec![Parameter {
-                    name: "Output Type",
-                    transmitter: Field(Self::OUTPUT_TYPE),
+                    name: "Output Type".to_string(),
+                    transmitter: Field(Self::OUTPUT_TYPE.to_string()),
                     control: Control::Enum {
                         selected: self.output_type as usize,
                         variants: super::OutputType::VARIANTS

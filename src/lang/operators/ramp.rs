@@ -157,8 +157,8 @@ impl OperatorParamBox for Ramp {
             categories: vec![ParamCategory {
                 name: "Basic Parameters",
                 parameters: vec![Parameter {
-                    name: "Gradient",
-                    transmitter: Field(Ramp::RAMP),
+                    name: "Gradient".to_string(),
+                    transmitter: Field(Ramp::RAMP.to_string()),
                     control: Control::Ramp {
                         steps: self.get_steps(),
                     },

@@ -71,8 +71,8 @@ impl OperatorParamBox for PerlinNoise {
                 name: "Basic Parameters",
                 parameters: vec![
                     Parameter {
-                        name: "Scale",
-                        transmitter: Field(PerlinNoise::SCALE),
+                        name: "Scale".to_string(),
+                        transmitter: Field(PerlinNoise::SCALE.to_string()),
                         control: Control::Slider {
                             value: self.scale,
                             min: 0.,
@@ -81,8 +81,8 @@ impl OperatorParamBox for PerlinNoise {
                         available: true,
                     },
                     Parameter {
-                        name: "Octaves",
-                        transmitter: Field(PerlinNoise::OCTAVES),
+                        name: "Octaves".to_string(),
+                        transmitter: Field(PerlinNoise::OCTAVES.to_string()),
                         control: Control::Slider {
                             value: self.octaves as _,
                             min: 0.,
@@ -91,8 +91,8 @@ impl OperatorParamBox for PerlinNoise {
                         available: true,
                     },
                     Parameter {
-                        name: "Attenuation",
-                        transmitter: Field(PerlinNoise::ATTENUATION),
+                        name: "Attenuation".to_string(),
+                        transmitter: Field(PerlinNoise::ATTENUATION.to_string()),
                         control: Control::Slider {
                             value: self.attenuation,
                             min: 0.,

@@ -130,13 +130,13 @@ pub trait MessageWriter {
     fn as_field(&self) -> Option<&Field>;
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct Field(pub &'static str);
+#[derive(Clone, Debug)]
+pub struct Field(pub String);
 
 impl MessageWriter for Field {
     fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang {
         super::Lang::UserNodeEvent(super::UserNodeEvent::ParameterChange(
-            Resource::parameter(resource.path(), self.0),
+            Resource::parameter(resource.path(), &self.0),
             data.to_vec(),
         ))
     }
@@ -209,7 +209,7 @@ pub struct ParamCategory<T: MessageWriter> {
 
 #[derive(Debug)]
 pub struct Parameter<T: MessageWriter> {
-    pub name: &'static str,
+    pub name: String,
     pub transmitter: T,
     pub control: Control,
     pub available: bool,

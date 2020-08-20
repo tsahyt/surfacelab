@@ -112,10 +112,10 @@ impl NodeGraph {
             categories: vec![
                 ParamCategory {
                     name: "Exposed Parameters",
-                    parameters: self.parameters.iter().map(|(_k,v)| {
+                    parameters: self.parameters.iter().map(|(k,v)| {
                         Parameter {
-                            name: "parameter",
-                            transmitter: Field("bar"), // Field(k.clone()),
+                            name: v.title.clone(),
+                            transmitter: Field(k.clone()),
                             control: v.control.clone(),
                             available: true
                         }

@@ -103,8 +103,8 @@ impl OperatorParamBox for Grayscale {
             categories: vec![ParamCategory {
                 name: "Basic Parameters",
                 parameters: vec![Parameter {
-                    name: "Conversion Mode",
-                    transmitter: Field(Grayscale::MODE),
+                    name: "Conversion Mode".to_string(),
+                    transmitter: Field(Grayscale::MODE.to_string()),
                     control: Control::Enum {
                         selected: self.mode as usize,
                         variants: GrayscaleMode::VARIANTS

@@ -115,8 +115,8 @@ impl OperatorParamBox for Blend {
                 name: "Basic Parameters",
                 parameters: vec![
                     Parameter {
-                        name: "Blend Mode",
-                        transmitter: Field(Blend::BLEND_MODE),
+                        name: "Blend Mode".to_string(),
+                        transmitter: Field(Blend::BLEND_MODE.to_string()),
                         control: Control::Enum {
                             selected: self.blend_mode as usize,
                             variants: BlendMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
@@ -124,16 +124,16 @@ impl OperatorParamBox for Blend {
                         available: true,
                     },
                     Parameter {
-                        name: "Clamp",
-                        transmitter: Field(Blend::CLAMP_OUTPUT),
+                        name: "Clamp".to_string(),
+                        transmitter: Field(Blend::CLAMP_OUTPUT.to_string()),
                         control: Control::Toggle {
                             def: self.clamp_output == 1,
                         },
                         available: true,
                     },
                     Parameter {
-                        name: "Mix",
-                        transmitter: Field(Blend::MIX),
+                        name: "Mix".to_string(),
+                        transmitter: Field(Blend::MIX.to_string()),
                         control: Control::Slider {
                             value: self.mix,
                             min: 0.,

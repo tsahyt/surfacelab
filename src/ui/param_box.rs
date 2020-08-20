@@ -53,7 +53,7 @@ impl ContainerImpl for ParamBoxPrivate {}
 impl BinImpl for ParamBoxPrivate {}
 
 impl ParamBoxPrivate {
-    fn construct<T: 'static + MessageWriter + Copy>(
+    fn construct<T: 'static + MessageWriter + Clone>(
         &self,
         res: Rc<RefCell<Resource>>,
         description: &ParamBoxDescription<T>,
@@ -76,11 +76,11 @@ impl ParamBoxPrivate {
             for parameter in category.parameters.iter().filter(|x| x.available) {
                 let param_layout = gtk::Box::new(gtk::Orientation::Horizontal, 16);
 
-                let param_label = gtk::Label::new(Some(parameter.name));
+                let param_label = gtk::Label::new(Some(&parameter.name));
 
                 param_label_group.add_widget(&param_label);
                 let param_control =
-                    construct(&parameter.control, res.clone(), parameter.transmitter);
+                    construct(&parameter.control, res.clone(), parameter.transmitter.clone());
                 param_control_group.add_widget(&param_control);
 
                 param_layout.pack_start(&param_label, false, false, 4);
@@ -89,8 +89,9 @@ impl ParamBoxPrivate {
                     let param_expose = gtk::Button::new_with_label("Expose");
                     let field_name = field.0.clone();
                     param_expose.connect_clicked(clone!(@strong res,
-                                                        @strong parameter.control as control => move |_| {
-                        let p_res = Resource::parameter(res.borrow().path(), field_name);
+                                                        @strong parameter.control as control,
+                                                        @strong field_name => move |_| {
+                        let p_res = Resource::parameter(res.borrow().path(), &field_name);
                         super::emit(Lang::UserGraphEvent(UserGraphEvent::ExposeParameter(
                             p_res,
                             "foo".to_string(),
@@ -122,7 +123,7 @@ glib_wrapper! {
 }
 
 impl ParamBox {
-    pub fn new<T: 'static + MessageWriter + Copy>(
+    pub fn new<T: 'static + MessageWriter + Clone>(
         description: &ParamBoxDescription<T>,
         resource: Rc<RefCell<Resource>>,
     ) -> Self {
@@ -323,7 +324,7 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
                 name: "Node",
                 parameters: vec![
                     Parameter {
-                        name: "Node Resource",
+                        name: "Node Resource".to_string(),
                         transmitter: ResourceField::Name,
                         control: Control::Entry {
                             value: res
@@ -337,7 +338,7 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
                         available: true,
                     },
                     Parameter {
-                        name: "Size",
+                        name: "Size".to_string(),
                         transmitter: ResourceField::Size,
                         control: Control::DiscreteSlider {
                             value: 0,
@@ -347,7 +348,7 @@ pub fn node_attributes(res: Rc<RefCell<Resource>>, scalable: bool) -> ParamBox {
                         available: scalable,
                     },
                     Parameter {
-                        name: "Absolute Size",
+                        name: "Absolute Size".to_string(),
                         transmitter: ResourceField::AbsoluteSize,
                         control: Control::Toggle { def: false },
                         available: scalable,
