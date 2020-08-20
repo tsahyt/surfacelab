@@ -194,14 +194,14 @@ where
         }
     }
 
-    pub fn set_channel(&mut self, renderer_id: RendererID, channel: RenderChannel) {
+    pub fn set_channel(&mut self, renderer_id: RendererID, channel: MaterialChannel) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_channel(match channel {
-                RenderChannel::Displacement => 0,
-                RenderChannel::Albedo => 1,
-                RenderChannel::Normal => 2,
-                RenderChannel::Roughness => 3,
-                RenderChannel::Metallic => 4,
+                MaterialChannel::Displacement => 0,
+                MaterialChannel::Albedo => 1,
+                MaterialChannel::Normal => 2,
+                MaterialChannel::Roughness => 3,
+                MaterialChannel::Metallic => 4,
             });
             r.render();
         }

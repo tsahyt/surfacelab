@@ -271,7 +271,7 @@ impl ObjectImpl for Renderer2DViewPrivate {
         displacement_btn.connect_toggled(move |_| {
             super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
                 renderer_id,
-                RenderChannel::Displacement,
+                MaterialChannel::Displacement,
             )))
         });
         let albedo_btn = gtk::RadioButtonBuilder::new()
@@ -282,7 +282,7 @@ impl ObjectImpl for Renderer2DViewPrivate {
         albedo_btn.connect_toggled(move |_| {
             super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
                 renderer_id,
-                RenderChannel::Albedo,
+                MaterialChannel::Albedo,
             )))
         });
         let normal_btn = gtk::RadioButtonBuilder::new()
@@ -293,7 +293,7 @@ impl ObjectImpl for Renderer2DViewPrivate {
         normal_btn.connect_toggled(move |_| {
             super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
                 renderer_id,
-                RenderChannel::Normal,
+                MaterialChannel::Normal,
             )))
         });
         let roughness_btn = gtk::RadioButtonBuilder::new()
@@ -304,7 +304,7 @@ impl ObjectImpl for Renderer2DViewPrivate {
         roughness_btn.connect_toggled(move |_| {
             super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
                 renderer_id,
-                RenderChannel::Roughness,
+                MaterialChannel::Roughness,
             )))
         });
         let metallic_btn = gtk::RadioButtonBuilder::new()
@@ -315,7 +315,7 @@ impl ObjectImpl for Renderer2DViewPrivate {
         metallic_btn.connect_toggled(move |_| {
             super::emit(Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(
                 renderer_id,
-                RenderChannel::Metallic,
+                MaterialChannel::Metallic,
             )))
         });
 

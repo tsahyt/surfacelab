@@ -265,7 +265,7 @@ pub enum UserRenderEvent {
     Pan(RendererID, f32, f32),
     Zoom(RendererID, f32),
     LightMove(RendererID, f32, f32),
-    ChannelChange2D(RendererID, RenderChannel),
+    ChannelChange2D(RendererID, MaterialChannel),
     DisplacementAmount(RendererID, f32),
 }
 
@@ -329,7 +329,7 @@ pub enum RendererType {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum RenderChannel {
+pub enum MaterialChannel {
     Displacement,
     Albedo,
     Normal,
