@@ -1,10 +1,20 @@
 use crate::lang::*;
+use enumset::EnumSet;
+use serde_derive::{Serialize, Deserialize};
 
 pub struct FillLayer {
-
+    mask: MaskStack,
+    channels: EnumSet<MaterialChannel>,
+    factor: f32,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FxLayer {
+    operator: Operator,
+    channels: EnumSet<MaterialChannel>,
+}
+
+pub struct MaskStack {
 
 }
 

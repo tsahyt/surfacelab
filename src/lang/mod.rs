@@ -5,6 +5,7 @@ pub mod resource;
 pub mod socketed;
 
 use enum_dispatch::*;
+use enumset::EnumSetType;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
@@ -328,7 +329,7 @@ pub enum RendererType {
     Renderer2D,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(EnumSetType, Debug)]
 pub enum MaterialChannel {
     Displacement,
     Albedo,

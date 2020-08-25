@@ -13,6 +13,7 @@ bimap = { version = "0.4.0", features = ["serde"] }
 cairo-rs = { git = "https://github.com/gtk-rs/cairo" }
 crossbeam-channel = "0.4.0"
 enum_dispatch = "0.3.1"
+enumset = { version = "1.0.1", features = ["serde"] }
 env_logger = "0.7.1"
 gdk = { git = "https://github.com/gtk-rs/gdk", features = ["v3_20"] }
 gdk-pixbuf = { git = "https://github.com/gtk-rs/gdk-pixbuf", features = ["v2_32"] }
