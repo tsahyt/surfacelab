@@ -5,9 +5,7 @@ use winit::platform::unix::EventLoopExtUnix;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use conrod_core::{
-    self, widget, widget_ids, Colorable, Labelable, Positionable, UiCell, Widget,
-};
+use conrod_core::{self, widget, widget_ids, Colorable, Labelable, Positionable, UiCell, Widget};
 
 conrod_winit::v021_conversion_fns!();
 
@@ -40,7 +38,8 @@ const DIMS: gpu::Extent2D = gpu::Extent2D {
 };
 
 fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
-    let event_loop: winit::event_loop::EventLoop<()> = winit::event_loop::EventLoop::new_any_thread();
+    let event_loop: winit::event_loop::EventLoop<()> =
+        winit::event_loop::EventLoop::new_any_thread();
 
     let window = winit::window::WindowBuilder::new()
         .with_min_inner_size(winit::dpi::Size::Logical(winit::dpi::LogicalSize::new(
@@ -51,7 +50,8 @@ fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
             DIMS.height,
         )))
         .with_title("quad".to_string())
-        .build(&event_loop).unwrap();
+        .build(&event_loop)
+        .unwrap();
 
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
@@ -125,8 +125,6 @@ pub fn start_ui_thread<B: gpu::Backend>(
     let (_sender, receiver, disconnector) = broker.subscribe();
     thread::Builder::new()
         .name("ui".to_string())
-        .spawn(move || {
-            ui_loop(gpu)
-        })
+        .spawn(move || ui_loop(gpu))
         .expect("Failed to spawn UI thread!")
 }

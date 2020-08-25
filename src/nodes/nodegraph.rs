@@ -109,19 +109,19 @@ impl NodeGraph {
     pub fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.name.clone(),
-            categories: vec![
-                ParamCategory {
-                    name: "Exposed Parameters",
-                    parameters: self.parameters.iter().map(|(k,v)| {
-                        Parameter {
-                            name: v.title.clone(),
-                            transmitter: Field(k.clone()),
-                            control: v.control.clone(),
-                            available: true
-                        }
-                    }).collect()
-                }
-            ]
+            categories: vec![ParamCategory {
+                name: "Exposed Parameters",
+                parameters: self
+                    .parameters
+                    .iter()
+                    .map(|(k, v)| Parameter {
+                        name: v.title.clone(),
+                        transmitter: Field(k.clone()),
+                        control: v.control.clone(),
+                        available: true,
+                    })
+                    .collect(),
+            }],
         }
     }
 

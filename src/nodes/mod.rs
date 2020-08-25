@@ -6,8 +6,8 @@ use std::thread;
 use maplit::hashmap;
 
 pub mod io;
-pub mod nodegraph;
 pub mod layers;
+pub mod nodegraph;
 
 struct NodeManager {
     parent_size: u32,

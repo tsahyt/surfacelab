@@ -24,9 +24,7 @@ use std::{
     ptr,
 };
 
-use conrod_core::{
-    self, mesh::*
-};
+use conrod_core::{self, mesh::*};
 
 const ENTRY_NAME: &str = "main";
 const GLYPH_CACHE_FORMAT: hal::format::Format = hal::format::Format::R8Unorm;
@@ -60,7 +58,6 @@ pub struct Vertex {
     /// If any other value is given, the fragment shader will not output any color.
     pub mode: u32,
 }
-
 
 /// A loaded gfx-hal texture and it's width/height, as well as format. Any
 /// validation as well as ensuring the image is backed by memory is to be done
@@ -540,7 +537,8 @@ where
 
         let lock = gpu.lock().unwrap();
 
-        let mut surface = unsafe { lock.instance.create_surface(window) }.expect("Failed to create surface");
+        let mut surface =
+            unsafe { lock.instance.create_surface(window) }.expect("Failed to create surface");
 
         let mut command_pool = unsafe {
             lock.device.create_command_pool(
@@ -742,15 +740,17 @@ where
         .expect("Can't create pipeline layout");
         let pipeline = {
             let vs_module = {
-                let spirv =
-                    pso::read_spirv(Cursor::new(&include_bytes!("../../shaders/ui-vert.spv")[..]))
-                        .unwrap();
+                let spirv = pso::read_spirv(Cursor::new(
+                    &include_bytes!("../../shaders/ui-vert.spv")[..],
+                ))
+                .unwrap();
                 unsafe { lock.device.create_shader_module(&spirv) }.unwrap()
             };
             let fs_module = {
-                let spirv =
-                    pso::read_spirv(Cursor::new(&include_bytes!("../../shaders/ui-frag.spv")[..]))
-                        .unwrap();
+                let spirv = pso::read_spirv(Cursor::new(
+                    &include_bytes!("../../shaders/ui-frag.spv")[..],
+                ))
+                .unwrap();
                 unsafe { lock.device.create_shader_module(&spirv) }.unwrap()
             };
 

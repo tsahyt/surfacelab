@@ -1,6 +1,6 @@
 use crate::lang::*;
 use enumset::EnumSet;
-use serde_derive::{Serialize, Deserialize};
+use serde_derive::{Deserialize, Serialize};
 
 pub struct FillLayer {
     mask: MaskStack,
@@ -14,9 +14,7 @@ pub struct FxLayer {
     channels: EnumSet<MaterialChannel>,
 }
 
-pub struct MaskStack {
-
-}
+pub struct MaskStack {}
 
 pub enum Layer {
     FillLayer(FillLayer),

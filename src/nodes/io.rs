@@ -45,7 +45,10 @@ impl NodeManager {
             let res = Resource::graph(&name, None);
             events.push(Lang::GraphEvent(GraphEvent::GraphAdded(res.clone())));
             events.append(&mut graph.rebuild_events(self.parent_size));
-            events.push(Lang::GraphEvent(GraphEvent::Relinearized(res, graph.linearize())))
+            events.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                res,
+                graph.linearize(),
+            )))
         }
 
         // Finally make sure base is picked
