@@ -528,9 +528,10 @@ impl<B> Renderer<B>
 where
     B: Backend,
 {
-    pub fn new(
+    pub fn new<W: raw_window_handle::HasRawWindowHandle>(
         gpu: Arc<Mutex<GPU<B>>>,
-        mut surface: B::Surface,
+        //mut surface: B::Surface,
+        window: &W,
         dimensions: window::Extent2D,
         glyph_cache_dims: [u32; 2],
     ) -> Renderer<B> {
@@ -538,6 +539,8 @@ where
         let glyph_cache = GlyphCache::new(gpu.clone(), glyph_cache_dims);
 
         let lock = gpu.lock().unwrap();
+
+        let mut surface = unsafe { lock.instance.create_surface(window) }.expect("Failed to create surface");
 
         let mut command_pool = unsafe {
             lock.device.create_command_pool(

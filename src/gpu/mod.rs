@@ -5,6 +5,7 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
 pub use gfx_hal::Backend;
+pub use hal::window::Extent2D;
 pub use hal::buffer::SubRange;
 pub use hal::image::{Access, Layout};
 pub use hal::pso::{

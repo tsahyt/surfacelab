@@ -12,7 +12,7 @@ fn main() {
             let mut broker: broker::Broker<lang::Lang> = broker::Broker::new(1024);
 
             // start threads
-            let ui_thread = surfacelab::ui::start_ui_thread(&mut broker);
+            let ui_thread = surfacelab::ui::start_ui_thread(&mut broker, gpu.clone());
             let nodes_thread = surfacelab::nodes::start_nodes_thread(&mut broker);
             let compute_thread =
                 surfacelab::compute::start_compute_thread(&mut broker, gpu.clone());
