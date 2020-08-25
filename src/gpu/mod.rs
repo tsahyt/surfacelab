@@ -15,6 +15,7 @@ pub use hal::Instance;
 
 pub mod compute;
 pub mod render;
+pub mod ui;
 
 pub const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     aspects: hal::format::Aspects::COLOR,

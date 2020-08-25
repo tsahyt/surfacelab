@@ -1,83 +1,166 @@
-use crate::{broker, lang};
-use gio::prelude::*;
-use once_cell::unsync::OnceCell;
-use std::sync::Arc;
+use crate::{broker, gpu, lang::*};
+
+use std::sync::{Arc, Mutex};
 use std::thread;
 
-pub mod application;
-pub mod color_ramp;
-pub mod color_wheel;
-pub mod export;
-pub mod node;
-pub mod node_area;
-pub mod node_socket;
-pub mod param_box;
-pub mod render_area;
-pub mod renderer;
+use conrod_core::{
+    self, widget, widget_ids, Colorable, Labelable, Positionable, UiCell, Widget,
+};
 
-thread_local!(static BROKER: OnceCell<broker::BrokerSender<lang::Lang>> = OnceCell::new());
+conrod_winit::v021_conversion_fns!();
 
-fn emit(ev: lang::Lang) {
-    BROKER.with(|b| {
-        if let Err(e) = b.get().expect("Uninitialized broker in UI TLS").send(ev) {
-            log::error!("UI lost connection to application bus! {}", e)
-        }
-    })
+widget_ids!(
+    struct Ids { text, button, counter }
+);
+
+struct App {
+    clicks: u32,
 }
 
-pub fn start_ui_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinHandle<()> {
-    log::info!("Starting UI");
+fn gui(ui: &mut UiCell, ids: &Ids, app: &mut App) {
+    widget::Text::new("Hello World!")
+        .middle_of(ui.window)
+        .color(conrod_core::color::WHITE)
+        .font_size(32)
+        .set(ids.text, ui);
+    for _press in widget::Button::new().label("Press").set(ids.button, ui) {
+        app.clicks += 1;
+    }
+    widget::Text::new(&format!("Times Clicked: {}", app.clicks))
+        .color(conrod_core::color::GRAY)
+        .font_size(16)
+        .set(ids.counter, ui);
+}
 
-    let (sender, receiver, disconnector) = broker.subscribe();
+fn ui_loop() {
+    // let event_loop = winit::event_loop::EventLoop::new();
 
+    // let wb = winit::window::WindowBuilder::new()
+    //     .with_min_inner_size(winit::dpi::Size::Logical(winit::dpi::LogicalSize::new(
+    //         64.0, 64.0,
+    //     )))
+    //     .with_inner_size(winit::dpi::Size::Physical(winit::dpi::PhysicalSize::new(
+    //         DIMS.width,
+    //         DIMS.height,
+    //     )))
+    //     .with_title("quad".to_string());
+
+    // // instantiate backend
+    // let (window, instance, mut adapters, surface) = {
+    //     let window = wb.build(&event_loop).unwrap();
+    //     let instance =
+    //         back::Instance::create("gfx-rs quad", 1).expect("Failed to create an instance!");
+    //     let surface = unsafe {
+    //         instance
+    //             .create_surface(&window)
+    //             .expect("Failed to create a surface!")
+    //     };
+    //     let adapters = instance.enumerate_adapters();
+    //     // Return `window` so it is not dropped: dropping it invalidates `surface`.
+    //     (window, instance, adapters, surface)
+    // };
+
+    // let adapter = adapters.remove(0);
+
+    // // Build a new device and associated command queues
+    // let family = adapter
+    //     .queue_families
+    //     .iter()
+    //     .find(|family| {
+    //         surface.supports_queue_family(family) && family.queue_type().supports_graphics()
+    //     })
+    //     .unwrap();
+    // let mut gpu = unsafe {
+    //     adapter
+    //         .physical_device
+    //         .open(&[(family, &[1.0])], hal::Features::empty())
+    //         .unwrap()
+    // };
+    // let queue_group = gpu.queue_groups.pop().unwrap();
+    // let device = gpu.device;
+
+    // let gpu_hdl = Arc::new(Mutex::new(GPU {
+    //     device,
+    //     memory_properties: adapter.physical_device.memory_properties(),
+    //     adapter,
+    //     instance,
+    //     queue_group,
+    // }));
+
+    // let mut renderer = Renderer::new(gpu_hdl, surface, DIMS, [1024, 1024]);
+
+    // // conrod
+    // let mut app = App { clicks: 0 };
+    // let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
+    // let ids = Ids::new(ui.widget_id_generator());
+    // let image_map: conrod_core::image::Map<Image<back::Backend>> = conrod_core::image::Map::new();
+
+    // ui.fonts
+    //     .insert_from_file("/home/paul/.local/share/fonts/Recursive/static/Recursive-Medium-CASL=0-CRSV=0-MONO=0-slnt=0.ttf")
+    //     .unwrap();
+
+    // // It is important that the closure move captures the Renderer,
+    // // otherwise it will not be dropped when the event loop exits.
+    // event_loop.run(move |event, _, control_flow| {
+    //     if let Some(event) = convert_event(&event, &window) {
+    //         ui.handle_event(event);
+    //     }
+
+    //     *control_flow = winit::event_loop::ControlFlow::Wait;
+
+    //     match event {
+    //         winit::event::Event::WindowEvent { event, .. } => match event {
+    //             winit::event::WindowEvent::CloseRequested => {
+    //                 *control_flow = winit::event_loop::ControlFlow::Exit
+    //             }
+    //             winit::event::WindowEvent::KeyboardInput {
+    //                 input:
+    //                     winit::event::KeyboardInput {
+    //                         virtual_keycode: Some(winit::event::VirtualKeyCode::Escape),
+    //                         ..
+    //                     },
+    //                 ..
+    //             } => *control_flow = winit::event_loop::ControlFlow::Exit,
+    //             winit::event::WindowEvent::Resized(dims) => {
+    //                 renderer.recreate_swapchain(Some(window::Extent2D {
+    //                     width: dims.width,
+    //                     height: dims.height,
+    //                 }));
+    //             }
+    //             _ => {}
+    //         },
+
+    //         winit::event::Event::MainEventsCleared => {
+    //             // Update widgets if any event has happened
+    //             if ui.global_input().events().next().is_some() {
+    //                 let mut ui = ui.set_widgets();
+    //                 gui(&mut ui, &ids, &mut app);
+    //                 window.request_redraw();
+    //             }
+    //         }
+
+    //         winit::event::Event::RedrawRequested(..) => {
+    //             let primitives = match ui.draw_if_changed() {
+    //                 None => return,
+    //                 Some(ps) => ps,
+    //             };
+
+    //             renderer.render(&image_map, primitives);
+    //         }
+    //         _ => {}
+    //     }
+    // });
+}
+
+pub fn start_ui_thread<B: gpu::Backend>(
+    broker: &mut broker::Broker<Lang>,
+    gpu: Arc<Mutex<gpu::GPU<B>>>,
+) -> thread::JoinHandle<()> {
+    let (_sender, receiver, disconnector) = broker.subscribe();
     thread::Builder::new()
         .name("ui".to_string())
-        .spawn(move || gtk_main(sender, receiver, disconnector))
+        .spawn(move || {
+           
+        })
         .expect("Failed to spawn UI thread!")
-}
-
-fn ui_bus(
-    gsender: glib::Sender<Arc<lang::Lang>>,
-    receiver: broker::BrokerReceiver<lang::Lang>,
-    disconnector: broker::BrokerDisconnect,
-) {
-    for event in receiver {
-        gsender.send(event.clone()).unwrap();
-        if let lang::Lang::UserIOEvent(lang::UserIOEvent::Quit) = &*event {
-            disconnector.disconnect();
-            break;
-        }
-    }
-}
-
-fn gtk_main(
-    sender: broker::BrokerSender<lang::Lang>,
-    receiver: broker::BrokerReceiver<lang::Lang>,
-    disconnector: broker::BrokerDisconnect,
-) {
-    gtk::init().expect("Failed to initialize gtk");
-
-    BROKER.with(|b| {
-        b.set(sender)
-            .map_err(|_| "<UI thread bus>")
-            .expect("Failed to store UI thread bus")
-    });
-    let application = application::SurfaceLabApplication::new();
-
-    let (gsender, greceiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-    let ui_thread = thread::Builder::new()
-        .name("ui-bus".to_string())
-        .spawn(move || ui_bus(gsender, receiver, disconnector))
-        .expect("Failed to spawn UI bus thread!");
-
-    let application_clone = application.clone();
-    greceiver.attach(None, move |event: Arc<lang::Lang>| {
-        application_clone.process_event(event);
-        glib::Continue(true)
-    });
-
-    application.run(&[]);
-
-    ui_thread.join().unwrap();
-    log::info!("UI Terminating");
 }
