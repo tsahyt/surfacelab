@@ -527,7 +527,6 @@ where
 {
     pub fn new<W: raw_window_handle::HasRawWindowHandle>(
         gpu: Arc<Mutex<GPU<B>>>,
-        //mut surface: B::Surface,
         window: &W,
         dimensions: window::Extent2D,
         glyph_cache_dims: [u32; 2],
