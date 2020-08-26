@@ -521,6 +521,7 @@ pub struct Renderer<B: Backend> {
     mesh: conrod_core::mesh::Mesh,
 }
 
+// TODO: MSAA for UI rendering
 impl<B> Renderer<B>
 where
     B: Backend,
