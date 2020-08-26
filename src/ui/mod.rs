@@ -5,31 +5,60 @@ use winit::platform::unix::EventLoopExtUnix;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use conrod_core::{self, widget, widget_ids, Colorable, Labelable, Positionable, UiCell, Widget};
+use conrod_core::*;
 
 conrod_winit::v021_conversion_fns!();
 
 widget_ids!(
-    struct Ids { text, button, counter }
+    struct Ids { canvas, title, button, counter, longtext }
 );
 
 struct App {
     clicks: u32,
 }
 
+impl Default for App {
+    fn default() -> Self {
+        App { clicks: 0 }
+    }
+}
+
 fn gui(ui: &mut UiCell, ids: &Ids, app: &mut App) {
-    widget::Text::new("Hello World!")
-        .middle_of(ui.window)
-        .color(conrod_core::color::WHITE)
+    widget::Canvas::new()
+        .pad(30.0)
+        .scroll_kids_vertically()
+        .color(conrod_core::color::CHARCOAL)
+        .w_h(320.0, 240.0)
+        .middle()
+        .set(ids.canvas, ui);
+    widget::Text::new("Hello World")
+        .parent(ids.canvas)
+        .align_middle_x()
         .font_size(32)
-        .set(ids.text, ui);
-    for _press in widget::Button::new().label("Press").set(ids.button, ui) {
+        .color(conrod_core::color::WHITE)
+        .set(ids.title, ui);
+    for _press in widget::Button::new()
+        .label("Press")
+        .parent(ids.canvas)
+        .down(60.0)
+        .set(ids.button, ui) {
         app.clicks += 1;
     }
     widget::Text::new(&format!("Times Clicked: {}", app.clicks))
+        .parent(ids.canvas)
         .color(conrod_core::color::GRAY)
         .font_size(16)
         .set(ids.counter, ui);
+    let lipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla id justo ut tellus faucibus porttitor. Morbi a sagittis quam, et auctor dui. Vivamus at velit et mauris porta sollicitudin. Sed tempor pulvinar neque, et vestibulum urna pellentesque eu. Aenean sed sodales lorem. Suspendisse pellentesque nisi non consectetur tempus. Nulla bibendum orci non lectus egestas rutrum. Aliquam a tellus massa. Aenean non nisi euismod, placerat eros sit amet, convallis justo. Aenean eu hendrerit mauris. Phasellus imperdiet tortor orci, eu porta leo mattis vitae. Interdum et malesuada fames ac ante ipsum primis in faucibus. Ut nulla dui, placerat sed ipsum nec, scelerisque posuere dolor. In hac habitasse platea dictumst. Praesent fringilla arcu id blandit euismod.";
+    widget::Text::new(lipsum)
+        .parent(ids.canvas)
+        .align_middle_x()
+        .font_size(12)
+        .wrap_by_word()
+        .w(ui.w_of(ids.canvas).unwrap())
+        .center_justify()
+        .color(conrod_core::color::WHITE)
+        .set(ids.longtext, ui);
 }
 
 const DIMS: gpu::Extent2D = gpu::Extent2D {
@@ -56,7 +85,7 @@ fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
     // conrod
-    let mut app = App { clicks: 0 };
+    let mut app = App::default();
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
     let ids = Ids::new(ui.widget_id_generator());
     let image_map = conrod_core::image::Map::new();

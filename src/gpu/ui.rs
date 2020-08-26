@@ -1004,17 +1004,18 @@ where
         }
         for cmd in self.mesh.commands() {
             match cmd {
-                Command::Scizzor(scizzor) => unsafe {
-                    cmd_buffer.set_scissors(
-                        0,
-                        &[hal::pso::Rect {
-                            x: scizzor.top_left[0] as i16,
-                            y: scizzor.top_left[1] as i16,
-                            w: scizzor.dimensions[0] as i16,
-                            h: scizzor.dimensions[1] as i16,
-                        }],
-                    );
-                },
+                // Command::Scizzor(scizzor) => unsafe {
+                //     cmd_buffer.set_scissors(
+                //         0,
+                //         &[hal::pso::Rect {
+                //             x: scizzor.top_left[0] as i16,
+                //             y: scizzor.top_left[1] as i16,
+                //             w: scizzor.dimensions[1] as i16,
+                //             h: scizzor.dimensions[0] as i16,
+                //         }],
+                //     );
+                // },
+                // TODO: Figure out UI scissoring
                 Command::Draw(draw) => match draw {
                     Draw::Plain(range) => unsafe {
                         if range.len() > 0 {
@@ -1037,6 +1038,7 @@ where
                         }
                     },
                 },
+                _ => {}
             }
         }
         unsafe {
