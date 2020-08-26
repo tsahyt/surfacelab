@@ -7,6 +7,7 @@ use std::thread;
 
 pub mod app;
 pub mod graph;
+pub mod util;
 
 conrod_winit::v021_conversion_fns!();
 
@@ -65,13 +66,17 @@ fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
     let ids = app::Ids::new(ui.widget_id_generator());
     let image_map = conrod_core::image::Map::new();
-    let assets = find_folder::Search::KidsThenParents(3, 5).for_folder("assets").unwrap();
+    let assets = find_folder::Search::KidsThenParents(3, 5)
+        .for_folder("assets")
+        .unwrap();
 
     let fonts = app::AppFonts {
-        icon_font: ui.fonts
-            .insert_from_file(assets.join("FontAwesome5Free-Regular.ttf"))
+        icon_font: ui
+            .fonts
+            .insert_from_file(assets.join("MaterialDesignIcons.ttf"))
             .unwrap(),
-        text_font: ui.fonts
+        text_font: ui
+            .fonts
             .insert_from_file(assets.join("Recursive-Regular.ttf"))
             .unwrap(),
     };

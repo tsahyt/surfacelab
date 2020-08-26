@@ -1,5 +1,6 @@
 use conrod_core::*;
 use std::collections::HashMap;
+use super::util;
 
 const PANEL_COLOR: Color = color::DARK_CHARCOAL;
 const PANEL_GAP: Scalar = 0.5;
@@ -86,10 +87,10 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
         .color(color::WHITE)
         .set(ids.title_text, ui);
 
-    node_graph(ui, ids, app);
+    node_graph(ui, ids, fonts, app);
 }
 
-pub fn node_graph(ui: &mut UiCell, ids: &Ids, app: &mut App) {
+pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
     use super::graph::*;
 
     let session = {
@@ -154,7 +155,7 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, app: &mut App) {
             .graph
             .neighbors_directed(node_id, petgraph::Outgoing)
             .count();
-        let button = widget::Button::new().label(&app.graph[node_id]).border(0.0);
+        let button = util::icon_button(util::IconName::CONTENT_SAVE, fonts);
         let widget = Node::new(button)
             .inputs(inputs)
             .outputs(outputs)
