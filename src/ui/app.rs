@@ -1,6 +1,6 @@
+use super::util;
 use conrod_core::*;
 use std::collections::HashMap;
-use super::util;
 
 const PANEL_COLOR: Color = color::DARK_CHARCOAL;
 const PANEL_GAP: Scalar = 0.5;

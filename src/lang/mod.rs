@@ -291,26 +291,6 @@ pub enum UserIOEvent {
 }
 
 #[derive(Debug)]
-pub struct WindowHandle {
-    raw: raw_window_handle::RawWindowHandle,
-}
-
-impl WindowHandle {
-    pub fn new(handle: raw_window_handle::RawWindowHandle) -> Self {
-        WindowHandle { raw: handle }
-    }
-}
-
-unsafe impl raw_window_handle::HasRawWindowHandle for WindowHandle {
-    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-        self.raw
-    }
-}
-
-unsafe impl Sync for WindowHandle {}
-unsafe impl Send for WindowHandle {}
-
-#[derive(Debug)]
 pub enum ComputeEvent {
     OutputReady(
         Resource,
@@ -359,7 +339,7 @@ impl ImageChannel {
 
 #[derive(Debug)]
 pub enum UIEvent {
-    RendererAdded(RendererID, WindowHandle, u32, u32, RendererType),
+    RendererAdded(RendererID, u32, u32, RendererType),
     RendererRedraw(RendererID),
     RendererResize(RendererID, u32, u32),
     RendererRemoved(RendererID),

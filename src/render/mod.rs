@@ -24,9 +24,9 @@ pub fn start_render_thread<B: gpu::Backend>(
                     Lang::UserIOEvent(UserIOEvent::SetParentSize(new_size)) => {
                         render_manager.resize_images(*new_size)
                     }
-                    Lang::UIEvent(UIEvent::RendererAdded(id, h, width, height, ty)) => {
+                    Lang::UIEvent(UIEvent::RendererAdded(id, width, height, ty)) => {
                         render_manager
-                            .new_renderer(*id, h, *width, *height, *ty)
+                            .new_renderer(*id, *width, *height, *ty)
                             .unwrap()
                     }
                     Lang::UIEvent(UIEvent::RendererRedraw(id)) => render_manager.redraw(*id),
@@ -91,16 +91,14 @@ where
         }
     }
 
-    pub fn new_renderer<H: raw_window_handle::HasRawWindowHandle>(
+    pub fn new_renderer(
         &mut self,
         id: RendererID,
-        handle: &H,
         width: u32,
         height: u32,
         ty: RendererType,
     ) -> Result<(), String> {
-        let surface = gpu::render::create_surface(&self.gpu, handle);
-        let renderer = gpu::render::GPURender::new(&self.gpu, surface, width, height, 1024, ty)?;
+        let renderer = gpu::render::GPURender::new(&self.gpu, width, height, 1024, ty)?;
         self.renderers.insert(id, renderer);
 
         Ok(())

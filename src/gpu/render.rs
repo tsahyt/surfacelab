@@ -1,6 +1,5 @@
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
-use std::borrow::Borrow;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
@@ -67,11 +66,10 @@ pub struct GPURender<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: ManuallyDrop<B::CommandPool>,
 
-    // Surface Data and Geometry
-    surface: ManuallyDrop<B::Surface>,
+    // Target Data and Geometry
     viewport: hal::pso::Viewport,
-    format: hal::format::Format,
     dimensions: hal::window::Extent2D,
+    render_target: RenderTarget<B>,
 
     // View
     view: RenderView,
@@ -94,6 +92,74 @@ pub struct GPURender<B: Backend> {
     complete_fence: ManuallyDrop<B::Fence>,
     complete_semaphore: ManuallyDrop<B::Semaphore>,
     transfer_fence: ManuallyDrop<B::Fence>,
+}
+
+struct RenderTarget<B: Backend> {
+    image: ManuallyDrop<B::Image>,
+    view: ManuallyDrop<B::ImageView>,
+    memory: ManuallyDrop<B::Memory>,
+}
+
+impl<B> RenderTarget<B>
+where
+    B: Backend,
+{
+    pub fn new(
+        device: &B::Device,
+        memory_properties: &hal::adapter::MemoryProperties,
+        format: hal::format::Format,
+        dimensions: (u32, u32),
+    ) -> Result<Self, String> {
+        // Create Image
+        let mut image = unsafe {
+            device.create_image(
+                hal::image::Kind::D2(dimensions.0, dimensions.1, 1, 1),
+                1,
+                format,
+                hal::image::Tiling::Linear,
+                hal::image::Usage::COLOR_ATTACHMENT,
+                hal::image::ViewCapabilities::empty(),
+            )
+        }
+        .map_err(|_| "Failed to create render image")?;
+
+        // Allocate and bind memory for image
+        let requirements = unsafe { device.get_image_requirements(&image) };
+        let memory_type = memory_properties
+            .memory_types
+            .iter()
+            .position(|mem_type| {
+                mem_type
+                    .properties
+                    .contains(hal::memory::Properties::DEVICE_LOCAL)
+            })
+            .unwrap()
+            .into();
+        let memory = unsafe { device.allocate_memory(memory_type, requirements.size) }
+            .map_err(|_| "Failed to allocate memory for render image")?;
+        unsafe { device.bind_image_memory(&memory, 0, &mut image) }.unwrap();
+
+        let view = unsafe {
+            device.create_image_view(
+                &image,
+                hal::image::ViewKind::D2,
+                format,
+                hal::format::Swizzle::NO,
+                super::COLOR_RANGE.clone(),
+            )
+        }
+        .map_err(|_| "Failed to create render image view")?;
+
+        Ok(Self {
+            image: ManuallyDrop::new(image),
+            view: ManuallyDrop::new(view),
+            memory: ManuallyDrop::new(memory)
+        })
+    }
+
+    pub fn image_view(&self) -> &B::ImageView {
+        &*self.view
+    }
 }
 
 struct ImageSlots<B: Backend> {
@@ -207,18 +273,6 @@ where
     }
 }
 
-pub fn create_surface<B: Backend, H: raw_window_handle::HasRawWindowHandle>(
-    gpu: &Arc<Mutex<GPU<B>>>,
-    handle: &H,
-) -> B::Surface {
-    let lock = gpu.lock().unwrap();
-    unsafe {
-        lock.instance
-            .create_surface(handle)
-            .expect("Unable to create surface from handle")
-    }
-}
-
 impl<B> GPURender<B>
 where
     B: Backend,
@@ -227,7 +281,6 @@ where
 
     pub fn new(
         gpu: &Arc<Mutex<GPU<B>>>,
-        mut surface: B::Surface,
         width: u32,
         height: u32,
         image_size: u32,
@@ -236,40 +289,8 @@ where
         log::info!("Obtaining GPU Render Resources");
         let lock = gpu.lock().unwrap();
 
-        // Check whether the surface supports the selected queue family
-        if !surface.supports_queue_family(&lock.adapter.queue_families[lock.queue_group.family.0]) {
-            return Err("Surface does not support selected queue family!".into());
-        }
-
-        // Getting capabilities and deciding on format
-        let caps = surface.capabilities(&lock.adapter.physical_device);
-        let formats = surface.supported_formats(&lock.adapter.physical_device);
-
-        log::debug!("Surface capabilities: {:?}", caps);
-        log::debug!("Surface preferred formats: {:?}", formats);
-
-        let format = formats.map_or(hal::format::Format::Rgba8Srgb, |formats| {
-            formats
-                .iter()
-                .find(|format| format.base_format().1 == hal::format::ChannelType::Srgb)
-                .copied()
-                .unwrap_or(formats[0])
-        });
-
-        log::debug!("Using surface format {:?}", format);
-
-        // Create initial swapchain configuration
-        let swap_config = hal::window::SwapchainConfig::from_caps(
-            &caps,
-            format,
-            hal::window::Extent2D { width, height },
-        );
-
-        unsafe {
-            surface
-                .configure_swapchain(&lock.device, swap_config)
-                .expect("Can't configure swapchain");
-        };
+        let format = hal::format::Format::Rgba8Srgb;
+        log::debug!("Using render format {:?}", format);
 
         let command_pool = unsafe {
             lock.device.create_command_pool(
@@ -431,6 +452,8 @@ where
             },
             depth: 0.0..1.0,
         };
+        let render_target =
+            RenderTarget::new(&lock.device, &lock.memory_properties, format, (width, height))?;
 
         // Shared Sampler
         let sampler = unsafe {
@@ -465,10 +488,9 @@ where
             gpu: gpu.clone(),
             command_pool: ManuallyDrop::new(command_pool),
 
-            surface: ManuallyDrop::new(surface),
             viewport,
-            format,
             dimensions: hal::window::Extent2D { width, height },
+            render_target,
 
             view: match ty {
                 crate::lang::RendererType::Renderer2D => {
@@ -666,21 +688,21 @@ where
     }
 
     pub fn recreate_swapchain(&mut self) {
-        let lock = self.gpu.lock().unwrap();
+        // let lock = self.gpu.lock().unwrap();
 
-        let caps = self.surface.capabilities(&lock.adapter.physical_device);
-        let swap_config =
-            hal::window::SwapchainConfig::from_caps(&caps, self.format, self.dimensions);
-        let extent = swap_config.extent.to_extent();
+        // let caps = self.surface.capabilities(&lock.adapter.physical_device);
+        // let swap_config =
+        //     hal::window::SwapchainConfig::from_caps(&caps, self.format, self.dimensions);
+        // let extent = swap_config.extent.to_extent();
 
-        unsafe {
-            self.surface
-                .configure_swapchain(&lock.device, swap_config)
-                .expect("Failed to recreate swapchain");
-        }
+        // unsafe {
+        //     self.surface
+        //         .configure_swapchain(&lock.device, swap_config)
+        //         .expect("Failed to recreate swapchain");
+        // }
 
-        self.viewport.rect.w = extent.width as _;
-        self.viewport.rect.h = extent.height as _;
+        // self.viewport.rect.w = extent.width as _;
+        // self.viewport.rect.h = extent.height as _;
     }
 
     fn synchronize_at_fence(&self) {
@@ -760,20 +782,10 @@ where
     }
 
     pub fn render(&mut self) {
-        let surface_image = unsafe {
-            match self.surface.acquire_image(!0) {
-                Ok((image, _)) => image,
-                Err(_) => {
-                    self.recreate_swapchain();
-                    return;
-                }
-            }
-        };
-
         // Wait on previous fence to make sure the last frame has been rendered.
         self.synchronize_at_fence();
 
-        let result = {
+        {
             let mut lock = self.gpu.lock().unwrap();
 
             let occupancy = self.build_occupancy();
@@ -788,7 +800,7 @@ where
                 lock.device
                     .create_framebuffer(
                         &self.main_render_pass,
-                        std::iter::once(surface_image.borrow()),
+                        std::iter::once(self.render_target.image_view()),
                         hal::image::Extent {
                             width: self.dimensions.width,
                             height: self.dimensions.height,
@@ -973,22 +985,7 @@ where
                 )
             };
 
-            // Present frame
-            let result = unsafe {
-                lock.queue_group.queues[0].present_surface(
-                    &mut self.surface,
-                    surface_image,
-                    Some(&self.complete_semaphore),
-                )
-            };
-
             unsafe { lock.device.destroy_framebuffer(framebuffer) };
-
-            result
-        };
-
-        if result.is_err() {
-            self.recreate_swapchain();
         }
     }
 
@@ -1234,6 +1231,12 @@ where
 
         unsafe {
             lock.device
+                .free_memory(ManuallyDrop::take(&mut self.render_target.memory));
+            lock.device
+                .destroy_image_view(ManuallyDrop::take(&mut self.render_target.view));
+            lock.device
+                .destroy_image(ManuallyDrop::take(&mut self.render_target.image));
+            lock.device
                 .destroy_buffer(ManuallyDrop::take(&mut self.uniform_buffer));
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.uniform_memory));
@@ -1243,9 +1246,6 @@ where
                 .free_memory(ManuallyDrop::take(&mut self.occupancy_memory));
             lock.device
                 .destroy_command_pool(ManuallyDrop::take(&mut self.command_pool));
-            self.surface.unconfigure_swapchain(&lock.device);
-            lock.instance
-                .destroy_surface(ManuallyDrop::take(&mut self.surface));
             lock.device
                 .destroy_descriptor_pool(ManuallyDrop::take(&mut self.descriptor_pool));
             lock.device
