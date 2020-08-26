@@ -50,7 +50,7 @@ pub struct Style {
     #[conrod(default = "6.0")]
     pub border_radius: Option<Scalar>,
     /// Color of the border.
-    #[conrod(default = "color::DARK_CHARCOAL")]
+    #[conrod(default = "color::CHARCOAL")]
     pub border_color: Option<Color>,
     /// Color of the sockets.
     #[conrod(default = "color::DARK_GREY")]
