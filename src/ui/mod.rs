@@ -7,6 +7,7 @@ use std::thread;
 
 pub mod app;
 pub mod graph;
+pub mod renderview;
 pub mod util;
 
 conrod_winit::v021_conversion_fns!();
@@ -16,7 +17,11 @@ const DIMS: gpu::Extent2D = gpu::Extent2D {
     height: 1080,
 };
 
-fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
+fn ui_loop<B: gpu::Backend>(
+    gpu: Arc<Mutex<gpu::GPU<B>>>,
+    sender: broker::BrokerSender<Lang>,
+    receiver: broker::BrokerReceiver<Lang>,
+) {
     let event_loop: winit::event_loop::EventLoop<()> =
         winit::event_loop::EventLoop::new_any_thread();
 
@@ -61,11 +66,13 @@ fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
     let mut app = app::App {
         graph,
         graph_layout: layout,
+        render_image: None,
+        broker_sender: sender,
     };
 
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
     let ids = app::Ids::new(ui.widget_id_generator());
-    let image_map = conrod_core::image::Map::new();
+    let mut image_map = conrod_core::image::Map::new();
     let assets = find_folder::Search::KidsThenParents(3, 5)
         .for_folder("assets")
         .unwrap();
@@ -89,6 +96,20 @@ fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
         }
 
         *control_flow = winit::event_loop::ControlFlow::Wait;
+
+        if let Ok(broker_event) = receiver.try_recv() {
+            match &*broker_event {
+                Lang::RenderEvent(RenderEvent::RendererAdded(_id, view, width, height)) => {
+                    let id = image_map.insert(gpu::ui::Image {
+                        image_view: view.to::<B>(),
+                        width: *width,
+                        height: *height
+                    });
+                    app.render_image = Some(id);
+                }
+                _ => {}
+            }
+        }
 
         match event {
             winit::event::Event::WindowEvent { event, .. } => match event {
@@ -138,9 +159,9 @@ pub fn start_ui_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,
 ) -> thread::JoinHandle<()> {
-    let (_sender, _receiver, _disconnector) = broker.subscribe();
+    let (sender, receiver, _disconnector) = broker.subscribe();
     thread::Builder::new()
         .name("ui".to_string())
-        .spawn(move || ui_loop(gpu))
+        .spawn(move || ui_loop(gpu, sender, receiver))
         .expect("Failed to spawn UI thread!")
 }

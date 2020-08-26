@@ -153,7 +153,7 @@ where
         Ok(Self {
             image: ManuallyDrop::new(image),
             view: ManuallyDrop::new(view),
-            memory: ManuallyDrop::new(memory)
+            memory: ManuallyDrop::new(memory),
         })
     }
 
@@ -452,8 +452,12 @@ where
             },
             depth: 0.0..1.0,
         };
-        let render_target =
-            RenderTarget::new(&lock.device, &lock.memory_properties, format, (width, height))?;
+        let render_target = RenderTarget::new(
+            &lock.device,
+            &lock.memory_properties,
+            format,
+            (width, height),
+        )?;
 
         // Shared Sampler
         let sampler = unsafe {
@@ -987,6 +991,10 @@ where
 
             unsafe { lock.device.destroy_framebuffer(framebuffer) };
         }
+    }
+
+    pub fn target_view(&self) -> &B::ImageView {
+        self.render_target.image_view()
     }
 
     /// Transfer an external (usually compute) image to an image slot.

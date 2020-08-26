@@ -64,15 +64,15 @@ pub struct Vertex {
 /// by the user!
 ///
 /// Also note that cleanup has to be performed by the user before the image is dropped.
-pub struct Image<B: Backend> {
-    pub image_view: B::ImageView,
+pub struct Image<'a, B: Backend> {
+    pub image_view: &'a B::ImageView,
     /// The width of the image.
     pub width: u32,
     /// The height of the image.
     pub height: u32,
 }
 
-impl<B> ImageDimensions for Image<B>
+impl<'a, B> ImageDimensions for Image<'a, B>
 where
     B: Backend,
 {
@@ -1120,7 +1120,7 @@ where
                         binding: 0,
                         array_offset: 0,
                         descriptors: Some(pso::Descriptor::Image(
-                            &v.image_view,
+                            v.image_view,
                             i::Layout::ShaderReadOnlyOptimal,
                         )),
                     }]);

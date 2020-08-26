@@ -166,7 +166,27 @@ impl BrokerImage {
         Self { raw: ptr }
     }
 
-    pub fn to<B: Backend>(&self) -> &'static B::Image {
+    pub fn to<'a, B: Backend>(&'a self) -> &'a B::Image {
         unsafe { &*(self.raw as *const B::Image) }
+    }
+}
+
+/// Image View variant for broker transmission. See `BrokerImage` for caveats
+#[derive(Debug)]
+pub struct BrokerImageView {
+    raw: *const (),
+}
+
+unsafe impl Send for BrokerImageView {}
+unsafe impl Sync for BrokerImageView {}
+
+impl BrokerImageView {
+    pub fn from<B: Backend>(view: &B::ImageView) -> Self {
+        let ptr = view as *const B::ImageView as *const ();
+        Self { raw: ptr }
+    }
+
+    pub fn to<B: Backend>(&self) -> &'static B::ImageView {
+        unsafe { &*(self.raw as *const B::ImageView) }
     }
 }

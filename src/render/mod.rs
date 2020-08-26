@@ -8,7 +8,7 @@ pub fn start_render_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,
 ) -> thread::JoinHandle<()> {
-    let (_sender, receiver, disconnector) = broker.subscribe();
+    let (sender, receiver, disconnector) = broker.subscribe();
     thread::Builder::new()
         .name("render".to_string())
         .spawn(move || {
@@ -24,10 +24,9 @@ pub fn start_render_thread<B: gpu::Backend>(
                     Lang::UserIOEvent(UserIOEvent::SetParentSize(new_size)) => {
                         render_manager.resize_images(*new_size)
                     }
-                    Lang::UIEvent(UIEvent::RendererAdded(id, width, height, ty)) => {
-                        render_manager
-                            .new_renderer(*id, *width, *height, *ty)
-                            .unwrap()
+                    Lang::UIEvent(UIEvent::RendererRequested(id, width, height, ty)) => {
+                        let view = render_manager.new_renderer(*id, *width, *height, *ty).unwrap();
+                        sender.send(Lang::RenderEvent(RenderEvent::RendererAdded(*id, view, *width, *height)));
                     }
                     Lang::UIEvent(UIEvent::RendererRedraw(id)) => render_manager.redraw(*id),
                     Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
@@ -97,11 +96,12 @@ where
         width: u32,
         height: u32,
         ty: RendererType,
-    ) -> Result<(), String> {
+    ) -> Result<gpu::BrokerImageView, String> {
         let renderer = gpu::render::GPURender::new(&self.gpu, width, height, 1024, ty)?;
+        let view = gpu::BrokerImageView::from::<B>(renderer.target_view());
         self.renderers.insert(id, renderer);
 
-        Ok(())
+        Ok(view)
     }
 
     pub fn remove(&mut self, renderer_id: RendererID) {

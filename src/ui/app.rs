@@ -1,4 +1,5 @@
 use super::util;
+use crate::{broker::BrokerSender, lang::*};
 use conrod_core::*;
 use std::collections::HashMap;
 
@@ -15,22 +16,17 @@ widget_ids!(
         parameter_canvas,
 
         title_text,
-        node_graph
+        node_graph,
+        render_view
     }
 );
 
 pub struct App {
     pub graph: petgraph::Graph<&'static str, (usize, usize)>,
     pub graph_layout: super::graph::Layout<petgraph::graph::NodeIndex>,
-}
+    pub render_image: Option<image::Id>,
 
-impl Default for App {
-    fn default() -> Self {
-        App {
-            graph: petgraph::Graph::new(),
-            graph_layout: super::graph::Layout::from(HashMap::new()),
-        }
-    }
+    pub broker_sender: BrokerSender<Lang>,
 }
 
 pub struct AppFonts {
@@ -88,6 +84,7 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
         .set(ids.title_text, ui);
 
     node_graph(ui, ids, fonts, app);
+    render_view(ui, ids, fonts, app);
 }
 
 pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
@@ -180,5 +177,30 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
         // `end` - The unique node identifier for the node at the end of the edge with point.
         // `widget_id` - The wiget identifier for this edge.
         edge.widget(line).set(ui);
+    }
+}
+
+pub fn render_view(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
+    use super::renderview::*;
+
+    // If there is a known render image, create a render view for it
+    match app.render_image {
+        Some(render_image) => {
+            RenderView::new(render_image)
+                .parent(ids.drawing_canvas)
+                .set(ids.render_view, ui);
+        }
+        None => {
+            // Otherwise create one by notifying the render component
+            let [w, h] = ui.wh_of(ids.drawing_canvas).unwrap();
+            app.broker_sender
+               .send(Lang::UIEvent(UIEvent::RendererRequested(
+                   ids.render_view.index() as u64,
+                   w as u32,
+                   h as u32,
+                   RendererType::Renderer3D,
+               )))
+               .expect("Error contacting renderer backend");
+        }
     }
 }

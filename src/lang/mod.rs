@@ -339,10 +339,15 @@ impl ImageChannel {
 
 #[derive(Debug)]
 pub enum UIEvent {
-    RendererAdded(RendererID, u32, u32, RendererType),
+    RendererRequested(RendererID, u32, u32, RendererType),
     RendererRedraw(RendererID),
     RendererResize(RendererID, u32, u32),
     RendererRemoved(RendererID),
+}
+
+#[derive(Debug)]
+pub enum RenderEvent {
+    RendererAdded(RendererID, crate::gpu::BrokerImageView, u32, u32)
 }
 
 #[derive(Debug)]
@@ -354,4 +359,5 @@ pub enum Lang {
     UIEvent(UIEvent),
     GraphEvent(GraphEvent),
     ComputeEvent(ComputeEvent),
+    RenderEvent(RenderEvent)
 }
