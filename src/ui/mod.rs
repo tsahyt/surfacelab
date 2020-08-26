@@ -65,10 +65,16 @@ fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
     let ids = app::Ids::new(ui.widget_id_generator());
     let image_map = conrod_core::image::Map::new();
+    let assets = find_folder::Search::KidsThenParents(3, 5).for_folder("assets").unwrap();
 
-    ui.fonts
-        .insert_from_file("/home/paul/.local/share/fonts/Recursive/static/Recursive-Medium-CASL=0-CRSV=0-MONO=0-slnt=0.ttf")
-        .unwrap();
+    let fonts = app::AppFonts {
+        icon_font: ui.fonts
+            .insert_from_file(assets.join("FontAwesome5Free-Regular.ttf"))
+            .unwrap(),
+        text_font: ui.fonts
+            .insert_from_file(assets.join("Recursive-Regular.ttf"))
+            .unwrap(),
+    };
 
     // It is important that the closure move captures the Renderer,
     // otherwise it will not be dropped when the event loop exits.
@@ -105,7 +111,7 @@ fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
                 // Update widgets if any event has happened
                 if ui.global_input().events().next().is_some() {
                     let mut ui = ui.set_widgets();
-                    app::gui(&mut ui, &ids, &mut app);
+                    app::gui(&mut ui, &ids, &fonts, &mut app);
                     window.request_redraw();
                 }
             }

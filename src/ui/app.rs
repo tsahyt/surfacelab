@@ -32,7 +32,12 @@ impl Default for App {
     }
 }
 
-pub fn gui(ui: &mut UiCell, ids: &Ids, app: &mut App) {
+pub struct AppFonts {
+    pub text_font: text::font::Id,
+    pub icon_font: text::font::Id,
+}
+
+pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
     widget::Canvas::new()
         .border(0.0)
         .color(PANEL_COLOR)
