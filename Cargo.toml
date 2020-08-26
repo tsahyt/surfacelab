@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 bimap = { version = "0.4.0", features = ["serde"] }
 conrod_core = "0.70.0"
+conrod_derive = "0.70.0"
 conrod_winit = "0.70.0"
 crossbeam-channel = "0.4.0"
 enum_dispatch = "0.3.1"

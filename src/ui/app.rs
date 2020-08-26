@@ -20,14 +20,14 @@ widget_ids!(
 
 pub struct App {
     pub graph: petgraph::Graph<&'static str, (usize, usize)>,
-    pub graph_layout: widget::graph::Layout<petgraph::graph::NodeIndex>,
+    pub graph_layout: super::graph::Layout<petgraph::graph::NodeIndex>,
 }
 
 impl Default for App {
     fn default() -> Self {
         App {
             graph: petgraph::Graph::new(),
-            graph_layout: widget::graph::Layout::from(HashMap::new()),
+            graph_layout: super::graph::Layout::from(HashMap::new()),
         }
     }
 }
@@ -85,8 +85,8 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, app: &mut App) {
 }
 
 pub fn node_graph(ui: &mut UiCell, ids: &Ids, app: &mut App) {
-    use conrod_core::widget::graph::*;
-   
+    use super::graph::*;
+
     let session = {
         // An identifier for each node in the graph.
         let node_indices = app.graph.node_indices();
@@ -102,7 +102,7 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, app: &mut App) {
             };
             (start, end)
         });
-        widget::Graph::new(node_indices, edges, &app.graph_layout)
+        Graph::new(node_indices, edges, &app.graph_layout)
             .background_color(color::TRANSPARENT)
             .wh_of(ids.node_graph_canvas)
             .middle_of(ids.node_graph_canvas)
@@ -141,11 +141,15 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, app: &mut App) {
         //
         // `wiget_id` - The widget identifier for the widget that will represent this node.
         let node_id = node.node_id();
-        let inputs = app.graph.neighbors_directed(node_id, petgraph::Incoming).count();
-        let outputs = app.graph.neighbors_directed(node_id, petgraph::Outgoing).count();
-        let button = widget::Button::new()
-            .label(&app.graph[node_id])
-            .border(0.0);
+        let inputs = app
+            .graph
+            .neighbors_directed(node_id, petgraph::Incoming)
+            .count();
+        let outputs = app
+            .graph
+            .neighbors_directed(node_id, petgraph::Outgoing)
+            .count();
+        let button = widget::Button::new().label(&app.graph[node_id]).border(0.0);
         let widget = Node::new(button)
             .inputs(inputs)
             .outputs(outputs)

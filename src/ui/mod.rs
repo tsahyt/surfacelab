@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub mod app;
+pub mod graph;
 
 conrod_winit::v021_conversion_fns!();
 
@@ -54,11 +55,11 @@ fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
     layout_map.insert(c, [-100.0, -100.0]);
     layout_map.insert(d, [100.0, 0.0]);
     layout_map.insert(e, [300.0, 0.0]);
-    let layout = conrod_core::widget::graph::Layout::from(layout_map);
+    let layout = graph::Layout::from(layout_map);
 
     let mut app = app::App {
         graph,
-        graph_layout: layout
+        graph_layout: layout,
     };
 
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();

@@ -1856,6 +1856,7 @@ dependencies = [
  "approx",
  "bimap",
  "conrod_core",
+ "conrod_derive",
  "conrod_winit",
  "crossbeam-channel",
  "enum_dispatch",
