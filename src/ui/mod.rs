@@ -32,8 +32,35 @@ fn ui_loop<B: gpu::Backend>(gpu: Arc<Mutex<gpu::GPU<B>>>) {
 
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
-    // conrod
-    let mut app = app::App::default();
+    // Demo Graph.
+    let mut graph = petgraph::Graph::new();
+    let a = graph.add_node("A");
+    let b = graph.add_node("B");
+    let c = graph.add_node("C");
+    let d = graph.add_node("D");
+    let e = graph.add_node("E");
+    graph.extend_with_edges(&[
+        (a, c, (1, 0)),
+        (a, d, (0, 1)),
+        (b, d, (0, 0)),
+        (c, d, (0, 2)),
+        (d, e, (0, 0)),
+    ]);
+
+    // Construct a starting layout for the nodes.
+    let mut layout_map = std::collections::HashMap::new();
+    layout_map.insert(b, [-100.0, 100.0]);
+    layout_map.insert(a, [-300.0, 0.0]);
+    layout_map.insert(c, [-100.0, -100.0]);
+    layout_map.insert(d, [100.0, 0.0]);
+    layout_map.insert(e, [300.0, 0.0]);
+    let layout = conrod_core::widget::graph::Layout::from(layout_map);
+
+    let mut app = app::App {
+        graph,
+        graph_layout: layout
+    };
+
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
     let ids = app::Ids::new(ui.widget_id_generator());
     let image_map = conrod_core::image::Map::new();
