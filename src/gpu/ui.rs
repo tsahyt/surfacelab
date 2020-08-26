@@ -64,6 +64,7 @@ pub struct Vertex {
 /// by the user!
 ///
 /// Also note that cleanup has to be performed by the user before the image is dropped.
+#[derive(Debug)]
 pub struct Image<'a, B: Backend> {
     pub image_view: &'a B::ImageView,
     /// The width of the image.
@@ -634,7 +635,7 @@ where
                             with_sampler: false,
                         },
                     },
-                    count: 1,
+                    count: 2,
                 }],
                 pso::DescriptorPoolCreateFlags::empty(),
             )
@@ -1102,10 +1103,12 @@ where
     pub fn update_image_descriptors(&mut self, image_map: &conrod_core::image::Map<Image<B>>) {
         // Drain the map and free all the descriptor sets. Using this instead of
         // reset ensures we leave the default descriptor alone!
-        unsafe {
-            self.image_desc_pool
-                .free_sets(self.image_desc_map.drain().map(|(_, x)| x))
-        };
+        if self.image_desc_map.len() > 0 {
+            unsafe {
+                self.image_desc_pool
+                    .free_sets(self.image_desc_map.drain().map(|(_, x)| x))
+            };
+        }
 
         let lock = self.gpu.lock().unwrap();
 

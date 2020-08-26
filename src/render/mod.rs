@@ -97,7 +97,8 @@ where
         height: u32,
         ty: RendererType,
     ) -> Result<gpu::BrokerImageView, String> {
-        let renderer = gpu::render::GPURender::new(&self.gpu, width, height, 1024, ty)?;
+        let mut renderer = gpu::render::GPURender::new(&self.gpu, width, height, 1024, ty)?;
+        renderer.render();
         let view = gpu::BrokerImageView::from::<B>(renderer.target_view());
         self.renderers.insert(id, renderer);
 

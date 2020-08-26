@@ -188,6 +188,8 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) 
         Some(render_image) => {
             RenderView::new(render_image)
                 .parent(ids.drawing_canvas)
+                .wh_of(ids.drawing_canvas)
+                .middle()
                 .set(ids.render_view, ui);
         }
         None => {

@@ -106,6 +106,7 @@ fn ui_loop<B: gpu::Backend>(
                         height: *height
                     });
                     app.render_image = Some(id);
+                    renderer.update_image_descriptors(&image_map);
                 }
                 _ => {}
             }
