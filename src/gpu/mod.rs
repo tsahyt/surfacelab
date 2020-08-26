@@ -61,24 +61,6 @@ where
     }
 }
 
-pub struct CommandBuffer<'a, B: Backend> {
-    inner: ManuallyDrop<B::CommandBuffer>,
-    pool: &'a mut B::CommandPool,
-}
-
-impl<B> Drop for CommandBuffer<'_, B>
-where
-    B: Backend,
-{
-    fn drop(&mut self) {
-        log::debug!("Dropping Command Buffer");
-        unsafe {
-            self.pool.free(Some(ManuallyDrop::take(&mut self.inner)));
-            ManuallyDrop::drop(&mut self.inner);
-        }
-    }
-}
-
 /// Initialize the GPU, optionally headless. When headless is specified,
 /// no graphics capable family is required.
 ///
@@ -145,8 +127,8 @@ where
         Ok(GPU {
             instance,
             device,
-            adapter,
             queue_group,
+            adapter,
             memory_properties,
         })
     }

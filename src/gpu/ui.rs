@@ -539,6 +539,10 @@ where
         let mut surface =
             unsafe { lock.instance.create_surface(window) }.expect("Failed to create surface");
 
+        if !surface.supports_queue_family(&lock.adapter.queue_families[lock.queue_group.family.0]) {
+            log::error!("Surface does not support queue family!");
+        }
+
         let mut command_pool = unsafe {
             lock.device.create_command_pool(
                 lock.queue_group.family,
