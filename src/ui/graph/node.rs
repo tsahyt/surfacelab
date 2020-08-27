@@ -3,7 +3,6 @@
 use super::*;
 use conrod_core::position::{Axis, Direction, Range, Rect};
 use conrod_core::*;
-use conrod_derive::*;
 use std::iter::once;
 use std::ops::{Deref, DerefMut};
 

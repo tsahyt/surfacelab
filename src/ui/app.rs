@@ -1,7 +1,6 @@
 use super::util;
 use crate::{broker::BrokerSender, lang::*};
 use conrod_core::*;
-use std::collections::HashMap;
 
 const PANEL_COLOR: Color = color::DARK_CHARCOAL;
 const PANEL_GAP: Scalar = 0.5;
@@ -85,7 +84,7 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
         .set(ids.title_text, ui);
 
     node_graph(ui, ids, fonts, app);
-    render_view(ui, ids, fonts, app);
+    render_view(ui, ids, app);
 }
 
 pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
@@ -116,16 +115,16 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
     for event in session.events() {
         match event {
             Event::Node(event) => match event {
-                NodeEvent::Remove(node_id) => {}
+                NodeEvent::Remove(_node_id) => {}
                 NodeEvent::Dragged { node_id, to, .. } => {
                     *app.graph_layout.get_mut(&node_id).unwrap() = to;
                 }
             },
             Event::Edge(event) => match event {
-                EdgeEvent::AddStart(node_socket) => {}
-                EdgeEvent::Add { start, end } => {}
-                EdgeEvent::Cancelled(node_socket) => {}
-                EdgeEvent::Remove { start, end } => {}
+                EdgeEvent::AddStart(_node_socket) => {}
+                EdgeEvent::Add {..} => {}
+                EdgeEvent::Cancelled(_node_socket) => {}
+                EdgeEvent::Remove {..} => {}
             },
         }
     }
@@ -181,7 +180,7 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
     }
 }
 
-pub fn render_view(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
+pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
     use super::renderview::*;
 
     let renderer_id = ids.render_view.index() as u64;

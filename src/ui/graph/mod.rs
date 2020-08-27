@@ -439,20 +439,6 @@ pub struct EdgeWidget<'a, NI: 'a + NodeId, W> {
     widget_id: Cell<Option<widget::Id>>,
 }
 
-// impl<NI> Layout<NI>
-// where
-//     NI: Eq + Hash,
-// {
-//     /// The position of the node at the given node identifier.
-//     pub fn get(&self, node_id: NI) -> Option<&Point> {
-//         self.map.get(&node_id)
-//     }
-//     /// The position of the node at the given node identifier.
-//     pub fn get_mut(&mut self, node_id: NI) -> Option<&mut Point> {
-//         self.map.get_mut(&node_id)
-//     }
-// }
-
 impl<NI> From<HashMap<NI, Point>> for Layout<NI>
 where
     NI: NodeId,
@@ -596,8 +582,8 @@ where
             guard.edges.get(index).map(|&(start, end)| Edge {
                 graph_id: self.graph_id,
                 shared: self.shared.clone(),
-                start: start,
-                end: end,
+                start,
+                end,
                 lifetime: PhantomData,
             })
         })
@@ -845,7 +831,7 @@ where
             style: Style::default(),
             nodes: nodes.into_iter(),
             edges: edges.into_iter(),
-            layout: layout,
+            layout,
         }
     }
 
@@ -867,22 +853,15 @@ where
     type Event = SessionEvents<N::Item>;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
-        let events = VecDeque::new();
-        let nodes = HashMap::new();
-        let node_ids = Vec::new();
-        let edges = Vec::new();
-        let type_widget_ids = HashMap::new();
-        let node_widget_ids = HashMap::new();
-        let widget_id_map = WidgetIdMap {
-            type_widget_ids,
-            node_widget_ids,
-        };
         let shared = Shared {
-            events,
-            nodes,
-            node_ids,
-            edges,
-            widget_id_map,
+            events: VecDeque::new(),
+            nodes: HashMap::new(),
+            node_ids: Vec::new(),
+            edges: Vec::new(),
+            widget_id_map: WidgetIdMap {
+                type_widget_ids: HashMap::new(),
+                node_widget_ids: HashMap::new()
+            },
         };
         State {
             ids: Ids::new(id_gen),
