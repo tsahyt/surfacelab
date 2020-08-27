@@ -6,7 +6,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub mod app;
-pub mod graph;
 pub mod renderview;
 pub mod util;
 
@@ -41,33 +40,8 @@ fn ui_loop<B: gpu::Backend>(
 
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
-    // Demo Graph.
-    let mut graph = petgraph::Graph::new();
-    let a = graph.add_node("A");
-    let b = graph.add_node("B");
-    let c = graph.add_node("C");
-    let d = graph.add_node("D");
-    let e = graph.add_node("E");
-    graph.extend_with_edges(&[
-        (a, c, (1, 0)),
-        (a, d, (0, 1)),
-        (b, d, (0, 0)),
-        (c, d, (0, 2)),
-        (d, e, (0, 0)),
-    ]);
-
-    // Construct a starting layout for the nodes.
-    let mut layout_map = std::collections::HashMap::new();
-    layout_map.insert(b, [-100.0, 100.0]);
-    layout_map.insert(a, [-300.0, 0.0]);
-    layout_map.insert(c, [-100.0, -100.0]);
-    layout_map.insert(d, [100.0, 0.0]);
-    layout_map.insert(e, [300.0, 0.0]);
-    let layout = graph::Layout::from(layout_map);
-
     let mut app = app::App {
-        graph,
-        graph_layout: layout,
+        graph: petgraph::Graph::new(),
         render_image: None,
         broker_sender: sender,
         monitor_resolution: (monitor_size.width, monitor_size.height),
