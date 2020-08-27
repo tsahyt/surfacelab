@@ -114,6 +114,7 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
 
     for event in session.events() {
         match event {
+            Event::RequestAddNode => println!("request"),
             Event::Node(event) => match event {
                 NodeEvent::Remove(_node_id) => {}
                 NodeEvent::Dragged { node_id, to, .. } => {
@@ -122,9 +123,9 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
             },
             Event::Edge(event) => match event {
                 EdgeEvent::AddStart(_node_socket) => {}
-                EdgeEvent::Add {..} => {}
+                EdgeEvent::Add { .. } => {}
                 EdgeEvent::Cancelled(_node_socket) => {}
-                EdgeEvent::Remove {..} => {}
+                EdgeEvent::Remove { .. } => {}
             },
         }
     }
@@ -143,23 +144,25 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
         // Calling `node.widget(some_widget)` returns a `NodeWidget`, which contains:
         //
         // `wiget_id` - The widget identifier for the widget that will represent this node.
-        let node_id = node.node_id();
-        let inputs = app
-            .graph
-            .neighbors_directed(node_id, petgraph::Incoming)
-            .count();
-        let outputs = app
-            .graph
-            .neighbors_directed(node_id, petgraph::Outgoing)
-            .count();
-        let button = util::icon_button(util::IconName::CONTENT_SAVE, fonts);
-        let widget = Node::new(button)
-            .inputs(inputs)
-            .outputs(outputs)
-            .w_h(100.0, 60.0);
-        for _click in node.widget(widget).set(ui).widget_event {
-            println!("{} was clicked!", &app.graph[node_id]);
-        }
+        let rectangle = widget::Rectangle::fill([128.0, 128.0]);
+        let widget = Node::new(rectangle).w_h(128.0, 128.0).inputs(4).outputs(4);
+        node.widget(widget).set(ui);
+        // let inputs = app
+        //     .graph
+        //     .neighbors_directed(node_id, petgraph::Incoming)
+        //     .count();
+        // let outputs = app
+        //     .graph
+        //     .neighbors_directed(node_id, petgraph::Outgoing)
+        //     .count();
+        // let button = util::icon_button(util::IconName::CONTENT_SAVE, fonts);
+        // let widget = Node::new(button)
+        //     .inputs(inputs)
+        //     .outputs(outputs)
+        //     .w_h(100.0, 60.0);
+        // for _click in node.widget(widget).set(ui).widget_event {
+        //     println!("{} was clicked!", &app.graph[node_id]);
+        // }
     }
 
     // Instantiate a widget for each edge within the graph.

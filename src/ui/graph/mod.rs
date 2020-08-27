@@ -2,7 +2,8 @@
 
 use conrod_core::utils::{iter_diff, IterDiff};
 use conrod_core::{
-    color, widget, widget_ids, Color, Colorable, Point, Positionable, Scalar, Ui, UiCell, Widget,
+    color, event, input, widget, widget_ids, Color, Colorable, Point, Positionable, Scalar, Ui,
+    UiCell, Widget,
 };
 use conrod_derive::*;
 use std::any::{Any, TypeId};
@@ -240,6 +241,7 @@ pub enum Event<NI> {
     Node(NodeEvent<NI>),
     /// Events associated with edges.
     Edge(EdgeEvent<NI>),
+    RequestAddNode,
 }
 
 /// Represents a socket connection on a node.
@@ -860,7 +862,7 @@ where
             edges: Vec::new(),
             widget_id_map: WidgetIdMap {
                 type_widget_ids: HashMap::new(),
-                node_widget_ids: HashMap::new()
+                node_widget_ids: HashMap::new(),
             },
         };
         State {
@@ -972,6 +974,16 @@ where
 
             let node = NodeInner { point };
             shared.nodes.insert(node_id, node);
+        }
+
+        for keypress in ui.widget_input(id).presses().key() {
+            if let event::KeyPress {
+                key: input::Key::A,
+                modifiers: input::keyboard::ModifierKey::SHIFT,
+            } = keypress
+            {
+                shared.events.push_back(Event::RequestAddNode)
+            }
         }
 
         let background_color = style.background_color(&ui.theme);

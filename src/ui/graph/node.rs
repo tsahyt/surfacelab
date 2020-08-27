@@ -34,19 +34,19 @@ pub struct Style {
     #[conrod(default = "color::TRANSPARENT")]
     pub color: Option<Color>,
     /// The length of each rectangle along its `SocketSide`.
-    #[conrod(default = "6.0")]
+    #[conrod(default = "12.0")]
     pub socket_length: Option<Scalar>,
     /// The widget of the border around the widget.
     ///
     /// this should always be a positive value in order for sockets to remain visible.
-    #[conrod(default = "6.0")]
+    #[conrod(default = "12.0")]
     pub border: Option<Scalar>,
     /// The radius of the rounded corners of the border.
     ///
     /// This value will be clamped to the `border` thickness.
     ///
     /// A value of `0.0` gives square corners.
-    #[conrod(default = "6.0")]
+    #[conrod(default = "0.0")]
     pub border_radius: Option<Scalar>,
     /// Color of the border.
     #[conrod(default = "color::CHARCOAL")]
