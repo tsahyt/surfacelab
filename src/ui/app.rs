@@ -218,6 +218,14 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) 
                         y,
                     )))
                     .unwrap(),
+                Some(Event::LightPan(x, y)) => app
+                    .broker_sender
+                    .send(Lang::UserRenderEvent(UserRenderEvent::LightMove(
+                        renderer_id,
+                        x,
+                        y,
+                    )))
+                    .unwrap(),
                 Some(Event::Zoom(delta)) => app
                     .broker_sender
                     .send(Lang::UserRenderEvent(UserRenderEvent::Zoom(

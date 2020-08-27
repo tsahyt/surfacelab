@@ -24,6 +24,7 @@ pub enum Event {
     Resized(u32, u32),
     Rotate(f32, f32),
     Pan(f32, f32),
+    LightPan(f32, f32),
     Zoom(f32),
 }
 
@@ -101,6 +102,16 @@ impl Widget for RenderView {
                     ..
                 }) => {
                     return Some(Event::Pan(
+                        delta_xy[0] as f32 * PAN_SPEED,
+                        delta_xy[1] as f32 * PAN_SPEED,
+                    ));
+                }
+                event::Widget::Drag(event::Drag {
+                    button: input::MouseButton::Right,
+                    delta_xy,
+                    ..
+                }) => {
+                    return Some(Event::LightPan(
                         delta_xy[0] as f32 * PAN_SPEED,
                         delta_xy[1] as f32 * PAN_SPEED,
                     ));
