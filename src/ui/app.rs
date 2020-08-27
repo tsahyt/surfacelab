@@ -186,23 +186,34 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) 
     // If there is a known render image, create a render view for it
     match app.render_image {
         Some(render_image) => {
-            RenderView::new(render_image)
+            let rv = RenderView::new(render_image)
                 .parent(ids.drawing_canvas)
                 .wh_of(ids.drawing_canvas)
                 .middle()
                 .set(ids.render_view, ui);
+            match rv {
+                Some(Event::Resized(w, h)) => {
+                    app.broker_sender
+                        .send(Lang::UIEvent(UIEvent::RendererResize(
+                            ids.render_view.index() as u64,
+                            w,
+                            h,
+                        ))).expect("Error resizing renderer")
+                }
+                _ => {}
+            }
         }
         None => {
             // Otherwise create one by notifying the render component
             let [w, h] = ui.wh_of(ids.drawing_canvas).unwrap();
             app.broker_sender
-               .send(Lang::UIEvent(UIEvent::RendererRequested(
-                   ids.render_view.index() as u64,
-                   w as u32,
-                   h as u32,
-                   RendererType::Renderer3D,
-               )))
-               .expect("Error contacting renderer backend");
+                .send(Lang::UIEvent(UIEvent::RendererRequested(
+                    ids.render_view.index() as u64,
+                    w as u32,
+                    h as u32,
+                    RendererType::Renderer3D,
+                )))
+                .expect("Error contacting renderer backend");
         }
     }
 }

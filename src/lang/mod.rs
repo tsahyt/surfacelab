@@ -347,7 +347,7 @@ pub enum UIEvent {
 
 #[derive(Debug)]
 pub enum RenderEvent {
-    RendererAdded(RendererID, crate::gpu::BrokerImageView, u32, u32)
+    RendererAdded(RendererID, crate::gpu::BrokerImageView, u32, u32),
 }
 
 #[derive(Debug)]
@@ -359,5 +359,5 @@ pub enum Lang {
     UIEvent(UIEvent),
     GraphEvent(GraphEvent),
     ComputeEvent(ComputeEvent),
-    RenderEvent(RenderEvent)
+    RenderEvent(RenderEvent),
 }

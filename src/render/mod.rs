@@ -25,12 +25,17 @@ pub fn start_render_thread<B: gpu::Backend>(
                         render_manager.resize_images(*new_size)
                     }
                     Lang::UIEvent(UIEvent::RendererRequested(id, width, height, ty)) => {
-                        let view = render_manager.new_renderer(*id, *width, *height, *ty).unwrap();
-                        sender.send(Lang::RenderEvent(RenderEvent::RendererAdded(*id, view, *width, *height)));
+                        let view = render_manager
+                            .new_renderer(*id, *width, *height, *ty)
+                            .unwrap();
+                        sender.send(Lang::RenderEvent(RenderEvent::RendererAdded(
+                            *id, view, *width, *height,
+                        ))).unwrap();
                     }
                     Lang::UIEvent(UIEvent::RendererRedraw(id)) => render_manager.redraw(*id),
                     Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
-                        render_manager.resize(*id, *width, *height)
+                        render_manager.resize(*id, *width, *height);
+                        render_manager.redraw(*id);
                     }
                     Lang::UIEvent(UIEvent::RendererRemoved(id)) => render_manager.remove(*id),
                     Lang::ComputeEvent(ComputeEvent::OutputReady(

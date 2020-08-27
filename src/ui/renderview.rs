@@ -15,6 +15,11 @@ pub struct State {}
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
 pub struct Style {}
 
+#[derive(Copy, Clone, Debug)]
+pub enum Event {
+    Resized(u32, u32),
+}
+
 widget_ids! {
     pub struct Ids {
         image
@@ -35,7 +40,7 @@ impl RenderView {
 impl Widget for RenderView {
     type State = Ids;
     type Style = Style;
-    type Event = ();
+    type Event = Option<Event>;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         Ids::new(id_gen)
@@ -56,11 +61,22 @@ impl Widget for RenderView {
         let image_id = self.image_id;
 
         let (x, y, w, h) = rect.x_y_w_h();
-        let image = widget::Image::new(image_id)
+        widget::Image::new(image_id)
             .x_y(x, y)
             .w_h(w, h)
             .parent(id)
             .graphics_for(id)
             .set(state.image, ui);
+
+        for event in ui.widget_input(id).events() {
+            match event {
+                event::Widget::WindowResized(dims) => {
+                    return Some(Event::Resized(w as u32, h as u32));
+                }
+                _ => {}
+            }
+        }
+
+        None
     }
 }

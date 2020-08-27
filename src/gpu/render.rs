@@ -117,7 +117,7 @@ where
                 1,
                 format,
                 hal::image::Tiling::Linear,
-                hal::image::Usage::COLOR_ATTACHMENT,
+                hal::image::Usage::COLOR_ATTACHMENT | hal::image::Usage::SAMPLED,
                 hal::image::ViewCapabilities::empty(),
             )
         }
@@ -574,11 +574,12 @@ where
                 format: Some(format),
                 samples: 1,
                 ops: hal::pass::AttachmentOps::new(
-                    hal::pass::AttachmentLoadOp::Clear,
+                    hal::pass::AttachmentLoadOp::DontCare,
                     hal::pass::AttachmentStoreOp::Store,
                 ),
                 stencil_ops: hal::pass::AttachmentOps::DONT_CARE,
-                layouts: hal::image::Layout::Undefined..hal::image::Layout::Present,
+                layouts: hal::image::Layout::ColorAttachmentOptimal
+                    ..hal::image::Layout::ShaderReadOnlyOptimal,
             };
 
             let subpass = hal::pass::SubpassDesc {
@@ -989,6 +990,7 @@ where
                 )
             };
 
+            // FIXME: Currently this gives a validation error, because we're not waiting for the semaphore before destruction
             unsafe { lock.device.destroy_framebuffer(framebuffer) };
         }
     }

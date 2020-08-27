@@ -103,7 +103,7 @@ fn ui_loop<B: gpu::Backend>(
                     let id = image_map.insert(gpu::ui::Image {
                         image_view: view.to::<B>(),
                         width: *width,
-                        height: *height
+                        height: *height,
                     });
                     app.render_image = Some(id);
                     renderer.update_image_descriptors(&image_map);
