@@ -37,6 +37,8 @@ fn ui_loop<B: gpu::Backend>(
         .build(&event_loop)
         .unwrap();
 
+    let monitor_size = window.primary_monitor().size();
+
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
     // Demo Graph.
@@ -68,6 +70,7 @@ fn ui_loop<B: gpu::Backend>(
         graph_layout: layout,
         render_image: None,
         broker_sender: sender,
+        monitor_resolution: (monitor_size.width, monitor_size.height),
     };
 
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
@@ -99,11 +102,11 @@ fn ui_loop<B: gpu::Backend>(
 
         if let Ok(broker_event) = receiver.try_recv() {
             match &*broker_event {
-                Lang::RenderEvent(RenderEvent::RendererAdded(_id, view, width, height)) => {
+                Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
                     let id = image_map.insert(gpu::ui::Image {
                         image_view: view.to::<B>(),
-                        width: *width,
-                        height: *height,
+                        width: app.monitor_resolution.0,
+                        height: app.monitor_resolution.1,
                     });
                     app.render_image = Some(id);
                     renderer.update_image_descriptors(&image_map);

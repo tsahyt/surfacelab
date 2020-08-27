@@ -27,6 +27,7 @@ pub struct App {
     pub render_image: Option<image::Id>,
 
     pub broker_sender: BrokerSender<Lang>,
+    pub monitor_resolution: (u32, u32),
 }
 
 pub struct AppFonts {
@@ -186,20 +187,20 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) 
     // If there is a known render image, create a render view for it
     match app.render_image {
         Some(render_image) => {
-            let rv = RenderView::new(render_image)
+            let rv = RenderView::new(render_image, app.monitor_resolution)
                 .parent(ids.drawing_canvas)
                 .wh_of(ids.drawing_canvas)
                 .middle()
                 .set(ids.render_view, ui);
             match rv {
-                Some(Event::Resized(w, h)) => {
-                    app.broker_sender
-                        .send(Lang::UIEvent(UIEvent::RendererResize(
-                            ids.render_view.index() as u64,
-                            w,
-                            h,
-                        ))).expect("Error resizing renderer")
-                }
+                Some(Event::Resized(w, h)) => app
+                    .broker_sender
+                    .send(Lang::UIEvent(UIEvent::RendererResize(
+                        ids.render_view.index() as u64,
+                        w,
+                        h,
+                    )))
+                    .expect("Error resizing renderer"),
                 _ => {}
             }
         }
@@ -209,8 +210,8 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) 
             app.broker_sender
                 .send(Lang::UIEvent(UIEvent::RendererRequested(
                     ids.render_view.index() as u64,
-                    w as u32,
-                    h as u32,
+                    (app.monitor_resolution.0, app.monitor_resolution.1),
+                    (w as u32, h as u32),
                     RendererType::Renderer3D,
                 )))
                 .expect("Error contacting renderer backend");

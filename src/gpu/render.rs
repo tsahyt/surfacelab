@@ -108,12 +108,12 @@ where
         device: &B::Device,
         memory_properties: &hal::adapter::MemoryProperties,
         format: hal::format::Format,
-        dimensions: (u32, u32),
+        monitor_dimensions: (u32, u32),
     ) -> Result<Self, String> {
         // Create Image
         let mut image = unsafe {
             device.create_image(
-                hal::image::Kind::D2(dimensions.0, dimensions.1, 1, 1),
+                hal::image::Kind::D2(monitor_dimensions.0, monitor_dimensions.1, 1, 1),
                 1,
                 format,
                 hal::image::Tiling::Linear,
@@ -281,8 +281,8 @@ where
 
     pub fn new(
         gpu: &Arc<Mutex<GPU<B>>>,
-        width: u32,
-        height: u32,
+        monitor_dimensions: (u32, u32),
+        viewport_dimensions: (u32, u32),
         image_size: u32,
         ty: crate::lang::RendererType,
     ) -> Result<Self, String> {
@@ -447,8 +447,8 @@ where
             rect: hal::pso::Rect {
                 x: 0,
                 y: 0,
-                w: width as _,
-                h: height as _,
+                w: viewport_dimensions.0 as _,
+                h: viewport_dimensions.1 as _,
             },
             depth: 0.0..1.0,
         };
@@ -456,7 +456,7 @@ where
             &lock.device,
             &lock.memory_properties,
             format,
-            (width, height),
+            monitor_dimensions,
         )?;
 
         // Shared Sampler
@@ -493,7 +493,10 @@ where
             command_pool: ManuallyDrop::new(command_pool),
 
             viewport,
-            dimensions: hal::window::Extent2D { width, height },
+            dimensions: hal::window::Extent2D {
+                width: monitor_dimensions.0,
+                height: monitor_dimensions.1,
+            },
             render_target,
 
             view: match ty {
@@ -682,32 +685,21 @@ where
         Ok(())
     }
 
-    pub fn set_dimensions(&mut self, width: u32, height: u32) {
-        self.dimensions.width = width;
-        self.dimensions.height = height;
+    pub fn set_viewport_dimensions(&mut self, width: u32, height: u32) {
+        self.viewport = hal::pso::Viewport {
+            rect: hal::pso::Rect {
+                x: 0,
+                y: 0,
+                w: width as i16,
+                h: height as i16,
+            },
+            depth: 0.0..1.0,
+        };
 
         match &mut self.view {
             RenderView::RenderView2D(view) => view.resolution = [width as _, height as _],
             RenderView::RenderView3D(view) => view.resolution = [width as _, height as _],
         }
-    }
-
-    pub fn recreate_swapchain(&mut self) {
-        // let lock = self.gpu.lock().unwrap();
-
-        // let caps = self.surface.capabilities(&lock.adapter.physical_device);
-        // let swap_config =
-        //     hal::window::SwapchainConfig::from_caps(&caps, self.format, self.dimensions);
-        // let extent = swap_config.extent.to_extent();
-
-        // unsafe {
-        //     self.surface
-        //         .configure_swapchain(&lock.device, swap_config)
-        //         .expect("Failed to recreate swapchain");
-        // }
-
-        // self.viewport.rect.w = extent.width as _;
-        // self.viewport.rect.h = extent.height as _;
     }
 
     fn synchronize_at_fence(&self) {

@@ -5,6 +5,7 @@ use conrod_derive::*;
 pub struct RenderView {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
+    monitor_resolution: (u32, u32),
     image_id: image::Id,
     style: Style,
 }
@@ -28,9 +29,10 @@ widget_ids! {
 
 impl RenderView {
     /// Begin building a `RenderView`.
-    pub fn new(image_id: image::Id) -> Self {
+    pub fn new(image_id: image::Id, monitor_resolution: (u32, u32)) -> Self {
         RenderView {
             common: widget::CommonBuilder::default(),
+            monitor_resolution,
             image_id,
             style: Style::default(),
         }
@@ -64,13 +66,17 @@ impl Widget for RenderView {
         widget::Image::new(image_id)
             .x_y(x, y)
             .w_h(w, h)
+            .source_rectangle(position::rect::Rect::from_corners(
+                [0.0, self.monitor_resolution.1 as f64],
+                [w, self.monitor_resolution.1 as f64 - h],
+            ))
             .parent(id)
             .graphics_for(id)
             .set(state.image, ui);
 
         for event in ui.widget_input(id).events() {
             match event {
-                event::Widget::WindowResized(dims) => {
+                event::Widget::WindowResized(_dims) => {
                     return Some(Event::Resized(w as u32, h as u32));
                 }
                 _ => {}

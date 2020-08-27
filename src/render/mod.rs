@@ -24,13 +24,13 @@ pub fn start_render_thread<B: gpu::Backend>(
                     Lang::UserIOEvent(UserIOEvent::SetParentSize(new_size)) => {
                         render_manager.resize_images(*new_size)
                     }
-                    Lang::UIEvent(UIEvent::RendererRequested(id, width, height, ty)) => {
+                    Lang::UIEvent(UIEvent::RendererRequested(id, monitor_size, view_size, ty)) => {
                         let view = render_manager
-                            .new_renderer(*id, *width, *height, *ty)
+                            .new_renderer(*id, *monitor_size, *view_size, *ty)
                             .unwrap();
-                        sender.send(Lang::RenderEvent(RenderEvent::RendererAdded(
-                            *id, view, *width, *height,
-                        ))).unwrap();
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererAdded(*id, view)))
+                            .unwrap();
                     }
                     Lang::UIEvent(UIEvent::RendererRedraw(id)) => render_manager.redraw(*id),
                     Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
@@ -98,11 +98,17 @@ where
     pub fn new_renderer(
         &mut self,
         id: RendererID,
-        width: u32,
-        height: u32,
+        monitor_dimensions: (u32, u32),
+        viewport_dimensions: (u32, u32),
         ty: RendererType,
     ) -> Result<gpu::BrokerImageView, String> {
-        let mut renderer = gpu::render::GPURender::new(&self.gpu, width, height, 1024, ty)?;
+        let mut renderer = gpu::render::GPURender::new(
+            &self.gpu,
+            monitor_dimensions,
+            viewport_dimensions,
+            1024,
+            ty,
+        )?;
         renderer.render();
         let view = gpu::BrokerImageView::from::<B>(renderer.target_view());
         self.renderers.insert(id, renderer);
@@ -144,8 +150,7 @@ where
 
     pub fn resize(&mut self, renderer_id: RendererID, width: u32, height: u32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
-            r.set_dimensions(width, height);
-            r.recreate_swapchain();
+            r.set_viewport_dimensions(width, height);
         }
     }
 
