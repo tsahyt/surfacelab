@@ -2,7 +2,7 @@ use conrod_core::*;
 use conrod_derive::*;
 
 const SCROLL_SPEED: f32 = 1.0 / 20.0;
-const PAN_SPEED: f32 = 1.0 / 100.0;
+const PAN_SPEED: f32 = 1.0 / 200.0;
 
 #[derive(Copy, Clone, WidgetCommon)]
 pub struct RenderView {
