@@ -111,6 +111,9 @@ fn ui_loop<B: gpu::Backend>(
                     app.render_image = Some(id);
                     renderer.update_image_descriptors(&image_map);
                 }
+                Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
+                    ui.needs_redraw();
+                }
                 _ => {}
             }
         }

@@ -348,6 +348,7 @@ pub enum UIEvent {
 #[derive(Debug)]
 pub enum RenderEvent {
     RendererAdded(RendererID, crate::gpu::BrokerImageView),
+    RendererRedrawn(RendererID),
 }
 
 #[derive(Debug)]

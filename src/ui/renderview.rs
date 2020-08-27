@@ -1,6 +1,9 @@
 use conrod_core::*;
 use conrod_derive::*;
 
+const SCROLL_SPEED: f32 = 1.0 / 20.0;
+const PAN_SPEED: f32 = 1.0 / 100.0;
+
 #[derive(Copy, Clone, WidgetCommon)]
 pub struct RenderView {
     #[conrod(common_builder)]
@@ -19,6 +22,9 @@ pub struct Style {}
 #[derive(Copy, Clone, Debug)]
 pub enum Event {
     Resized(u32, u32),
+    Rotate(f32, f32),
+    Pan(f32, f32),
+    Zoom(f32),
 }
 
 widget_ids! {
@@ -78,6 +84,29 @@ impl Widget for RenderView {
             match event {
                 event::Widget::WindowResized(_dims) => {
                     return Some(Event::Resized(w as u32, h as u32));
+                }
+                event::Widget::Drag(event::Drag {
+                    button: input::MouseButton::Left,
+                    delta_xy,
+                    ..
+                }) => {
+                    return Some(Event::Rotate(
+                        (delta_xy[0] / w) as f32,
+                        (delta_xy[1] / h) as f32,
+                    ));
+                }
+                event::Widget::Drag(event::Drag {
+                    button: input::MouseButton::Middle,
+                    delta_xy,
+                    ..
+                }) => {
+                    return Some(Event::Pan(
+                        delta_xy[0] as f32 * PAN_SPEED,
+                        delta_xy[1] as f32 * PAN_SPEED,
+                    ));
+                }
+                event::Widget::Scroll(event::Scroll { y, .. }) => {
+                    return Some(Event::Zoom(y as f32 * SCROLL_SPEED));
                 }
                 _ => {}
             }

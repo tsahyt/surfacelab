@@ -184,6 +184,8 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
 pub fn render_view(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
     use super::renderview::*;
 
+    let renderer_id = ids.render_view.index() as u64;
+
     // If there is a known render image, create a render view for it
     match app.render_image {
         Some(render_image) => {
@@ -192,15 +194,37 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) 
                 .wh_of(ids.drawing_canvas)
                 .middle()
                 .set(ids.render_view, ui);
+
+            // The widget itself does not communicate with the backend. Process
+            // events here
             match rv {
                 Some(Event::Resized(w, h)) => app
                     .broker_sender
-                    .send(Lang::UIEvent(UIEvent::RendererResize(
-                        ids.render_view.index() as u64,
-                        w,
-                        h,
+                    .send(Lang::UIEvent(UIEvent::RendererResize(renderer_id, w, h)))
+                    .unwrap(),
+                Some(Event::Rotate(x, y)) => app
+                    .broker_sender
+                    .send(Lang::UserRenderEvent(UserRenderEvent::Rotate(
+                        renderer_id,
+                        x,
+                        y,
                     )))
-                    .expect("Error resizing renderer"),
+                    .unwrap(),
+                Some(Event::Pan(x, y)) => app
+                    .broker_sender
+                    .send(Lang::UserRenderEvent(UserRenderEvent::Pan(
+                        renderer_id,
+                        x,
+                        y,
+                    )))
+                    .unwrap(),
+                Some(Event::Zoom(delta)) => app
+                    .broker_sender
+                    .send(Lang::UserRenderEvent(UserRenderEvent::Zoom(
+                        renderer_id,
+                        delta,
+                    )))
+                    .unwrap(),
                 _ => {}
             }
         }
@@ -209,7 +233,7 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) 
             let [w, h] = ui.wh_of(ids.drawing_canvas).unwrap();
             app.broker_sender
                 .send(Lang::UIEvent(UIEvent::RendererRequested(
-                    ids.render_view.index() as u64,
+                    renderer_id,
                     (app.monitor_resolution.0, app.monitor_resolution.1),
                     (w as u32, h as u32),
                     RendererType::Renderer3D,

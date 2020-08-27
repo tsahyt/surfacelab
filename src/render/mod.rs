@@ -49,25 +49,49 @@ pub fn start_render_thread<B: gpu::Backend>(
                         render_manager.transfer_output(img, *layout, *access, *size as i32, *out_ty)
                     }
                     Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
-                        render_manager.disconnect_output(*out_ty)
+                        render_manager.disconnect_output(*out_ty);
                     }
                     Lang::UserRenderEvent(UserRenderEvent::Rotate(id, theta, phi)) => {
-                        render_manager.rotate_camera(*id, *theta, *phi)
+                        render_manager.rotate_camera(*id, *theta, *phi);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
                     }
                     Lang::UserRenderEvent(UserRenderEvent::Pan(id, x, y)) => {
-                        render_manager.pan_camera(*id, *x, *y)
+                        render_manager.pan_camera(*id, *x, *y);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
                     }
                     Lang::UserRenderEvent(UserRenderEvent::Zoom(id, z)) => {
-                        render_manager.zoom_camera(*id, *z)
+                        render_manager.zoom_camera(*id, *z);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
                     }
                     Lang::UserRenderEvent(UserRenderEvent::LightMove(id, x, y)) => {
-                        render_manager.move_light(*id, *x, *y)
+                        render_manager.move_light(*id, *x, *y);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
                     }
                     Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(id, channel)) => {
-                        render_manager.set_channel(*id, *channel)
+                        render_manager.set_channel(*id, *channel);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
                     }
                     Lang::UserRenderEvent(UserRenderEvent::DisplacementAmount(id, displ)) => {
-                        render_manager.set_displacement_amount(*id, *displ)
+                        render_manager.set_displacement_amount(*id, *displ);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
                     }
                     _ => {}
                 }
