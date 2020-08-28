@@ -43,10 +43,17 @@ fn ui_loop<B: gpu::Backend>(
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
     let mut gr = petgraph::Graph::new();
-    gr.add_node(graph::NodeData {
-        thumbnail: None,
-        position: [0., 0.],
-    });
+    {
+        let a = gr.add_node(graph::NodeData {
+            thumbnail: None,
+            position: [-100.0, 0.],
+        });
+        let b = gr.add_node(graph::NodeData {
+            thumbnail: None,
+            position: [128., 64.],
+        });
+        gr.add_edge(a, b, ("foo".to_string(), "bar".to_string()));
+    }
 
     let mut app = app::App {
         graph: gr,
