@@ -29,6 +29,23 @@ impl Default for Camera {
     }
 }
 
+#[derive(Clone)]
+pub struct Selection {
+    from: Point,
+    to: Point,
+    creating: bool,
+}
+
+impl Selection {
+    pub fn new(from: Point, to: Point) -> Self {
+        Self {
+            from,
+            to,
+            creating: true,
+        }
+    }
+}
+
 #[derive(Clone, WidgetCommon)]
 pub struct Graph<'a> {
     #[conrod(common_builder)]
@@ -43,6 +60,7 @@ pub struct Style {}
 widget_ids! {
     #[derive(Clone)]
     pub struct Ids {
+        selection_rect
     }
 }
 
@@ -52,6 +70,7 @@ pub struct State {
     node_ids: HashMap<petgraph::graph::NodeIndex, widget::Id>,
     edge_ids: HashMap<petgraph::graph::EdgeIndex, widget::Id>,
     camera: Camera,
+    selection: Option<Selection>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -80,6 +99,7 @@ impl<'a> Widget for Graph<'a> {
             edge_ids: HashMap::from_iter(self.graph.edge_indices().map(|idx| (idx, id_gen.next()))),
             ids: Ids::new(id_gen),
             camera: Camera::default(),
+            selection: None,
         }
     }
 
@@ -132,12 +152,35 @@ impl<'a> Widget for Graph<'a> {
                 state.camera.position[0] += dx;
                 state.camera.position[1] += dy;
             });
-        };
+        }
 
         for dz in ui.widget_input(id).scrolls().map(|scroll| scroll.y) {
             state.update(|state| {
                 state.camera.zoom = (state.camera.zoom - dz * 0.01).max(0.0);
             });
+        }
+
+        // Update selection
+        for (to, origin) in ui.widget_input(id).drags().filter_map(|drag| match drag {
+            event::Drag {
+                button: input::MouseButton::Left,
+                to,
+                origin,
+                ..
+            } => Some((to, origin)),
+            _ => None,
+        }) {
+            state.update(|state| {
+                state.selection = Some(Selection::new(origin, to));
+            })
+        }
+
+        for release in ui.widget_input(id).releases().mouse() {
+            state.update(|state| {
+                if let Some(sel) = &mut state.selection {
+                    sel.creating = false;
+                }
+            })
         }
 
         // Build a node for each known index
@@ -161,17 +204,41 @@ impl<'a> Widget for Graph<'a> {
         // Draw a line for each edge
         for idx in self.graph.edge_indices() {
             let w_id = state.edge_ids.get(&idx).unwrap();
-            let edge = self.graph.edge_weight(idx).unwrap();
             let (from_idx, to_idx) = self.graph.edge_endpoints(idx).unwrap();
 
-            let from_pos = self.graph.node_weight(from_idx).unwrap().position;
-            let to_pos = self.graph.node_weight(to_idx).unwrap().position;
+            let from_pos = ui
+                .rect_of(*state.node_ids.get(&from_idx).unwrap())
+                .unwrap()
+                .xy();
+            let to_pos = ui
+                .rect_of(*state.node_ids.get(&to_idx).unwrap())
+                .unwrap()
+                .xy();
 
             widget::Line::centred(from_pos, to_pos)
                 .thickness(3.0)
                 .parent(id)
                 .middle()
                 .set(*w_id, ui);
+        }
+
+        // Draw selection rectangle if actively selecting
+        if let Some(Selection {
+            from,
+            to,
+            creating: true,
+            ..
+        }) = &state.selection
+        {
+            widget::BorderedRectangle::new(Rect::from_corners(*from, *to).dim())
+                .xy_relative_to(id, [
+                    from[0] + (to[0] - from[0]) / 2.0,
+                    from[1] + (to[1] - from[1]) / 2.0
+                ])
+                .parent(id)
+                .color(color::Color::Rgba(0.9, 0.8, 0.15, 0.2))
+                .border_color(color::Color::Rgba(0.9, 0.8, 0.15, 1.0))
+                .set(state.ids.selection_rect, ui);
         }
     }
 }
