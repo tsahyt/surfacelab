@@ -20,7 +20,7 @@ widget_ids!(
 );
 
 pub struct App {
-    pub graph: petgraph::Graph<&'static str, (usize, usize)>,
+    pub graph: super::graph::NodeGraph,
     pub render_image: Option<image::Id>,
 
     pub broker_sender: BrokerSender<Lang>,
@@ -85,7 +85,13 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
     render_view(ui, ids, app);
 }
 
-pub fn node_graph(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
+pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) {
+    use super::graph::*;
+    Graph::new(&app.graph)
+        .parent(ids.node_graph_canvas)
+        .wh_of(ids.node_graph_canvas)
+        .middle()
+        .set(ids.node_graph, ui);
 }
 
 pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {

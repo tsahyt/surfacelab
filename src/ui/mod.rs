@@ -6,6 +6,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub mod app;
+pub mod graph;
+pub mod node;
 pub mod renderview;
 pub mod util;
 
@@ -40,8 +42,14 @@ fn ui_loop<B: gpu::Backend>(
 
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
+    let mut gr = petgraph::Graph::new();
+    gr.add_node(graph::NodeData {
+        thumbnail: None,
+        position: [0., 0.],
+    });
+
     let mut app = app::App {
-        graph: petgraph::Graph::new(),
+        graph: gr,
         render_image: None,
         broker_sender: sender,
         monitor_resolution: (monitor_size.width, monitor_size.height),
