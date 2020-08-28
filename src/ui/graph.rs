@@ -3,7 +3,7 @@ use crate::lang::Resource;
 
 use conrod_core::*;
 use smallvec::SmallVec;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -20,6 +20,15 @@ pub struct Camera {
     zoom: Scalar,
 }
 
+impl Camera {
+    pub fn transform_point(&self, point: Point) -> Point {
+        [
+            self.zoom * (point[0] + self.position[0]),
+            self.zoom * (point[1] + self.position[1]),
+        ]
+    }
+}
+
 impl Default for Camera {
     fn default() -> Self {
         Camera {
@@ -31,17 +40,46 @@ impl Default for Camera {
 
 #[derive(Clone)]
 pub struct Selection {
-    from: Point,
-    to: Point,
-    creating: bool,
+    rect: Option<(Point, Point)>,
+    set: HashSet<widget::Id>,
+}
+
+impl Default for Selection {
+    fn default() -> Self {
+        Self {
+            rect: None,
+            set: HashSet::new(),
+        }
+    }
 }
 
 impl Selection {
-    pub fn new(from: Point, to: Point) -> Self {
-        Self {
-            from,
-            to,
-            creating: true,
+    pub fn set_geometry(&mut self, from: Point, to: Point) {
+        self.rect = Some((from, to))
+    }
+
+    pub fn get_geometry(&mut self) -> Option<(Point, Point)> {
+        self.rect
+    }
+
+    pub fn finish(&mut self) {
+        self.rect = None
+    }
+
+    pub fn set_selection(&mut self, selection: HashSet<widget::Id>) {
+        self.set = selection;
+    }
+
+    pub fn is_selected(&self, id: widget::Id) -> bool {
+        self.set.contains(&id)
+    }
+
+    pub fn geometry_contains(&self, point: Point) -> bool {
+        if let Some((from, to)) = self.rect {
+            (from[0].min(to[0])..to[0].max(from[0])).contains(&point[0])
+                && (from[1].min(to[1])..to[1].max(from[1])).contains(&point[1])
+        } else {
+            false
         }
     }
 }
@@ -70,7 +108,7 @@ pub struct State {
     node_ids: HashMap<petgraph::graph::NodeIndex, widget::Id>,
     edge_ids: HashMap<petgraph::graph::EdgeIndex, widget::Id>,
     camera: Camera,
-    selection: Option<Selection>,
+    selection: Selection,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -99,7 +137,7 @@ impl<'a> Widget for Graph<'a> {
             edge_ids: HashMap::from_iter(self.graph.edge_indices().map(|idx| (idx, id_gen.next()))),
             ids: Ids::new(id_gen),
             camera: Camera::default(),
-            selection: None,
+            selection: Selection::default(),
         }
     }
 
@@ -171,15 +209,25 @@ impl<'a> Widget for Graph<'a> {
             _ => None,
         }) {
             state.update(|state| {
-                state.selection = Some(Selection::new(origin, to));
+                state.selection.set_geometry(origin, to);
             })
         }
 
-        for release in ui.widget_input(id).releases().mouse() {
+        for _release in ui.widget_input(id).releases().mouse() {
             state.update(|state| {
-                if let Some(sel) = &mut state.selection {
-                    sel.creating = false;
-                }
+                let selected = HashSet::from_iter(self.graph.node_indices().filter_map(|idx| {
+                    if state.selection.geometry_contains(
+                        state
+                            .camera
+                            .transform_point(self.graph.node_weight(idx).unwrap().position),
+                    ) {
+                        Some(*state.node_ids.get(&idx).unwrap())
+                    } else {
+                        None
+                    }
+                }));
+                state.selection.set_selection(selected);
+                state.selection.finish();
             })
         }
 
@@ -189,14 +237,9 @@ impl<'a> Widget for Graph<'a> {
             let node = self.graph.node_weight(idx).unwrap();
 
             node::Node::new()
+                .selected(state.selection.is_selected(*w_id))
                 .parent(id)
-                .xy_relative_to(
-                    id,
-                    [
-                        state.camera.zoom * (node.position[0] + state.camera.position[0]),
-                        state.camera.zoom * (node.position[1] + state.camera.position[1]),
-                    ],
-                )
+                .xy_relative_to(id, state.camera.transform_point(node.position))
                 .wh([128.0 * state.camera.zoom, 128.0 * state.camera.zoom])
                 .set(*w_id, ui);
         }
@@ -223,18 +266,19 @@ impl<'a> Widget for Graph<'a> {
         }
 
         // Draw selection rectangle if actively selecting
-        if let Some(Selection {
-            from,
-            to,
-            creating: true,
+        if let Selection {
+            rect: Some((from, to)),
             ..
-        }) = &state.selection
+        } = &state.selection
         {
             widget::BorderedRectangle::new(Rect::from_corners(*from, *to).dim())
-                .xy_relative_to(id, [
-                    from[0] + (to[0] - from[0]) / 2.0,
-                    from[1] + (to[1] - from[1]) / 2.0
-                ])
+                .xy_relative_to(
+                    id,
+                    [
+                        from[0] + (to[0] - from[0]) / 2.0,
+                        from[1] + (to[1] - from[1]) / 2.0,
+                    ],
+                )
                 .parent(id)
                 .color(color::Color::Rgba(0.9, 0.8, 0.15, 0.2))
                 .border_color(color::Color::Rgba(0.9, 0.8, 0.15, 1.0))

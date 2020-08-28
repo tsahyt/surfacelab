@@ -5,6 +5,7 @@ pub struct Node {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     style: Style,
+    selected: bool,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
@@ -18,7 +19,13 @@ impl Node {
         Node {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
+            selected: false,
         }
+    }
+
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.selected = selected;
+        self
     }
 }
 
@@ -42,8 +49,10 @@ impl Widget for Node {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        widget::Rectangle::fill(args.rect.dim())
+        widget::BorderedRectangle::new(args.rect.dim())
             .parent(args.id)
+            .border(if self.selected { 3.0 } else { 0.0 })
+            .border_color(color::Color::Rgba(0.9, 0.8, 0.15, 1.0))
             .middle()
             .graphics_for(args.id)
             .set(args.state.rectangle, args.ui)
