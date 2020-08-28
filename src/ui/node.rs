@@ -42,7 +42,7 @@ impl Widget for Node {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        widget::Rectangle::fill([128.0, 128.0])
+        widget::Rectangle::fill(args.rect.dim())
             .parent(args.id)
             .middle()
             .graphics_for(args.id)

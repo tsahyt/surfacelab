@@ -14,6 +14,21 @@ pub struct NodeData {
 
 pub type NodeGraph = petgraph::Graph<NodeData, (String, String)>;
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Camera {
+    position: Point,
+    zoom: Scalar,
+}
+
+impl Default for Camera {
+    fn default() -> Self {
+        Camera {
+            position: [0.0, 0.0],
+            zoom: 1.0,
+        }
+    }
+}
+
 #[derive(Clone, WidgetCommon)]
 pub struct Graph<'a> {
     #[conrod(common_builder)]
@@ -25,14 +40,24 @@ pub struct Graph<'a> {
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
 pub struct Style {}
 
+widget_ids! {
+    #[derive(Clone)]
+    pub struct Ids {
+    }
+}
+
 #[derive(Clone)]
 pub struct State {
+    ids: Ids,
     node_ids: HashMap<petgraph::graph::NodeIndex, widget::Id>,
     edge_ids: HashMap<petgraph::graph::EdgeIndex, widget::Id>,
+    camera: Camera,
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum Event {}
+pub enum Event {
+    PanCamera(Scalar, Scalar),
+}
 
 impl<'a> Graph<'a> {
     pub fn new(graph: &'a NodeGraph) -> Self {
@@ -53,6 +78,8 @@ impl<'a> Widget for Graph<'a> {
         State {
             node_ids: HashMap::from_iter(self.graph.node_indices().map(|idx| (idx, id_gen.next()))),
             edge_ids: HashMap::from_iter(self.graph.edge_indices().map(|idx| (idx, id_gen.next()))),
+            ids: Ids::new(id_gen),
+            camera: Camera::default(),
         }
     }
 
@@ -92,6 +119,27 @@ impl<'a> Widget for Graph<'a> {
             })
         }
 
+        // Update camera
+        for [dx, dy] in ui.widget_input(id).drags().filter_map(|drag| match drag {
+            event::Drag {
+                button: input::MouseButton::Middle,
+                delta_xy,
+                ..
+            } => Some(delta_xy),
+            _ => None,
+        }) {
+            state.update(|state| {
+                state.camera.position[0] += dx;
+                state.camera.position[1] += dy;
+            });
+        };
+
+        for dz in ui.widget_input(id).scrolls().map(|scroll| scroll.y) {
+            state.update(|state| {
+                state.camera.zoom = (state.camera.zoom - dz * 0.01).max(0.0);
+            });
+        }
+
         // Build a node for each known index
         for idx in self.graph.node_indices() {
             let w_id = state.node_ids.get(&idx).unwrap();
@@ -99,7 +147,14 @@ impl<'a> Widget for Graph<'a> {
 
             node::Node::new()
                 .parent(id)
-                .xy_relative_to(id, node.position)
+                .xy_relative_to(
+                    id,
+                    [
+                        state.camera.zoom * (node.position[0] + state.camera.position[0]),
+                        state.camera.zoom * (node.position[1] + state.camera.position[1]),
+                    ],
+                )
+                .wh([128.0 * state.camera.zoom, 128.0 * state.camera.zoom])
                 .set(*w_id, ui);
         }
 
