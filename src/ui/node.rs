@@ -1,11 +1,13 @@
+use crate::lang::*;
 use conrod_core::*;
 
 #[derive(Clone, WidgetCommon)]
-pub struct Node {
+pub struct Node<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     style: Style,
     selected: bool,
+    operator: &'a Operator
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
@@ -14,12 +16,13 @@ pub struct Style {}
 #[derive(Copy, Clone, Debug)]
 pub enum Event {}
 
-impl Node {
-    pub fn new() -> Self {
+impl<'a> Node<'a> {
+    pub fn new(operator: &'a Operator) -> Self {
         Node {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             selected: false,
+            operator
         }
     }
 
@@ -31,11 +34,12 @@ impl Node {
 
 widget_ids! {
     pub struct Ids {
-        rectangle
+        rectangle,
+        title
     }
 }
 
-impl Widget for Node {
+impl<'a> Widget for Node<'a> {
     type State = Ids;
     type Style = Style;
     type Event = ();
@@ -55,6 +59,12 @@ impl Widget for Node {
             .border_color(color::Color::Rgba(0.9, 0.8, 0.15, 1.0))
             .middle()
             .graphics_for(args.id)
-            .set(args.state.rectangle, args.ui)
+            .set(args.state.rectangle, args.ui);
+
+        widget::Text::new(self.operator.title())
+            .parent(args.id)
+            .graphics_for(args.id)
+            .mid_top()
+            .set(args.state.title, args.ui);
     }
 }

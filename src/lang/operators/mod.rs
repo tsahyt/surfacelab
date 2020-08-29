@@ -22,7 +22,7 @@ pub use perlin_noise::*;
 pub use ramp::*;
 pub use rgb::*;
 
-#[derive(Clone, Debug, Serialize, Deserialize, Parameters)]
+#[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Image {
     pub path: std::path::PathBuf,
 }
@@ -80,7 +80,7 @@ impl OperatorParamBox for Image {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Parameters)]
+#[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Output {
     pub output_type: super::OutputType,
 }

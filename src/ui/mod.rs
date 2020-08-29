@@ -47,10 +47,12 @@ fn ui_loop<B: gpu::Backend>(
         let a = gr.add_node(graph::NodeData {
             thumbnail: None,
             position: [-100.0, 0.],
+            operator: Operator::AtomicOperator(AtomicOperator::PerlinNoise(PerlinNoise::default())),
         });
         let b = gr.add_node(graph::NodeData {
             thumbnail: None,
             position: [128., 64.],
+            operator: Operator::AtomicOperator(AtomicOperator::Output(Output::default())),
         });
         gr.add_edge(a, b, ("foo".to_string(), "bar".to_string()));
     }

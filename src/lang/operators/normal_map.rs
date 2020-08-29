@@ -9,7 +9,7 @@ use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct NormalMap {
     pub strength: f32,
 }

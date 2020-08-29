@@ -22,6 +22,7 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     ParameterField,
+    PartialEq,
 )]
 pub enum BlendMode {
     Mix,
@@ -37,7 +38,7 @@ pub enum BlendMode {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Blend {
     pub blend_mode: BlendMode,
     pub mix: f32,

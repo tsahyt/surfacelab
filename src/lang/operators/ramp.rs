@@ -30,6 +30,20 @@ impl Ramp {
     }
 }
 
+impl PartialEq for Ramp {
+    fn eq(&self, other: &Self) -> bool {
+        let mut ramps_equal = true;
+        for i in 0..64 {
+            ramps_equal &= self.ramp_data[i] == other.ramp_data[i]
+        }
+
+        ramps_equal &&
+            self.ramp_size == other.ramp_size &&
+            self.ramp_min == other.ramp_min &&
+            self.ramp_max == other.ramp_max
+    }
+}
+
 impl std::fmt::Debug for Ramp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RampParameters")

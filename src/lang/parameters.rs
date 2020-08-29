@@ -103,7 +103,7 @@ impl GraphParameter {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ParamSubstitution {
     resource: super::Resource,
     field: String,

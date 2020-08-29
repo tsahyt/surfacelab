@@ -22,6 +22,7 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     ParameterField,
+    PartialEq,
 )]
 pub enum GrayscaleMode {
     Luminance,
@@ -35,7 +36,7 @@ pub enum GrayscaleMode {
 }
 
 #[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Grayscale {
     pub mode: GrayscaleMode,
 }

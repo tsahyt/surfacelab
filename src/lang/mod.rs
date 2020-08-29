@@ -18,7 +18,7 @@ pub use resource::*;
 pub use socketed::*;
 
 #[enum_dispatch(Socketed, Parameters, Uniforms, Shader, OperatorParamBox)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum AtomicOperator {
     Blend,
     PerlinNoise,
@@ -60,7 +60,7 @@ impl AtomicOperator {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ComplexOperator {
     pub graph: Resource,
     title: String,
@@ -111,7 +111,7 @@ impl Socketed for ComplexOperator {
 }
 
 #[enum_dispatch(Socketed, Parameters)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Operator {
     AtomicOperator(AtomicOperator),
     ComplexOperator(ComplexOperator),

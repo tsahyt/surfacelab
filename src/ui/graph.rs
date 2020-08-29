@@ -1,15 +1,16 @@
 use super::node;
-use crate::lang::Resource;
+use crate::lang::*;
 
 use conrod_core::*;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NodeData {
     pub thumbnail: Option<image::Id>,
     pub position: Point,
+    pub operator: Operator,
 }
 
 pub type NodeGraph = petgraph::Graph<NodeData, (String, String)>;
@@ -265,7 +266,7 @@ impl<'a> Widget for Graph<'a> {
                     }),
             );
 
-            node::Node::new()
+            node::Node::new(&node.operator)
                 .selected(state.selection.is_selected(*w_id))
                 .parent(id)
                 .xy_relative_to(id, state.camera.transform(node.position))
