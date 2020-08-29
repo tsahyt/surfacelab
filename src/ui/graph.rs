@@ -3,7 +3,7 @@ use crate::lang::Resource;
 
 use conrod_core::*;
 use smallvec::SmallVec;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -21,7 +21,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn transform_point(&self, point: Point) -> Point {
+    pub fn transform(&self, point: Point) -> Point {
         [
             self.zoom * (point[0] + self.position[0]),
             self.zoom * (point[1] + self.position[1]),
@@ -113,7 +113,7 @@ pub struct State {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Event {
-    PanCamera(Scalar, Scalar),
+    NodeDrag(petgraph::graph::NodeIndex, Scalar, Scalar),
 }
 
 impl<'a> Graph<'a> {
@@ -126,10 +126,12 @@ impl<'a> Graph<'a> {
     }
 }
 
+type Events = VecDeque<Event>;
+
 impl<'a> Widget for Graph<'a> {
     type State = State;
     type Style = Style;
-    type Event = ();
+    type Event = Events;
 
     fn init_state(&self, mut id_gen: widget::id::Generator) -> Self::State {
         State {
@@ -147,6 +149,7 @@ impl<'a> Widget for Graph<'a> {
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let widget::UpdateArgs { id, state, ui, .. } = args;
+        let mut evs = VecDeque::new();
 
         // We collect the new nodes into a SmallVec that will spill after 4
         // elements. This should be plenty, since updates should arrive slowly
@@ -219,7 +222,7 @@ impl<'a> Widget for Graph<'a> {
                     if state.selection.geometry_contains(
                         state
                             .camera
-                            .transform_point(self.graph.node_weight(idx).unwrap().position),
+                            .transform(self.graph.node_weight(idx).unwrap().position),
                     ) {
                         Some(*state.node_ids.get(&idx).unwrap())
                     } else {
@@ -231,17 +234,39 @@ impl<'a> Widget for Graph<'a> {
             })
         }
 
+        let mut node_drags: SmallVec<[_; 4]> = SmallVec::new();
+
         // Build a node for each known index
         for idx in self.graph.node_indices() {
             let w_id = state.node_ids.get(&idx).unwrap();
             let node = self.graph.node_weight(idx).unwrap();
 
+            // Accumulate drag events for later processing
+            node_drags.extend(ui.widget_input(*w_id).drags().filter_map(|drag| match drag {
+                event::Drag {
+                    button: input::MouseButton::Left,
+                    delta_xy,
+                    ..
+                } => Some(delta_xy),
+                _ => None,
+            }));
+
             node::Node::new()
                 .selected(state.selection.is_selected(*w_id))
                 .parent(id)
-                .xy_relative_to(id, state.camera.transform_point(node.position))
+                .xy_relative_to(id, state.camera.transform(node.position))
                 .wh([128.0 * state.camera.zoom, 128.0 * state.camera.zoom])
                 .set(*w_id, ui);
+        }
+
+        // Create drag events.
+        for idx in self.graph.node_indices() {
+            for [x,y] in node_drags.iter() {
+                let w_id = state.node_ids.get(&idx).unwrap();
+                if state.selection.is_selected(*w_id) {
+                    evs.push_back(Event::NodeDrag(idx, *x, *y));
+                }
+            }
         }
 
         // Draw a line for each edge
@@ -284,5 +309,7 @@ impl<'a> Widget for Graph<'a> {
                 .border_color(color::Color::Rgba(0.9, 0.8, 0.15, 1.0))
                 .set(state.ids.selection_rect, ui);
         }
+
+        evs
     }
 }

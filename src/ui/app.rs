@@ -87,11 +87,19 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
 
 pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) {
     use super::graph::*;
-    Graph::new(&app.graph)
+    for event in Graph::new(&app.graph)
         .parent(ids.node_graph_canvas)
         .wh_of(ids.node_graph_canvas)
         .middle()
-        .set(ids.node_graph, ui);
+        .set(ids.node_graph, ui) {
+            match event {
+                Event::NodeDrag(idx, x, y) => {
+                    let mut node = app.graph.node_weight_mut(idx).unwrap();
+                    node.position[0] += x;
+                    node.position[1] += y;
+                }
+        }
+        }
 }
 
 pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
