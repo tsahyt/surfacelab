@@ -185,7 +185,7 @@ impl<'a> Widget for Graph<'a> {
         }
 
         // Update camera
-        for [dx, dy] in ui.widget_input(id).drags().filter_map(|drag| match drag {
+        for delta_xy in ui.widget_input(id).drags().filter_map(|drag| match drag {
             event::Drag {
                 button: input::MouseButton::Middle,
                 delta_xy,
@@ -193,6 +193,7 @@ impl<'a> Widget for Graph<'a> {
             } => Some(delta_xy),
             _ => None,
         }) {
+            let [dx, dy] = state.camera.inv_scale(delta_xy);
             state.update(|state| {
                 state.camera.position[0] += dx;
                 state.camera.position[1] += dy;
