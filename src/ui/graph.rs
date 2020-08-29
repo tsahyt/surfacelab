@@ -221,7 +221,12 @@ impl<'a> Widget for Graph<'a> {
             })
         }
 
-        for _release in ui.widget_input(id).releases().mouse() {
+        for _release in ui
+            .widget_input(id)
+            .releases()
+            .mouse()
+            .filter(|release| release.button == input::MouseButton::Left)
+        {
             state.update(|state| {
                 let selected = HashSet::from_iter(self.graph.node_indices().filter_map(|idx| {
                     if state.selection.geometry_contains(
