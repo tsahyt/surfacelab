@@ -29,10 +29,7 @@ impl Camera {
     }
 
     pub fn inv_scale(&self, point: Point) -> Point {
-        [
-            point[0] / self.zoom,
-            point[1] / self.zoom
-        ]
+        [point[0] / self.zoom, point[1] / self.zoom]
     }
 }
 
@@ -249,14 +246,18 @@ impl<'a> Widget for Graph<'a> {
             let node = self.graph.node_weight(idx).unwrap();
 
             // Accumulate drag events for later processing
-            node_drags.extend(ui.widget_input(*w_id).drags().filter_map(|drag| match drag {
-                event::Drag {
-                    button: input::MouseButton::Left,
-                    delta_xy,
-                    ..
-                } => Some(state.camera.inv_scale(delta_xy)),
-                _ => None,
-            }));
+            node_drags.extend(
+                ui.widget_input(*w_id)
+                    .drags()
+                    .filter_map(|drag| match drag {
+                        event::Drag {
+                            button: input::MouseButton::Left,
+                            delta_xy,
+                            ..
+                        } => Some(state.camera.inv_scale(delta_xy)),
+                        _ => None,
+                    }),
+            );
 
             node::Node::new()
                 .selected(state.selection.is_selected(*w_id))
@@ -268,7 +269,7 @@ impl<'a> Widget for Graph<'a> {
 
         // Create drag events.
         for idx in self.graph.node_indices() {
-            for [x,y] in node_drags.iter() {
+            for [x, y] in node_drags.iter() {
                 let w_id = state.node_ids.get(&idx).unwrap();
                 if state.selection.is_selected(*w_id) {
                     evs.push_back(Event::NodeDrag(idx, *x, *y));
@@ -281,16 +282,10 @@ impl<'a> Widget for Graph<'a> {
             let w_id = state.edge_ids.get(&idx).unwrap();
             let (from_idx, to_idx) = self.graph.edge_endpoints(idx).unwrap();
 
-            let from_pos = ui
-                .rect_of(*state.node_ids.get(&from_idx).unwrap())
-                .unwrap()
-                .xy();
-            let to_pos = ui
-                .rect_of(*state.node_ids.get(&to_idx).unwrap())
-                .unwrap()
-                .xy();
+            let from_pos = ui.xy_of(*state.node_ids.get(&from_idx).unwrap()).unwrap();
+            let to_pos = ui.xy_of(*state.node_ids.get(&to_idx).unwrap()).unwrap();
 
-            widget::Line::centred(from_pos, to_pos)
+            widget::Line::abs(from_pos, to_pos)
                 .thickness(3.0)
                 .parent(id)
                 .middle()
