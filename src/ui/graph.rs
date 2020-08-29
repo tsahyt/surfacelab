@@ -286,6 +286,7 @@ impl<'a> Widget for Graph<'a> {
                 .selected(state.selection.is_selected(*w_id))
                 .parent(id)
                 .xy_relative_to(id, state.camera.transform(node.position))
+                .thumbnail(node.thumbnail)
                 .wh([
                     STANDARD_NODE_SIZE * state.camera.zoom,
                     STANDARD_NODE_SIZE * state.camera.zoom,
@@ -311,8 +312,10 @@ impl<'a> Widget for Graph<'a> {
             let to_pos = ui.xy_of(*state.node_ids.get(&to_idx).unwrap()).unwrap();
 
             widget::Line::abs(from_pos, to_pos)
+                .color(color::LIGHT_GREY)
                 .thickness(3.0)
                 .parent(id)
+                .depth(1.0)
                 .middle()
                 .set(*w_id, ui);
         }
