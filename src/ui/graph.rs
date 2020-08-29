@@ -27,6 +27,13 @@ impl Camera {
             self.zoom * (point[1] + self.position[1]),
         ]
     }
+
+    pub fn inv_scale(&self, point: Point) -> Point {
+        [
+            point[0] / self.zoom,
+            point[1] / self.zoom
+        ]
+    }
 }
 
 impl Default for Camera {
@@ -247,7 +254,7 @@ impl<'a> Widget for Graph<'a> {
                     button: input::MouseButton::Left,
                     delta_xy,
                     ..
-                } => Some(delta_xy),
+                } => Some(state.camera.inv_scale(delta_xy)),
                 _ => None,
             }));
 
