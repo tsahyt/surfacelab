@@ -37,10 +37,10 @@ impl PartialEq for Ramp {
             ramps_equal &= self.ramp_data[i] == other.ramp_data[i]
         }
 
-        ramps_equal &&
-            self.ramp_size == other.ramp_size &&
-            self.ramp_min == other.ramp_min &&
-            self.ramp_max == other.ramp_max
+        ramps_equal
+            && self.ramp_size == other.ramp_size
+            && self.ramp_min == other.ramp_min
+            && self.ramp_max == other.ramp_max
     }
 }
 

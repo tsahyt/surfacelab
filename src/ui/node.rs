@@ -7,7 +7,7 @@ pub struct Node<'a> {
     common: widget::CommonBuilder,
     style: Style,
     selected: bool,
-    operator: &'a Operator
+    operator: &'a Operator,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
@@ -22,7 +22,7 @@ impl<'a> Node<'a> {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             selected: false,
-            operator
+            operator,
         }
     }
 

@@ -6,6 +6,8 @@ use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 
+const STANDARD_NODE_SIZE: f64 = 128.0;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeData {
     pub thumbnail: Option<image::Id>,
@@ -87,6 +89,10 @@ impl Selection {
             false
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.set.is_empty()
+    }
 }
 
 #[derive(Clone, WidgetCommon)]
@@ -127,6 +133,70 @@ impl<'a> Graph<'a> {
             common: widget::CommonBuilder::default(),
             graph,
             style: Style::default(),
+        }
+    }
+
+    /// Handle the creation of selection via dragging a rectangle across nodes
+    fn selection_handling(&self, ui: &Ui, state: &'a mut widget::State<'_, State>, id: widget::Id) {
+        for (to, origin) in ui.widget_input(id).drags().filter_map(|drag| match drag {
+            event::Drag {
+                button: input::MouseButton::Left,
+                to,
+                origin,
+                ..
+            } => Some((to, origin)),
+            _ => None,
+        }) {
+            state.update(|state| {
+                state.selection.set_geometry(origin, to);
+            })
+        }
+
+        for _release in ui
+            .widget_input(id)
+            .releases()
+            .mouse()
+            .filter(|release| release.button == input::MouseButton::Left)
+        {
+            state.update(|state| {
+                let selected = HashSet::from_iter(self.graph.node_indices().filter_map(|idx| {
+                    if state.selection.geometry_contains(
+                        state
+                            .camera
+                            .transform(self.graph.node_weight(idx).unwrap().position),
+                    ) {
+                        Some(*state.node_ids.get(&idx).unwrap())
+                    } else {
+                        None
+                    }
+                }));
+                state.selection.set_selection(selected);
+                state.selection.finish();
+            })
+        }
+    }
+
+    /// Handle camera controls
+    fn camera_handling(&self, ui: &Ui, state: &'a mut widget::State<'_, State>, id: widget::Id) {
+        for delta_xy in ui.widget_input(id).drags().filter_map(|drag| match drag {
+            event::Drag {
+                button: input::MouseButton::Middle,
+                delta_xy,
+                ..
+            } => Some(delta_xy),
+            _ => None,
+        }) {
+            let [dx, dy] = state.camera.inv_scale(delta_xy);
+            state.update(|state| {
+                state.camera.position[0] += dx;
+                state.camera.position[1] += dy;
+            });
+        }
+
+        for dz in ui.widget_input(id).scrolls().map(|scroll| scroll.y) {
+            state.update(|state| {
+                state.camera.zoom = (state.camera.zoom - dz * 0.01).max(0.0);
+            });
         }
     }
 }
@@ -186,64 +256,10 @@ impl<'a> Widget for Graph<'a> {
         }
 
         // Update camera
-        for delta_xy in ui.widget_input(id).drags().filter_map(|drag| match drag {
-            event::Drag {
-                button: input::MouseButton::Middle,
-                delta_xy,
-                ..
-            } => Some(delta_xy),
-            _ => None,
-        }) {
-            let [dx, dy] = state.camera.inv_scale(delta_xy);
-            state.update(|state| {
-                state.camera.position[0] += dx;
-                state.camera.position[1] += dy;
-            });
-        }
-
-        for dz in ui.widget_input(id).scrolls().map(|scroll| scroll.y) {
-            state.update(|state| {
-                state.camera.zoom = (state.camera.zoom - dz * 0.01).max(0.0);
-            });
-        }
+        self.camera_handling(ui, state, id);
 
         // Update selection
-        for (to, origin) in ui.widget_input(id).drags().filter_map(|drag| match drag {
-            event::Drag {
-                button: input::MouseButton::Left,
-                to,
-                origin,
-                ..
-            } => Some((to, origin)),
-            _ => None,
-        }) {
-            state.update(|state| {
-                state.selection.set_geometry(origin, to);
-            })
-        }
-
-        for _release in ui
-            .widget_input(id)
-            .releases()
-            .mouse()
-            .filter(|release| release.button == input::MouseButton::Left)
-        {
-            state.update(|state| {
-                let selected = HashSet::from_iter(self.graph.node_indices().filter_map(|idx| {
-                    if state.selection.geometry_contains(
-                        state
-                            .camera
-                            .transform(self.graph.node_weight(idx).unwrap().position),
-                    ) {
-                        Some(*state.node_ids.get(&idx).unwrap())
-                    } else {
-                        None
-                    }
-                }));
-                state.selection.set_selection(selected);
-                state.selection.finish();
-            })
-        }
+        self.selection_handling(ui, state, id);
 
         let mut node_drags: SmallVec<[_; 4]> = SmallVec::new();
 
@@ -261,7 +277,7 @@ impl<'a> Widget for Graph<'a> {
                             button: input::MouseButton::Left,
                             delta_xy,
                             ..
-                        } => Some(state.camera.inv_scale(delta_xy)),
+                        } => Some((*w_id, state.camera.inv_scale(delta_xy))),
                         _ => None,
                     }),
             );
@@ -270,13 +286,15 @@ impl<'a> Widget for Graph<'a> {
                 .selected(state.selection.is_selected(*w_id))
                 .parent(id)
                 .xy_relative_to(id, state.camera.transform(node.position))
-                .wh([128.0 * state.camera.zoom, 128.0 * state.camera.zoom])
+                .wh([
+                    STANDARD_NODE_SIZE * state.camera.zoom,
+                    STANDARD_NODE_SIZE * state.camera.zoom,
+                ])
                 .set(*w_id, ui);
         }
 
-        // Create drag events.
         for idx in self.graph.node_indices() {
-            for [x, y] in node_drags.iter() {
+            for (_, [x, y]) in node_drags.iter() {
                 let w_id = state.node_ids.get(&idx).unwrap();
                 if state.selection.is_selected(*w_id) {
                     evs.push_back(Event::NodeDrag(idx, *x, *y));
