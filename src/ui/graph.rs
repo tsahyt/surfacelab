@@ -203,9 +203,7 @@ impl<'a> Graph<'a> {
         }
 
         for dz in ui.widget_input(id).scrolls().map(|scroll| scroll.y) {
-            state.update(|state| {
-                state.camera.zoom(dz)
-            });
+            state.update(|state| state.camera.zoom(dz));
         }
     }
 }
@@ -316,9 +314,16 @@ impl<'a> Widget for Graph<'a> {
         for idx in self.graph.edge_indices() {
             let w_id = state.edge_ids.get(&idx).unwrap();
             let (from_idx, to_idx) = self.graph.edge_endpoints(idx).unwrap();
+            let edge = self.graph.edge_weight(idx).unwrap();
 
-            let from_pos = ui.xy_of(*state.node_ids.get(&from_idx).unwrap()).unwrap();
-            let to_pos = ui.xy_of(*state.node_ids.get(&to_idx).unwrap()).unwrap();
+            let from_pos =
+                super::node::socket_rect(ui, *state.node_ids.get(&from_idx).unwrap(), &edge.0)
+                    .expect("Missing source socket for drawing")
+                    .xy();
+            let to_pos =
+                super::node::socket_rect(ui, *state.node_ids.get(&to_idx).unwrap(), &edge.1)
+                    .expect("Missing sink socket for drawing")
+                    .xy();
 
             widget::Line::abs(from_pos, to_pos)
                 .color(color::LIGHT_GREY)

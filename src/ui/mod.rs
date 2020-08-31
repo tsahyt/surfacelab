@@ -54,7 +54,7 @@ fn ui_loop<B: gpu::Backend>(
             position: [128., 64.],
             operator: Operator::AtomicOperator(AtomicOperator::Output(Output::default())),
         });
-        gr.add_edge(a, b, ("foo".to_string(), "bar".to_string()));
+        gr.add_edge(a, b, ("noise".to_string(), "data".to_string()));
     }
 
     let mut app = app::App {

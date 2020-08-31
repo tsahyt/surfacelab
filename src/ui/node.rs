@@ -55,6 +55,22 @@ pub struct State {
     output_sockets: HashMap<String, widget::Id>,
 }
 
+pub fn socket_rect(ui: &Ui, node_id: widget::Id, socket: &str) -> Option<Rect> {
+    let unique = ui
+        .widget_graph()
+        .widget(node_id)?
+        .state_and_style::<State, Style>()?;
+    let mut sockets = unique
+        .state
+        .input_sockets
+        .iter()
+        .chain(unique.state.output_sockets.iter());
+    let result = sockets
+        .find(|(name, _)| name.as_str() == socket)
+        .map(|x| x.1)?;
+    ui.rect_of(*result)
+}
+
 impl<'a> Widget for Node<'a> {
     type State = State;
     type Style = Style;
@@ -129,7 +145,7 @@ impl<'a> Widget for Node<'a> {
         }
 
         margin = 16.0;
-       
+
         for (output, ty) in self.operator.outputs().iter() {
             widget::BorderedRectangle::new([16.0, 16.0])
                 .border(3.0)
