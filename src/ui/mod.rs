@@ -43,18 +43,18 @@ fn ui_loop<B: gpu::Backend>(
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
     let mut gr = petgraph::Graph::new();
-    {
-        gr.add_node(graph::NodeData {
-            thumbnail: None,
-            position: [-100.0, 0.],
-            operator: Operator::AtomicOperator(AtomicOperator::PerlinNoise(PerlinNoise::default())),
-        });
-        gr.add_node(graph::NodeData {
-            thumbnail: None,
-            position: [128., 64.],
-            operator: Operator::AtomicOperator(AtomicOperator::Output(Output::default())),
-        });
-    }
+    // {
+    //     gr.add_node(graph::NodeData {
+    //         thumbnail: None,
+    //         position: [-100.0, 0.],
+    //         operator: Operator::AtomicOperator(AtomicOperator::PerlinNoise(PerlinNoise::default())),
+    //     });
+    //     gr.add_node(graph::NodeData {
+    //         thumbnail: None,
+    //         position: [128., 64.],
+    //         operator: Operator::AtomicOperator(AtomicOperator::Output(Output::default())),
+    //     });
+    // }
 
     let mut app = app::App {
         graph: gr,

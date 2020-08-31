@@ -438,12 +438,19 @@ impl<'a> Widget for Graph<'a> {
                 .set(state.ids.floating_noodle, ui);
         }
 
-        // Key Press for add modal
+        // Trigger Add Modal
         evs.extend(
             ui.widget_input(id)
                 .presses()
                 .key()
                 .filter(|x| x.key == input::Key::A && x.modifiers == input::ModifierKey::SHIFT)
+                .map(|_| Event::AddModal),
+        );
+        evs.extend(
+            ui.widget_input(id)
+                .presses()
+                .mouse()
+                .button(input::MouseButton::Right)
                 .map(|_| Event::AddModal),
         );
 
