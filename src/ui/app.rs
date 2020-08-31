@@ -102,6 +102,9 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
             Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
                 app.graph.add_edge(from, to, (from_socket, to_socket));
             }
+            Event::NodeDelete(idx) => {
+                app.graph.remove_node(idx);
+            }
             Event::SocketClear(idx, socket) => {
                 use petgraph::visit::EdgeRef;
 

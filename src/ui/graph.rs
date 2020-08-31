@@ -150,6 +150,7 @@ pub enum Event {
         String,
     ),
     SocketClear(petgraph::graph::NodeIndex, String),
+    NodeDelete(petgraph::graph::NodeIndex),
 }
 
 impl<'a> Graph<'a> {
@@ -302,13 +303,18 @@ impl<'a> Widget for Graph<'a> {
 
         let mut node_drags: SmallVec<[_; 4]> = SmallVec::new();
 
+        // Handle deletion events
+        let delete_trigger = ui.widget_input(id).presses().key().filter(|x| x.key == input::Key::X).next().is_some();
+
         // Build a node for each known index
         for idx in self.graph.node_indices() {
             let w_id = state.node_ids.get(&idx).unwrap();
             let node = self.graph.node_weight(idx).unwrap();
 
+            let selected = state.selection.is_selected(*w_id);
+
             for ev in node::Node::new(idx, &node.operator)
-                .selected(state.selection.is_selected(*w_id))
+                .selected(selected)
                 .parent(id)
                 .xy_relative_to(id, state.camera.transform(node.position))
                 .thumbnail(node.thumbnail)
@@ -352,6 +358,10 @@ impl<'a> Widget for Graph<'a> {
                         evs.push_back(Event::SocketClear(idx, socket))
                     }
                 }
+            }
+
+            if delete_trigger && selected {
+                evs.push_back(Event::NodeDelete(idx));
             }
         }
 
