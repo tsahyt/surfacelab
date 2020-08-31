@@ -99,6 +99,9 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                 node.position[0] += x;
                 node.position[1] += y;
             }
+            e => {
+                dbg!(e);
+            }
         }
     }
 }

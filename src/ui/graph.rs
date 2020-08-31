@@ -140,9 +140,15 @@ pub struct State {
     connection_draw: Option<ConnectionDraw>,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Event {
     NodeDrag(petgraph::graph::NodeIndex, Scalar, Scalar),
+    ConnectionDrawn(
+        petgraph::graph::NodeIndex,
+        String,
+        petgraph::graph::NodeIndex,
+        String,
+    ),
 }
 
 impl<'a> Graph<'a> {
@@ -214,6 +220,22 @@ impl<'a> Graph<'a> {
             state.update(|state| state.camera.zoom(dz));
         }
     }
+
+    fn find_target_socket(
+        &self,
+        ui: &Ui,
+        state: &State,
+        drop_point: Point,
+    ) -> Option<(petgraph::graph::NodeIndex, String)> {
+        self.graph
+            .node_indices()
+            .filter_map(|idx| {
+                let w_id = state.node_ids.get(&idx)?;
+                let socket = super::node::target_socket(ui, *w_id, drop_point)?;
+                Some((idx, socket.to_string()))
+            })
+            .next()
+    }
 }
 
 type Events = VecDeque<Event>;
@@ -284,7 +306,7 @@ impl<'a> Widget for Graph<'a> {
             let w_id = state.node_ids.get(&idx).unwrap();
             let node = self.graph.node_weight(idx).unwrap();
 
-            for ev in node::Node::new(&node.operator)
+            for ev in node::Node::new(idx, &node.operator)
                 .selected(state.selection.is_selected(*w_id))
                 .parent(id)
                 .xy_relative_to(id, state.camera.transform(node.position))
@@ -299,15 +321,28 @@ impl<'a> Widget for Graph<'a> {
                     node::Event::NodeDrag(delta) => {
                         node_drags.push(state.camera.inv_scale(delta));
                     }
-                    node::Event::SocketDrag(_, from, to) => {
+                    node::Event::SocketDrag(from, to) => {
                         state.update(|state| {
                             state.connection_draw = Some(ConnectionDraw { from, to })
                         });
                     }
-                    node::Event::SocketRelease(_) => {
+                    node::Event::SocketRelease(nid) => {
+                        if let Some(draw) = &state.connection_draw {
+                            if let Some(target) = self.find_target_socket(ui, state, draw.to) {
+                                let w_id = state.node_ids.get(&nid).unwrap();
+                                evs.push_back(Event::ConnectionDrawn(
+                                    nid,
+                                    node::target_socket(ui, *w_id, draw.from)
+                                        .unwrap()
+                                        .to_string(),
+                                    target.0,
+                                    target.1,
+                                ))
+                            }
+                        }
                         state.update(|state| {
                             state.connection_draw = None;
-                        })
+                        });
                     }
                 }
             }
@@ -369,7 +404,7 @@ impl<'a> Widget for Graph<'a> {
         }
 
         // Draw floating noodle if currently drawing a connection
-        if let Some(ConnectionDraw { from, to }) = &state.connection_draw {
+        if let Some(ConnectionDraw { from, to, .. }) = &state.connection_draw {
             widget::Line::abs(*from, *to)
                 .color(color::DARK_RED)
                 .thickness(3.0)

@@ -8,6 +8,7 @@ use std::iter::FromIterator;
 pub struct Node<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
+    node_id: petgraph::graph::NodeIndex,
     style: Style,
     selected: bool,
     thumbnail: Option<image::Id>,
@@ -17,17 +18,18 @@ pub struct Node<'a> {
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
 pub struct Style {}
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Event {
     NodeDrag([f64; 2]),
-    SocketDrag(widget::Id, Point, Point),
-    SocketRelease(widget::Id),
+    SocketDrag(Point, Point),
+    SocketRelease(petgraph::graph::NodeIndex),
 }
 
 impl<'a> Node<'a> {
-    pub fn new(operator: &'a Operator) -> Self {
+    pub fn new(node_id: petgraph::graph::NodeIndex, operator: &'a Operator) -> Self {
         Node {
             common: widget::CommonBuilder::default(),
+            node_id,
             style: Style::default(),
             selected: false,
             thumbnail: None,
@@ -74,6 +76,27 @@ pub fn socket_rect(ui: &Ui, node_id: widget::Id, socket: &str) -> Option<Rect> {
         .find(|(name, _)| name.as_str() == socket)
         .map(|x| x.1)?;
     ui.rect_of(*result)
+}
+
+pub fn target_socket(ui: &Ui, node_id: widget::Id, point: Point) -> Option<&str> {
+    let unique = ui
+        .widget_graph()
+        .widget(node_id)?
+        .state_and_style::<State, Style>()?;
+    for socket in unique
+        .state
+        .input_sockets
+        .iter()
+        .chain(unique.state.output_sockets.iter())
+    {
+        let rect = ui.rect_of(*socket.1).unwrap();
+
+        if rect.x.is_over(point[0]) && rect.y.is_over(point[1]) {
+            return Some(socket.0);
+        }
+    }
+
+    None
 }
 
 impl<'a> Widget for Node<'a> {
@@ -157,7 +180,6 @@ impl<'a> Widget for Node<'a> {
                     .button(input::MouseButton::Left)
                     .map(|x| {
                         Event::SocketDrag(
-                            *w_id,
                             middle,
                             [
                                 middle[0] + x.total_delta_xy[0],
@@ -171,7 +193,7 @@ impl<'a> Widget for Node<'a> {
                 args.ui
                     .widget_input(*w_id)
                     .releases()
-                    .map(|_| Event::SocketRelease(*w_id))
+                    .map(|_| Event::SocketRelease(self.node_id)),
             );
 
             margin += 32.0;
@@ -197,7 +219,6 @@ impl<'a> Widget for Node<'a> {
                     .button(input::MouseButton::Left)
                     .map(|x| {
                         Event::SocketDrag(
-                            *w_id,
                             middle,
                             [
                                 middle[0] + x.total_delta_xy[0],
@@ -211,7 +232,7 @@ impl<'a> Widget for Node<'a> {
                 args.ui
                     .widget_input(*w_id)
                     .releases()
-                    .map(|_| Event::SocketRelease(*w_id))
+                    .map(|_| Event::SocketRelease(self.node_id)),
             );
 
             margin += 32.0;
