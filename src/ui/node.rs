@@ -22,6 +22,7 @@ pub struct Style {}
 pub enum Event {
     NodeDrag([f64; 2]),
     SocketDrag(Point, Point),
+    SocketClear(String),
     SocketRelease(petgraph::graph::NodeIndex),
 }
 
@@ -196,6 +197,15 @@ impl<'a> Widget for Node<'a> {
                     .map(|_| Event::SocketRelease(self.node_id)),
             );
 
+            evs.extend(
+                args.ui
+                    .widget_input(*w_id)
+                    .presses()
+                    .mouse()
+                    .button(input::MouseButton::Right)
+                    .map(|_| Event::SocketClear(input.clone())),
+            );
+
             margin += 32.0;
         }
 
@@ -233,6 +243,15 @@ impl<'a> Widget for Node<'a> {
                     .widget_input(*w_id)
                     .releases()
                     .map(|_| Event::SocketRelease(self.node_id)),
+            );
+
+            evs.extend(
+                args.ui
+                    .widget_input(*w_id)
+                    .presses()
+                    .mouse()
+                    .button(input::MouseButton::Right)
+                    .map(|_| Event::SocketClear(output.clone())),
             );
 
             margin += 32.0;

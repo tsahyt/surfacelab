@@ -149,6 +149,7 @@ pub enum Event {
         petgraph::graph::NodeIndex,
         String,
     ),
+    SocketClear(petgraph::graph::NodeIndex, String),
 }
 
 impl<'a> Graph<'a> {
@@ -329,6 +330,9 @@ impl<'a> Widget for Graph<'a> {
                     node::Event::SocketRelease(nid) => {
                         if let Some(draw) = &state.connection_draw {
                             if let Some(target) = self.find_target_socket(ui, state, draw.to) {
+                                // This is available above, but we recreate it
+                                // because this allows sidestepping the borrow
+                                // checker.
                                 let w_id = state.node_ids.get(&nid).unwrap();
                                 evs.push_back(Event::ConnectionDrawn(
                                     nid,
@@ -343,6 +347,9 @@ impl<'a> Widget for Graph<'a> {
                         state.update(|state| {
                             state.connection_draw = None;
                         });
+                    }
+                    node::Event::SocketClear(socket) => {
+                        evs.push_back(Event::SocketClear(idx, socket))
                     }
                 }
             }
