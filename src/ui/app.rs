@@ -112,7 +112,13 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                         app.graph
                             .edges_directed(idx, petgraph::EdgeDirection::Incoming),
                     )
-                    .filter_map(|e| if e.weight().0 == socket || e.weight().1 == socket { Some(e.id()) } else { None })
+                    .filter_map(|e| {
+                        if e.weight().0 == socket || e.weight().1 == socket {
+                            Some(e.id())
+                        } else {
+                            None
+                        }
+                    })
                     .collect();
 
                 for e in to_delete {
