@@ -61,6 +61,7 @@ fn ui_loop<B: gpu::Backend>(
         render_image: None,
         broker_sender: sender,
         monitor_resolution: (monitor_size.width, monitor_size.height),
+        add_modal: false,
     };
 
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();

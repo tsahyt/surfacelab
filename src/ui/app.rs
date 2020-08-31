@@ -15,7 +15,10 @@ widget_ids!(
 
         title_text,
         node_graph,
-        render_view
+        render_view,
+
+        add_modal_canvas,
+        operator_list
     }
 );
 
@@ -25,6 +28,8 @@ pub struct App {
 
     pub broker_sender: BrokerSender<Lang>,
     pub monitor_resolution: (u32, u32),
+
+    pub add_modal: bool,
 }
 
 pub struct AppFonts {
@@ -128,6 +133,46 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                     app.graph.remove_edge(e);
                 }
             }
+            Event::AddModal => {
+                app.add_modal = true;
+            }
+        }
+    }
+
+    if app.add_modal {
+        widget::Canvas::new()
+            .wh_of(ids.node_graph_canvas)
+            .middle_of(ids.node_graph_canvas)
+            .color(color::Color::Rgba(0., 0., 0., 0.9))
+            .set(ids.add_modal_canvas, ui);
+
+        let operators = crate::lang::AtomicOperator::all_default();
+        let (mut items, scrollbar) = widget::List::flow_down(operators.len())
+            .item_size(50.0)
+            .scrollbar_on_top()
+            .middle_of(ids.node_graph_canvas)
+            .padded_wh_of(ids.node_graph_canvas, 256.0)
+            .set(ids.operator_list, ui);
+
+        while let Some(item) = items.next(ui) {
+            let i = item.i;
+            let label = operators[i].title();
+            let toggle = widget::Button::new()
+                .label(&label)
+                .label_color(conrod_core::color::WHITE)
+                .color(conrod_core::color::LIGHT_BLUE);
+            for _press in item.set(toggle, ui) {
+                app.add_modal = false;
+                app.graph.add_node(NodeData {
+                    thumbnail: None,
+                    position: [0., 0.],
+                    operator: crate::lang::Operator::AtomicOperator(operators[i].clone())
+                });
+            }
+        }
+
+        if let Some(s) = scrollbar {
+            s.set(ui)
         }
     }
 }

@@ -151,6 +151,7 @@ pub enum Event {
     ),
     SocketClear(petgraph::graph::NodeIndex, String),
     NodeDelete(petgraph::graph::NodeIndex),
+    AddModal,
 }
 
 impl<'a> Graph<'a> {
@@ -304,7 +305,13 @@ impl<'a> Widget for Graph<'a> {
         let mut node_drags: SmallVec<[_; 4]> = SmallVec::new();
 
         // Handle deletion events
-        let delete_trigger = ui.widget_input(id).presses().key().filter(|x| x.key == input::Key::X).next().is_some();
+        let delete_trigger = ui
+            .widget_input(id)
+            .presses()
+            .key()
+            .filter(|x| x.key == input::Key::X)
+            .next()
+            .is_some();
 
         // Build a node for each known index
         for idx in self.graph.node_indices() {
@@ -430,6 +437,15 @@ impl<'a> Widget for Graph<'a> {
                 .middle()
                 .set(state.ids.floating_noodle, ui);
         }
+
+        // Key Press for add modal
+        evs.extend(
+            ui.widget_input(id)
+                .presses()
+                .key()
+                .filter(|x| x.key == input::Key::A && x.modifiers == input::ModifierKey::SHIFT)
+                .map(|_| Event::AddModal),
+        );
 
         evs
     }
