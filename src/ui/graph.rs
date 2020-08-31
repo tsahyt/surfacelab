@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 
 const STANDARD_NODE_SIZE: f64 = 128.0;
+const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeData {
@@ -33,6 +34,15 @@ impl Camera {
 
     pub fn inv_scale(&self, point: Point) -> Point {
         [point[0] / self.zoom, point[1] / self.zoom]
+    }
+
+    pub fn pan(&mut self, dx: f64, dy: f64) {
+        self.position[0] += dx;
+        self.position[1] += dy;
+    }
+
+    pub fn zoom(&mut self, dz: f64) {
+        self.zoom = (self.zoom * (1.0 - (dz * ZOOM_SENSITIVITY))).clamp(0.2, 4.0);
     }
 }
 
@@ -188,14 +198,13 @@ impl<'a> Graph<'a> {
         }) {
             let [dx, dy] = state.camera.inv_scale(delta_xy);
             state.update(|state| {
-                state.camera.position[0] += dx;
-                state.camera.position[1] += dy;
+                state.camera.pan(dx, dy);
             });
         }
 
         for dz in ui.widget_input(id).scrolls().map(|scroll| scroll.y) {
             state.update(|state| {
-                state.camera.zoom = (state.camera.zoom - dz * 0.01).max(0.0);
+                state.camera.zoom(dz)
             });
         }
     }
