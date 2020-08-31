@@ -99,8 +99,8 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                 node.position[0] += x;
                 node.position[1] += y;
             }
-            e => {
-                dbg!(e);
+            Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
+                app.graph.add_edge(from, to, (from_socket, to_socket));
             }
         }
     }

@@ -44,17 +44,16 @@ fn ui_loop<B: gpu::Backend>(
 
     let mut gr = petgraph::Graph::new();
     {
-        let a = gr.add_node(graph::NodeData {
+        gr.add_node(graph::NodeData {
             thumbnail: None,
             position: [-100.0, 0.],
             operator: Operator::AtomicOperator(AtomicOperator::PerlinNoise(PerlinNoise::default())),
         });
-        let b = gr.add_node(graph::NodeData {
+        gr.add_node(graph::NodeData {
             thumbnail: None,
             position: [128., 64.],
             operator: Operator::AtomicOperator(AtomicOperator::Output(Output::default())),
         });
-        gr.add_edge(a, b, ("noise".to_string(), "data".to_string()));
     }
 
     let mut app = app::App {
