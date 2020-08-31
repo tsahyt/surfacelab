@@ -1,5 +1,6 @@
 use crate::lang::*;
 use conrod_core::*;
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::iter::FromIterator;
 
@@ -17,7 +18,11 @@ pub struct Node<'a> {
 pub struct Style {}
 
 #[derive(Copy, Clone, Debug)]
-pub enum Event {}
+pub enum Event {
+    NodeDrag([f64; 2]),
+    SocketDrag(widget::Id, Point, Point),
+    SocketRelease(widget::Id),
+}
 
 impl<'a> Node<'a> {
     pub fn new(operator: &'a Operator) -> Self {
@@ -74,7 +79,7 @@ pub fn socket_rect(ui: &Ui, node_id: widget::Id, socket: &str) -> Option<Rect> {
 impl<'a> Widget for Node<'a> {
     type State = State;
     type Style = Style;
-    type Event = ();
+    type Event = SmallVec<[Event; 1]>;
 
     fn init_state(&self, mut id_gen: widget::id::Generator) -> Self::State {
         State {
@@ -100,6 +105,7 @@ impl<'a> Widget for Node<'a> {
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let state = args.state;
+        let mut evs = SmallVec::new();
 
         widget::BorderedRectangle::new(args.rect.dim())
             .parent(args.id)
@@ -134,12 +140,39 @@ impl<'a> Widget for Node<'a> {
         let mut margin = 16.0;
 
         for (input, ty) in self.operator.inputs().iter() {
+            let w_id = state.input_sockets.get(input).unwrap();
             widget::BorderedRectangle::new([16.0, 16.0])
                 .border(3.0)
                 .color(operator_type_color(ty))
                 .parent(state.ids.rectangle)
                 .top_left_with_margins(margin, 0.0)
-                .set(*state.input_sockets.get(input).unwrap(), args.ui);
+                .set(*w_id, args.ui);
+
+            let middle = args.ui.xy_of(*w_id).unwrap();
+
+            evs.extend(
+                args.ui
+                    .widget_input(*w_id)
+                    .drags()
+                    .button(input::MouseButton::Left)
+                    .map(|x| {
+                        Event::SocketDrag(
+                            *w_id,
+                            middle,
+                            [
+                                middle[0] + x.total_delta_xy[0],
+                                middle[1] + x.total_delta_xy[1],
+                            ],
+                        )
+                    }),
+            );
+
+            evs.extend(
+                args.ui
+                    .widget_input(*w_id)
+                    .releases()
+                    .map(|_| Event::SocketRelease(*w_id))
+            );
 
             margin += 32.0;
         }
@@ -147,15 +180,53 @@ impl<'a> Widget for Node<'a> {
         margin = 16.0;
 
         for (output, ty) in self.operator.outputs().iter() {
+            let w_id = state.output_sockets.get(output).unwrap();
             widget::BorderedRectangle::new([16.0, 16.0])
                 .border(3.0)
                 .color(operator_type_color(ty))
                 .parent(state.ids.rectangle)
                 .top_right_with_margins(margin, 0.0)
-                .set(*state.output_sockets.get(output).unwrap(), args.ui);
+                .set(*w_id, args.ui);
+
+            let middle = args.ui.xy_of(*w_id).unwrap();
+
+            evs.extend(
+                args.ui
+                    .widget_input(*w_id)
+                    .drags()
+                    .button(input::MouseButton::Left)
+                    .map(|x| {
+                        Event::SocketDrag(
+                            *w_id,
+                            middle,
+                            [
+                                middle[0] + x.total_delta_xy[0],
+                                middle[1] + x.total_delta_xy[1],
+                            ],
+                        )
+                    }),
+            );
+
+            evs.extend(
+                args.ui
+                    .widget_input(*w_id)
+                    .releases()
+                    .map(|_| Event::SocketRelease(*w_id))
+            );
 
             margin += 32.0;
         }
+
+        // Node Dragging
+        evs.extend(
+            args.ui
+                .widget_input(args.id)
+                .drags()
+                .button(input::MouseButton::Left)
+                .map(|x| Event::NodeDrag(x.delta_xy)),
+        );
+
+        evs
     }
 }
 

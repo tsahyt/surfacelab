@@ -105,6 +105,12 @@ impl Selection {
     }
 }
 
+#[derive(Clone)]
+pub struct ConnectionDraw {
+    from: Point,
+    to: Point,
+}
+
 #[derive(Clone, WidgetCommon)]
 pub struct Graph<'a> {
     #[conrod(common_builder)]
@@ -119,7 +125,8 @@ pub struct Style {}
 widget_ids! {
     #[derive(Clone)]
     pub struct Ids {
-        selection_rect
+        selection_rect,
+        floating_noodle
     }
 }
 
@@ -130,6 +137,7 @@ pub struct State {
     edge_ids: HashMap<petgraph::graph::EdgeIndex, widget::Id>,
     camera: Camera,
     selection: Selection,
+    connection_draw: Option<ConnectionDraw>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -166,7 +174,7 @@ impl<'a> Graph<'a> {
             .widget_input(id)
             .releases()
             .mouse()
-            .filter(|release| release.button == input::MouseButton::Left)
+            .button(input::MouseButton::Left)
         {
             state.update(|state| {
                 let selected = HashSet::from_iter(self.graph.node_indices().filter_map(|idx| {
@@ -222,6 +230,7 @@ impl<'a> Widget for Graph<'a> {
             ids: Ids::new(id_gen),
             camera: Camera::default(),
             selection: Selection::default(),
+            connection_draw: None,
         }
     }
 
@@ -275,21 +284,7 @@ impl<'a> Widget for Graph<'a> {
             let w_id = state.node_ids.get(&idx).unwrap();
             let node = self.graph.node_weight(idx).unwrap();
 
-            // Accumulate drag events for later processing
-            node_drags.extend(
-                ui.widget_input(*w_id)
-                    .drags()
-                    .filter_map(|drag| match drag {
-                        event::Drag {
-                            button: input::MouseButton::Left,
-                            delta_xy,
-                            ..
-                        } => Some((*w_id, state.camera.inv_scale(delta_xy))),
-                        _ => None,
-                    }),
-            );
-
-            node::Node::new(&node.operator)
+            for ev in node::Node::new(&node.operator)
                 .selected(state.selection.is_selected(*w_id))
                 .parent(id)
                 .xy_relative_to(id, state.camera.transform(node.position))
@@ -298,11 +293,30 @@ impl<'a> Widget for Graph<'a> {
                     STANDARD_NODE_SIZE * state.camera.zoom,
                     STANDARD_NODE_SIZE * state.camera.zoom,
                 ])
-                .set(*w_id, ui);
+                .set(*w_id, ui)
+            {
+                match ev {
+                    node::Event::NodeDrag(delta) => {
+                        node_drags.push(state.camera.inv_scale(delta));
+                    }
+                    node::Event::SocketDrag(_, from, to) => {
+                        state.update(|state| {
+                            state.connection_draw = Some(ConnectionDraw { from, to })
+                        });
+                    }
+                    node::Event::SocketRelease(_) => {
+                        state.update(|state| {
+                            state.connection_draw = None;
+                        })
+                    }
+                }
+            }
         }
 
+        // Dragging of nodes processed separately to apply operation to the
+        // entire selection set
         for idx in self.graph.node_indices() {
-            for (_, [x, y]) in node_drags.iter() {
+            for [x, y] in node_drags.iter() {
                 let w_id = state.node_ids.get(&idx).unwrap();
                 if state.selection.is_selected(*w_id) {
                     evs.push_back(Event::NodeDrag(idx, *x, *y));
@@ -352,6 +366,17 @@ impl<'a> Widget for Graph<'a> {
                 .color(color::Color::Rgba(0.9, 0.8, 0.15, 0.2))
                 .border_color(color::Color::Rgba(0.9, 0.8, 0.15, 1.0))
                 .set(state.ids.selection_rect, ui);
+        }
+
+        // Draw floating noodle if currently drawing a connection
+        if let Some(ConnectionDraw { from, to }) = &state.connection_draw {
+            widget::Line::abs(*from, *to)
+                .color(color::DARK_RED)
+                .thickness(3.0)
+                .parent(id)
+                .depth(1.0)
+                .middle()
+                .set(state.ids.floating_noodle, ui);
         }
 
         evs
