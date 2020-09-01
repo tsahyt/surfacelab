@@ -214,7 +214,12 @@ where
     pub fn control_counts(&self) -> ControlCounts {
         let mut counts = ControlCounts::default();
 
-        for parameter in self.categories.iter().map(|c| c.parameters.iter()).flatten() {
+        for parameter in self
+            .categories
+            .iter()
+            .map(|c| c.parameters.iter())
+            .flatten()
+        {
             match parameter.control {
                 Control::Slider { .. } => {
                     counts.sliders += 1;

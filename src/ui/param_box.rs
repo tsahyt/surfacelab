@@ -1,7 +1,7 @@
 use crate::lang::parameters::*;
 use conrod_core::*;
 use maplit::hashmap;
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, Debug, WidgetCommon)]
@@ -50,26 +50,26 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
     fn needs_resize(&self, state: &State) -> bool {
         let counts = self.description.control_counts();
 
-        state.labels.len() != self.description.len()
-            || state.categories.len() != self.description.categories()
+        state.labels.len() < self.description.len()
+            || state.categories.len() < self.description.categories()
             || state
                 .controls
                 .get(&TypeId::of::<widget::Slider<f32>>())
                 .unwrap()
                 .len()
-                != (counts.sliders + counts.discrete_sliders)
+                < (counts.sliders + counts.discrete_sliders)
             || state
                 .controls
                 .get(&TypeId::of::<widget::DropDownList<String>>())
                 .unwrap()
                 .len()
-                != (counts.enums)
+                < (counts.enums)
             || state
                 .controls
                 .get(&TypeId::of::<widget::Toggle>())
                 .unwrap()
                 .len()
-                != (counts.toggles)
+                < (counts.toggles)
     }
 }
 
@@ -110,7 +110,10 @@ where
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let widget::UpdateArgs { state, ui, id, .. } = args;
 
-        // Ensure we have enough ids, allocate more if necessary by resizing the lists
+        // Ensure we have enough ids, allocate more if necessary by resizing the
+        // lists. Resizing shouldn't be particularly expensive, but triggering
+        // the necessary state.update also triggers a redraw, hence we first
+        // check whether it is necessary or not.
         if self.needs_resize(state) {
             self.resize_ids(state, &mut ui.widget_id_generator());
         }
@@ -169,8 +172,8 @@ where
                             .set(control_id, ui);
                         control_idx.discrete_sliders += 1;
                     }
-                    Control::RgbColor { value } => {}
-                    Control::RgbaColor { value } => {}
+                    Control::RgbColor { .. } => {}
+                    Control::RgbaColor { .. } => {}
                     Control::Enum { selected, variants } => {
                         let control_id = state
                             .controls
@@ -183,20 +186,19 @@ where
                             .set(control_id, ui);
                         control_idx.enums += 1;
                     }
-                    Control::File { selected } => {}
-                    Control::Ramp { steps } => {}
+                    Control::File { .. } => {}
+                    Control::Ramp { .. } => {}
                     Control::Toggle { def } => {
-                        let control_id = state
-                            .controls
-                            .get(&TypeId::of::<widget::Toggle>())
-                            .unwrap()[control_idx.toggles];
+                        let control_id =
+                            state.controls.get(&TypeId::of::<widget::Toggle>()).unwrap()
+                                [control_idx.toggles];
                         widget::Toggle::new(*def)
                             .padded_w_of(id, 16.0)
                             .h(16.0)
                             .set(control_id, ui);
                         control_idx.toggles += 1;
                     }
-                    Control::Entry { value } => {}
+                    Control::Entry { .. } => {}
                 }
 
                 top_margin += 64.0;
