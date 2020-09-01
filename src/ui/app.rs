@@ -26,12 +26,27 @@ widget_ids!(
 pub struct App {
     pub graph_resources: HashMap<Resource, petgraph::graph::NodeIndex>,
     pub graph: super::graph::NodeGraph,
+    pub active_element: Option<petgraph::graph::NodeIndex>,
     pub render_image: Option<image::Id>,
 
     pub broker_sender: BrokerSender<Lang>,
     pub monitor_resolution: (u32, u32),
 
     pub add_modal: bool,
+}
+
+impl App {
+    pub fn new(sender: BrokerSender<Lang>, monitor_size: (u32, u32)) -> Self {
+        Self {
+            graph: petgraph::Graph::new(),
+            graph_resources: HashMap::new(),
+            active_element: None,
+            render_image: None,
+            broker_sender: sender,
+            monitor_resolution: (monitor_size.0, monitor_size.1),
+            add_modal: false,
+        }
+    }
 }
 
 pub struct AppFonts {
@@ -90,6 +105,7 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
 
     node_graph(ui, ids, fonts, app);
     render_view(ui, ids, app);
+    parameter_section(ui, ids, fonts, app);
 }
 
 pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) {
@@ -150,6 +166,9 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                     )))
                     .unwrap();
             }
+            Event::ActiveElement(idx) => {
+                app.active_element = Some(idx);
+            }
             Event::AddModal => {
                 app.add_modal = true;
             }
@@ -199,14 +218,13 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
 pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
     match event {
         GraphEvent::GraphAdded(_) => {}
-        GraphEvent::NodeAdded(res, op, _pbox, position, _size) => {
-            let idx = app.graph.add_node(super::graph::NodeData {
-                resource: res.clone(),
-                operator: op.clone(),
-                thumbnail: None,
-                position: position.map(|(x, y)| [x, y]).unwrap_or([0.0, 0.0]),
-                type_variables: HashMap::new(),
-            });
+        GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
+            let idx = app.graph.add_node(super::graph::NodeData::new(
+                res.clone(),
+                position.map(|(x, y)| [x, y]),
+                op.clone(),
+                pbox.clone(),
+            ));
             app.graph_resources.insert(res.clone(), idx);
         }
         GraphEvent::NodeRemoved(res) => {
@@ -274,14 +292,13 @@ pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
             node.set_type_variable(var, None)
         }
         GraphEvent::Report(nodes, edges) => {
-            for (res, op, _pbox, pos) in nodes {
-                let idx = app.graph.add_node(super::graph::NodeData {
-                    resource: res.clone(),
-                    operator: op.clone(),
-                    thumbnail: None,
-                    position: [pos.0, pos.1],
-                    type_variables: HashMap::new(),
-                });
+            for (res, op, pbox, pos) in nodes {
+                let idx = app.graph.add_node(super::graph::NodeData::new(
+                    res.clone(),
+                    Some([pos.0, pos.1]),
+                    op.clone(),
+                    pbox.clone()
+                ));
                 app.graph_resources.insert(res.clone(), idx);
             }
 
@@ -374,3 +391,5 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
         }
     }
 }
+
+pub fn parameter_section(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {}

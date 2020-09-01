@@ -130,7 +130,7 @@ pub trait MessageWriter {
     fn as_field(&self) -> Option<&Field>;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Field(pub String);
 
 impl MessageWriter for Field {
@@ -183,7 +183,7 @@ impl MessageWriter for ResourceField {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ParamBoxDescription<T: MessageWriter> {
     pub box_title: String,
     pub categories: Vec<ParamCategory<T>>,
@@ -201,13 +201,13 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ParamCategory<T: MessageWriter> {
     pub name: &'static str,
     pub parameters: Vec<Parameter<T>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Parameter<T: MessageWriter> {
     pub name: String,
     pub transmitter: T,
@@ -215,7 +215,7 @@ pub struct Parameter<T: MessageWriter> {
     pub available: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Control {
     Slider {
         value: f32,

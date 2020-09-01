@@ -150,7 +150,7 @@ impl<'a> Widget for Node<'a> {
             .border_color(match self.selected {
                 SelectionState::Active => color::Color::Rgba(0.9, 0.4, 0.15, 1.0),
                 SelectionState::Selected => color::Color::Rgba(0.9, 0.8, 0.15, 1.0),
-                _ => color::BLACK
+                _ => color::BLACK,
             })
             .color(color::CHARCOAL)
             .middle()

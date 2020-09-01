@@ -16,6 +16,25 @@ pub struct NodeData {
     pub position: Point,
     pub operator: Operator,
     pub type_variables: HashMap<TypeVariable, ImageType>,
+    pub param_box: ParamBoxDescription<Field>,
+}
+
+impl NodeData {
+    pub fn new(
+        resource: Resource,
+        position: Option<Point>,
+        operator: Operator,
+        param_box: ParamBoxDescription<Field>,
+    ) -> Self {
+        Self {
+            resource,
+            operator,
+            param_box,
+            thumbnail: None,
+            position: position.unwrap_or([0., 0.]),
+            type_variables: HashMap::new(),
+        }
+    }
 }
 
 impl NodeData {
@@ -180,6 +199,7 @@ pub enum Event {
     ),
     SocketClear(petgraph::graph::NodeIndex, String),
     NodeDelete(petgraph::graph::NodeIndex),
+    ActiveElement(petgraph::graph::NodeIndex),
     AddModal,
 }
 
@@ -364,6 +384,7 @@ impl<'a> Widget for Graph<'a> {
                     state.selection.add(w_id);
                     state.selection.set_active(Some(w_id))
                 });
+                evs.push_back(Event::ActiveElement(idx));
             }
 
             let selection_state = if state.selection.is_active(w_id) {

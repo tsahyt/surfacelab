@@ -2,7 +2,6 @@ use crate::{broker, gpu, lang::*};
 
 use winit::platform::unix::EventLoopExtUnix;
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -43,14 +42,7 @@ fn ui_loop<B: gpu::Backend>(
 
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
-    let mut app = app::App {
-        graph: petgraph::Graph::new(),
-        graph_resources: HashMap::new(),
-        render_image: None,
-        broker_sender: sender,
-        monitor_resolution: (monitor_size.width, monitor_size.height),
-        add_modal: false,
-    };
+    let mut app = app::App::new(sender, (monitor_size.width, monitor_size.height));
 
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
     let ids = app::Ids::new(ui.widget_id_generator());
