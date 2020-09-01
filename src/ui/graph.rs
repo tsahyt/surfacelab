@@ -75,6 +75,10 @@ impl Selection {
         self.rect = Some((from, to))
     }
 
+    pub fn add(&mut self, widget_id: widget::Id) {
+        self.set.insert(widget_id);
+    }
+
     pub fn get_geometry(&mut self) -> Option<(Point, Point)> {
         self.rect
     }
@@ -163,8 +167,15 @@ impl<'a> Graph<'a> {
         }
     }
 
-    /// Handle the creation of selection via dragging a rectangle across nodes
-    fn selection_handling(&self, ui: &Ui, state: &'a mut widget::State<'_, State>, id: widget::Id) {
+    /// Handle the creation of selection via dragging a rectangle across nodes.
+    /// Single click selection is handled during node creation where the widget
+    /// ID is readily available.
+    fn rect_selection_handling(
+        &self,
+        ui: &Ui,
+        state: &'a mut widget::State<'_, State>,
+        id: widget::Id,
+    ) {
         for (to, origin) in ui.widget_input(id).drags().filter_map(|drag| match drag {
             event::Drag {
                 button: input::MouseButton::Left,
@@ -300,7 +311,7 @@ impl<'a> Widget for Graph<'a> {
         self.camera_handling(ui, state, id);
 
         // Update selection
-        self.selection_handling(ui, state, id);
+        self.rect_selection_handling(ui, state, id);
 
         let mut node_drags: SmallVec<[_; 4]> = SmallVec::new();
 
@@ -315,10 +326,19 @@ impl<'a> Widget for Graph<'a> {
 
         // Build a node for each known index
         for idx in self.graph.node_indices() {
-            let w_id = state.node_ids.get(&idx).unwrap();
+            let w_id = *state.node_ids.get(&idx).unwrap();
             let node = self.graph.node_weight(idx).unwrap();
 
-            let selected = state.selection.is_selected(*w_id);
+            for _press in ui
+                .widget_input(w_id)
+                .presses()
+                .mouse()
+                .button(input::MouseButton::Left)
+            {
+                state.update(|state| state.selection.add(w_id));
+            }
+
+            let selected = state.selection.is_selected(w_id);
 
             for ev in node::Node::new(idx, &node.operator)
                 .selected(selected)
@@ -329,7 +349,7 @@ impl<'a> Widget for Graph<'a> {
                     STANDARD_NODE_SIZE * state.camera.zoom,
                     STANDARD_NODE_SIZE * state.camera.zoom,
                 ])
-                .set(*w_id, ui)
+                .set(w_id, ui)
             {
                 match ev {
                     node::Event::NodeDrag(delta) => {

@@ -166,7 +166,7 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                 app.graph.add_node(NodeData {
                     thumbnail: None,
                     position: [0., 0.],
-                    operator: crate::lang::Operator::AtomicOperator(operators[i].clone())
+                    operator: crate::lang::Operator::AtomicOperator(operators[i].clone()),
                 });
             }
         }
