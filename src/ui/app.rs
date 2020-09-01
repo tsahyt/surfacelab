@@ -216,8 +216,15 @@ pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
             }
             app.graph_resources.remove(res);
         }
-        GraphEvent::NodeRenamed(_, _) => {}
-        GraphEvent::NodeResized(_, _) => {}
+        GraphEvent::NodeRenamed(from, to) => {
+            if let Some(idx) = app.graph_resources.get(from).copied() {
+                let node = app.graph.node_weight_mut(idx).unwrap();
+                node.resource = to.clone();
+                app.graph_resources.insert(to.clone(), idx);
+                app.graph_resources.remove(from);
+            }
+        }
+        GraphEvent::NodeResized(_res, _size) => {}
         GraphEvent::ConnectedSockets(from, to) => {
             let from_idx = app.graph_resources.get(&from.drop_fragment()).unwrap();
             let to_idx = app.graph_resources.get(&to.drop_fragment()).unwrap();
@@ -252,7 +259,30 @@ pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
         }
         GraphEvent::SocketMonomorphized(_, _) => {}
         GraphEvent::SocketDemonomorphized(_) => {}
-        GraphEvent::Report(_, _) => {}
+        GraphEvent::Report(nodes, edges) => {
+            for (res, op, _pbox, pos) in nodes {
+                let idx = app.graph.add_node(super::graph::NodeData {
+                    resource: res.clone(),
+                    operator: op.clone(),
+                    thumbnail: None,
+                    position: [pos.0, pos.1]
+                });
+                app.graph_resources.insert(res.clone(), idx);
+            }
+
+            for (source, sink) in edges {
+                let source_idx = app.graph_resources.get(&source.drop_fragment()).unwrap();
+                let sink_idx = app.graph_resources.get(&sink.drop_fragment()).unwrap();
+                app.graph.add_edge(
+                    *source_idx,
+                    *sink_idx,
+                    (
+                        source.fragment().unwrap().to_string(),
+                        sink.fragment().unwrap().to_string(),
+                    ),
+                );
+            }
+        }
         GraphEvent::Cleared => {
             app.graph.clear();
         }
