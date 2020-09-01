@@ -8,6 +8,7 @@ use std::thread;
 pub mod app;
 pub mod graph;
 pub mod node;
+pub mod param_box;
 pub mod renderview;
 pub mod util;
 

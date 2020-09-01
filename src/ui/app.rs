@@ -19,7 +19,9 @@ widget_ids!(
         render_view,
 
         add_modal_canvas,
-        operator_list
+        operator_list,
+
+        param_box
     }
 );
 
@@ -46,6 +48,11 @@ impl App {
             monitor_resolution: (monitor_size.0, monitor_size.1),
             add_modal: false,
         }
+    }
+
+    pub fn active_parameters(&self) -> Option<&ParamBoxDescription<Field>> {
+        let ae = self.active_element?;
+        Some(&self.graph.node_weight(ae)?.param_box)
     }
 }
 
@@ -297,7 +304,7 @@ pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
                     res.clone(),
                     Some([pos.0, pos.1]),
                     op.clone(),
-                    pbox.clone()
+                    pbox.clone(),
                 ));
                 app.graph_resources.insert(res.clone(), idx);
             }
@@ -392,4 +399,14 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
     }
 }
 
-pub fn parameter_section(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {}
+pub fn parameter_section(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
+    use super::param_box::*;
+
+    if let Some(description) = app.active_parameters() {
+        ParamBox::new(description)
+            .parent(ids.parameter_canvas)
+            .wh_of(ids.parameter_canvas)
+            .middle()
+            .set(ids.param_box, ui);
+    }
+}
