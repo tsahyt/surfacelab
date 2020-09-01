@@ -199,6 +199,68 @@ where
             categories: vec![],
         }
     }
+
+    /// Return the number of total parameters
+    pub fn len(&self) -> usize {
+        self.categories.iter().map(|c| c.parameters.len()).sum()
+    }
+
+    /// Return the number of categories
+    pub fn categories(&self) -> usize {
+        self.categories.len()
+    }
+
+    /// Return the number of controls, by control type
+    pub fn control_counts(&self) -> ControlCounts {
+        let mut counts = ControlCounts::default();
+
+        for parameter in self.categories.iter().map(|c| c.parameters.iter()).flatten() {
+            match parameter.control {
+                Control::Slider { .. } => {
+                    counts.sliders += 1;
+                }
+                Control::DiscreteSlider { .. } => {
+                    counts.discrete_sliders += 1;
+                }
+                Control::RgbColor { .. } => {
+                    counts.rgb_colors += 1;
+                }
+                Control::RgbaColor { .. } => {
+                    counts.rgba_colors += 1;
+                }
+                Control::Enum { .. } => {
+                    counts.enums += 1;
+                }
+                Control::File { .. } => {
+                    counts.files += 1;
+                }
+                Control::Ramp { .. } => {
+                    counts.ramps += 1;
+                }
+                Control::Toggle { .. } => {
+                    counts.toggles += 1;
+                }
+                Control::Entry { .. } => {
+                    counts.entries += 1;
+                }
+            }
+        }
+
+        counts
+    }
+}
+
+#[derive(Default, Copy, Clone)]
+pub struct ControlCounts {
+    pub sliders: usize,
+    pub discrete_sliders: usize,
+    pub rgb_colors: usize,
+    pub rgba_colors: usize,
+    pub enums: usize,
+    pub files: usize,
+    pub ramps: usize,
+    pub toggles: usize,
+    pub entries: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
