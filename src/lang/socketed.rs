@@ -18,6 +18,19 @@ pub trait Socketed {
             .collect()
     }
 
+    fn type_variable_from_socket(&self, socket: &str) -> Option<TypeVariable> {
+        self.inputs()
+            .iter()
+            .chain(self.outputs().iter())
+            .filter(|(s, _)| s.as_str() == socket)
+            .map(|x| x.1)
+            .next()
+            .and_then(|opty| match opty {
+                OperatorType::Monomorphic(_) => None,
+                OperatorType::Polymorphic(v) => Some(*v),
+            })
+    }
+
     fn default_name<'a>(&'a self) -> &'a str;
 
     fn title<'a>(&'a self) -> &'a str;

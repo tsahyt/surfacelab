@@ -13,6 +13,7 @@ pub struct Node<'a> {
     selected: bool,
     thumbnail: Option<image::Id>,
     operator: &'a Operator,
+    type_variables: &'a HashMap<TypeVariable, ImageType>,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
@@ -27,7 +28,11 @@ pub enum Event {
 }
 
 impl<'a> Node<'a> {
-    pub fn new(node_id: petgraph::graph::NodeIndex, operator: &'a Operator) -> Self {
+    pub fn new(
+        node_id: petgraph::graph::NodeIndex,
+        type_variables: &'a HashMap<TypeVariable, ImageType>,
+        operator: &'a Operator,
+    ) -> Self {
         Node {
             common: widget::CommonBuilder::default(),
             node_id,
@@ -35,6 +40,7 @@ impl<'a> Node<'a> {
             selected: false,
             thumbnail: None,
             operator,
+            type_variables,
         }
     }
 
@@ -167,7 +173,7 @@ impl<'a> Widget for Node<'a> {
             let w_id = state.input_sockets.get(input).unwrap();
             widget::BorderedRectangle::new([16.0, 16.0])
                 .border(3.0)
-                .color(operator_type_color(ty))
+                .color(operator_type_color(ty, self.type_variables))
                 .parent(state.ids.rectangle)
                 .top_left_with_margins(margin, 0.0)
                 .set(*w_id, args.ui);
@@ -215,7 +221,7 @@ impl<'a> Widget for Node<'a> {
             let w_id = state.output_sockets.get(output).unwrap();
             widget::BorderedRectangle::new([16.0, 16.0])
                 .border(3.0)
-                .color(operator_type_color(ty))
+                .color(operator_type_color(ty, self.type_variables))
                 .parent(state.ids.rectangle)
                 .top_right_with_margins(margin, 0.0)
                 .set(*w_id, args.ui);
@@ -261,10 +267,22 @@ impl<'a> Widget for Node<'a> {
     }
 }
 
-fn operator_type_color(optype: &OperatorType) -> color::Color {
+fn operator_type_color(
+    optype: &OperatorType,
+    variables: &HashMap<TypeVariable, ImageType>,
+) -> color::Color {
     match optype {
         OperatorType::Monomorphic(ImageType::Grayscale) => color::LIGHT_GREEN,
         OperatorType::Monomorphic(ImageType::Rgb) => color::LIGHT_ORANGE,
-        OperatorType::Polymorphic(_) => color::DARK_RED,
+        OperatorType::Polymorphic(v) => match variables.get(v) {
+            Some(ImageType::Grayscale) => color::LIGHT_GREEN,
+            Some(ImageType::Rgb) => color::LIGHT_ORANGE,
+            None => match v {
+                0 => color::DARK_RED,
+                1 => color::DARK_ORANGE,
+                2 => color::DARK_PURPLE,
+                _ => color::DARK_BLUE,
+            },
+        },
     }
 }

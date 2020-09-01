@@ -204,9 +204,8 @@ pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
                 resource: res.clone(),
                 operator: op.clone(),
                 thumbnail: None,
-                position: position
-                    .map(|(x, y)| [x, y])
-                    .unwrap_or([0.0, 0.0]),
+                position: position.map(|(x, y)| [x, y]).unwrap_or([0.0, 0.0]),
+                type_variables: HashMap::new(),
             });
             app.graph_resources.insert(res.clone(), idx);
         }
@@ -224,7 +223,6 @@ pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
                 app.graph_resources.remove(from);
             }
         }
-        GraphEvent::NodeResized(_res, _size) => {}
         GraphEvent::ConnectedSockets(from, to) => {
             let from_idx = app.graph_resources.get(&from.drop_fragment()).unwrap();
             let to_idx = app.graph_resources.get(&to.drop_fragment()).unwrap();
@@ -257,15 +255,32 @@ pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
                 app.graph.remove_edge(e);
             }
         }
-        GraphEvent::SocketMonomorphized(_, _) => {}
-        GraphEvent::SocketDemonomorphized(_) => {}
+        GraphEvent::SocketMonomorphized(socket, ty) => {
+            let idx = app.graph_resources.get(&socket.drop_fragment()).unwrap();
+            let node = app.graph.node_weight_mut(*idx).unwrap();
+            let var = node
+                .operator
+                .type_variable_from_socket(socket.fragment().unwrap())
+                .unwrap();
+            node.set_type_variable(var, Some(*ty))
+        }
+        GraphEvent::SocketDemonomorphized(socket) => {
+            let idx = app.graph_resources.get(&socket.drop_fragment()).unwrap();
+            let node = app.graph.node_weight_mut(*idx).unwrap();
+            let var = node
+                .operator
+                .type_variable_from_socket(socket.fragment().unwrap())
+                .unwrap();
+            node.set_type_variable(var, None)
+        }
         GraphEvent::Report(nodes, edges) => {
             for (res, op, _pbox, pos) in nodes {
                 let idx = app.graph.add_node(super::graph::NodeData {
                     resource: res.clone(),
                     operator: op.clone(),
                     thumbnail: None,
-                    position: [pos.0, pos.1]
+                    position: [pos.0, pos.1],
+                    type_variables: HashMap::new(),
                 });
                 app.graph_resources.insert(res.clone(), idx);
             }

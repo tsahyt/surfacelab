@@ -15,6 +15,16 @@ pub struct NodeData {
     pub thumbnail: Option<image::Id>,
     pub position: Point,
     pub operator: Operator,
+    pub type_variables: HashMap<TypeVariable, ImageType>,
+}
+
+impl NodeData {
+    pub fn set_type_variable(&mut self, var: TypeVariable, ty: Option<ImageType>) {
+        match ty {
+            Some(ty) => self.type_variables.insert(var, ty),
+            None => self.type_variables.remove(&var),
+        };
+    }
 }
 
 pub type NodeGraph = petgraph::Graph<NodeData, (String, String)>;
@@ -341,7 +351,7 @@ impl<'a> Widget for Graph<'a> {
 
             let selected = state.selection.is_selected(w_id);
 
-            for ev in node::Node::new(idx, &node.operator)
+            for ev in node::Node::new(idx, &node.type_variables, &node.operator)
                 .selected(selected)
                 .parent(id)
                 .xy_relative_to(id, state.camera.transform(node.position))
