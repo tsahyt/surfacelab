@@ -1,23 +1,25 @@
-use crate::lang::parameters::*;
+use crate::lang::*;
 use conrod_core::*;
 use maplit::hashmap;
 use std::any::TypeId;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 #[derive(Copy, Clone, Debug, WidgetCommon)]
 pub struct ParamBox<'a, T: MessageWriter> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
+    resource: &'a Resource,
     style: Style,
     description: &'a ParamBoxDescription<T>,
 }
 
 impl<'a, T: MessageWriter> ParamBox<'a, T> {
-    pub fn new(description: &'a ParamBoxDescription<T>) -> Self {
+    pub fn new(description: &'a ParamBoxDescription<T>, resource: &'a Resource) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             description,
+            resource,
         }
     }
 
@@ -83,13 +85,18 @@ pub struct State {
     categories: widget::id::List,
 }
 
+#[derive(Debug)]
+pub enum Event {
+    ChangeParameter(Lang),
+}
+
 impl<'a, T> Widget for ParamBox<'a, T>
 where
     T: MessageWriter,
 {
     type State = State;
     type Style = Style;
-    type Event = ();
+    type Event = VecDeque<Event>;
 
     fn init_state(&self, _id_gen: widget::id::Generator) -> Self::State {
         State {
@@ -109,6 +116,7 @@ where
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let widget::UpdateArgs { state, ui, id, .. } = args;
+        let mut ev = VecDeque::new();
 
         // Ensure we have enough ids, allocate more if necessary by resizing the
         // lists. Resizing shouldn't be particularly expensive, but triggering
@@ -151,12 +159,19 @@ where
                             .controls
                             .get(&TypeId::of::<widget::Slider<f32>>())
                             .unwrap()[control_idx.sliders + control_idx.discrete_sliders];
-                        widget::Slider::new(*value, *min, *max)
+                        for new in widget::Slider::new(*value, *min, *max)
                             .label(&format!("{:.1}", *value))
                             .label_font_size(10)
                             .padded_w_of(id, 16.0)
                             .h(16.0)
-                            .set(control_id, ui);
+                            .set(control_id, ui)
+                        {
+                            ev.push_back(Event::ChangeParameter(
+                                parameter
+                                    .transmitter
+                                    .transmit(self.resource.clone(), &new.to_data()),
+                            ));
+                        }
                         control_idx.sliders += 1;
                     }
                     Control::DiscreteSlider { value, min, max } => {
@@ -164,12 +179,19 @@ where
                             .controls
                             .get(&TypeId::of::<widget::Slider<f32>>())
                             .unwrap()[control_idx.sliders + control_idx.discrete_sliders];
-                        widget::Slider::new(*value as f32, *min as f32, *max as f32)
+                        for new in widget::Slider::new(*value as f32, *min as f32, *max as f32)
                             .label(&format!("{}", *value))
                             .label_font_size(10)
                             .padded_w_of(id, 16.0)
                             .h(16.0)
-                            .set(control_id, ui);
+                            .set(control_id, ui)
+                        {
+                            ev.push_back(Event::ChangeParameter(
+                                parameter
+                                    .transmitter
+                                    .transmit(self.resource.clone(), &new.to_data()),
+                            ));
+                        }
                         control_idx.discrete_sliders += 1;
                     }
                     Control::RgbColor { .. } => {}
@@ -179,11 +201,18 @@ where
                             .controls
                             .get(&TypeId::of::<widget::DropDownList<String>>())
                             .unwrap()[control_idx.enums];
-                        widget::DropDownList::new(variants, Some(*selected))
+                        for new_selection in widget::DropDownList::new(variants, Some(*selected))
                             .label_font_size(10)
                             .padded_w_of(id, 16.0)
                             .h(16.0)
-                            .set(control_id, ui);
+                            .set(control_id, ui)
+                        {
+                            ev.push_back(Event::ChangeParameter(
+                                parameter
+                                    .transmitter
+                                    .transmit(self.resource.clone(), &(new_selection as u32).to_data()),
+                            ));
+                        }
                         control_idx.enums += 1;
                     }
                     Control::File { .. } => {}
@@ -204,5 +233,7 @@ where
                 top_margin += 64.0;
             }
         }
+
+        ev
     }
 }

@@ -50,9 +50,10 @@ impl App {
         }
     }
 
-    pub fn active_parameters(&self) -> Option<&ParamBoxDescription<Field>> {
+    pub fn active_parameters(&self) -> Option<(&ParamBoxDescription<Field>, &Resource)> {
         let ae = self.active_element?;
-        Some(&self.graph.node_weight(ae)?.param_box)
+        let node = self.graph.node_weight(ae)?;
+        Some((&node.param_box, &node.resource))
     }
 }
 
@@ -402,11 +403,14 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
 pub fn parameter_section(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
     use super::param_box::*;
 
-    if let Some(description) = app.active_parameters() {
-        ParamBox::new(description)
+    if let Some((description, resource)) = app.active_parameters() {
+        for Event::ChangeParameter(change) in ParamBox::new(description, resource)
             .parent(ids.parameter_canvas)
             .wh_of(ids.parameter_canvas)
             .middle()
-            .set(ids.param_box, ui);
+            .set(ids.param_box, ui)
+        {
+            app.broker_sender.send(change).unwrap();
+        }
     }
 }
