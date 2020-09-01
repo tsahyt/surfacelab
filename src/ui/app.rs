@@ -109,7 +109,7 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                 app.broker_sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
                         node.resource.clone(),
-                        (node.position[0] as i32, node.position[1] as i32),
+                        (node.position[0], node.position[1]),
                     )))
                     .unwrap();
             }
@@ -205,7 +205,7 @@ pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
                 operator: op.clone(),
                 thumbnail: None,
                 position: position
-                    .map(|(x, y)| [x as f64, y as f64])
+                    .map(|(x, y)| [x, y])
                     .unwrap_or([0.0, 0.0]),
             });
             app.graph_resources.insert(res.clone(), idx);

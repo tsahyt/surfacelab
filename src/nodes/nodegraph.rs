@@ -23,7 +23,7 @@ struct ComplexOperator {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
     operator: Operator,
-    position: (i32, i32),
+    position: (f64, f64),
     absolute_size: bool,
     size: i32,
     type_variables: HashMap<TypeVariable, ImageType>,
@@ -33,7 +33,7 @@ impl Node {
     pub fn new(operator: Operator) -> Self {
         Node {
             operator,
-            position: (0, 0),
+            position: (0.0, 0.0),
             size: 0,
             absolute_size: false,
             type_variables: HashMap::new(),
@@ -199,7 +199,7 @@ impl NodeGraph {
         events
     }
 
-    pub fn nodes(&self) -> Vec<(Resource, Operator, (i32, i32))> {
+    pub fn nodes(&self) -> Vec<(Resource, Operator, (f64, f64))> {
         self.graph
             .node_indices()
             .map(|idx| {
@@ -558,7 +558,7 @@ impl NodeGraph {
     }
 
     /// Write the layout position of a node.
-    pub fn position_node(&mut self, name: &str, x: i32, y: i32) {
+    pub fn position_node(&mut self, name: &str, x: f64, y: f64) {
         if let Some(node) = self.indices.get_by_left(&name.to_string()) {
             let nw = self.graph.node_weight_mut(*node).unwrap();
             nw.position = (x, y);
