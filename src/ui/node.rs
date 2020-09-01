@@ -4,13 +4,20 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::iter::FromIterator;
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum SelectionState {
+    Selected,
+    Active,
+    None,
+}
+
 #[derive(Clone, WidgetCommon)]
 pub struct Node<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     node_id: petgraph::graph::NodeIndex,
     style: Style,
-    selected: bool,
+    selected: SelectionState,
     thumbnail: Option<image::Id>,
     operator: &'a Operator,
     type_variables: &'a HashMap<TypeVariable, ImageType>,
@@ -37,7 +44,7 @@ impl<'a> Node<'a> {
             common: widget::CommonBuilder::default(),
             node_id,
             style: Style::default(),
-            selected: false,
+            selected: SelectionState::None,
             thumbnail: None,
             operator,
             type_variables,
@@ -49,7 +56,7 @@ impl<'a> Node<'a> {
         self
     }
 
-    pub fn selected(mut self, selected: bool) -> Self {
+    pub fn selected(mut self, selected: SelectionState) -> Self {
         self.selected = selected;
         self
     }
@@ -140,10 +147,10 @@ impl<'a> Widget for Node<'a> {
         widget::BorderedRectangle::new(args.rect.dim())
             .parent(args.id)
             .border(3.0)
-            .border_color(if self.selected {
-                color::Color::Rgba(0.9, 0.8, 0.15, 1.0)
-            } else {
-                color::BLACK
+            .border_color(match self.selected {
+                SelectionState::Active => color::Color::Rgba(0.9, 0.4, 0.15, 1.0),
+                SelectionState::Selected => color::Color::Rgba(0.9, 0.8, 0.15, 1.0),
+                _ => color::BLACK
             })
             .color(color::CHARCOAL)
             .middle()

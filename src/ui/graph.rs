@@ -70,6 +70,7 @@ impl Default for Camera {
 pub struct Selection {
     rect: Option<(Point, Point)>,
     set: HashSet<widget::Id>,
+    active: Option<widget::Id>,
 }
 
 impl Default for Selection {
@@ -77,6 +78,7 @@ impl Default for Selection {
         Self {
             rect: None,
             set: HashSet::new(),
+            active: None,
         }
     }
 }
@@ -92,6 +94,18 @@ impl Selection {
 
     pub fn get_geometry(&mut self) -> Option<(Point, Point)> {
         self.rect
+    }
+
+    pub fn set_active(&mut self, widget_id: Option<widget::Id>) {
+        self.active = widget_id;
+    }
+
+    pub fn get_active(&self) -> Option<widget::Id> {
+        self.active
+    }
+
+    pub fn is_active(&self, widget_id: widget::Id) -> bool {
+        self.active == Some(widget_id)
     }
 
     pub fn finish(&mut self) {
@@ -346,13 +360,22 @@ impl<'a> Widget for Graph<'a> {
                 .mouse()
                 .button(input::MouseButton::Left)
             {
-                state.update(|state| state.selection.add(w_id));
+                state.update(|state| {
+                    state.selection.add(w_id);
+                    state.selection.set_active(Some(w_id))
+                });
             }
 
-            let selected = state.selection.is_selected(w_id);
+            let selection_state = if state.selection.is_active(w_id) {
+                node::SelectionState::Active
+            } else if state.selection.is_selected(w_id) {
+                node::SelectionState::Selected
+            } else {
+                node::SelectionState::None
+            };
 
             for ev in node::Node::new(idx, &node.type_variables, &node.operator)
-                .selected(selected)
+                .selected(selection_state)
                 .parent(id)
                 .xy_relative_to(id, state.camera.transform(node.position))
                 .thumbnail(node.thumbnail)
@@ -398,7 +421,7 @@ impl<'a> Widget for Graph<'a> {
                 }
             }
 
-            if delete_trigger && selected {
+            if delete_trigger && selection_state != node::SelectionState::None {
                 evs.push_back(Event::NodeDelete(idx));
             }
         }
