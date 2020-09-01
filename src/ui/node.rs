@@ -245,15 +245,6 @@ impl<'a> Widget for Node<'a> {
                     .map(|_| Event::SocketRelease(self.node_id)),
             );
 
-            evs.extend(
-                args.ui
-                    .widget_input(*w_id)
-                    .presses()
-                    .mouse()
-                    .button(input::MouseButton::Right)
-                    .map(|_| Event::SocketClear(output.clone())),
-            );
-
             margin += 32.0;
         }
 
