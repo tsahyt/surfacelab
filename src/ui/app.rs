@@ -1,5 +1,6 @@
 use crate::{broker::BrokerSender, lang::*};
 use conrod_core::*;
+use std::collections::HashMap;
 
 const PANEL_COLOR: Color = color::DARK_CHARCOAL;
 const PANEL_GAP: Scalar = 0.5;
@@ -23,6 +24,7 @@ widget_ids!(
 );
 
 pub struct App {
+    pub graph_resources: HashMap<Resource, petgraph::graph::NodeIndex>,
     pub graph: super::graph::NodeGraph,
     pub render_image: Option<image::Id>,
 
@@ -103,35 +105,50 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                 let mut node = app.graph.node_weight_mut(idx).unwrap();
                 node.position[0] += x;
                 node.position[1] += y;
+
+                app.broker_sender
+                    .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
+                        node.resource.clone(),
+                        (node.position[0] as i32, node.position[1] as i32),
+                    )))
+                    .unwrap();
             }
             Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
-                app.graph.add_edge(from, to, (from_socket, to_socket));
+                let from_res = app
+                    .graph
+                    .node_weight(from)
+                    .unwrap()
+                    .resource
+                    .extend_fragment(&from_socket);
+                let to_res = app
+                    .graph
+                    .node_weight(to)
+                    .unwrap()
+                    .resource
+                    .extend_fragment(&to_socket);
+                app.broker_sender
+                    .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
+                        from_res, to_res,
+                    )))
+                    .unwrap();
             }
             Event::NodeDelete(idx) => {
-                app.graph.remove_node(idx);
+                app.broker_sender
+                    .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
+                        app.graph.node_weight(idx).unwrap().resource.clone(),
+                    )))
+                    .unwrap();
             }
             Event::SocketClear(idx, socket) => {
-                use petgraph::visit::EdgeRef;
-
-                let to_delete: smallvec::SmallVec<[_; 2]> = app
-                    .graph
-                    .edges_directed(idx, petgraph::EdgeDirection::Outgoing)
-                    .chain(
+                app.broker_sender
+                    .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
                         app.graph
-                            .edges_directed(idx, petgraph::EdgeDirection::Incoming),
-                    )
-                    .filter_map(|e| {
-                        if e.weight().0 == socket || e.weight().1 == socket {
-                            Some(e.id())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
-                for e in to_delete {
-                    app.graph.remove_edge(e);
-                }
+                            .node_weight(idx)
+                            .unwrap()
+                            .resource
+                            .extend_fragment(&socket),
+                    )))
+                    .unwrap();
             }
             Event::AddModal => {
                 app.add_modal = true;
@@ -163,17 +180,83 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                 .color(conrod_core::color::LIGHT_BLUE);
             for _press in item.set(toggle, ui) {
                 app.add_modal = false;
-                app.graph.add_node(NodeData {
-                    thumbnail: None,
-                    position: [0., 0.],
-                    operator: crate::lang::Operator::AtomicOperator(operators[i].clone()),
-                });
+
+                app.broker_sender
+                    .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                        Resource::graph("base", None), // TODO: current graph in UI
+                        Operator::AtomicOperator(operators[i].clone()),
+                    )))
+                    .unwrap();
             }
         }
 
         if let Some(s) = scrollbar {
             s.set(ui)
         }
+    }
+}
+
+pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
+    match event {
+        GraphEvent::GraphAdded(_) => {}
+        GraphEvent::NodeAdded(res, op, _pbox, position, _size) => {
+            let idx = app.graph.add_node(super::graph::NodeData {
+                resource: res.clone(),
+                operator: op.clone(),
+                thumbnail: None,
+                position: position
+                    .map(|(x, y)| [x as f64, y as f64])
+                    .unwrap_or([0.0, 0.0]),
+            });
+            app.graph_resources.insert(res.clone(), idx);
+        }
+        GraphEvent::NodeRemoved(res) => {
+            if let Some(idx) = app.graph_resources.get(res) {
+                app.graph.remove_node(*idx);
+            }
+            app.graph_resources.remove(res);
+        }
+        GraphEvent::NodeRenamed(_, _) => {}
+        GraphEvent::NodeResized(_, _) => {}
+        GraphEvent::ConnectedSockets(from, to) => {
+            let from_idx = app.graph_resources.get(&from.drop_fragment()).unwrap();
+            let to_idx = app.graph_resources.get(&to.drop_fragment()).unwrap();
+            app.graph.add_edge(
+                *from_idx,
+                *to_idx,
+                (
+                    from.fragment().unwrap().to_string(),
+                    to.fragment().unwrap().to_string(),
+                ),
+            );
+        }
+        GraphEvent::DisconnectedSockets(from, to) => {
+            use petgraph::visit::EdgeRef;
+
+            let from_idx = app.graph_resources.get(&from.drop_fragment()).unwrap();
+            let to_idx = app.graph_resources.get(&to.drop_fragment()).unwrap();
+
+            // Assuming that there's only ever one edge connecting two sockets.
+            if let Some(e) = app
+                .graph
+                .edges_connecting(*from_idx, *to_idx)
+                .filter(|e| {
+                    (e.weight().0.as_str(), e.weight().1.as_str())
+                        == (from.fragment().unwrap(), to.fragment().unwrap())
+                })
+                .map(|e| e.id())
+                .next()
+            {
+                app.graph.remove_edge(e);
+            }
+        }
+        GraphEvent::SocketMonomorphized(_, _) => {}
+        GraphEvent::SocketDemonomorphized(_) => {}
+        GraphEvent::Report(_, _) => {}
+        GraphEvent::Cleared => {
+            app.graph.clear();
+        }
+        _ => {}
     }
 }
 

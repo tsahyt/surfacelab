@@ -11,6 +11,7 @@ const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeData {
+    pub resource: Resource,
     pub thumbnail: Option<image::Id>,
     pub position: Point,
     pub operator: Operator,

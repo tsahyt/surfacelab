@@ -2,6 +2,7 @@ use crate::{broker, gpu, lang::*};
 
 use winit::platform::unix::EventLoopExtUnix;
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -42,22 +43,9 @@ fn ui_loop<B: gpu::Backend>(
 
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
-    let mut gr = petgraph::Graph::new();
-    // {
-    //     gr.add_node(graph::NodeData {
-    //         thumbnail: None,
-    //         position: [-100.0, 0.],
-    //         operator: Operator::AtomicOperator(AtomicOperator::PerlinNoise(PerlinNoise::default())),
-    //     });
-    //     gr.add_node(graph::NodeData {
-    //         thumbnail: None,
-    //         position: [128., 64.],
-    //         operator: Operator::AtomicOperator(AtomicOperator::Output(Output::default())),
-    //     });
-    // }
-
     let mut app = app::App {
-        graph: gr,
+        graph: petgraph::Graph::new(),
+        graph_resources: HashMap::new(),
         render_image: None,
         broker_sender: sender,
         monitor_resolution: (monitor_size.width, monitor_size.height),
@@ -105,6 +93,7 @@ fn ui_loop<B: gpu::Backend>(
                 Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
                     ui.needs_redraw();
                 }
+                Lang::GraphEvent(ev) => app::handle_graph_event(ev, &mut app),
                 _ => {}
             }
         }
