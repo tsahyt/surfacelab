@@ -89,6 +89,9 @@ fn ui_loop<B: gpu::Backend>(
                     let id = image_map.insert(renderer.create_image(thmb.to::<B>(), 128, 128));
                     app.register_thumbnail(&res.drop_fragment(), id);
                 }
+                Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(_res)) => {
+                    // TODO: purge old thumbnail descriptors
+                }
                 Lang::GraphEvent(ev) => app.handle_graph_event(ev),
                 _ => {}
             }
