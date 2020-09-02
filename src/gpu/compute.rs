@@ -810,11 +810,15 @@ where
     }
 
     /// Create a thumbnail of the given image and return it
-    pub fn generate_thumbnail(&mut self, image: &Image<B>, thumbnail: &ThumbnailIndex) -> Result<(), String> {
+    pub fn generate_thumbnail(
+        &mut self,
+        image: &Image<B>,
+        thumbnail: &ThumbnailIndex,
+    ) -> Result<(), String> {
         let mut lock = self.gpu.lock().unwrap();
         unsafe { lock.device.reset_fence(&self.fence).unwrap() };
 
-        let thumbnail_image = self.thumbnail_cache.image(thumbnail).ok_or("Missing thumbnail image")?;
+        let thumbnail_image = self.thumbnail_cache.image(thumbnail);
 
         // Blit image to thumbnail size
         unsafe {
@@ -886,6 +890,20 @@ where
         }
 
         Ok(())
+    }
+
+    /// Get a new thumbnail from the cache
+    pub fn new_thumbnail(&mut self) -> ThumbnailIndex {
+        self.thumbnail_cache.next()
+    }
+
+    /// Return a thumbnail the cache. Thumbnail to thumbnail, dust to dust.
+    pub fn return_thumbnail(&mut self, thumbnail: ThumbnailIndex) {
+        self.thumbnail_cache.free(thumbnail);
+    }
+
+    pub fn view_thumbnail(&self, thumbnail: &ThumbnailIndex) -> &B::ImageView {
+        self.thumbnail_cache.image_view(thumbnail)
     }
 }
 
@@ -1131,7 +1149,10 @@ pub struct ThumbnailCache<B: Backend> {
     views: Vec<Option<B::ImageView>>,
 }
 
-impl<B> Drop for ThumbnailCache<B> where B: Backend {
+impl<B> Drop for ThumbnailCache<B>
+where
+    B: Backend,
+{
     fn drop(&mut self) {
         let n = self.memory.len() * Self::THUMBNAIL_CHUNK_LENGTH;
         for i in 0..n {
@@ -1139,7 +1160,7 @@ impl<B> Drop for ThumbnailCache<B> where B: Backend {
         }
 
         let lock = self.gpu.lock().unwrap();
-        for chunk in self.memory.drain(0 .. self.memory.len()) {
+        for chunk in self.memory.drain(0..self.memory.len()) {
             unsafe { lock.device.free_memory(chunk) };
         }
     }
@@ -1216,7 +1237,6 @@ where
     }
 
     fn new_thumbnail_at(&mut self, i: usize) {
-
         let lock = self.gpu.lock().unwrap();
 
         let mut image = unsafe {
@@ -1248,7 +1268,8 @@ where
                 hal::format::Swizzle::NO,
                 super::COLOR_RANGE.clone(),
             )
-        }.expect("Error creating thumbnail image view");
+        }
+        .expect("Error creating thumbnail image view");
 
         self.images[i] = Some(image);
         self.views[i] = Some(view);
@@ -1289,19 +1310,20 @@ where
             .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
     }
 
-    pub fn image(&self, index: &ThumbnailIndex) -> Option<&B::Image> {
-        self.images[index.0].as_ref()
+    pub fn image(&self, index: &ThumbnailIndex) -> &B::Image {
+        self.images[index.0].as_ref().unwrap()
     }
 
-    pub fn image_view(&self, index: &ThumbnailIndex) -> Option<&B::ImageView> {
-        self.views[index.0].as_ref()
+    pub fn image_view(&self, index: &ThumbnailIndex) -> &B::ImageView {
+        self.views[index.0].as_ref().unwrap()
     }
 
     pub fn free(&mut self, index: ThumbnailIndex) {
         let lock = self.gpu.lock().unwrap();
 
         unsafe {
-            lock.device.destroy_image(self.images[index.0].take().unwrap());
+            lock.device
+                .destroy_image(self.images[index.0].take().unwrap());
             lock.device
                 .destroy_image_view(self.views[index.0].take().unwrap());
         }

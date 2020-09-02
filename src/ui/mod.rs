@@ -86,6 +86,9 @@ fn ui_loop<B: gpu::Backend>(
                 Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
                     ui.needs_redraw();
                 }
+                Lang::ComputeEvent(ComputeEvent::ThumbnailGenerated(res, thmb)) => {
+                    dbg!(res, thmb);
+                }
                 Lang::GraphEvent(ev) => app::handle_graph_event(ev, &mut app),
                 _ => {}
             }

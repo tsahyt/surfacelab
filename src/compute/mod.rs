@@ -93,6 +93,8 @@ struct SocketData<B: gpu::Backend> {
 
     /// Input sockets only map to the output sockets they are connected to
     inputs: HashMap<String, Resource>,
+
+    thumbnail: Option<gpu::compute::ThumbnailIndex>,
 }
 
 struct Sockets<B: gpu::Backend>(HashMap<Resource, SocketData<B>>);
@@ -105,25 +107,55 @@ where
         Sockets(HashMap::new())
     }
 
-    pub fn clear(&mut self) {
-        self.0.clear();
+    pub fn clear(&mut self, gpu: &mut gpu::compute::GPUCompute<B>) {
+        for (_, mut socket) in self.0.drain() {
+            if let Some(thumbnail) = socket.thumbnail.take() {
+                gpu.return_thumbnail(thumbnail);
+            }
+        }
     }
 
     /// Remove all sockets for the given node.
     ///
     /// The resource *must* point to a node!
-    pub fn remove_all_for_node(&mut self, res: &Resource) {
+    pub fn remove_all_for_node(&mut self, res: &Resource, gpu: &mut gpu::compute::GPUCompute<B>) {
         debug_assert!(res.fragment().is_none());
-        self.0.remove(res);
+        if let Some(mut socket) = self.0.remove(res) {
+            if let Some(thumbnail) = socket.thumbnail.take() {
+                gpu.return_thumbnail(thumbnail);
+            }
+        }
     }
 
+    /// Ensure the node is known
     pub fn ensure_node_exists(&mut self, res: &Resource, size: u32) -> &mut SocketData<B> {
         self.0.entry(res.drop_fragment()).or_insert(SocketData {
             typed_outputs: HashMap::new(),
             known_outputs: HashSet::new(),
             output_size: size,
             inputs: HashMap::new(),
+            thumbnail: None,
         })
+    }
+
+    /// Ensure the node described by the resource has a thumbnail image available.
+    pub fn ensure_node_thumbnail_exists(
+        &mut self,
+        res: &Resource,
+        gpu: &mut gpu::compute::GPUCompute<B>,
+    ) {
+        if let Some(socket) = self.0.get_mut(&res.drop_fragment()) {
+            if socket.thumbnail.is_none() {
+                socket.thumbnail = Some(gpu.new_thumbnail());
+            }
+        }
+    }
+
+    /// Get the thumbnail for a resource (node or socket thereof) if it exists
+    pub fn get_thumbnail(&self, res: &Resource) -> Option<&gpu::compute::ThumbnailIndex> {
+        self.0
+            .get(&res.drop_fragment())
+            .and_then(|s| s.thumbnail.as_ref())
     }
 
     pub fn add_output_socket(
@@ -349,6 +381,10 @@ where
                     // Ensure socket data exists
                     self.sockets.ensure_node_exists(res, *size);
 
+                    // Ensure it has a thumbnail
+                    self.sockets
+                        .ensure_node_thumbnail_exists(res, &mut self.gpu);
+
                     // Create (unallocated) compute images if possible for all outputs
                     for (socket, imgtype) in op.outputs().iter() {
                         let socket_res = res.extend_fragment(&socket);
@@ -373,7 +409,9 @@ where
                         }
                     }
                 }
-                GraphEvent::NodeRemoved(res) => self.sockets.remove_all_for_node(res),
+                GraphEvent::NodeRemoved(res) => {
+                    self.sockets.remove_all_for_node(res, &mut self.gpu)
+                }
                 GraphEvent::NodeRenamed(from, to) => self.rename(from, to),
                 GraphEvent::NodeResized(res, new_size) => {
                     self.sockets.resize(res, *new_size as u32);
@@ -444,7 +482,7 @@ where
     }
 
     pub fn reset(&mut self) {
-        self.sockets.clear();
+        self.sockets.clear(&mut self.gpu);
         self.external_images.clear();
         self.last_known.clear();
     }
@@ -551,12 +589,16 @@ where
                 .sockets
                 .get_output_image(socket)
                 .expect("Missing output image for socket");
-            // let thumbnail = self.gpu.generate_thumbnail(image)?;
-            // Ok(Some(ComputeEvent::ThumbnailGenerated(
-            //     socket.drop_fragment(),
-            //     thumbnail,
-            // )))
-            Ok(None)
+            match self.sockets.get_thumbnail(socket) {
+                Some(thumbnail) => {
+                    self.gpu.generate_thumbnail(image, thumbnail)?;
+                    Ok(Some(ComputeEvent::ThumbnailGenerated(
+                        socket.clone(),
+                        gpu::BrokerImageView::from::<B>(self.gpu.view_thumbnail(thumbnail)),
+                    )))
+                }
+                _ => Ok(None),
+            }
         } else {
             log::trace!("Skipping thumbnail generation");
             Ok(None)
@@ -666,7 +708,8 @@ where
             .is_backed());
 
         let image = self.sockets.get_input_image(&socket_res).unwrap();
-        //let thumbnail = self.gpu.generate_thumbnail(image)?;
+        let thumbnail = self.sockets.get_thumbnail(&socket_res).unwrap();
+        self.gpu.generate_thumbnail(image, thumbnail)?;
 
         Ok(vec![
             ComputeEvent::OutputReady(
@@ -678,7 +721,10 @@ where
                     .get_image_size(self.sockets.get_input_resource(&socket_res).unwrap()),
                 *output_type,
             ),
-            //ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail),
+            ComputeEvent::ThumbnailGenerated(
+                res.clone(),
+                gpu::BrokerImageView::from::<B>(self.gpu.view_thumbnail(thumbnail)),
+            )
         ])
     }
 
