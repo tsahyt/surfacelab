@@ -87,9 +87,14 @@ fn ui_loop<B: gpu::Backend>(
                     ui.needs_redraw();
                 }
                 Lang::ComputeEvent(ComputeEvent::ThumbnailGenerated(res, thmb)) => {
-                    dbg!(res, thmb);
+                    let id = image_map.insert(gpu::ui::Image {
+                        image_view: thmb.to::<B>(),
+                        width: 128,
+                        height: 128,
+                    });
+                    app.register_thumbnail(res, id);
                 }
-                Lang::GraphEvent(ev) => app::handle_graph_event(ev, &mut app),
+                Lang::GraphEvent(ev) => app.handle_graph_event(ev),
                 _ => {}
             }
         }
