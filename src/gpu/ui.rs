@@ -635,7 +635,7 @@ where
                             with_sampler: false,
                         },
                     },
-                    count: 2,
+                    count: 4096,
                 }],
                 pso::DescriptorPoolCreateFlags::empty(),
             )

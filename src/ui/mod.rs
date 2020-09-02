@@ -92,7 +92,8 @@ fn ui_loop<B: gpu::Backend>(
                         width: 128,
                         height: 128,
                     });
-                    app.register_thumbnail(res, id);
+                    renderer.update_image_descriptors(&image_map);
+                    app.register_thumbnail(&res.drop_fragment(), id);
                 }
                 Lang::GraphEvent(ev) => app.handle_graph_event(ev),
                 _ => {}

@@ -171,6 +171,7 @@ impl<'a> Widget for Node<'a> {
                 .parent(state.ids.rectangle)
                 .middle()
                 .padded_wh_of(state.ids.rectangle, 8.0)
+                .graphics_for(args.id)
                 .set(state.ids.thumbnail, args.ui);
         }
 

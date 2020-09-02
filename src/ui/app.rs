@@ -167,7 +167,10 @@ impl App {
 
 
     pub fn register_thumbnail(&mut self, resource: &Resource, thumbnail: image::Id) {
-
+        if let Some(idx) = self.graph_resources.get(resource) {
+            let node = self.graph.node_weight_mut(*idx).unwrap();
+            node.thumbnail = Some(thumbnail);
+        }
     }
 }
 
