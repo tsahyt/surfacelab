@@ -43,3 +43,17 @@ pub trait Socketed {
         false
     }
 }
+
+pub fn type_variable_from_socket_iter<'a, I: IntoIterator<Item = &'a (String, OperatorType)>>(
+    iter: I,
+    socket: &str,
+) -> Option<TypeVariable> {
+    iter.into_iter()
+        .filter(|(s, _)| s.as_str() == socket)
+        .map(|x| x.1)
+        .next()
+        .and_then(|opty| match opty {
+            OperatorType::Monomorphic(_) => None,
+            OperatorType::Polymorphic(v) => Some(v),
+        })
+}
