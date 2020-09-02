@@ -14,7 +14,9 @@ pub struct NodeData {
     pub resource: Resource,
     pub thumbnail: Option<image::Id>,
     pub position: Point,
-    pub operator: Operator,
+    pub title: String,
+    pub inputs: Vec<(String, OperatorType)>,
+    pub outputs: Vec<(String, OperatorType)>,
     pub type_variables: HashMap<TypeVariable, ImageType>,
     pub param_box: ParamBoxDescription<Field>,
 }
@@ -23,12 +25,27 @@ impl NodeData {
     pub fn new(
         resource: Resource,
         position: Option<Point>,
-        operator: Operator,
+        operator: &Operator,
         param_box: ParamBoxDescription<Field>,
     ) -> Self {
+        let mut inputs: Vec<_> = operator
+            .inputs()
+            .iter()
+            .map(|(a, b)| (a.clone(), b.clone()))
+            .collect();
+        inputs.sort();
+        let mut outputs: Vec<_> = operator
+            .outputs()
+            .iter()
+            .map(|(a, b)| (a.clone(), b.clone()))
+            .collect();
+        outputs.sort();
+        let title = operator.title().to_owned();
         Self {
             resource,
-            operator,
+            title,
+            inputs,
+            outputs,
             param_box,
             thumbnail: None,
             position: position.unwrap_or([0., 0.]),
@@ -395,16 +412,22 @@ impl<'a> Widget for Graph<'a> {
                 node::SelectionState::None
             };
 
-            for ev in node::Node::new(idx, &node.type_variables, &node.operator)
-                .selected(selection_state)
-                .parent(id)
-                .xy_relative_to(id, state.camera.transform(node.position))
-                .thumbnail(node.thumbnail)
-                .wh([
-                    STANDARD_NODE_SIZE * state.camera.zoom,
-                    STANDARD_NODE_SIZE * state.camera.zoom,
-                ])
-                .set(w_id, ui)
+            for ev in node::Node::new(
+                idx,
+                &node.type_variables,
+                &node.inputs,
+                &node.outputs,
+                &node.title,
+            )
+            .selected(selection_state)
+            .parent(id)
+            .xy_relative_to(id, state.camera.transform(node.position))
+            .thumbnail(node.thumbnail)
+            .wh([
+                STANDARD_NODE_SIZE * state.camera.zoom,
+                STANDARD_NODE_SIZE * state.camera.zoom,
+            ])
+            .set(w_id, ui)
             {
                 match ev {
                     node::Event::NodeDrag(delta) => {

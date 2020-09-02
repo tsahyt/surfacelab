@@ -230,7 +230,7 @@ pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
             let idx = app.graph.add_node(super::graph::NodeData::new(
                 res.clone(),
                 position.map(|(x, y)| [x, y]),
-                op.clone(),
+                &op,
                 pbox.clone(),
             ));
             app.graph_resources.insert(res.clone(), idx);
@@ -282,29 +282,29 @@ pub fn handle_graph_event(event: &GraphEvent, app: &mut App) {
             }
         }
         GraphEvent::SocketMonomorphized(socket, ty) => {
-            let idx = app.graph_resources.get(&socket.drop_fragment()).unwrap();
-            let node = app.graph.node_weight_mut(*idx).unwrap();
-            let var = node
-                .operator
-                .type_variable_from_socket(socket.fragment().unwrap())
-                .unwrap();
-            node.set_type_variable(var, Some(*ty))
+            // let idx = app.graph_resources.get(&socket.drop_fragment()).unwrap();
+            // let node = app.graph.node_weight_mut(*idx).unwrap();
+            // let var = node
+            //     .operator
+            //     .type_variable_from_socket(socket.fragment().unwrap())
+            //     .unwrap();
+            // node.set_type_variable(var, Some(*ty))
         }
         GraphEvent::SocketDemonomorphized(socket) => {
-            let idx = app.graph_resources.get(&socket.drop_fragment()).unwrap();
-            let node = app.graph.node_weight_mut(*idx).unwrap();
-            let var = node
-                .operator
-                .type_variable_from_socket(socket.fragment().unwrap())
-                .unwrap();
-            node.set_type_variable(var, None)
+            // let idx = app.graph_resources.get(&socket.drop_fragment()).unwrap();
+            // let node = app.graph.node_weight_mut(*idx).unwrap();
+            // let var = node
+            //     .operator
+            //     .type_variable_from_socket(socket.fragment().unwrap())
+            //     .unwrap();
+            // node.set_type_variable(var, None)
         }
         GraphEvent::Report(nodes, edges) => {
             for (res, op, pbox, pos) in nodes {
                 let idx = app.graph.add_node(super::graph::NodeData::new(
                     res.clone(),
                     Some([pos.0, pos.1]),
-                    op.clone(),
+                    &op,
                     pbox.clone(),
                 ));
                 app.graph_resources.insert(res.clone(), idx);

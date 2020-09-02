@@ -19,7 +19,9 @@ pub struct Node<'a> {
     style: Style,
     selected: SelectionState,
     thumbnail: Option<image::Id>,
-    operator: &'a Operator,
+    inputs: &'a [(String, OperatorType)],
+    outputs: &'a [(String, OperatorType)],
+    title: &'a str,
     type_variables: &'a HashMap<TypeVariable, ImageType>,
 }
 
@@ -38,7 +40,9 @@ impl<'a> Node<'a> {
     pub fn new(
         node_id: petgraph::graph::NodeIndex,
         type_variables: &'a HashMap<TypeVariable, ImageType>,
-        operator: &'a Operator,
+        inputs: &'a [(String, OperatorType)],
+        outputs: &'a [(String, OperatorType)],
+        title: &'a str,
     ) -> Self {
         Node {
             common: widget::CommonBuilder::default(),
@@ -46,7 +50,9 @@ impl<'a> Node<'a> {
             style: Style::default(),
             selected: SelectionState::None,
             thumbnail: None,
-            operator,
+            inputs,
+            outputs,
+            title,
             type_variables,
         }
     }
@@ -121,16 +127,10 @@ impl<'a> Widget for Node<'a> {
     fn init_state(&self, mut id_gen: widget::id::Generator) -> Self::State {
         State {
             input_sockets: HashMap::from_iter(
-                self.operator
-                    .inputs()
-                    .iter()
-                    .map(|(k, _)| (k.clone(), id_gen.next())),
+                self.inputs.iter().map(|(k, _)| (k.clone(), id_gen.next())),
             ),
             output_sockets: HashMap::from_iter(
-                self.operator
-                    .outputs()
-                    .iter()
-                    .map(|(k, _)| (k.clone(), id_gen.next())),
+                self.outputs.iter().map(|(k, _)| (k.clone(), id_gen.next())),
             ),
             ids: Ids::new(id_gen),
         }
@@ -157,7 +157,7 @@ impl<'a> Widget for Node<'a> {
             .graphics_for(args.id)
             .set(state.ids.rectangle, args.ui);
 
-        widget::Text::new(self.operator.title())
+        widget::Text::new(self.title)
             .parent(args.id)
             .color(color::LIGHT_CHARCOAL)
             .graphics_for(args.id)
@@ -176,7 +176,7 @@ impl<'a> Widget for Node<'a> {
 
         let mut margin = 16.0;
 
-        for (input, ty) in self.operator.inputs().iter() {
+        for (input, ty) in self.inputs.iter() {
             let w_id = state.input_sockets.get(input).unwrap();
             widget::BorderedRectangle::new([16.0, 16.0])
                 .border(3.0)
@@ -224,7 +224,7 @@ impl<'a> Widget for Node<'a> {
 
         margin = 16.0;
 
-        for (output, ty) in self.operator.outputs().iter() {
+        for (output, ty) in self.outputs.iter() {
             let w_id = state.output_sockets.get(output).unwrap();
             widget::BorderedRectangle::new([16.0, 16.0])
                 .border(3.0)
