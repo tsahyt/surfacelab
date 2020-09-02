@@ -500,12 +500,14 @@ where
             render_target,
 
             view: match ty {
-                crate::lang::RendererType::Renderer2D => {
-                    RenderView::RenderView2D(RenderView2D::default())
-                }
-                crate::lang::RendererType::Renderer3D => {
-                    RenderView::RenderView3D(RenderView3D::default())
-                }
+                crate::lang::RendererType::Renderer2D => RenderView::RenderView2D(RenderView2D {
+                    resolution: [viewport_dimensions.0 as _, viewport_dimensions.1 as _],
+                    ..RenderView2D::default()
+                }),
+                crate::lang::RendererType::Renderer3D => RenderView::RenderView3D(RenderView3D {
+                    resolution: [viewport_dimensions.0 as _, viewport_dimensions.1 as _],
+                    ..RenderView3D::default()
+                }),
             },
 
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
