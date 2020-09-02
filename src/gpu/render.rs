@@ -97,6 +97,7 @@ struct RenderTarget<B: Backend> {
     image: ManuallyDrop<B::Image>,
     view: ManuallyDrop<B::ImageView>,
     memory: ManuallyDrop<B::Memory>,
+    image_layout: hal::image::Layout,
 }
 
 impl<B> RenderTarget<B>
@@ -153,11 +154,31 @@ where
             image: ManuallyDrop::new(image),
             view: ManuallyDrop::new(view),
             memory: ManuallyDrop::new(memory),
+            image_layout: hal::image::Layout::Undefined,
         })
     }
 
     pub fn image_view(&self) -> &B::ImageView {
         &*self.view
+    }
+
+    pub fn barrier(&mut self) -> hal::memory::Barrier<B> {
+        let barrier = hal::memory::Barrier::Image {
+            states: (
+                hal::image::Access::empty(),
+                self.image_layout,
+            )
+                ..(
+                    hal::image::Access::COLOR_ATTACHMENT_WRITE,
+                    hal::image::Layout::ColorAttachmentOptimal,
+                ),
+            target: &*self.image,
+            families: None,
+            range: super::COLOR_RANGE.clone(),
+        };
+
+        self.image_layout = hal::image::Layout::ShaderReadOnlyOptimal;
+        barrier
     }
 }
 
@@ -942,6 +963,11 @@ where
                             range: super::COLOR_RANGE.clone(),
                         },
                     ],
+                );
+                cmd_buffer.pipeline_barrier(
+                    hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::COLOR_ATTACHMENT_OUTPUT,
+                    hal::memory::Dependencies::empty(),
+                    std::iter::once(self.render_target.barrier())
                 );
 
                 cmd_buffer.bind_graphics_descriptor_sets(
