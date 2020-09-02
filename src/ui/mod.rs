@@ -75,24 +75,18 @@ fn ui_loop<B: gpu::Backend>(
         if let Ok(broker_event) = receiver.try_recv() {
             match &*broker_event {
                 Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
-                    let id = image_map.insert(gpu::ui::Image {
-                        image_view: view.to::<B>(),
-                        width: app.monitor_resolution.0,
-                        height: app.monitor_resolution.1,
-                    });
+                    let id = image_map.insert(renderer.create_image(
+                        view.to::<B>(),
+                        app.monitor_resolution.0,
+                        app.monitor_resolution.1,
+                    ));
                     app.render_image = Some(id);
-                    renderer.update_image_descriptors(&image_map);
                 }
                 Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
                     ui.needs_redraw();
                 }
                 Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
-                    let id = image_map.insert(gpu::ui::Image {
-                        image_view: thmb.to::<B>(),
-                        width: 128,
-                        height: 128,
-                    });
-                    renderer.update_image_descriptors(&image_map);
+                    let id = image_map.insert(renderer.create_image(thmb.to::<B>(), 128, 128));
                     app.register_thumbnail(&res.drop_fragment(), id);
                 }
                 Lang::GraphEvent(ev) => app.handle_graph_event(ev),

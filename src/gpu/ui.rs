@@ -17,7 +17,6 @@ use std::sync::{Arc, Mutex};
 
 use std::{
     borrow::Borrow,
-    collections::HashMap,
     io::Cursor,
     iter,
     mem::{self, ManuallyDrop},
@@ -25,7 +24,6 @@ use std::{
 };
 
 use conrod_core::{self, mesh::*};
-use smallvec::SmallVec;
 
 const ENTRY_NAME: &str = "main";
 const GLYPH_CACHE_FORMAT: hal::format::Format = hal::format::Format::R8Unorm;
@@ -64,17 +62,19 @@ pub struct Vertex {
 /// validation as well as ensuring the image is backed by memory is to be done
 /// by the user!
 ///
-/// Also note that cleanup has to be performed by the user before the image is dropped.
+/// Also note that cleanup has to be performed by the user before the image is
+/// dropped. In particular images should be handled through the API provided by
+/// the UI renderer.
 #[derive(Debug)]
-pub struct Image<'a, B: Backend> {
-    pub image_view: &'a B::ImageView,
+pub struct Image<B: Backend> {
+    descriptor: B::DescriptorSet,
     /// The width of the image.
-    pub width: u32,
+    width: u32,
     /// The height of the image.
-    pub height: u32,
+    height: u32,
 }
 
-impl<'a, B> ImageDimensions for Image<'a, B>
+impl<B> ImageDimensions for Image<B>
 where
     B: Backend,
 {
@@ -508,7 +508,6 @@ pub struct Renderer<B: Backend> {
     // Per Image Descriptors
     image_desc_pool: ManuallyDrop<B::DescriptorPool>,
     image_set_layout: ManuallyDrop<B::DescriptorSetLayout>,
-    image_desc_map: HashMap<conrod_core::image::Id, B::DescriptorSet>,
     image_desc_default: B::DescriptorSet,
 
     submission_complete_semaphore: ManuallyDrop<B::Semaphore>,
@@ -877,7 +876,6 @@ where
             basic_desc_set,
             image_desc_pool: ManuallyDrop::new(image_desc_pool),
             image_set_layout: ManuallyDrop::new(image_set_layout),
-            image_desc_map: HashMap::new(),
             image_desc_default,
             submission_complete_semaphore: ManuallyDrop::new(submission_complete_semaphore),
             submission_complete_fence: ManuallyDrop::new(submission_complete_fence),
@@ -1027,9 +1025,9 @@ where
                     },
                     Draw::Image(img_id, range) => unsafe {
                         if range.len() > 0 {
-                            let descriptor = self
-                                .image_desc_map
+                            let descriptor = image_map
                                 .get(&img_id)
+                                .map(|img| &img.descriptor)
                                 .unwrap_or(&self.image_desc_default);
                             cmd_buffer.bind_graphics_descriptor_sets(
                                 &self.pipeline_layout,
@@ -1100,42 +1098,37 @@ where
         Ok(())
     }
 
-    /// Rebuild all image descriptors based on the given image map
-    // TODO: Rewrite UI image descriptor set architecture
-    pub fn update_image_descriptors(&mut self, image_map: &conrod_core::image::Map<Image<B>>) {
-        // Drain the map and free all obsolote descriptor sets. Using this instead of
-        // reset ensures we leave the default descriptor alone!
-        // if self.image_desc_map.len() > 0 {
-        //     unsafe {
-        //         self.image_desc_pool
-        //             .free_sets(self.image_desc_map.drain().map(|(_, x)| x))
-        //     };
-        // }
-
+    /// Create an image for use in the image map for rendering
+    pub fn create_image(&mut self, image_view: &B::ImageView, width: u32, height: u32) -> Image<B> {
         let lock = self.gpu.lock().unwrap();
-        let new: SmallVec<[_; 8]> = image_map
-            .iter()
-            .filter(|(k, _)| !self.image_desc_map.contains_key(k))
-            .collect();
+        let desc = unsafe { self.image_desc_pool.allocate_set(&*self.image_set_layout) }.unwrap();
 
-        for (k, v) in new {
-            let desc =
-                unsafe { self.image_desc_pool.allocate_set(&*self.image_set_layout) }.unwrap();
+        unsafe {
+            lock.device
+                .write_descriptor_sets(vec![pso::DescriptorSetWrite {
+                    set: &desc,
+                    binding: 0,
+                    array_offset: 0,
+                    descriptors: Some(pso::Descriptor::Image(
+                        image_view,
+                        i::Layout::ShaderReadOnlyOptimal,
+                    )),
+                }]);
+        }
 
-            unsafe {
-                lock.device
-                    .write_descriptor_sets(vec![pso::DescriptorSetWrite {
-                        set: &desc,
-                        binding: 0,
-                        array_offset: 0,
-                        descriptors: Some(pso::Descriptor::Image(
-                            v.image_view,
-                            i::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    }]);
-            }
+        Image {
+            descriptor: desc,
+            width,
+            height,
+        }
+    }
 
-            self.image_desc_map.insert(k.clone(), desc);
+    /// Destroy an image, freeing up the descriptor set resources. This does
+    /// *NOT* destroy the image view, image, or memory that was backing this
+    /// image!
+    pub fn destroy_image(&mut self, image: Image<B>) {
+        unsafe {
+            self.image_desc_pool.free_sets(iter::once(image.descriptor));
         }
     }
 }
