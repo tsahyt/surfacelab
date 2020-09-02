@@ -50,10 +50,10 @@ impl App {
         }
     }
 
-    pub fn active_parameters(&self) -> Option<(&ParamBoxDescription<Field>, &Resource)> {
+    pub fn active_parameters(&mut self) -> Option<(&mut ParamBoxDescription<Field>, &Resource)> {
         let ae = self.active_element?;
-        let node = self.graph.node_weight(ae)?;
-        Some((&node.param_box, &node.resource))
+        let node = self.graph.node_weight_mut(ae)?;
+        Some((&mut node.param_box, &node.resource))
     }
 }
 
@@ -400,7 +400,7 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
     }
 }
 
-pub fn parameter_section(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
+pub fn parameter_section(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) {
     use super::param_box::*;
 
     if let Some((description, resource)) = app.active_parameters() {

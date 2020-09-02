@@ -4,17 +4,17 @@ use maplit::hashmap;
 use std::any::TypeId;
 use std::collections::{HashMap, VecDeque};
 
-#[derive(Copy, Clone, Debug, WidgetCommon)]
+#[derive(Debug, WidgetCommon)]
 pub struct ParamBox<'a, T: MessageWriter> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     resource: &'a Resource,
     style: Style,
-    description: &'a ParamBoxDescription<T>,
+    description: &'a mut ParamBoxDescription<T>,
 }
 
 impl<'a, T: MessageWriter> ParamBox<'a, T> {
-    pub fn new(description: &'a ParamBoxDescription<T>, resource: &'a Resource) -> Self {
+    pub fn new(description: &'a mut ParamBoxDescription<T>, resource: &'a Resource) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
@@ -129,7 +129,7 @@ where
         // Build widgets for each parameter
         let mut top_margin = 16.0;
         let mut control_idx = ControlCounts::default();
-        for (j, category) in self.description.categories.iter().enumerate() {
+        for (j, category) in self.description.categories.iter_mut().enumerate() {
             widget::Text::new(&category.name)
                 .parent(id)
                 .color(color::WHITE)
@@ -141,7 +141,7 @@ where
 
             for (i, parameter) in category
                 .parameters
-                .iter()
+                .iter_mut()
                 .filter(|p| p.available)
                 .enumerate()
             {
@@ -153,7 +153,7 @@ where
                     .top_left_with_margins(top_margin, 16.0)
                     .set(label_id, ui);
 
-                match &parameter.control {
+                match &mut parameter.control {
                     Control::Slider { value, min, max } => {
                         let control_id = state
                             .controls
@@ -171,6 +171,7 @@ where
                                     .transmitter
                                     .transmit(self.resource.clone(), &new.to_data()),
                             ));
+                            *value = new;
                         }
                         control_idx.sliders += 1;
                     }
@@ -191,6 +192,7 @@ where
                                     .transmitter
                                     .transmit(self.resource.clone(), &new.to_data()),
                             ));
+                            *value = new as i32;
                         }
                         control_idx.discrete_sliders += 1;
                     }
@@ -207,11 +209,11 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
-                            ev.push_back(Event::ChangeParameter(
-                                parameter
-                                    .transmitter
-                                    .transmit(self.resource.clone(), &(new_selection as u32).to_data()),
-                            ));
+                            ev.push_back(Event::ChangeParameter(parameter.transmitter.transmit(
+                                self.resource.clone(),
+                                &(new_selection as u32).to_data(),
+                            )));
+                            *selected = new_selection;
                         }
                         control_idx.enums += 1;
                     }
