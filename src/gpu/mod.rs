@@ -190,3 +190,5 @@ impl BrokerImageView {
         unsafe { &*(self.raw as *const B::ImageView) }
     }
 }
+
+// TODO: Replace BrokerImage and BrokerImageView with something safer

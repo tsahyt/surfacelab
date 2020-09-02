@@ -25,6 +25,7 @@ use std::{
 };
 
 use conrod_core::{self, mesh::*};
+use smallvec::SmallVec;
 
 const ENTRY_NAME: &str = "main";
 const GLYPH_CACHE_FORMAT: hal::format::Format = hal::format::Format::R8Unorm;
@@ -637,7 +638,7 @@ where
                     },
                     count: 4096,
                 }],
-                pso::DescriptorPoolCreateFlags::empty(),
+                pso::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET,
             )
         }
         .expect("Can't create descriptor pool");
@@ -1100,19 +1101,25 @@ where
     }
 
     /// Rebuild all image descriptors based on the given image map
+    // TODO: Rewrite UI image descriptor set architecture
     pub fn update_image_descriptors(&mut self, image_map: &conrod_core::image::Map<Image<B>>) {
-        // Drain the map and free all the descriptor sets. Using this instead of
+        // Drain the map and free all obsolote descriptor sets. Using this instead of
         // reset ensures we leave the default descriptor alone!
-        if self.image_desc_map.len() > 0 {
-            unsafe {
-                self.image_desc_pool
-                    .free_sets(self.image_desc_map.drain().map(|(_, x)| x))
-            };
-        }
+        // if self.image_desc_map.len() > 0 {
+        //     unsafe {
+        //         self.image_desc_pool
+        //             .free_sets(self.image_desc_map.drain().map(|(_, x)| x))
+        //     };
+        // }
 
         let lock = self.gpu.lock().unwrap();
+        let new: SmallVec<[_; 8]> = image_map
+            .iter()
+            .filter(|(k, _)| !self.image_desc_map.contains_key(k))
+            .collect();
 
-        for (k, v) in image_map.iter() {
+        for (k, v) in new {
+            dbg!(k, v);
             let desc =
                 unsafe { self.image_desc_pool.allocate_set(&*self.image_set_layout) }.unwrap();
 

@@ -724,7 +724,7 @@ where
             ComputeEvent::ThumbnailGenerated(
                 res.clone(),
                 gpu::BrokerImageView::from::<B>(self.gpu.view_thumbnail(thumbnail)),
-            )
+            ),
         ])
     }
 
