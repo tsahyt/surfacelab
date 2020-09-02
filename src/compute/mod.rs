@@ -551,11 +551,12 @@ where
                 .sockets
                 .get_output_image(socket)
                 .expect("Missing output image for socket");
-            let thumbnail = self.gpu.generate_thumbnail(image)?;
-            Ok(Some(ComputeEvent::ThumbnailGenerated(
-                socket.drop_fragment(),
-                thumbnail,
-            )))
+            // let thumbnail = self.gpu.generate_thumbnail(image)?;
+            // Ok(Some(ComputeEvent::ThumbnailGenerated(
+            //     socket.drop_fragment(),
+            //     thumbnail,
+            // )))
+            Ok(None)
         } else {
             log::trace!("Skipping thumbnail generation");
             Ok(None)
@@ -665,7 +666,7 @@ where
             .is_backed());
 
         let image = self.sockets.get_input_image(&socket_res).unwrap();
-        let thumbnail = self.gpu.generate_thumbnail(image)?;
+        //let thumbnail = self.gpu.generate_thumbnail(image)?;
 
         Ok(vec![
             ComputeEvent::OutputReady(
@@ -677,7 +678,7 @@ where
                     .get_image_size(self.sockets.get_input_resource(&socket_res).unwrap()),
                 *output_type,
             ),
-            ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail),
+            //ComputeEvent::ThumbnailGenerated(res.clone(), thumbnail),
         ])
     }
 

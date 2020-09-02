@@ -29,8 +29,7 @@ pub struct GPUCompute<B: Backend> {
     descriptor_pool: ManuallyDrop<B::DescriptorPool>,
 
     // Thumbnails
-    // thumbnail_mem: ManuallyDrop<B::Memory>,
-    // thumbnail_image: ManuallyDrop<B::Image>,
+    thumbnail_cache: ThumbnailCache<B>,
 
     // Sync
     fence: ManuallyDrop<B::Fence>,
@@ -57,6 +56,11 @@ where
     /// Create a new GPUCompute instance.
     pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, String> {
         log::info!("Obtaining GPU Compute Resources");
+
+        // Thumbnail Data. Produce this first before we lock the GPU for the
+        // rest of the constructor, otherwise we get a deadlock.
+        let thumbnail_cache = ThumbnailCache::new(gpu.clone());
+
         let lock = gpu.lock().unwrap();
 
         let command_pool = unsafe {
@@ -182,42 +186,6 @@ where
         }
         .map_err(|_| "Failed to create sampler")?;
 
-        // Thumbnail Data
-        // let thumbnail_mem = unsafe {
-        //     let memory_type = lock
-        //         .memory_properties
-        //         .memory_types
-        //         .iter()
-        //         .position(|mem_type| {
-        //             mem_type
-        //                 .properties
-        //                 .contains(hal::memory::Properties::CPU_VISIBLE)
-        //         })
-        //         .unwrap()
-        //         .into();
-        //     lock.device
-        //         .allocate_memory(memory_type, Self::THUMBNAIL_BYTES as _)
-        //         .map_err(|_| "Failed to allocate memory region for thumbnails")?
-        // };
-
-        // let mut thumbnail_image = unsafe {
-        //     lock.device.create_image(
-        //         hal::image::Kind::D2(Self::THUMBNAIL_SIZE as _, Self::THUMBNAIL_SIZE as _, 1, 1),
-        //         1,
-        //         hal::format::Format::Rgba8Unorm,
-        //         hal::image::Tiling::Linear,
-        //         hal::image::Usage::TRANSFER_SRC | hal::image::Usage::TRANSFER_DST,
-        //         hal::image::ViewCapabilities::empty(),
-        //     )
-        // }
-        // .map_err(|_| "Failed to create thumbnail image")?;
-
-        // unsafe {
-        //     lock.device
-        //         .bind_image_memory(&thumbnail_mem, 0, &mut thumbnail_image)
-        // }
-        // .map_err(|_| "Failed to bind thumbnail image to memory")?;
-
         Ok(GPUCompute {
             gpu: gpu.clone(),
             command_pool: ManuallyDrop::new(command_pool),
@@ -239,8 +207,7 @@ where
 
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
 
-            // thumbnail_mem: ManuallyDrop::new(thumbnail_mem),
-            // thumbnail_image: ManuallyDrop::new(thumbnail_image),
+            thumbnail_cache,
             fence,
         })
     }
@@ -843,122 +810,82 @@ where
     }
 
     /// Create a thumbnail of the given image and return it
-    pub fn generate_thumbnail(&mut self, image: &Image<B>) -> Result<Vec<u8>, String> {
-        todo!()
-        // let mut lock = self.gpu.lock().unwrap();
-        // unsafe { lock.device.reset_fence(&self.fence).unwrap() };
+    pub fn generate_thumbnail(&mut self, image: &Image<B>, thumbnail: &ThumbnailIndex) -> Result<(), String> {
+        let mut lock = self.gpu.lock().unwrap();
+        unsafe { lock.device.reset_fence(&self.fence).unwrap() };
 
-        // // Blit image to thumbnail size
-        // unsafe {
-        //     let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
-        //     cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
-        //     cmd_buffer.pipeline_barrier(
-        //         hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
-        //         hal::memory::Dependencies::empty(),
-        //         &[
-        //             hal::memory::Barrier::Image {
-        //                 states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-        //                     ..(
-        //                         hal::image::Access::TRANSFER_WRITE,
-        //                         hal::image::Layout::TransferDstOptimal,
-        //                     ),
-        //                 target: &*self.thumbnail_image,
-        //                 families: None,
-        //                 range: super::COLOR_RANGE.clone(),
-        //             },
-        //             image.barrier_to(
-        //                 hal::image::Access::TRANSFER_READ,
-        //                 hal::image::Layout::TransferSrcOptimal,
-        //             ),
-        //         ],
-        //     );
-        //     cmd_buffer.blit_image(
-        //         &*image.raw,
-        //         hal::image::Layout::TransferSrcOptimal,
-        //         &*self.thumbnail_image,
-        //         hal::image::Layout::TransferDstOptimal,
-        //         hal::image::Filter::Nearest,
-        //         &[hal::command::ImageBlit {
-        //             src_subresource: hal::image::SubresourceLayers {
-        //                 aspects: hal::format::Aspects::COLOR,
-        //                 level: 0,
-        //                 layers: 0..1,
-        //             },
-        //             src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-        //                 x: image.size as i32,
-        //                 y: image.size as i32,
-        //                 z: 1,
-        //             },
-        //             dst_subresource: hal::image::SubresourceLayers {
-        //                 aspects: hal::format::Aspects::COLOR,
-        //                 level: 0,
-        //                 layers: 0..1,
-        //             },
-        //             dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-        //                 x: Self::THUMBNAIL_SIZE as _,
-        //                 y: Self::THUMBNAIL_SIZE as _,
-        //                 z: 1,
-        //             },
-        //         }],
-        //     );
-        //     cmd_buffer.pipeline_barrier(
-        //         hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
-        //         hal::memory::Dependencies::empty(),
-        //         &[image.barrier_to(
-        //             hal::image::Access::SHADER_READ,
-        //             hal::image::Layout::ShaderReadOnlyOptimal,
-        //         )],
-        //     );
-        //     cmd_buffer.finish();
+        let thumbnail_image = self.thumbnail_cache.image(thumbnail).ok_or("Missing thumbnail image")?;
 
-        //     lock.queue_group.queues[0]
-        //         .submit_without_semaphores(Some(&cmd_buffer), Some(&self.fence));
-        //     lock.device.wait_for_fence(&self.fence, !0).unwrap();
-        //     self.command_pool.free(Some(cmd_buffer));
-        // }
+        // Blit image to thumbnail size
+        unsafe {
+            let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
+            cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            cmd_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
+                hal::memory::Dependencies::empty(),
+                &[
+                    hal::memory::Barrier::Image {
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                            ..(
+                                hal::image::Access::TRANSFER_WRITE,
+                                hal::image::Layout::TransferDstOptimal,
+                            ),
+                        target: thumbnail_image,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    },
+                    image.barrier_to(
+                        hal::image::Access::TRANSFER_READ,
+                        hal::image::Layout::TransferSrcOptimal,
+                    ),
+                ],
+            );
+            cmd_buffer.blit_image(
+                &*image.raw,
+                hal::image::Layout::TransferSrcOptimal,
+                thumbnail_image,
+                hal::image::Layout::TransferDstOptimal,
+                hal::image::Filter::Nearest,
+                &[hal::command::ImageBlit {
+                    src_subresource: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 0,
+                        layers: 0..1,
+                    },
+                    src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                        x: image.size as i32,
+                        y: image.size as i32,
+                        z: 1,
+                    },
+                    dst_subresource: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 0,
+                        layers: 0..1,
+                    },
+                    dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                        x: self.thumbnail_cache.thumbnail_size() as _,
+                        y: self.thumbnail_cache.thumbnail_size() as _,
+                        z: 1,
+                    },
+                }],
+            );
+            cmd_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::memory::Dependencies::empty(),
+                &[image.barrier_to(
+                    hal::image::Access::SHADER_READ,
+                    hal::image::Layout::ShaderReadOnlyOptimal,
+                )],
+            );
+            cmd_buffer.finish();
 
-        // // Download image
-        // let mut res = unsafe {
-        //     let mapping = lock
-        //         .device
-        //         .map_memory(
-        //             &self.thumbnail_mem,
-        //             hal::memory::Segment {
-        //                 offset: 0,
-        //                 size: Some(Self::THUMBNAIL_BYTES as _),
-        //             },
-        //         )
-        //         .map_err(|e| {
-        //             format!(
-        //                 "Failed to map download buffer into CPU address space: {}",
-        //                 e
-        //             )
-        //         })?;
-        //     let slice =
-        //         std::slice::from_raw_parts::<u8>(mapping as *const u8, Self::THUMBNAIL_BYTES);
-        //     let owned = slice.to_owned();
-        //     lock.device.unmap_memory(&self.thumbnail_mem);
-        //     owned
-        // };
+            lock.queue_group.queues[0]
+                .submit_without_semaphores(Some(&cmd_buffer), Some(&self.fence));
+            lock.device.wait_for_fence(&self.fence, !0).unwrap();
+            self.command_pool.free(Some(cmd_buffer));
+        }
 
-        // match image.format {
-        //     hal::format::Format::R32Sfloat => {
-        //         for chunk in res.chunks_mut(4) {
-        //             chunk[1] = chunk[0];
-        //             chunk[2] = chunk[0];
-        //         }
-        //     }
-        //     hal::format::Format::Rgba16Sfloat => {
-        //         for chunk in res.chunks_mut(4) {
-        //             chunk[0] = ((chunk[0] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
-        //             chunk[1] = ((chunk[1] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
-        //             chunk[2] = ((chunk[2] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
-        //         }
-        //     }
-        //     _ => log::warn!("Unsupported image format found in GPU during thumbnail creation"),
-        // };
-
-        // Ok(res)
+        Ok(())
     }
 }
 
@@ -1223,7 +1150,7 @@ where
     B: Backend,
 {
     /// Pixel per side
-    const THUMBNAIL_SIZE: usize = 128;
+    pub const THUMBNAIL_SIZE: usize = 128;
 
     /// Size of a single thumbnail in bytes
     const THUMBNAIL_BYTES: usize = Self::THUMBNAIL_SIZE * Self::THUMBNAIL_SIZE * 4;
@@ -1381,5 +1308,9 @@ where
 
         self.images[index.0] = None;
         self.views[index.0] = None;
+    }
+
+    pub fn thumbnail_size(&self) -> usize {
+        Self::THUMBNAIL_SIZE
     }
 }
