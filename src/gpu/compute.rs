@@ -2,6 +2,7 @@ use crate::lang;
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
+use smallvec::{smallvec, SmallVec};
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
@@ -22,14 +23,14 @@ pub struct GPUCompute<B: Backend> {
     // Image Memory Management
     allocs: Cell<AllocId>,
     image_mem: ManuallyDrop<B::Memory>,
-    image_mem_chunks: RefCell<Vec<Chunk>>,
+    image_mem_chunks: RefCell<Vec<Chunk>>, // TODO: compute image handling without refcell
 
     // Descriptors
     descriptor_pool: ManuallyDrop<B::DescriptorPool>,
 
     // Thumbnails
-    thumbnail_mem: ManuallyDrop<B::Memory>,
-    thumbnail_image: ManuallyDrop<B::Image>,
+    // thumbnail_mem: ManuallyDrop<B::Memory>,
+    // thumbnail_image: ManuallyDrop<B::Image>,
 
     // Sync
     fence: ManuallyDrop<B::Fence>,
@@ -52,9 +53,6 @@ where
     const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 128; // bytes
     const CHUNK_SIZE: u64 = 256 * 256 * 4; // bytes
     const N_CHUNKS: u64 = Self::IMAGE_MEMORY_SIZE / Self::CHUNK_SIZE;
-
-    const THUMBNAIL_SIZE: usize = 128; // px on a side
-    const THUMBNAIL_BYTES: usize = Self::THUMBNAIL_SIZE * Self::THUMBNAIL_SIZE * 4;
 
     /// Create a new GPUCompute instance.
     pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, String> {
@@ -185,40 +183,40 @@ where
         .map_err(|_| "Failed to create sampler")?;
 
         // Thumbnail Data
-        let thumbnail_mem = unsafe {
-            let memory_type = lock
-                .memory_properties
-                .memory_types
-                .iter()
-                .position(|mem_type| {
-                    mem_type
-                        .properties
-                        .contains(hal::memory::Properties::CPU_VISIBLE)
-                })
-                .unwrap()
-                .into();
-            lock.device
-                .allocate_memory(memory_type, Self::THUMBNAIL_BYTES as _)
-                .map_err(|_| "Failed to allocate memory region for thumbnails")?
-        };
+        // let thumbnail_mem = unsafe {
+        //     let memory_type = lock
+        //         .memory_properties
+        //         .memory_types
+        //         .iter()
+        //         .position(|mem_type| {
+        //             mem_type
+        //                 .properties
+        //                 .contains(hal::memory::Properties::CPU_VISIBLE)
+        //         })
+        //         .unwrap()
+        //         .into();
+        //     lock.device
+        //         .allocate_memory(memory_type, Self::THUMBNAIL_BYTES as _)
+        //         .map_err(|_| "Failed to allocate memory region for thumbnails")?
+        // };
 
-        let mut thumbnail_image = unsafe {
-            lock.device.create_image(
-                hal::image::Kind::D2(Self::THUMBNAIL_SIZE as _, Self::THUMBNAIL_SIZE as _, 1, 1),
-                1,
-                hal::format::Format::Rgba8Unorm,
-                hal::image::Tiling::Linear,
-                hal::image::Usage::TRANSFER_SRC | hal::image::Usage::TRANSFER_DST,
-                hal::image::ViewCapabilities::empty(),
-            )
-        }
-        .map_err(|_| "Failed to create thumbnail image")?;
+        // let mut thumbnail_image = unsafe {
+        //     lock.device.create_image(
+        //         hal::image::Kind::D2(Self::THUMBNAIL_SIZE as _, Self::THUMBNAIL_SIZE as _, 1, 1),
+        //         1,
+        //         hal::format::Format::Rgba8Unorm,
+        //         hal::image::Tiling::Linear,
+        //         hal::image::Usage::TRANSFER_SRC | hal::image::Usage::TRANSFER_DST,
+        //         hal::image::ViewCapabilities::empty(),
+        //     )
+        // }
+        // .map_err(|_| "Failed to create thumbnail image")?;
 
-        unsafe {
-            lock.device
-                .bind_image_memory(&thumbnail_mem, 0, &mut thumbnail_image)
-        }
-        .map_err(|_| "Failed to bind thumbnail image to memory")?;
+        // unsafe {
+        //     lock.device
+        //         .bind_image_memory(&thumbnail_mem, 0, &mut thumbnail_image)
+        // }
+        // .map_err(|_| "Failed to bind thumbnail image to memory")?;
 
         Ok(GPUCompute {
             gpu: gpu.clone(),
@@ -241,9 +239,8 @@ where
 
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
 
-            thumbnail_mem: ManuallyDrop::new(thumbnail_mem),
-            thumbnail_image: ManuallyDrop::new(thumbnail_image),
-
+            // thumbnail_mem: ManuallyDrop::new(thumbnail_mem),
+            // thumbnail_image: ManuallyDrop::new(thumbnail_image),
             fence,
         })
     }
@@ -787,7 +784,7 @@ where
                                 hal::image::Access::TRANSFER_WRITE,
                                 hal::image::Layout::TransferDstOptimal,
                             ),
-                        target: &*self.thumbnail_image,
+                        target: &*to.raw,
                         families: None,
                         range: super::COLOR_RANGE.clone(),
                     },
@@ -847,120 +844,121 @@ where
 
     /// Create a thumbnail of the given image and return it
     pub fn generate_thumbnail(&mut self, image: &Image<B>) -> Result<Vec<u8>, String> {
-        let mut lock = self.gpu.lock().unwrap();
-        unsafe { lock.device.reset_fence(&self.fence).unwrap() };
+        todo!()
+        // let mut lock = self.gpu.lock().unwrap();
+        // unsafe { lock.device.reset_fence(&self.fence).unwrap() };
 
-        // Blit image to thumbnail size
-        unsafe {
-            let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
-            cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
-            cmd_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
-                hal::memory::Dependencies::empty(),
-                &[
-                    hal::memory::Barrier::Image {
-                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-                            ..(
-                                hal::image::Access::TRANSFER_WRITE,
-                                hal::image::Layout::TransferDstOptimal,
-                            ),
-                        target: &*self.thumbnail_image,
-                        families: None,
-                        range: super::COLOR_RANGE.clone(),
-                    },
-                    image.barrier_to(
-                        hal::image::Access::TRANSFER_READ,
-                        hal::image::Layout::TransferSrcOptimal,
-                    ),
-                ],
-            );
-            cmd_buffer.blit_image(
-                &*image.raw,
-                hal::image::Layout::TransferSrcOptimal,
-                &*self.thumbnail_image,
-                hal::image::Layout::TransferDstOptimal,
-                hal::image::Filter::Nearest,
-                &[hal::command::ImageBlit {
-                    src_subresource: hal::image::SubresourceLayers {
-                        aspects: hal::format::Aspects::COLOR,
-                        level: 0,
-                        layers: 0..1,
-                    },
-                    src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-                        x: image.size as i32,
-                        y: image.size as i32,
-                        z: 1,
-                    },
-                    dst_subresource: hal::image::SubresourceLayers {
-                        aspects: hal::format::Aspects::COLOR,
-                        level: 0,
-                        layers: 0..1,
-                    },
-                    dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-                        x: Self::THUMBNAIL_SIZE as _,
-                        y: Self::THUMBNAIL_SIZE as _,
-                        z: 1,
-                    },
-                }],
-            );
-            cmd_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
-                hal::memory::Dependencies::empty(),
-                &[image.barrier_to(
-                    hal::image::Access::SHADER_READ,
-                    hal::image::Layout::ShaderReadOnlyOptimal,
-                )],
-            );
-            cmd_buffer.finish();
+        // // Blit image to thumbnail size
+        // unsafe {
+        //     let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
+        //     cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+        //     cmd_buffer.pipeline_barrier(
+        //         hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
+        //         hal::memory::Dependencies::empty(),
+        //         &[
+        //             hal::memory::Barrier::Image {
+        //                 states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+        //                     ..(
+        //                         hal::image::Access::TRANSFER_WRITE,
+        //                         hal::image::Layout::TransferDstOptimal,
+        //                     ),
+        //                 target: &*self.thumbnail_image,
+        //                 families: None,
+        //                 range: super::COLOR_RANGE.clone(),
+        //             },
+        //             image.barrier_to(
+        //                 hal::image::Access::TRANSFER_READ,
+        //                 hal::image::Layout::TransferSrcOptimal,
+        //             ),
+        //         ],
+        //     );
+        //     cmd_buffer.blit_image(
+        //         &*image.raw,
+        //         hal::image::Layout::TransferSrcOptimal,
+        //         &*self.thumbnail_image,
+        //         hal::image::Layout::TransferDstOptimal,
+        //         hal::image::Filter::Nearest,
+        //         &[hal::command::ImageBlit {
+        //             src_subresource: hal::image::SubresourceLayers {
+        //                 aspects: hal::format::Aspects::COLOR,
+        //                 level: 0,
+        //                 layers: 0..1,
+        //             },
+        //             src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+        //                 x: image.size as i32,
+        //                 y: image.size as i32,
+        //                 z: 1,
+        //             },
+        //             dst_subresource: hal::image::SubresourceLayers {
+        //                 aspects: hal::format::Aspects::COLOR,
+        //                 level: 0,
+        //                 layers: 0..1,
+        //             },
+        //             dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+        //                 x: Self::THUMBNAIL_SIZE as _,
+        //                 y: Self::THUMBNAIL_SIZE as _,
+        //                 z: 1,
+        //             },
+        //         }],
+        //     );
+        //     cmd_buffer.pipeline_barrier(
+        //         hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
+        //         hal::memory::Dependencies::empty(),
+        //         &[image.barrier_to(
+        //             hal::image::Access::SHADER_READ,
+        //             hal::image::Layout::ShaderReadOnlyOptimal,
+        //         )],
+        //     );
+        //     cmd_buffer.finish();
 
-            lock.queue_group.queues[0]
-                .submit_without_semaphores(Some(&cmd_buffer), Some(&self.fence));
-            lock.device.wait_for_fence(&self.fence, !0).unwrap();
-            self.command_pool.free(Some(cmd_buffer));
-        }
+        //     lock.queue_group.queues[0]
+        //         .submit_without_semaphores(Some(&cmd_buffer), Some(&self.fence));
+        //     lock.device.wait_for_fence(&self.fence, !0).unwrap();
+        //     self.command_pool.free(Some(cmd_buffer));
+        // }
 
-        // Download image
-        let mut res = unsafe {
-            let mapping = lock
-                .device
-                .map_memory(
-                    &self.thumbnail_mem,
-                    hal::memory::Segment {
-                        offset: 0,
-                        size: Some(Self::THUMBNAIL_BYTES as _),
-                    },
-                )
-                .map_err(|e| {
-                    format!(
-                        "Failed to map download buffer into CPU address space: {}",
-                        e
-                    )
-                })?;
-            let slice =
-                std::slice::from_raw_parts::<u8>(mapping as *const u8, Self::THUMBNAIL_BYTES);
-            let owned = slice.to_owned();
-            lock.device.unmap_memory(&self.thumbnail_mem);
-            owned
-        };
+        // // Download image
+        // let mut res = unsafe {
+        //     let mapping = lock
+        //         .device
+        //         .map_memory(
+        //             &self.thumbnail_mem,
+        //             hal::memory::Segment {
+        //                 offset: 0,
+        //                 size: Some(Self::THUMBNAIL_BYTES as _),
+        //             },
+        //         )
+        //         .map_err(|e| {
+        //             format!(
+        //                 "Failed to map download buffer into CPU address space: {}",
+        //                 e
+        //             )
+        //         })?;
+        //     let slice =
+        //         std::slice::from_raw_parts::<u8>(mapping as *const u8, Self::THUMBNAIL_BYTES);
+        //     let owned = slice.to_owned();
+        //     lock.device.unmap_memory(&self.thumbnail_mem);
+        //     owned
+        // };
 
-        match image.format {
-            hal::format::Format::R32Sfloat => {
-                for chunk in res.chunks_mut(4) {
-                    chunk[1] = chunk[0];
-                    chunk[2] = chunk[0];
-                }
-            }
-            hal::format::Format::Rgba16Sfloat => {
-                for chunk in res.chunks_mut(4) {
-                    chunk[0] = ((chunk[0] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
-                    chunk[1] = ((chunk[1] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
-                    chunk[2] = ((chunk[2] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
-                }
-            }
-            _ => log::warn!("Unsupported image format found in GPU during thumbnail creation"),
-        };
+        // match image.format {
+        //     hal::format::Format::R32Sfloat => {
+        //         for chunk in res.chunks_mut(4) {
+        //             chunk[1] = chunk[0];
+        //             chunk[2] = chunk[0];
+        //         }
+        //     }
+        //     hal::format::Format::Rgba16Sfloat => {
+        //         for chunk in res.chunks_mut(4) {
+        //             chunk[0] = ((chunk[0] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
+        //             chunk[1] = ((chunk[1] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
+        //             chunk[2] = ((chunk[2] as f32 / 256.0).powf(1.0 / 2.2) * 255.5) as u8;
+        //         }
+        //     }
+        //     _ => log::warn!("Unsupported image format found in GPU during thumbnail creation"),
+        // };
 
-        Ok(res)
+        // Ok(res)
     }
 }
 
@@ -979,10 +977,6 @@ where
                 .free_memory(ManuallyDrop::take(&mut self.uniform_mem));
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.image_mem));
-            lock.device
-                .free_memory(ManuallyDrop::take(&mut self.thumbnail_mem));
-            lock.device
-                .destroy_image(ManuallyDrop::take(&mut self.thumbnail_image));
             lock.device
                 .destroy_buffer(ManuallyDrop::take(&mut self.uniform_buf));
             lock.device
@@ -1197,5 +1191,178 @@ where
     /// Get descriptor set layout.
     pub fn set_layout(&self) -> &B::DescriptorSetLayout {
         &self.set_layout
+    }
+}
+
+pub struct ThumbnailCache<B: Backend> {
+    gpu: Arc<Mutex<GPU<B>>>,
+    memory: SmallVec<[B::Memory; 4]>,
+    images: Vec<Option<B::Image>>,
+    views: Vec<Option<B::ImageView>>,
+}
+
+impl<B> ThumbnailCache<B>
+where
+    B: Backend,
+{
+    /// Pixel per side
+    const THUMBNAIL_SIZE: usize = 128;
+
+    /// Size of a single thumbnail in bytes
+    const THUMBNAIL_BYTES: usize = Self::THUMBNAIL_SIZE * Self::THUMBNAIL_SIZE * 4;
+
+    /// Format of thumbnails
+    const THUMBNAIL_FORMAT: hal::format::Format = hal::format::Format::Rgba8Unorm;
+
+    /// Size of a single allocation, in number of thumbnails. 512 is roughly 32M in memory
+    const THUMBNAIL_CHUNK_LENGTH: usize = 512;
+
+    pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Self {
+        let chunk = {
+            let lock = gpu.lock().unwrap();
+
+            let memory_type = lock
+                .memory_properties
+                .memory_types
+                .iter()
+                .position(|mem_type| {
+                    mem_type
+                        .properties
+                        .contains(hal::memory::Properties::DEVICE_LOCAL)
+                })
+                .unwrap()
+                .into();
+
+            let chunk = unsafe {
+                lock.device.allocate_memory(
+                    memory_type,
+                    Self::THUMBNAIL_CHUNK_LENGTH as u64 * Self::THUMBNAIL_BYTES as u64,
+                )
+            }
+            .expect("Error allocating thumbnail memory");
+
+            chunk
+        };
+
+        let memory = smallvec![chunk];
+
+        Self {
+            gpu,
+            memory,
+            images: (0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None).collect(),
+            views: (0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None).collect(),
+        }
+    }
+
+    pub fn next(&mut self) -> usize {
+        if let Some(i) = self
+            .images
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| x.is_none())
+            .map(|(i, _)| i)
+            .next()
+        {
+            self.new_thumbnail_at(i);
+            i
+        } else {
+            self.grow();
+            self.next()
+        }
+    }
+
+    fn new_thumbnail_at(&mut self, i: usize) {
+        let lock = self.gpu.lock().unwrap();
+
+        let mut image = unsafe {
+            lock.device.create_image(
+                hal::image::Kind::D2(Self::THUMBNAIL_SIZE as _, Self::THUMBNAIL_SIZE as _, 1, 1),
+                1,
+                Self::THUMBNAIL_FORMAT,
+                hal::image::Tiling::Linear,
+                hal::image::Usage::TRANSFER_DST | hal::image::Usage::SAMPLED,
+                hal::image::ViewCapabilities::empty(),
+            )
+        }
+        .expect("Error creating thumbnail image");
+
+        let mem = &self.memory[i / Self::THUMBNAIL_CHUNK_LENGTH];
+        let offset = (i % Self::THUMBNAIL_CHUNK_LENGTH) * Self::THUMBNAIL_BYTES;
+
+        unsafe {
+            lock.device
+                .bind_image_memory(mem, offset as u64, &mut image)
+        }
+        .expect("Error binding thumbnail memory");
+
+        let view = unsafe {
+            lock.device.create_image_view(
+                &image,
+                hal::image::ViewKind::D2,
+                Self::THUMBNAIL_FORMAT,
+                hal::format::Swizzle::NO,
+                super::COLOR_RANGE.clone(),
+            )
+        }
+        .expect("Error creating thumbnail view");
+
+        self.images[i] = Some(image);
+        self.views[i] = Some(view);
+    }
+
+    fn grow(&mut self) {
+        let new_chunk = {
+            let lock = self.gpu.lock().unwrap();
+
+            let memory_type = lock
+                .memory_properties
+                .memory_types
+                .iter()
+                .position(|mem_type| {
+                    mem_type
+                        .properties
+                        .contains(hal::memory::Properties::DEVICE_LOCAL)
+                })
+                .unwrap()
+                .into();
+
+            let chunk = unsafe {
+                lock.device.allocate_memory(
+                    memory_type,
+                    Self::THUMBNAIL_CHUNK_LENGTH as u64 * Self::THUMBNAIL_BYTES as u64,
+                )
+            }
+            .expect("Error allocating thumbnail memory");
+
+            chunk
+        };
+
+        self.memory.push(new_chunk);
+
+        self.images
+            .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
+        self.views
+            .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
+    }
+
+    pub fn image(&self, i: usize) -> Option<&B::Image> {
+        self.images.get(i).and_then(|x| x.as_ref())
+    }
+
+    pub fn image_view(&self, i: usize) -> Option<&B::ImageView> {
+        self.views.get(i).and_then(|x| x.as_ref())
+    }
+
+    pub fn free(&mut self, i: usize) {
+        let lock = self.gpu.lock().unwrap();
+
+        unsafe {
+            lock.device.destroy_image(self.images[i].take().unwrap());
+            lock.device
+                .destroy_image_view(self.views[i].take().unwrap());
+        }
+
+        self.images[i] = None;
+        self.views[i] = None;
     }
 }
