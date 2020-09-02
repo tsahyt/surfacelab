@@ -90,7 +90,6 @@ pub struct GPURender<B: Backend> {
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
-    complete_semaphore: ManuallyDrop<B::Semaphore>,
     transfer_fence: ManuallyDrop<B::Fence>,
 }
 
@@ -477,7 +476,6 @@ where
         // Synchronization primitives
         let fence = lock.device.create_fence(true).unwrap();
         let tfence = lock.device.create_fence(false).unwrap();
-        let semaphore = lock.device.create_semaphore().unwrap();
 
         // Image slots
         let image_slots = ImageSlots {
@@ -524,7 +522,6 @@ where
             sampler: ManuallyDrop::new(sampler),
 
             complete_fence: ManuallyDrop::new(fence),
-            complete_semaphore: ManuallyDrop::new(semaphore),
             transfer_fence: ManuallyDrop::new(tfence),
         })
     }
@@ -974,15 +971,14 @@ where
 
             // Submit for render
             unsafe {
-                lock.queue_group.queues[0].submit(
-                    hal::queue::Submission {
-                        command_buffers: std::iter::once(&cmd_buffer),
-                        wait_semaphores: None,
-                        signal_semaphores: std::iter::once(&*self.complete_semaphore),
-                    },
+                lock.queue_group.queues[0].submit_without_semaphores(
+                    std::iter::once(&cmd_buffer),
                     Some(&self.complete_fence),
-                )
-            };
+                );
+                lock.device
+                    .wait_for_fence(&self.complete_fence, 10_000_000_000)
+                    .expect("Failed to wait for fence after render");
+            }
 
             // FIXME: Currently this gives a validation error, because we're not waiting for the semaphore before destruction
             unsafe { lock.device.destroy_framebuffer(framebuffer) };
@@ -1266,8 +1262,6 @@ where
                 .destroy_sampler(ManuallyDrop::take(&mut self.sampler));
             lock.device
                 .destroy_fence(ManuallyDrop::take(&mut self.complete_fence));
-            lock.device
-                .destroy_semaphore(ManuallyDrop::take(&mut self.complete_semaphore));
             lock.device
                 .destroy_fence(ManuallyDrop::take(&mut self.transfer_fence));
         }
