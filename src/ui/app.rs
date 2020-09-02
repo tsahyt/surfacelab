@@ -336,6 +336,14 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
         if let Some(s) = scrollbar {
             s.set(ui)
         }
+
+        for _press in ui
+            .widget_input(ids.add_modal_canvas)
+            .clicks()
+            .button(input::MouseButton::Left)
+        {
+            app.add_modal = false;
+        }
     }
 }
 

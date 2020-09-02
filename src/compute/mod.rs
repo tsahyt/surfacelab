@@ -477,7 +477,9 @@ where
                         log::trace!("Removing monomorphized socket {}", res);
                         self.sockets.remove_image(res);
                         self.sockets.clear_thumbnail(res, &mut self.gpu);
-                        response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(res.clone())))
+                        response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(
+                            res.clone(),
+                        )))
                     }
                 }
                 _ => {}
