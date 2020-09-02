@@ -300,7 +300,9 @@ pub enum ComputeEvent {
         u32,
         OutputType,
     ),
-    ThumbnailGenerated(Resource, crate::gpu::BrokerImageView),
+    ThumbnailCreated(Resource, crate::gpu::BrokerImageView),
+    ThumbnailDestroyed(Resource),
+    ThumbnailUpdated(Resource),
 }
 
 #[derive(Debug, Clone, Copy)]

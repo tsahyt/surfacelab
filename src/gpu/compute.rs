@@ -893,8 +893,8 @@ where
     }
 
     /// Get a new thumbnail from the cache
-    pub fn new_thumbnail(&mut self) -> ThumbnailIndex {
-        self.thumbnail_cache.next()
+    pub fn new_thumbnail(&mut self, grayscale: bool) -> ThumbnailIndex {
+        self.thumbnail_cache.next(grayscale)
     }
 
     /// Return a thumbnail the cache. Thumbnail to thumbnail, dust to dust.
@@ -1182,6 +1182,15 @@ where
     /// Size of a single allocation, in number of thumbnails. 512 is roughly 32M in memory
     const THUMBNAIL_CHUNK_LENGTH: usize = 512;
 
+    /// Swizzle setting for grayscale images
+    const GRAYSCALE_SWIZZLE: hal::format::Swizzle = hal::format::Swizzle(
+        hal::format::Component::R,
+        hal::format::Component::R,
+        hal::format::Component::R,
+        hal::format::Component::A,
+    );
+
+    /// Create a new thumbnail cache
     pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Self {
         let chunk = {
             let lock = gpu.lock().unwrap();
@@ -1219,7 +1228,9 @@ where
         }
     }
 
-    pub fn next(&mut self) -> ThumbnailIndex {
+    /// Obtain the next free thumbnail index from the cache. This will set up
+    /// all required internal data structures.
+    pub fn next(&mut self, grayscale: bool) -> ThumbnailIndex {
         if let Some(i) = self
             .images
             .iter()
@@ -1228,15 +1239,15 @@ where
             .map(|(i, _)| i)
             .next()
         {
-            self.new_thumbnail_at(i);
+            self.new_thumbnail_at(i, grayscale);
             ThumbnailIndex(i)
         } else {
             self.grow();
-            self.next()
+            self.next(grayscale)
         }
     }
 
-    fn new_thumbnail_at(&mut self, i: usize) {
+    fn new_thumbnail_at(&mut self, i: usize, grayscale: bool) {
         let lock = self.gpu.lock().unwrap();
 
         let mut image = unsafe {
@@ -1265,7 +1276,11 @@ where
                 &image,
                 hal::image::ViewKind::D2,
                 Self::THUMBNAIL_FORMAT,
-                hal::format::Swizzle::NO,
+                if grayscale {
+                    Self::GRAYSCALE_SWIZZLE
+                } else {
+                    hal::format::Swizzle::NO
+                },
                 super::COLOR_RANGE.clone(),
             )
         }
@@ -1310,14 +1325,17 @@ where
             .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
     }
 
+    /// Get the underlying Image from a thumbnail
     pub fn image(&self, index: &ThumbnailIndex) -> &B::Image {
         self.images[index.0].as_ref().unwrap()
     }
 
+    /// Get the underlying image view from a thumbnail
     pub fn image_view(&self, index: &ThumbnailIndex) -> &B::ImageView {
         self.views[index.0].as_ref().unwrap()
     }
 
+    /// Free a thumbnail by its index. Note that this takes ownership.
     pub fn free(&mut self, index: ThumbnailIndex) {
         let lock = self.gpu.lock().unwrap();
 
@@ -1332,6 +1350,7 @@ where
         self.views[index.0] = None;
     }
 
+    /// The size of a single thumbnail, measured in pixels per side.
     pub fn thumbnail_size(&self) -> usize {
         Self::THUMBNAIL_SIZE
     }

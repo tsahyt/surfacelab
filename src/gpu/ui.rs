@@ -1119,7 +1119,6 @@ where
             .collect();
 
         for (k, v) in new {
-            dbg!(k, v);
             let desc =
                 unsafe { self.image_desc_pool.allocate_set(&*self.image_set_layout) }.unwrap();
 
