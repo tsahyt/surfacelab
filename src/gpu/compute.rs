@@ -1194,11 +1194,28 @@ where
     }
 }
 
+/// An index into the thumbnail cache
+pub struct ThumbnailIndex(usize);
+
 pub struct ThumbnailCache<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     memory: SmallVec<[B::Memory; 4]>,
     images: Vec<Option<B::Image>>,
     views: Vec<Option<B::ImageView>>,
+}
+
+impl<B> Drop for ThumbnailCache<B> where B: Backend {
+    fn drop(&mut self) {
+        let n = self.memory.len() * Self::THUMBNAIL_CHUNK_LENGTH;
+        for i in 0..n {
+            self.free(ThumbnailIndex(i));
+        }
+
+        let lock = self.gpu.lock().unwrap();
+        for chunk in self.memory.drain(0 .. self.memory.len()) {
+            unsafe { lock.device.free_memory(chunk) };
+        }
+    }
 }
 
 impl<B> ThumbnailCache<B>
@@ -1254,7 +1271,7 @@ where
         }
     }
 
-    pub fn next(&mut self) -> usize {
+    pub fn next(&mut self) -> ThumbnailIndex {
         if let Some(i) = self
             .images
             .iter()
@@ -1264,7 +1281,7 @@ where
             .next()
         {
             self.new_thumbnail_at(i);
-            i
+            ThumbnailIndex(i)
         } else {
             self.grow();
             self.next()
@@ -1272,6 +1289,7 @@ where
     }
 
     fn new_thumbnail_at(&mut self, i: usize) {
+
         let lock = self.gpu.lock().unwrap();
 
         let mut image = unsafe {
@@ -1303,8 +1321,7 @@ where
                 hal::format::Swizzle::NO,
                 super::COLOR_RANGE.clone(),
             )
-        }
-        .expect("Error creating thumbnail view");
+        }.expect("Error creating thumbnail image view");
 
         self.images[i] = Some(image);
         self.views[i] = Some(view);
@@ -1345,24 +1362,24 @@ where
             .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
     }
 
-    pub fn image(&self, i: usize) -> Option<&B::Image> {
-        self.images.get(i).and_then(|x| x.as_ref())
+    pub fn image(&self, index: &ThumbnailIndex) -> Option<&B::Image> {
+        self.images[index.0].as_ref()
     }
 
-    pub fn image_view(&self, i: usize) -> Option<&B::ImageView> {
-        self.views.get(i).and_then(|x| x.as_ref())
+    pub fn image_view(&self, index: &ThumbnailIndex) -> Option<&B::ImageView> {
+        self.views[index.0].as_ref()
     }
 
-    pub fn free(&mut self, i: usize) {
+    pub fn free(&mut self, index: ThumbnailIndex) {
         let lock = self.gpu.lock().unwrap();
 
         unsafe {
-            lock.device.destroy_image(self.images[i].take().unwrap());
+            lock.device.destroy_image(self.images[index.0].take().unwrap());
             lock.device
-                .destroy_image_view(self.views[i].take().unwrap());
+                .destroy_image_view(self.views[index.0].take().unwrap());
         }
 
-        self.images[i] = None;
-        self.views[i] = None;
+        self.images[index.0] = None;
+        self.views[index.0] = None;
     }
 }
