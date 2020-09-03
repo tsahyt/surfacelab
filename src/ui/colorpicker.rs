@@ -3,14 +3,14 @@ use conrod_core::*;
 use palette::*;
 
 #[derive(Copy, Clone, Debug, WidgetCommon)]
-pub struct ColorPicker<C> {
+pub struct ColorPicker {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    color: C,
+    color: [f32; 3],
 }
 
-impl<C> ColorPicker<C> {
-    pub fn new(color: C) -> Self {
+impl ColorPicker {
+    pub fn new(color: [f32; 3]) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             color,
@@ -33,7 +33,7 @@ pub struct State {
     ids: Ids,
 }
 
-impl Widget for ColorPicker<Hsv> {
+impl Widget for ColorPicker {
     type State = State;
     type Style = Style;
     type Event = ();
@@ -49,15 +49,23 @@ impl Widget for ColorPicker<Hsv> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let bar_tris = color_strip(6, 256.0, 24.0, |x| {
+        let xy = args.ui.xy_of(args.id).unwrap();
+
+        let bar_tris = color_strip(6, args.rect.w(), 24.0, |x| {
             color::hsl(x as f32 * std::f32::consts::TAU, 1.0, 0.5).to_rgb()
         });
-        let rect_tris = color_rect(4, 256.0, 256.0, |x,y| {
+        let rect_tris = color_rect(4, args.rect.w(), 256.0, |x, y| {
             let hsv = palette::Hsv::new::<f32>(150.0, x as f32, y as f32);
             let rgb = palette::LinSrgb::from(hsv);
             color::Rgba(rgb.red, rgb.green, rgb.blue, 1.0)
         });
-        widget::Triangles::multi_color(rect_tris)
+
+        let triangles = bar_tris
+            .iter()
+            .map(|t| t.add(xy))
+            .chain(rect_tris.iter().map(|t| t.add(xy)));
+
+        widget::Triangles::multi_color(triangles)
             .with_bounding_rect(args.rect)
             .parent(args.id)
             .middle()
@@ -144,16 +152,8 @@ fn color_rect<F: Fn(f64, f64) -> color::Rgba>(
             let b = bottom + y * height;
             let t = bottom + (y + step) * height;
 
-            tris.push(Triangle([
-                ([l,b], c_bl),
-                ([l,t], c_tl),
-                ([r,t], c_tr),
-            ]));
-            tris.push(Triangle([
-                ([l,b], c_bl),
-                ([r,t], c_tr),
-                ([r,b], c_br),
-            ]));
+            tris.push(Triangle([([l, b], c_bl), ([l, t], c_tl), ([r, t], c_tr)]));
+            tris.push(Triangle([([l, b], c_bl), ([r, t], c_tr), ([r, b], c_br)]));
             x += step;
         }
         y += step;

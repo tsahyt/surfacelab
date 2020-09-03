@@ -3,6 +3,7 @@ use conrod_core::*;
 use maplit::hashmap;
 use std::any::TypeId;
 use std::collections::HashMap;
+use super::colorpicker::ColorPicker;
 
 #[derive(Debug, WidgetCommon)]
 pub struct ParamBox<'a, T: MessageWriter> {
@@ -43,6 +44,11 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .resize(counts.enums, id_gen);
             state
                 .controls
+                .get_mut(&TypeId::of::<ColorPicker>())
+                .unwrap()
+                .resize(counts.rgb_colors, id_gen);
+            state
+                .controls
                 .get_mut(&TypeId::of::<widget::TextBox>())
                 .unwrap()
                 .resize(counts.entries, id_gen);
@@ -71,6 +77,12 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .unwrap()
                 .len()
                 < (counts.enums)
+            || state
+                .controls
+                .get(&TypeId::of::<ColorPicker>())
+                .unwrap()
+                .len()
+                < (counts.rgb_colors)
             || state
                 .controls
                 .get(&TypeId::of::<widget::TextBox>())
@@ -115,6 +127,7 @@ where
             controls: hashmap! {
                 TypeId::of::<widget::Slider<f32>>() => widget::id::List::new(),
                 TypeId::of::<widget::DropDownList<String>>() => widget::id::List::new(),
+                TypeId::of::<ColorPicker>() => widget::id::List::new(),
                 TypeId::of::<widget::TextBox>() => widget::id::List::new(),
                 TypeId::of::<widget::Toggle>() => widget::id::List::new(),
             },
@@ -213,7 +226,17 @@ where
                         }
                         control_idx.discrete_sliders += 1;
                     }
-                    Control::RgbColor { .. } => {}
+                    Control::RgbColor { value } => {
+                        let control_id = state
+                            .controls
+                            .get(&TypeId::of::<ColorPicker>())
+                            .unwrap()[control_idx.rgb_colors];
+                        ColorPicker::new(*value)
+                            .padded_w_of(id, 16.0)
+                            .h(256.0)
+                            .set(control_id, ui);
+                        control_idx.rgb_colors += 1;
+                    }
                     Control::RgbaColor { .. } => {}
                     Control::Enum { selected, variants } => {
                         let control_id = state
