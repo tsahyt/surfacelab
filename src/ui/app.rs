@@ -21,7 +21,8 @@ widget_ids!(
         add_modal_canvas,
         operator_list,
 
-        param_box
+        operator_param_box,
+        node_param_box
     }
 );
 
@@ -50,10 +51,20 @@ impl App {
         }
     }
 
-    pub fn active_parameters(&mut self) -> Option<(&mut ParamBoxDescription<Field>, &Resource)> {
+    pub fn active_parameters(
+        &mut self,
+    ) -> Option<(
+        &mut ParamBoxDescription<Field>,
+        &mut ParamBoxDescription<ResourceField>,
+        &Resource,
+    )> {
         let ae = self.active_element?;
         let node = self.graph.node_weight_mut(ae)?;
-        Some((&mut node.param_box, &node.resource))
+        Some((
+            &mut node.operator_param_box,
+            &mut node.node_param_box,
+            &node.resource,
+        ))
     }
 
     pub fn handle_graph_event(&mut self, event: &GraphEvent) {
@@ -420,14 +431,19 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
 pub fn parameter_section(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) {
     use super::param_box::*;
 
-    if let Some((description, resource)) = app.active_parameters() {
-        for Event::ChangeParameter(change) in ParamBox::new(description, resource)
+    if let Some((op_description, node_description, resource)) = app.active_parameters() {
+        let mut node_evs = ParamBox::new(node_description, resource)
             .parent(ids.parameter_canvas)
-            .wh_of(ids.parameter_canvas)
-            .middle()
-            .set(ids.param_box, ui)
-        {
-            app.broker_sender.send(change).unwrap();
+            .w_of(ids.parameter_canvas)
+            .h(256.0)
+            .mid_top()
+            .set(ids.node_param_box, ui);
+        let mut op_evs = ParamBox::new(op_description, resource)
+            .parent(ids.parameter_canvas)
+            .w_of(ids.parameter_canvas)
+            .set(ids.operator_param_box, ui);
+        for Event::ChangeParameter(event) in node_evs.drain(0..).chain(op_evs.drain(0..)) {
+            app.broker_sender.send(event).unwrap();
         }
     }
 }

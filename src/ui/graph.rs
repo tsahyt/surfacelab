@@ -18,7 +18,8 @@ pub struct NodeData {
     pub inputs: Vec<(String, OperatorType)>,
     pub outputs: Vec<(String, OperatorType)>,
     pub type_variables: HashMap<TypeVariable, ImageType>,
-    pub param_box: ParamBoxDescription<Field>,
+    pub operator_param_box: ParamBoxDescription<Field>,
+    pub node_param_box: ParamBoxDescription<ResourceField>,
 }
 
 impl NodeData {
@@ -26,7 +27,7 @@ impl NodeData {
         resource: Resource,
         position: Option<Point>,
         operator: &Operator,
-        param_box: ParamBoxDescription<Field>,
+        operator_param_box: ParamBoxDescription<Field>,
     ) -> Self {
         let mut inputs: Vec<_> = operator
             .inputs()
@@ -42,15 +43,56 @@ impl NodeData {
         outputs.sort();
         let title = operator.title().to_owned();
         Self {
+            node_param_box: node_attributes(&resource, true),
             resource,
             title,
             inputs,
             outputs,
-            param_box,
+            operator_param_box,
             thumbnail: None,
             position: position.unwrap_or([0., 0.]),
             type_variables: HashMap::new(),
         }
+    }
+}
+
+fn node_attributes(res: &Resource, scalable: bool) -> ParamBoxDescription<ResourceField> {
+    ParamBoxDescription {
+        box_title: "Node Attributes".to_string(),
+        categories: vec![ParamCategory {
+            name: "Node",
+            parameters: vec![
+                Parameter {
+                    name: "Node Resource".to_string(),
+                    transmitter: ResourceField::Name,
+                    control: Control::Entry {
+                        value: res
+                            .path()
+                            .file_name()
+                            .and_then(|x| x.to_str())
+                            .map(|x| x.to_string())
+                            .unwrap(),
+                    },
+                    available: true,
+                },
+                Parameter {
+                    name: "Size".to_string(),
+                    transmitter: ResourceField::Size,
+                    control: Control::DiscreteSlider {
+                        value: 0,
+                        min: -16,
+                        max: 16,
+                    },
+                    available: scalable,
+                },
+                Parameter {
+                    name: "Absolute Size".to_string(),
+                    transmitter: ResourceField::AbsoluteSize,
+                    control: Control::Toggle { def: false },
+                    available: scalable,
+                },
+            ],
+        }],
     }
 }
 

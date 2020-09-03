@@ -146,7 +146,7 @@ impl MessageWriter for Field {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ResourceField {
     Name,
     Size,
@@ -255,7 +255,7 @@ where
     }
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct ControlCounts {
     pub sliders: usize,
     pub discrete_sliders: usize,

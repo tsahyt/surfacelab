@@ -2,7 +2,7 @@ use crate::lang::*;
 use conrod_core::*;
 use maplit::hashmap;
 use std::any::TypeId;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 #[derive(Debug, WidgetCommon)]
 pub struct ParamBox<'a, T: MessageWriter> {
@@ -43,9 +43,14 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .resize(counts.enums, id_gen);
             state
                 .controls
+                .get_mut(&TypeId::of::<widget::TextBox>())
+                .unwrap()
+                .resize(counts.entries, id_gen);
+            state
+                .controls
                 .get_mut(&TypeId::of::<widget::Toggle>())
                 .unwrap()
-                .resize(counts.enums, id_gen);
+                .resize(counts.toggles, id_gen);
         })
     }
 
@@ -66,6 +71,12 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .unwrap()
                 .len()
                 < (counts.enums)
+            || state
+                .controls
+                .get(&TypeId::of::<widget::TextBox>())
+                .unwrap()
+                .len()
+                < (counts.entries)
             || state
                 .controls
                 .get(&TypeId::of::<widget::Toggle>())
@@ -96,7 +107,7 @@ where
 {
     type State = State;
     type Style = Style;
-    type Event = VecDeque<Event>;
+    type Event = Vec<Event>;
 
     fn init_state(&self, _id_gen: widget::id::Generator) -> Self::State {
         State {
@@ -104,6 +115,7 @@ where
             controls: hashmap! {
                 TypeId::of::<widget::Slider<f32>>() => widget::id::List::new(),
                 TypeId::of::<widget::DropDownList<String>>() => widget::id::List::new(),
+                TypeId::of::<widget::TextBox>() => widget::id::List::new(),
                 TypeId::of::<widget::Toggle>() => widget::id::List::new(),
             },
             categories: widget::id::List::new(),
@@ -116,7 +128,7 @@ where
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let widget::UpdateArgs { state, ui, id, .. } = args;
-        let mut ev = VecDeque::new();
+        let mut ev = Vec::new();
 
         // Ensure we have enough ids, allocate more if necessary by resizing the
         // lists. Resizing shouldn't be particularly expensive, but triggering
@@ -166,7 +178,7 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
-                            ev.push_back(Event::ChangeParameter(
+                            ev.push(Event::ChangeParameter(
                                 parameter
                                     .transmitter
                                     .transmit(self.resource.clone(), &new.to_data()),
@@ -187,7 +199,7 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
-                            ev.push_back(Event::ChangeParameter(
+                            ev.push(Event::ChangeParameter(
                                 parameter
                                     .transmitter
                                     .transmit(self.resource.clone(), &new.to_data()),
@@ -209,7 +221,7 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
-                            ev.push_back(Event::ChangeParameter(parameter.transmitter.transmit(
+                            ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
                                 self.resource.clone(),
                                 &(new_selection as u32).to_data(),
                             )));
@@ -219,17 +231,48 @@ where
                     }
                     Control::File { .. } => {}
                     Control::Ramp { .. } => {}
-                    Control::Toggle { def } => {
+                    Control::Toggle { def: value } => {
                         let control_id =
                             state.controls.get(&TypeId::of::<widget::Toggle>()).unwrap()
                                 [control_idx.toggles];
-                        widget::Toggle::new(*def)
+                        for _press in widget::Toggle::new(*value)
                             .padded_w_of(id, 16.0)
                             .h(16.0)
-                            .set(control_id, ui);
+                            .set(control_id, ui)
+                        {
+                            ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
+                                self.resource.clone(),
+                                &(if *value { 1 as u32 } else { 0 as u32 }).to_data(),
+                            )));
+                            *value = !*value
+                        }
                         control_idx.toggles += 1;
                     }
-                    Control::Entry { .. } => {}
+                    Control::Entry { value } => {
+                        let control_id = state
+                            .controls
+                            .get(&TypeId::of::<widget::TextBox>())
+                            .unwrap()[control_idx.entries];
+                        for event in widget::TextBox::new(value)
+                            .font_size(10)
+                            .padded_w_of(id, 16.0)
+                            .h(16.0)
+                            .set(control_id, ui)
+                        {
+                            match event {
+                                widget::text_box::Event::Update(new) => *value = new,
+                                widget::text_box::Event::Enter => {
+                                    ev.push(Event::ChangeParameter(
+                                        parameter.transmitter.transmit(
+                                            self.resource.clone(),
+                                            &value.as_bytes().to_vec(),
+                                        ),
+                                    ));
+                                }
+                            }
+                        }
+                        control_idx.entries += 1;
+                    }
                 }
 
                 top_margin += 64.0;
