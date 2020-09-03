@@ -24,7 +24,11 @@ pub struct Style {}
 widget_ids! {
     #[derive(Debug)]
     pub struct Ids {
-        triangles
+        triangles,
+        red,
+        green,
+        blue,
+        alpha
     }
 }
 
@@ -36,7 +40,7 @@ pub struct State {
 impl Widget for ColorPicker {
     type State = State;
     type Style = Style;
-    type Event = ();
+    type Event = Option<[f32; 3]>;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         Self::State {
@@ -49,27 +53,69 @@ impl Widget for ColorPicker {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        let mut new_color = None;
         let xy = args.ui.xy_of(args.id).unwrap();
+        let wh = args.ui.wh_of(args.id).unwrap();
 
-        let bar_tris = color_strip(6, args.rect.w(), 24.0, |x| {
+        let hue = palette::Hsv::from(palette::LinSrgb::new(
+            self.color[0],
+            self.color[1],
+            self.color[2],
+        ))
+        .hue;
+
+        let bar_tris = color_strip(6, 24.0, wh[1] - 32.0, |x| {
             color::hsl(x as f32 * std::f32::consts::TAU, 1.0, 0.5).to_rgb()
         });
-        let rect_tris = color_rect(4, args.rect.w(), 256.0, |x, y| {
-            let hsv = palette::Hsv::new::<f32>(150.0, x as f32, y as f32);
+        let rect_tris = color_rect(4, wh[0] - 32.0, wh[1] - 32.0, |x, y| {
+            let hsv = palette::Hsv::new::<f32>(hue.into(), x as f32, y as f32);
             let rgb = palette::LinSrgb::from(hsv);
             color::Rgba(rgb.red, rgb.green, rgb.blue, 1.0)
         });
 
         let triangles = bar_tris
             .iter()
-            .map(|t| t.add(xy))
-            .chain(rect_tris.iter().map(|t| t.add(xy)));
+            .map(|t| t.add([xy[0] + wh[0] / 2.0 - 12.0, xy[1]]))
+            .chain(rect_tris.iter().map(|t| t.add([xy[0] - 16.0, xy[1]])));
 
         widget::Triangles::multi_color(triangles)
             .with_bounding_rect(args.rect)
             .parent(args.id)
+            .w_h(wh[0] / 4.0, 16.0)
             .middle()
             .set(args.state.ids.triangles, args.ui);
+
+        for red in widget::NumberDialer::new(self.color[0], 0.0, 1.0, 4)
+            .parent(args.id)
+            .bottom_left()
+            .label_font_size(10)
+            .w_h(wh[0] / 4.0, 16.0)
+            .set(args.state.ids.red, args.ui)
+        {
+            new_color = new_color.or(Some(self.color)).map(|c| [red, c[1], c[2]]);
+        }
+
+        for green in widget::NumberDialer::new(self.color[1], 0.0, 1.0, 4)
+            .parent(args.id)
+            .right(16.0)
+            .label_font_size(10)
+            .w_h(wh[0] / 4.0, 16.0)
+            .set(args.state.ids.green, args.ui)
+        {
+            new_color = new_color.or(Some(self.color)).map(|c| [c[0], green, c[2]]);
+        }
+
+        for blue in widget::NumberDialer::new(self.color[2], 0.0, 1.0, 4)
+            .parent(args.id)
+            .right(16.0)
+            .label_font_size(10)
+            .w_h(wh[0] / 4.0, 16.0)
+            .set(args.state.ids.blue, args.ui)
+        {
+            new_color = new_color.or(Some(self.color)).map(|c| [c[0], c[1], blue]);
+        }
+
+        new_color
     }
 }
 
@@ -91,6 +137,7 @@ fn color_strip<F: Fn(f64) -> color::Rgba>(
     let top = height / 2.0;
     let bottom = -height / 2.0;
     let left = -width / 2.0;
+    let right = width / 2.0;
 
     for _ in 0..(2 as u16).pow(k as _) {
         // Current color
@@ -101,19 +148,35 @@ fn color_strip<F: Fn(f64) -> color::Rgba>(
         let cn = color(xn);
 
         // X coordinates scaled for width
-        let xw = left + x * width;
-        let xnw = left + xn * width;
+        if width > height {
+            let xw = left + x * width;
+            let xnw = left + xn * width;
 
-        tris.push(Triangle([
-            ([xw, bottom], c),
-            ([xw, top], c),
-            ([xnw, top], cn),
-        ]));
-        tris.push(Triangle([
-            ([xw, bottom], c),
-            ([xnw, top], cn),
-            ([xnw, bottom], cn),
-        ]));
+            tris.push(Triangle([
+                ([xw, bottom], c),
+                ([xw, top], c),
+                ([xnw, top], cn),
+            ]));
+            tris.push(Triangle([
+                ([xw, bottom], c),
+                ([xnw, top], cn),
+                ([xnw, bottom], cn),
+            ]));
+        } else {
+            let yw = bottom + x * height;
+            let ynw = bottom + xn * height;
+
+            tris.push(Triangle([
+                ([left, yw], c),
+                ([left, ynw], cn),
+                ([right, ynw], cn),
+            ]));
+            tris.push(Triangle([
+                ([left, yw], c),
+                ([right, ynw], cn),
+                ([right, yw], c),
+            ]));
+        }
 
         x += step;
     }

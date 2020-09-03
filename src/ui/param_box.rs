@@ -1,9 +1,9 @@
+use super::colorpicker::ColorPicker;
 use crate::lang::*;
 use conrod_core::*;
 use maplit::hashmap;
 use std::any::TypeId;
 use std::collections::HashMap;
-use super::colorpicker::ColorPicker;
 
 #[derive(Debug, WidgetCommon)]
 pub struct ParamBox<'a, T: MessageWriter> {
@@ -227,14 +227,15 @@ where
                         control_idx.discrete_sliders += 1;
                     }
                     Control::RgbColor { value } => {
-                        let control_id = state
-                            .controls
-                            .get(&TypeId::of::<ColorPicker>())
-                            .unwrap()[control_idx.rgb_colors];
-                        ColorPicker::new(*value)
+                        let control_id = state.controls.get(&TypeId::of::<ColorPicker>()).unwrap()
+                            [control_idx.rgb_colors];
+                        for new_color in ColorPicker::new(*value)
                             .padded_w_of(id, 16.0)
                             .h(256.0)
-                            .set(control_id, ui);
+                            .set(control_id, ui)
+                        {
+                            *value = new_color;
+                        }
                         control_idx.rgb_colors += 1;
                     }
                     Control::RgbaColor { .. } => {}
