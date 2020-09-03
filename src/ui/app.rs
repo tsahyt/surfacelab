@@ -22,7 +22,8 @@ widget_ids!(
         operator_list,
 
         operator_param_box,
-        node_param_box
+        node_param_box,
+        rgbtest,
     }
 );
 
@@ -446,4 +447,10 @@ pub fn parameter_section(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mu
             app.broker_sender.send(event).unwrap();
         }
     }
+
+    super::colorpicker::ColorPicker::new(palette::Hsv::new(0.5, 1.0, 1.0))
+        .parent(ids.parameter_canvas)
+        .wh([128., 128.])
+        .mid_bottom()
+        .set(ids.rgbtest, ui);
 }
