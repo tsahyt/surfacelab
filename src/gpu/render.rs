@@ -164,10 +164,7 @@ where
 
     pub fn barrier(&mut self) -> hal::memory::Barrier<B> {
         let barrier = hal::memory::Barrier::Image {
-            states: (
-                hal::image::Access::empty(),
-                self.image_layout,
-            )
+            states: (hal::image::Access::empty(), self.image_layout)
                 ..(
                     hal::image::Access::COLOR_ATTACHMENT_WRITE,
                     hal::image::Layout::ColorAttachmentOptimal,
@@ -965,9 +962,10 @@ where
                     ],
                 );
                 cmd_buffer.pipeline_barrier(
-                    hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::COLOR_ATTACHMENT_OUTPUT,
+                    hal::pso::PipelineStage::TOP_OF_PIPE
+                        ..hal::pso::PipelineStage::COLOR_ATTACHMENT_OUTPUT,
                     hal::memory::Dependencies::empty(),
-                    std::iter::once(self.render_target.barrier())
+                    std::iter::once(self.render_target.barrier()),
                 );
 
                 cmd_buffer.bind_graphics_descriptor_sets(

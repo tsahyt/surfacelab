@@ -138,21 +138,24 @@ where
         })
     }
 
-    /// Ensure the node described by the resource has a thumbnail image available.
+    /// Ensure the node described by the resource has a thumbnail image
+    /// available, returning whether the thumbnail is newly created.
     pub fn ensure_node_thumbnail_exists(
         &mut self,
         res: &Resource,
         ty: ImageType,
         gpu: &mut gpu::compute::GPUCompute<B>,
-    ) {
+    ) -> bool {
         if let Some(socket) = self.0.get_mut(&res.drop_fragment()) {
             if socket.thumbnail.is_none() {
                 socket.thumbnail = Some(gpu.new_thumbnail(match ty {
                     ImageType::Grayscale => true,
                     ImageType::Rgb => false,
                 }));
+                return true;
             }
         }
+        false
     }
 
     pub fn clear_thumbnail(&mut self, res: &Resource, gpu: &mut gpu::compute::GPUCompute<B>) {
@@ -235,6 +238,10 @@ where
             .map(|x| (&x.image, x.ty))
     }
 
+    pub fn get_output_image_type(&self, res: &Resource) -> Option<ImageType> {
+        self.get_output_image_typed(res).map(|x| x.1)
+    }
+
     /// Obtain the output image given a socket resource
     pub fn get_output_image(&self, res: &Resource) -> Option<&gpu::compute::Image<B>> {
         self.get_output_image_typed(res).map(|x| x.0)
@@ -269,6 +276,10 @@ where
             .typed_outputs
             .get((&output_res).fragment()?)
             .map(|x| (&x.image, x.ty))
+    }
+
+    pub fn get_input_image_type(&self, res: &Resource) -> Option<ImageType> {
+        self.get_input_image_typed(res).map(|x| x.1)
     }
 
     /// Obtain the input image given a socket resource
@@ -412,15 +423,6 @@ where
                                 .unwrap();
                             self.sockets
                                 .add_output_socket(&socket_res, Some((img, *ty)), *size);
-                            self.sockets
-                                .ensure_node_thumbnail_exists(res, *ty, &mut self.gpu);
-                            response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(
-                                res.clone(),
-                                gpu::BrokerImageView::from::<B>(
-                                    self.gpu
-                                        .view_thumbnail(self.sockets.get_thumbnail(res).unwrap()),
-                                ),
-                            )));
                         } else {
                             self.sockets.add_output_socket(&socket_res, None, *size);
                         }
@@ -461,15 +463,6 @@ where
                         // The socket is a known output, and thus the actual
                         // size should also already be known!
                         self.sockets.add_output_socket(res, Some((img, *ty)), 1024);
-                        self.sockets
-                            .ensure_node_thumbnail_exists(res, *ty, &mut self.gpu);
-                        response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(
-                            res.clone(),
-                            gpu::BrokerImageView::from::<B>(
-                                self.gpu
-                                    .view_thumbnail(self.sockets.get_thumbnail(res).unwrap()),
-                            ),
-                        )));
                     }
                 }
                 GraphEvent::SocketDemonomorphized(res) => {
@@ -591,9 +584,8 @@ where
                 self.execute_copy(from, to)?;
             }
             Instruction::Thumbnail(socket) => {
-                if let Some(r) = self.execute_thumbnail(socket)? {
-                    response.push(r)
-                }
+                let mut r = self.execute_thumbnail(socket)?;
+                response.append(&mut r);
             }
         }
 
@@ -607,28 +599,38 @@ where
     ///
     /// The thumbnail generation will only happen if the output socket has been
     /// updated in the current seq step.
-    fn execute_thumbnail(&mut self, socket: &Resource) -> Result<Option<ComputeEvent>, String> {
+    fn execute_thumbnail(&mut self, socket: &Resource) -> Result<Vec<ComputeEvent>, String> {
+        let mut response = Vec::new();
         let updated = self
             .sockets
             .get_output_image_updated(&socket.drop_fragment())
             .expect("Missing sequence for socket");
         if updated == self.seq {
             log::trace!("Generating thumbnail for {}", socket);
+            let ty = self
+                .sockets
+                .get_output_image_type(socket)
+                .expect("Missing output image for socket");
+            let new = self
+                .sockets
+                .ensure_node_thumbnail_exists(socket, ty, &mut self.gpu);
+            let thumbnail = self.sockets.get_thumbnail(socket).unwrap();
             let image = self
                 .sockets
                 .get_output_image(socket)
                 .expect("Missing output image for socket");
-            match self.sockets.get_thumbnail(socket) {
-                Some(thumbnail) => {
-                    self.gpu.generate_thumbnail(image, thumbnail)?;
-                    Ok(Some(ComputeEvent::ThumbnailUpdated(socket.clone())))
-                }
-                _ => Ok(None),
+            self.gpu.generate_thumbnail(image, thumbnail)?;
+            if new {
+                response.push(ComputeEvent::ThumbnailCreated(
+                    socket.clone(),
+                    gpu::BrokerImageView::from::<B>(self.gpu.view_thumbnail(thumbnail)),
+                ));
             }
+            response.push(ComputeEvent::ThumbnailUpdated(socket.clone()));
         } else {
             log::trace!("Skipping thumbnail generation");
-            Ok(None)
         }
+        Ok(response)
     }
 
     /// Execute a call instruction.
@@ -733,12 +735,18 @@ where
             .unwrap()
             .is_backed());
 
+        let ty = self
+            .sockets
+            .get_input_image_type(&socket_res)
+            .expect("Missing image for input socket");
+        let new = self
+            .sockets
+            .ensure_node_thumbnail_exists(&socket_res, ty, &mut self.gpu);
         let image = self.sockets.get_input_image(&socket_res).unwrap();
-        if let Some(thumbnail) = self.sockets.get_thumbnail(&socket_res) {
-            self.gpu.generate_thumbnail(image, thumbnail)?;
-        }
+        let thumbnail = self.sockets.get_thumbnail(&socket_res).unwrap();
+        self.gpu.generate_thumbnail(image, thumbnail)?;
 
-        Ok(vec![ComputeEvent::OutputReady(
+        let mut result = vec![ComputeEvent::OutputReady(
             res.clone(),
             gpu::BrokerImage::from::<B>(image.get_raw()),
             image.get_layout(),
@@ -746,7 +754,17 @@ where
             self.sockets
                 .get_image_size(self.sockets.get_input_resource(&socket_res).unwrap()),
             *output_type,
-        )])
+        )];
+
+        if new {
+            result.push(ComputeEvent::ThumbnailCreated(
+                res.clone(),
+                gpu::BrokerImageView::from::<B>(self.gpu.view_thumbnail(thumbnail)),
+            ));
+        }
+        result.push(ComputeEvent::ThumbnailUpdated(res.clone()));
+
+        Ok(result)
     }
 
     fn export_to_rgba<P: AsRef<Path>>(&mut self, spec: [ChannelSpec; 4], size: u32, path: P) {
