@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub mod app;
+pub mod colorpicker;
 pub mod graph;
 pub mod node;
 pub mod param_box;
