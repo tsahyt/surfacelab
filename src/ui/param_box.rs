@@ -178,12 +178,14 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
-                            ev.push(Event::ChangeParameter(
-                                parameter
-                                    .transmitter
-                                    .transmit(self.resource.clone(), &new.to_data()),
-                            ));
-                            *value = new;
+                            if new != *value {
+                                ev.push(Event::ChangeParameter(
+                                    parameter
+                                        .transmitter
+                                        .transmit(self.resource.clone(), &new.to_data()),
+                                ));
+                                *value = new;
+                            }
                         }
                         control_idx.sliders += 1;
                     }
@@ -199,12 +201,15 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
-                            ev.push(Event::ChangeParameter(
-                                parameter
-                                    .transmitter
-                                    .transmit(self.resource.clone(), &new.to_data()),
-                            ));
-                            *value = new as i32;
+                            let new = new as i32;
+                            if new != *value {
+                                ev.push(Event::ChangeParameter(
+                                    parameter
+                                        .transmitter
+                                        .transmit(self.resource.clone(), &new.to_data()),
+                                ));
+                                *value = new as i32;
+                            }
                         }
                         control_idx.discrete_sliders += 1;
                     }
