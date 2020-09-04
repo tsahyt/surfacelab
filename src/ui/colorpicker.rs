@@ -145,12 +145,17 @@ impl Widget for ColorPicker<Hsv> {
             .color(color::WHITE)
             .set(args.state.ids.hsv_label, args.ui);
 
-        for hue in widget::NumberDialer::new(self.color.hue.to_positive_radians() / std::f32::consts::TAU, 0.0, 1.0, 4)
-            .parent(args.id)
-            .right(16.0)
-            .label_font_size(10)
-            .w_h(wh[0] / 4.0, 16.0)
-            .set(args.state.ids.hue, args.ui)
+        for hue in widget::NumberDialer::new(
+            self.color.hue.to_positive_radians() / std::f32::consts::TAU,
+            0.0,
+            1.0,
+            4,
+        )
+        .parent(args.id)
+        .right(16.0)
+        .label_font_size(10)
+        .w_h(wh[0] / 4.0, 16.0)
+        .set(args.state.ids.hue, args.ui)
         {
             let mut new_hsv_inner = self.color;
             new_hsv_inner.hue = RgbHue::from_radians(hue * std::f32::consts::TAU);
