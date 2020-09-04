@@ -100,13 +100,24 @@ impl<'a> Widget for ColorRamp<'a> {
             .set(args.state.ids.delete_step, args.ui)
         {}
 
-        widget::NumberDialer::new(0.5, 0.0, 1.0, 4)
+        for new_pos in widget::NumberDialer::new(selected_position, 0.0, 1.0, 4)
             .parent(args.id)
             .label_font_size(10)
             .right(8.0)
             .w(button_width)
             .h(16.0)
-            .set(args.state.ids.step_dialer, args.ui);
+            .set(args.state.ids.step_dialer, args.ui)
+        {
+            event = Some(Event::ChangeStep(
+                args.state.selected,
+                [
+                    selected_step[0],
+                    selected_step[1],
+                    selected_step[2],
+                    new_pos,
+                ],
+            ));
+        }
 
         for new_color in ColorPicker::new(selected_color)
             .wh([wh[0], wh[1] - 40.0])

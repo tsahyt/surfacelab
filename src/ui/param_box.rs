@@ -296,6 +296,19 @@ where
                                 }
                                 _ => {}
                             }
+
+                            let mut buf = Vec::new();
+                            for step in steps.iter() {
+                                buf.extend_from_slice(&step[0].to_be_bytes());
+                                buf.extend_from_slice(&step[1].to_be_bytes());
+                                buf.extend_from_slice(&step[2].to_be_bytes());
+                                buf.extend_from_slice(&step[3].to_be_bytes());
+                            }
+
+                            ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
+                                self.resource.clone(),
+                                &buf
+                            )))
                         }
                         control_idx.ramps += 1;
                     }
