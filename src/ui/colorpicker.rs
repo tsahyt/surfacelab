@@ -67,12 +67,14 @@ impl Widget for ColorPicker<Hsv> {
 
         let bar_size = [24.0, wh[1] - 32.0];
         let bar_middle = [xy[0] + wh[0] / 2.0 - 12.0, xy[1]];
+        let bar_rect = Rect::from_xy_dim(bar_middle, bar_size);
         let bar_tris = color_strip(6, bar_size[0], bar_size[1], |x| {
             color::hsl(x as f32 * std::f32::consts::TAU, 1.0, 0.5).to_rgb()
         });
 
         let rect_size = [wh[0] - 32.0, wh[1] - 32.0];
         let rect_middle = [xy[0] - 16.0, xy[1]];
+        let rect_rect = Rect::from_xy_dim(rect_middle, rect_size);
         let rect_tris = color_rect(4, rect_size[0], rect_size[1], |x, y| {
             let hsv = palette::Hsv::new::<f32>(self.color.hue.into(), x as f32, y as f32);
             let rgb = palette::LinSrgb::from(hsv);
@@ -87,7 +89,30 @@ impl Widget for ColorPicker<Hsv> {
         widget::Triangles::multi_color(triangles)
             .with_bounding_rect(args.rect)
             .parent(args.id)
+            .graphics_for(args.id)
             .set(args.state.ids.triangles, args.ui);
+
+        // TODO: unify handle drag and click
+        for press in args.ui.widget_input(args.id).presses().mouse() {
+            let pos = [press.xy[0] + xy[0], press.xy[1] + xy[1]];
+            if bar_rect.is_over(pos) {
+                let mut new_hsv_inner = self.color;
+                new_hsv_inner.hue = RgbHue::from_radians(
+                    ((2.0 * (pos[1] - bar_middle[1]) * std::f64::consts::PI) / bar_size[1]
+                        - std::f64::consts::PI) as f32,
+                );
+                new_hsv = Some(new_hsv_inner);
+            }
+
+            if rect_rect.is_over(pos) {
+                let mut new_hsv_inner = self.color;
+                new_hsv_inner.saturation =
+                    (0.5 + (pos[0] - rect_middle[0]) / rect_size[0]).clamp(0.0, 1.0) as f32;
+                new_hsv_inner.value =
+                    (0.5 + (pos[1] - rect_middle[1]) / rect_size[1]).clamp(0.0, 1.0) as f32;
+                new_hsv = Some(new_hsv_inner);
+            }
+        }
 
         let rgb = LinSrgb::from(self.color);
 
