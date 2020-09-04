@@ -283,10 +283,11 @@ where
                     }
                     Control::File { .. } => {}
                     Control::Ramp { .. } => {
-                        let control_id =
-                            state.controls.get(&TypeId::of::<ColorRamp>()).unwrap()
-                                [control_idx.ramps];
+                        let control_id = state.controls.get(&TypeId::of::<ColorRamp>()).unwrap()
+                            [control_idx.ramps];
                         ColorRamp::new()
+                            .padded_w_of(id, 16.0)
+                            .h(256.0)
                             .set(control_id, ui);
                         control_idx.ramps += 1;
                     }

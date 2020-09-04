@@ -87,8 +87,6 @@ impl Widget for ColorPicker<Hsv> {
         widget::Triangles::multi_color(triangles)
             .with_bounding_rect(args.rect)
             .parent(args.id)
-            .w_h(wh[0] / 4.0, 16.0)
-            .middle()
             .set(args.state.ids.triangles, args.ui);
 
         let rgb = LinSrgb::from(self.color);
