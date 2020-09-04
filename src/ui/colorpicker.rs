@@ -28,7 +28,9 @@ widget_ids! {
         red,
         green,
         blue,
-        alpha
+        alpha,
+        svdot,
+        huedot,
     }
 }
 
@@ -57,26 +59,30 @@ impl Widget for ColorPicker {
         let xy = args.ui.xy_of(args.id).unwrap();
         let wh = args.ui.wh_of(args.id).unwrap();
 
-        let hue = palette::Hsv::from(palette::LinSrgb::new(
+        let hsv = palette::Hsv::from(palette::LinSrgb::new(
             self.color[0],
             self.color[1],
             self.color[2],
-        ))
-        .hue;
+        ));
 
-        let bar_tris = color_strip(6, 24.0, wh[1] - 32.0, |x| {
+        let bar_size = [24.0, wh[1] - 32.0];
+        let bar_middle = [xy[0] + wh[0] / 2.0 - 12.0, xy[1]];
+        let bar_tris = color_strip(6, bar_size[0], bar_size[1], |x| {
             color::hsl(x as f32 * std::f32::consts::TAU, 1.0, 0.5).to_rgb()
         });
-        let rect_tris = color_rect(4, wh[0] - 32.0, wh[1] - 32.0, |x, y| {
-            let hsv = palette::Hsv::new::<f32>(hue.into(), x as f32, y as f32);
+
+        let rect_size = [wh[0] - 32.0, wh[1] - 32.0];
+        let rect_middle = [xy[0] - 16.0, xy[1]];
+        let rect_tris = color_rect(4, rect_size[0], rect_size[1], |x, y| {
+            let hsv = palette::Hsv::new::<f32>(hsv.hue.into(), x as f32, y as f32);
             let rgb = palette::LinSrgb::from(hsv);
             color::Rgba(rgb.red, rgb.green, rgb.blue, 1.0)
         });
 
         let triangles = bar_tris
             .iter()
-            .map(|t| t.add([xy[0] + wh[0] / 2.0 - 12.0, xy[1]]))
-            .chain(rect_tris.iter().map(|t| t.add([xy[0] - 16.0, xy[1]])));
+            .map(|t| t.add(bar_middle))
+            .chain(rect_tris.iter().map(|t| t.add(rect_middle)));
 
         widget::Triangles::multi_color(triangles)
             .with_bounding_rect(args.rect)
@@ -113,6 +119,68 @@ impl Widget for ColorPicker {
             .set(args.state.ids.blue, args.ui)
         {
             new_color = new_color.or(Some(self.color)).map(|c| [c[0], c[1], blue]);
+        }
+
+        let sv_pos = [
+            rect_middle[0] - rect_size[0] / 2.0 + hsv.saturation as f64 * rect_size[0],
+            rect_middle[1] - rect_size[1] / 2.0 + hsv.value as f64 * rect_size[1],
+        ];
+
+        widget::Circle::fill_with(6.0, color::WHITE)
+            .xy(sv_pos)
+            .set(args.state.ids.svdot, args.ui);
+
+        for drag in args
+            .ui
+            .widget_input(args.state.ids.svdot)
+            .drags()
+            .button(input::MouseButton::Left)
+        {
+            let speed = if drag.modifiers == input::ModifierKey::SHIFT {
+                0.01
+            } else {
+                1.0
+            };
+
+            let mut new_hsv = hsv;
+            new_hsv.saturation =
+                (0.5 + (sv_pos[0] + (speed * drag.to[0]) - rect_middle[0]) / rect_size[0]) as f32;
+            new_hsv.value =
+                (0.5 + (sv_pos[1] + (speed * drag.to[1]) - rect_middle[1]) / rect_size[1]) as f32;
+            let new_rgb = LinSrgb::from(new_hsv);
+            new_color = Some([new_rgb.red, new_rgb.green, new_rgb.blue]);
+        }
+
+        let hue_pos = [
+            bar_middle[0],
+            bar_middle[1] - bar_size[1] / 2.0
+                + hsv.hue.to_positive_radians() as f64 / std::f64::consts::TAU * bar_size[1],
+        ];
+
+        widget::Circle::fill_with(6.0, color::WHITE)
+            .xy(hue_pos)
+            .set(args.state.ids.huedot, args.ui);
+
+        for drag in args
+            .ui
+            .widget_input(args.state.ids.huedot)
+            .drags()
+            .button(input::MouseButton::Left)
+        {
+            let speed = if drag.modifiers == input::ModifierKey::SHIFT {
+                0.01
+            } else {
+                1.0
+            };
+
+            let mut new_hsv = hsv;
+            new_hsv.hue = RgbHue::from_radians(
+                ((2.0 * (hue_pos[1] + (speed * drag.to[1]) - bar_middle[1]) * std::f64::consts::PI)
+                    / bar_size[1]
+                    - std::f64::consts::PI) as f32,
+            );
+            let new_rgb = LinSrgb::from(new_hsv);
+            new_color = Some([new_rgb.red, new_rgb.green, new_rgb.blue]);
         }
 
         new_color

@@ -238,7 +238,7 @@ where
                             ev.push(Event::ChangeParameter(
                                 parameter
                                     .transmitter
-                                    .transmit(self.resource.clone(), &new_color.to_data())
+                                    .transmit(self.resource.clone(), &new_color.to_data()),
                             ));
                         }
                         control_idx.rgb_colors += 1;
