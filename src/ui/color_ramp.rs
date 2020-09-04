@@ -133,7 +133,7 @@ impl<'a> Widget for ColorRamp<'a> {
             .set(args.state.ids.prev_step, args.ui)
         {
             args.state
-                .update(|state| state.selected = (state.selected - 1).max(0))
+                .update(|state| state.selected = state.selected.saturating_sub(1))
         }
 
         for new_pos in widget::NumberDialer::new(selected_position, 0.0, 1.0, 4)
