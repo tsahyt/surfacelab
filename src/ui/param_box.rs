@@ -1,9 +1,10 @@
 use super::colorpicker::ColorPicker;
 use super::ramp::ColorRamp;
 use crate::lang::*;
+
 use conrod_core::*;
+use dialog::{DialogBox, FileSelection, FileSelectionMode};
 use maplit::hashmap;
-use native_dialog::*;
 use palette::{Hsv, LinSrgb};
 use std::any::TypeId;
 use std::collections::HashMap;
@@ -310,11 +311,22 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
-                            let dialog = OpenSingleFile {
-                                dir: None,
-                                filter: None,
-                            };
-                            *selected = dialog.show().unwrap();
+                            match FileSelection::new("Select image file")
+                                .title("Open Image")
+                                .mode(FileSelectionMode::Open)
+                                .show()
+                            {
+                                Ok(Some(path)) => {
+                                    *selected = Some(std::path::PathBuf::from(&path));
+                                    ev.push(Event::ChangeParameter(
+                                        parameter
+                                            .transmitter
+                                            .transmit(self.resource.clone(), path.as_bytes()),
+                                    ));
+                                }
+                                Err(e) => log::error!("Error during file selection {}", e),
+                                _ => {}
+                            }
 
                             if let Some(file) = selected {
                                 let buf = file.to_str().unwrap().as_bytes().to_vec();

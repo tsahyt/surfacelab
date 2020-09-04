@@ -1,5 +1,6 @@
 use crate::{broker::BrokerSender, lang::*};
 use conrod_core::*;
+use dialog::{DialogBox, FileSelection, FileSelectionMode};
 use std::collections::HashMap;
 
 const PANEL_COLOR: Color = color::DARK_CHARCOAL;
@@ -14,7 +15,10 @@ widget_ids!(
         drawing_canvas,
         parameter_canvas,
 
-        title_text,
+        new_surface,
+        open_surface,
+        save_surface,
+
         node_graph,
         render_view,
 
@@ -197,7 +201,7 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
             (
                 ids.top_bar_canvas,
                 widget::Canvas::new()
-                    .length(32.0)
+                    .length(48.0)
                     .border(PANEL_GAP)
                     .color(color::CHARCOAL),
             ),
@@ -231,16 +235,78 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
         ])
         .set(ids.window_canvas, ui);
 
-    widget::Text::new("SurfaceLab")
-        .parent(ids.top_bar_canvas)
-        .middle()
-        .font_size(12)
-        .color(color::WHITE)
-        .set(ids.title_text, ui);
-
+    top_bar(ui, ids, fonts, app);
     node_graph(ui, ids, fonts, app);
     render_view(ui, ids, app);
     parameter_section(ui, ids, fonts, app);
+}
+
+pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
+    use super::util::*;
+
+    for _press in icon_button(IconName::FOLDER_PLUS, fonts)
+        .label_font_size(14)
+        .label_color(color::WHITE)
+        .color(color::DARK_CHARCOAL)
+        .wh([32., 32.0])
+        .mid_left_with_margin(8.0)
+        .parent(ids.top_bar_canvas)
+        .set(ids.new_surface, ui)
+    {
+        app.broker_sender
+            .send(Lang::UserIOEvent(UserIOEvent::NewSurface))
+            .unwrap();
+    }
+
+    for _press in icon_button(IconName::FOLDER_OPEN, fonts)
+        .label_font_size(14)
+        .label_color(color::WHITE)
+        .color(color::DARK_CHARCOAL)
+        .wh([32., 32.0])
+        .right(8.0)
+        .parent(ids.top_bar_canvas)
+        .set(ids.open_surface, ui)
+    {
+        match FileSelection::new("Select a surface file")
+            .title("Open Surface")
+            .mode(FileSelectionMode::Open)
+            .show()
+        {
+            Ok(Some(path)) => {
+                app.broker_sender
+                    .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
+                        std::path::PathBuf::from(path),
+                    )))
+                    .unwrap();
+            }
+            _ => {}
+        }
+    }
+
+    for _press in icon_button(IconName::CONTENT_SAVE, fonts)
+        .label_font_size(14)
+        .label_color(color::WHITE)
+        .color(color::DARK_CHARCOAL)
+        .wh([32., 32.0])
+        .right(8.0)
+        .parent(ids.top_bar_canvas)
+        .set(ids.save_surface, ui)
+    {
+        match FileSelection::new("Select a surface file")
+            .title("Save Surface")
+            .mode(FileSelectionMode::Save)
+            .show()
+        {
+            Ok(Some(path)) => {
+                app.broker_sender
+                    .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
+                        std::path::PathBuf::from(path),
+                    )))
+                    .unwrap();
+            }
+            _ => {}
+        }
+    }
 }
 
 pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) {
@@ -331,7 +397,8 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
             let toggle = widget::Button::new()
                 .label(&label)
                 .label_color(conrod_core::color::WHITE)
-                .color(conrod_core::color::LIGHT_BLUE);
+                .label_font_size(12)
+                .color(conrod_core::color::LIGHT_CHARCOAL);
             for _press in item.set(toggle, ui) {
                 app.add_modal = false;
 

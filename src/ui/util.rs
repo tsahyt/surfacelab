@@ -4,6 +4,8 @@ pub struct IconName(&'static str);
 
 impl IconName {
     pub const CONTENT_SAVE: IconName = IconName("\u{f0193}");
+    pub const FOLDER_OPEN: IconName = IconName("\u{f0770}");
+    pub const FOLDER_PLUS: IconName = IconName("\u{f0257}");
 }
 
 pub fn icon_button<'a>(
