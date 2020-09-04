@@ -243,7 +243,6 @@ where
                         }
                         control_idx.rgb_colors += 1;
                     }
-                    Control::RgbaColor { .. } => {}
                     Control::Enum { selected, variants } => {
                         let control_id = state
                             .controls

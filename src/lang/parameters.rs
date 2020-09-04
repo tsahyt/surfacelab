@@ -230,9 +230,6 @@ where
                 Control::RgbColor { .. } => {
                     counts.rgb_colors += 1;
                 }
-                Control::RgbaColor { .. } => {
-                    counts.rgba_colors += 1;
-                }
                 Control::Enum { .. } => {
                     counts.enums += 1;
                 }
@@ -260,7 +257,6 @@ pub struct ControlCounts {
     pub sliders: usize,
     pub discrete_sliders: usize,
     pub rgb_colors: usize,
-    pub rgba_colors: usize,
     pub enums: usize,
     pub files: usize,
     pub ramps: usize,
@@ -296,9 +292,6 @@ pub enum Control {
     },
     RgbColor {
         value: [f32; 3],
-    },
-    RgbaColor {
-        value: [f32; 4],
     },
     Enum {
         selected: usize,
