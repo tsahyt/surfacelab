@@ -24,6 +24,8 @@ widget_ids! {
         colorpicker,
         add_step,
         delete_step,
+        next_step,
+        prev_step,
         step_dialer,
     }
 }
@@ -35,7 +37,7 @@ pub struct State {
 
 pub enum Event {
     ChangeStep(usize, [f32; 4]),
-    AddStep(usize, [f32; 4]),
+    AddStep([f32; 4]),
     DeleteStep(usize),
 }
 
@@ -79,7 +81,7 @@ impl<'a> Widget for ColorRamp<'a> {
 
         let mut event = None;
 
-        let button_width = (wh[0] - (8.0 * 2.0)) / 3.0;
+        let button_width = (wh[0] - (8.0 * 4.0)) / 5.0;
         for _press in widget::Button::new()
             .label("Add")
             .parent(args.id)
@@ -88,7 +90,9 @@ impl<'a> Widget for ColorRamp<'a> {
             .w(button_width)
             .h(16.0)
             .set(args.state.ids.add_step, args.ui)
-        {}
+        {
+            event = Some(Event::AddStep([0.5, 0.5, 0.5, 0.5]));
+        }
 
         for _press in widget::Button::new()
             .label("Delete")
@@ -98,7 +102,35 @@ impl<'a> Widget for ColorRamp<'a> {
             .h(16.0)
             .right(8.0)
             .set(args.state.ids.delete_step, args.ui)
-        {}
+        {
+            event = Some(Event::DeleteStep(args.state.selected));
+        }
+
+        for _press in widget::Button::new()
+            .label("Next")
+            .parent(args.id)
+            .label_font_size(10)
+            .w(button_width)
+            .h(16.0)
+            .right(8.0)
+            .set(args.state.ids.next_step, args.ui)
+        {
+            args.state
+                .update(|state| state.selected = (state.selected + 1).min(self.ramp.len()))
+        }
+
+        for _press in widget::Button::new()
+            .label("Prev")
+            .parent(args.id)
+            .label_font_size(10)
+            .w(button_width)
+            .h(16.0)
+            .right(8.0)
+            .set(args.state.ids.prev_step, args.ui)
+        {
+            args.state
+                .update(|state| state.selected = (state.selected - 1).max(0))
+        }
 
         for new_pos in widget::NumberDialer::new(selected_position, 0.0, 1.0, 4)
             .parent(args.id)

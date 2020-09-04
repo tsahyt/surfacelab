@@ -290,12 +290,21 @@ where
                             .h(256.0)
                             .set(control_id, ui)
                         {
+                            use super::ramp;
                             match event {
-                                super::ramp::Event::ChangeStep(i, step) => {
+                                ramp::Event::ChangeStep(i, step) => {
                                     steps[i] = step;
                                 }
-                                _ => {}
+                                ramp::Event::AddStep(step) => {
+                                    steps.push(step);
+                                }
+                                ramp::Event::DeleteStep(i) => {
+                                    steps.remove(i);
+                                }
                             }
+
+                            // Ensure the steps remain sorted by their positions
+                            steps.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
 
                             let mut buf = Vec::new();
                             for step in steps.iter() {
@@ -305,10 +314,9 @@ where
                                 buf.extend_from_slice(&step[3].to_be_bytes());
                             }
 
-                            ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
-                                self.resource.clone(),
-                                &buf
-                            )))
+                            ev.push(Event::ChangeParameter(
+                                parameter.transmitter.transmit(self.resource.clone(), &buf),
+                            ))
                         }
                         control_idx.ramps += 1;
                     }
