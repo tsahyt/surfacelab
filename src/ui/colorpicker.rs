@@ -27,10 +27,14 @@ widget_ids! {
     #[derive(Debug)]
     pub struct Ids {
         triangles,
+        rgb_label,
         red,
         green,
         blue,
-        alpha,
+        hsv_label,
+        hue,
+        saturation,
+        value,
         svdot,
         huedot,
     }
@@ -89,9 +93,17 @@ impl Widget for ColorPicker<Hsv> {
 
         let rgb = LinSrgb::from(self.color);
 
-        for red in widget::NumberDialer::new(rgb.red, 0.0, 1.0, 4)
+        widget::Text::new("RGB")
             .parent(args.id)
             .bottom_left()
+            .font_size(12)
+            .color(color::WHITE)
+            .w(20.0)
+            .set(args.state.ids.rgb_label, args.ui);
+
+        for red in widget::NumberDialer::new(rgb.red, 0.0, 1.0, 4)
+            .parent(args.id)
+            .right(16.0)
             .label_font_size(10)
             .w_h(wh[0] / 4.0, 16.0)
             .set(args.state.ids.red, args.ui)
@@ -123,6 +135,50 @@ impl Widget for ColorPicker<Hsv> {
             let mut new_rgb = rgb;
             new_rgb.blue = blue;
             new_hsv = Some(Hsv::from(new_rgb))
+        }
+
+        widget::Text::new("HSV")
+            .parent(args.id)
+            .down_from(args.state.ids.rgb_label, 16.0)
+            .font_size(12)
+            .w(20.0)
+            .color(color::WHITE)
+            .set(args.state.ids.hsv_label, args.ui);
+
+        for hue in widget::NumberDialer::new(self.color.hue.to_positive_radians() / std::f32::consts::TAU, 0.0, 1.0, 4)
+            .parent(args.id)
+            .right(16.0)
+            .label_font_size(10)
+            .w_h(wh[0] / 4.0, 16.0)
+            .set(args.state.ids.hue, args.ui)
+        {
+            let mut new_hsv_inner = self.color;
+            new_hsv_inner.hue = RgbHue::from_radians(hue * std::f32::consts::TAU);
+            new_hsv = Some(new_hsv_inner);
+        }
+
+        for saturation in widget::NumberDialer::new(self.color.saturation, 0.0, 1.0, 4)
+            .parent(args.id)
+            .right(16.0)
+            .label_font_size(10)
+            .w_h(wh[0] / 4.0, 16.0)
+            .set(args.state.ids.saturation, args.ui)
+        {
+            let mut new_hsv_inner = self.color;
+            new_hsv_inner.saturation = saturation;
+            new_hsv = Some(new_hsv_inner);
+        }
+
+        for value in widget::NumberDialer::new(self.color.value, 0.0, 1.0, 4)
+            .parent(args.id)
+            .right(16.0)
+            .label_font_size(10)
+            .w_h(wh[0] / 4.0, 16.0)
+            .set(args.state.ids.value, args.ui)
+        {
+            let mut new_hsv_inner = self.color;
+            new_hsv_inner.value = value;
+            new_hsv = Some(new_hsv_inner);
         }
 
         let sv_pos = [
