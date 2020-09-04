@@ -10,6 +10,7 @@ pub mod colorpicker;
 pub mod graph;
 pub mod node;
 pub mod param_box;
+pub mod ramp;
 pub mod renderview;
 pub mod util;
 

@@ -1,4 +1,5 @@
 use super::colorpicker::ColorPicker;
+use super::ramp::ColorRamp;
 use crate::lang::*;
 use conrod_core::*;
 use maplit::hashmap;
@@ -50,6 +51,11 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .resize(counts.rgb_colors, id_gen);
             state
                 .controls
+                .get_mut(&TypeId::of::<ColorRamp>())
+                .unwrap()
+                .resize(counts.ramps, id_gen);
+            state
+                .controls
                 .get_mut(&TypeId::of::<widget::TextBox>())
                 .unwrap()
                 .resize(counts.entries, id_gen);
@@ -84,6 +90,12 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .unwrap()
                 .len()
                 < (counts.rgb_colors)
+            || state
+                .controls
+                .get(&TypeId::of::<ColorRamp>())
+                .unwrap()
+                .len()
+                < (counts.ramps)
             || state
                 .controls
                 .get(&TypeId::of::<widget::TextBox>())
@@ -129,6 +141,7 @@ where
                 TypeId::of::<widget::Slider<f32>>() => widget::id::List::new(),
                 TypeId::of::<widget::DropDownList<String>>() => widget::id::List::new(),
                 TypeId::of::<ColorPicker<Hsv>>() => widget::id::List::new(),
+                TypeId::of::<ColorRamp>() => widget::id::List::new(),
                 TypeId::of::<widget::TextBox>() => widget::id::List::new(),
                 TypeId::of::<widget::Toggle>() => widget::id::List::new(),
             },
@@ -269,7 +282,14 @@ where
                         control_idx.enums += 1;
                     }
                     Control::File { .. } => {}
-                    Control::Ramp { .. } => {}
+                    Control::Ramp { .. } => {
+                        let control_id =
+                            state.controls.get(&TypeId::of::<ColorRamp>()).unwrap()
+                                [control_idx.ramps];
+                        ColorRamp::new()
+                            .set(control_id, ui);
+                        control_idx.ramps += 1;
+                    }
                     Control::Toggle { def: value } => {
                         let control_id =
                             state.controls.get(&TypeId::of::<widget::Toggle>()).unwrap()
