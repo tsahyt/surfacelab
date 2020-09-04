@@ -282,13 +282,21 @@ where
                         control_idx.enums += 1;
                     }
                     Control::File { .. } => {}
-                    Control::Ramp { .. } => {
+                    Control::Ramp { steps } => {
                         let control_id = state.controls.get(&TypeId::of::<ColorRamp>()).unwrap()
                             [control_idx.ramps];
-                        ColorRamp::new()
+                        for event in ColorRamp::new(steps)
                             .padded_w_of(id, 16.0)
                             .h(256.0)
-                            .set(control_id, ui);
+                            .set(control_id, ui)
+                        {
+                            match event {
+                                super::ramp::Event::ChangeStep(i, step) => {
+                                    steps[i] = step;
+                                }
+                                _ => {}
+                            }
+                        }
                         control_idx.ramps += 1;
                     }
                     Control::Toggle { def: value } => {

@@ -1,17 +1,19 @@
+use super::colorpicker::ColorPicker;
 use conrod_core::widget::triangles::{ColoredPoint, Triangle};
 use conrod_core::*;
-use super::colorpicker::ColorPicker;
 
 #[derive(Clone, WidgetCommon)]
-pub struct ColorRamp {
+pub struct ColorRamp<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
+    ramp: &'a [[f32; 4]],
 }
 
-impl ColorRamp {
-    pub fn new() -> Self {
+impl<'a> ColorRamp<'a> {
+    pub fn new(ramp: &'a [[f32; 4]]) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
+            ramp,
         }
     }
 }
@@ -20,24 +22,35 @@ widget_ids! {
     pub struct Ids {
         triangles,
         colorpicker,
+        add_step,
+        delete_step,
+        step_dialer,
     }
 }
 
 pub struct State {
     ids: Ids,
+    selected: usize,
+}
+
+pub enum Event {
+    ChangeStep(usize, [f32; 4]),
+    AddStep(usize, [f32; 4]),
+    DeleteStep(usize),
 }
 
 #[derive(Default, Debug, PartialEq, Clone, WidgetStyle)]
 pub struct Style {}
 
-impl Widget for ColorRamp {
+impl<'a> Widget for ColorRamp<'a> {
     type State = State;
     type Style = Style;
-    type Event = ();
+    type Event = Option<Event>;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         State {
             ids: Ids::new(id_gen),
+            selected: 0,
         }
     }
 
@@ -49,18 +62,68 @@ impl Widget for ColorRamp {
         let xy = args.ui.xy_of(args.id).unwrap();
         let wh = args.ui.wh_of(args.id).unwrap();
 
-        let gradient_tris = gradient_strip(&[[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1.0]], wh[0], 24.0);
-        let gradient_pos = [xy[0], xy[1] + wh[1] / 2.0 - 12.0 ];
+        let gradient_tris = gradient_strip(self.ramp, wh[0], 24.0);
+        let gradient_pos = [xy[0], xy[1] + wh[1] / 2.0 - 12.0];
 
         widget::Triangles::multi_color(gradient_tris.iter().map(|t| t.add(gradient_pos)))
             .with_bounding_rect(args.rect)
             .set(args.state.ids.triangles, args.ui);
 
-        ColorPicker::new(palette::Hsv::new(180.0, 0.9, 0.9))
-            .wh([wh[0], wh[1] - 24.0])
+        let selected_step = self.ramp[args.state.selected];
+        let selected_position = selected_step[3];
+        let selected_color = palette::Hsv::from(palette::LinSrgb::new(
+            selected_step[0],
+            selected_step[1],
+            selected_step[2],
+        ));
+
+        let mut event = None;
+
+        let button_width = (wh[0] - (8.0 * 2.0)) / 3.0;
+        for _press in widget::Button::new()
+            .label("Add")
+            .parent(args.id)
+            .label_font_size(10)
+            .top_left_with_margins(32.0, 0.0)
+            .w(button_width)
+            .h(16.0)
+            .set(args.state.ids.add_step, args.ui)
+        {
+        }
+
+        for _press in widget::Button::new()
+            .label("Delete")
+            .parent(args.id)
+            .label_font_size(10)
+            .w(button_width)
+            .h(16.0)
+            .right(8.0)
+            .set(args.state.ids.delete_step, args.ui)
+        {
+        }
+
+        widget::NumberDialer::new(0.5, 0.0, 1.0, 4)
+            .parent(args.id)
+            .label_font_size(10)
+            .right(8.0)
+            .w(button_width)
+            .h(16.0)
+            .set(args.state.ids.step_dialer, args.ui);
+
+        for new_color in ColorPicker::new(selected_color)
+            .wh([wh[0], wh[1] - 40.0])
             .parent(args.id)
             .mid_bottom()
-            .set(args.state.ids.colorpicker, args.ui);
+            .set(args.state.ids.colorpicker, args.ui)
+        {
+            let rgb = palette::LinSrgb::from(new_color);
+            event = Some(Event::ChangeStep(
+                args.state.selected,
+                [rgb.red, rgb.green, rgb.blue, selected_position],
+            ));
+        }
+
+        event
     }
 }
 
@@ -80,41 +143,33 @@ fn gradient_strip(steps: &[[f32; 4]], width: f64, height: f64) -> Vec<Triangle<C
 
     for step in steps {
         let next_color = color::Rgba(step[0], step[1], step[2], 1.0);
-        let next_x = left + step[1] as f64 * width;
+        let next_x = left + step[3] as f64 * width;
 
-        tris.push(
-            Triangle([
-                ([x, bottom], color),
-                ([x, top], color),
-                ([next_x, top], next_color),
-            ])
-        );
-        tris.push(
-            Triangle([
-                ([x, bottom], color),
-                ([next_x, top], next_color),
-                ([next_x, bottom], next_color),
-            ])
-        );
+        tris.push(Triangle([
+            ([x, bottom], color),
+            ([x, top], color),
+            ([next_x, top], next_color),
+        ]));
+        tris.push(Triangle([
+            ([x, bottom], color),
+            ([next_x, top], next_color),
+            ([next_x, bottom], next_color),
+        ]));
 
         color = next_color;
         x = next_x;
     }
 
-    tris.push(
-        Triangle([
-            ([x, bottom], color),
-            ([x, top], color),
-            ([left + width, top], color),
-        ])
-    );
-    tris.push(
-        Triangle([
-            ([x, bottom], color),
-            ([left + width, top], color),
-            ([left + width, bottom], color),
-        ])
-    );
+    tris.push(Triangle([
+        ([x, bottom], color),
+        ([x, top], color),
+        ([left + width, top], color),
+    ]));
+    tris.push(Triangle([
+        ([x, bottom], color),
+        ([left + width, top], color),
+        ([left + width, bottom], color),
+    ]));
 
     tris
 }
