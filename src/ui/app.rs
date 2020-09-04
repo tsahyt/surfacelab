@@ -8,23 +8,33 @@ const PANEL_GAP: Scalar = 0.5;
 
 widget_ids!(
     pub struct Ids {
+        // Main Areas
         window_canvas,
         top_bar_canvas,
         main_canvas,
         node_graph_canvas,
         drawing_canvas,
+        sidebar_canvas,
         parameter_canvas,
+        graph_settings_canvas,
 
+        // Sidebar
+        sidebar_tabs,
+
+        // Top Buttons
         new_surface,
         open_surface,
         save_surface,
 
+        // Main Views
         node_graph,
         render_view,
 
+        // Adding Nodes
         add_modal_canvas,
         operator_list,
 
+        // Parameter Area
         operator_param_box,
         node_param_box,
     }
@@ -223,10 +233,9 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
                             widget::Canvas::new().color(PANEL_COLOR).border(PANEL_GAP),
                         ),
                         (
-                            ids.parameter_canvas,
+                            ids.sidebar_canvas,
                             widget::Canvas::new()
                                 .length_weight(0.4)
-                                .scroll_kids_vertically()
                                 .color(PANEL_COLOR)
                                 .border(PANEL_GAP),
                         ),
@@ -234,6 +243,18 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
             ),
         ])
         .set(ids.window_canvas, ui);
+
+    widget::Tabs::new(&[
+        (ids.parameter_canvas, "Parameters"),
+        (ids.graph_settings_canvas, "Graph"),
+    ])
+        .color(PANEL_COLOR)
+        .label_color(color::WHITE)
+        .label_font_size(6)
+        .parent(ids.sidebar_canvas)
+        .wh_of(ids.sidebar_canvas)
+        .middle()
+        .set(ids.sidebar_tabs, ui);
 
     top_bar(ui, ids, fonts, app);
     node_graph(ui, ids, fonts, app);
