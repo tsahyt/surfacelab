@@ -303,9 +303,6 @@ where
                                 }
                             }
 
-                            // Ensure the steps remain sorted by their positions
-                            steps.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-
                             let mut buf = Vec::new();
                             for step in steps.iter() {
                                 buf.extend_from_slice(&step[0].to_be_bytes());

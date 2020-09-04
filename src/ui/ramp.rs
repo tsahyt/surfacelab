@@ -1,6 +1,7 @@
 use super::colorpicker::ColorPicker;
 use conrod_core::widget::triangles::{ColoredPoint, Triangle};
 use conrod_core::*;
+use smallvec::SmallVec;
 
 #[derive(Clone, WidgetCommon)]
 pub struct ColorRamp<'a> {
@@ -64,13 +65,6 @@ impl<'a> Widget for ColorRamp<'a> {
         let xy = args.ui.xy_of(args.id).unwrap();
         let wh = args.ui.wh_of(args.id).unwrap();
 
-        let gradient_tris = gradient_strip(self.ramp, wh[0], 24.0);
-        let gradient_pos = [xy[0], xy[1] + wh[1] / 2.0 - 12.0];
-
-        widget::Triangles::multi_color(gradient_tris.iter().map(|t| t.add(gradient_pos)))
-            .with_bounding_rect(args.rect)
-            .set(args.state.ids.triangles, args.ui);
-
         let selected_step = self.ramp[args.state.selected];
         let selected_position = selected_step[3];
         let selected_color = palette::Hsv::from(palette::LinSrgb::new(
@@ -78,6 +72,16 @@ impl<'a> Widget for ColorRamp<'a> {
             selected_step[1],
             selected_step[2],
         ));
+
+        let mut display_ramp: SmallVec<[_; 16]> = self.ramp.iter().copied().collect();
+        display_ramp.sort_by(|a, b| a[3].partial_cmp(&b[3]).unwrap());
+
+        let gradient_tris = gradient_strip(display_ramp.as_slice(), wh[0], 24.0);
+        let gradient_pos = [xy[0], xy[1] + wh[1] / 2.0 - 12.0];
+
+        widget::Triangles::multi_color(gradient_tris.iter().map(|t| t.add(gradient_pos)))
+            .with_bounding_rect(args.rect)
+            .set(args.state.ids.triangles, args.ui);
 
         let mut event = None;
 
