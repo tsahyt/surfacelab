@@ -2,6 +2,7 @@ use super::colorpicker::ColorPicker;
 use crate::lang::*;
 use conrod_core::*;
 use maplit::hashmap;
+use palette::{Hsv, LinSrgb};
 use std::any::TypeId;
 use std::collections::HashMap;
 
@@ -44,7 +45,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .resize(counts.enums, id_gen);
             state
                 .controls
-                .get_mut(&TypeId::of::<ColorPicker>())
+                .get_mut(&TypeId::of::<ColorPicker<Hsv>>())
                 .unwrap()
                 .resize(counts.rgb_colors, id_gen);
             state
@@ -79,7 +80,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 < (counts.enums)
             || state
                 .controls
-                .get(&TypeId::of::<ColorPicker>())
+                .get(&TypeId::of::<ColorPicker<Hsv>>())
                 .unwrap()
                 .len()
                 < (counts.rgb_colors)
@@ -127,7 +128,7 @@ where
             controls: hashmap! {
                 TypeId::of::<widget::Slider<f32>>() => widget::id::List::new(),
                 TypeId::of::<widget::DropDownList<String>>() => widget::id::List::new(),
-                TypeId::of::<ColorPicker>() => widget::id::List::new(),
+                TypeId::of::<ColorPicker<Hsv>>() => widget::id::List::new(),
                 TypeId::of::<widget::TextBox>() => widget::id::List::new(),
                 TypeId::of::<widget::Toggle>() => widget::id::List::new(),
             },
@@ -227,18 +228,23 @@ where
                         control_idx.discrete_sliders += 1;
                     }
                     Control::RgbColor { value } => {
-                        let control_id = state.controls.get(&TypeId::of::<ColorPicker>()).unwrap()
-                            [control_idx.rgb_colors];
-                        for new_color in ColorPicker::new(*value)
-                            .padded_w_of(id, 16.0)
-                            .h(256.0)
-                            .set(control_id, ui)
+                        let control_id = state
+                            .controls
+                            .get(&TypeId::of::<ColorPicker<Hsv>>())
+                            .unwrap()[control_idx.rgb_colors];
+                        for new_color in
+                            ColorPicker::new(Hsv::from(LinSrgb::new(value[0], value[1], value[2])))
+                                .padded_w_of(id, 16.0)
+                                .h(256.0)
+                                .set(control_id, ui)
                         {
-                            *value = new_color;
+                            let rgb = LinSrgb::from(new_color);
+                            let new = [rgb.red, rgb.green, rgb.blue];
+                            *value = new;
                             ev.push(Event::ChangeParameter(
                                 parameter
                                     .transmitter
-                                    .transmit(self.resource.clone(), &new_color.to_data()),
+                                    .transmit(self.resource.clone(), &new.to_data()),
                             ));
                         }
                         control_idx.rgb_colors += 1;
