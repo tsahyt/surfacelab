@@ -3,6 +3,7 @@ use super::ramp::ColorRamp;
 use crate::lang::*;
 use conrod_core::*;
 use maplit::hashmap;
+use native_dialog::*;
 use palette::{Hsv, LinSrgb};
 use std::any::TypeId;
 use std::collections::HashMap;
@@ -56,6 +57,11 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .resize(counts.ramps, id_gen);
             state
                 .controls
+                .get_mut(&TypeId::of::<widget::Button<widget::button::Flat>>())
+                .unwrap()
+                .resize(counts.files, id_gen);
+            state
+                .controls
                 .get_mut(&TypeId::of::<widget::TextBox>())
                 .unwrap()
                 .resize(counts.entries, id_gen);
@@ -96,6 +102,12 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .unwrap()
                 .len()
                 < (counts.ramps)
+            || state
+                .controls
+                .get(&TypeId::of::<widget::Button<widget::button::Flat>>())
+                .unwrap()
+                .len()
+                < (counts.files)
             || state
                 .controls
                 .get(&TypeId::of::<widget::TextBox>())
@@ -142,6 +154,7 @@ where
                 TypeId::of::<widget::DropDownList<String>>() => widget::id::List::new(),
                 TypeId::of::<ColorPicker<Hsv>>() => widget::id::List::new(),
                 TypeId::of::<ColorRamp>() => widget::id::List::new(),
+                TypeId::of::<widget::Button<widget::button::Flat>>() => widget::id::List::new(),
                 TypeId::of::<widget::TextBox>() => widget::id::List::new(),
                 TypeId::of::<widget::Toggle>() => widget::id::List::new(),
             },
@@ -281,7 +294,37 @@ where
                         }
                         control_idx.enums += 1;
                     }
-                    Control::File { .. } => {}
+                    Control::File { selected } => {
+                        let control_id = state
+                            .controls
+                            .get(&TypeId::of::<widget::Button<widget::button::Flat>>())
+                            .unwrap()[control_idx.enums];
+                        let btn_text = match selected {
+                            Some(file) => file.file_name().unwrap().to_str().unwrap(),
+                            None => "None",
+                        };
+                        for _click in widget::Button::new()
+                            .label(btn_text)
+                            .label_font_size(10)
+                            .padded_w_of(id, 16.0)
+                            .h(16.0)
+                            .set(control_id, ui)
+                        {
+                            let dialog = OpenSingleFile {
+                                dir: None,
+                                filter: None,
+                            };
+                            *selected = dialog.show().unwrap();
+
+                            if let Some(file) = selected {
+                                let buf = file.to_str().unwrap().as_bytes().to_vec();
+                                ev.push(Event::ChangeParameter(
+                                    parameter.transmitter.transmit(self.resource.clone(), &buf),
+                                ));
+                            }
+                        }
+                        control_idx.files += 1;
+                    }
                     Control::Ramp { steps } => {
                         let control_id = state.controls.get(&TypeId::of::<ColorRamp>()).unwrap()
                             [control_idx.ramps];

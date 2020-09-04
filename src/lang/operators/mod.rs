@@ -71,7 +71,11 @@ impl OperatorParamBox for Image {
                     name: "Image Path".to_string(),
                     transmitter: Field(Self::PATH.to_string()),
                     control: Control::File {
-                        selected: Some(self.path.to_owned()),
+                        selected: if self.path.file_name().is_none() {
+                            None
+                        } else {
+                            Some(self.path.to_owned())
+                        },
                     },
                     available: true,
                 }],
