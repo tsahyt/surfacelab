@@ -88,8 +88,7 @@ impl<'a> Widget for ColorRamp<'a> {
             .w(button_width)
             .h(16.0)
             .set(args.state.ids.add_step, args.ui)
-        {
-        }
+        {}
 
         for _press in widget::Button::new()
             .label("Delete")
@@ -99,8 +98,7 @@ impl<'a> Widget for ColorRamp<'a> {
             .h(16.0)
             .right(8.0)
             .set(args.state.ids.delete_step, args.ui)
-        {
-        }
+        {}
 
         widget::NumberDialer::new(0.5, 0.0, 1.0, 4)
             .parent(args.id)

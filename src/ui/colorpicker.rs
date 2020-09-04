@@ -206,10 +206,12 @@ impl Widget for ColorPicker<Hsv> {
             };
 
             let mut new_hsv_inner = self.color;
-            new_hsv_inner.saturation =
-                (0.5 + (sv_pos[0] + (speed * drag.to[0]) - rect_middle[0]) / rect_size[0]) as f32;
-            new_hsv_inner.value =
-                (0.5 + (sv_pos[1] + (speed * drag.to[1]) - rect_middle[1]) / rect_size[1]) as f32;
+            new_hsv_inner.saturation = (0.5
+                + (sv_pos[0] + (speed * drag.to[0]) - rect_middle[0]) / rect_size[0])
+                .clamp(0.0, 1.0) as f32;
+            new_hsv_inner.value = (0.5
+                + (sv_pos[1] + (speed * drag.to[1]) - rect_middle[1]) / rect_size[1])
+                .clamp(0.0, 1.0) as f32;
             new_hsv = Some(new_hsv_inner);
         }
 
