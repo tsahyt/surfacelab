@@ -1,5 +1,5 @@
-use super::colorpicker::ColorPicker;
-use super::ramp::ColorRamp;
+use super::color_picker::ColorPicker;
+use super::color_ramp::ColorRamp;
 use crate::lang::*;
 
 use conrod_core::*;
@@ -345,15 +345,15 @@ where
                             .h(256.0)
                             .set(control_id, ui)
                         {
-                            use super::ramp;
+                            use super::color_ramp;
                             match event {
-                                ramp::Event::ChangeStep(i, step) => {
+                                color_ramp::Event::ChangeStep(i, step) => {
                                     steps[i] = step;
                                 }
-                                ramp::Event::AddStep(step) => {
+                                color_ramp::Event::AddStep(step) => {
                                     steps.push(step);
                                 }
-                                ramp::Event::DeleteStep(i) => {
+                                color_ramp::Event::DeleteStep(i) => {
                                     steps.remove(i);
                                 }
                             }

@@ -1,4 +1,4 @@
-use super::colorpicker::ColorPicker;
+use super::color_picker::ColorPicker;
 use conrod_core::widget::triangles::{ColoredPoint, Triangle};
 use conrod_core::*;
 use smallvec::SmallVec;
