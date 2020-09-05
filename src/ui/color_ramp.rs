@@ -38,7 +38,7 @@ pub struct State {
 
 pub enum Event {
     ChangeStep(usize, [f32; 4]),
-    AddStep([f32; 4]),
+    AddStep,
     DeleteStep(usize),
 }
 
@@ -95,7 +95,12 @@ impl<'a> Widget for ColorRamp<'a> {
             .h(16.0)
             .set(args.state.ids.add_step, args.ui)
         {
-            event = Some(Event::AddStep([0.5, 0.5, 0.5, 0.5]));
+            args.state.update(|state| {
+                if state.selected > 0 {
+                    state.selected += 1
+                }
+            });
+            event = Some(Event::AddStep);
         }
 
         for _press in widget::Button::new()
@@ -120,7 +125,7 @@ impl<'a> Widget for ColorRamp<'a> {
             .set(args.state.ids.next_step, args.ui)
         {
             args.state
-                .update(|state| state.selected = (state.selected + 1).min(self.ramp.len()))
+                .update(|state| state.selected = (state.selected + 1).min(self.ramp.len() - 1))
         }
 
         for _press in widget::Button::new()

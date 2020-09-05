@@ -248,13 +248,13 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
         (ids.parameter_canvas, "Parameters"),
         (ids.graph_settings_canvas, "Graph"),
     ])
-        .color(PANEL_COLOR)
-        .label_color(color::WHITE)
-        .label_font_size(6)
-        .parent(ids.sidebar_canvas)
-        .wh_of(ids.sidebar_canvas)
-        .middle()
-        .set(ids.sidebar_tabs, ui);
+    .color(PANEL_COLOR)
+    .label_color(color::WHITE)
+    .label_font_size(6)
+    .parent(ids.sidebar_canvas)
+    .wh_of(ids.sidebar_canvas)
+    .middle()
+    .set(ids.sidebar_tabs, ui);
 
     top_bar(ui, ids, fonts, app);
     node_graph(ui, ids, fonts, app);
