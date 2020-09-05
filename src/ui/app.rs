@@ -160,6 +160,9 @@ impl App {
                 node.set_type_variable(var, None)
             }
             GraphEvent::Report(nodes, edges) => {
+                self.graph.clear();
+                self.graph_resources.clear();
+
                 for (res, op, pbox, pos) in nodes {
                     let idx = self.graph.add_node(super::graph::NodeData::new(
                         res.clone(),
@@ -185,6 +188,7 @@ impl App {
             }
             GraphEvent::Cleared => {
                 self.graph.clear();
+                self.graph_resources.clear();
             }
             _ => {}
         }
