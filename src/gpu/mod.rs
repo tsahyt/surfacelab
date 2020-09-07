@@ -143,6 +143,11 @@ where
     }
 }
 
+/// Type for cross thread checks of whether a resource is still alive.
+/// Implemented as Arc/Weak. Arc is to be held at the resource "home", Weak can
+/// be distributed.
+pub type ResourceAlive = Weak<()>;
+
 /// Image variant hiding the parameterization over the backend. Deeply
 /// unsafe! Must be used with similar backend types on both ends. No care is
 /// taken to ensure this.
@@ -155,7 +160,7 @@ where
 /// `Weak` that must be alive if and only if the backing image is still alive.
 #[derive(Debug)]
 pub struct BrokerImage {
-    alive: Weak<()>,
+    alive: ResourceAlive,
     raw: *const (),
 }
 
@@ -179,7 +184,7 @@ impl BrokerImage {
 /// Image View variant for broker transmission. See `BrokerImage` for caveats
 #[derive(Debug)]
 pub struct BrokerImageView {
-    alive: Weak<()>,
+    alive: ResourceAlive,
     raw: *const (),
 }
 

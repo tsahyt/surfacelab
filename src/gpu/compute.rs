@@ -1104,7 +1104,7 @@ where
     }
 
     /// Get the live status of the image
-    pub fn alive(&self) -> Weak<()> {
+    pub fn alive(&self) -> super::ResourceAlive {
         Arc::downgrade(&self.alive)
     }
 }
@@ -1352,7 +1352,7 @@ where
         self.views[index.0].as_ref().unwrap()
     }
 
-    pub fn alive(&self, index: &ThumbnailIndex) -> Weak<()> {
+    pub fn alive(&self, index: &ThumbnailIndex) -> super::ResourceAlive {
         Arc::downgrade(self.alive[index.0].as_ref().unwrap())
     }
 
