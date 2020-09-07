@@ -4,6 +4,8 @@ use palette::*;
 
 pub use palette::Hsv;
 
+const SLOWDOWN: f64 = 0.2;
+
 #[derive(Copy, Clone, Debug, WidgetCommon)]
 pub struct ColorPicker<C> {
     #[conrod(common_builder)]
@@ -118,9 +120,18 @@ impl Widget for ColorPicker<Hsv> {
             )
         {
             let pos = [mouse.0[0] + xy[0], mouse.0[1] + xy[1]];
+            let slowdown = mouse.1;
+
             if bar_rect.is_over(pos) {
                 let mut new_hsv_inner = self.color;
-                let new_hue = (2.0 * (pos[1] - bar_middle[1]) * std::f64::consts::PI) / bar_size[1]
+
+                let mut delta = pos[1] - hue_pos[1];
+                if slowdown {
+                    delta = delta.signum() * SLOWDOWN
+                };
+
+                let new_hue = (2.0 * (hue_pos[1] + delta - bar_middle[1]) * std::f64::consts::PI)
+                    / bar_size[1]
                     - std::f64::consts::PI;
                 new_hsv_inner.hue = RgbHue::from_radians(new_hue as f32);
                 new_hsv = Some(new_hsv_inner);
@@ -128,10 +139,21 @@ impl Widget for ColorPicker<Hsv> {
 
             if rect_rect.is_over(pos) {
                 let mut new_hsv_inner = self.color;
-                new_hsv_inner.saturation =
-                    (0.5 + (pos[0] - rect_middle[0]) / rect_size[0]).clamp(0.0, 1.0) as f32;
-                new_hsv_inner.value =
-                    (0.5 + (pos[1] - rect_middle[1]) / rect_size[1]).clamp(0.0, 1.0) as f32;
+                let mut delta = [pos[0] - sv_pos[0], pos[1] - sv_pos[1]];
+
+                if slowdown {
+                    let magnitude = delta[0].abs().max(delta[1].abs());
+                    delta = [
+                        SLOWDOWN * delta[0] / magnitude,
+                        SLOWDOWN * delta[1] / magnitude,
+                    ];
+                }
+
+                new_hsv_inner.saturation = (0.5
+                    + (sv_pos[0] + delta[0] - rect_middle[0]) / rect_size[0])
+                    .clamp(0.0, 1.0) as f32;
+                new_hsv_inner.value = (0.5 + (sv_pos[1] + delta[1] - rect_middle[1]) / rect_size[1])
+                    .clamp(0.0, 1.0) as f32;
                 new_hsv = Some(new_hsv_inner);
             }
         }
