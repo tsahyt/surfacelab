@@ -1369,6 +1369,7 @@ where
 
         self.images[index.0] = None;
         self.views[index.0] = None;
+        self.alive[index.0] = None;
     }
 
     /// The size of a single thumbnail, measured in pixels per side.
