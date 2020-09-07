@@ -77,19 +77,23 @@ fn ui_loop<B: gpu::Backend>(
         if let Ok(broker_event) = receiver.try_recv() {
             match &*broker_event {
                 Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
-                    let id = image_map.insert(renderer.create_image(
-                        view.to::<B>(),
-                        app.monitor_resolution.0,
-                        app.monitor_resolution.1,
-                    ));
-                    app.render_image = Some(id);
+                    if let Some(view) = view.to::<B>() {
+                        let id = image_map.insert(renderer.create_image(
+                            view,
+                            app.monitor_resolution.0,
+                            app.monitor_resolution.1,
+                        ));
+                        app.render_image = Some(id);
+                    }
                 }
                 Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
                     ui.needs_redraw();
                 }
                 Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
-                    let id = image_map.insert(renderer.create_image(thmb.to::<B>(), 128, 128));
-                    app.register_thumbnail(&res.drop_fragment(), id);
+                    if let Some(t) = thmb.to::<B>() {
+                        let id = image_map.insert(renderer.create_image(t, 128, 128));
+                        app.register_thumbnail(&res.drop_fragment(), id);
+                    }
                 }
                 Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(_res)) => {
                     // TODO: purge old thumbnail descriptors

@@ -623,7 +623,10 @@ where
             if new {
                 response.push(ComputeEvent::ThumbnailCreated(
                     socket.clone(),
-                    gpu::BrokerImageView::from::<B>(self.gpu.view_thumbnail(thumbnail)),
+                    gpu::BrokerImageView::from::<B>(
+                        self.gpu.view_thumbnail(thumbnail),
+                        self.gpu.alive_thumbnail(thumbnail),
+                    ),
                 ));
             }
             response.push(ComputeEvent::ThumbnailUpdated(socket.clone()));
@@ -748,7 +751,7 @@ where
 
         let mut result = vec![ComputeEvent::OutputReady(
             res.clone(),
-            gpu::BrokerImage::from::<B>(image.get_raw()),
+            gpu::BrokerImage::from::<B>(image.get_raw(), image.alive()),
             image.get_layout(),
             image.get_access(),
             self.sockets
@@ -759,7 +762,10 @@ where
         if new {
             result.push(ComputeEvent::ThumbnailCreated(
                 res.clone(),
-                gpu::BrokerImageView::from::<B>(self.gpu.view_thumbnail(thumbnail)),
+                gpu::BrokerImageView::from::<B>(
+                    self.gpu.view_thumbnail(thumbnail),
+                    self.gpu.alive_thumbnail(thumbnail),
+                ),
             ));
         }
         result.push(ComputeEvent::ThumbnailUpdated(res.clone()));

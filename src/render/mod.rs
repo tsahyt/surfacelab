@@ -1,6 +1,6 @@
 use crate::{broker, gpu, lang::*};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 use strum::IntoEnumIterator;
 
@@ -103,9 +103,47 @@ pub fn start_render_thread<B: gpu::Backend>(
         .expect("Failed to spawn render thread!")
 }
 
+struct Renderer<B: gpu::Backend> {
+    gpu: gpu::render::GPURender<B>,
+    alive: Arc<()>,
+}
+
+impl<B: gpu::Backend> Renderer<B> {
+    pub fn new(gpu: gpu::render::GPURender<B>) -> Self {
+        Self {
+            gpu,
+            alive: Arc::new(()),
+        }
+    }
+
+    pub fn alive(&self) -> Weak<()> {
+        Arc::downgrade(&self.alive)
+    }
+}
+
+impl<B> std::ops::Deref for Renderer<B>
+where
+    B: gpu::Backend,
+{
+    type Target = gpu::render::GPURender<B>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.gpu
+    }
+}
+
+impl<B> std::ops::DerefMut for Renderer<B>
+where
+    B: gpu::Backend,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.gpu
+    }
+}
+
 struct RenderManager<B: gpu::Backend> {
     gpu: Arc<Mutex<gpu::GPU<B>>>,
-    renderers: HashMap<RendererID, gpu::render::GPURender<B>>,
+    renderers: HashMap<RendererID, Renderer<B>>,
 }
 
 impl<B> RenderManager<B>
@@ -126,15 +164,15 @@ where
         viewport_dimensions: (u32, u32),
         ty: RendererType,
     ) -> Result<gpu::BrokerImageView, String> {
-        let mut renderer = gpu::render::GPURender::new(
+        let mut renderer = Renderer::new(gpu::render::GPURender::new(
             &self.gpu,
             monitor_dimensions,
             viewport_dimensions,
             1024,
             ty,
-        )?;
+        )?);
         renderer.render();
-        let view = gpu::BrokerImageView::from::<B>(renderer.target_view());
+        let view = gpu::BrokerImageView::from::<B>(renderer.target_view(), renderer.alive());
         self.renderers.insert(id, renderer);
 
         Ok(view)
@@ -187,9 +225,11 @@ where
         output_type: OutputType,
     ) {
         for r in self.renderers.values_mut() {
-            r.transfer_image(image.to::<B>(), layout, access, image_size, output_type)
-                .unwrap();
-            r.render();
+            if let Some(img) = image.to::<B>() {
+                r.transfer_image(img, layout, access, image_size, output_type)
+                    .unwrap();
+                r.render();
+            }
         }
     }
 

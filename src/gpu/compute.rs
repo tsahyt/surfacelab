@@ -6,7 +6,7 @@ use smallvec::{smallvec, SmallVec};
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Instant;
 
 use super::{Backend, Shader, ShaderType, GPU};
@@ -284,6 +284,7 @@ where
             view: ManuallyDrop::new(None),
             alloc: None,
             format,
+            alive: Arc::new(()),
         })
     }
 
@@ -906,6 +907,10 @@ where
     pub fn view_thumbnail(&self, thumbnail: &ThumbnailIndex) -> &B::ImageView {
         self.thumbnail_cache.image_view(thumbnail)
     }
+
+    pub fn alive_thumbnail(&self, thumbnail: &ThumbnailIndex) -> Weak<()> {
+        self.thumbnail_cache.alive(thumbnail)
+    }
 }
 
 impl<B> Drop for GPUCompute<B>
@@ -963,6 +968,7 @@ pub struct Image<B: Backend> {
     view: ManuallyDrop<Option<B::ImageView>>,
     alloc: Option<Alloc<B>>,
     format: hal::format::Format,
+    alive: Arc<()>,
 }
 
 impl<B> Image<B>
@@ -1096,6 +1102,11 @@ where
     pub fn get_raw(&self) -> &B::Image {
         &*self.raw
     }
+
+    /// Get the live status of the image
+    pub fn alive(&self) -> Weak<()> {
+        Arc::downgrade(&self.alive)
+    }
 }
 
 impl<B> Drop for Image<B>
@@ -1148,6 +1159,7 @@ pub struct ThumbnailCache<B: Backend> {
     memory: SmallVec<[B::Memory; 4]>,
     images: Vec<Option<B::Image>>,
     views: Vec<Option<B::ImageView>>,
+    alive: Vec<Option<Arc<()>>>,
 }
 
 impl<B> Drop for ThumbnailCache<B>
@@ -1226,6 +1238,7 @@ where
             memory,
             images: (0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None).collect(),
             views: (0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None).collect(),
+            alive: (0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None).collect(),
         }
     }
 
@@ -1289,6 +1302,7 @@ where
 
         self.images[i] = Some(image);
         self.views[i] = Some(view);
+        self.alive[i] = Some(Arc::new(()));
     }
 
     fn grow(&mut self) {
@@ -1324,6 +1338,8 @@ where
             .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
         self.views
             .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
+        self.alive
+            .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
     }
 
     /// Get the underlying Image from a thumbnail
@@ -1334,6 +1350,10 @@ where
     /// Get the underlying image view from a thumbnail
     pub fn image_view(&self, index: &ThumbnailIndex) -> &B::ImageView {
         self.views[index.0].as_ref().unwrap()
+    }
+
+    pub fn alive(&self, index: &ThumbnailIndex) -> Weak<()> {
+        Arc::downgrade(self.alive[index.0].as_ref().unwrap())
     }
 
     /// Free a thumbnail by its index. Note that this takes ownership.

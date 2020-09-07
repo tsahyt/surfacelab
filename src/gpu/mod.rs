@@ -2,7 +2,7 @@ use gfx_backend_vulkan as back;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use std::mem::ManuallyDrop;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 
 pub use gfx_hal::Backend;
 pub use hal::buffer::SubRange;
@@ -144,16 +144,18 @@ where
 }
 
 /// Image variant hiding the parameterization over the backend. Deeply
-/// unsafe! Must be used with similar backend types on both ends.
+/// unsafe! Must be used with similar backend types on both ends. No care is
+/// taken to ensure this.
 ///
 /// This exists solely for transmitting an image over the broker bus
-/// without incurring the type parameter all throughout the program. This is
-/// required for sharing images between the compute and the render thread(s).
+/// without incurring the type parameter all throughout the language.
 ///
-/// Manual care is required to make sure the images does not drop while
-/// the data is in use in both threads.
+/// Some manual care is required to make sure the images does not drop while
+/// the data is in use in both threads. To do so, the `from` method takes a
+/// `Weak` that must be alive if and only if the backing image is still alive.
 #[derive(Debug)]
 pub struct BrokerImage {
+    alive: Weak<()>,
     raw: *const (),
 }
 
@@ -161,19 +163,23 @@ unsafe impl Send for BrokerImage {}
 unsafe impl Sync for BrokerImage {}
 
 impl BrokerImage {
-    pub fn from<B: Backend>(view: &B::Image) -> Self {
+    pub fn from<B: Backend>(view: &B::Image, alive: Weak<()>) -> Self {
         let ptr = view as *const B::Image as *const ();
-        Self { raw: ptr }
+        Self { alive, raw: ptr }
     }
 
-    pub fn to<'a, B: Backend>(&'a self) -> &'a B::Image {
-        unsafe { &*(self.raw as *const B::Image) }
+    pub fn to<'a, B: Backend>(&'a self) -> Option<&'a B::Image> {
+        match self.alive.upgrade() {
+            Some(_) => unsafe { Some(&*(self.raw as *const B::Image)) },
+            None => None,
+        }
     }
 }
 
 /// Image View variant for broker transmission. See `BrokerImage` for caveats
 #[derive(Debug)]
 pub struct BrokerImageView {
+    alive: Weak<()>,
     raw: *const (),
 }
 
@@ -181,13 +187,16 @@ unsafe impl Send for BrokerImageView {}
 unsafe impl Sync for BrokerImageView {}
 
 impl BrokerImageView {
-    pub fn from<B: Backend>(view: &B::ImageView) -> Self {
+    pub fn from<B: Backend>(view: &B::ImageView, alive: Weak<()>) -> Self {
         let ptr = view as *const B::ImageView as *const ();
-        Self { raw: ptr }
+        Self { alive, raw: ptr }
     }
 
-    pub fn to<B: Backend>(&self) -> &'static B::ImageView {
-        unsafe { &*(self.raw as *const B::ImageView) }
+    pub fn to<'a, B: Backend>(&self) -> Option<&'a B::ImageView> {
+        match self.alive.upgrade() {
+            Some(_) => unsafe { Some(&*(self.raw as *const B::ImageView)) },
+            None => None,
+        }
     }
 }
 
