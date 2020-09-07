@@ -257,7 +257,7 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
     ])
     .color(PANEL_COLOR)
     .label_color(color::WHITE)
-    .label_font_size(6)
+    .label_font_size(10)
     .parent(ids.sidebar_canvas)
     .wh_of(ids.sidebar_canvas)
     .middle()

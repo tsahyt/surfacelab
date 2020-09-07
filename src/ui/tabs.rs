@@ -253,6 +253,7 @@ impl<'a> Widget for Tabs<'a> {
             let border = canvas_style.border(&ui.theme);
             let border_color = canvas_style.border_color(ui.theme());
             let label_color = style.label_color(ui.theme());
+            let label_font_size = style.label_font_size(ui.theme());
             let mut maybe_selected_tab_idx = state.maybe_selected_tab_idx
                 .or(maybe_starting_tab_idx)
                 .or_else(|| if tabs.len() > 0 { Some(0) } else { None });
@@ -271,6 +272,7 @@ impl<'a> Widget for Tabs<'a> {
                     .border_color(border_color)
                     .label(label)
                     .label_color(label_color)
+                    .label_font_size(label_font_size)
                     .parent(id)
                     .set(tab.button_id, &mut ui)
                     .was_clicked()
