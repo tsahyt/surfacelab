@@ -196,8 +196,9 @@ impl App {
 
     pub fn register_thumbnail(&mut self, resource: &Resource, thumbnail: image::Id) {
         if let Some(idx) = self.graph_resources.get(resource) {
-            let node = self.graph.node_weight_mut(*idx).unwrap();
-            node.thumbnail = Some(thumbnail);
+            if let Some(node) = self.graph.node_weight_mut(*idx) {
+                node.thumbnail = Some(thumbnail);
+            }
         }
     }
 }
@@ -303,6 +304,8 @@ pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
                         std::path::PathBuf::from(path),
                     )))
                     .unwrap();
+                app.graph.clear();
+                app.graph_resources.clear();
             }
             _ => {}
         }

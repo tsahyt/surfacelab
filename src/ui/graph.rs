@@ -398,7 +398,26 @@ impl<'a> Widget for Graph<'a> {
             })
         }
 
-        // Now repeat the same thing for edges
+        // Delete all node ids that got lost. This is required such that we
+        // generate fresh ids when a new node comes along that has the same node
+        // index in the outside graph. Otherwise the state of the old node
+        // widget would be reused and we can get all sorts of issues.
+        let del_nodes: SmallVec<[_; 1]> = state
+            .node_ids
+            .keys()
+            .copied()
+            .filter(|x| self.graph.node_weight(*x).is_none())
+            .collect();
+
+        for idx in del_nodes {
+            state.update(|state| {
+                state.node_ids.remove(&idx);
+            })
+        }
+
+        // Now repeat the same thing for edges. Note that we don't have to do
+        // the deletion here, because all edges are the same in terms of
+        // internal state, since they're just simple primitives.
         let new_edges: SmallVec<[_; 4]> = self
             .graph
             .edge_indices()

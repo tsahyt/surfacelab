@@ -4,14 +4,14 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::iter::FromIterator;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SelectionState {
     Selected,
     Active,
     None,
 }
 
-#[derive(Clone, WidgetCommon)]
+#[derive(Clone, Debug, WidgetCommon)]
 pub struct Node<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
