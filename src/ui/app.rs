@@ -209,6 +209,8 @@ pub struct AppFonts {
 }
 
 pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
+    use super::tabs;
+
     widget::Canvas::new()
         .border(0.0)
         .color(PANEL_COLOR)
@@ -249,7 +251,7 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
         ])
         .set(ids.window_canvas, ui);
 
-    widget::Tabs::new(&[
+    tabs::Tabs::new(&[
         (ids.parameter_canvas, "Parameters"),
         (ids.graph_settings_canvas, "Graph"),
     ])
