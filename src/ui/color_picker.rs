@@ -92,15 +92,37 @@ impl Widget for ColorPicker<Hsv> {
             .graphics_for(args.id)
             .set(args.state.ids.triangles, args.ui);
 
-        // TODO: unify handle drag and click
-        for press in args.ui.widget_input(args.id).presses().mouse() {
-            let pos = [press.xy[0] + xy[0], press.xy[1] + xy[1]];
+        let tri_input = args.ui.widget_input(args.id);
+
+        let sv_pos = [
+            rect_middle[0] - rect_size[0] / 2.0 + self.color.saturation as f64 * rect_size[0],
+            rect_middle[1] - rect_size[1] / 2.0 + self.color.value as f64 * rect_size[1],
+        ];
+
+        let hue_pos = [
+            bar_middle[0],
+            bar_middle[1] - bar_size[1] / 2.0
+                + self.color.hue.to_positive_radians() as f64 / std::f64::consts::TAU * bar_size[1],
+        ];
+
+        for mouse in tri_input
+            .presses()
+            .mouse()
+            .button(input::MouseButton::Left)
+            .map(|p| (p.0, false))
+            .chain(
+                tri_input
+                    .drags()
+                    .button(input::MouseButton::Left)
+                    .map(|d| (d.to, d.modifiers == input::ModifierKey::SHIFT)),
+            )
+        {
+            let pos = [mouse.0[0] + xy[0], mouse.0[1] + xy[1]];
             if bar_rect.is_over(pos) {
                 let mut new_hsv_inner = self.color;
-                new_hsv_inner.hue = RgbHue::from_radians(
-                    ((2.0 * (pos[1] - bar_middle[1]) * std::f64::consts::PI) / bar_size[1]
-                        - std::f64::consts::PI) as f32,
-                );
+                let new_hue = (2.0 * (pos[1] - bar_middle[1]) * std::f64::consts::PI) / bar_size[1]
+                    - std::f64::consts::PI;
+                new_hsv_inner.hue = RgbHue::from_radians(new_hue as f32);
                 new_hsv = Some(new_hsv_inner);
             }
 
@@ -119,7 +141,7 @@ impl Widget for ColorPicker<Hsv> {
         widget::Text::new("RGB")
             .parent(args.id)
             .bottom_left()
-            .font_size(12)
+            .font_size(10)
             .color(color::WHITE)
             .w(20.0)
             .set(args.state.ids.rgb_label, args.ui);
@@ -163,7 +185,7 @@ impl Widget for ColorPicker<Hsv> {
         widget::Text::new("HSV")
             .parent(args.id)
             .down_from(args.state.ids.rgb_label, 16.0)
-            .font_size(12)
+            .font_size(10)
             .w(20.0)
             .color(color::WHITE)
             .set(args.state.ids.hsv_label, args.ui);
@@ -209,67 +231,21 @@ impl Widget for ColorPicker<Hsv> {
             new_hsv = Some(new_hsv_inner);
         }
 
-        let sv_pos = [
-            rect_middle[0] - rect_size[0] / 2.0 + self.color.saturation as f64 * rect_size[0],
-            rect_middle[1] - rect_size[1] / 2.0 + self.color.value as f64 * rect_size[1],
-        ];
-
-        widget::Circle::fill_with(6.0, color::WHITE)
+        widget::BorderedRectangle::new([12.0, 12.0])
+            .color(color::rgb(rgb.red, rgb.green, rgb.blue))
+            .border_color(color::BLACK)
+            .border(2.0)
+            .graphics_for(args.id)
             .xy(sv_pos)
             .set(args.state.ids.svdot, args.ui);
 
-        for drag in args
-            .ui
-            .widget_input(args.state.ids.svdot)
-            .drags()
-            .button(input::MouseButton::Left)
-        {
-            let speed = if drag.modifiers == input::ModifierKey::SHIFT {
-                0.01
-            } else {
-                1.0
-            };
-
-            let mut new_hsv_inner = self.color;
-            new_hsv_inner.saturation = (0.5
-                + (sv_pos[0] + (speed * drag.to[0]) - rect_middle[0]) / rect_size[0])
-                .clamp(0.0, 1.0) as f32;
-            new_hsv_inner.value = (0.5
-                + (sv_pos[1] + (speed * drag.to[1]) - rect_middle[1]) / rect_size[1])
-                .clamp(0.0, 1.0) as f32;
-            new_hsv = Some(new_hsv_inner);
-        }
-
-        let hue_pos = [
-            bar_middle[0],
-            bar_middle[1] - bar_size[1] / 2.0
-                + self.color.hue.to_positive_radians() as f64 / std::f64::consts::TAU * bar_size[1],
-        ];
-
-        widget::Circle::fill_with(6.0, color::WHITE)
+        widget::BorderedRectangle::new([20.0, 10.0])
+            .color(color::TRANSPARENT)
+            .border_color(color::BLACK)
+            .border(2.0)
+            .graphics_for(args.id)
             .xy(hue_pos)
             .set(args.state.ids.huedot, args.ui);
-
-        for drag in args
-            .ui
-            .widget_input(args.state.ids.huedot)
-            .drags()
-            .button(input::MouseButton::Left)
-        {
-            let speed = if drag.modifiers == input::ModifierKey::SHIFT {
-                0.01
-            } else {
-                1.0
-            };
-
-            let mut new_hsv_inner = self.color;
-            new_hsv_inner.hue = RgbHue::from_radians(
-                ((2.0 * (hue_pos[1] + (speed * drag.to[1]) - bar_middle[1]) * std::f64::consts::PI)
-                    / bar_size[1]
-                    - std::f64::consts::PI) as f32,
-            );
-            new_hsv = Some(new_hsv_inner);
-        }
 
         new_hsv
     }
