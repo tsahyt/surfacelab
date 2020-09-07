@@ -175,6 +175,13 @@ impl Selection {
     }
 
     pub fn set_active(&mut self, widget_id: Option<widget::Id>) {
+        if let Some(wid) = widget_id {
+            if !self.is_selected(wid) {
+                self.set.clear();
+            }
+
+            self.set.insert(wid);
+        }
         self.active = widget_id;
     }
 
@@ -192,6 +199,7 @@ impl Selection {
 
     pub fn set_selection(&mut self, selection: HashSet<widget::Id>) {
         self.set = selection;
+        self.set_active(None);
     }
 
     pub fn is_selected(&self, id: widget::Id) -> bool {
@@ -452,14 +460,16 @@ impl<'a> Widget for Graph<'a> {
             let w_id = *state.node_ids.get(&idx).unwrap();
             let node = self.graph.node_weight(idx).unwrap();
 
-            for _press in ui
+            for press in ui
                 .widget_input(w_id)
                 .presses()
                 .mouse()
                 .button(input::MouseButton::Left)
             {
                 state.update(|state| {
-                    state.selection.add(w_id);
+                    if press.1 == input::ModifierKey::SHIFT {
+                        state.selection.add(w_id);
+                    }
                     state.selection.set_active(Some(w_id))
                 });
                 evs.push_back(Event::ActiveElement(idx));
