@@ -1,6 +1,7 @@
 use conrod_core::*;
 
 const SCROLL_SPEED: f32 = 1.0 / 20.0;
+const ROTATE_SPEED: f32 = 1.5;
 const PAN_SPEED: f32 = 1.0 / 200.0;
 
 #[derive(Copy, Clone, WidgetCommon)]
@@ -91,8 +92,8 @@ impl Widget for RenderView {
                     ..
                 }) => {
                     return Some(Event::Rotate(
-                        (delta_xy[0] / w) as f32,
-                        (delta_xy[1] / h) as f32,
+                        (delta_xy[0] * ROTATE_SPEED as f64 / w) as f32,
+                        (delta_xy[1] * ROTATE_SPEED as f64 / h) as f32,
                     ));
                 }
                 event::Widget::Drag(event::Drag {
