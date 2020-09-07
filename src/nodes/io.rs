@@ -55,7 +55,6 @@ impl NodeManager {
         events.push(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
             Resource::graph("base", None),
         )));
-        // FIXME: currently this process will first load everything into the UI, then destroy everything again, and then build it all again.
 
         Ok(events)
     }

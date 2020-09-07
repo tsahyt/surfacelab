@@ -159,33 +159,6 @@ impl App {
                 .unwrap();
                 node.set_type_variable(var, None)
             }
-            GraphEvent::Report(nodes, edges) => {
-                self.graph.clear();
-                self.graph_resources.clear();
-
-                for (res, op, pbox, pos) in nodes {
-                    let idx = self.graph.add_node(super::graph::NodeData::new(
-                        res.clone(),
-                        Some([pos.0, pos.1]),
-                        &op,
-                        pbox.clone(),
-                    ));
-                    self.graph_resources.insert(res.clone(), idx);
-                }
-
-                for (source, sink) in edges {
-                    let source_idx = self.graph_resources.get(&source.drop_fragment()).unwrap();
-                    let sink_idx = self.graph_resources.get(&sink.drop_fragment()).unwrap();
-                    self.graph.add_edge(
-                        *source_idx,
-                        *sink_idx,
-                        (
-                            source.fragment().unwrap().to_string(),
-                            sink.fragment().unwrap().to_string(),
-                        ),
-                    );
-                }
-            }
             GraphEvent::Cleared => {
                 self.graph.clear();
                 self.graph_resources.clear();

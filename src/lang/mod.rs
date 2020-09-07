@@ -251,10 +251,6 @@ pub enum GraphEvent {
     SocketMonomorphized(Resource, ImageType),
     SocketDemonomorphized(Resource),
     OutputRemoved(Resource, OutputType),
-    Report(
-        Vec<(Resource, Operator, ParamBoxDescription<Field>, (f64, f64))>,
-        Vec<(Resource, Resource)>,
-    ),
     Cleared,
 }
 

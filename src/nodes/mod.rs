@@ -220,14 +220,14 @@ impl NodeManager {
                         .get(res.path_str().unwrap())
                         .expect("Node Graph not found");
                     self.active_graph = res.clone();
-                    response.push(lang::Lang::GraphEvent(lang::GraphEvent::Report(
-                        graph
-                            .nodes()
-                            .iter()
-                            .map(|(r, o, p)| (r.clone(), o.clone(), self.operator_param_box(o), *p))
-                            .collect(),
-                        graph.connections(),
-                    )));
+                    // response.push(lang::Lang::GraphEvent(lang::GraphEvent::Report(
+                    //     graph
+                    //         .nodes()
+                    //         .iter()
+                    //         .map(|(r, o, p)| (r.clone(), o.clone(), self.operator_param_box(o), *p))
+                    //         .collect(),
+                    //     graph.connections(),
+                    // )));
                 }
                 UserGraphEvent::ExposeParameter(res, graph_field, title, control) => {
                     let graph = self
