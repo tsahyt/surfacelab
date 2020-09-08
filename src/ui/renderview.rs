@@ -88,6 +88,17 @@ impl Widget for RenderView {
                 }
                 event::Widget::Drag(event::Drag {
                     button: input::MouseButton::Left,
+                    modifiers: input::ModifierKey::SHIFT,
+                    delta_xy,
+                    ..
+                }) => {
+                    return Some(Event::LightPan(
+                        delta_xy[0] as f32 * PAN_SPEED,
+                        delta_xy[1] as f32 * PAN_SPEED,
+                    ));
+                }
+                event::Widget::Drag(event::Drag {
+                    button: input::MouseButton::Left,
                     delta_xy,
                     ..
                 }) => {
@@ -102,16 +113,6 @@ impl Widget for RenderView {
                     ..
                 }) => {
                     return Some(Event::Pan(
-                        delta_xy[0] as f32 * PAN_SPEED,
-                        delta_xy[1] as f32 * PAN_SPEED,
-                    ));
-                }
-                event::Widget::Drag(event::Drag {
-                    button: input::MouseButton::Right,
-                    delta_xy,
-                    ..
-                }) => {
-                    return Some(Event::LightPan(
                         delta_xy[0] as f32 * PAN_SPEED,
                         delta_xy[1] as f32 * PAN_SPEED,
                     ));
