@@ -39,9 +39,78 @@ widget_ids!(
     }
 );
 
+pub struct Graph {
+    graph: super::graph::NodeGraph,
+    resources: HashMap<Resource, petgraph::graph::NodeIndex>
+}
+
+impl Default for Graph {
+    fn default() -> Self {
+        Self {
+            graph: petgraph::Graph::new(),
+            resources: HashMap::new(),
+        }
+    }
+}
+
+pub struct Graphs {
+    graphs: HashMap<Resource, Graph>,
+    active_graph: Graph,
+    active_resource: Resource,
+}
+
+impl Graphs {
+    pub fn new() -> Self {
+        Graphs {
+            graphs: HashMap::new(),
+            active_graph: Graph::default(),
+            active_resource: Resource::graph("base", None)
+        }
+    }
+
+    pub fn set_active(mut self, graph: Resource) {
+        self.graphs.insert(self.active_resource, self.active_graph);
+        self.active_resource = graph;
+        self.active_graph = self.graphs.remove(&self.active_resource).unwrap();
+    }
+
+    pub fn index_of(&self, resource: &Resource) -> Option<petgraph::graph::NodeIndex> {
+        self.active_graph.resources.get(&resource).copied()
+    }
+
+    pub fn insert_index(&mut self, resource: Resource, index: petgraph::graph::NodeIndex) {
+        self.active_graph.resources.insert(resource, index);
+    }
+
+    pub fn remove_index(&mut self, resource: &Resource) {
+        self.active_graph.resources.remove(resource);
+    }
+
+    pub fn clear_indices(&mut self) {
+        self.active_graph.resources.clear();
+    }
+
+    pub fn add_graph(&mut self, graph: Resource) {
+        self.graphs.insert(graph, Graph::default());
+    }
+}
+
+impl std::ops::Deref for Graphs {
+    type Target = super::graph::NodeGraph;
+
+    fn deref(&self) -> &Self::Target {
+        &self.active_graph.graph
+    }
+}
+
+impl std::ops::DerefMut for Graphs {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.active_graph.graph
+    }
+}
+
 pub struct App {
-    pub graph_resources: HashMap<Resource, petgraph::graph::NodeIndex>,
-    pub graph: super::graph::NodeGraph,
+    pub graphs: Graphs,
     pub active_element: Option<petgraph::graph::NodeIndex>,
     pub render_image: Option<image::Id>,
 
@@ -54,8 +123,7 @@ pub struct App {
 impl App {
     pub fn new(sender: BrokerSender<Lang>, monitor_size: (u32, u32)) -> Self {
         Self {
-            graph: petgraph::Graph::new(),
-            graph_resources: HashMap::new(),
+            graphs: Graphs::new(),
             active_element: None,
             render_image: None,
             broker_sender: sender,
@@ -68,7 +136,7 @@ impl App {
         &mut self,
     ) -> Option<(&mut ParamBoxDescription<impl MessageWriter>, &Resource)> {
         let ae = self.active_element?;
-        let node = self.graph.node_weight_mut(ae)?;
+        let node = self.graphs.node_weight_mut(ae)?;
         Some((&mut node.param_box, &node.resource))
     }
 
@@ -76,34 +144,34 @@ impl App {
         match event {
             GraphEvent::GraphAdded(_) => {}
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
-                let idx = self.graph.add_node(super::graph::NodeData::new(
+                let idx = self.graphs.add_node(super::graph::NodeData::new(
                     res.clone(),
                     position.map(|(x, y)| [x, y]),
                     &op,
                     pbox.clone(),
                 ));
-                self.graph_resources.insert(res.clone(), idx);
+                self.graphs.insert_index(res.clone(), idx);
             }
             GraphEvent::NodeRemoved(res) => {
-                if let Some(idx) = self.graph_resources.get(res) {
-                    self.graph.remove_node(*idx);
+                if let Some(idx) = self.graphs.index_of(res) {
+                    self.graphs.remove_node(idx);
                 }
-                self.graph_resources.remove(res);
+                self.graphs.remove_index(res);
             }
             GraphEvent::NodeRenamed(from, to) => {
-                if let Some(idx) = self.graph_resources.get(from).copied() {
-                    let node = self.graph.node_weight_mut(idx).unwrap();
+                if let Some(idx) = self.graphs.index_of(from) {
+                    let node = self.graphs.node_weight_mut(idx).unwrap();
                     node.resource = to.clone();
-                    self.graph_resources.insert(to.clone(), idx);
-                    self.graph_resources.remove(from);
+                    self.graphs.insert_index(to.clone(), idx);
+                    self.graphs.remove_index(from);
                 }
             }
             GraphEvent::ConnectedSockets(from, to) => {
-                let from_idx = self.graph_resources.get(&from.drop_fragment()).unwrap();
-                let to_idx = self.graph_resources.get(&to.drop_fragment()).unwrap();
-                self.graph.add_edge(
-                    *from_idx,
-                    *to_idx,
+                let from_idx = self.graphs.index_of(&from.drop_fragment()).unwrap();
+                let to_idx = self.graphs.index_of(&to.drop_fragment()).unwrap();
+                self.graphs.add_edge(
+                    from_idx,
+                    to_idx,
                     (
                         from.fragment().unwrap().to_string(),
                         to.fragment().unwrap().to_string(),
@@ -113,13 +181,13 @@ impl App {
             GraphEvent::DisconnectedSockets(from, to) => {
                 use petgraph::visit::EdgeRef;
 
-                let from_idx = self.graph_resources.get(&from.drop_fragment()).unwrap();
-                let to_idx = self.graph_resources.get(&to.drop_fragment()).unwrap();
+                let from_idx = self.graphs.index_of(&from.drop_fragment()).unwrap();
+                let to_idx = self.graphs.index_of(&to.drop_fragment()).unwrap();
 
                 // Assuming that there's only ever one edge connecting two sockets.
                 if let Some(e) = self
-                    .graph
-                    .edges_connecting(*from_idx, *to_idx)
+                    .graphs
+                    .edges_connecting(from_idx, to_idx)
                     .filter(|e| {
                         (e.weight().0.as_str(), e.weight().1.as_str())
                             == (from.fragment().unwrap(), to.fragment().unwrap())
@@ -127,12 +195,12 @@ impl App {
                     .map(|e| e.id())
                     .next()
                 {
-                    self.graph.remove_edge(e);
+                    self.graphs.remove_edge(e);
                 }
             }
             GraphEvent::SocketMonomorphized(socket, ty) => {
-                let idx = self.graph_resources.get(&socket.drop_fragment()).unwrap();
-                let node = self.graph.node_weight_mut(*idx).unwrap();
+                let idx = self.graphs.index_of(&socket.drop_fragment()).unwrap();
+                let node = self.graphs.node_weight_mut(idx).unwrap();
                 let var = type_variable_from_socket_iter(
                     node.inputs.iter().chain(node.outputs.iter()),
                     socket.fragment().unwrap(),
@@ -141,8 +209,8 @@ impl App {
                 node.set_type_variable(var, Some(*ty))
             }
             GraphEvent::SocketDemonomorphized(socket) => {
-                let idx = self.graph_resources.get(&socket.drop_fragment()).unwrap();
-                let node = self.graph.node_weight_mut(*idx).unwrap();
+                let idx = self.graphs.index_of(&socket.drop_fragment()).unwrap();
+                let node = self.graphs.node_weight_mut(idx).unwrap();
                 let var = type_variable_from_socket_iter(
                     node.inputs.iter().chain(node.outputs.iter()),
                     socket.fragment().unwrap(),
@@ -151,16 +219,16 @@ impl App {
                 node.set_type_variable(var, None)
             }
             GraphEvent::Cleared => {
-                self.graph.clear();
-                self.graph_resources.clear();
+                self.graphs.clear();
+                self.graphs.clear_indices();
             }
             _ => {}
         }
     }
 
     pub fn register_thumbnail(&mut self, resource: &Resource, thumbnail: image::Id) {
-        if let Some(idx) = self.graph_resources.get(resource) {
-            if let Some(node) = self.graph.node_weight_mut(*idx) {
+        if let Some(idx) = self.graphs.index_of(resource) {
+            if let Some(node) = self.graphs.node_weight_mut(idx) {
                 node.thumbnail = Some(thumbnail);
             }
         }
@@ -270,8 +338,8 @@ pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
                         std::path::PathBuf::from(path),
                     )))
                     .unwrap();
-                app.graph.clear();
-                app.graph_resources.clear();
+                app.graphs.clear();
+                app.graphs.clear_indices();
             }
             _ => {}
         }
@@ -305,7 +373,7 @@ pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
 
 pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) {
     use super::graph::*;
-    for event in Graph::new(&app.graph)
+    for event in Graph::new(&app.graphs)
         .parent(ids.node_graph_canvas)
         .wh_of(ids.node_graph_canvas)
         .middle()
@@ -313,7 +381,7 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
     {
         match event {
             Event::NodeDrag(idx, x, y) => {
-                let mut node = app.graph.node_weight_mut(idx).unwrap();
+                let mut node = app.graphs.node_weight_mut(idx).unwrap();
                 node.position[0] += x;
                 node.position[1] += y;
 
@@ -326,13 +394,13 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
             }
             Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
                 let from_res = app
-                    .graph
+                    .graphs
                     .node_weight(from)
                     .unwrap()
                     .resource
                     .extend_fragment(&from_socket);
                 let to_res = app
-                    .graph
+                    .graphs
                     .node_weight(to)
                     .unwrap()
                     .resource
@@ -346,14 +414,14 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
             Event::NodeDelete(idx) => {
                 app.broker_sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
-                        app.graph.node_weight(idx).unwrap().resource.clone(),
+                        app.graphs.node_weight(idx).unwrap().resource.clone(),
                     )))
                     .unwrap();
             }
             Event::SocketClear(idx, socket) => {
                 app.broker_sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
-                        app.graph
+                        app.graphs
                             .node_weight(idx)
                             .unwrap()
                             .resource
