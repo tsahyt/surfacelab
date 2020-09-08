@@ -154,6 +154,9 @@ impl NodeGraph {
         )
     }
 
+    /// Rebuild all events that create this graph. Note that parameter boxes
+    /// will be left empty, since not all information is available to build them
+    /// in the case of complex operators.
     pub fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {
         let mut events = Vec::new();
 

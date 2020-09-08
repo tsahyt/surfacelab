@@ -51,6 +51,16 @@ impl NodeManager {
             )))
         }
 
+        // Rebuild parameter boxes for node added events
+        for ev in events.iter_mut() {
+            match ev {
+                Lang::GraphEvent(GraphEvent::NodeAdded(_, op, pbox, _, _)) => {
+                    *pbox = self.operator_param_box(&op);
+                }
+                _ => {}
+            }
+        }
+
         // Finally make sure base is picked
         events.push(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
             Resource::graph("base", None),
