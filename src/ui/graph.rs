@@ -58,41 +58,42 @@ impl NodeData {
 }
 
 fn node_attributes(res: &Resource, scalable: bool) -> ParamBoxDescription<ResourceField> {
+    let mut parameters = vec![Parameter {
+        name: "Node Resource".to_string(),
+        transmitter: ResourceField::Name,
+        control: Control::Entry {
+            value: res
+                .path()
+                .file_name()
+                .and_then(|x| x.to_str())
+                .map(|x| x.to_string())
+                .unwrap(),
+        },
+        exposable: false,
+    }];
+    if scalable {
+        parameters.push(Parameter {
+            name: "Size".to_string(),
+            transmitter: ResourceField::Size,
+            control: Control::DiscreteSlider {
+                value: 0,
+                min: -16,
+                max: 16,
+            },
+            exposable: false,
+        });
+        parameters.push(Parameter {
+            name: "Absolute Size".to_string(),
+            transmitter: ResourceField::AbsoluteSize,
+            control: Control::Toggle { def: false },
+            exposable: false,
+        });
+    }
     ParamBoxDescription {
         box_title: "Node Attributes".to_string(),
         categories: vec![ParamCategory {
             name: "Node",
-            parameters: vec![
-                Parameter {
-                    name: "Node Resource".to_string(),
-                    transmitter: ResourceField::Name,
-                    control: Control::Entry {
-                        value: res
-                            .path()
-                            .file_name()
-                            .and_then(|x| x.to_str())
-                            .map(|x| x.to_string())
-                            .unwrap(),
-                    },
-                    available: true,
-                },
-                Parameter {
-                    name: "Size".to_string(),
-                    transmitter: ResourceField::Size,
-                    control: Control::DiscreteSlider {
-                        value: 0,
-                        min: -16,
-                        max: 16,
-                    },
-                    available: scalable,
-                },
-                Parameter {
-                    name: "Absolute Size".to_string(),
-                    transmitter: ResourceField::AbsoluteSize,
-                    control: Control::Toggle { def: false },
-                    available: scalable,
-                },
-            ],
+            parameters,
         }],
     }
 }

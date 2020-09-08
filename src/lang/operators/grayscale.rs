@@ -113,7 +113,7 @@ impl OperatorParamBox for Grayscale {
                             .map(|x| x.to_string())
                             .collect(),
                     },
-                    available: true,
+                    exposable: true,
                 }],
             }],
         }

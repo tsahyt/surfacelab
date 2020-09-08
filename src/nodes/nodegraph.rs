@@ -118,7 +118,7 @@ impl NodeGraph {
                         name: v.title.clone(),
                         transmitter: Field(k.clone()),
                         control: v.control.clone(),
-                        available: true,
+                        exposable: true,
                     })
                     .collect(),
             }],

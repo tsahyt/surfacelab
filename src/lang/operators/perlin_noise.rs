@@ -78,7 +78,7 @@ impl OperatorParamBox for PerlinNoise {
                             min: 0.,
                             max: 16.,
                         },
-                        available: true,
+                        exposable: true,
                     },
                     Parameter {
                         name: "Octaves".to_string(),
@@ -88,7 +88,7 @@ impl OperatorParamBox for PerlinNoise {
                             min: 0.,
                             max: 16.,
                         },
-                        available: true,
+                        exposable: true,
                     },
                     Parameter {
                         name: "Attenuation".to_string(),
@@ -98,7 +98,7 @@ impl OperatorParamBox for PerlinNoise {
                             min: 0.,
                             max: 4.,
                         },
-                        available: true,
+                        exposable: true,
                     },
                 ],
             }],

@@ -193,7 +193,7 @@ where
 
             top_margin += 16.0;
 
-            for parameter in category.parameters.iter_mut().filter(|p| p.available) {
+            for parameter in category.parameters.iter_mut() {
                 let label_id = state.labels[label_count];
                 label_count += 1;
                 widget::Text::new(&parameter.name)

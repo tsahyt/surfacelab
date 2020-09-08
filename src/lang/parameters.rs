@@ -275,7 +275,7 @@ where
                         .iter()
                         .map(|param| Parameter {
                             name: param.name.to_owned(),
-                            available: param.available,
+                            exposable: param.exposable,
                             control: param.control.to_owned(),
                             transmitter: f(&param.transmitter),
                         })
@@ -321,7 +321,7 @@ pub struct Parameter<T: MessageWriter> {
     pub name: String,
     pub transmitter: T,
     pub control: Control,
-    pub available: bool,
+    pub exposable: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

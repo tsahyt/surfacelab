@@ -122,7 +122,7 @@ impl OperatorParamBox for Blend {
                             selected: self.blend_mode as usize,
                             variants: BlendMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
                         },
-                        available: true,
+                        exposable: true,
                     },
                     Parameter {
                         name: "Clamp".to_string(),
@@ -130,7 +130,7 @@ impl OperatorParamBox for Blend {
                         control: Control::Toggle {
                             def: self.clamp_output == 1,
                         },
-                        available: true,
+                        exposable: true,
                     },
                     Parameter {
                         name: "Mix".to_string(),
@@ -140,7 +140,7 @@ impl OperatorParamBox for Blend {
                             min: 0.,
                             max: 1.,
                         },
-                        available: true,
+                        exposable: true,
                     },
                 ],
             }],

@@ -41,7 +41,7 @@ widget_ids!(
 
 pub struct Graph {
     graph: super::graph::NodeGraph,
-    resources: HashMap<Resource, petgraph::graph::NodeIndex>
+    resources: HashMap<Resource, petgraph::graph::NodeIndex>,
 }
 
 impl Default for Graph {
@@ -64,7 +64,7 @@ impl Graphs {
         Graphs {
             graphs: HashMap::new(),
             active_graph: Graph::default(),
-            active_resource: Resource::graph("base", None)
+            active_resource: Resource::graph("base", None),
         }
     }
 
