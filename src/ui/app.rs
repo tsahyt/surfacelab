@@ -25,6 +25,8 @@ widget_ids!(
         new_surface,
         open_surface,
         save_surface,
+        graph_selector,
+        graph_add,
 
         // Main Views
         node_graph,
@@ -39,6 +41,7 @@ widget_ids!(
     }
 );
 
+#[derive(Debug)]
 pub struct Graph {
     graph: super::graph::NodeGraph,
     resources: HashMap<Resource, petgraph::graph::NodeIndex>,
@@ -53,6 +56,7 @@ impl Default for Graph {
     }
 }
 
+#[derive(Debug)]
 pub struct Graphs {
     graphs: HashMap<Resource, Graph>,
     active_graph: Graph,
@@ -96,6 +100,12 @@ impl Graphs {
 
     pub fn add_graph(&mut self, graph: Resource) {
         self.graphs.insert(graph, Graph::default());
+    }
+
+    pub fn list_graph_names(&self) -> Vec<&str> {
+        std::iter::once(self.active_resource.file().unwrap())
+            .chain(self.graphs.keys().map(|k| k.file().unwrap()))
+            .collect()
     }
 }
 
@@ -144,7 +154,9 @@ impl App {
 
     pub fn handle_graph_event(&mut self, event: &GraphEvent) {
         match event {
-            GraphEvent::GraphAdded(_) => {}
+            GraphEvent::GraphAdded(res) => {
+                self.graphs.add_graph(res.clone())
+            }
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
                 let idx = self.graphs.add_node(super::graph::NodeData::new(
                     res.clone(),
@@ -383,6 +395,29 @@ pub fn top_bar(
             }
             _ => {}
         }
+    }
+
+    widget::DropDownList::new(&app.graphs.list_graph_names(), Some(0))
+        .label_font_size(12)
+        .parent(ids.top_bar_canvas)
+        .mid_right_with_margin(8.0)
+        .w(256.0)
+        .set(ids.graph_selector, ui);
+
+    for _press in icon_button(IconName::GRAPH, fonts)
+        .label_font_size(14)
+        .label_color(color::WHITE)
+        .color(color::DARK_CHARCOAL)
+        .wh([32., 32.0])
+        .left(8.0)
+        .parent(ids.top_bar_canvas)
+        .set(ids.graph_add, ui)
+    {
+        sender
+            .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph(
+                "untitled".to_string(),
+            )))
+            .unwrap()
     }
 }
 
