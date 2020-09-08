@@ -124,10 +124,18 @@ impl ParamSubstitution {
     }
 }
 
-pub trait MessageWriter {
+#[enum_dispatch]
+pub trait MessageWriter: Clone {
     fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang;
 
     fn as_field(&self) -> Option<&Field>;
+}
+
+#[enum_dispatch(MessageWriter)]
+#[derive(Clone, Debug, PartialEq)]
+pub enum MessageWriters {
+    Field,
+    ResourceField,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -249,6 +257,44 @@ where
         }
 
         counts
+    }
+
+    pub fn map_transmitters<Q: MessageWriter, F: Fn(&T) -> Q>(
+        self,
+        f: F,
+    ) -> ParamBoxDescription<Q> {
+        ParamBoxDescription {
+            box_title: self.box_title,
+            categories: self
+                .categories
+                .iter()
+                .map(|cat| ParamCategory {
+                    name: cat.name,
+                    parameters: cat
+                        .parameters
+                        .iter()
+                        .map(|param| Parameter {
+                            name: param.name.to_owned(),
+                            available: param.available,
+                            control: param.control.to_owned(),
+                            transmitter: f(&param.transmitter),
+                        })
+                        .collect(),
+                })
+                .collect(),
+        }
+    }
+
+    pub fn extend_categories<I>(&mut self, cats: I)
+    where
+        I: IntoIterator<Item = ParamCategory<T>>,
+    {
+        self.categories.extend(cats);
+    }
+
+    pub fn merge(mut self, other: Self) -> Self {
+        self.extend_categories(other.categories.iter().cloned());
+        self
     }
 }
 

@@ -181,6 +181,7 @@ where
 
         // Build widgets for each parameter
         let mut top_margin = 16.0;
+        let mut label_count = 0;
         let mut control_idx = ControlCounts::default();
         for (j, category) in self.description.categories.iter_mut().enumerate() {
             widget::Text::new(&category.name)
@@ -192,13 +193,9 @@ where
 
             top_margin += 16.0;
 
-            for (i, parameter) in category
-                .parameters
-                .iter_mut()
-                .filter(|p| p.available)
-                .enumerate()
-            {
-                let label_id = state.labels[i + j];
+            for parameter in category.parameters.iter_mut().filter(|p| p.available) {
+                let label_id = state.labels[label_count];
+                label_count += 1;
                 widget::Text::new(&parameter.name)
                     .parent(id)
                     .color(color::WHITE)

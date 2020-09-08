@@ -18,8 +18,7 @@ pub struct NodeData {
     pub inputs: Vec<(String, OperatorType)>,
     pub outputs: Vec<(String, OperatorType)>,
     pub type_variables: HashMap<TypeVariable, ImageType>,
-    pub operator_param_box: ParamBoxDescription<Field>,
-    pub node_param_box: ParamBoxDescription<ResourceField>,
+    pub param_box: ParamBoxDescription<MessageWriters>,
 }
 
 impl NodeData {
@@ -27,7 +26,7 @@ impl NodeData {
         resource: Resource,
         position: Option<Point>,
         operator: &Operator,
-        operator_param_box: ParamBoxDescription<Field>,
+        param_box: ParamBoxDescription<Field>,
     ) -> Self {
         let mut inputs: Vec<_> = operator
             .inputs()
@@ -42,13 +41,15 @@ impl NodeData {
             .collect();
         outputs.sort();
         let title = operator.title().to_owned();
+        let pbox = node_attributes(&resource, true)
+            .map_transmitters(|t| t.clone().into())
+            .merge(param_box.map_transmitters(|t| t.clone().into()));
         Self {
-            node_param_box: node_attributes(&resource, true),
             resource,
             title,
             inputs,
             outputs,
-            operator_param_box,
+            param_box: pbox,
             thumbnail: None,
             position: position.unwrap_or([0., 0.]),
             type_variables: HashMap::new(),
