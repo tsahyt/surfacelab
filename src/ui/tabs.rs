@@ -333,6 +333,7 @@ impl<'a> Widget for Tabs<'a> {
             widget::Canvas::new()
                 .with_style(canvas_style)
                 .kid_area_wh_of(id)
+                .scroll_kids_vertically()
                 .middle_of(id)
                 .parent(id)
                 .set(child_id, &mut ui);
