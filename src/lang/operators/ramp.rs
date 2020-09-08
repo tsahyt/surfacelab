@@ -176,7 +176,7 @@ impl OperatorParamBox for Ramp {
                     control: Control::Ramp {
                         steps: self.get_steps(),
                     },
-                    exposable: true,
+                    expose_status: Some(ExposeStatus::Unexposed),
                 }],
             }],
         }

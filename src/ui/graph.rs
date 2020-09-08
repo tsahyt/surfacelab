@@ -69,7 +69,7 @@ fn node_attributes(res: &Resource, scalable: bool) -> ParamBoxDescription<Resour
                 .map(|x| x.to_string())
                 .unwrap(),
         },
-        exposable: false,
+        expose_status: None,
     }];
     if scalable {
         parameters.push(Parameter {
@@ -80,13 +80,13 @@ fn node_attributes(res: &Resource, scalable: bool) -> ParamBoxDescription<Resour
                 min: -16,
                 max: 16,
             },
-            exposable: false,
+            expose_status: None,
         });
         parameters.push(Parameter {
             name: "Absolute Size".to_string(),
             transmitter: ResourceField::AbsoluteSize,
             control: Control::Toggle { def: false },
-            exposable: false,
+            expose_status: None,
         });
     }
     ParamBoxDescription {

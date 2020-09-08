@@ -70,7 +70,7 @@ impl OperatorParamBox for Rgb {
                     name: "Color".to_string(),
                     transmitter: Field(Rgb::RGB.to_string()),
                     control: Control::RgbColor { value: self.rgb },
-                    exposable: true,
+                    expose_status: Some(ExposeStatus::Unexposed),
                 }],
             }],
         }

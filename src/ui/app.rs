@@ -74,6 +74,10 @@ impl Graphs {
         self.active_graph = self.graphs.remove(&self.active_resource).unwrap();
     }
 
+    pub fn get_active(&self) -> &Resource {
+        &self.active_resource
+    }
+
     pub fn index_of(&self, resource: &Resource) -> Option<petgraph::graph::NodeIndex> {
         self.active_graph.resources.get(&resource).copied()
     }
@@ -239,7 +243,13 @@ pub struct AppFonts {
     pub icon_font: text::font::Id,
 }
 
-pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App, sender: &BrokerSender<Lang>) {
+pub fn gui(
+    ui: &mut UiCell,
+    ids: &Ids,
+    fonts: &AppFonts,
+    app: &mut App,
+    sender: &BrokerSender<Lang>,
+) {
     use super::tabs;
 
     widget::Canvas::new()
@@ -300,7 +310,13 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App, sender: 
     parameter_section(ui, ids, fonts, app, sender);
 }
 
-pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App, sender: &BrokerSender<Lang>) {
+pub fn top_bar(
+    ui: &mut UiCell,
+    ids: &Ids,
+    fonts: &AppFonts,
+    app: &mut App,
+    sender: &BrokerSender<Lang>,
+) {
     use super::util::*;
 
     for _press in icon_button(IconName::FOLDER_PLUS, fonts)
@@ -370,7 +386,13 @@ pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App, send
     }
 }
 
-pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App, sender: &BrokerSender<Lang>) {
+pub fn node_graph(
+    ui: &mut UiCell,
+    ids: &Ids,
+    _fonts: &AppFonts,
+    app: &mut App,
+    sender: &BrokerSender<Lang>,
+) {
     use super::graph::*;
     for event in Graph::new(&app.graphs)
         .parent(ids.node_graph_canvas)
@@ -503,36 +525,31 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App, sender: &BrokerSen
             // The widget itself does not communicate with the backend. Process
             // events here
             match rv {
-                Some(Event::Resized(w, h)) =>
-                    sender
+                Some(Event::Resized(w, h)) => sender
                     .send(Lang::UIEvent(UIEvent::RendererResize(renderer_id, w, h)))
                     .unwrap(),
-                Some(Event::Rotate(x, y)) =>
-                    sender
+                Some(Event::Rotate(x, y)) => sender
                     .send(Lang::UserRenderEvent(UserRenderEvent::Rotate(
                         renderer_id,
                         x,
                         y,
                     )))
                     .unwrap(),
-                Some(Event::Pan(x, y)) =>
-                    sender
+                Some(Event::Pan(x, y)) => sender
                     .send(Lang::UserRenderEvent(UserRenderEvent::Pan(
                         renderer_id,
                         x,
                         y,
                     )))
                     .unwrap(),
-                Some(Event::LightPan(x, y)) =>
-                    sender
+                Some(Event::LightPan(x, y)) => sender
                     .send(Lang::UserRenderEvent(UserRenderEvent::LightMove(
                         renderer_id,
                         x,
                         y,
                     )))
                     .unwrap(),
-                Some(Event::Zoom(delta)) =>
-                    sender
+                Some(Event::Zoom(delta)) => sender
                     .send(Lang::UserRenderEvent(UserRenderEvent::Zoom(
                         renderer_id,
                         delta,
@@ -556,7 +573,13 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App, sender: &BrokerSen
     }
 }
 
-pub fn parameter_section(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App, sender: &BrokerSender<Lang>) {
+pub fn parameter_section(
+    ui: &mut UiCell,
+    ids: &Ids,
+    fonts: &AppFonts,
+    app: &mut App,
+    sender: &BrokerSender<Lang>,
+) {
     use super::param_box::*;
 
     if let Some((description, resource)) = app.active_parameters() {
@@ -571,6 +594,9 @@ pub fn parameter_section(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut
                 Event::ExposeParameter(field, name, control) => Lang::UserGraphEvent(
                     UserGraphEvent::ExposeParameter(resource.clone(), field, name, control),
                 ),
+                Event::ConcealParameter(field) => {
+                    Lang::UserGraphEvent(UserGraphEvent::ConcealParameter(resource.clone(), field))
+                }
             };
 
             sender.send(resp).unwrap();

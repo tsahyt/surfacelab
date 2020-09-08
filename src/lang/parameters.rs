@@ -275,7 +275,7 @@ where
                         .iter()
                         .map(|param| Parameter {
                             name: param.name.to_owned(),
-                            exposable: param.exposable,
+                            expose_status: param.expose_status,
                             control: param.control.to_owned(),
                             transmitter: f(&param.transmitter),
                         })
@@ -316,12 +316,18 @@ pub struct ParamCategory<T: MessageWriter> {
     pub parameters: Vec<Parameter<T>>,
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum ExposeStatus {
+    Unexposed,
+    Exposed,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parameter<T: MessageWriter> {
     pub name: String,
     pub transmitter: T,
     pub control: Control,
-    pub exposable: bool,
+    pub expose_status: Option<ExposeStatus>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

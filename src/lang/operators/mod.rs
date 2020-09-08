@@ -77,7 +77,7 @@ impl OperatorParamBox for Image {
                             Some(self.path.to_owned())
                         },
                     },
-                    exposable: true,
+                    expose_status: Some(ExposeStatus::Unexposed),
                 }],
             }],
         }
@@ -152,7 +152,7 @@ impl OperatorParamBox for Output {
                             .map(|x| x.to_string())
                             .collect(),
                     },
-                    exposable: false,
+                    expose_status: None,
                 }],
             }],
         }

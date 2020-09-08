@@ -150,6 +150,7 @@ pub struct State {
 pub enum Event {
     ChangeParameter(Lang),
     ExposeParameter(String, String, Control),
+    ConcealParameter(String),
 }
 
 impl<'a, T> Widget for ParamBox<'a, T>
@@ -212,15 +213,21 @@ where
                 let expose_id = state.exposes[label_count];
                 label_count += 1;
 
-                if parameter.exposable {
-                    for _press in icon_button(IconName::EXPOSE, self.app_fonts)
-                        .parent(id)
-                        .color(color::DARK_CHARCOAL)
-                        .label_color(color::WHITE)
-                        .top_right_with_margins(top_margin, 16.0)
-                        .label_font_size(12)
-                        .wh([20.0, 16.0])
-                        .set(expose_id, ui)
+                if let Some(expose_status) = parameter.expose_status {
+                    for _press in icon_button(
+                        match &expose_status {
+                            ExposeStatus::Unexposed => IconName::EXPOSE,
+                            ExposeStatus::Exposed => IconName::UNEXPOSE,
+                        },
+                        self.app_fonts,
+                    )
+                    .parent(id)
+                    .color(color::DARK_CHARCOAL)
+                    .label_color(color::WHITE)
+                    .top_right_with_margins(top_margin, 16.0)
+                    .label_font_size(12)
+                    .wh([20.0, 16.0])
+                    .set(expose_id, ui)
                     {
                         if let Some(field) = parameter.transmitter.as_field().map(|x| x.0.clone()) {
                             ev.push(Event::ExposeParameter(
