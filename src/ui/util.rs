@@ -6,6 +6,8 @@ impl IconName {
     pub const CONTENT_SAVE: IconName = IconName("\u{f0193}");
     pub const FOLDER_OPEN: IconName = IconName("\u{f0770}");
     pub const FOLDER_PLUS: IconName = IconName("\u{f0257}");
+    pub const EXPOSE: IconName = IconName("\u{f0003}");
+    pub const UNEXPOSE: IconName = IconName("\u{f1511}");
 }
 
 pub fn icon_button<'a>(

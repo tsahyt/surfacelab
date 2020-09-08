@@ -46,7 +46,7 @@ fn ui_loop<B: gpu::Backend>(
 
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
 
-    let mut app = app::App::new(sender, (monitor_size.width, monitor_size.height));
+    let mut app = app::App::new((monitor_size.width, monitor_size.height));
 
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
     let ids = app::Ids::new(ui.widget_id_generator());
@@ -122,7 +122,7 @@ fn ui_loop<B: gpu::Backend>(
                 // Update widgets if any event has happened
                 if ui.global_input().events().next().is_some() {
                     let mut ui = ui.set_widgets();
-                    app::gui(&mut ui, &ids, &fonts, &mut app);
+                    app::gui(&mut ui, &ids, &fonts, &mut app, &sender);
                     window.request_redraw();
                 }
             }

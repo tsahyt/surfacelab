@@ -114,19 +114,17 @@ pub struct App {
     pub active_element: Option<petgraph::graph::NodeIndex>,
     pub render_image: Option<image::Id>,
 
-    pub broker_sender: BrokerSender<Lang>,
     pub monitor_resolution: (u32, u32),
 
     pub add_modal: bool,
 }
 
 impl App {
-    pub fn new(sender: BrokerSender<Lang>, monitor_size: (u32, u32)) -> Self {
+    pub fn new(monitor_size: (u32, u32)) -> Self {
         Self {
             graphs: Graphs::new(),
             active_element: None,
             render_image: None,
-            broker_sender: sender,
             monitor_resolution: (monitor_size.0, monitor_size.1),
             add_modal: false,
         }
@@ -235,12 +233,13 @@ impl App {
     }
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct AppFonts {
     pub text_font: text::font::Id,
     pub icon_font: text::font::Id,
 }
 
-pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
+pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App, sender: &BrokerSender<Lang>) {
     use super::tabs;
 
     widget::Canvas::new()
@@ -295,13 +294,13 @@ pub fn gui(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
     .middle()
     .set(ids.sidebar_tabs, ui);
 
-    top_bar(ui, ids, fonts, app);
-    node_graph(ui, ids, fonts, app);
-    render_view(ui, ids, app);
-    parameter_section(ui, ids, fonts, app);
+    top_bar(ui, ids, fonts, app, sender);
+    node_graph(ui, ids, fonts, app, sender);
+    render_view(ui, ids, app, sender);
+    parameter_section(ui, ids, fonts, app, sender);
 }
 
-pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
+pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App, sender: &BrokerSender<Lang>) {
     use super::util::*;
 
     for _press in icon_button(IconName::FOLDER_PLUS, fonts)
@@ -313,7 +312,7 @@ pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
         .parent(ids.top_bar_canvas)
         .set(ids.new_surface, ui)
     {
-        app.broker_sender
+        sender
             .send(Lang::UserIOEvent(UserIOEvent::NewSurface))
             .unwrap();
     }
@@ -333,7 +332,7 @@ pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
             .show()
         {
             Ok(Some(path)) => {
-                app.broker_sender
+                sender
                     .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
                         std::path::PathBuf::from(path),
                     )))
@@ -360,7 +359,7 @@ pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
             .show()
         {
             Ok(Some(path)) => {
-                app.broker_sender
+                sender
                     .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
                         std::path::PathBuf::from(path),
                     )))
@@ -371,7 +370,7 @@ pub fn top_bar(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App) {
     }
 }
 
-pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) {
+pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App, sender: &BrokerSender<Lang>) {
     use super::graph::*;
     for event in Graph::new(&app.graphs)
         .parent(ids.node_graph_canvas)
@@ -385,7 +384,7 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                 node.position[0] += x;
                 node.position[1] += y;
 
-                app.broker_sender
+                sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
                         node.resource.clone(),
                         (node.position[0], node.position[1]),
@@ -405,21 +404,21 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
                     .unwrap()
                     .resource
                     .extend_fragment(&to_socket);
-                app.broker_sender
+                sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
                         from_res, to_res,
                     )))
                     .unwrap();
             }
             Event::NodeDelete(idx) => {
-                app.broker_sender
+                sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
                         app.graphs.node_weight(idx).unwrap().resource.clone(),
                     )))
                     .unwrap();
             }
             Event::SocketClear(idx, socket) => {
-                app.broker_sender
+                sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
                         app.graphs
                             .node_weight(idx)
@@ -464,7 +463,7 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
             for _press in item.set(toggle, ui) {
                 app.add_modal = false;
 
-                app.broker_sender
+                sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
                         Resource::graph("base", None), // TODO: current graph in UI
                         Operator::AtomicOperator(operators[i].clone()),
@@ -487,7 +486,7 @@ pub fn node_graph(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) 
     }
 }
 
-pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
+pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App, sender: &BrokerSender<Lang>) {
     use super::renderview::*;
 
     let renderer_id = ids.render_view.index() as u64;
@@ -504,36 +503,36 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
             // The widget itself does not communicate with the backend. Process
             // events here
             match rv {
-                Some(Event::Resized(w, h)) => app
-                    .broker_sender
+                Some(Event::Resized(w, h)) =>
+                    sender
                     .send(Lang::UIEvent(UIEvent::RendererResize(renderer_id, w, h)))
                     .unwrap(),
-                Some(Event::Rotate(x, y)) => app
-                    .broker_sender
+                Some(Event::Rotate(x, y)) =>
+                    sender
                     .send(Lang::UserRenderEvent(UserRenderEvent::Rotate(
                         renderer_id,
                         x,
                         y,
                     )))
                     .unwrap(),
-                Some(Event::Pan(x, y)) => app
-                    .broker_sender
+                Some(Event::Pan(x, y)) =>
+                    sender
                     .send(Lang::UserRenderEvent(UserRenderEvent::Pan(
                         renderer_id,
                         x,
                         y,
                     )))
                     .unwrap(),
-                Some(Event::LightPan(x, y)) => app
-                    .broker_sender
+                Some(Event::LightPan(x, y)) =>
+                    sender
                     .send(Lang::UserRenderEvent(UserRenderEvent::LightMove(
                         renderer_id,
                         x,
                         y,
                     )))
                     .unwrap(),
-                Some(Event::Zoom(delta)) => app
-                    .broker_sender
+                Some(Event::Zoom(delta)) =>
+                    sender
                     .send(Lang::UserRenderEvent(UserRenderEvent::Zoom(
                         renderer_id,
                         delta,
@@ -545,7 +544,7 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
         None => {
             // Otherwise create one by notifying the render component
             let [w, h] = ui.wh_of(ids.drawing_canvas).unwrap();
-            app.broker_sender
+            sender
                 .send(Lang::UIEvent(UIEvent::RendererRequested(
                     renderer_id,
                     (app.monitor_resolution.0, app.monitor_resolution.1),
@@ -557,17 +556,24 @@ pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App) {
     }
 }
 
-pub fn parameter_section(ui: &mut UiCell, ids: &Ids, _fonts: &AppFonts, app: &mut App) {
+pub fn parameter_section(ui: &mut UiCell, ids: &Ids, fonts: &AppFonts, app: &mut App, sender: &BrokerSender<Lang>) {
     use super::param_box::*;
 
     if let Some((description, resource)) = app.active_parameters() {
-        for Event::ChangeParameter(event) in ParamBox::new(description, resource)
+        for ev in ParamBox::new(description, resource, fonts)
             .parent(ids.parameter_canvas)
             .w_of(ids.parameter_canvas)
             .mid_top()
             .set(ids.param_box, ui)
         {
-            app.broker_sender.send(event).unwrap();
+            let resp = match ev {
+                Event::ChangeParameter(event) => event,
+                Event::ExposeParameter(field, name, control) => Lang::UserGraphEvent(
+                    UserGraphEvent::ExposeParameter(resource.clone(), field, name, control),
+                ),
+            };
+
+            sender.send(resp).unwrap();
         }
     }
 }

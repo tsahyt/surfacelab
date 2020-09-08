@@ -1,5 +1,6 @@
 use super::color_picker::ColorPicker;
 use super::color_ramp::ColorRamp;
+use super::util::*;
 use crate::lang::*;
 
 use conrod_core::*;
@@ -16,21 +17,28 @@ pub struct ParamBox<'a, T: MessageWriter> {
     resource: &'a Resource,
     style: Style,
     description: &'a mut ParamBoxDescription<T>,
+    app_fonts: &'a super::app::AppFonts,
 }
 
 impl<'a, T: MessageWriter> ParamBox<'a, T> {
-    pub fn new(description: &'a mut ParamBoxDescription<T>, resource: &'a Resource) -> Self {
+    pub fn new(
+        description: &'a mut ParamBoxDescription<T>,
+        resource: &'a Resource,
+        fonts: &'a super::app::AppFonts,
+    ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             description,
             resource,
+            app_fonts: fonts,
         }
     }
 
     fn resize_ids(&self, state: &mut widget::State<'_, State>, id_gen: &mut widget::id::Generator) {
         state.update(|state| {
             state.labels.resize(self.description.len(), id_gen);
+            state.exposes.resize(self.description.len(), id_gen);
             state
                 .categories
                 .resize(self.description.categories(), id_gen);
@@ -78,6 +86,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
         let counts = self.description.control_counts();
 
         state.labels.len() < self.description.len()
+            || state.exposes.len() < self.description.len()
             || state.categories.len() < self.description.categories()
             || state
                 .controls
@@ -125,11 +134,14 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
-pub struct Style {}
+pub struct Style {
+    icon_font: Option<text::font::Id>,
+}
 
 #[derive(Clone, Debug)]
 pub struct State {
     labels: widget::id::List,
+    exposes: widget::id::List,
     controls: HashMap<TypeId, widget::id::List>,
     categories: widget::id::List,
 }
@@ -137,6 +149,7 @@ pub struct State {
 #[derive(Debug)]
 pub enum Event {
     ChangeParameter(Lang),
+    ExposeParameter(String, String, Control),
 }
 
 impl<'a, T> Widget for ParamBox<'a, T>
@@ -150,6 +163,7 @@ where
     fn init_state(&self, _id_gen: widget::id::Generator) -> Self::State {
         State {
             labels: widget::id::List::new(),
+            exposes: widget::id::List::new(),
             controls: hashmap! {
                 TypeId::of::<widget::Slider<f32>>() => widget::id::List::new(),
                 TypeId::of::<widget::DropDownList<String>>() => widget::id::List::new(),
@@ -195,7 +209,29 @@ where
 
             for parameter in category.parameters.iter_mut() {
                 let label_id = state.labels[label_count];
+                let expose_id = state.exposes[label_count];
                 label_count += 1;
+
+                if parameter.exposable {
+                    for _press in icon_button(IconName::EXPOSE, self.app_fonts)
+                        .parent(id)
+                        .color(color::DARK_CHARCOAL)
+                        .label_color(color::WHITE)
+                        .top_right_with_margins(top_margin, 16.0)
+                        .label_font_size(12)
+                        .wh([20.0, 16.0])
+                        .set(expose_id, ui)
+                    {
+                        if let Some(field) = parameter.transmitter.as_field().map(|x| x.0.clone()) {
+                            ev.push(Event::ExposeParameter(
+                                field,
+                                parameter.name.clone(),
+                                parameter.control.clone(),
+                            ));
+                        }
+                    }
+                }
+
                 widget::Text::new(&parameter.name)
                     .parent(id)
                     .color(color::WHITE)
