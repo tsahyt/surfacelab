@@ -80,6 +80,36 @@ pub struct State {
     ids: Ids,
     input_sockets: HashMap<String, widget::Id>,
     output_sockets: HashMap<String, widget::Id>,
+    sockets_hash: u64,
+}
+
+impl State {
+    pub fn renew_sockets(
+        &mut self,
+        id_gen: &mut widget::id::Generator,
+        inputs: &[(String, OperatorType)],
+        outputs: &[(String, OperatorType)],
+    ) {
+        let input_ids = self
+            .input_sockets
+            .values()
+            .copied()
+            .chain(std::iter::repeat_with(|| id_gen.next()));
+        self.input_sockets = HashMap::from_iter(
+            inputs.iter().zip(input_ids).map(|(s,i)| (s.0.clone(), i))
+        );
+
+        let output_ids = self
+            .output_sockets
+            .values()
+            .copied()
+            .chain(std::iter::repeat_with(|| id_gen.next()));
+        self.output_sockets = HashMap::from_iter(
+            outputs.iter().zip(output_ids).map(|(s,i)| (s.0.clone(), i))
+        );
+
+        self.sockets_hash = hash_sockets(inputs, outputs);
+    }
 }
 
 pub fn socket_rect(ui: &Ui, node_id: widget::Id, socket: &str) -> Option<Rect> {
@@ -119,6 +149,15 @@ pub fn target_socket(ui: &Ui, node_id: widget::Id, point: Point) -> Option<&str>
     None
 }
 
+fn hash_sockets(inputs: &[(String, OperatorType)], outputs: &[(String, OperatorType)]) -> u64 {
+    use std::hash::*;
+
+    let mut s = std::collections::hash_map::DefaultHasher::new();
+    inputs.hash(&mut s);
+    outputs.hash(&mut s);
+    s.finish()
+}
+
 impl<'a> Widget for Node<'a> {
     type State = State;
     type Style = Style;
@@ -132,6 +171,7 @@ impl<'a> Widget for Node<'a> {
             output_sockets: HashMap::from_iter(
                 self.outputs.iter().map(|(k, _)| (k.clone(), id_gen.next())),
             ),
+            sockets_hash: hash_sockets(self.inputs, self.outputs),
             ids: Ids::new(id_gen),
         }
     }
@@ -142,6 +182,13 @@ impl<'a> Widget for Node<'a> {
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let state = args.state;
+
+        if hash_sockets(self.inputs, self.outputs) != state.sockets_hash {
+            let mut id_gen = args.ui.widget_id_generator();
+            state.update(|state| {
+                state.renew_sockets(&mut id_gen, self.inputs, self.outputs);
+            })
+        }
         let mut evs = SmallVec::new();
 
         widget::BorderedRectangle::new(args.rect.dim())
@@ -178,19 +225,19 @@ impl<'a> Widget for Node<'a> {
         let mut margin = 16.0;
 
         for (input, ty) in self.inputs.iter() {
-            let w_id = state.input_sockets.get(input).unwrap();
+            let w_id = state.input_sockets.get(input).copied().unwrap();
             widget::BorderedRectangle::new([16.0, 16.0])
                 .border(3.0)
                 .color(operator_type_color(ty, self.type_variables))
                 .parent(state.ids.rectangle)
                 .top_left_with_margins(margin, 0.0)
-                .set(*w_id, args.ui);
+                .set(w_id, args.ui);
 
-            let middle = args.ui.xy_of(*w_id).unwrap();
+            let middle = args.ui.xy_of(w_id).unwrap();
 
             evs.extend(
                 args.ui
-                    .widget_input(*w_id)
+                    .widget_input(w_id)
                     .drags()
                     .button(input::MouseButton::Left)
                     .map(|x| {
@@ -206,14 +253,14 @@ impl<'a> Widget for Node<'a> {
 
             evs.extend(
                 args.ui
-                    .widget_input(*w_id)
+                    .widget_input(w_id)
                     .releases()
                     .map(|_| Event::SocketRelease(self.node_id)),
             );
 
             evs.extend(
                 args.ui
-                    .widget_input(*w_id)
+                    .widget_input(w_id)
                     .presses()
                     .mouse()
                     .button(input::MouseButton::Right)
@@ -226,19 +273,19 @@ impl<'a> Widget for Node<'a> {
         margin = 16.0;
 
         for (output, ty) in self.outputs.iter() {
-            let w_id = state.output_sockets.get(output).unwrap();
+            let w_id = state.output_sockets.get(output).copied().unwrap();
             widget::BorderedRectangle::new([16.0, 16.0])
                 .border(3.0)
                 .color(operator_type_color(ty, self.type_variables))
                 .parent(state.ids.rectangle)
                 .top_right_with_margins(margin, 0.0)
-                .set(*w_id, args.ui);
+                .set(w_id, args.ui);
 
-            let middle = args.ui.xy_of(*w_id).unwrap();
+            let middle = args.ui.xy_of(w_id).unwrap();
 
             evs.extend(
                 args.ui
-                    .widget_input(*w_id)
+                    .widget_input(w_id)
                     .drags()
                     .button(input::MouseButton::Left)
                     .map(|x| {
@@ -254,7 +301,7 @@ impl<'a> Widget for Node<'a> {
 
             evs.extend(
                 args.ui
-                    .widget_input(*w_id)
+                    .widget_input(w_id)
                     .releases()
                     .map(|_| Event::SocketRelease(self.node_id)),
             );

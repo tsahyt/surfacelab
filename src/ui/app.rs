@@ -73,7 +73,8 @@ impl Graphs {
     }
 
     pub fn set_active(&mut self, graph: Resource) {
-        self.graphs.insert(self.active_resource.clone(), self.active_graph.clone());
+        self.graphs
+            .insert(self.active_resource.clone(), self.active_graph.clone());
         self.active_resource = graph;
         self.active_graph = self.graphs.remove(&self.active_resource).unwrap();
     }

@@ -142,7 +142,7 @@ pub enum Instruction {
     Thumbnail(Resource),
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Serialize, Deserialize, Hash)]
 pub enum ImageType {
     Grayscale,
     Rgb,
@@ -194,7 +194,7 @@ impl Default for OutputType {
 
 pub type TypeVariable = u8;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Serialize, Deserialize, Hash)]
 pub enum OperatorType {
     Monomorphic(ImageType),
     Polymorphic(TypeVariable),
