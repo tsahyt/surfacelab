@@ -736,8 +736,13 @@ where
     }
 
     fn graph_section(&mut self, ui: &mut UiCell) {
+        use super::table;
+
+        // table::Table::new(&mut [ExposedParameter { field: "Hello World".to_string() }])
+        //     .parent(self.ids.graph_settings_canvas)
+        //     .mid_top()
+        //     .set(self.ids.exposed_param_list, ui);
     }
 
-    fn surface_section(&mut self, ui: &mut UiCell) {
-    }
+    fn surface_section(&mut self, ui: &mut UiCell) {}
 }

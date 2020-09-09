@@ -13,6 +13,7 @@ pub mod modal;
 pub mod node;
 pub mod param_box;
 pub mod renderview;
+pub mod table;
 pub mod tabs;
 pub mod util;
 
