@@ -28,13 +28,21 @@ widget_ids! {
     }
 }
 
+pub enum Event<W>
+where
+    W: Widget,
+{
+    ChildEvent(W::Event),
+    Hide,
+}
+
 impl<W> Widget for Modal<W>
 where
     W: Widget,
 {
     type State = Ids;
     type Style = Style;
-    type Event = W::Event;
+    type Event = Event<W>;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         Ids::new(id_gen)
@@ -51,9 +59,16 @@ where
             .color(color::Color::Rgba(0., 0., 0., 0.9))
             .set(args.state.canvas, args.ui);
 
-        self.widget
+        for _click in args.ui.widget_input(args.state.canvas).clicks() {
+            return Event::Hide;
+        }
+
+        let ev = self
+            .widget
             .middle_of(args.state.canvas)
             .padded_wh_of(args.state.canvas, 256.0)
-            .set(args.state.widget, args.ui)
+            .set(args.state.widget, args.ui);
+
+        Event::ChildEvent(ev)
     }
 }

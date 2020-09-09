@@ -584,9 +584,11 @@ where
         }
 
         if self.app_state.add_modal {
+            use super::modal;
+
             let operators = crate::lang::AtomicOperator::all_default();
 
-            let (mut items, scrollbar) = super::modal::Modal::new(
+            match modal::Modal::new(
                 widget::List::flow_down(operators.len())
                     .item_size(50.0)
                     .scrollbar_on_top(),
@@ -594,30 +596,36 @@ where
             .wh_of(self.ids.node_graph_canvas)
             .middle_of(self.ids.node_graph_canvas)
             .graphics_for(self.ids.node_graph_canvas)
-            .set(self.ids.add_modal, ui);
+            .set(self.ids.add_modal, ui)
+            {
+                modal::Event::ChildEvent((mut items, scrollbar)) => {
+                    while let Some(item) = items.next(ui) {
+                        let i = item.i;
+                        let label = operators[i].title();
+                        let toggle = widget::Button::new()
+                            .label(&label)
+                            .label_color(conrod_core::color::WHITE)
+                            .label_font_size(12)
+                            .color(conrod_core::color::LIGHT_CHARCOAL);
+                        for _press in item.set(toggle, ui) {
+                            self.app_state.add_modal = false;
 
-            while let Some(item) = items.next(ui) {
-                let i = item.i;
-                let label = operators[i].title();
-                let toggle = widget::Button::new()
-                    .label(&label)
-                    .label_color(conrod_core::color::WHITE)
-                    .label_font_size(12)
-                    .color(conrod_core::color::LIGHT_CHARCOAL);
-                for _press in item.set(toggle, ui) {
-                    self.app_state.add_modal = false;
+                            self.sender
+                                .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                                    self.app_state.graphs.get_active().clone(),
+                                    Operator::AtomicOperator(operators[i].clone()),
+                                )))
+                                .unwrap();
+                        }
+                    }
 
-                    self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                            self.app_state.graphs.get_active().clone(),
-                            Operator::AtomicOperator(operators[i].clone()),
-                        )))
-                        .unwrap();
+                    if let Some(s) = scrollbar {
+                        s.set(ui)
+                    }
                 }
-            }
-
-            if let Some(s) = scrollbar {
-                s.set(ui)
+                modal::Event::Hide => {
+                    self.app_state.add_modal = false;
+                }
             }
         }
     }
