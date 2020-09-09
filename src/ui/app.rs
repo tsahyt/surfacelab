@@ -41,7 +41,7 @@ widget_ids!(
     }
 );
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Graph {
     graph: super::graph::NodeGraph,
     resources: HashMap<Resource, petgraph::graph::NodeIndex>,
@@ -72,8 +72,8 @@ impl Graphs {
         }
     }
 
-    pub fn set_active(mut self, graph: Resource) {
-        self.graphs.insert(self.active_resource, self.active_graph);
+    pub fn set_active(&mut self, graph: Resource) {
+        self.graphs.insert(self.active_resource.clone(), self.active_graph.clone());
         self.active_resource = graph;
         self.active_graph = self.graphs.remove(&self.active_resource).unwrap();
     }
@@ -102,10 +102,19 @@ impl Graphs {
         self.graphs.insert(graph, Graph::default());
     }
 
+    /// Get a list of graph names for displaying
     pub fn list_graph_names(&self) -> Vec<&str> {
         std::iter::once(self.active_resource.file().unwrap())
             .chain(self.graphs.keys().map(|k| k.file().unwrap()))
             .collect()
+    }
+
+    /// Get a reference to the resource denominating the graph at the given
+    /// index. This index refers to the ordering returned by `list_graph_names`.
+    pub fn get_graph_resource(&self, index: usize) -> Option<&Resource> {
+        std::iter::once(&self.active_resource)
+            .chain(self.graphs.keys())
+            .nth(index)
     }
 }
 
@@ -154,9 +163,7 @@ impl App {
 
     pub fn handle_graph_event(&mut self, event: &GraphEvent) {
         match event {
-            GraphEvent::GraphAdded(res) => {
-                self.graphs.add_graph(res.clone())
-            }
+            GraphEvent::GraphAdded(res) => self.graphs.add_graph(res.clone()),
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
                 let idx = self.graphs.add_node(super::graph::NodeData::new(
                     res.clone(),
@@ -397,12 +404,22 @@ pub fn top_bar(
         }
     }
 
-    widget::DropDownList::new(&app.graphs.list_graph_names(), Some(0))
+    for selection in widget::DropDownList::new(&app.graphs.list_graph_names(), Some(0))
         .label_font_size(12)
         .parent(ids.top_bar_canvas)
         .mid_right_with_margin(8.0)
         .w(256.0)
-        .set(ids.graph_selector, ui);
+        .set(ids.graph_selector, ui)
+    {
+        if let Some(graph) = app.graphs.get_graph_resource(selection).cloned() {
+            sender
+                .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
+                    graph.clone(),
+                )))
+                .unwrap();
+            app.graphs.set_active(graph)
+        }
+    }
 
     for _press in icon_button(IconName::GRAPH, fonts)
         .label_font_size(14)
@@ -522,7 +539,7 @@ pub fn node_graph(
 
                 sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                        Resource::graph("base", None), // TODO: current graph in UI
+                        app.graphs.get_active().clone(),
                         Operator::AtomicOperator(operators[i].clone()),
                     )))
                     .unwrap();
