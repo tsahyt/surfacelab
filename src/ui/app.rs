@@ -257,6 +257,7 @@ where
                     self.app_state.graphs.remove_node(idx);
                 }
                 self.app_state.graphs.remove_index(res);
+                // FIXME: removal renumbers the nodes, so we need to update the indexing as well
             }
             GraphEvent::NodeRenamed(from, to) => {
                 if let Some(idx) = self.app_state.graphs.index_of(from) {
