@@ -17,6 +17,7 @@ widget_ids!(
         sidebar_canvas,
         parameter_canvas,
         graph_settings_canvas,
+        surface_settings_canvas,
 
         // Sidebar
         sidebar_tabs,
@@ -34,7 +35,8 @@ widget_ids!(
         add_modal,
 
         // Parameter Area
-        param_box,
+        node_param_box,
+        exposed_param_list,
     }
 );
 
@@ -390,6 +392,7 @@ where
         tabs::Tabs::new(&[
             (self.ids.parameter_canvas, "Parameters"),
             (self.ids.graph_settings_canvas, "Graph"),
+            (self.ids.surface_settings_canvas, "Surface"),
         ])
         .color(PANEL_COLOR)
         .label_color(color::WHITE)
@@ -403,6 +406,8 @@ where
         self.node_graph(ui);
         self.render_view(ui);
         self.parameter_section(ui);
+        self.graph_section(ui);
+        self.surface_section(ui);
     }
 
     fn top_bar(&mut self, ui: &mut UiCell) {
@@ -713,7 +718,7 @@ where
                 .parent(self.ids.parameter_canvas)
                 .w_of(self.ids.parameter_canvas)
                 .mid_top()
-                .set(self.ids.param_box, ui)
+                .set(self.ids.node_param_box, ui)
             {
                 let resp = match ev {
                     Event::ChangeParameter(event) => event,
@@ -728,5 +733,11 @@ where
                 self.sender.send(resp).unwrap();
             }
         }
+    }
+
+    fn graph_section(&mut self, ui: &mut UiCell) {
+    }
+
+    fn surface_section(&mut self, ui: &mut UiCell) {
     }
 }
