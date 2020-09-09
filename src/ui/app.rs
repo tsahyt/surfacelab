@@ -587,19 +587,17 @@ where
         }
 
         if self.app_state.add_modal {
-            widget::Canvas::new()
-                .wh_of(self.ids.node_graph_canvas)
-                .middle_of(self.ids.node_graph_canvas)
-                .color(color::Color::Rgba(0., 0., 0., 0.9))
-                .set(self.ids.add_modal_canvas, ui);
-
             let operators = crate::lang::AtomicOperator::all_default();
-            let (mut items, scrollbar) = widget::List::flow_down(operators.len())
-                .item_size(50.0)
-                .scrollbar_on_top()
-                .middle_of(self.ids.node_graph_canvas)
-                .padded_wh_of(self.ids.node_graph_canvas, 256.0)
-                .set(self.ids.operator_list, ui);
+
+            let (mut items, scrollbar) = super::modal::Modal::new(
+                widget::List::flow_down(operators.len())
+                    .item_size(50.0)
+                    .scrollbar_on_top(),
+            )
+            .wh_of(self.ids.node_graph_canvas)
+            .middle_of(self.ids.node_graph_canvas)
+            .graphics_for(self.ids.node_graph_canvas)
+            .set(self.ids.add_modal_canvas, ui);
 
             while let Some(item) = items.next(ui) {
                 let i = item.i;
@@ -623,14 +621,6 @@ where
 
             if let Some(s) = scrollbar {
                 s.set(ui)
-            }
-
-            for _press in ui
-                .widget_input(self.ids.add_modal_canvas)
-                .clicks()
-                .button(input::MouseButton::Left)
-            {
-                self.app_state.add_modal = false;
             }
         }
     }

@@ -9,6 +9,7 @@ pub mod app;
 pub mod color_picker;
 pub mod color_ramp;
 pub mod graph;
+pub mod modal;
 pub mod node;
 pub mod param_box;
 pub mod renderview;
