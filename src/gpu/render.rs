@@ -1004,7 +1004,6 @@ where
                     .expect("Failed to wait for fence after render");
             }
 
-            // FIXME: Currently this gives a validation error, because we're not waiting for the semaphore before destruction
             unsafe { lock.device.destroy_framebuffer(framebuffer) };
         }
     }
