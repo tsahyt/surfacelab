@@ -874,15 +874,29 @@ where
                     },
                 }],
             );
-            // FIXME: thumbnail format transition doesn't work
-            // cmd_buffer.pipeline_barrier(
-            //     hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
-            //     hal::memory::Dependencies::empty(),
-            //     &[image.barrier_to(
-            //         hal::image::Access::SHADER_READ,
-            //         hal::image::Layout::ShaderReadOnlyOptimal,
-            //     )],
-            // );
+            cmd_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::memory::Dependencies::empty(),
+                &[
+                    image.barrier_to(
+                        hal::image::Access::SHADER_READ,
+                        hal::image::Layout::ShaderReadOnlyOptimal,
+                    ),
+                    hal::memory::Barrier::Image {
+                        states: (
+                            hal::image::Access::TRANSFER_WRITE,
+                            hal::image::Layout::TransferDstOptimal,
+                        )
+                            ..(
+                                hal::image::Access::SHADER_READ,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            ),
+                        target: thumbnail_image,
+                        families: None,
+                        range: super::COLOR_RANGE.clone(),
+                    },
+                ],
+            );
             cmd_buffer.finish();
 
             lock.queue_group.queues[0]
