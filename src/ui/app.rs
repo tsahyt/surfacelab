@@ -162,92 +162,6 @@ impl App {
         Some((&mut node.param_box, &node.resource))
     }
 
-    pub fn handle_graph_event(&mut self, event: &GraphEvent) {
-        match event {
-            GraphEvent::GraphAdded(res) => self.graphs.add_graph(res.clone()),
-            GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
-                let idx = self.graphs.add_node(super::graph::NodeData::new(
-                    res.clone(),
-                    position.map(|(x, y)| [x, y]),
-                    &op,
-                    pbox.clone(),
-                ));
-                self.graphs.insert_index(res.clone(), idx);
-            }
-            GraphEvent::NodeRemoved(res) => {
-                if let Some(idx) = self.graphs.index_of(res) {
-                    self.graphs.remove_node(idx);
-                }
-                self.graphs.remove_index(res);
-            }
-            GraphEvent::NodeRenamed(from, to) => {
-                if let Some(idx) = self.graphs.index_of(from) {
-                    let node = self.graphs.node_weight_mut(idx).unwrap();
-                    node.resource = to.clone();
-                    self.graphs.insert_index(to.clone(), idx);
-                    self.graphs.remove_index(from);
-                }
-            }
-            GraphEvent::ConnectedSockets(from, to) => {
-                let from_idx = self.graphs.index_of(&from.drop_fragment()).unwrap();
-                let to_idx = self.graphs.index_of(&to.drop_fragment()).unwrap();
-                self.graphs.add_edge(
-                    from_idx,
-                    to_idx,
-                    (
-                        from.fragment().unwrap().to_string(),
-                        to.fragment().unwrap().to_string(),
-                    ),
-                );
-            }
-            GraphEvent::DisconnectedSockets(from, to) => {
-                use petgraph::visit::EdgeRef;
-
-                let from_idx = self.graphs.index_of(&from.drop_fragment()).unwrap();
-                let to_idx = self.graphs.index_of(&to.drop_fragment()).unwrap();
-
-                // Assuming that there's only ever one edge connecting two sockets.
-                if let Some(e) = self
-                    .graphs
-                    .edges_connecting(from_idx, to_idx)
-                    .filter(|e| {
-                        (e.weight().0.as_str(), e.weight().1.as_str())
-                            == (from.fragment().unwrap(), to.fragment().unwrap())
-                    })
-                    .map(|e| e.id())
-                    .next()
-                {
-                    self.graphs.remove_edge(e);
-                }
-            }
-            GraphEvent::SocketMonomorphized(socket, ty) => {
-                let idx = self.graphs.index_of(&socket.drop_fragment()).unwrap();
-                let node = self.graphs.node_weight_mut(idx).unwrap();
-                let var = type_variable_from_socket_iter(
-                    node.inputs.iter().chain(node.outputs.iter()),
-                    socket.fragment().unwrap(),
-                )
-                .unwrap();
-                node.set_type_variable(var, Some(*ty))
-            }
-            GraphEvent::SocketDemonomorphized(socket) => {
-                let idx = self.graphs.index_of(&socket.drop_fragment()).unwrap();
-                let node = self.graphs.node_weight_mut(idx).unwrap();
-                let var = type_variable_from_socket_iter(
-                    node.inputs.iter().chain(node.outputs.iter()),
-                    socket.fragment().unwrap(),
-                )
-                .unwrap();
-                node.set_type_variable(var, None)
-            }
-            GraphEvent::Cleared => {
-                self.graphs.clear();
-                self.graphs.clear_indices();
-            }
-            _ => {}
-        }
-    }
-
     pub fn register_thumbnail(&mut self, resource: &Resource, thumbnail: image::Id) {
         if let Some(idx) = self.graphs.index_of(resource) {
             if let Some(node) = self.graphs.node_weight_mut(idx) {
@@ -324,7 +238,110 @@ where
             Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(_res)) => {
                 // TODO: purge old thumbnail descriptors
             }
-            Lang::GraphEvent(ev) => self.app_state.handle_graph_event(ev),
+            Lang::GraphEvent(ev) => self.handle_graph_event(ev),
+            _ => {}
+        }
+    }
+
+    fn handle_graph_event(&mut self, event: &GraphEvent) {
+        match event {
+            GraphEvent::GraphAdded(res) => self.app_state.graphs.add_graph(res.clone()),
+            GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
+                let idx = self.app_state.graphs.add_node(super::graph::NodeData::new(
+                    res.clone(),
+                    position.map(|(x, y)| [x, y]),
+                    &op,
+                    pbox.clone(),
+                ));
+                self.app_state.graphs.insert_index(res.clone(), idx);
+            }
+            GraphEvent::NodeRemoved(res) => {
+                if let Some(idx) = self.app_state.graphs.index_of(res) {
+                    self.app_state.graphs.remove_node(idx);
+                }
+                self.app_state.graphs.remove_index(res);
+            }
+            GraphEvent::NodeRenamed(from, to) => {
+                if let Some(idx) = self.app_state.graphs.index_of(from) {
+                    let node = self.app_state.graphs.node_weight_mut(idx).unwrap();
+                    node.resource = to.clone();
+                    self.app_state.graphs.insert_index(to.clone(), idx);
+                    self.app_state.graphs.remove_index(from);
+                }
+            }
+            GraphEvent::ConnectedSockets(from, to) => {
+                let from_idx = self
+                    .app_state
+                    .graphs
+                    .index_of(&from.drop_fragment())
+                    .unwrap();
+                let to_idx = self.app_state.graphs.index_of(&to.drop_fragment()).unwrap();
+                self.app_state.graphs.add_edge(
+                    from_idx,
+                    to_idx,
+                    (
+                        from.fragment().unwrap().to_string(),
+                        to.fragment().unwrap().to_string(),
+                    ),
+                );
+            }
+            GraphEvent::DisconnectedSockets(from, to) => {
+                use petgraph::visit::EdgeRef;
+
+                let from_idx = self
+                    .app_state
+                    .graphs
+                    .index_of(&from.drop_fragment())
+                    .unwrap();
+                let to_idx = self.app_state.graphs.index_of(&to.drop_fragment()).unwrap();
+
+                // Assuming that there's only ever one edge connecting two sockets.
+                if let Some(e) = self
+                    .app_state
+                    .graphs
+                    .edges_connecting(from_idx, to_idx)
+                    .filter(|e| {
+                        (e.weight().0.as_str(), e.weight().1.as_str())
+                            == (from.fragment().unwrap(), to.fragment().unwrap())
+                    })
+                    .map(|e| e.id())
+                    .next()
+                {
+                    self.app_state.graphs.remove_edge(e);
+                }
+            }
+            GraphEvent::SocketMonomorphized(socket, ty) => {
+                let idx = self
+                    .app_state
+                    .graphs
+                    .index_of(&socket.drop_fragment())
+                    .unwrap();
+                let node = self.app_state.graphs.node_weight_mut(idx).unwrap();
+                let var = type_variable_from_socket_iter(
+                    node.inputs.iter().chain(node.outputs.iter()),
+                    socket.fragment().unwrap(),
+                )
+                .unwrap();
+                node.set_type_variable(var, Some(*ty))
+            }
+            GraphEvent::SocketDemonomorphized(socket) => {
+                let idx = self
+                    .app_state
+                    .graphs
+                    .index_of(&socket.drop_fragment())
+                    .unwrap();
+                let node = self.app_state.graphs.node_weight_mut(idx).unwrap();
+                let var = type_variable_from_socket_iter(
+                    node.inputs.iter().chain(node.outputs.iter()),
+                    socket.fragment().unwrap(),
+                )
+                .unwrap();
+                node.set_type_variable(var, None)
+            }
+            GraphEvent::Cleared => {
+                self.app_state.graphs.clear();
+                self.app_state.graphs.clear_indices();
+            }
             _ => {}
         }
     }
