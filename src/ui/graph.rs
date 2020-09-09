@@ -489,6 +489,9 @@ impl<'a> Widget for Graph<'a> {
                     node::Event::NodeDrag(delta) => {
                         node_drags.push(state.camera.inv_scale(delta));
                     }
+                    node::Event::NodeDelete => {
+                        evs.push_back(Event::NodeDelete(idx));
+                    }
                     node::Event::SocketDrag(from, to) => {
                         state.update(|state| {
                             state.connection_draw = Some(ConnectionDraw { from, to })
