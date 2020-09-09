@@ -98,7 +98,7 @@ impl GraphParameter {
         ParamSubstitution {
             resource: Resource::node(self.parameter.path(), None),
             field: self.parameter.fragment().unwrap().to_owned(),
-            value: self.control.default_value(),
+            value: self.control.value(),
         }
     }
 }
@@ -364,12 +364,25 @@ pub enum Control {
 }
 
 impl Control {
-    fn default_value(&self) -> Vec<u8> {
+    fn value(&self) -> Vec<u8> {
         match self {
             Self::Slider { value, .. } => value.to_data(),
             Self::DiscreteSlider { value, .. } => value.to_data(),
             Self::RgbColor { value, .. } => value.to_data(),
-            _ => unimplemented!(), // TODO: default values for other control types
+            Self::Enum { selected, .. } => (*selected as u32).to_data(),
+            Self::File { selected } => selected.clone().unwrap().to_data(),
+            Self::Ramp { steps } => {
+                let mut buf = Vec::new();
+                for step in steps.iter() {
+                    buf.extend_from_slice(&step[0].to_be_bytes());
+                    buf.extend_from_slice(&step[1].to_be_bytes());
+                    buf.extend_from_slice(&step[2].to_be_bytes());
+                    buf.extend_from_slice(&step[3].to_be_bytes());
+                }
+                buf
+            }
+            Self::Toggle { def } => (if *def { 1 as u32 } else { 0 as u32 }).to_data(),
+            Self::Entry { value } => value.as_bytes().to_vec(),
         }
     }
 }
