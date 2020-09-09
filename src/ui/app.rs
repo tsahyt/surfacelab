@@ -263,396 +263,456 @@ pub struct AppFonts {
     pub icon_font: text::font::Id,
 }
 
-pub fn gui(
-    ui: &mut UiCell,
-    ids: &Ids,
-    fonts: &AppFonts,
-    app: &mut App,
-    sender: &BrokerSender<Lang>,
-) {
-    use super::tabs;
-
-    widget::Canvas::new()
-        .border(0.0)
-        .color(PANEL_COLOR)
-        .flow_down(&[
-            (
-                ids.top_bar_canvas,
-                widget::Canvas::new()
-                    .length(48.0)
-                    .border(PANEL_GAP)
-                    .color(color::CHARCOAL),
-            ),
-            (
-                ids.main_canvas,
-                widget::Canvas::new()
-                    .border(PANEL_GAP)
-                    .color(PANEL_COLOR)
-                    .flow_right(&[
-                        (
-                            ids.node_graph_canvas,
-                            widget::Canvas::new()
-                                .scroll_kids()
-                                .color(PANEL_COLOR)
-                                .border(PANEL_GAP),
-                        ),
-                        (
-                            ids.drawing_canvas,
-                            widget::Canvas::new().color(PANEL_COLOR).border(PANEL_GAP),
-                        ),
-                        (
-                            ids.sidebar_canvas,
-                            widget::Canvas::new()
-                                .length_weight(0.4)
-                                .color(PANEL_COLOR)
-                                .border(PANEL_GAP),
-                        ),
-                    ]),
-            ),
-        ])
-        .set(ids.window_canvas, ui);
-
-    tabs::Tabs::new(&[
-        (ids.parameter_canvas, "Parameters"),
-        (ids.graph_settings_canvas, "Graph"),
-    ])
-    .color(PANEL_COLOR)
-    .label_color(color::WHITE)
-    .label_font_size(10)
-    .parent(ids.sidebar_canvas)
-    .wh_of(ids.sidebar_canvas)
-    .middle()
-    .set(ids.sidebar_tabs, ui);
-
-    top_bar(ui, ids, fonts, app, sender);
-    node_graph(ui, ids, fonts, app, sender);
-    render_view(ui, ids, app, sender);
-    parameter_section(ui, ids, fonts, app, sender);
+pub struct Gui<B: crate::gpu::Backend> {
+    ids: Ids,
+    fonts: AppFonts,
+    app_state: App,
+    sender: BrokerSender<Lang>,
+    image_map: image::Map<crate::gpu::ui::Image<B>>,
 }
 
-pub fn top_bar(
-    ui: &mut UiCell,
-    ids: &Ids,
-    fonts: &AppFonts,
-    app: &mut App,
-    sender: &BrokerSender<Lang>,
-) {
-    use super::util::*;
-
-    for _press in icon_button(IconName::FOLDER_PLUS, fonts)
-        .label_font_size(14)
-        .label_color(color::WHITE)
-        .color(color::DARK_CHARCOAL)
-        .wh([32., 32.0])
-        .mid_left_with_margin(8.0)
-        .parent(ids.top_bar_canvas)
-        .set(ids.new_surface, ui)
-    {
-        sender
-            .send(Lang::UserIOEvent(UserIOEvent::NewSurface))
-            .unwrap();
-    }
-
-    for _press in icon_button(IconName::FOLDER_OPEN, fonts)
-        .label_font_size(14)
-        .label_color(color::WHITE)
-        .color(color::DARK_CHARCOAL)
-        .wh([32., 32.0])
-        .right(8.0)
-        .parent(ids.top_bar_canvas)
-        .set(ids.open_surface, ui)
-    {
-        match FileSelection::new("Select a surface file")
-            .title("Open Surface")
-            .mode(FileSelectionMode::Open)
-            .show()
-        {
-            Ok(Some(path)) => {
-                sender
-                    .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
-                        std::path::PathBuf::from(path),
-                    )))
-                    .unwrap();
-                app.graphs.clear();
-                app.graphs.clear_indices();
-            }
-            _ => {}
+impl<B> Gui<B>
+where
+    B: crate::gpu::Backend,
+{
+    pub fn new(
+        ids: Ids,
+        fonts: AppFonts,
+        sender: BrokerSender<Lang>,
+        monitor_size: (u32, u32),
+        image_map: image::Map<crate::gpu::ui::Image<B>>,
+    ) -> Self {
+        Self {
+            ids,
+            fonts,
+            app_state: App::new(monitor_size),
+            sender,
+            image_map,
         }
     }
 
-    for _press in icon_button(IconName::CONTENT_SAVE, fonts)
-        .label_font_size(14)
-        .label_color(color::WHITE)
-        .color(color::DARK_CHARCOAL)
-        .wh([32., 32.0])
-        .right(8.0)
-        .parent(ids.top_bar_canvas)
-        .set(ids.save_surface, ui)
-    {
-        match FileSelection::new("Select a surface file")
-            .title("Save Surface")
-            .mode(FileSelectionMode::Save)
-            .show()
-        {
-            Ok(Some(path)) => {
-                sender
-                    .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
-                        std::path::PathBuf::from(path),
-                    )))
-                    .unwrap();
-            }
-            _ => {}
-        }
+    pub fn image_map(&self) -> &image::Map<crate::gpu::ui::Image<B>> {
+        &self.image_map
     }
 
-    for selection in widget::DropDownList::new(&app.graphs.list_graph_names(), Some(0))
-        .label_font_size(12)
-        .parent(ids.top_bar_canvas)
-        .mid_right_with_margin(8.0)
-        .w(256.0)
-        .set(ids.graph_selector, ui)
-    {
-        if let Some(graph) = app.graphs.get_graph_resource(selection).cloned() {
-            sender
-                .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
-                    graph.clone(),
-                )))
-                .unwrap();
-            app.graphs.set_active(graph)
-        }
-    }
-
-    for _press in icon_button(IconName::GRAPH, fonts)
-        .label_font_size(14)
-        .label_color(color::WHITE)
-        .color(color::DARK_CHARCOAL)
-        .wh([32., 32.0])
-        .left(8.0)
-        .parent(ids.top_bar_canvas)
-        .set(ids.graph_add, ui)
-    {
-        sender
-            .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph(
-                "untitled".to_string(),
-            )))
-            .unwrap()
-    }
-}
-
-pub fn node_graph(
-    ui: &mut UiCell,
-    ids: &Ids,
-    _fonts: &AppFonts,
-    app: &mut App,
-    sender: &BrokerSender<Lang>,
-) {
-    use super::graph::*;
-    for event in Graph::new(&app.graphs)
-        .parent(ids.node_graph_canvas)
-        .wh_of(ids.node_graph_canvas)
-        .middle()
-        .set(ids.node_graph, ui)
-    {
+    pub fn handle_event(
+        &mut self,
+        ui: &mut Ui,
+        renderer: &mut crate::gpu::ui::Renderer<B>,
+        event: &Lang,
+    ) {
         match event {
-            Event::NodeDrag(idx, x, y) => {
-                let mut node = app.graphs.node_weight_mut(idx).unwrap();
-                node.position[0] += x;
-                node.position[1] += y;
-
-                sender
-                    .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
-                        node.resource.clone(),
-                        (node.position[0], node.position[1]),
-                    )))
-                    .unwrap();
+            Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
+                if let Some(view) = view.to::<B>() {
+                    let id = self.image_map.insert(renderer.create_image(
+                        view,
+                        self.app_state.monitor_resolution.0,
+                        self.app_state.monitor_resolution.1,
+                    ));
+                    self.app_state.render_image = Some(id);
+                }
             }
-            Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
-                let from_res = app
-                    .graphs
-                    .node_weight(from)
-                    .unwrap()
-                    .resource
-                    .extend_fragment(&from_socket);
-                let to_res = app
-                    .graphs
-                    .node_weight(to)
-                    .unwrap()
-                    .resource
-                    .extend_fragment(&to_socket);
-                sender
-                    .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
-                        from_res, to_res,
-                    )))
-                    .unwrap();
+            Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
+                ui.needs_redraw();
             }
-            Event::NodeDelete(idx) => {
-                sender
-                    .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
-                        app.graphs.node_weight(idx).unwrap().resource.clone(),
-                    )))
-                    .unwrap();
+            Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
+                if let Some(t) = thmb.to::<B>() {
+                    let id = self.image_map.insert(renderer.create_image(t, 128, 128));
+                    self.app_state.register_thumbnail(&res.drop_fragment(), id);
+                }
             }
-            Event::SocketClear(idx, socket) => {
-                sender
-                    .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
-                        app.graphs
-                            .node_weight(idx)
-                            .unwrap()
-                            .resource
-                            .extend_fragment(&socket),
-                    )))
-                    .unwrap();
+            Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(_res)) => {
+                // TODO: purge old thumbnail descriptors
             }
-            Event::ActiveElement(idx) => {
-                app.active_element = Some(idx);
-            }
-            Event::AddModal => {
-                app.add_modal = true;
-            }
+            Lang::GraphEvent(ev) => self.app_state.handle_graph_event(ev),
+            _ => {}
         }
     }
 
-    if app.add_modal {
+    pub fn update_gui(&mut self, ui: &mut UiCell) {
+        use super::tabs;
+
         widget::Canvas::new()
-            .wh_of(ids.node_graph_canvas)
-            .middle_of(ids.node_graph_canvas)
-            .color(color::Color::Rgba(0., 0., 0., 0.9))
-            .set(ids.add_modal_canvas, ui);
+            .border(0.0)
+            .color(PANEL_COLOR)
+            .flow_down(&[
+                (
+                    self.ids.top_bar_canvas,
+                    widget::Canvas::new()
+                        .length(48.0)
+                        .border(PANEL_GAP)
+                        .color(color::CHARCOAL),
+                ),
+                (
+                    self.ids.main_canvas,
+                    widget::Canvas::new()
+                        .border(PANEL_GAP)
+                        .color(PANEL_COLOR)
+                        .flow_right(&[
+                            (
+                                self.ids.node_graph_canvas,
+                                widget::Canvas::new()
+                                    .scroll_kids()
+                                    .color(PANEL_COLOR)
+                                    .border(PANEL_GAP),
+                            ),
+                            (
+                                self.ids.drawing_canvas,
+                                widget::Canvas::new().color(PANEL_COLOR).border(PANEL_GAP),
+                            ),
+                            (
+                                self.ids.sidebar_canvas,
+                                widget::Canvas::new()
+                                    .length_weight(0.4)
+                                    .color(PANEL_COLOR)
+                                    .border(PANEL_GAP),
+                            ),
+                        ]),
+                ),
+            ])
+            .set(self.ids.window_canvas, ui);
 
-        let operators = crate::lang::AtomicOperator::all_default();
-        let (mut items, scrollbar) = widget::List::flow_down(operators.len())
-            .item_size(50.0)
-            .scrollbar_on_top()
-            .middle_of(ids.node_graph_canvas)
-            .padded_wh_of(ids.node_graph_canvas, 256.0)
-            .set(ids.operator_list, ui);
+        tabs::Tabs::new(&[
+            (self.ids.parameter_canvas, "Parameters"),
+            (self.ids.graph_settings_canvas, "Graph"),
+        ])
+        .color(PANEL_COLOR)
+        .label_color(color::WHITE)
+        .label_font_size(10)
+        .parent(self.ids.sidebar_canvas)
+        .wh_of(self.ids.sidebar_canvas)
+        .middle()
+        .set(self.ids.sidebar_tabs, ui);
 
-        while let Some(item) = items.next(ui) {
-            let i = item.i;
-            let label = operators[i].title();
-            let toggle = widget::Button::new()
-                .label(&label)
-                .label_color(conrod_core::color::WHITE)
-                .label_font_size(12)
-                .color(conrod_core::color::LIGHT_CHARCOAL);
-            for _press in item.set(toggle, ui) {
-                app.add_modal = false;
-
-                sender
-                    .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                        app.graphs.get_active().clone(),
-                        Operator::AtomicOperator(operators[i].clone()),
-                    )))
-                    .unwrap();
-            }
-        }
-
-        if let Some(s) = scrollbar {
-            s.set(ui)
-        }
-
-        for _press in ui
-            .widget_input(ids.add_modal_canvas)
-            .clicks()
-            .button(input::MouseButton::Left)
-        {
-            app.add_modal = false;
-        }
+        self.top_bar(ui);
+        self.node_graph(ui);
+        self.render_view(ui);
+        self.parameter_section(ui);
     }
-}
 
-pub fn render_view(ui: &mut UiCell, ids: &Ids, app: &mut App, sender: &BrokerSender<Lang>) {
-    use super::renderview::*;
+    fn top_bar(&mut self, ui: &mut UiCell) {
+        use super::util::*;
 
-    let renderer_id = ids.render_view.index() as u64;
+        for _press in icon_button(IconName::FOLDER_PLUS, &self.fonts)
+            .label_font_size(14)
+            .label_color(color::WHITE)
+            .color(color::DARK_CHARCOAL)
+            .wh([32., 32.0])
+            .mid_left_with_margin(8.0)
+            .parent(self.ids.top_bar_canvas)
+            .set(self.ids.new_surface, ui)
+        {
+            self.sender
+                .send(Lang::UserIOEvent(UserIOEvent::NewSurface))
+                .unwrap();
+        }
 
-    // If there is a known render image, create a render view for it
-    match app.render_image {
-        Some(render_image) => {
-            let rv = RenderView::new(render_image, app.monitor_resolution)
-                .parent(ids.drawing_canvas)
-                .wh_of(ids.drawing_canvas)
-                .middle()
-                .set(ids.render_view, ui);
-
-            // The widget itself does not communicate with the backend. Process
-            // events here
-            match rv {
-                Some(Event::Resized(w, h)) => sender
-                    .send(Lang::UIEvent(UIEvent::RendererResize(renderer_id, w, h)))
-                    .unwrap(),
-                Some(Event::Rotate(x, y)) => sender
-                    .send(Lang::UserRenderEvent(UserRenderEvent::Rotate(
-                        renderer_id,
-                        x,
-                        y,
-                    )))
-                    .unwrap(),
-                Some(Event::Pan(x, y)) => sender
-                    .send(Lang::UserRenderEvent(UserRenderEvent::Pan(
-                        renderer_id,
-                        x,
-                        y,
-                    )))
-                    .unwrap(),
-                Some(Event::LightPan(x, y)) => sender
-                    .send(Lang::UserRenderEvent(UserRenderEvent::LightMove(
-                        renderer_id,
-                        x,
-                        y,
-                    )))
-                    .unwrap(),
-                Some(Event::Zoom(delta)) => sender
-                    .send(Lang::UserRenderEvent(UserRenderEvent::Zoom(
-                        renderer_id,
-                        delta,
-                    )))
-                    .unwrap(),
+        for _press in icon_button(IconName::FOLDER_OPEN, &self.fonts)
+            .label_font_size(14)
+            .label_color(color::WHITE)
+            .color(color::DARK_CHARCOAL)
+            .wh([32., 32.0])
+            .right(8.0)
+            .parent(self.ids.top_bar_canvas)
+            .set(self.ids.open_surface, ui)
+        {
+            match FileSelection::new("Select a surface file")
+                .title("Open Surface")
+                .mode(FileSelectionMode::Open)
+                .show()
+            {
+                Ok(Some(path)) => {
+                    self.sender
+                        .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
+                            std::path::PathBuf::from(path),
+                        )))
+                        .unwrap();
+                    self.app_state.graphs.clear();
+                    self.app_state.graphs.clear_indices();
+                }
                 _ => {}
             }
         }
-        None => {
-            // Otherwise create one by notifying the render component
-            let [w, h] = ui.wh_of(ids.drawing_canvas).unwrap();
-            sender
-                .send(Lang::UIEvent(UIEvent::RendererRequested(
-                    renderer_id,
-                    (app.monitor_resolution.0, app.monitor_resolution.1),
-                    (w as u32, h as u32),
-                    RendererType::Renderer3D,
+
+        for _press in icon_button(IconName::CONTENT_SAVE, &self.fonts)
+            .label_font_size(14)
+            .label_color(color::WHITE)
+            .color(color::DARK_CHARCOAL)
+            .wh([32., 32.0])
+            .right(8.0)
+            .parent(self.ids.top_bar_canvas)
+            .set(self.ids.save_surface, ui)
+        {
+            match FileSelection::new("Select a surface file")
+                .title("Save Surface")
+                .mode(FileSelectionMode::Save)
+                .show()
+            {
+                Ok(Some(path)) => {
+                    self.sender
+                        .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
+                            std::path::PathBuf::from(path),
+                        )))
+                        .unwrap();
+                }
+                _ => {}
+            }
+        }
+
+        for selection in
+            widget::DropDownList::new(&self.app_state.graphs.list_graph_names(), Some(0))
+                .label_font_size(12)
+                .parent(self.ids.top_bar_canvas)
+                .mid_right_with_margin(8.0)
+                .w(256.0)
+                .set(self.ids.graph_selector, ui)
+        {
+            if let Some(graph) = self.app_state.graphs.get_graph_resource(selection).cloned() {
+                self.sender
+                    .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
+                        graph.clone(),
+                    )))
+                    .unwrap();
+                self.app_state.graphs.set_active(graph)
+            }
+        }
+
+        for _press in icon_button(IconName::GRAPH, &self.fonts)
+            .label_font_size(14)
+            .label_color(color::WHITE)
+            .color(color::DARK_CHARCOAL)
+            .wh([32., 32.0])
+            .left(8.0)
+            .parent(self.ids.top_bar_canvas)
+            .set(self.ids.graph_add, ui)
+        {
+            self.sender
+                .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph(
+                    "untitled".to_string(),
                 )))
-                .expect("Error contacting renderer backend");
+                .unwrap()
         }
     }
-}
 
-pub fn parameter_section(
-    ui: &mut UiCell,
-    ids: &Ids,
-    fonts: &AppFonts,
-    app: &mut App,
-    sender: &BrokerSender<Lang>,
-) {
-    use super::param_box::*;
-
-    if let Some((description, resource)) = app.active_parameters() {
-        for ev in ParamBox::new(description, resource, fonts)
-            .parent(ids.parameter_canvas)
-            .w_of(ids.parameter_canvas)
-            .mid_top()
-            .set(ids.param_box, ui)
+    fn node_graph(&mut self, ui: &mut UiCell) {
+        use super::graph::*;
+        for event in Graph::new(&self.app_state.graphs)
+            .parent(self.ids.node_graph_canvas)
+            .wh_of(self.ids.node_graph_canvas)
+            .middle()
+            .set(self.ids.node_graph, ui)
         {
-            let resp = match ev {
-                Event::ChangeParameter(event) => event,
-                Event::ExposeParameter(field, name, control) => Lang::UserGraphEvent(
-                    UserGraphEvent::ExposeParameter(resource.clone(), field, name, control),
-                ),
-                Event::ConcealParameter(field) => {
-                    Lang::UserGraphEvent(UserGraphEvent::ConcealParameter(resource.clone(), field))
-                }
-            };
+            match event {
+                Event::NodeDrag(idx, x, y) => {
+                    let mut node = self.app_state.graphs.node_weight_mut(idx).unwrap();
+                    node.position[0] += x;
+                    node.position[1] += y;
 
-            sender.send(resp).unwrap();
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
+                            node.resource.clone(),
+                            (node.position[0], node.position[1]),
+                        )))
+                        .unwrap();
+                }
+                Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
+                    let from_res = self
+                        .app_state
+                        .graphs
+                        .node_weight(from)
+                        .unwrap()
+                        .resource
+                        .extend_fragment(&from_socket);
+                    let to_res = self
+                        .app_state
+                        .graphs
+                        .node_weight(to)
+                        .unwrap()
+                        .resource
+                        .extend_fragment(&to_socket);
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
+                            from_res, to_res,
+                        )))
+                        .unwrap();
+                }
+                Event::NodeDelete(idx) => {
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
+                            self.app_state
+                                .graphs
+                                .node_weight(idx)
+                                .unwrap()
+                                .resource
+                                .clone(),
+                        )))
+                        .unwrap();
+                }
+                Event::SocketClear(idx, socket) => {
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
+                            self.app_state
+                                .graphs
+                                .node_weight(idx)
+                                .unwrap()
+                                .resource
+                                .extend_fragment(&socket),
+                        )))
+                        .unwrap();
+                }
+                Event::ActiveElement(idx) => {
+                    self.app_state.active_element = Some(idx);
+                }
+                Event::AddModal => {
+                    self.app_state.add_modal = true;
+                }
+            }
+        }
+
+        if self.app_state.add_modal {
+            widget::Canvas::new()
+                .wh_of(self.ids.node_graph_canvas)
+                .middle_of(self.ids.node_graph_canvas)
+                .color(color::Color::Rgba(0., 0., 0., 0.9))
+                .set(self.ids.add_modal_canvas, ui);
+
+            let operators = crate::lang::AtomicOperator::all_default();
+            let (mut items, scrollbar) = widget::List::flow_down(operators.len())
+                .item_size(50.0)
+                .scrollbar_on_top()
+                .middle_of(self.ids.node_graph_canvas)
+                .padded_wh_of(self.ids.node_graph_canvas, 256.0)
+                .set(self.ids.operator_list, ui);
+
+            while let Some(item) = items.next(ui) {
+                let i = item.i;
+                let label = operators[i].title();
+                let toggle = widget::Button::new()
+                    .label(&label)
+                    .label_color(conrod_core::color::WHITE)
+                    .label_font_size(12)
+                    .color(conrod_core::color::LIGHT_CHARCOAL);
+                for _press in item.set(toggle, ui) {
+                    self.app_state.add_modal = false;
+
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                            self.app_state.graphs.get_active().clone(),
+                            Operator::AtomicOperator(operators[i].clone()),
+                        )))
+                        .unwrap();
+                }
+            }
+
+            if let Some(s) = scrollbar {
+                s.set(ui)
+            }
+
+            for _press in ui
+                .widget_input(self.ids.add_modal_canvas)
+                .clicks()
+                .button(input::MouseButton::Left)
+            {
+                self.app_state.add_modal = false;
+            }
+        }
+    }
+
+    fn render_view(&mut self, ui: &mut UiCell) {
+        use super::renderview::*;
+
+        let renderer_id = self.ids.render_view.index() as u64;
+
+        // If there is a known render image, create a render view for it
+        match self.app_state.render_image {
+            Some(render_image) => {
+                let rv = RenderView::new(render_image, self.app_state.monitor_resolution)
+                    .parent(self.ids.drawing_canvas)
+                    .wh_of(self.ids.drawing_canvas)
+                    .middle()
+                    .set(self.ids.render_view, ui);
+
+                // The widget itself does not communicate with the backend. Process
+                // events here
+                match rv {
+                    Some(Event::Resized(w, h)) => self
+                        .sender
+                        .send(Lang::UIEvent(UIEvent::RendererResize(renderer_id, w, h)))
+                        .unwrap(),
+                    Some(Event::Rotate(x, y)) => self
+                        .sender
+                        .send(Lang::UserRenderEvent(UserRenderEvent::Rotate(
+                            renderer_id,
+                            x,
+                            y,
+                        )))
+                        .unwrap(),
+                    Some(Event::Pan(x, y)) => self
+                        .sender
+                        .send(Lang::UserRenderEvent(UserRenderEvent::Pan(
+                            renderer_id,
+                            x,
+                            y,
+                        )))
+                        .unwrap(),
+                    Some(Event::LightPan(x, y)) => self
+                        .sender
+                        .send(Lang::UserRenderEvent(UserRenderEvent::LightMove(
+                            renderer_id,
+                            x,
+                            y,
+                        )))
+                        .unwrap(),
+                    Some(Event::Zoom(delta)) => self
+                        .sender
+                        .send(Lang::UserRenderEvent(UserRenderEvent::Zoom(
+                            renderer_id,
+                            delta,
+                        )))
+                        .unwrap(),
+                    _ => {}
+                }
+            }
+            None => {
+                // Otherwise create one by notifying the render component
+                let [w, h] = ui.wh_of(self.ids.drawing_canvas).unwrap();
+                self.sender
+                    .send(Lang::UIEvent(UIEvent::RendererRequested(
+                        renderer_id,
+                        (
+                            self.app_state.monitor_resolution.0,
+                            self.app_state.monitor_resolution.1,
+                        ),
+                        (w as u32, h as u32),
+                        RendererType::Renderer3D,
+                    )))
+                    .expect("Error contacting renderer backend");
+            }
+        }
+    }
+
+    fn parameter_section(&mut self, ui: &mut UiCell) {
+        use super::param_box::*;
+
+        if let Some((description, resource)) = self.app_state.active_parameters() {
+            for ev in ParamBox::new(description, resource, &self.fonts)
+                .parent(self.ids.parameter_canvas)
+                .w_of(self.ids.parameter_canvas)
+                .mid_top()
+                .set(self.ids.param_box, ui)
+            {
+                let resp = match ev {
+                    Event::ChangeParameter(event) => event,
+                    Event::ExposeParameter(field, name, control) => Lang::UserGraphEvent(
+                        UserGraphEvent::ExposeParameter(resource.clone(), field, name, control),
+                    ),
+                    Event::ConcealParameter(field) => Lang::UserGraphEvent(
+                        UserGraphEvent::ConcealParameter(resource.clone(), field),
+                    ),
+                };
+
+                self.sender.send(resp).unwrap();
+            }
         }
     }
 }

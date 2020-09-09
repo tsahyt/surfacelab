@@ -45,12 +45,7 @@ fn ui_loop<B: gpu::Backend>(
     let monitor_size = window.primary_monitor().size();
 
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
-
-    let mut app = app::App::new((monitor_size.width, monitor_size.height));
-
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
-    let ids = app::Ids::new(ui.widget_id_generator());
-    let mut image_map = conrod_core::image::Map::new();
     let assets = find_folder::Search::KidsThenParents(3, 5)
         .for_folder("assets")
         .unwrap();
@@ -66,6 +61,14 @@ fn ui_loop<B: gpu::Backend>(
             .unwrap(),
     };
 
+    let mut gui = app::Gui::new(
+        app::Ids::new(ui.widget_id_generator()),
+        fonts,
+        sender,
+        (monitor_size.width, monitor_size.height),
+        conrod_core::image::Map::new(),
+    );
+
     // It is important that the closure move captures the Renderer,
     // otherwise it will not be dropped when the event loop exits.
     event_loop.run(move |event, _, control_flow| {
@@ -76,32 +79,7 @@ fn ui_loop<B: gpu::Backend>(
         *control_flow = winit::event_loop::ControlFlow::Wait;
 
         if let Ok(broker_event) = receiver.try_recv() {
-            match &*broker_event {
-                Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
-                    if let Some(view) = view.to::<B>() {
-                        let id = image_map.insert(renderer.create_image(
-                            view,
-                            app.monitor_resolution.0,
-                            app.monitor_resolution.1,
-                        ));
-                        app.render_image = Some(id);
-                    }
-                }
-                Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
-                    ui.needs_redraw();
-                }
-                Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
-                    if let Some(t) = thmb.to::<B>() {
-                        let id = image_map.insert(renderer.create_image(t, 128, 128));
-                        app.register_thumbnail(&res.drop_fragment(), id);
-                    }
-                }
-                Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(_res)) => {
-                    // TODO: purge old thumbnail descriptors
-                }
-                Lang::GraphEvent(ev) => app.handle_graph_event(ev),
-                _ => {}
-            }
+            gui.handle_event(&mut ui, &mut renderer, &*broker_event);
         }
 
         match event {
@@ -122,7 +100,7 @@ fn ui_loop<B: gpu::Backend>(
                 // Update widgets if any event has happened
                 if ui.global_input().events().next().is_some() {
                     let mut ui = ui.set_widgets();
-                    app::gui(&mut ui, &ids, &fonts, &mut app, &sender);
+                    gui.update_gui(&mut ui);
                     window.request_redraw();
                 }
             }
@@ -133,7 +111,7 @@ fn ui_loop<B: gpu::Backend>(
                     Some(ps) => ps,
                 };
 
-                renderer.render(&image_map, primitives);
+                renderer.render(&gui.image_map(), primitives);
             }
             _ => {}
         }

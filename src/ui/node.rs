@@ -95,9 +95,8 @@ impl State {
             .values()
             .copied()
             .chain(std::iter::repeat_with(|| id_gen.next()));
-        self.input_sockets = HashMap::from_iter(
-            inputs.iter().zip(input_ids).map(|(s,i)| (s.0.clone(), i))
-        );
+        self.input_sockets =
+            HashMap::from_iter(inputs.iter().zip(input_ids).map(|(s, i)| (s.0.clone(), i)));
 
         let output_ids = self
             .output_sockets
@@ -105,7 +104,10 @@ impl State {
             .copied()
             .chain(std::iter::repeat_with(|| id_gen.next()));
         self.output_sockets = HashMap::from_iter(
-            outputs.iter().zip(output_ids).map(|(s,i)| (s.0.clone(), i))
+            outputs
+                .iter()
+                .zip(output_ids)
+                .map(|(s, i)| (s.0.clone(), i)),
         );
 
         self.sockets_hash = hash_sockets(inputs, outputs);
