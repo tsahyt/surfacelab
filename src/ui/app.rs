@@ -631,6 +631,7 @@ where
         }
     }
 
+    // FIXME: Render View shows nothing in release builds
     fn render_view(&mut self, ui: &mut UiCell) {
         use super::renderview::*;
 
