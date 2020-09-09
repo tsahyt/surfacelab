@@ -31,10 +31,7 @@ widget_ids!(
         // Main Views
         node_graph,
         render_view,
-
-        // Adding Nodes
-        add_modal_canvas,
-        operator_list,
+        add_modal,
 
         // Parameter Area
         param_box,
@@ -597,7 +594,7 @@ where
             .wh_of(self.ids.node_graph_canvas)
             .middle_of(self.ids.node_graph_canvas)
             .graphics_for(self.ids.node_graph_canvas)
-            .set(self.ids.add_modal_canvas, ui);
+            .set(self.ids.add_modal, ui);
 
             while let Some(item) = items.next(ui) {
                 let i = item.i;
