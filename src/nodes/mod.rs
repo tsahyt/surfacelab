@@ -123,6 +123,15 @@ impl NodeManager {
                                 to.clone(),
                             )));
                             response.append(&mut res);
+
+                            let instructions = self.graphs.get_mut(graph).unwrap().linearize();
+                            response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                                Resource::graph(graph, None),
+                                instructions,
+                            )));
+                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                self.active_graph.clone(),
+                            )));
                         }
                         Err(e) => log::error!("{}", e),
                     }
