@@ -147,7 +147,8 @@ impl Graphs {
     }
 
     pub fn add_graph(&mut self, graph: Resource) {
-        self.graphs.insert(graph.clone(), Graph::new(graph.file().unwrap()));
+        self.graphs
+            .insert(graph.clone(), Graph::new(graph.file().unwrap()));
     }
 
     /// Get a list of graph names for displaying
@@ -313,6 +314,17 @@ where
             }
             GraphEvent::GraphRenamed(from, to) => {
                 self.app_state.graphs.rename_graph(from, to);
+                let old_op = Operator::ComplexOperator(ComplexOperator::new(from.clone()));
+                self.app_state.registered_operators.remove(
+                    self.app_state
+                        .registered_operators
+                        .iter()
+                        .position(|x| x == &old_op)
+                        .expect("Missing old operator"),
+                );
+                self.app_state
+                    .registered_operators
+                    .push(Operator::ComplexOperator(ComplexOperator::new(to.clone())));
             }
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
                 let idx = self.app_state.graphs.add_node(super::graph::NodeData::new(
