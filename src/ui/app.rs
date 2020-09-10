@@ -143,13 +143,12 @@ impl std::ops::DerefMut for Graphs {
 }
 
 pub struct App {
-    pub graphs: Graphs,
-    pub active_element: Option<petgraph::graph::NodeIndex>,
-    pub render_image: Option<image::Id>,
-
-    pub monitor_resolution: (u32, u32),
-
-    pub add_modal: bool,
+    graphs: Graphs,
+    active_element: Option<petgraph::graph::NodeIndex>,
+    render_image: Option<image::Id>,
+    monitor_resolution: (u32, u32),
+    add_modal: bool,
+    registered_operators: Vec<Operator>,
 }
 
 impl App {
@@ -160,6 +159,10 @@ impl App {
             render_image: None,
             monitor_resolution: (monitor_size.0, monitor_size.1),
             add_modal: false,
+            registered_operators: AtomicOperator::all_default()
+                .iter()
+                .map(|x| Operator::from(x.clone()))
+                .collect(),
         }
     }
 
@@ -254,7 +257,12 @@ where
 
     fn handle_graph_event(&mut self, event: &GraphEvent) {
         match event {
-            GraphEvent::GraphAdded(res) => self.app_state.graphs.add_graph(res.clone()),
+            GraphEvent::GraphAdded(res) => {
+                self.app_state.graphs.add_graph(res.clone());
+                self.app_state
+                    .registered_operators
+                    .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
+            }
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
                 let idx = self.app_state.graphs.add_node(super::graph::NodeData::new(
                     res.clone(),
@@ -618,7 +626,7 @@ where
         if self.app_state.add_modal {
             use super::modal;
 
-            let operators = crate::lang::AtomicOperator::all_default();
+            let operators = &self.app_state.registered_operators;
 
             match modal::Modal::new(
                 widget::List::flow_down(operators.len())
@@ -645,7 +653,7 @@ where
                             self.sender
                                 .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
                                     self.app_state.graphs.get_active().clone(),
-                                    Operator::AtomicOperator(operators[i].clone()),
+                                    operators[i].clone(),
                                 )))
                                 .unwrap();
                         }
