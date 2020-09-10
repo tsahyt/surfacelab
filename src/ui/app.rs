@@ -626,7 +626,12 @@ where
         if self.app_state.add_modal {
             use super::modal;
 
-            let operators = &self.app_state.registered_operators;
+            // TODO: Find a way to filter without allocating each frame
+            let operators: Vec<_> = self
+                .app_state
+                .registered_operators
+                .iter()
+                .filter(|o| !o.is_graph(self.app_state.graphs.get_active())).collect();
 
             match modal::Modal::new(
                 widget::List::flow_down(operators.len())

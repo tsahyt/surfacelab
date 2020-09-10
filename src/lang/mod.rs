@@ -125,6 +125,13 @@ impl Operator {
         }
     }
 
+    pub fn is_graph(&self, graph: &Resource) -> bool {
+        match self {
+            Operator::AtomicOperator(_) => false,
+            Operator::ComplexOperator(o) => &o.graph == graph,
+        }
+    }
+
     pub fn external_data(&self) -> bool {
         match self {
             Self::AtomicOperator(op) => op.external_data(),
