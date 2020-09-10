@@ -6,6 +6,8 @@ use std::collections::HashMap;
 const PANEL_COLOR: Color = color::DARK_CHARCOAL;
 const PANEL_GAP: Scalar = 0.5;
 
+// TODO: Unify margins and paddings somehow in UI
+
 widget_ids!(
     pub struct Ids {
         // Main Areas
@@ -783,7 +785,7 @@ where
             .parent(self.ids.graph_settings_canvas)
             .color(color::WHITE)
             .font_size(12)
-            .mid_top_with_margin(8.0)
+            .mid_top_with_margin(16.0)
             .set(self.ids.exposed_param_title, ui);
 
         let exposed_params = self.app_state.graphs.get_graph_parameters();
