@@ -750,9 +750,10 @@ where
             {
                 let resp = match ev {
                     Event::ChangeParameter(event) => event,
-                    Event::ExposeParameter(field, name, control) => Lang::UserGraphEvent(
-                        UserGraphEvent::ExposeParameter(resource.clone(), field, name, control),
-                    ),
+                    Event::ExposeParameter(field, name, control) => Lang::UserGraphEvent({
+                        let p_res = Resource::parameter(resource.path(), &field);
+                        UserGraphEvent::ExposeParameter(p_res, field, name, control)
+                    }),
                     Event::ConcealParameter(field) => Lang::UserGraphEvent(
                         UserGraphEvent::ConcealParameter(resource.clone(), field),
                     ),

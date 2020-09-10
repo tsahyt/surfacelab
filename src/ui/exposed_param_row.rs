@@ -1,5 +1,5 @@
-use crate::lang::*;
 use super::util::*;
+use crate::lang::*;
 use conrod_core::*;
 
 #[derive(Clone, WidgetCommon)]

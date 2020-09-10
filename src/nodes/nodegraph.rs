@@ -739,16 +739,15 @@ impl NodeGraph {
         title: &str,
         control: Control,
     ) -> Option<&GraphParameter> {
-        self.parameters
-            .insert(
-                graph_field.to_owned(),
-                GraphParameter {
-                    graph_field: graph_field.to_owned(),
-                    parameter,
-                    title: title.to_string(),
-                    control,
-                },
-            );
+        self.parameters.insert(
+            graph_field.to_owned(),
+            GraphParameter {
+                graph_field: graph_field.to_owned(),
+                parameter,
+                title: title.to_string(),
+                control,
+            },
+        );
         self.parameters.get(graph_field)
     }
 
