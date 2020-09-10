@@ -2,16 +2,16 @@ use super::util::*;
 use crate::lang::*;
 use conrod_core::*;
 
-#[derive(Clone, WidgetCommon)]
+#[derive(WidgetCommon)]
 pub struct ExposedParamRow<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    param: &'a GraphParameter,
+    param: &'a mut GraphParameter,
     style: Style,
 }
 
 impl<'a> ExposedParamRow<'a> {
-    pub fn new(param: &'a GraphParameter) -> Self {
+    pub fn new(param: &'a mut GraphParameter) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
@@ -34,12 +34,19 @@ pub struct Style {
 widget_ids! {
     pub struct Ids {
         unexpose_button,
-        param_name
+        resource,
+        control,
+        field_label,
+        field,
+        title_label,
+        title,
     }
 }
 
 pub enum Event {
     ConcealParameter,
+    UpdateTitle,
+    UpdateField,
 }
 
 impl<'a> Widget for ExposedParamRow<'a> {
@@ -60,7 +67,7 @@ impl<'a> Widget for ExposedParamRow<'a> {
 
         for _press in icon_button(IconName::UNEXPOSE, self.style.icon_font.unwrap().unwrap())
             .parent(args.id)
-            .mid_left()
+            .top_left()
             .wh([20.0, 16.0])
             .label_font_size(12)
             .set(args.state.unexpose_button, args.ui)
@@ -73,8 +80,79 @@ impl<'a> Widget for ExposedParamRow<'a> {
             .font_size(10)
             .right(8.0)
             .color(color::WHITE)
-            .set(args.state.param_name, args.ui);
+            .set(args.state.resource, args.ui);
+
+        widget::Text::new(control_name(&self.param.control))
+            .parent(args.id)
+            .font_size(14)
+            .top_right()
+            .color(color::GRAY)
+            .set(args.state.control, args.ui);
+
+        widget::Text::new("Field")
+            .parent(args.id)
+            .top_left_with_margin(32.0)
+            .font_size(10)
+            .down(16.0)
+            .color(color::WHITE)
+            .set(args.state.field_label, args.ui);
+
+        for event in widget::TextBox::new(&self.param.graph_field)
+            .parent(args.id)
+            .font_size(10)
+            .down(16.0)
+            .padded_w_of(args.id, 16.0)
+            .h(16.0)
+            .set(args.state.field, args.ui)
+        {
+            match event {
+                widget::text_box::Event::Update(new) => {
+                    self.param.graph_field = new;
+                }
+                widget::text_box::Event::Enter => {
+                    ev = Some(Event::UpdateField);
+                }
+            }
+        }
+
+        widget::Text::new("Title")
+            .parent(args.id)
+            .font_size(10)
+            .down(16.0)
+            .color(color::WHITE)
+            .set(args.state.title_label, args.ui);
+
+        for event in widget::TextBox::new(&self.param.title)
+            .parent(args.id)
+            .font_size(10)
+            .down(16.0)
+            .padded_w_of(args.id, 16.0)
+            .h(16.0)
+            .set(args.state.title, args.ui)
+        {
+            match event {
+                widget::text_box::Event::Update(new) => {
+                    self.param.title = new;
+                }
+                widget::text_box::Event::Enter => {
+                    ev = Some(Event::UpdateTitle);
+                }
+            }
+        }
 
         ev
+    }
+}
+
+fn control_name(control: &Control) -> &'static str {
+    match control {
+        Control::Slider { .. } => "f32",
+        Control::DiscreteSlider { .. } => "i32",
+        Control::RgbColor { .. } => "rgb",
+        Control::Enum { .. } => "list",
+        Control::File { .. } => "file",
+        Control::Ramp { .. } => "ramp",
+        Control::Toggle { .. } => "bool",
+        Control::Entry { .. } => "text",
     }
 }

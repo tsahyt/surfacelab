@@ -754,4 +754,17 @@ impl NodeGraph {
     pub fn conceal_parameter(&mut self, graph_field: &str) {
         self.parameters.remove(graph_field);
     }
+
+    pub fn retitle_parameter(&mut self, graph_field: &str, new_title: &str) {
+        if let Some(param) = self.parameters.get_mut(graph_field) {
+            param.title = new_title.to_owned();
+        }
+    }
+
+    pub fn refield_parameter(&mut self, graph_field: &str, new_field: &str) {
+        if let Some(mut param) = self.parameters.remove(graph_field) {
+            param.graph_field = new_field.to_owned();
+            self.parameters.insert(new_field.to_owned(), param);
+        }
+    }
 }

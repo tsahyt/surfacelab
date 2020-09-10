@@ -236,6 +236,8 @@ pub enum UserGraphEvent {
     ChangeGraph(Resource),
     ExposeParameter(Resource, String, String, Control),
     ConcealParameter(Resource, String),
+    RefieldParameter(Resource, String, String),
+    RetitleParameter(Resource, String, String),
 }
 
 #[derive(Debug)]

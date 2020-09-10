@@ -47,7 +47,7 @@ widget_ids!(
 pub struct Graph {
     graph: super::graph::NodeGraph,
     resources: HashMap<Resource, petgraph::graph::NodeIndex>,
-    params: Vec<GraphParameter>,
+    params: Vec<(String, GraphParameter)>,
 }
 
 impl Default for Graph {
@@ -125,8 +125,8 @@ impl Graphs {
 
     /// Get a slice of the exposed graph parameters of the currently active
     /// graph.
-    pub fn get_graph_parameters(&self) -> &[GraphParameter] {
-        &self.active_graph.params
+    pub fn get_graph_parameters_mut(&mut self) -> &mut [(String, GraphParameter)] {
+        &mut self.active_graph.params
     }
 }
 
@@ -366,7 +366,7 @@ where
                     .graphs
                     .active_graph
                     .params
-                    .push(param.clone());
+                    .push((param.graph_field.clone(), param.clone()));
             }
             GraphEvent::ParameterConcealed(_graph, field) => {
                 self.app_state.graphs.active_graph.params.remove(
@@ -375,7 +375,7 @@ where
                         .active_graph
                         .params
                         .iter()
-                        .position(|x| &x.graph_field == field)
+                        .position(|x| &x.0 == field)
                         .expect("Tried to remove unknown parameter"),
                 );
             }
@@ -633,7 +633,8 @@ where
                 .app_state
                 .registered_operators
                 .iter()
-                .filter(|o| !o.is_graph(self.app_state.graphs.get_active())).collect();
+                .filter(|o| !o.is_graph(self.app_state.graphs.get_active()))
+                .collect();
 
             match modal::Modal::new(
                 widget::List::flow_down(operators.len())
@@ -788,19 +789,20 @@ where
             .mid_top_with_margin(16.0)
             .set(self.ids.exposed_param_title, ui);
 
-        let exposed_params = self.app_state.graphs.get_graph_parameters();
+        let active_graph = self.app_state.graphs.get_active().clone();
+        let exposed_params = self.app_state.graphs.get_graph_parameters_mut();
 
         let (mut rows, scrollbar) = widget::List::flow_down(exposed_params.len())
             .parent(self.ids.graph_settings_canvas)
+            .item_size(160.0)
             .padded_w_of(self.ids.graph_settings_canvas, 8.0)
-            .mid_top_with_margin(24.0)
-            .item_size(24.0)
-            .h(256.0)
+            .h(320.0)
+            .mid_top_with_margin(40.0)
             .scrollbar_on_top()
             .set(self.ids.exposed_param_list, ui);
 
         while let Some(row) = rows.next(ui) {
-            let widget = exposed_param_row::ExposedParamRow::new(&exposed_params[row.i])
+            let widget = exposed_param_row::ExposedParamRow::new(&mut exposed_params[row.i].1)
                 .icon_font(self.fonts.icon_font);
 
             for ev in row.set(widget, ui) {
@@ -808,8 +810,26 @@ where
                     exposed_param_row::Event::ConcealParameter => {
                         self.sender
                             .send(Lang::UserGraphEvent(UserGraphEvent::ConcealParameter(
-                                self.app_state.graphs.get_active().clone(),
-                                exposed_params[row.i].graph_field.clone(),
+                                active_graph.clone(),
+                                exposed_params[row.i].0.clone(),
+                            )))
+                            .unwrap();
+                    }
+                    exposed_param_row::Event::UpdateTitle => {
+                        self.sender
+                            .send(Lang::UserGraphEvent(UserGraphEvent::RetitleParameter(
+                                active_graph.clone(),
+                                exposed_params[row.i].0.clone(),
+                                exposed_params[row.i].1.title.to_owned(),
+                            )))
+                            .unwrap();
+                    }
+                    exposed_param_row::Event::UpdateField => {
+                        self.sender
+                            .send(Lang::UserGraphEvent(UserGraphEvent::RefieldParameter(
+                                active_graph.clone(),
+                                exposed_params[row.i].0.clone(),
+                                exposed_params[row.i].1.graph_field.to_owned(),
                             )))
                             .unwrap();
                     }

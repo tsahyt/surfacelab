@@ -251,6 +251,20 @@ impl NodeManager {
                         ),
                     ))
                 }
+                UserGraphEvent::RetitleParameter(graph_res, graph_field, new_title) => {
+                    let graph = self
+                        .graphs
+                        .get_mut(graph_res.path_str().unwrap())
+                        .expect("Node Graph not found");
+                    graph.retitle_parameter(graph_field, new_title);
+                }
+                UserGraphEvent::RefieldParameter(graph_res, graph_field, new_field) => {
+                    let graph = self
+                        .graphs
+                        .get_mut(graph_res.path_str().unwrap())
+                        .expect("Node Graph not found");
+                    graph.refield_parameter(graph_field, new_field);
+                }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {
