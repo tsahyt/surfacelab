@@ -45,7 +45,7 @@ widget_ids!(
 pub struct Graph {
     graph: super::graph::NodeGraph,
     resources: HashMap<Resource, petgraph::graph::NodeIndex>,
-    exposed_params: Vec<String>,
+    params: Vec<GraphParameter>,
 }
 
 impl Default for Graph {
@@ -53,7 +53,7 @@ impl Default for Graph {
         Self {
             graph: petgraph::Graph::new(),
             resources: HashMap::new(),
-            exposed_params: Vec::new(),
+            params: Vec::new(),
         }
     }
 }
@@ -120,8 +120,10 @@ impl Graphs {
             .nth(index)
     }
 
-    pub fn get_exposed_parameters(&self) -> &[String] {
-        &self.active_graph.exposed_params
+    /// Get a slice of the exposed graph parameters of the currently active
+    /// graph.
+    pub fn get_graph_parameters(&self) -> &[GraphParameter] {
+        &self.active_graph.params
     }
 }
 
@@ -349,19 +351,23 @@ where
                 self.app_state.graphs.clear();
                 self.app_state.graphs.clear_indices();
             }
-            GraphEvent::ParameterExposed(_graph, field) => {
+            GraphEvent::ParameterExposed(_graph, param) => {
                 self.app_state
                     .graphs
                     .active_graph
-                    .exposed_params
-                    .push(field.clone());
+                    .params
+                    .push(param.clone());
             }
             GraphEvent::ParameterConcealed(_graph, field) => {
-                self.app_state
-                    .graphs
-                    .active_graph
-                    .exposed_params
-                    .remove_item(field);
+                self.app_state.graphs.active_graph.params.remove(
+                    self.app_state
+                        .graphs
+                        .active_graph
+                        .params
+                        .iter()
+                        .position(|x| &x.graph_field == field)
+                        .expect("Tried to remove unknown parameter"),
+                );
             }
             _ => {}
         }
@@ -767,7 +773,7 @@ where
             .mid_top_with_margin(8.0)
             .set(self.ids.exposed_param_title, ui);
 
-        let exposed_params = self.app_state.graphs.get_exposed_parameters();
+        let exposed_params = self.app_state.graphs.get_graph_parameters();
 
         let (mut rows, scrollbar) = widget::List::flow_down(exposed_params.len())
             .parent(self.ids.graph_settings_canvas)
@@ -785,10 +791,10 @@ where
             for ev in row.set(widget, ui) {
                 match ev {
                     exposed_param_row::Event::ConcealParameter => {
-                        self.sender.send(
-                            Lang::UserGraphEvent(UserGraphEvent::ConcealParameter(
+                        self.sender
+                            .send(Lang::UserGraphEvent(UserGraphEvent::ConcealParameter(
                                 self.app_state.graphs.get_active().clone(),
-                                exposed_params[row.i].clone(),
+                                exposed_params[row.i].graph_field.clone(),
                             )))
                             .unwrap();
                     }

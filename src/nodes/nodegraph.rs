@@ -738,16 +738,18 @@ impl NodeGraph {
         graph_field: &str,
         title: &str,
         control: Control,
-    ) {
-        self.parameters.insert(
-            graph_field.to_owned(),
-            GraphParameter {
-                graph_field: graph_field.to_owned(),
-                parameter,
-                title: title.to_string(),
-                control,
-            },
-        );
+    ) -> Option<&GraphParameter> {
+        self.parameters
+            .insert(
+                graph_field.to_owned(),
+                GraphParameter {
+                    graph_field: graph_field.to_owned(),
+                    parameter,
+                    title: title.to_string(),
+                    control,
+                },
+            );
+        self.parameters.get(graph_field)
     }
 
     pub fn conceal_parameter(&mut self, graph_field: &str) {

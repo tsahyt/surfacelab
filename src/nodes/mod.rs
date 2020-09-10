@@ -229,11 +229,14 @@ impl NodeManager {
                         title,
                         control,
                     );
-                    graph.expose_parameter(res.clone(), graph_field, title, control.clone());
-                    response.push(lang::Lang::GraphEvent(lang::GraphEvent::ParameterExposed(
-                        res.clone(),
-                        graph_field.clone(),
-                    )))
+                    if let Some(param) =
+                        graph.expose_parameter(res.clone(), graph_field, title, control.clone())
+                    {
+                        response.push(lang::Lang::GraphEvent(lang::GraphEvent::ParameterExposed(
+                            res.clone(),
+                            param.clone(),
+                        )))
+                    }
                 }
                 UserGraphEvent::ConcealParameter(graph_res, graph_field) => {
                     let graph = self

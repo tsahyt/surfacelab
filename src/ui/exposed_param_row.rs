@@ -1,3 +1,4 @@
+use crate::lang::*;
 use super::util::*;
 use conrod_core::*;
 
@@ -5,16 +6,16 @@ use conrod_core::*;
 pub struct ExposedParamRow<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    param_name: &'a str,
+    param: &'a GraphParameter,
     style: Style,
 }
 
 impl<'a> ExposedParamRow<'a> {
-    pub fn new(param_name: &'a str) -> Self {
+    pub fn new(param: &'a GraphParameter) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
-            param_name,
+            param,
         }
     }
 
@@ -67,7 +68,7 @@ impl<'a> Widget for ExposedParamRow<'a> {
             ev = Some(Event::ConcealParameter)
         }
 
-        widget::Text::new(self.param_name)
+        widget::Text::new(&self.param.parameter.to_string())
             .parent(args.id)
             .font_size(10)
             .right(8.0)
