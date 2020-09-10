@@ -128,7 +128,9 @@ impl ParamSubstitution {
 pub trait MessageWriter: Clone {
     fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang;
 
-    fn as_field(&self) -> Option<&Field>;
+    fn as_field(&self) -> Option<&Field> {
+        None
+    }
 }
 
 #[enum_dispatch(MessageWriter)]
@@ -136,6 +138,7 @@ pub trait MessageWriter: Clone {
 pub enum MessageWriters {
     Field,
     ResourceField,
+    GraphField,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -185,9 +188,18 @@ impl MessageWriter for ResourceField {
             ),
         }
     }
+}
 
-    fn as_field(&self) -> Option<&Field> {
-        None
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum GraphField {
+    Name
+}
+
+impl MessageWriter for GraphField {
+    fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang {
+        match self {
+            Self::Name => todo!()
+        }
     }
 }
 

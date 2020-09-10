@@ -38,6 +38,7 @@ widget_ids!(
 
         // Parameter Area
         node_param_box,
+        graph_param_box,
         exposed_param_title,
         exposed_param_list,
     }
@@ -47,7 +48,31 @@ widget_ids!(
 pub struct Graph {
     graph: super::graph::NodeGraph,
     resources: HashMap<Resource, petgraph::graph::NodeIndex>,
-    params: Vec<(String, GraphParameter)>,
+    exposed_parameters: Vec<(String, GraphParameter)>,
+    param_box: ParamBoxDescription<GraphField>
+}
+
+impl Graph {
+    fn new_param_box(name: &str) -> ParamBoxDescription<GraphField> {
+        ParamBoxDescription {
+            box_title: "Graph".to_string(),
+            categories: vec![
+                ParamCategory {
+                    name: "Graph Attributes",
+                    parameters: vec![
+                        Parameter {
+                            name: "Graph Name".to_string(),
+                            control: Control::Entry {
+                                value: name.to_owned()
+                            },
+                            transmitter: GraphField::Name,
+                            expose_status: None
+                        }
+                    ]
+                }
+            ]
+        }
+    }
 }
 
 impl Default for Graph {
@@ -55,7 +80,8 @@ impl Default for Graph {
         Self {
             graph: petgraph::Graph::new(),
             resources: HashMap::new(),
-            params: Vec::new(),
+            exposed_parameters: Vec::new(),
+            param_box: Self::new_param_box("base"),
         }
     }
 }
@@ -125,8 +151,12 @@ impl Graphs {
 
     /// Get a slice of the exposed graph parameters of the currently active
     /// graph.
-    pub fn get_graph_parameters_mut(&mut self) -> &mut [(String, GraphParameter)] {
-        &mut self.active_graph.params
+    pub fn get_exposed_parameters_mut(&mut self) -> &mut [(String, GraphParameter)] {
+        &mut self.active_graph.exposed_parameters
+    }
+
+    pub fn get_graph_parameters_mut(&mut self) -> &mut ParamBoxDescription<GraphField> {
+        &mut self.active_graph.param_box
     }
 }
 
@@ -365,15 +395,15 @@ where
                 self.app_state
                     .graphs
                     .active_graph
-                    .params
+                    .exposed_parameters
                     .push((param.graph_field.clone(), param.clone()));
             }
             GraphEvent::ParameterConcealed(_graph, field) => {
-                self.app_state.graphs.active_graph.params.remove(
+                self.app_state.graphs.active_graph.exposed_parameters.remove(
                     self.app_state
                         .graphs
                         .active_graph
-                        .params
+                        .exposed_parameters
                         .iter()
                         .position(|x| &x.0 == field)
                         .expect("Tried to remove unknown parameter"),
@@ -781,23 +811,31 @@ where
 
     fn graph_section(&mut self, ui: &mut UiCell) {
         use super::exposed_param_row;
+        use super::param_box;
+
+        let active_graph = self.app_state.graphs.get_active().clone();
+
+        param_box::ParamBox::new(self.app_state.graphs.get_graph_parameters_mut(), &active_graph)
+            .parent(self.ids.graph_settings_canvas)
+            .w_of(self.ids.graph_settings_canvas)
+            .mid_top()
+            .set(self.ids.graph_param_box, ui);
 
         widget::Text::new("Exposed Parameters")
             .parent(self.ids.graph_settings_canvas)
             .color(color::WHITE)
             .font_size(12)
-            .mid_top_with_margin(16.0)
+            .mid_top_with_margin(80.0)
             .set(self.ids.exposed_param_title, ui);
 
-        let active_graph = self.app_state.graphs.get_active().clone();
-        let exposed_params = self.app_state.graphs.get_graph_parameters_mut();
+        let exposed_params = self.app_state.graphs.get_exposed_parameters_mut();
 
         let (mut rows, scrollbar) = widget::List::flow_down(exposed_params.len())
             .parent(self.ids.graph_settings_canvas)
             .item_size(160.0)
             .padded_w_of(self.ids.graph_settings_canvas, 8.0)
             .h(320.0)
-            .mid_top_with_margin(40.0)
+            .mid_top_with_margin(88.0)
             .scrollbar_on_top()
             .set(self.ids.exposed_param_list, ui);
 
