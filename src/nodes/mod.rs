@@ -230,6 +230,10 @@ impl NodeManager {
                         control,
                     );
                     graph.expose_parameter(res.clone(), graph_field, title, control.clone());
+                    response.push(lang::Lang::GraphEvent(lang::GraphEvent::ParameterExposed(
+                        res.clone(),
+                        graph_field.clone(),
+                    )))
                 }
                 UserGraphEvent::ConcealParameter(graph_res, graph_field) => {
                     let graph = self
@@ -237,6 +241,12 @@ impl NodeManager {
                         .get_mut(graph_res.path_str().unwrap())
                         .expect("Node Graph not found");
                     graph.conceal_parameter(graph_field);
+                    response.push(lang::Lang::GraphEvent(
+                        lang::GraphEvent::ParameterConcealed(
+                            graph_res.clone(),
+                            graph_field.clone(),
+                        ),
+                    ))
                 }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,

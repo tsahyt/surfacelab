@@ -13,9 +13,7 @@ impl IconName {
 
 pub fn icon_button<'a>(
     icon: IconName,
-    fonts: &super::app::AppFonts,
+    icon_font: text::font::Id,
 ) -> widget::Button<'a, widget::button::Flat> {
-    widget::Button::new()
-        .label(icon.0)
-        .label_font_id(fonts.icon_font)
+    widget::Button::new().label(icon.0).label_font_id(icon_font)
 }

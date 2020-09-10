@@ -17,21 +17,15 @@ pub struct ParamBox<'a, T: MessageWriter> {
     resource: &'a Resource,
     style: Style,
     description: &'a mut ParamBoxDescription<T>,
-    app_fonts: &'a super::app::AppFonts,
 }
 
 impl<'a, T: MessageWriter> ParamBox<'a, T> {
-    pub fn new(
-        description: &'a mut ParamBoxDescription<T>,
-        resource: &'a Resource,
-        fonts: &'a super::app::AppFonts,
-    ) -> Self {
+    pub fn new(description: &'a mut ParamBoxDescription<T>, resource: &'a Resource) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             description,
             resource,
-            app_fonts: fonts,
         }
     }
 
@@ -131,11 +125,17 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .len()
                 < (counts.toggles)
     }
+
+    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
+        self.style.icon_font = Some(Some(font_id));
+        self
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    icon_font: Option<text::font::Id>,
+    #[conrod(default = "theme.font_id")]
+    icon_font: Option<Option<text::font::Id>>,
 }
 
 #[derive(Clone, Debug)]
@@ -219,7 +219,7 @@ where
                             ExposeStatus::Unexposed => IconName::EXPOSE,
                             ExposeStatus::Exposed => IconName::UNEXPOSE,
                         },
-                        self.app_fonts,
+                        self.style.icon_font.unwrap().unwrap(),
                     )
                     .parent(id)
                     .color(color::DARK_CHARCOAL)

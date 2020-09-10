@@ -36,6 +36,7 @@ widget_ids!(
 
         // Parameter Area
         node_param_box,
+        exposed_param_title,
         exposed_param_list,
     }
 );
@@ -44,6 +45,7 @@ widget_ids!(
 pub struct Graph {
     graph: super::graph::NodeGraph,
     resources: HashMap<Resource, petgraph::graph::NodeIndex>,
+    exposed_params: Vec<String>,
 }
 
 impl Default for Graph {
@@ -51,6 +53,7 @@ impl Default for Graph {
         Self {
             graph: petgraph::Graph::new(),
             resources: HashMap::new(),
+            exposed_params: Vec::new(),
         }
     }
 }
@@ -115,6 +118,10 @@ impl Graphs {
         std::iter::once(&self.active_resource)
             .chain(self.graphs.keys())
             .nth(index)
+    }
+
+    pub fn get_exposed_parameters(&self) -> &[String] {
+        &self.active_graph.exposed_params
     }
 }
 
@@ -342,6 +349,20 @@ where
                 self.app_state.graphs.clear();
                 self.app_state.graphs.clear_indices();
             }
+            GraphEvent::ParameterExposed(_graph, field) => {
+                self.app_state
+                    .graphs
+                    .active_graph
+                    .exposed_params
+                    .push(field.clone());
+            }
+            GraphEvent::ParameterConcealed(_graph, field) => {
+                self.app_state
+                    .graphs
+                    .active_graph
+                    .exposed_params
+                    .remove_item(field);
+            }
             _ => {}
         }
     }
@@ -413,7 +434,7 @@ where
     fn top_bar(&mut self, ui: &mut UiCell) {
         use super::util::*;
 
-        for _press in icon_button(IconName::FOLDER_PLUS, &self.fonts)
+        for _press in icon_button(IconName::FOLDER_PLUS, self.fonts.icon_font)
             .label_font_size(14)
             .label_color(color::WHITE)
             .color(color::DARK_CHARCOAL)
@@ -427,7 +448,7 @@ where
                 .unwrap();
         }
 
-        for _press in icon_button(IconName::FOLDER_OPEN, &self.fonts)
+        for _press in icon_button(IconName::FOLDER_OPEN, self.fonts.icon_font)
             .label_font_size(14)
             .label_color(color::WHITE)
             .color(color::DARK_CHARCOAL)
@@ -454,7 +475,7 @@ where
             }
         }
 
-        for _press in icon_button(IconName::CONTENT_SAVE, &self.fonts)
+        for _press in icon_button(IconName::CONTENT_SAVE, self.fonts.icon_font)
             .label_font_size(14)
             .label_color(color::WHITE)
             .color(color::DARK_CHARCOAL)
@@ -497,7 +518,7 @@ where
             }
         }
 
-        for _press in icon_button(IconName::GRAPH, &self.fonts)
+        for _press in icon_button(IconName::GRAPH, self.fonts.icon_font)
             .label_font_size(14)
             .label_color(color::WHITE)
             .color(color::DARK_CHARCOAL)
@@ -608,12 +629,12 @@ where
                     while let Some(item) = items.next(ui) {
                         let i = item.i;
                         let label = operators[i].title();
-                        let toggle = widget::Button::new()
+                        let button = widget::Button::new()
                             .label(&label)
                             .label_color(conrod_core::color::WHITE)
                             .label_font_size(12)
                             .color(conrod_core::color::LIGHT_CHARCOAL);
-                        for _press in item.set(toggle, ui) {
+                        for _press in item.set(button, ui) {
                             self.app_state.add_modal = false;
 
                             self.sender
@@ -714,10 +735,11 @@ where
         use super::param_box::*;
 
         if let Some((description, resource)) = self.app_state.active_parameters() {
-            for ev in ParamBox::new(description, resource, &self.fonts)
+            for ev in ParamBox::new(description, resource)
                 .parent(self.ids.parameter_canvas)
                 .w_of(self.ids.parameter_canvas)
                 .mid_top()
+                .icon_font(self.fonts.icon_font)
                 .set(self.ids.node_param_box, ui)
             {
                 let resp = match ev {
@@ -736,8 +758,48 @@ where
     }
 
     fn graph_section(&mut self, ui: &mut UiCell) {
+        use super::exposed_param_row;
+
+        widget::Text::new("Exposed Parameters")
+            .parent(self.ids.graph_settings_canvas)
+            .color(color::WHITE)
+            .font_size(12)
+            .mid_top_with_margin(8.0)
+            .set(self.ids.exposed_param_title, ui);
+
+        let exposed_params = self.app_state.graphs.get_exposed_parameters();
+
+        let (mut rows, scrollbar) = widget::List::flow_down(exposed_params.len())
+            .parent(self.ids.graph_settings_canvas)
+            .padded_w_of(self.ids.graph_settings_canvas, 8.0)
+            .mid_top_with_margin(24.0)
+            .item_size(24.0)
+            .h(256.0)
+            .scrollbar_on_top()
+            .set(self.ids.exposed_param_list, ui);
+
+        while let Some(row) = rows.next(ui) {
+            let widget = exposed_param_row::ExposedParamRow::new(&exposed_params[row.i])
+                .icon_font(self.fonts.icon_font);
+
+            for ev in row.set(widget, ui) {
+                match ev {
+                    exposed_param_row::Event::ConcealParameter => {
+                        self.sender.send(
+                            Lang::UserGraphEvent(UserGraphEvent::ConcealParameter(
+                                self.app_state.graphs.get_active().clone(),
+                                exposed_params[row.i].clone(),
+                            )))
+                            .unwrap();
+                    }
+                }
+            }
+        }
+
+        if let Some(s) = scrollbar {
+            s.set(ui);
+        }
     }
 
-    fn surface_section(&mut self, ui: &mut UiCell) {
-    }
+    fn surface_section(&mut self, ui: &mut UiCell) {}
 }

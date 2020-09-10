@@ -250,6 +250,8 @@ pub enum GraphEvent {
     Recompute(Resource),
     SocketMonomorphized(Resource, ImageType),
     SocketDemonomorphized(Resource),
+    ParameterExposed(Resource, String),
+    ParameterConcealed(Resource, String),
     OutputRemoved(Resource, OutputType),
     Cleared,
 }
