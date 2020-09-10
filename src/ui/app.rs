@@ -97,8 +97,9 @@ impl Graphs {
         self.active_graph.resources.remove(resource);
     }
 
-    pub fn clear_indices(&mut self) {
-        self.active_graph.resources.clear();
+    pub fn clear_all(&mut self) {
+        self.active_graph = Graph::default();
+        self.graphs.clear();
     }
 
     pub fn add_graph(&mut self, graph: Resource) {
@@ -348,8 +349,7 @@ where
                 node.set_type_variable(var, None)
             }
             GraphEvent::Cleared => {
-                self.app_state.graphs.clear();
-                self.app_state.graphs.clear_indices();
+                self.app_state.graphs.clear_all();
             }
             GraphEvent::ParameterExposed(_graph, param) => {
                 self.app_state
@@ -474,8 +474,7 @@ where
                             std::path::PathBuf::from(path),
                         )))
                         .unwrap();
-                    self.app_state.graphs.clear();
-                    self.app_state.graphs.clear_indices();
+                    self.app_state.graphs.clear_all();
                 }
                 _ => {}
             }
