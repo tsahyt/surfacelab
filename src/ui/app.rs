@@ -53,6 +53,15 @@ pub struct Graph {
 }
 
 impl Graph {
+    pub fn new(name: &str) -> Self {
+        Self {
+            graph: petgraph::Graph::new(),
+            resources: HashMap::new(),
+            exposed_parameters: Vec::new(),
+            param_box: Self::new_param_box(name),
+        }
+    }
+
     fn new_param_box(name: &str) -> ParamBoxDescription<GraphField> {
         ParamBoxDescription {
             box_title: "Graph".to_string(),
@@ -73,12 +82,7 @@ impl Graph {
 
 impl Default for Graph {
     fn default() -> Self {
-        Self {
-            graph: petgraph::Graph::new(),
-            resources: HashMap::new(),
-            exposed_parameters: Vec::new(),
-            param_box: Self::new_param_box("base"),
-        }
+        Self::new("base")
     }
 }
 
@@ -108,8 +112,14 @@ impl Graphs {
     pub fn rename_graph(&mut self, from: &Resource, to: &Resource) {
         if &self.active_resource == from {
             self.active_resource = to.clone();
+            self.active_graph.param_box.categories[0].parameters[0].control = Control::Entry {
+                value: to.file().unwrap().to_string(),
+            };
         } else {
-            if let Some(graph) = self.graphs.remove(from) {
+            if let Some(mut graph) = self.graphs.remove(from) {
+                graph.param_box.categories[0].parameters[0].control = Control::Entry {
+                    value: to.file().unwrap().to_string(),
+                };
                 self.graphs.insert(to.clone(), graph);
             }
         }
@@ -137,7 +147,7 @@ impl Graphs {
     }
 
     pub fn add_graph(&mut self, graph: Resource) {
-        self.graphs.insert(graph, Graph::default());
+        self.graphs.insert(graph.clone(), Graph::new(graph.file().unwrap()));
     }
 
     /// Get a list of graph names for displaying
