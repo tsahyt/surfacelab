@@ -96,6 +96,10 @@ impl NodeGraph {
         }
     }
 
+    pub fn rename(&mut self, name: &str) {
+        self.name = name.to_string();
+    }
+
     /// Construct the default map of parameter substitutions from this graph.
     /// This will include all parameters with their default values.
     pub fn default_substitutions(&self) -> HashMap<String, ParamSubstitution> {

@@ -207,15 +207,33 @@ impl NodeManager {
                 }
             },
             Lang::UserGraphEvent(event) => match event {
-                UserGraphEvent::AddGraph(name) => {
+                UserGraphEvent::AddGraph => {
+                    let name = (0..)
+                        .map(|i| format!("unnamed.{}", i))
+                        .filter(|n| !self.graphs.contains_key(n))
+                        .next()
+                        .unwrap();
                     self.graphs
-                        .insert(name.clone(), nodegraph::NodeGraph::new(&name));
+                        .insert(name.to_string(), nodegraph::NodeGraph::new(&name));
                     response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphAdded(
                         Resource::graph(name, None),
                     )));
                 }
                 UserGraphEvent::ChangeGraph(res) => {
                     self.active_graph = res.clone();
+                }
+                UserGraphEvent::RenameGraph(from, to) => {
+                    if let Some(mut graph) = self.graphs.remove(from.path().to_str().unwrap()) {
+                        log::trace!("Renaming graph {} to {}", from, to);
+                        let new_name = to.path().to_str().unwrap();
+                        graph.rename(new_name);
+                        self.graphs.insert(new_name.to_string(), graph);
+                    }
+
+                    response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphRenamed(
+                        from.clone(),
+                        to.clone(),
+                    )));
                 }
                 UserGraphEvent::ExposeParameter(res, graph_field, title, control) => {
                     let graph = self

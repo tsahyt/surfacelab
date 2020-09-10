@@ -49,28 +49,24 @@ pub struct Graph {
     graph: super::graph::NodeGraph,
     resources: HashMap<Resource, petgraph::graph::NodeIndex>,
     exposed_parameters: Vec<(String, GraphParameter)>,
-    param_box: ParamBoxDescription<GraphField>
+    param_box: ParamBoxDescription<GraphField>,
 }
 
 impl Graph {
     fn new_param_box(name: &str) -> ParamBoxDescription<GraphField> {
         ParamBoxDescription {
             box_title: "Graph".to_string(),
-            categories: vec![
-                ParamCategory {
-                    name: "Graph Attributes",
-                    parameters: vec![
-                        Parameter {
-                            name: "Graph Name".to_string(),
-                            control: Control::Entry {
-                                value: name.to_owned()
-                            },
-                            transmitter: GraphField::Name,
-                            expose_status: None
-                        }
-                    ]
-                }
-            ]
+            categories: vec![ParamCategory {
+                name: "Graph Attributes",
+                parameters: vec![Parameter {
+                    name: "Graph Name".to_string(),
+                    control: Control::Entry {
+                        value: name.to_owned(),
+                    },
+                    transmitter: GraphField::Name,
+                    expose_status: None,
+                }],
+            }],
         }
     }
 }
@@ -107,6 +103,16 @@ impl Graphs {
             .insert(self.active_resource.clone(), self.active_graph.clone());
         self.active_resource = graph;
         self.active_graph = self.graphs.remove(&self.active_resource).unwrap();
+    }
+
+    pub fn rename_graph(&mut self, from: &Resource, to: &Resource) {
+        if &self.active_resource == from {
+            self.active_resource = to.clone();
+        } else {
+            if let Some(graph) = self.graphs.remove(from) {
+                self.graphs.insert(to.clone(), graph);
+            }
+        }
     }
 
     pub fn get_active(&self) -> &Resource {
@@ -295,6 +301,9 @@ where
                     .registered_operators
                     .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
             }
+            GraphEvent::GraphRenamed(from, to) => {
+                self.app_state.graphs.rename_graph(from, to);
+            }
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
                 let idx = self.app_state.graphs.add_node(super::graph::NodeData::new(
                     res.clone(),
@@ -399,15 +408,19 @@ where
                     .push((param.graph_field.clone(), param.clone()));
             }
             GraphEvent::ParameterConcealed(_graph, field) => {
-                self.app_state.graphs.active_graph.exposed_parameters.remove(
-                    self.app_state
-                        .graphs
-                        .active_graph
-                        .exposed_parameters
-                        .iter()
-                        .position(|x| &x.0 == field)
-                        .expect("Tried to remove unknown parameter"),
-                );
+                self.app_state
+                    .graphs
+                    .active_graph
+                    .exposed_parameters
+                    .remove(
+                        self.app_state
+                            .graphs
+                            .active_graph
+                            .exposed_parameters
+                            .iter()
+                            .position(|x| &x.0 == field)
+                            .expect("Tried to remove unknown parameter"),
+                    );
             }
             _ => {}
         }
@@ -573,9 +586,7 @@ where
             .set(self.ids.graph_add, ui)
         {
             self.sender
-                .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph(
-                    "untitled".to_string(),
-                )))
+                .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph))
                 .unwrap()
         }
     }
@@ -815,11 +826,20 @@ where
 
         let active_graph = self.app_state.graphs.get_active().clone();
 
-        param_box::ParamBox::new(self.app_state.graphs.get_graph_parameters_mut(), &active_graph)
-            .parent(self.ids.graph_settings_canvas)
-            .w_of(self.ids.graph_settings_canvas)
-            .mid_top()
-            .set(self.ids.graph_param_box, ui);
+        for ev in param_box::ParamBox::new(
+            self.app_state.graphs.get_graph_parameters_mut(),
+            &active_graph,
+        )
+        .parent(self.ids.graph_settings_canvas)
+        .w_of(self.ids.graph_settings_canvas)
+        .mid_top()
+        .set(self.ids.graph_param_box, ui)
+        {
+            match ev {
+                param_box::Event::ChangeParameter(event) => self.sender.send(event).unwrap(),
+                _ => {}
+            }
+        }
 
         widget::Text::new("Exposed Parameters")
             .parent(self.ids.graph_settings_canvas)

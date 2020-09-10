@@ -192,14 +192,21 @@ impl MessageWriter for ResourceField {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GraphField {
-    Name
+    Name,
 }
 
 impl MessageWriter for GraphField {
     fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang {
-        match self {
-            Self::Name => todo!()
-        }
+        let new = unsafe { std::str::from_utf8_unchecked(&data) };
+        let mut res_new = resource.clone();
+        res_new.modify_path(|p| {
+            p.pop();
+            p.push(new);
+        });
+        super::Lang::UserGraphEvent(super::UserGraphEvent::RenameGraph(
+            resource.clone(),
+            res_new,
+        ))
     }
 }
 
