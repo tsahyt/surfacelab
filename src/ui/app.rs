@@ -162,6 +162,112 @@ impl Graphs {
     pub fn get_graph_parameters_mut(&mut self) -> &mut ParamBoxDescription<GraphField> {
         &mut self.active_graph.param_box
     }
+
+    fn target_graph_from_node(&mut self, node: &Resource) -> Option<&mut Graph> {
+        let graph_name = node.directory().unwrap();
+        let graph_res = Resource::graph(graph_name, None);
+
+        if self.active_resource == graph_res {
+            Some(&mut self.active_graph)
+        } else {
+            self.graphs.get_mut(&graph_res)
+        }
+    }
+
+    pub fn add_node(&mut self, node: super::graph::NodeData) {
+        let node_res = node.resource.clone();
+
+        if let Some(target) = self.target_graph_from_node(&node_res) {
+            let idx = target.graph.add_node(node);
+            target.resources.insert(node_res, idx);
+        }
+    }
+
+    pub fn connect_sockets(&mut self, from: &Resource, to: &Resource) {
+        if let Some(target) = self.target_graph_from_node(from) {
+            let from_idx = target.resources.get(&from.drop_fragment()).unwrap();
+            let to_idx = target.resources.get(&to.drop_fragment()).unwrap();
+            target.graph.add_edge(
+                *from_idx,
+                *to_idx,
+                (
+                    from.fragment().unwrap().to_string(),
+                    to.fragment().unwrap().to_string(),
+                ),
+            );
+        }
+    }
+
+    pub fn disconnect_sockets(&mut self, from: &Resource, to: &Resource) {
+        if let Some(target) = self.target_graph_from_node(&from) {
+            use petgraph::visit::EdgeRef;
+
+            let from_idx = target.resources.get(&from.drop_fragment()).unwrap();
+            let to_idx = target.resources.get(&to.drop_fragment()).unwrap();
+
+            // Assuming that there's only ever one edge connecting two sockets.
+            if let Some(e) = target
+                .graph
+                .edges_connecting(*from_idx, *to_idx)
+                .filter(|e| {
+                    (e.weight().0.as_str(), e.weight().1.as_str())
+                        == (from.fragment().unwrap(), to.fragment().unwrap())
+                })
+                .map(|e| e.id())
+                .next()
+            {
+                target.graph.remove_edge(e);
+            }
+        }
+    }
+
+    // FIXME: removal renumbers the nodes, so we need to update the indexing as well
+    pub fn remove_node(&mut self, node: &Resource) {
+        if let Some(target) = self.target_graph_from_node(&node) {
+            if let Some(idx) = target.resources.remove(node) {
+                target.graph.remove_node(idx);
+            }
+        }
+    }
+
+    pub fn monomorphize_socket(&mut self, socket: &Resource, ty: ImageType) {
+        if let Some(target) = self.target_graph_from_node(&socket) {
+            let idx = target.resources.get(&socket.drop_fragment()).unwrap();
+            let node = target.graph.node_weight_mut(*idx).unwrap();
+            let var = type_variable_from_socket_iter(
+                node.inputs.iter().chain(node.outputs.iter()),
+                socket.fragment().unwrap(),
+            )
+            .unwrap();
+            node.set_type_variable(var, Some(ty))
+        }
+    }
+
+    pub fn demonomorphize_socket(&mut self, socket: &Resource) {
+        if let Some(target) = self.target_graph_from_node(&socket) {
+            let idx = target.resources.get(&socket.drop_fragment()).unwrap();
+            let node = target.graph.node_weight_mut(*idx).unwrap();
+            let var = type_variable_from_socket_iter(
+                node.inputs.iter().chain(node.outputs.iter()),
+                socket.fragment().unwrap(),
+            )
+            .unwrap();
+            node.set_type_variable(var, None)
+        }
+    }
+
+    /// Rename a node. Note that this does *not* support moving a node from one
+    /// graph to another!
+    pub fn rename_node(&mut self, from: &Resource, to: &Resource) {
+        if let Some(target) = self.target_graph_from_node(&from) {
+            if let Some(idx) = target.resources.get(from).copied() {
+                let node = target.graph.node_weight_mut(idx).unwrap();
+                node.resource = to.clone();
+                target.resources.insert(to.clone(), idx);
+                target.resources.remove(from);
+            }
+        }
+    }
 }
 
 impl std::ops::Deref for Graphs {
@@ -321,97 +427,30 @@ where
                     .push(Operator::ComplexOperator(ComplexOperator::new(to.clone())));
             }
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
-                let idx = self.app_state.graphs.add_node(super::graph::NodeData::new(
+                self.app_state.graphs.add_node(super::graph::NodeData::new(
                     res.clone(),
                     position.map(|(x, y)| [x, y]),
                     &op,
                     pbox.clone(),
                 ));
-                self.app_state.graphs.insert_index(res.clone(), idx);
             }
             GraphEvent::NodeRemoved(res) => {
-                if let Some(idx) = self.app_state.graphs.index_of(res) {
-                    self.app_state.graphs.remove_node(idx);
-                }
-                self.app_state.graphs.remove_index(res);
-                // FIXME: removal renumbers the nodes, so we need to update the indexing as well
+                self.app_state.graphs.remove_node(res);
             }
             GraphEvent::NodeRenamed(from, to) => {
-                if let Some(idx) = self.app_state.graphs.index_of(from) {
-                    let node = self.app_state.graphs.node_weight_mut(idx).unwrap();
-                    node.resource = to.clone();
-                    self.app_state.graphs.insert_index(to.clone(), idx);
-                    self.app_state.graphs.remove_index(from);
-                }
+                self.app_state.graphs.rename_node(from, to);
             }
             GraphEvent::ConnectedSockets(from, to) => {
-                let from_idx = self
-                    .app_state
-                    .graphs
-                    .index_of(&from.drop_fragment())
-                    .unwrap();
-                let to_idx = self.app_state.graphs.index_of(&to.drop_fragment()).unwrap();
-                self.app_state.graphs.add_edge(
-                    from_idx,
-                    to_idx,
-                    (
-                        from.fragment().unwrap().to_string(),
-                        to.fragment().unwrap().to_string(),
-                    ),
-                );
+                self.app_state.graphs.connect_sockets(from, to)
             }
             GraphEvent::DisconnectedSockets(from, to) => {
-                use petgraph::visit::EdgeRef;
-
-                let from_idx = self
-                    .app_state
-                    .graphs
-                    .index_of(&from.drop_fragment())
-                    .unwrap();
-                let to_idx = self.app_state.graphs.index_of(&to.drop_fragment()).unwrap();
-
-                // Assuming that there's only ever one edge connecting two sockets.
-                if let Some(e) = self
-                    .app_state
-                    .graphs
-                    .edges_connecting(from_idx, to_idx)
-                    .filter(|e| {
-                        (e.weight().0.as_str(), e.weight().1.as_str())
-                            == (from.fragment().unwrap(), to.fragment().unwrap())
-                    })
-                    .map(|e| e.id())
-                    .next()
-                {
-                    self.app_state.graphs.remove_edge(e);
-                }
+                self.app_state.graphs.disconnect_sockets(from, to)
             }
             GraphEvent::SocketMonomorphized(socket, ty) => {
-                let idx = self
-                    .app_state
-                    .graphs
-                    .index_of(&socket.drop_fragment())
-                    .unwrap();
-                let node = self.app_state.graphs.node_weight_mut(idx).unwrap();
-                let var = type_variable_from_socket_iter(
-                    node.inputs.iter().chain(node.outputs.iter()),
-                    socket.fragment().unwrap(),
-                )
-                .unwrap();
-                node.set_type_variable(var, Some(*ty))
+                self.app_state.graphs.monomorphize_socket(socket, *ty)
             }
             GraphEvent::SocketDemonomorphized(socket) => {
-                let idx = self
-                    .app_state
-                    .graphs
-                    .index_of(&socket.drop_fragment())
-                    .unwrap();
-                let node = self.app_state.graphs.node_weight_mut(idx).unwrap();
-                let var = type_variable_from_socket_iter(
-                    node.inputs.iter().chain(node.outputs.iter()),
-                    socket.fragment().unwrap(),
-                )
-                .unwrap();
-                node.set_type_variable(var, None)
+                self.app_state.graphs.demonomorphize_socket(socket)
             }
             GraphEvent::Cleared => {
                 self.app_state.graphs.clear_all();
