@@ -433,6 +433,11 @@ impl NodeGraph {
             return Err("Tried to connect from a sink to a source".into());
         }
 
+        // Check that from and to are two different nodes
+        if from_node == to_node {
+            return Err("Tried to connect a node with itself".into());
+        }
+
         // Handle type checking/inference
         let from_type = self.socket_type(from_node, from_socket).unwrap();
         let to_type = self.socket_type(to_node, to_socket).unwrap();
