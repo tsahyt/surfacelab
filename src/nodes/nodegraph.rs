@@ -129,6 +129,20 @@ impl NodeGraph {
         }
     }
 
+    pub fn inputs(&self) -> HashMap<String, (OperatorType, Resource)> {
+        HashMap::from_iter(self.graph.node_indices().filter_map(|idx| {
+            let node = self.graph.node_weight(idx).unwrap();
+            let res = self.node_resource(&idx);
+            match &node.operator {
+                Operator::AtomicOperator(AtomicOperator::Input(inp)) => Some((
+                    res.file().unwrap().to_string(),
+                    (*inp.outputs().get("data").unwrap(), res.clone()),
+                )),
+                _ => None,
+            }
+        }))
+    }
+
     pub fn outputs(&self) -> HashMap<String, (OperatorType, Resource)> {
         let mut result = HashMap::new();
 

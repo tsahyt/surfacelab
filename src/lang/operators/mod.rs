@@ -191,8 +191,8 @@ impl Socketed for Input {
         "Input"
     }
 
-    fn is_output(&self) -> bool {
-        false
+    fn is_input(&self) -> bool {
+        true
     }
 }
 

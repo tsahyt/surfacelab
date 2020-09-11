@@ -572,9 +572,6 @@ where
                             response.push(res);
                         }
                     }
-                    AtomicOperator::Input(input) => {
-                        self.execute_input(&input, res)?;
-                    }
                     _ => {
                         self.execute_operator(&op, res)?;
                     }
@@ -717,17 +714,9 @@ where
         Ok(())
     }
 
-    fn execute_input(&mut self, op: &Input, res: &Resource) -> Result<Vec<ComputeEvent>, String> {
-        Ok(Vec::new())
-    }
-
     // NOTE: Images sent as OutputReady could technically get dropped before the
     // renderer is done copying them.
-    fn execute_output(
-        &mut self,
-        op: &Output,
-        res: &Resource,
-    ) -> Result<Vec<ComputeEvent>, String> {
+    fn execute_output(&mut self, op: &Output, res: &Resource) -> Result<Vec<ComputeEvent>, String> {
         let socket = "data";
         let output_type = op.output_type;
 

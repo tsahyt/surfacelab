@@ -67,7 +67,7 @@ impl AtomicOperator {
 pub struct ComplexOperator {
     pub graph: Resource,
     title: String,
-    pub inputs: HashMap<String, OperatorType>,
+    pub inputs: HashMap<String, (OperatorType, Resource)>,
     pub outputs: HashMap<String, (OperatorType, Resource)>,
     pub parameters: HashMap<String, ParamSubstitution>,
 }
@@ -97,7 +97,7 @@ impl Parameters for ComplexOperator {
 
 impl Socketed for ComplexOperator {
     fn inputs(&self) -> HashMap<String, OperatorType> {
-        self.inputs.clone()
+        self.inputs.iter().map(|(k, v)| (k.clone(), v.0)).collect()
     }
 
     fn outputs(&self) -> HashMap<String, OperatorType> {

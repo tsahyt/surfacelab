@@ -42,6 +42,10 @@ pub trait Socketed {
     fn is_output(&self) -> bool {
         false
     }
+
+    fn is_input(&self) -> bool {
+        false
+    }
 }
 
 pub fn type_variable_from_socket_iter<'a, I: IntoIterator<Item = &'a (String, OperatorType)>>(
