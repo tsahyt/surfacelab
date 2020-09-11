@@ -35,6 +35,10 @@ widget_ids!(
         node_graph,
         render_view,
         add_modal,
+        render_modal,
+
+        // Render Modal
+        render_params,
 
         // Parameter Area
         node_param_box,
@@ -58,24 +62,7 @@ impl Graph {
             graph: petgraph::Graph::new(),
             resources: HashMap::new(),
             exposed_parameters: Vec::new(),
-            param_box: Self::new_param_box(name),
-        }
-    }
-
-    fn new_param_box(name: &str) -> ParamBoxDescription<GraphField> {
-        ParamBoxDescription {
-            box_title: "Graph".to_string(),
-            categories: vec![ParamCategory {
-                name: "Graph Attributes",
-                parameters: vec![Parameter {
-                    name: "Graph Name".to_string(),
-                    control: Control::Entry {
-                        value: name.to_owned(),
-                    },
-                    transmitter: GraphField::Name,
-                    expose_status: None,
-                }],
-            }],
+            param_box: ParamBoxDescription::graph_parameters(name)
         }
     }
 }
@@ -196,7 +183,12 @@ pub struct App {
     active_element: Option<petgraph::graph::NodeIndex>,
     render_image: Option<image::Id>,
     monitor_resolution: (u32, u32),
+
     add_modal: bool,
+    render_modal: bool,
+
+    render_params: ParamBoxDescription<RenderField>,
+
     registered_operators: Vec<Operator>,
 }
 
@@ -208,6 +200,8 @@ impl App {
             render_image: None,
             monitor_resolution: (monitor_size.0, monitor_size.1),
             add_modal: false,
+            render_modal: false,
+            render_params: ParamBoxDescription::render_parameters(),
             registered_operators: AtomicOperator::all_default()
                 .iter()
                 .map(|x| Operator::from(x.clone()))
@@ -217,7 +211,7 @@ impl App {
 
     pub fn active_parameters(
         &mut self,
-    ) -> Option<(&mut ParamBoxDescription<impl MessageWriter>, &Resource)> {
+    ) -> Option<(&mut ParamBoxDescription<MessageWriters>, &Resource)> {
         let ae = self.active_element?;
         let node = self.graphs.node_weight_mut(ae)?;
         Some((&mut node.param_box, &node.resource))
@@ -709,7 +703,7 @@ where
             .graphics_for(self.ids.node_graph_canvas)
             .set(self.ids.add_modal, ui)
             {
-                modal::Event::ChildEvent((mut items, scrollbar)) => {
+                modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
                     while let Some(item) = items.next(ui) {
                         let i = item.i;
                         let label = operators[i].title();
@@ -794,6 +788,9 @@ where
                             delta,
                         )))
                         .unwrap(),
+                    Some(Event::OpenModal) => {
+                        self.app_state.render_modal = true;
+                    }
                     _ => {}
                 }
             }
@@ -811,6 +808,22 @@ where
                         RendererType::Renderer3D,
                     )))
                     .expect("Error contacting renderer backend");
+            }
+        }
+
+        if self.app_state.render_modal {
+            use super::modal;
+
+            match modal::Modal::canvas()
+                .wh_of(self.ids.drawing_canvas)
+                .middle_of(self.ids.drawing_canvas)
+                .graphics_for(self.ids.drawing_canvas)
+                .set(self.ids.render_modal, ui)
+            {
+                modal::Event::ChildEvent((_, id)) => {}
+                modal::Event::Hide => {
+                    self.app_state.render_modal = false;
+                }
             }
         }
     }

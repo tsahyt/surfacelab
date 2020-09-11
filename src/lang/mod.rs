@@ -274,7 +274,7 @@ pub type RendererID = u64;
 #[repr(u32)]
 pub enum LightType {
     PointLight = 0,
-    SunLight = 1
+    SunLight = 1,
 }
 
 #[derive(Debug)]

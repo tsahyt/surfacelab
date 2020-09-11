@@ -8,6 +8,12 @@ pub struct Modal<W> {
     widget: W,
 }
 
+impl Modal<widget::Canvas<'_>> {
+    pub fn canvas() -> Self {
+        Self::new(widget::Canvas::new().color(color::DARK_CHARCOAL))
+    }
+}
+
 impl<W> Modal<W> {
     pub fn new(widget: W) -> Self {
         Self {
@@ -19,7 +25,10 @@ impl<W> Modal<W> {
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
-pub struct Style {}
+pub struct Style {
+    #[conrod(default = "256.0")]
+    padding: Option<Scalar>,
+}
 
 widget_ids! {
     pub struct Ids {
@@ -32,7 +41,7 @@ pub enum Event<W>
 where
     W: Widget,
 {
-    ChildEvent(W::Event),
+    ChildEvent((W::Event, widget::Id)),
     Hide,
 }
 
@@ -54,6 +63,7 @@ where
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         widget::Canvas::new()
+            .border(0.0)
             .wh_of(args.id)
             .middle_of(args.id)
             .color(color::Color::Rgba(0., 0., 0., 0.9))
@@ -66,9 +76,9 @@ where
         let ev = self
             .widget
             .middle_of(args.state.canvas)
-            .padded_wh_of(args.state.canvas, 256.0)
+            .padded_wh_of(args.state.canvas, self.style.padding.unwrap_or(256.0))
             .set(args.state.widget, args.ui);
 
-        Event::ChildEvent(ev)
+        Event::ChildEvent((ev, args.state.widget))
     }
 }

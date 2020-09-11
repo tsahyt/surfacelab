@@ -26,6 +26,7 @@ pub enum Event {
     Pan(f32, f32),
     LightPan(f32, f32),
     Zoom(f32),
+    OpenModal,
 }
 
 widget_ids! {
@@ -119,6 +120,12 @@ impl Widget for RenderView {
                 }
                 event::Widget::Scroll(event::Scroll { y, .. }) => {
                     return Some(Event::Zoom(y as f32 * SCROLL_SPEED));
+                }
+                event::Widget::Click(event::Click {
+                    button: input::MouseButton::Right,
+                    ..
+                }) => {
+                    return Some(Event::OpenModal);
                 }
                 _ => {}
             }

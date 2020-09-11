@@ -126,26 +126,58 @@ impl ParamSubstitution {
 
 #[enum_dispatch]
 pub trait MessageWriter: Clone {
-    fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang;
+    type Resource;
+
+    fn transmit(&self, resource: &Self::Resource, data: &[u8]) -> super::Lang;
 
     fn as_field(&self) -> Option<&Field> {
         None
     }
 }
 
-#[enum_dispatch(MessageWriter)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum MessageWriters {
-    Field,
-    ResourceField,
-    GraphField,
+    Field(Field),
+    ResourceField(ResourceField),
+}
+
+impl MessageWriter for MessageWriters {
+    type Resource = Resource;
+
+    fn transmit(&self, resource: &Self::Resource, data: &[u8]) -> super::Lang {
+        match self {
+            MessageWriters::Field(x) => x.transmit(resource, data),
+            MessageWriters::ResourceField(x) => x.transmit(resource, data)
+        }
+    }
+
+    fn as_field(&self) -> Option<&Field> {
+        match self {
+            MessageWriters::Field(x) => Some(x),
+            MessageWriters::ResourceField(_) => None
+        }
+    }
+}
+
+impl From<Field> for MessageWriters {
+    fn from(x: Field) -> Self {
+        MessageWriters::Field(x)
+    }
+}
+
+impl From<ResourceField> for MessageWriters {
+    fn from(x: ResourceField) -> Self {
+        MessageWriters::ResourceField(x)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Field(pub String);
 
 impl MessageWriter for Field {
-    fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang {
+    type Resource = Resource;
+
+    fn transmit(&self, resource: &Resource, data: &[u8]) -> super::Lang {
         super::Lang::UserNodeEvent(super::UserNodeEvent::ParameterChange(
             Resource::parameter(resource.path(), &self.0),
             data.to_vec(),
@@ -165,7 +197,9 @@ pub enum ResourceField {
 }
 
 impl MessageWriter for ResourceField {
-    fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang {
+    type Resource = Resource;
+
+    fn transmit(&self, resource: &Resource, data: &[u8]) -> super::Lang {
         match self {
             Self::Name => {
                 let new = unsafe { std::str::from_utf8_unchecked(&data) };
@@ -180,11 +214,11 @@ impl MessageWriter for ResourceField {
                 ))
             }
             Self::Size => super::Lang::UserNodeEvent(super::UserNodeEvent::OutputSizeChange(
-                resource,
+                resource.clone(),
                 i32::from_data(data),
             )),
             Self::AbsoluteSize => super::Lang::UserNodeEvent(
-                super::UserNodeEvent::OutputSizeAbsolute(resource, data != [0]),
+                super::UserNodeEvent::OutputSizeAbsolute(resource.clone(), data != [0]),
             ),
         }
     }
@@ -196,7 +230,9 @@ pub enum GraphField {
 }
 
 impl MessageWriter for GraphField {
-    fn transmit(&self, resource: Resource, data: &[u8]) -> super::Lang {
+    type Resource = Resource;
+
+    fn transmit(&self, resource: &Resource, data: &[u8]) -> super::Lang {
         let new = unsafe { std::str::from_utf8_unchecked(&data) };
         let mut res_new = resource.clone();
         res_new.modify_path(|p| {
@@ -207,6 +243,23 @@ impl MessageWriter for GraphField {
             resource.clone(),
             res_new,
         ))
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum RenderField {
+    DisplacementAmount,
+    LightType,
+}
+
+impl MessageWriter for RenderField {
+    type Resource = super::RendererID;
+   
+    fn transmit(&self, resource: &super::RendererID, data: &[u8]) -> super::Lang {
+        match self {
+            RenderField::DisplacementAmount => todo!(),
+            RenderField::LightType => todo!()
+        }
     }
 }
 
@@ -314,6 +367,42 @@ where
     pub fn merge(mut self, other: Self) -> Self {
         self.extend_categories(other.categories.iter().cloned());
         self
+    }
+}
+
+impl ParamBoxDescription<RenderField> {
+    pub fn render_parameters() -> Self {
+        Self {
+            box_title: "Renderer".to_string(),
+            categories: vec![ParamCategory {
+                name: "Geometry",
+                parameters: vec![Parameter {
+                    name: "Displacement Amount".to_string(),
+                    control: Control::Slider { value: 1.0, min: 0.0, max: 3.0 },
+                    transmitter: RenderField::DisplacementAmount,
+                    expose_status: None,
+                }],
+            }]
+        }
+    }
+}
+
+impl ParamBoxDescription<GraphField> {
+    pub fn graph_parameters(name: &str) -> Self {
+        Self {
+            box_title: "Graph".to_string(),
+            categories: vec![ParamCategory {
+                name: "Graph Attributes",
+                parameters: vec![Parameter {
+                    name: "Graph Name".to_string(),
+                    control: Control::Entry {
+                        value: name.to_owned(),
+                    },
+                    transmitter: GraphField::Name,
+                    expose_status: None,
+                }],
+            }],
+        }
     }
 }
 

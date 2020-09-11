@@ -14,13 +14,13 @@ use std::collections::HashMap;
 pub struct ParamBox<'a, T: MessageWriter> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    resource: &'a Resource,
+    resource: &'a T::Resource,
     style: Style,
     description: &'a mut ParamBoxDescription<T>,
 }
 
 impl<'a, T: MessageWriter> ParamBox<'a, T> {
-    pub fn new(description: &'a mut ParamBoxDescription<T>, resource: &'a Resource) -> Self {
+    pub fn new(description: &'a mut ParamBoxDescription<T>, resource: &'a T::Resource) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
@@ -263,7 +263,7 @@ where
                                 ev.push(Event::ChangeParameter(
                                     parameter
                                         .transmitter
-                                        .transmit(self.resource.clone(), &new.to_data()),
+                                        .transmit(self.resource, &new.to_data()),
                                 ));
                                 *value = new;
                             }
@@ -287,7 +287,7 @@ where
                                 ev.push(Event::ChangeParameter(
                                     parameter
                                         .transmitter
-                                        .transmit(self.resource.clone(), &new.to_data()),
+                                        .transmit(self.resource, &new.to_data()),
                                 ));
                                 *value = new as i32;
                             }
@@ -311,7 +311,7 @@ where
                             ev.push(Event::ChangeParameter(
                                 parameter
                                     .transmitter
-                                    .transmit(self.resource.clone(), &new.to_data()),
+                                    .transmit(self.resource, &new.to_data()),
                             ));
                         }
                         control_idx.rgb_colors += 1;
@@ -328,7 +328,7 @@ where
                             .set(control_id, ui)
                         {
                             ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
-                                self.resource.clone(),
+                                self.resource,
                                 &(new_selection as u32).to_data(),
                             )));
                             *selected = new_selection;
@@ -361,7 +361,7 @@ where
                                     ev.push(Event::ChangeParameter(
                                         parameter
                                             .transmitter
-                                            .transmit(self.resource.clone(), path.as_bytes()),
+                                            .transmit(self.resource, path.as_bytes()),
                                     ));
                                 }
                                 Err(e) => log::error!("Error during file selection {}", e),
@@ -371,7 +371,7 @@ where
                             if let Some(file) = selected {
                                 let buf = file.to_str().unwrap().as_bytes().to_vec();
                                 ev.push(Event::ChangeParameter(
-                                    parameter.transmitter.transmit(self.resource.clone(), &buf),
+                                    parameter.transmitter.transmit(self.resource, &buf),
                                 ));
                             }
                         }
@@ -422,7 +422,7 @@ where
                             }
 
                             ev.push(Event::ChangeParameter(
-                                parameter.transmitter.transmit(self.resource.clone(), &buf),
+                                parameter.transmitter.transmit(self.resource, &buf),
                             ))
                         }
                         control_idx.ramps += 1;
@@ -437,7 +437,7 @@ where
                             .set(control_id, ui)
                         {
                             ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
-                                self.resource.clone(),
+                                self.resource,
                                 &(if *value { 1 as u32 } else { 0 as u32 }).to_data(),
                             )));
                             *value = !*value
@@ -460,7 +460,7 @@ where
                                 widget::text_box::Event::Enter => {
                                     ev.push(Event::ChangeParameter(
                                         parameter.transmitter.transmit(
-                                            self.resource.clone(),
+                                            self.resource,
                                             &value.as_bytes().to_vec(),
                                         ),
                                     ));
