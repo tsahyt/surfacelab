@@ -421,7 +421,7 @@ impl ParamBoxDescription<RenderField> {
                         Parameter {
                             name: "Strength".to_string(),
                             control: Control::Slider {
-                                value: 50.0,
+                                value: 100.0,
                                 min: 0.0,
                                 max: 1000.0,
                             },

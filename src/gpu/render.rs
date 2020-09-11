@@ -59,7 +59,7 @@ impl Default for RenderView3D {
             rad: 6.,
             displacement: 0.5,
             light_type: LightType::PointLight,
-            light_strength: 50.0,
+            light_strength: 100.0,
             shadow: 1,
             ao: 0,
         }
