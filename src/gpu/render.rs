@@ -1,4 +1,4 @@
-use crate::lang::LightType;
+use crate::lang::{LightType, ParameterBool};
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
@@ -44,6 +44,8 @@ struct RenderView3D {
     displacement: f32,
     light_type: LightType,
     light_strength: f32,
+    shadow: ParameterBool,
+    ao: ParameterBool,
 }
 
 impl Default for RenderView3D {
@@ -58,6 +60,8 @@ impl Default for RenderView3D {
             displacement: 0.5,
             light_type: LightType::PointLight,
             light_strength: 50.0,
+            shadow: 1,
+            ao: 0,
         }
     }
 }
@@ -1239,6 +1243,18 @@ where
     pub fn set_light_strength(&mut self, strength: f32) {
         if let RenderView::RenderView3D(view) = &mut self.view {
             view.light_strength = strength;
+        }
+    }
+
+    pub fn set_shadow(&mut self, shadow: ParameterBool) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.shadow = shadow;
+        }
+    }
+
+    pub fn set_ao(&mut self, ao: ParameterBool) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.ao = ao;
         }
     }
 }

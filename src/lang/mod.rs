@@ -287,6 +287,8 @@ pub enum UserRenderEvent {
     DisplacementAmount(RendererID, f32),
     LightType(RendererID, LightType),
     LightStrength(RendererID, f32),
+    SetShadow(RendererID, ParameterBool),
+    SetAO(RendererID, ParameterBool),
 }
 
 pub type ChannelSpec = (Resource, ImageChannel);

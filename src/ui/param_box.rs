@@ -437,11 +437,11 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
+                            *value = !*value;
                             ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
                                 self.resource,
                                 &(if *value { 1 as u32 } else { 0 as u32 }).to_data(),
                             )));
-                            *value = !*value
                         }
                         control_idx.toggles += 1;
                     }

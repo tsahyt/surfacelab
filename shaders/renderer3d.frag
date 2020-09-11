@@ -21,6 +21,8 @@ layout(set = 0, binding = 2) uniform Camera {
     float displacement_amount;
     uint light_type;
     float light_strength;
+    uint draw_shadow;
+    uint draw_ao;
 };
 
 const uint LIGHT_TYPE_POINT = 0;
@@ -41,8 +43,7 @@ const float SURF_DIST = .0002;
 const float TEX_SCALE = 8.;
 const float TEX_MIDLEVEL = .5;
 
-#define SHADOW
-//#define AMBIENT_OCCLUSION
+#define AMBIENT_OCCLUSION
 
 // DEBUG FLAGS
 // #define DBG_ITERCNT 100
@@ -207,7 +208,7 @@ float ambientOcclusion(vec3 p, vec3 n) {
         dO += increment;
     }
 
-    return smoothstep(-.25, .5, ao);
+    return ao;
 }
 
 // --- Shading
@@ -304,11 +305,12 @@ vec3 light(vec3 p, vec3 n, vec3 rd, float d, vec3 lightColor, vec3 lightPos, flo
     float ndotl = max(dot(n,l), 0.);
 
     // Shadow
-    #ifdef SHADOW
-    float shadow = rayShadowSoft(p, l, w, sitr);
-    #else
-    float shadow = 1.;
-    #endif
+    float shadow;
+    if (draw_shadow == 1) {
+        shadow = rayShadowSoft(p, l, w, sitr);
+    } else {
+        shadow = 1.;
+    }
 
     return (kD * albedo / PI + specular) * radiance * ndotl * shadow;
 }
@@ -346,11 +348,13 @@ void main() {
     col += light(p, n, rd, d, vec3(1.), light_pos.xyz, 1., sitrc);
 
     // Ambient Light
-    #ifdef AMBIENT_OCCLUSION
-    float ao = ambientOcclusion(p, n);
-    #else
-    float ao = 1.;
-    #endif
+    float ao;
+    if (draw_ao == 1) {
+        ao = ambientOcclusion(p, n);
+    } else {
+        ao = 1.;
+    }
+
     col += vec3(0.06) * ao * albedo(p.xz, lod_by_distance(d));
 
     // Light Transform
