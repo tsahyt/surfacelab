@@ -267,14 +267,16 @@ impl MessageWriter for RenderField {
                 super::UserRenderEvent::LightType(*renderer, super::LightType::from_data(data)),
             ),
             RenderField::LightStrength => super::Lang::UserRenderEvent(
-                super::UserRenderEvent::LightStrength(*renderer, f32::from_data(data))
+                super::UserRenderEvent::LightStrength(*renderer, f32::from_data(data)),
             ),
-            RenderField::Shadow => super::Lang::UserRenderEvent(
-                super::UserRenderEvent::SetShadow(*renderer, ParameterBool::from_data(data))
-            ),
-            RenderField::AO => super::Lang::UserRenderEvent(
-                super::UserRenderEvent::SetAO(*renderer, ParameterBool::from_data(data))
-            )
+            RenderField::Shadow => super::Lang::UserRenderEvent(super::UserRenderEvent::SetShadow(
+                *renderer,
+                ParameterBool::from_data(data),
+            )),
+            RenderField::AO => super::Lang::UserRenderEvent(super::UserRenderEvent::SetAO(
+                *renderer,
+                ParameterBool::from_data(data),
+            )),
         }
     }
 }
@@ -406,38 +408,39 @@ impl ParamBoxDescription<RenderField> {
                 },
                 ParamCategory {
                     name: "Lighting",
-                    parameters: vec![Parameter {
-                        name: "Light Type".to_string(),
-                        control: Control::Enum {
-                            selected: 0,
-                            variants: vec!["Point Light".to_string(), "Sun Light".to_string()],
+                    parameters: vec![
+                        Parameter {
+                            name: "Light Type".to_string(),
+                            control: Control::Enum {
+                                selected: 0,
+                                variants: vec!["Point Light".to_string(), "Sun Light".to_string()],
+                            },
+                            transmitter: RenderField::LightType,
+                            expose_status: None,
                         },
-                        transmitter: RenderField::LightType,
-                        expose_status: None,
-                    }, Parameter {
-                        name: "Strength".to_string(),
-                        control: Control::Slider {
-                            value: 50.0,
-                            min: 0.0,
-                            max: 1000.0,
+                        Parameter {
+                            name: "Strength".to_string(),
+                            control: Control::Slider {
+                                value: 50.0,
+                                min: 0.0,
+                                max: 1000.0,
+                            },
+                            transmitter: RenderField::LightStrength,
+                            expose_status: None,
                         },
-                        transmitter: RenderField::LightStrength,
-                        expose_status: None,
-                    }, Parameter {
-                        name: "Shadow".to_string(),
-                        control: Control::Toggle {
-                            def: true
+                        Parameter {
+                            name: "Shadow".to_string(),
+                            control: Control::Toggle { def: true },
+                            transmitter: RenderField::Shadow,
+                            expose_status: None,
                         },
-                        transmitter: RenderField::Shadow,
-                        expose_status: None,
-                    }, Parameter {
-                        name: "Ambient Occlusion".to_string(),
-                        control: Control::Toggle {
-                            def: false
+                        Parameter {
+                            name: "Ambient Occlusion".to_string(),
+                            control: Control::Toggle { def: false },
+                            transmitter: RenderField::AO,
+                            expose_status: None,
                         },
-                        transmitter: RenderField::AO,
-                        expose_status: None,
-                    }],
+                    ],
                 },
             ],
         }
