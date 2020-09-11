@@ -197,6 +197,7 @@ float rayShadowSoft(vec3 ro, vec3 rd, float w, out float itrc) {
     return smoothstep(0.5, 0.6, s);
 }
 
+// TODO: better AO
 float ambientOcclusion(vec3 p, vec3 n) {
     float dO = SURF_DIST;
     float ao = 1.;
