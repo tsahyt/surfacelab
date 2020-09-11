@@ -43,6 +43,7 @@ struct RenderView3D {
     rad: f32,
     displacement: f32,
     light_type: LightType,
+    light_strength: f32,
 }
 
 impl Default for RenderView3D {
@@ -56,6 +57,7 @@ impl Default for RenderView3D {
             rad: 6.,
             displacement: 0.5,
             light_type: LightType::PointLight,
+            light_strength: 50.0,
         }
     }
 }
@@ -1225,6 +1227,18 @@ where
     pub fn set_displacement_amount(&mut self, displacement: f32) {
         if let RenderView::RenderView3D(view) = &mut self.view {
             view.displacement = displacement;
+        }
+    }
+
+    pub fn set_light_type(&mut self, light_type: LightType) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.light_type = light_type;
+        }
+    }
+
+    pub fn set_light_strength(&mut self, strength: f32) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.light_strength = strength;
         }
     }
 }

@@ -20,6 +20,7 @@ layout(set = 0, binding = 2) uniform Camera {
     float radius;
     float displacement_amount;
     uint light_type;
+    float light_strength;
 };
 
 const uint LIGHT_TYPE_POINT = 0;
@@ -261,7 +262,7 @@ float sun_light(vec3 p, vec3 lightPos, out vec3 direction) {
     return 2.0;
 }
 
-vec3 light(vec3 p, vec3 n, vec3 rd, float d, vec3 lightColor, vec3 lightPos, float intensity, float w, out float sitr) {
+vec3 light(vec3 p, vec3 n, vec3 rd, float d, vec3 lightColor, vec3 lightPos, float w, out float sitr) {
     rd *= -1;
 
     vec3 albedo = albedo(p.xz, lod_by_distance(d));
@@ -283,7 +284,7 @@ vec3 light(vec3 p, vec3 n, vec3 rd, float d, vec3 lightColor, vec3 lightPos, flo
         l = vec3(0., 1., 0.);
     }
     vec3 h = normalize(rd + l);
-    float attenuation = intensity / (dist * dist);
+    float attenuation = light_strength / (dist * dist);
     vec3 radiance = lightColor * attenuation;
 
     // Cook-Torrance BRDF
@@ -342,7 +343,7 @@ void main() {
     vec3 p = ro + rd * d;
     vec3 n = normal(p, lod_by_distance(d));
 
-    col += light(p, n, rd, d, vec3(1.), light_pos.xyz, 100, 1., sitrc);
+    col += light(p, n, rd, d, vec3(1.), light_pos.xyz, 1., sitrc);
 
     // Ambient Light
     #ifdef AMBIENT_OCCLUSION

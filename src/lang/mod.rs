@@ -286,6 +286,7 @@ pub enum UserRenderEvent {
     ChannelChange2D(RendererID, MaterialChannel),
     DisplacementAmount(RendererID, f32),
     LightType(RendererID, LightType),
+    LightStrength(RendererID, f32),
 }
 
 pub type ChannelSpec = (Resource, ImageChannel);

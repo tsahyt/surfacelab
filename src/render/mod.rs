@@ -93,6 +93,20 @@ pub fn start_render_thread<B: gpu::Backend>(
                             .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
                             .unwrap();
                     }
+                    Lang::UserRenderEvent(UserRenderEvent::LightType(id, light_type)) => {
+                        render_manager.set_light_type(*id, *light_type);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
+                    }
+                    Lang::UserRenderEvent(UserRenderEvent::LightStrength(id, strength)) => {
+                        render_manager.set_light_strength(*id, *strength);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
+                    }
                     _ => {}
                 }
             }
@@ -283,6 +297,20 @@ where
     pub fn set_displacement_amount(&mut self, renderer_id: RendererID, displacement: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_displacement_amount(displacement);
+            r.render();
+        }
+    }
+
+    pub fn set_light_type(&mut self, renderer_id: RendererID, light_type: LightType) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_light_type(light_type);
+            r.render();
+        }
+    }
+
+    pub fn set_light_strength(&mut self, renderer_id: RendererID, strength: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_light_strength(strength);
             r.render();
         }
     }

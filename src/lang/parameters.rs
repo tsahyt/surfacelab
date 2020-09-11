@@ -250,6 +250,7 @@ impl MessageWriter for GraphField {
 pub enum RenderField {
     DisplacementAmount,
     LightType,
+    LightStrength,
 }
 
 impl MessageWriter for RenderField {
@@ -263,6 +264,9 @@ impl MessageWriter for RenderField {
             RenderField::LightType => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::LightType(*renderer, super::LightType::from_data(data)),
             ),
+            RenderField::LightStrength => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::LightStrength(*renderer, f32::from_data(data))
+            )
         }
     }
 }
@@ -401,6 +405,15 @@ impl ParamBoxDescription<RenderField> {
                             variants: vec!["Point Light".to_string(), "Sun Light".to_string()],
                         },
                         transmitter: RenderField::LightType,
+                        expose_status: None,
+                    }, Parameter {
+                        name: "Strength".to_string(),
+                        control: Control::Slider {
+                            value: 50.0,
+                            min: 0.0,
+                            max: 1000.0,
+                        },
+                        transmitter: RenderField::LightStrength,
                         expose_status: None,
                     }],
                 },
