@@ -43,37 +43,12 @@ const float SURF_DIST = .0002;
 const float TEX_SCALE = 8.;
 const float TEX_MIDLEVEL = .5;
 
-#define AMBIENT_OCCLUSION
-
 // DEBUG FLAGS
 // #define DBG_ITERCNT 100
 // #define DBG_TEXGRID 0.01
 // #define DBG_AO
 
-// [X] normal maps aren't aligned properly leading to wrong diffuse shading
-//     - "fixed" via gamma
-//     - make sure that normal maps are imported as linear in production!
-// [X] relaxation marching, adjust SURF_DIST to pixel detail
-//     - scaled by dO. This measurably decreases iteration count in the
-//     distance.
-// [X] sphere tracing clips through displaced surface at steep angles
-//     - seems to be solved by fully stepping back out of the surface when inside.
-//     - this fix does not necessarily help with really small spikes in the displacement map!
-// [X] mip mapping of textures (shaderbed)
-// [X] further investigate shadowing method
-//     - larger stepping sizes still give a very good approximation on
-//     examples but require far fewer iterations
-//     - higher max_steps increase the number of steps required in shadowing!
-//     300 seems to be a sweetspot
-//     - using max(0,--) on dS gives a big improvement for when the initial
-//     point is slightly inside of the surface. It probably also reduces the iteration count.
-//     - shadowing is dependent on the step scaling factor. with a factor of
-//     2, many shadows are still missed on detailed surfaces
 // - performance tuning (see ITERCNT)
-//     - smaller tex scales cost more, even after adjusting the displacement amount!
-// [X] proper LOD system
-//     - lod_by_distance function. Since the levels of detail get exponentially smaller,
-//     use the log of the distance to determine the level
 // - stepping size has to adjust with displacement amount/slope
 // - check validity of ambient occlusion approximation
 
