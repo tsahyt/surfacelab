@@ -154,6 +154,13 @@ impl Uniforms for lang::Output {
     }
 }
 
+/// Input is special and doesn't have uniforms. Therefore the output is empty
+impl Uniforms for lang::Input {
+    fn uniforms(&self) -> &[u8] {
+        &[]
+    }
+}
+
 pub struct ShaderLibrary<B: gpu::Backend> {
     _shaders: HashMap<String, gpu::Shader<B>>,
     pipelines: HashMap<String, gpu::compute::ComputePipeline<B>>,

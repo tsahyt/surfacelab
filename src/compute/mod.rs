@@ -567,10 +567,13 @@ where
                     AtomicOperator::Image(Image { path }) => {
                         self.execute_image(res, &path)?;
                     }
-                    AtomicOperator::Output(..) => {
-                        for res in self.execute_output(&op, res)? {
+                    AtomicOperator::Output(output) => {
+                        for res in self.execute_output(&output, res)? {
                             response.push(res);
                         }
+                    }
+                    AtomicOperator::Input(input) => {
+                        self.execute_input(&input, res)?;
                     }
                     _ => {
                         self.execute_operator(&op, res)?;
@@ -714,18 +717,19 @@ where
         Ok(())
     }
 
+    fn execute_input(&mut self, op: &Input, res: &Resource) -> Result<Vec<ComputeEvent>, String> {
+        Ok(Vec::new())
+    }
+
     // NOTE: Images sent as OutputReady could technically get dropped before the
     // renderer is done copying them.
     fn execute_output(
         &mut self,
-        op: &AtomicOperator,
+        op: &Output,
         res: &Resource,
     ) -> Result<Vec<ComputeEvent>, String> {
         let socket = "data";
-        let output_type = match op {
-            AtomicOperator::Output(Output { output_type }) => output_type,
-            _ => panic!("Output execution on non-output"),
-        };
+        let output_type = op.output_type;
 
         log::trace!("Processing Output operator {} socket {}", res, socket);
 
@@ -756,7 +760,7 @@ where
             image.get_access(),
             self.sockets
                 .get_image_size(self.sockets.get_input_resource(&socket_res).unwrap()),
-            *output_type,
+            output_type,
         )];
 
         if new {

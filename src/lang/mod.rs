@@ -29,6 +29,7 @@ pub enum AtomicOperator {
     NormalMap,
     Image,
     Output,
+    Input,
 }
 
 impl AtomicOperator {
@@ -50,6 +51,7 @@ impl AtomicOperator {
             Self::NormalMap(NormalMap::default()),
             Self::Image(Image::default()),
             Self::Output(Output::default()),
+            Self::Input(Input::default()),
         ]
     }
 
@@ -150,7 +152,22 @@ pub enum Instruction {
     Thumbnail(Resource),
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Serialize, Deserialize, Hash)]
+#[repr(C)]
+#[derive(
+    AsBytes,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Copy,
+    Debug,
+    Serialize,
+    Deserialize,
+    Hash,
+    ParameterField,
+    EnumVariantNames,
+)]
 pub enum ImageType {
     Grayscale,
     Rgb,

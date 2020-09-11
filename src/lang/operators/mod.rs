@@ -158,3 +158,69 @@ impl OperatorParamBox for Output {
         }
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
+pub struct Input {
+    input_type: ImageType,
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        Self {
+            input_type: ImageType::Grayscale,
+        }
+    }
+}
+
+impl Socketed for Input {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {}
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "data".to_string() => OperatorType::Monomorphic(self.input_type)
+        }
+    }
+
+    fn default_name<'a>(&'a self) -> &'a str {
+        "input"
+    }
+
+    fn title<'a>(&'a self) -> &'a str {
+        "Input"
+    }
+
+    fn is_output(&self) -> bool {
+        false
+    }
+}
+
+impl Shader for Input {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        None
+    }
+}
+
+impl OperatorParamBox for Input {
+    fn param_box_description(&self) -> ParamBoxDescription<Field> {
+        ParamBoxDescription {
+            box_title: self.title().to_string(),
+            categories: vec![ParamCategory {
+                name: "Basic Parameters",
+                parameters: vec![Parameter {
+                    name: "Input Type".to_string(),
+                    transmitter: Field(Self::INPUT_TYPE.to_string()),
+                    control: Control::Enum {
+                        selected: self.input_type as usize,
+                        variants: super::ImageType::VARIANTS
+                            .iter()
+                            .map(|x| x.to_string())
+                            .collect(),
+                    },
+                    expose_status: None,
+                }],
+            }],
+        }
+    }
+}
