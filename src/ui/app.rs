@@ -174,6 +174,14 @@ impl Graphs {
         }
     }
 
+    fn target_graph_from_graph(&mut self, graph_res: &Resource) -> Option<&mut Graph> {
+        if &self.active_resource == graph_res {
+            Some(&mut self.active_graph)
+        } else {
+            self.graphs.get_mut(&graph_res)
+        }
+    }
+
     pub fn add_node(&mut self, node: super::graph::NodeData) {
         let node_res = node.resource.clone();
 
@@ -266,6 +274,26 @@ impl Graphs {
                 target.resources.insert(to.clone(), idx);
                 target.resources.remove(from);
             }
+        }
+    }
+
+    pub fn parameter_exposed(&mut self, graph: &Resource, param: GraphParameter) {
+        if let Some(target) = self.target_graph_from_graph(graph) {
+            target
+                .exposed_parameters
+                .push((param.graph_field.clone(), param.clone()));
+        }
+    }
+
+    pub fn parameter_concealed(&mut self, graph: &Resource, field: &str) {
+        if let Some(target) = self.target_graph_from_graph(graph) {
+            target.exposed_parameters.remove(
+                target
+                    .exposed_parameters
+                    .iter()
+                    .position(|x| &x.0 == field)
+                    .expect("Tried to remove unknown parameter"),
+            );
         }
     }
 }
@@ -455,27 +483,11 @@ where
             GraphEvent::Cleared => {
                 self.app_state.graphs.clear_all();
             }
-            GraphEvent::ParameterExposed(_graph, param) => {
-                self.app_state
-                    .graphs
-                    .active_graph
-                    .exposed_parameters
-                    .push((param.graph_field.clone(), param.clone()));
+            GraphEvent::ParameterExposed(graph, param) => {
+                self.app_state.graphs.parameter_exposed(graph, param.clone());
             }
-            GraphEvent::ParameterConcealed(_graph, field) => {
-                self.app_state
-                    .graphs
-                    .active_graph
-                    .exposed_parameters
-                    .remove(
-                        self.app_state
-                            .graphs
-                            .active_graph
-                            .exposed_parameters
-                            .iter()
-                            .position(|x| &x.0 == field)
-                            .expect("Tried to remove unknown parameter"),
-                    );
+            GraphEvent::ParameterConcealed(graph, field) => {
+                self.app_state.graphs.parameter_concealed(graph, field);
             }
             _ => {}
         }

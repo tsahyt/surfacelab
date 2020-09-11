@@ -149,6 +149,10 @@ impl NodeGraph {
         result
     }
 
+    pub fn graph_resource(&self) -> Resource {
+        Resource::graph(self.name.clone(), None)
+    }
+
     fn node_resource(&self, idx: &petgraph::graph::NodeIndex) -> Resource {
         Resource::node(
             [&self.name, self.indices.get_by_right(idx).unwrap()]
@@ -201,6 +205,15 @@ impl NodeGraph {
                     )));
                 }
             }
+        }
+
+        // Create parameter exposure events for all exposed parameters
+        let graph = self.graph_resource();
+        for param in self.parameters.values() {
+            events.push(Lang::GraphEvent(GraphEvent::ParameterExposed(
+                graph.clone(),
+                param.clone(),
+            )))
         }
 
         events
