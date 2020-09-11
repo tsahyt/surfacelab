@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::path::*;
 use strum_macros::*;
 use surfacelab_derive::*;
+use zerocopy::AsBytes;
 
 pub use operators::*;
 pub use parameters::*;
@@ -268,6 +269,13 @@ pub enum GraphEvent {
 }
 
 pub type RendererID = u64;
+
+#[derive(AsBytes, Debug)]
+#[repr(u32)]
+pub enum LightType {
+    PointLight = 0,
+    SunLight = 1
+}
 
 #[derive(Debug)]
 pub enum UserRenderEvent {

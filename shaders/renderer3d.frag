@@ -19,7 +19,12 @@ layout(set = 0, binding = 2) uniform Camera {
     float theta;
     float radius;
     float displacement_amount;
+    uint light_type;
 };
+
+const uint LIGHT_TYPE_POINT = 0;
+const uint LIGHT_TYPE_SUN = 1;
+
 layout(set = 0, binding = 3) uniform texture2D t_Displ;
 layout(set = 0, binding = 4) uniform texture2D t_Albedo;
 layout(set = 0, binding = 5) uniform texture2D t_Normal;
@@ -246,6 +251,16 @@ float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     return ggx1 * ggx2;
 }
 
+float point_light(vec3 p, vec3 lightPos, out vec3 direction) {
+    direction = normalize(lightPos - p);
+    return length(lightPos - p);
+}
+
+float sun_light(vec3 p, vec3 lightPos, out vec3 direction) {
+    direction = normalize(lightPos);
+    return 2.0;
+}
+
 vec3 light(vec3 p, vec3 n, vec3 rd, float d, vec3 lightColor, vec3 lightPos, float intensity, float w, out float sitr) {
     rd *= -1;
 
@@ -257,9 +272,17 @@ vec3 light(vec3 p, vec3 n, vec3 rd, float d, vec3 lightColor, vec3 lightPos, flo
     F0 = mix(F0, albedo, metallic);
 
     // Radiance
-    vec3 l = normalize(lightPos - p);
+    vec3 l;
+    float dist;
+    if (light_type == LIGHT_TYPE_POINT) {
+        dist = point_light(p, lightPos, l);
+    } else if (light_type == LIGHT_TYPE_SUN) {
+        dist = sun_light(p, lightPos, l);
+    } else {
+        dist = 1.0;
+        l = vec3(0., 1., 0.);
+    }
     vec3 h = normalize(rd + l);
-    float dist = length(lightPos - p);
     float attenuation = intensity / (dist * dist);
     vec3 radiance = lightColor * attenuation;
 

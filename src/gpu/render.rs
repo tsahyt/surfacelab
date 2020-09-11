@@ -1,3 +1,5 @@
+use crate::lang::LightType;
+
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use std::mem::ManuallyDrop;
@@ -40,6 +42,7 @@ struct RenderView3D {
     theta: f32,
     rad: f32,
     displacement: f32,
+    light_type: LightType,
 }
 
 impl Default for RenderView3D {
@@ -52,6 +55,7 @@ impl Default for RenderView3D {
             theta: 1.,
             rad: 6.,
             displacement: 0.5,
+            light_type: LightType::PointLight,
         }
     }
 }
