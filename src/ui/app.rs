@@ -62,7 +62,7 @@ impl Graph {
             graph: petgraph::Graph::new(),
             resources: HashMap::new(),
             exposed_parameters: Vec::new(),
-            param_box: ParamBoxDescription::graph_parameters(name)
+            param_box: ParamBoxDescription::graph_parameters(name),
         }
     }
 }
@@ -813,6 +813,7 @@ where
 
         if self.app_state.render_modal {
             use super::modal;
+            use super::param_box;
 
             match modal::Modal::canvas()
                 .wh_of(self.ids.drawing_canvas)
@@ -820,7 +821,23 @@ where
                 .graphics_for(self.ids.drawing_canvas)
                 .set(self.ids.render_modal, ui)
             {
-                modal::Event::ChildEvent((_, id)) => {}
+                modal::Event::ChildEvent((_, id)) => {
+                    for ev in
+                        param_box::ParamBox::new(&mut self.app_state.render_params, &renderer_id)
+                            .parent(id)
+                            .w_of(id)
+                            .mid_top()
+                            .icon_font(self.fonts.icon_font)
+                            .set(self.ids.render_params, ui)
+                    {
+                        match ev {
+                            param_box::Event::ChangeParameter(lang) => {
+                                self.sender.send(lang).unwrap()
+                            }
+                            _ => {}
+                        }
+                    }
+                }
                 modal::Event::Hide => {
                     self.app_state.render_modal = false;
                 }

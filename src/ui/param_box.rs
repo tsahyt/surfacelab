@@ -327,10 +327,11 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
-                            ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
-                                self.resource,
-                                &(new_selection as u32).to_data(),
-                            )));
+                            ev.push(Event::ChangeParameter(
+                                parameter
+                                    .transmitter
+                                    .transmit(self.resource, &(new_selection as u32).to_data()),
+                            ));
                             *selected = new_selection;
                         }
                         control_idx.enums += 1;
@@ -459,10 +460,9 @@ where
                                 widget::text_box::Event::Update(new) => *value = new,
                                 widget::text_box::Event::Enter => {
                                     ev.push(Event::ChangeParameter(
-                                        parameter.transmitter.transmit(
-                                            self.resource,
-                                            &value.as_bytes().to_vec(),
-                                        ),
+                                        parameter
+                                            .transmitter
+                                            .transmit(self.resource, &value.as_bytes().to_vec()),
                                     ));
                                 }
                             }

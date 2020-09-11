@@ -147,14 +147,14 @@ impl MessageWriter for MessageWriters {
     fn transmit(&self, resource: &Self::Resource, data: &[u8]) -> super::Lang {
         match self {
             MessageWriters::Field(x) => x.transmit(resource, data),
-            MessageWriters::ResourceField(x) => x.transmit(resource, data)
+            MessageWriters::ResourceField(x) => x.transmit(resource, data),
         }
     }
 
     fn as_field(&self) -> Option<&Field> {
         match self {
             MessageWriters::Field(x) => Some(x),
-            MessageWriters::ResourceField(_) => None
+            MessageWriters::ResourceField(_) => None,
         }
     }
 }
@@ -254,11 +254,15 @@ pub enum RenderField {
 
 impl MessageWriter for RenderField {
     type Resource = super::RendererID;
-   
-    fn transmit(&self, resource: &super::RendererID, data: &[u8]) -> super::Lang {
+
+    fn transmit(&self, renderer: &super::RendererID, data: &[u8]) -> super::Lang {
         match self {
-            RenderField::DisplacementAmount => todo!(),
-            RenderField::LightType => todo!()
+            RenderField::DisplacementAmount => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::DisplacementAmount(*renderer, f32::from_data(data)),
+            ),
+            RenderField::LightType => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::LightType(*renderer, super::LightType::from_data(data)),
+            ),
         }
     }
 }
@@ -374,15 +378,33 @@ impl ParamBoxDescription<RenderField> {
     pub fn render_parameters() -> Self {
         Self {
             box_title: "Renderer".to_string(),
-            categories: vec![ParamCategory {
-                name: "Geometry",
-                parameters: vec![Parameter {
-                    name: "Displacement Amount".to_string(),
-                    control: Control::Slider { value: 1.0, min: 0.0, max: 3.0 },
-                    transmitter: RenderField::DisplacementAmount,
-                    expose_status: None,
-                }],
-            }]
+            categories: vec![
+                ParamCategory {
+                    name: "Geometry",
+                    parameters: vec![Parameter {
+                        name: "Displacement Amount".to_string(),
+                        control: Control::Slider {
+                            value: 1.0,
+                            min: 0.0,
+                            max: 3.0,
+                        },
+                        transmitter: RenderField::DisplacementAmount,
+                        expose_status: None,
+                    }],
+                },
+                ParamCategory {
+                    name: "Lighting",
+                    parameters: vec![Parameter {
+                        name: "Light Type".to_string(),
+                        control: Control::Enum {
+                            selected: 0,
+                            variants: vec!["Point Light".to_string(), "Sun Light".to_string()],
+                        },
+                        transmitter: RenderField::LightType,
+                        expose_status: None,
+                    }],
+                },
+            ],
         }
     }
 }

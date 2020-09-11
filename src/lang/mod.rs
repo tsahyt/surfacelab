@@ -270,7 +270,7 @@ pub enum GraphEvent {
 
 pub type RendererID = u64;
 
-#[derive(AsBytes, Debug)]
+#[derive(AsBytes, Copy, Clone, Debug, ParameterField)]
 #[repr(u32)]
 pub enum LightType {
     PointLight = 0,
@@ -285,6 +285,7 @@ pub enum UserRenderEvent {
     LightMove(RendererID, f32, f32),
     ChannelChange2D(RendererID, MaterialChannel),
     DisplacementAmount(RendererID, f32),
+    LightType(RendererID, LightType),
 }
 
 pub type ChannelSpec = (Resource, ImageChannel);
