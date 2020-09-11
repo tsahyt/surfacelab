@@ -567,6 +567,9 @@ where
                     AtomicOperator::Image(Image { path }) => {
                         self.execute_image(res, &path)?;
                     }
+                    AtomicOperator::Input(..) => {
+                        self.execute_input(res)?;
+                    }
                     AtomicOperator::Output(output) => {
                         for res in self.execute_output(&output, res)? {
                             response.push(res);
@@ -710,6 +713,17 @@ where
                 log::trace!("Reusing uploaded image");
             }
         }
+
+        Ok(())
+    }
+
+    fn execute_input(&mut self, res: &Resource) -> Result<(), String> {
+        let socket = "data";
+        let socket_res = res.extend_fragment(&socket);
+        self.sockets
+            .get_output_image_mut(&socket_res)
+            .expect("Missing output image on input socket")
+            .ensure_alloc(&self.gpu)?;
 
         Ok(())
     }
