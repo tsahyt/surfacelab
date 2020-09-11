@@ -735,10 +735,17 @@ impl NodeGraph {
                     let node = self.graph.node_weight(nx).unwrap();
                     let res = self.node_resource(&nx);
                     match &node.operator {
+                        Operator::AtomicOperator(AtomicOperator::Input(..)) => continue,
                         Operator::AtomicOperator(op) => {
                             traversal.push(Instruction::Execute(res.clone(), op.to_owned()));
                         }
                         Operator::ComplexOperator(op) => {
+                            for (socket, (_, input)) in op.inputs.iter() {
+                                traversal.push(Instruction::Move(
+                                    res.extend_fragment(socket),
+                                    input.extend_fragment("data")
+                                ))
+                            }
                             traversal.push(Instruction::Call(res.clone(), op.to_owned()));
                             for (socket, (_, output)) in op.outputs.iter() {
                                 traversal.push(Instruction::Copy(
