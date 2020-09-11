@@ -484,7 +484,9 @@ where
                 self.app_state.graphs.clear_all();
             }
             GraphEvent::ParameterExposed(graph, param) => {
-                self.app_state.graphs.parameter_exposed(graph, param.clone());
+                self.app_state
+                    .graphs
+                    .parameter_exposed(graph, param.clone());
             }
             GraphEvent::ParameterConcealed(graph, field) => {
                 self.app_state.graphs.parameter_concealed(graph, field);
@@ -948,7 +950,7 @@ where
             .parent(self.ids.graph_settings_canvas)
             .color(color::WHITE)
             .font_size(12)
-            .mid_top_with_margin(80.0)
+            .mid_top_with_margin(96.0)
             .set(self.ids.exposed_param_title, ui);
 
         let exposed_params = self.app_state.graphs.get_exposed_parameters_mut();
@@ -958,7 +960,7 @@ where
             .item_size(160.0)
             .padded_w_of(self.ids.graph_settings_canvas, 8.0)
             .h(320.0)
-            .mid_top_with_margin(88.0)
+            .mid_top_with_margin(112.0)
             .scrollbar_on_top()
             .set(self.ids.exposed_param_list, ui);
 
