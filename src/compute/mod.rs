@@ -553,6 +553,8 @@ where
                 log::trace!("Moving texture from {} to {}", from, to);
                 debug_assert!(self.sockets.get_output_image(from).is_some());
 
+
+
                 self.sockets.connect_input(from, to);
             }
             Instruction::Execute(res, op) => {
@@ -661,10 +663,16 @@ where
 
     /// Execute a copy instructions.
     ///
-    /// *Note*: Both images have to exist. This is *not* checked and may result
-    /// in segfaults or all sorts of nasty behaviour.
+    /// *Note*: The source image has to be backed. This is *not* checked and may result
+    /// in segfaults or all sorts of nasty behaviour. The target image will be
+    /// allocated if not already.
     fn execute_copy(&mut self, from: &Resource, to: &Resource) -> Result<(), String> {
         log::trace!("Executing copy from {} to {}", from, to);
+
+        self
+            .sockets
+            .get_output_image_mut(to)
+            .expect("Unable to find source image for copy").ensure_alloc(&self.gpu)?;
 
         let from_image = self
             .sockets
