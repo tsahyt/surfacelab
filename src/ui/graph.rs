@@ -41,7 +41,7 @@ impl NodeData {
             .collect();
         outputs.sort();
         let title = operator.title().to_owned();
-        let pbox = node_attributes(&resource, true)
+        let pbox = node_attributes(&resource, !operator.is_output())
             .map_transmitters(|t| t.clone().into())
             .merge(param_box.map_transmitters(|t| t.clone().into()));
         Self {
