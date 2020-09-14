@@ -34,6 +34,15 @@ impl Scheme for Param {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Socket;
+
+impl Scheme for Socket {
+    fn scheme_name() -> &'static str {
+        "socket"
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Resource<S> {
     resource_path: PathBuf,
@@ -81,18 +90,27 @@ impl Resource<Node> {
         }
     }
 
-    pub fn node_graph(mut self) -> Resource<Graph> {
-        self.resource_path.pop();
+    pub fn node_socket(&self, socket: &str) -> Resource<Socket> {
         Resource {
-            resource_path: self.resource_path,
+            resource_path: self.resource_path.clone(),
+            fragment: Some(socket.to_string()),
+            phantom_data: std::marker::PhantomData
+        }
+    }
+
+    pub fn node_graph(&self) -> Resource<Graph> {
+        let mut path = self.resource_path.clone();
+        path.pop();
+        Resource {
+            resource_path: path,
             fragment: None,
             phantom_data: std::marker::PhantomData
         }
     }
 
-    pub fn node_parameter(self, parameter: &str) -> Resource<Param> {
+    pub fn node_parameter(&self, parameter: &str) -> Resource<Param> {
         Resource {
-            resource_path: self.resource_path,
+            resource_path: self.resource_path.clone(),
             fragment: Some(parameter.to_string()),
             phantom_data: std::marker::PhantomData
         }
@@ -118,9 +136,27 @@ impl Resource<Param> {
         }
     }
 
-    pub fn parameter_node(self) -> Resource<Node> {
+    pub fn parameter_node(&self) -> Resource<Node> {
         Resource {
-            resource_path: self.resource_path,
+            resource_path: self.resource_path.clone(),
+            fragment: None,
+            phantom_data: std::marker::PhantomData
+        }
+    }
+}
+
+impl Resource<Socket> {
+    pub fn socket<P: AsRef<Path>>(path: P, fragment: &str) -> Self {
+        Self {
+            resource_path: path.as_ref().to_path_buf(),
+            fragment: Some(fragment.to_string()),
+            phantom_data: std::marker::PhantomData
+        }
+    }
+
+    pub fn socket_node(&self) -> Resource<Node> {
+        Resource {
+            resource_path: self.resource_path.clone(),
             fragment: None,
             phantom_data: std::marker::PhantomData
         }

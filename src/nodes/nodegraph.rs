@@ -742,15 +742,15 @@ impl NodeGraph {
                         Operator::ComplexOperator(op) => {
                             for (socket, (_, input)) in op.inputs.iter() {
                                 traversal.push(Instruction::Copy(
-                                    res.extend_fragment(socket),
-                                    input.extend_fragment("data"),
+                                    res.node_socket(socket),
+                                    input.node_socket("data"),
                                 ))
                             }
                             traversal.push(Instruction::Call(res.clone(), op.to_owned()));
                             for (socket, (_, output)) in op.outputs.iter() {
                                 traversal.push(Instruction::Copy(
-                                    output.extend_fragment("data"),
-                                    res.extend_fragment(socket),
+                                    output.node_socket("data"),
+                                    res.node_socket(socket),
                                 ))
                             }
                         }
@@ -758,14 +758,14 @@ impl NodeGraph {
 
                     if let Some(thumbnail_output) = node.operator.outputs().keys().next() {
                         traversal.push(Instruction::Thumbnail(
-                            res.extend_fragment(thumbnail_output),
+                            res.node_socket(thumbnail_output),
                         ));
                     }
 
                     if let Some(((source, sink), idx)) = l {
                         let to_node = self.node_resource(&idx);
-                        let from = res.extend_fragment(&source);
-                        let to = to_node.extend_fragment(&sink);
+                        let from = res.node_socket(&source);
+                        let to = to_node.node_socket(&sink);
                         traversal.push(Instruction::Move(from, to));
                     }
                 }

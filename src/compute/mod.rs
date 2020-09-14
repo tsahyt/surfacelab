@@ -95,7 +95,7 @@ struct SocketData<B: gpu::Backend> {
     output_size: u32,
 
     /// Input sockets only map to the output sockets they are connected to
-    inputs: HashMap<String, Resource<Node>>,
+    inputs: HashMap<String, Resource<Socket>>,
 
     thumbnail: Option<gpu::compute::ThumbnailIndex>,
 }
@@ -147,7 +147,7 @@ where
         ty: ImageType,
         gpu: &mut gpu::compute::GPUCompute<B>,
     ) -> bool {
-        if let Some(socket) = self.0.get_mut(&res.drop_fragment()) {
+        if let Some(socket) = self.0.get_mut(&res) {
             if socket.thumbnail.is_none() {
                 socket.thumbnail = Some(gpu.new_thumbnail(match ty {
                     ImageType::Grayscale => true,
@@ -232,69 +232,69 @@ where
     /// Obtain the output image given a socket resource along with its type
     pub fn get_output_image_typed(
         &self,
-        res: &Resource<Node>,
+        res: &Resource<Socket>,
     ) -> Option<(&gpu::compute::Image<B>, ImageType)> {
         self.0
-            .get(&res.drop_fragment())?
+            .get(&res.socket_node())?
             .typed_outputs
             .get(res.fragment().unwrap())
             .map(|x| (&x.image, x.ty))
     }
 
-    pub fn get_output_image_type(&self, res: &Resource<Node>) -> Option<ImageType> {
+    pub fn get_output_image_type(&self, res: &Resource<Socket>) -> Option<ImageType> {
         self.get_output_image_typed(res).map(|x| x.1)
     }
 
     /// Obtain the output image given a socket resource
-    pub fn get_output_image(&self, res: &Resource<Node>) -> Option<&gpu::compute::Image<B>> {
+    pub fn get_output_image(&self, res: &Resource<Socket>) -> Option<&gpu::compute::Image<B>> {
         self.get_output_image_typed(res).map(|x| x.0)
     }
 
     /// Obtain the output image given a socket resource, mutably, along with its type
     pub fn get_output_image_typed_mut(
         &mut self,
-        res: &Resource<Node>,
+        res: &Resource<Socket>,
     ) -> Option<(&mut gpu::compute::Image<B>, ImageType)> {
         self.0
-            .get_mut(&res.drop_fragment())?
+            .get_mut(&res.socket_node())?
             .typed_outputs
             .get_mut(res.fragment().unwrap())
             .map(|x| (&mut x.image, x.ty))
     }
 
     /// Obtain the output image given a socket resource, mutably
-    pub fn get_output_image_mut(&mut self, res: &Resource<Node>) -> Option<&mut gpu::compute::Image<B>> {
+    pub fn get_output_image_mut(&mut self, res: &Resource<Socket>) -> Option<&mut gpu::compute::Image<B>> {
         self.get_output_image_typed_mut(res).map(|x| x.0)
     }
 
     /// Obtain the input image given a socket resource along with its type
     pub fn get_input_image_typed(
         &self,
-        res: &Resource<Node>,
+        res: &Resource<Socket>,
     ) -> Option<(&gpu::compute::Image<B>, ImageType)> {
-        let sockets = self.0.get(&res.drop_fragment())?;
+        let sockets = self.0.get(&res.socket_node())?;
         let output_res = sockets.inputs.get(res.fragment()?)?;
         self.0
-            .get(&output_res.drop_fragment())?
+            .get(&output_res.socket_node())?
             .typed_outputs
             .get((&output_res).fragment()?)
             .map(|x| (&x.image, x.ty))
     }
 
-    pub fn get_input_image_type(&self, res: &Resource<Node>) -> Option<ImageType> {
+    pub fn get_input_image_type(&self, res: &Resource<Socket>) -> Option<ImageType> {
         self.get_input_image_typed(res).map(|x| x.1)
     }
 
     /// Obtain the input image given a socket resource
-    pub fn get_input_image(&self, res: &Resource<Node>) -> Option<&gpu::compute::Image<B>> {
+    pub fn get_input_image(&self, res: &Resource<Socket>) -> Option<&gpu::compute::Image<B>> {
         self.get_input_image_typed(res).map(|x| x.0)
     }
 
-    pub fn get_input_image_updated(&self, res: &Resource<Node>) -> Option<u64> {
-        let sockets = self.0.get(&res.drop_fragment())?;
+    pub fn get_input_image_updated(&self, res: &Resource<Socket>) -> Option<u64> {
+        let sockets = self.0.get(&res.socket_node())?;
         let output_res = sockets.inputs.get(res.fragment()?)?;
         self.0
-            .get(&output_res.drop_fragment())?
+            .get(&output_res.socket_node())?
             .typed_outputs
             .get((&output_res).fragment()?)
             .map(|x| x.seq)
@@ -327,20 +327,20 @@ where
     }
 
     /// connect an output to an input
-    pub fn connect_input(&mut self, from: &Resource<Node>, to: &Resource<Node>) {
+    pub fn connect_input(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
         self.0
-            .get_mut(&to.drop_fragment())
+            .get_mut(&to.socket_node())
             .unwrap()
             .inputs
             .insert(to.fragment().unwrap().to_string(), from.to_owned());
     }
 
     pub fn get_image_size(&self, res: &Resource<Node>) -> u32 {
-        self.0.get(&res.drop_fragment()).unwrap().output_size
+        self.0.get(&res).unwrap().output_size
     }
 
-    pub fn get_input_resource(&self, res: &Resource<Node>) -> Option<&Resource<Node>> {
-        let sockets = self.0.get(&res.drop_fragment())?;
+    pub fn get_input_resource(&self, res: &Resource<Socket>) -> Option<&Resource<Socket>> {
+        let sockets = self.0.get(&res.socket_node())?;
         sockets.inputs.get(res.fragment()?)
     }
 
@@ -624,11 +624,12 @@ where
     ///
     /// The thumbnail generation will only happen if the output socket has been
     /// updated in the current seq step.
-    fn execute_thumbnail(&mut self, socket: &Resource<Node>) -> Result<Vec<ComputeEvent>, String> {
+    fn execute_thumbnail(&mut self, socket: &Resource<Socket>) -> Result<Vec<ComputeEvent>, String> {
+        let node = socket.socket_node();
         let mut response = Vec::new();
         let updated = self
             .sockets
-            .get_output_image_updated(&socket.drop_fragment())
+            .get_output_image_updated(&node)
             .expect("Missing sequence for socket");
         if updated == self.seq {
             log::trace!("Generating thumbnail for {}", socket);
@@ -638,8 +639,8 @@ where
                 .expect("Missing output image for socket");
             let new = self
                 .sockets
-                .ensure_node_thumbnail_exists(socket, ty, &mut self.gpu);
-            let thumbnail = self.sockets.get_thumbnail(socket).unwrap();
+                .ensure_node_thumbnail_exists(&node, ty, &mut self.gpu);
+            let thumbnail = self.sockets.get_thumbnail(&node).unwrap();
             let image = self
                 .sockets
                 .get_output_image(socket)
@@ -647,14 +648,14 @@ where
             self.gpu.generate_thumbnail(image, thumbnail)?;
             if new {
                 response.push(ComputeEvent::ThumbnailCreated(
-                    socket.clone(),
+                    node.clone(),
                     gpu::BrokerImageView::from::<B>(
                         self.gpu.view_thumbnail(thumbnail),
                         self.gpu.alive_thumbnail(thumbnail),
                     ),
                 ));
             }
-            response.push(ComputeEvent::ThumbnailUpdated(socket.clone()));
+            response.push(ComputeEvent::ThumbnailUpdated(node.clone()));
         } else {
             log::trace!("Skipping thumbnail generation");
         }
@@ -671,7 +672,7 @@ where
         self.interpret_linearization(&op.graph, op.parameters.values())?;
 
         for (socket, _) in op.outputs().iter() {
-            let socket_res = res.extend_fragment(&socket);
+            let socket_res = res.node_socket(&socket);
             self.sockets
                 .get_output_image_mut(&socket_res)
                 .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
@@ -686,7 +687,7 @@ where
     /// *Note*: The source image has to be backed. This is *not* checked and may result
     /// in segfaults or all sorts of nasty behaviour. The target image will be
     /// allocated if not already.
-    fn execute_copy(&mut self, from: &Resource<Node>, to: &Resource<Node>) -> Result<(), String> {
+    fn execute_copy(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) -> Result<(), String> {
         log::trace!("Executing copy from {} to {}", from, to);
 
         self.sockets
@@ -706,7 +707,7 @@ where
 
         self.gpu.copy_image(from_image, to_image)?;
         self.sockets
-            .set_output_image_updated(&to.drop_fragment(), self.seq);
+            .set_output_image_updated(&to.socket_node(), self.seq);
 
         Ok(())
     }
@@ -716,7 +717,7 @@ where
 
         let image = self
             .sockets
-            .get_output_image_mut(&res.extend_fragment("image"))
+            .get_output_image_mut(&res.node_socket("image"))
             .expect("Trying to process missing socket");
 
         let external_image = self.external_images.entry(path.clone()).or_insert_with(|| {
@@ -746,8 +747,7 @@ where
     }
 
     fn execute_input(&mut self, res: &Resource<Node>) -> Result<(), String> {
-        let socket = "data";
-        let socket_res = res.extend_fragment(&socket);
+        let socket_res = res.node_socket("data");
         self.sockets
             .get_output_image_mut(&socket_res)
             .expect("Missing output image on input socket")
@@ -759,12 +759,10 @@ where
     // NOTE: Images sent as OutputReady could technically get dropped before the
     // renderer is done copying them.
     fn execute_output(&mut self, op: &Output, res: &Resource<Node>) -> Result<Vec<ComputeEvent>, String> {
-        let socket = "data";
         let output_type = op.output_type;
+        let socket_res = res.node_socket("data");
 
-        log::trace!("Processing Output operator {} socket {}", res, socket);
-
-        let socket_res = res.extend_fragment(&socket);
+        log::trace!("Processing Output operator {} socket {}", res, socket_res);
 
         // Ensure socket exists and is backed in debug builds
         debug_assert!(self
@@ -779,9 +777,9 @@ where
             .expect("Missing image for input socket");
         let new = self
             .sockets
-            .ensure_node_thumbnail_exists(&socket_res, ty, &mut self.gpu);
+            .ensure_node_thumbnail_exists(&res, ty, &mut self.gpu);
         let image = self.sockets.get_input_image(&socket_res).unwrap();
-        let thumbnail = self.sockets.get_thumbnail(&socket_res).unwrap();
+        let thumbnail = self.sockets.get_thumbnail(&res).unwrap();
         self.gpu.generate_thumbnail(image, thumbnail)?;
 
         let mut result = vec![ComputeEvent::OutputReady(
@@ -790,7 +788,7 @@ where
             image.get_layout(),
             image.get_access(),
             self.sockets
-                .get_image_size(self.sockets.get_input_resource(&socket_res).unwrap()),
+                .get_image_size(&self.sockets.get_input_resource(&socket_res).unwrap().socket_node()),
             output_type,
         )];
 
@@ -906,7 +904,7 @@ where
 
         // Ensure output images are allocated
         for (socket, _) in op.outputs().iter() {
-            let socket_res = res.extend_fragment(&socket);
+            let socket_res = res.node_socket(&socket);
             self.sockets
                 .get_output_image_mut(&socket_res)
                 .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
@@ -915,7 +913,7 @@ where
 
         // In debug builds, ensure that all input images exist and are backed
         debug_assert!(op.inputs().iter().all(|(socket, _)| {
-            let socket_res = res.extend_fragment(&socket);
+            let socket_res = res.node_socket(&socket);
             let output = self.sockets.get_input_image(&socket_res);
             output.is_some() && output.unwrap().is_backed()
         }));
@@ -927,7 +925,7 @@ where
             .get_output_image_updated(res)
             .expect("Missing sequence for operator");
         let inputs_updated = op.inputs().iter().any(|(socket, _)| {
-            let socket_res = res.extend_fragment(&socket);
+            let socket_res = res.node_socket(&socket);
             self.sockets
                 .get_input_image_updated(&socket_res)
                 .expect("Missing input image")
@@ -945,7 +943,7 @@ where
 
         let mut inputs = HashMap::new();
         for socket in op.inputs().keys() {
-            let socket_res = res.extend_fragment(&socket);
+            let socket_res = res.node_socket(&socket);
             inputs.insert(
                 socket.clone(),
                 self.sockets.get_input_image(&socket_res).unwrap(),
@@ -954,7 +952,7 @@ where
 
         let mut outputs = HashMap::new();
         for socket in op.outputs().keys() {
-            let socket_res = res.extend_fragment(&socket);
+            let socket_res = res.node_socket(&socket);
             outputs.insert(
                 socket.clone(),
                 self.sockets.get_output_image(&socket_res).unwrap(),

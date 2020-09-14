@@ -146,9 +146,9 @@ impl Operator {
 pub enum Instruction {
     Execute(Resource<Node>, AtomicOperator),
     Call(Resource<Node>, ComplexOperator),
-    Move(Resource<Node>, Resource<Node>),
-    Copy(Resource<Node>, Resource<Node>),
-    Thumbnail(Resource<Node>),
+    Move(Resource<Socket>, Resource<Socket>),
+    Copy(Resource<Socket>, Resource<Socket>),
+    Thumbnail(Resource<Socket>),
 }
 
 #[repr(C)]
@@ -307,7 +307,7 @@ pub enum UserRenderEvent {
     SetAO(RendererID, ParameterBool),
 }
 
-pub type ChannelSpec = (Resource<Node>, ImageChannel);
+pub type ChannelSpec = (Resource<Socket>, ImageChannel);
 
 #[derive(Debug)]
 pub enum ExportSpec {
