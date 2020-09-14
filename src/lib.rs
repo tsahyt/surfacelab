@@ -3,7 +3,7 @@
 #![feature(box_patterns)]
 #![feature(cell_update)]
 #![feature(drain_filter)]
-#![feature(vec_remove_item)]
+#![feature(exact_size_is_empty)]
 
 pub mod broker;
 pub mod compute;

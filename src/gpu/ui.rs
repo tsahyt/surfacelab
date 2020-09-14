@@ -1019,12 +1019,12 @@ where
                 // TODO: Figure out UI scissoring
                 Command::Draw(draw) => match draw {
                     Draw::Plain(range) => unsafe {
-                        if range.len() > 0 {
+                        if !ExactSizeIterator::is_empty(&range) {
                             cmd_buffer.draw(range.start as u32..range.end as u32, 0..1);
                         }
                     },
                     Draw::Image(img_id, range) => unsafe {
-                        if range.len() > 0 {
+                        if !ExactSizeIterator::is_empty(&range) {
                             let descriptor = image_map
                                 .get(&img_id)
                                 .map(|img| &img.descriptor)
