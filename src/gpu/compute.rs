@@ -1230,15 +1230,13 @@ where
                 .unwrap()
                 .into();
 
-            let chunk = unsafe {
+            unsafe {
                 lock.device.allocate_memory(
                     memory_type,
                     Self::THUMBNAIL_CHUNK_LENGTH as u64 * Self::THUMBNAIL_BYTES as u64,
                 )
             }
-            .expect("Error allocating thumbnail memory");
-
-            chunk
+            .expect("Error allocating thumbnail memory")
         };
 
         let memory = smallvec![chunk];
@@ -1331,15 +1329,13 @@ where
                 .unwrap()
                 .into();
 
-            let chunk = unsafe {
+            unsafe {
                 lock.device.allocate_memory(
                     memory_type,
                     Self::THUMBNAIL_CHUNK_LENGTH as u64 * Self::THUMBNAIL_BYTES as u64,
                 )
             }
-            .expect("Error allocating thumbnail memory");
-
-            chunk
+            .expect("Error allocating thumbnail memory")
         };
 
         self.memory.push(new_chunk);

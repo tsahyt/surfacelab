@@ -103,13 +103,11 @@ impl Graphs {
             self.active_graph.param_box.categories[0].parameters[0].control = Control::Entry {
                 value: to.file().unwrap().to_string(),
             };
-        } else {
-            if let Some(mut graph) = self.graphs.remove(from) {
-                graph.param_box.categories[0].parameters[0].control = Control::Entry {
-                    value: to.file().unwrap().to_string(),
-                };
-                self.graphs.insert(to.clone(), graph);
-            }
+        } else if let Some(mut graph) = self.graphs.remove(from) {
+            graph.param_box.categories[0].parameters[0].control = Control::Entry {
+                value: to.file().unwrap().to_string(),
+            };
+            self.graphs.insert(to.clone(), graph);
         }
     }
 
@@ -947,9 +945,8 @@ where
         .mid_top()
         .set(self.ids.graph_param_box, ui)
         {
-            match ev {
-                param_box::Event::ChangeParameter(event) => self.sender.send(event).unwrap(),
-                _ => {}
+            if let param_box::Event::ChangeParameter(event) = ev {
+                self.sender.send(event).unwrap()
             }
         }
 
@@ -975,7 +972,7 @@ where
             let widget = exposed_param_row::ExposedParamRow::new(&mut exposed_params[row.i].1)
                 .icon_font(self.fonts.icon_font);
 
-            for ev in row.set(widget, ui) {
+            if let Some(ev) = row.set(widget, ui) {
                 match ev {
                     exposed_param_row::Event::ConcealParameter => {
                         self.sender

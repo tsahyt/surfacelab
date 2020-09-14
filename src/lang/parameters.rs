@@ -303,6 +303,10 @@ where
         self.categories.iter().map(|c| c.parameters.len()).sum()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Return the number of categories
     pub fn categories(&self) -> usize {
         self.categories.len()

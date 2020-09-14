@@ -183,11 +183,11 @@ impl Socketed for Input {
         }
     }
 
-    fn default_name<'a>(&'a self) -> &'a str {
+    fn default_name(&self) -> &str {
         "input"
     }
 
-    fn title<'a>(&'a self) -> &'a str {
+    fn title(&self) -> &str {
         "Input"
     }
 

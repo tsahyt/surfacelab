@@ -141,7 +141,7 @@ impl<'a> Widget for ColorRamp<'a> {
                 .update(|state| state.selected = state.selected.saturating_sub(1))
         }
 
-        for new_pos in widget::NumberDialer::new(selected_position, 0.0, 1.0, 4)
+        if let Some(new_pos) = widget::NumberDialer::new(selected_position, 0.0, 1.0, 4)
             .parent(args.id)
             .label_font_size(10)
             .right(8.0)
@@ -160,7 +160,7 @@ impl<'a> Widget for ColorRamp<'a> {
             ));
         }
 
-        for new_color in ColorPicker::new(selected_color)
+        if let Some(new_color) = ColorPicker::new(selected_color)
             .wh([wh[0], wh[1] - 40.0])
             .parent(args.id)
             .mid_bottom()
@@ -180,7 +180,7 @@ impl<'a> Widget for ColorRamp<'a> {
 /// Produce a colored strip from the given gradient with RGB steps, centered on
 /// (0,0). Assumes there is at least one step given!
 fn gradient_strip(steps: &[[f32; 4]], width: f64, height: f64) -> Vec<Triangle<ColoredPoint>> {
-    assert!(steps.len() > 0);
+    assert!(!steps.is_empty());
 
     let mut tris = Vec::with_capacity(steps.len() * 2);
 

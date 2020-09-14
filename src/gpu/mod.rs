@@ -174,7 +174,7 @@ impl BrokerImage {
         Self { alive, raw: ptr }
     }
 
-    pub fn to<'a, B: Backend>(&'a self) -> Option<&'a B::Image> {
+    pub fn to<B: Backend>(&self) -> Option<&B::Image> {
         match self.alive.upgrade() {
             Some(_) => unsafe { Some(&*(self.raw as *const B::Image)) },
             None => None,
@@ -198,7 +198,7 @@ impl BrokerImageView {
         Self { alive, raw: ptr }
     }
 
-    pub fn to<'a, B: Backend>(&self) -> Option<&'a B::ImageView> {
+    pub fn to<B: Backend>(&self) -> Option<&B::ImageView> {
         match self.alive.upgrade() {
             Some(_) => unsafe { Some(&*(self.raw as *const B::ImageView)) },
             None => None,

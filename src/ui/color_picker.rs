@@ -168,7 +168,7 @@ impl Widget for ColorPicker<Hsv> {
             .w(20.0)
             .set(args.state.ids.rgb_label, args.ui);
 
-        for red in widget::NumberDialer::new(rgb.red, 0.0, 1.0, 4)
+        if let Some(red) = widget::NumberDialer::new(rgb.red, 0.0, 1.0, 4)
             .parent(args.id)
             .right(16.0)
             .label_font_size(10)
@@ -180,7 +180,7 @@ impl Widget for ColorPicker<Hsv> {
             new_hsv = Some(Hsv::from(new_rgb))
         }
 
-        for green in widget::NumberDialer::new(rgb.green, 0.0, 1.0, 4)
+        if let Some(green) = widget::NumberDialer::new(rgb.green, 0.0, 1.0, 4)
             .parent(args.id)
             .right(16.0)
             .label_font_size(10)
@@ -192,7 +192,7 @@ impl Widget for ColorPicker<Hsv> {
             new_hsv = Some(Hsv::from(new_rgb))
         }
 
-        for blue in widget::NumberDialer::new(rgb.blue, 0.0, 1.0, 4)
+        if let Some(blue) = widget::NumberDialer::new(rgb.blue, 0.0, 1.0, 4)
             .parent(args.id)
             .right(16.0)
             .label_font_size(10)
@@ -212,7 +212,7 @@ impl Widget for ColorPicker<Hsv> {
             .color(color::WHITE)
             .set(args.state.ids.hsv_label, args.ui);
 
-        for hue in widget::NumberDialer::new(
+        if let Some(hue) = widget::NumberDialer::new(
             self.color.hue.to_positive_radians() / std::f32::consts::TAU,
             0.0,
             1.0,
@@ -229,7 +229,7 @@ impl Widget for ColorPicker<Hsv> {
             new_hsv = Some(new_hsv_inner);
         }
 
-        for saturation in widget::NumberDialer::new(self.color.saturation, 0.0, 1.0, 4)
+        if let Some(saturation) = widget::NumberDialer::new(self.color.saturation, 0.0, 1.0, 4)
             .parent(args.id)
             .right(16.0)
             .label_font_size(10)
@@ -241,7 +241,7 @@ impl Widget for ColorPicker<Hsv> {
             new_hsv = Some(new_hsv_inner);
         }
 
-        for value in widget::NumberDialer::new(self.color.value, 0.0, 1.0, 4)
+        if let Some(value) = widget::NumberDialer::new(self.color.value, 0.0, 1.0, 4)
             .parent(args.id)
             .right(16.0)
             .label_font_size(10)
@@ -353,8 +353,8 @@ fn color_rect<F: Fn(f64, f64) -> color::Rgba>(
     let mut x: f64;
     let mut y: f64 = 0.0;
 
-    let bottom = -height / 2.0;
-    let left = -width / 2.0;
+    let rect_bottom = -height / 2.0;
+    let rect_left = -width / 2.0;
 
     for _ in 0..(2 as u16).pow(k as _) {
         x = 0.0;
@@ -364,13 +364,21 @@ fn color_rect<F: Fn(f64, f64) -> color::Rgba>(
             let c_tl = color(x, y + step);
             let c_tr = color(x + step, y + step);
 
-            let l = left + x * width;
-            let r = left + (x + step) * width;
-            let b = bottom + y * height;
-            let t = bottom + (y + step) * height;
+            let left = rect_left + x * width;
+            let right = rect_left + (x + step) * width;
+            let bottom = rect_bottom + y * height;
+            let top = rect_bottom + (y + step) * height;
 
-            tris.push(Triangle([([l, b], c_bl), ([l, t], c_tl), ([r, t], c_tr)]));
-            tris.push(Triangle([([l, b], c_bl), ([r, t], c_tr), ([r, b], c_br)]));
+            tris.push(Triangle([
+                ([left, bottom], c_bl),
+                ([left, top], c_tl),
+                ([right, top], c_tr),
+            ]));
+            tris.push(Triangle([
+                ([left, bottom], c_bl),
+                ([right, top], c_tr),
+                ([right, bottom], c_br),
+            ]));
             x += step;
         }
         y += step;

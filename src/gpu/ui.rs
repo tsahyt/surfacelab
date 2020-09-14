@@ -157,7 +157,7 @@ where
         )?;
 
         Ok(Self {
-            gpu: gpu.clone(),
+            gpu,
             capacity,
             staging_mem: ManuallyDrop::new(staging_mem),
             staging_buf: ManuallyDrop::new(staging_buf),
@@ -216,7 +216,7 @@ where
             self.resize(vertices.len().max(self.capacity * 2))?;
         }
 
-        if vertices.len() == 0 {
+        if vertices.is_empty() {
             return Ok(());
         }
 
@@ -392,7 +392,7 @@ where
         };
 
         // copy buffer to texture
-        let mut copy_fence = lock
+        let copy_fence = lock
             .device
             .create_fence(false)
             .expect("Could not create fence");
@@ -452,7 +452,7 @@ where
             cmd_buffer.finish();
 
             lock.queue_group.queues[0]
-                .submit_without_semaphores(Some(&cmd_buffer), Some(&mut copy_fence));
+                .submit_without_semaphores(Some(&cmd_buffer), Some(&copy_fence));
 
             lock.device
                 .wait_for_fence(&copy_fence, !0)
@@ -689,7 +689,7 @@ where
             formats
                 .iter()
                 .find(|format| format.base_format().1 == ChannelType::Srgb)
-                .map(|format| *format)
+                .copied()
                 .unwrap_or(formats[0])
         });
 

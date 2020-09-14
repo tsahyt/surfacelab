@@ -66,12 +66,10 @@ impl Node {
             } else {
                 2 >> -self.size as i16
             }
+        } else if self.size > 0 {
+            parent << self.size as i16
         } else {
-            if self.size > 0 {
-                parent << self.size as i16
-            } else {
-                parent >> -self.size as i16
-            }
+            parent >> -self.size as i16
         }
         .clamp(32, 16384) as u32
     }

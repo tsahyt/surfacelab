@@ -185,7 +185,7 @@ impl<'a> Widget for Tabs<'a> {
     }
 
     fn style(&self) -> Self::Style {
-        self.style.clone()
+        self.style
     }
 
     /// The area on which child widgets will be placed when using the `Place` Positionable methods.
@@ -210,7 +210,7 @@ impl<'a> Widget for Tabs<'a> {
             Layout::Vertical => {
                 let max_text_width = style
                     .font_id(theme)
-                    .or(fonts.ids().next())
+                    .or_else(|| fonts.ids().next())
                     .and_then(|id| fonts.get(id))
                     .map(|font| max_text_width(self.tabs.iter(), font_size, font))
                     .unwrap_or(0.0);
@@ -294,7 +294,7 @@ impl<'a> Widget for Tabs<'a> {
             let mut maybe_selected_tab_idx = state
                 .maybe_selected_tab_idx
                 .or(maybe_starting_tab_idx)
-                .or_else(|| if tabs.len() > 0 { Some(0) } else { None });
+                .or_else(|| if !tabs.is_empty() { Some(0) } else { None });
             let mut tab_rects = TabRects::new(tabs, layout, rel_tab_bar_rect);
             let mut i = 0;
             while let Some((tab_rect, _, label)) = tab_rects.next_with_id_and_label() {

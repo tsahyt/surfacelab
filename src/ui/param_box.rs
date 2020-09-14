@@ -252,7 +252,7 @@ where
                             .controls
                             .get(&TypeId::of::<widget::Slider<f32>>())
                             .unwrap()[control_idx.sliders + control_idx.discrete_sliders];
-                        for new in widget::Slider::new(*value, *min, *max)
+                        if let Some(new) = widget::Slider::new(*value, *min, *max)
                             .label(&format!("{:.1}", *value))
                             .label_font_size(10)
                             .padded_w_of(id, 16.0)
@@ -275,12 +275,13 @@ where
                             .controls
                             .get(&TypeId::of::<widget::Slider<f32>>())
                             .unwrap()[control_idx.sliders + control_idx.discrete_sliders];
-                        for new in widget::Slider::new(*value as f32, *min as f32, *max as f32)
-                            .label(&format!("{}", *value))
-                            .label_font_size(10)
-                            .padded_w_of(id, 16.0)
-                            .h(16.0)
-                            .set(control_id, ui)
+                        if let Some(new) =
+                            widget::Slider::new(*value as f32, *min as f32, *max as f32)
+                                .label(&format!("{}", *value))
+                                .label_font_size(10)
+                                .padded_w_of(id, 16.0)
+                                .h(16.0)
+                                .set(control_id, ui)
                         {
                             let new = new as i32;
                             if new != *value {
@@ -299,7 +300,7 @@ where
                             .controls
                             .get(&TypeId::of::<ColorPicker<Hsv>>())
                             .unwrap()[control_idx.rgb_colors];
-                        for new_color in
+                        if let Some(new_color) =
                             ColorPicker::new(Hsv::from(LinSrgb::new(value[0], value[1], value[2])))
                                 .padded_w_of(id, 16.0)
                                 .h(256.0)
@@ -321,11 +322,12 @@ where
                             .controls
                             .get(&TypeId::of::<widget::DropDownList<String>>())
                             .unwrap()[control_idx.enums];
-                        for new_selection in widget::DropDownList::new(variants, Some(*selected))
-                            .label_font_size(10)
-                            .padded_w_of(id, 16.0)
-                            .h(16.0)
-                            .set(control_id, ui)
+                        if let Some(new_selection) =
+                            widget::DropDownList::new(variants, Some(*selected))
+                                .label_font_size(10)
+                                .padded_w_of(id, 16.0)
+                                .h(16.0)
+                                .set(control_id, ui)
                         {
                             ev.push(Event::ChangeParameter(
                                 parameter
@@ -381,7 +383,7 @@ where
                     Control::Ramp { steps } => {
                         let control_id = state.controls.get(&TypeId::of::<ColorRamp>()).unwrap()
                             [control_idx.ramps];
-                        for event in ColorRamp::new(steps)
+                        if let Some(event) = ColorRamp::new(steps)
                             .padded_w_of(id, 16.0)
                             .h(256.0)
                             .set(control_id, ui)

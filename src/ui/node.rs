@@ -180,7 +180,7 @@ impl<'a> Widget for Node<'a> {
     }
 
     fn style(&self) -> Self::Style {
-        self.style.clone()
+        self.style
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {

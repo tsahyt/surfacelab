@@ -31,13 +31,13 @@ impl NodeData {
         let mut inputs: Vec<_> = operator
             .inputs()
             .iter()
-            .map(|(a, b)| (a.clone(), b.clone()))
+            .map(|(a, b)| (a.clone(), *b))
             .collect();
         inputs.sort();
         let mut outputs: Vec<_> = operator
             .outputs()
             .iter()
-            .map(|(a, b)| (a.clone(), b.clone()))
+            .map(|(a, b)| (a.clone(), *b))
             .collect();
         outputs.sort();
         let title = operator.title().to_owned();
@@ -385,7 +385,7 @@ impl<'a> Widget for Graph<'a> {
     }
 
     fn style(&self) -> Self::Style {
-        self.style.clone()
+        self.style
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
@@ -436,8 +436,7 @@ impl<'a> Widget for Graph<'a> {
             .widget_input(id)
             .presses()
             .key()
-            .filter(|x| x.key == input::Key::X)
-            .next()
+            .find(|x| x.key == input::Key::X)
             .is_some();
 
         // Build a node for each known index

@@ -560,7 +560,7 @@ where
             substitutions_map
                 .entry(s.resource().clone())
                 .and_modify(|x| x.push(s))
-                .or_insert(vec![s]);
+                .or_insert_with(|| vec![s]);
         }
 
         for i in instrs.iter() {
