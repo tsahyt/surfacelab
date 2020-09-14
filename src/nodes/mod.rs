@@ -12,7 +12,7 @@ pub mod nodegraph;
 struct NodeManager {
     parent_size: u32,
     graphs: HashMap<String, nodegraph::NodeGraph>,
-    active_graph: lang::Resource,
+    active_graph: lang::Resource<lang::Graph>,
 }
 
 // FIXME: Changing output socket type after connection has already been made does not propagate type changes into preceeding polymorphic nodes!
@@ -261,7 +261,7 @@ impl NodeManager {
                         graph.expose_parameter(res.clone(), graph_field, title, control.clone())
                     {
                         response.push(lang::Lang::GraphEvent(lang::GraphEvent::ParameterExposed(
-                            res.clone(),
+                            res.clone().parameter_node().node_graph(),
                             param.clone(),
                         )))
                     }

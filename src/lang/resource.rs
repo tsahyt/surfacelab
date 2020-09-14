@@ -1,54 +1,63 @@
 use serde_derive::{Deserialize, Serialize};
-use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 
 pub type ResourcePart = String;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Scheme {
-    Node,
-    Graph,
-    Parameter,
-    // TODO: Socket scheme
+pub trait Scheme {
+    fn scheme_name() -> &'static str;
 }
 
-impl std::fmt::Display for Scheme {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Node => write!(f, "node"),
-            Self::Graph => write!(f, "graph"),
-            Self::Parameter => write!(f, "param"),
-        }
-    }
-}
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Node;
 
-impl TryFrom<&str> for Scheme {
-    type Error = &'static str;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "node" => Ok(Self::Node),
-            "graph" => Ok(Self::Graph),
-            "param" => Ok(Self::Parameter),
-            _ => Err("Unknown Scheme"),
-        }
+impl Scheme for Node {
+    fn scheme_name() -> &'static str {
+        "node"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Resource {
-    scheme: Scheme,
-    resource_path: PathBuf,
-    fragment: Option<String>,
+pub struct Graph;
+
+impl Scheme for Graph {
+    fn scheme_name() -> &'static str {
+        "graph"
+    }
 }
 
-impl std::fmt::Display for Resource {
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Param;
+
+impl Scheme for Param {
+    fn scheme_name() -> &'static str {
+        "param"
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Resource<S> {
+    resource_path: PathBuf,
+    fragment: Option<String>,
+    phantom_data: std::marker::PhantomData<S>,
+}
+
+impl<S> Clone for Resource<S> {
+    fn clone(&self) -> Self {
+        Self {
+            resource_path: self.resource_path.clone(),
+            fragment: self.fragment.clone(),
+            phantom_data: std::marker::PhantomData
+        }
+    }
+}
+
+impl<S> std::fmt::Display for Resource<S> where S: Scheme {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(frag) = &self.fragment {
             write!(
                 f,
                 "{}:{}:{}",
-                self.scheme,
+                S::scheme_name(),
                 self.resource_path.to_str().unwrap(),
                 frag
             )
@@ -56,75 +65,83 @@ impl std::fmt::Display for Resource {
             write!(
                 f,
                 "{}:{}",
-                self.scheme,
+                S::scheme_name(),
                 self.resource_path.to_str().unwrap()
             )
         }
     }
 }
 
-impl TryFrom<&str> for Resource {
-    type Error = &'static str;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let pieces: Vec<&str> = value.split(':').collect();
-
-        let scheme = Scheme::try_from(
-            *pieces
-                .get(0)
-                .ok_or("Missing schema in resource identifier")?,
-        )?;
-        let resource_path =
-            PathBuf::from(pieces.get(1).ok_or("Missing path in resource identifier")?);
-        let fragment = pieces.get(2).map(|x| (*x).to_string());
-
-        Ok(Resource {
-            scheme,
-            resource_path,
-            fragment,
-        })
-    }
-}
-
-impl Resource {
-    pub fn new<P: AsRef<Path>>(scheme: Scheme, path: P, fragment: Option<String>) -> Self {
+impl Resource<Node> {
+    pub fn node<P: AsRef<Path>>(path: P, fragment: Option<String>) -> Self {
         Self {
-            scheme,
             resource_path: path.as_ref().to_path_buf(),
             fragment,
+            phantom_data: std::marker::PhantomData
         }
     }
 
-    pub fn node<P: AsRef<Path>>(path: P, fragment: Option<String>) -> Self {
-        Self::new(Scheme::Node, path, fragment)
+    pub fn node_graph(mut self) -> Resource<Graph> {
+        self.resource_path.pop();
+        Resource {
+            resource_path: self.resource_path,
+            fragment: None,
+            phantom_data: std::marker::PhantomData
+        }
     }
 
+    pub fn node_parameter(self, parameter: &str) -> Resource<Param> {
+        Resource {
+            resource_path: self.resource_path,
+            fragment: Some(parameter.to_string()),
+            phantom_data: std::marker::PhantomData
+        }
+    }
+}
+
+impl Resource<Graph> {
     pub fn graph<P: AsRef<Path>>(path: P, fragment: Option<String>) -> Self {
-        Self::new(Scheme::Graph, path, fragment)
+        Self {
+            resource_path: path.as_ref().to_path_buf(),
+            fragment,
+            phantom_data: std::marker::PhantomData
+        }
     }
+}
 
+impl Resource<Param> {
     pub fn parameter<P: AsRef<Path>>(path: P, fragment: &str) -> Self {
-        Self::new(Scheme::Parameter, path, Some(fragment.to_string()))
+        Self {
+            resource_path: path.as_ref().to_path_buf(),
+            fragment: Some(fragment.to_string()),
+            phantom_data: std::marker::PhantomData
+        }
     }
 
+    pub fn parameter_node(self) -> Resource<Node> {
+        Resource {
+            resource_path: self.resource_path,
+            fragment: None,
+            phantom_data: std::marker::PhantomData
+        }
+    }
+}
+
+impl<S> Resource<S> {
     pub fn fragment(&self) -> Option<&str> {
         self.fragment.as_ref().map(|x| x.as_ref())
     }
 
     pub fn extend_fragment(&self, fragment: &str) -> Self {
-        let mut new = self.clone();
+        let mut new = self.to_owned();
         new.fragment = Some(fragment.to_string());
         new
     }
 
     pub fn drop_fragment(&self) -> Self {
-        let mut new = self.clone();
+        let mut new = self.to_owned();
         new.fragment = None;
         new
-    }
-
-    pub fn scheme(&self) -> Scheme {
-        self.scheme
     }
 
     pub fn path(&self) -> &Path {
@@ -135,16 +152,12 @@ impl Resource {
         self.path().to_str()
     }
 
-    pub fn unregistered_node() -> Resource {
+    pub fn unregistered_node() -> Resource<S> {
         Resource {
-            scheme: Scheme::Node,
             resource_path: PathBuf::from("__unregistered__"),
             fragment: None,
+            phantom_data: std::marker::PhantomData,
         }
-    }
-
-    pub fn is_fragment_of(&self, other: &Resource) -> bool {
-        other.scheme == self.scheme && other.resource_path == self.resource_path
     }
 
     pub fn modify_path<F: FnOnce(&mut PathBuf) -> ()>(&mut self, func: F) {
@@ -157,45 +170,5 @@ impl Resource {
 
     pub fn directory(&self) -> Option<&str> {
         self.path().parent().and_then(|x| x.to_str())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::convert::TryFrom;
-
-    #[test]
-    fn test_resource_parse_node() {
-        let x = Resource::try_from("node:/foo/bar-01").unwrap();
-        assert_eq!(x.fragment, None);
-        assert_eq!(x.scheme, Scheme::Node);
-        assert_eq!(x.resource_path, PathBuf::from("/foo/bar-01"));
-    }
-
-    #[test]
-    fn test_resource_parse_node_socket() {
-        // simple
-        let x = Resource::try_from("node:/foo:socket_in").unwrap();
-        assert_eq!(x.fragment, Some("socket_in".to_string()));
-        assert_eq!(x.scheme, Scheme::Node);
-        assert_eq!(x.resource_path, PathBuf::from("/foo"));
-
-        // in nested node
-        let x = Resource::try_from("node:/foo/bar-01:socket").unwrap();
-        assert_eq!(x.fragment, Some("socket".to_string()));
-        assert_eq!(x.scheme, Scheme::Node);
-        assert_eq!(x.resource_path, PathBuf::from("/foo/bar-01"));
-    }
-
-    #[test]
-    fn test_resource_display() {
-        let r = Resource {
-            scheme: Scheme::Node,
-            resource_path: PathBuf::from("/foo/bar"),
-            fragment: Some("socket".to_string()),
-        };
-
-        assert_eq!(format!("{}", r), "node:/foo/bar:socket");
     }
 }

@@ -11,7 +11,7 @@ const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeData {
-    pub resource: Resource,
+    pub resource: Resource<Node>,
     pub thumbnail: Option<image::Id>,
     pub position: Point,
     pub title: String,
@@ -23,7 +23,7 @@ pub struct NodeData {
 
 impl NodeData {
     pub fn new(
-        resource: Resource,
+        resource: Resource<Node>,
         position: Option<Point>,
         operator: &Operator,
         param_box: ParamBoxDescription<Field>,
@@ -57,7 +57,7 @@ impl NodeData {
     }
 }
 
-fn node_attributes(res: &Resource, scalable: bool) -> ParamBoxDescription<ResourceField> {
+fn node_attributes(res: &Resource<Node>, scalable: bool) -> ParamBoxDescription<ResourceField> {
     let mut parameters = vec![Parameter {
         name: "Node Resource".to_string(),
         transmitter: ResourceField::Name,

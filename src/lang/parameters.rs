@@ -1,4 +1,4 @@
-use super::Resource;
+use super::resource::*;
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -88,7 +88,7 @@ impl ParameterField for PathBuf {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphParameter {
     pub graph_field: String,
-    pub parameter: Resource,
+    pub parameter: Resource<super::resource::Param>,
     pub title: String,
     pub control: Control,
 }
@@ -96,7 +96,7 @@ pub struct GraphParameter {
 impl GraphParameter {
     pub fn to_substitution(&self) -> ParamSubstitution {
         ParamSubstitution {
-            resource: Resource::node(self.parameter.path(), None),
+            resource: self.parameter.clone().parameter_node(),
             field: self.parameter.fragment().unwrap().to_owned(),
             value: self.control.value(),
         }
@@ -105,7 +105,7 @@ impl GraphParameter {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ParamSubstitution {
-    resource: super::Resource,
+    resource: Resource<Node>,
     field: String,
     value: Vec<u8>,
 }
@@ -115,7 +115,7 @@ impl ParamSubstitution {
         on.set_parameter(&self.field, &self.value);
     }
 
-    pub fn resource(&self) -> &super::Resource {
+    pub fn resource(&self) -> &Resource<Node> {
         &self.resource
     }
 
@@ -142,7 +142,7 @@ pub enum MessageWriters {
 }
 
 impl MessageWriter for MessageWriters {
-    type Resource = Resource;
+    type Resource = Resource<Node>;
 
     fn transmit(&self, resource: &Self::Resource, data: &[u8]) -> super::Lang {
         match self {
@@ -175,9 +175,9 @@ impl From<ResourceField> for MessageWriters {
 pub struct Field(pub String);
 
 impl MessageWriter for Field {
-    type Resource = Resource;
+    type Resource = Resource<Node>;
 
-    fn transmit(&self, resource: &Resource, data: &[u8]) -> super::Lang {
+    fn transmit(&self, resource: &Resource<Node>, data: &[u8]) -> super::Lang {
         super::Lang::UserNodeEvent(super::UserNodeEvent::ParameterChange(
             Resource::parameter(resource.path(), &self.0),
             data.to_vec(),
@@ -197,9 +197,9 @@ pub enum ResourceField {
 }
 
 impl MessageWriter for ResourceField {
-    type Resource = Resource;
+    type Resource = Resource<Node>;
 
-    fn transmit(&self, resource: &Resource, data: &[u8]) -> super::Lang {
+    fn transmit(&self, resource: &Resource<Node>, data: &[u8]) -> super::Lang {
         match self {
             Self::Name => {
                 let new = unsafe { std::str::from_utf8_unchecked(&data) };
@@ -230,9 +230,9 @@ pub enum GraphField {
 }
 
 impl MessageWriter for GraphField {
-    type Resource = Resource;
+    type Resource = Resource<Graph>;
 
-    fn transmit(&self, resource: &Resource, data: &[u8]) -> super::Lang {
+    fn transmit(&self, resource: &Resource<Graph>, data: &[u8]) -> super::Lang {
         let new = unsafe { std::str::from_utf8_unchecked(&data) };
         let mut res_new = resource.clone();
         res_new.modify_path(|p| {

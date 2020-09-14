@@ -65,15 +65,15 @@ impl AtomicOperator {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ComplexOperator {
-    pub graph: Resource,
+    pub graph: Resource<Graph>,
     title: String,
-    pub inputs: HashMap<String, (OperatorType, Resource)>,
-    pub outputs: HashMap<String, (OperatorType, Resource)>,
+    pub inputs: HashMap<String, (OperatorType, Resource<Node>)>,
+    pub outputs: HashMap<String, (OperatorType, Resource<Node>)>,
     pub parameters: HashMap<String, ParamSubstitution>,
 }
 
 impl ComplexOperator {
-    pub fn new(graph: Resource) -> Self {
+    pub fn new(graph: Resource<Graph>) -> Self {
         ComplexOperator {
             title: graph
                 .file()
@@ -134,7 +134,7 @@ impl Operator {
         }
     }
 
-    pub fn is_graph(&self, graph: &Resource) -> bool {
+    pub fn is_graph(&self, graph: &Resource<Graph>) -> bool {
         match self {
             Operator::AtomicOperator(_) => false,
             Operator::ComplexOperator(o) => &o.graph == graph,
@@ -144,11 +144,11 @@ impl Operator {
 
 #[derive(Clone, Debug)]
 pub enum Instruction {
-    Execute(Resource, AtomicOperator),
-    Call(Resource, ComplexOperator),
-    Move(Resource, Resource),
-    Copy(Resource, Resource),
-    Thumbnail(Resource),
+    Execute(Resource<Node>, AtomicOperator),
+    Call(Resource<Node>, ComplexOperator),
+    Move(Resource<Node>, Resource<Node>),
+    Copy(Resource<Node>, Resource<Node>),
+    Thumbnail(Resource<Node>),
 }
 
 #[repr(C)]
@@ -236,51 +236,51 @@ impl OperatorType {
 /// Events concerning node operation triggered by the user
 #[derive(Debug)]
 pub enum UserNodeEvent {
-    NewNode(Resource, Operator),
-    RemoveNode(Resource),
-    ConnectSockets(Resource, Resource),
-    DisconnectSinkSocket(Resource),
-    ParameterChange(Resource, Vec<u8>),
-    PositionNode(Resource, (f64, f64)),
-    RenameNode(Resource, Resource),
-    OutputSizeChange(Resource, i32),
-    OutputSizeAbsolute(Resource, bool),
+    NewNode(Resource<Graph>, Operator),
+    RemoveNode(Resource<Node>),
+    ConnectSockets(Resource<Node>, Resource<Node>),
+    DisconnectSinkSocket(Resource<Node>),
+    ParameterChange(Resource<Param>, Vec<u8>),
+    PositionNode(Resource<Node>, (f64, f64)),
+    RenameNode(Resource<Node>, Resource<Node>),
+    OutputSizeChange(Resource<Node>, i32),
+    OutputSizeAbsolute(Resource<Node>, bool),
 }
 
 #[derive(Debug)]
 pub enum UserGraphEvent {
     AddGraph,
-    ChangeGraph(Resource),
-    RenameGraph(Resource, Resource),
-    ExposeParameter(Resource, String, String, Control),
-    ConcealParameter(Resource, String),
-    RefieldParameter(Resource, String, String),
-    RetitleParameter(Resource, String, String),
+    ChangeGraph(Resource<Graph>),
+    RenameGraph(Resource<Graph>, Resource<Graph>),
+    ExposeParameter(Resource<Param>, String, String, Control),
+    ConcealParameter(Resource<Graph>, String),
+    RefieldParameter(Resource<Graph>, String, String),
+    RetitleParameter(Resource<Graph>, String, String),
 }
 
 #[derive(Debug)]
 pub enum GraphEvent {
-    GraphAdded(Resource),
-    GraphRenamed(Resource, Resource),
+    GraphAdded(Resource<Graph>),
+    GraphRenamed(Resource<Graph>, Resource<Graph>),
     NodeAdded(
-        Resource,
+        Resource<Node>,
         Operator,
         ParamBoxDescription<Field>,
         Option<(f64, f64)>,
         u32,
     ),
-    NodeRemoved(Resource),
-    NodeRenamed(Resource, Resource),
-    NodeResized(Resource, u32),
-    ConnectedSockets(Resource, Resource),
-    DisconnectedSockets(Resource, Resource),
-    Relinearized(Resource, Vec<Instruction>),
-    Recompute(Resource),
-    SocketMonomorphized(Resource, ImageType),
-    SocketDemonomorphized(Resource),
-    ParameterExposed(Resource, GraphParameter),
-    ParameterConcealed(Resource, String),
-    OutputRemoved(Resource, OutputType),
+    NodeRemoved(Resource<Node>),
+    NodeRenamed(Resource<Node>, Resource<Node>),
+    NodeResized(Resource<Node>, u32),
+    ConnectedSockets(Resource<Node>, Resource<Node>),
+    DisconnectedSockets(Resource<Node>, Resource<Node>),
+    Relinearized(Resource<Graph>, Vec<Instruction>),
+    Recompute(Resource<Graph>),
+    SocketMonomorphized(Resource<Node>, ImageType),
+    SocketDemonomorphized(Resource<Node>),
+    ParameterExposed(Resource<Graph>, GraphParameter),
+    ParameterConcealed(Resource<Graph>, String),
+    OutputRemoved(Resource<Node>, OutputType),
     Cleared,
 }
 
@@ -307,7 +307,7 @@ pub enum UserRenderEvent {
     SetAO(RendererID, ParameterBool),
 }
 
-pub type ChannelSpec = (Resource, ImageChannel);
+pub type ChannelSpec = (Resource<Node>, ImageChannel);
 
 #[derive(Debug)]
 pub enum ExportSpec {
@@ -319,7 +319,7 @@ pub enum ExportSpec {
 #[derive(Debug)]
 pub enum UserIOEvent {
     ExportImage(ExportSpec, u32, PathBuf),
-    RequestExport(Option<Vec<(Resource, ImageType)>>),
+    RequestExport(Option<Vec<(Resource<Node>, ImageType)>>),
     OpenSurface(PathBuf),
     SaveSurface(PathBuf),
     SetParentSize(u32),
@@ -330,16 +330,16 @@ pub enum UserIOEvent {
 #[derive(Debug)]
 pub enum ComputeEvent {
     OutputReady(
-        Resource,
+        Resource<Node>,
         crate::gpu::BrokerImage,
         crate::gpu::Layout,
         crate::gpu::Access,
         u32,
         OutputType,
     ),
-    ThumbnailCreated(Resource, crate::gpu::BrokerImageView),
-    ThumbnailDestroyed(Resource),
-    ThumbnailUpdated(Resource),
+    ThumbnailCreated(Resource<Node>, crate::gpu::BrokerImageView),
+    ThumbnailDestroyed(Resource<Node>),
+    ThumbnailUpdated(Resource<Node>),
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -1,4 +1,5 @@
 use crate::{broker::BrokerSender, lang::*};
+use crate::lang::resource as r;
 use conrod_core::*;
 use dialog::{DialogBox, FileSelection, FileSelectionMode};
 use std::collections::HashMap;
@@ -51,7 +52,7 @@ widget_ids!(
 #[derive(Debug, Clone)]
 pub struct Graph {
     graph: super::graph::NodeGraph,
-    resources: HashMap<Resource, petgraph::graph::NodeIndex>,
+    resources: HashMap<Resource<r::Node>, petgraph::graph::NodeIndex>,
     exposed_parameters: Vec<(String, GraphParameter)>,
     param_box: ParamBoxDescription<GraphField>,
 }
@@ -75,9 +76,9 @@ impl Default for Graph {
 
 #[derive(Debug)]
 pub struct Graphs {
-    graphs: HashMap<Resource, Graph>,
+    graphs: HashMap<Resource<r::Graph>, Graph>,
     active_graph: Graph,
-    active_resource: Resource,
+    active_resource: Resource<r::Graph>,
 }
 
 impl Graphs {
@@ -89,14 +90,14 @@ impl Graphs {
         }
     }
 
-    pub fn set_active(&mut self, graph: Resource) {
+    pub fn set_active(&mut self, graph: Resource<r::Graph>) {
         self.graphs
             .insert(self.active_resource.clone(), self.active_graph.clone());
         self.active_resource = graph;
         self.active_graph = self.graphs.remove(&self.active_resource).unwrap();
     }
 
-    pub fn rename_graph(&mut self, from: &Resource, to: &Resource) {
+    pub fn rename_graph(&mut self, from: &Resource<r::Graph>, to: &Resource<r::Graph>) {
         if &self.active_resource == from {
             self.active_resource = to.clone();
             self.active_graph.param_box.categories[0].parameters[0].control = Control::Entry {
@@ -112,19 +113,19 @@ impl Graphs {
         }
     }
 
-    pub fn get_active(&self) -> &Resource {
+    pub fn get_active(&self) -> &Resource<r::Graph> {
         &self.active_resource
     }
 
-    pub fn index_of(&self, resource: &Resource) -> Option<petgraph::graph::NodeIndex> {
+    pub fn index_of(&self, resource: &Resource<r::Node>) -> Option<petgraph::graph::NodeIndex> {
         self.active_graph.resources.get(&resource).copied()
     }
 
-    pub fn insert_index(&mut self, resource: Resource, index: petgraph::graph::NodeIndex) {
+    pub fn insert_index(&mut self, resource: Resource<r::Node>, index: petgraph::graph::NodeIndex) {
         self.active_graph.resources.insert(resource, index);
     }
 
-    pub fn remove_index(&mut self, resource: &Resource) {
+    pub fn remove_index(&mut self, resource: &Resource<r::Node>) {
         self.active_graph.resources.remove(resource);
     }
 
@@ -133,7 +134,7 @@ impl Graphs {
         self.graphs.clear();
     }
 
-    pub fn add_graph(&mut self, graph: Resource) {
+    pub fn add_graph(&mut self, graph: Resource<r::Graph>) {
         self.graphs
             .insert(graph.clone(), Graph::new(graph.file().unwrap()));
     }
@@ -147,7 +148,7 @@ impl Graphs {
 
     /// Get a reference to the resource denominating the graph at the given
     /// index. This index refers to the ordering returned by `list_graph_names`.
-    pub fn get_graph_resource(&self, index: usize) -> Option<&Resource> {
+    pub fn get_graph_resource(&self, index: usize) -> Option<&Resource<r::Graph>> {
         std::iter::once(&self.active_resource)
             .chain(self.graphs.keys())
             .nth(index)
@@ -163,7 +164,7 @@ impl Graphs {
         &mut self.active_graph.param_box
     }
 
-    fn target_graph_from_node(&mut self, node: &Resource) -> Option<&mut Graph> {
+    fn target_graph_from_node(&mut self, node: &Resource<r::Node>) -> Option<&mut Graph> {
         let graph_name = node.directory().unwrap();
         let graph_res = Resource::graph(graph_name, None);
 
@@ -174,7 +175,7 @@ impl Graphs {
         }
     }
 
-    fn target_graph_from_graph(&mut self, graph_res: &Resource) -> Option<&mut Graph> {
+    fn target_graph_from_graph(&mut self, graph_res: &Resource<r::Graph>) -> Option<&mut Graph> {
         if &self.active_resource == graph_res {
             Some(&mut self.active_graph)
         } else {
@@ -191,7 +192,7 @@ impl Graphs {
         }
     }
 
-    pub fn connect_sockets(&mut self, from: &Resource, to: &Resource) {
+    pub fn connect_sockets(&mut self, from: &Resource<r::Node>, to: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(from) {
             let from_idx = target.resources.get(&from.drop_fragment()).unwrap();
             let to_idx = target.resources.get(&to.drop_fragment()).unwrap();
@@ -206,7 +207,7 @@ impl Graphs {
         }
     }
 
-    pub fn disconnect_sockets(&mut self, from: &Resource, to: &Resource) {
+    pub fn disconnect_sockets(&mut self, from: &Resource<r::Node>, to: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&from) {
             use petgraph::visit::EdgeRef;
 
@@ -230,7 +231,7 @@ impl Graphs {
     }
 
     // FIXME: removal renumbers the nodes, so we need to update the indexing as well
-    pub fn remove_node(&mut self, node: &Resource) {
+    pub fn remove_node(&mut self, node: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&node) {
             if let Some(idx) = target.resources.remove(node) {
                 target.graph.remove_node(idx);
@@ -238,7 +239,7 @@ impl Graphs {
         }
     }
 
-    pub fn monomorphize_socket(&mut self, socket: &Resource, ty: ImageType) {
+    pub fn monomorphize_socket(&mut self, socket: &Resource<r::Node>, ty: ImageType) {
         if let Some(target) = self.target_graph_from_node(&socket) {
             let idx = target.resources.get(&socket.drop_fragment()).unwrap();
             let node = target.graph.node_weight_mut(*idx).unwrap();
@@ -251,7 +252,7 @@ impl Graphs {
         }
     }
 
-    pub fn demonomorphize_socket(&mut self, socket: &Resource) {
+    pub fn demonomorphize_socket(&mut self, socket: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&socket) {
             let idx = target.resources.get(&socket.drop_fragment()).unwrap();
             let node = target.graph.node_weight_mut(*idx).unwrap();
@@ -266,7 +267,7 @@ impl Graphs {
 
     /// Rename a node. Note that this does *not* support moving a node from one
     /// graph to another!
-    pub fn rename_node(&mut self, from: &Resource, to: &Resource) {
+    pub fn rename_node(&mut self, from: &Resource<r::Node>, to: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&from) {
             if let Some(idx) = target.resources.get(from).copied() {
                 let node = target.graph.node_weight_mut(idx).unwrap();
@@ -277,7 +278,7 @@ impl Graphs {
         }
     }
 
-    pub fn parameter_exposed(&mut self, graph: &Resource, param: GraphParameter) {
+    pub fn parameter_exposed(&mut self, graph: &Resource<r::Graph>, param: GraphParameter) {
         if let Some(target) = self.target_graph_from_graph(graph) {
             target
                 .exposed_parameters
@@ -285,7 +286,7 @@ impl Graphs {
         }
     }
 
-    pub fn parameter_concealed(&mut self, graph: &Resource, field: &str) {
+    pub fn parameter_concealed(&mut self, graph: &Resource<r::Graph>, field: &str) {
         if let Some(target) = self.target_graph_from_graph(graph) {
             target.exposed_parameters.remove(
                 target
@@ -345,13 +346,13 @@ impl App {
 
     pub fn active_parameters(
         &mut self,
-    ) -> Option<(&mut ParamBoxDescription<MessageWriters>, &Resource)> {
+    ) -> Option<(&mut ParamBoxDescription<MessageWriters>, &Resource<r::Node>)> {
         let ae = self.active_element?;
         let node = self.graphs.node_weight_mut(ae)?;
         Some((&mut node.param_box, &node.resource))
     }
 
-    pub fn register_thumbnail(&mut self, resource: &Resource, thumbnail: image::Id) {
+    pub fn register_thumbnail(&mut self, resource: &Resource<r::Node>, thumbnail: image::Id) {
         if let Some(idx) = self.graphs.index_of(resource) {
             if let Some(node) = self.graphs.node_weight_mut(idx) {
                 node.thumbnail = Some(thumbnail);
@@ -661,15 +662,15 @@ where
     }
 
     fn node_graph(&mut self, ui: &mut UiCell) {
-        use super::graph::*;
-        for event in Graph::new(&self.app_state.graphs)
+        use super::graph;
+        for event in graph::Graph::new(&self.app_state.graphs)
             .parent(self.ids.node_graph_canvas)
             .wh_of(self.ids.node_graph_canvas)
             .middle()
             .set(self.ids.node_graph, ui)
         {
             match event {
-                Event::NodeDrag(idx, x, y) => {
+                graph::Event::NodeDrag(idx, x, y) => {
                     let mut node = self.app_state.graphs.node_weight_mut(idx).unwrap();
                     node.position[0] += x;
                     node.position[1] += y;
@@ -681,7 +682,7 @@ where
                         )))
                         .unwrap();
                 }
-                Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
+                graph::Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
                     let from_res = self
                         .app_state
                         .graphs
@@ -702,7 +703,7 @@ where
                         )))
                         .unwrap();
                 }
-                Event::NodeDelete(idx) => {
+                graph::Event::NodeDelete(idx) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
                             self.app_state
@@ -714,7 +715,7 @@ where
                         )))
                         .unwrap();
                 }
-                Event::SocketClear(idx, socket) => {
+                graph::Event::SocketClear(idx, socket) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
                             self.app_state
@@ -726,10 +727,10 @@ where
                         )))
                         .unwrap();
                 }
-                Event::ActiveElement(idx) => {
+                graph::Event::ActiveElement(idx) => {
                     self.app_state.active_element = Some(idx);
                 }
-                Event::AddModal => {
+                graph::Event::AddModal => {
                     self.app_state.add_modal = true;
                 }
             }
@@ -912,11 +913,11 @@ where
                 let resp = match ev {
                     Event::ChangeParameter(event) => event,
                     Event::ExposeParameter(field, name, control) => Lang::UserGraphEvent({
-                        let p_res = Resource::parameter(resource.path(), &field);
+                        let p_res = resource.clone().node_parameter(&field);
                         UserGraphEvent::ExposeParameter(p_res, field, name, control)
                     }),
                     Event::ConcealParameter(field) => Lang::UserGraphEvent(
-                        UserGraphEvent::ConcealParameter(resource.clone(), field),
+                        UserGraphEvent::ConcealParameter(resource.clone().node_graph(), field),
                     ),
                 };
 

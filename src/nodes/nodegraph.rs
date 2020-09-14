@@ -1,4 +1,5 @@
 use crate::lang::*;
+use crate::lang::resource as r;
 
 use bimap::BiHashMap;
 use petgraph::graph;
@@ -13,11 +14,11 @@ pub type Graph = graph::Graph<Node, EdgeLabel, petgraph::Directed>;
 type EdgeLabel = (String, String);
 
 /// A vector of resource tuples describing connections between sockets.
-type Connections = Vec<(Resource, Resource)>;
+type Connections = Vec<(Resource<r::Node>, Resource<r::Node>)>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ComplexOperator {
-    graph: Resource,
+    graph: Resource<Graph>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,7 +130,7 @@ impl NodeGraph {
         }
     }
 
-    pub fn inputs(&self) -> HashMap<String, (OperatorType, Resource)> {
+    pub fn inputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
         HashMap::from_iter(self.graph.node_indices().filter_map(|idx| {
             let node = self.graph.node_weight(idx).unwrap();
             let res = self.node_resource(&idx);
@@ -143,7 +144,7 @@ impl NodeGraph {
         }))
     }
 
-    pub fn outputs(&self) -> HashMap<String, (OperatorType, Resource)> {
+    pub fn outputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
         let mut result = HashMap::new();
 
         for idx in self.outputs.iter() {
@@ -163,11 +164,11 @@ impl NodeGraph {
         result
     }
 
-    pub fn graph_resource(&self) -> Resource {
+    pub fn graph_resource(&self) -> Resource<r::Graph> {
         Resource::graph(self.name.clone(), None)
     }
 
-    fn node_resource(&self, idx: &petgraph::graph::NodeIndex) -> Resource {
+    fn node_resource(&self, idx: &petgraph::graph::NodeIndex) -> Resource<r::Node> {
         Resource::node(
             [&self.name, self.indices.get_by_right(idx).unwrap()]
                 .iter()
@@ -233,7 +234,7 @@ impl NodeGraph {
         events
     }
 
-    pub fn nodes(&self) -> Vec<(Resource, Operator, (f64, f64))> {
+    pub fn nodes(&self) -> Vec<(Resource<r::Node>, Operator, (f64, f64))> {
         self.graph
             .node_indices()
             .map(|idx| {
@@ -244,7 +245,7 @@ impl NodeGraph {
             .collect()
     }
 
-    pub fn connections(&self) -> Vec<(Resource, Resource)> {
+    pub fn connections(&self) -> Vec<(Resource<r::Node>, Resource<r::Node>)> {
         self.graph
             .edge_indices()
             .map(|idx| {
@@ -555,7 +556,7 @@ impl NodeGraph {
         node: &str,
         variable: TypeVariable,
         ty: Option<ImageType>,
-    ) -> Result<Vec<Resource>, String> {
+    ) -> Result<Vec<Resource<r::Node>>, String> {
         let path = self
             .indices
             .get_by_left(&node.to_string())
@@ -671,7 +672,7 @@ impl NodeGraph {
 
     /// Get all output sockets in the current node graph, as well as all
     /// *inputs* of Output nodes, i.e. everything that can be exported.
-    pub fn get_output_sockets(&self) -> Vec<(Resource, ImageType)> {
+    pub fn get_output_sockets(&self) -> Vec<(Resource<r::Node>, ImageType)> {
         let mut result = Vec::new();
 
         for node_index in self.graph.node_indices() {
@@ -776,7 +777,7 @@ impl NodeGraph {
 
     pub fn expose_parameter(
         &mut self,
-        parameter: Resource,
+        parameter: Resource<Param>,
         graph_field: &str,
         title: &str,
         control: Control,
