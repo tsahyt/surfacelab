@@ -130,7 +130,7 @@ where
 
     /// Ensure the node is known
     pub fn ensure_node_exists(&mut self, res: &Resource<Node>, size: u32) -> &mut SocketData<B> {
-        self.0.entry(res.drop_fragment()).or_insert(SocketData {
+        self.0.entry(res.clone()).or_insert(SocketData {
             typed_outputs: HashMap::new(),
             known_outputs: HashSet::new(),
             output_size: size,
@@ -160,7 +160,7 @@ where
     }
 
     pub fn clear_thumbnail(&mut self, res: &Resource<Node>, gpu: &mut gpu::compute::GPUCompute<B>) {
-        if let Some(socket) = self.0.get_mut(&res.drop_fragment()) {
+        if let Some(socket) = self.0.get_mut(res) {
             if let Some(thumbnail) = socket.thumbnail.take() {
                 gpu.return_thumbnail(thumbnail);
             }
@@ -170,18 +170,18 @@ where
     /// Get the thumbnail for a resource (node or socket thereof) if it exists
     pub fn get_thumbnail(&self, res: &Resource<Node>) -> Option<&gpu::compute::ThumbnailIndex> {
         self.0
-            .get(&res.drop_fragment())
+            .get(res)
             .and_then(|s| s.thumbnail.as_ref())
     }
 
     pub fn add_output_socket(
         &mut self,
-        res: &Resource<Node>,
+        res: &Resource<Socket>,
         image: Option<(gpu::compute::Image<B>, ImageType)>,
         size: u32,
         transfer_dst: bool,
     ) {
-        let sockets = self.ensure_node_exists(res, size);
+        let sockets = self.ensure_node_exists(&res.socket_node(), size);
         let socket_name = res.fragment().unwrap().to_string();
         if let Some((img, ty)) = image {
             sockets.typed_outputs.insert(
@@ -199,19 +199,18 @@ where
     }
 
     /// Determine whether the given resource points to a known output socket.
-    pub fn is_known_output(&self, res: &Resource<Node>) -> bool {
-        debug_assert!(res.fragment().is_some());
+    pub fn is_known_output(&self, res: &Resource<Socket>) -> bool {
         self.0
-            .get(&res.drop_fragment())
+            .get(&res.socket_node())
             .map(|s| s.known_outputs.contains(res.fragment().unwrap()))
             .unwrap_or(false)
     }
 
     /// Drop the underlying image from an output socket
-    pub fn remove_image(&mut self, res: &Resource<Node>) {
+    pub fn remove_image(&mut self, res: &Resource<Socket>) {
         let sockets = self
             .0
-            .get_mut(&res.drop_fragment())
+            .get_mut(&res.socket_node())
             .expect("Trying to remove image from unknown resource");
         sockets.typed_outputs.remove(res.fragment().unwrap());
     }
@@ -409,7 +408,7 @@ where
 
                     // Create (unallocated) compute images if possible for all outputs
                     for (socket, imgtype) in op.outputs().iter() {
-                        let socket_res = res.extend_fragment(&socket);
+                        let socket_res = res.node_socket(&socket);
 
                         if let OperatorType::Monomorphic(ty) = imgtype {
                             // If the type is monomorphic, we can create the image
@@ -479,7 +478,7 @@ where
                         // NOTE: Polymorphic operators never have external data.
                         let img = self
                             .gpu
-                            .create_compute_image(self.sockets.get_image_size(res), *ty, false)
+                            .create_compute_image(self.sockets.get_image_size(&res.socket_node()), *ty, false)
                             .unwrap();
                         // The socket is a known output, and thus the actual
                         // size should also already be known!
@@ -491,9 +490,10 @@ where
                     if self.sockets.is_known_output(res) {
                         log::trace!("Removing monomorphized socket {}", res);
                         self.sockets.remove_image(res);
-                        self.sockets.clear_thumbnail(res, &mut self.gpu);
+                        let node = res.socket_node();
+                        self.sockets.clear_thumbnail(&node, &mut self.gpu);
                         response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(
-                            res.clone(),
+                            node,
                         )))
                     }
                 }

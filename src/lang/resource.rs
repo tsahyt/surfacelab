@@ -168,18 +168,6 @@ impl<S> Resource<S> {
         self.fragment.as_ref().map(|x| x.as_ref())
     }
 
-    pub fn extend_fragment(&self, fragment: &str) -> Self {
-        let mut new = self.to_owned();
-        new.fragment = Some(fragment.to_string());
-        new
-    }
-
-    pub fn drop_fragment(&self) -> Self {
-        let mut new = self.to_owned();
-        new.fragment = None;
-        new
-    }
-
     pub fn path(&self) -> &Path {
         &self.resource_path
     }

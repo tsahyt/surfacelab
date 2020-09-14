@@ -192,10 +192,11 @@ impl Graphs {
         }
     }
 
-    pub fn connect_sockets(&mut self, from: &Resource<r::Node>, to: &Resource<r::Node>) {
-        if let Some(target) = self.target_graph_from_node(from) {
-            let from_idx = target.resources.get(&from.drop_fragment()).unwrap();
-            let to_idx = target.resources.get(&to.drop_fragment()).unwrap();
+    pub fn connect_sockets(&mut self, from: &Resource<r::Socket>, to: &Resource<r::Socket>) {
+        let from_node = from.socket_node();
+        if let Some(target) = self.target_graph_from_node(&from_node) {
+            let from_idx = target.resources.get(&from_node).unwrap();
+            let to_idx = target.resources.get(&to.socket_node()).unwrap();
             target.graph.add_edge(
                 *from_idx,
                 *to_idx,
@@ -207,12 +208,13 @@ impl Graphs {
         }
     }
 
-    pub fn disconnect_sockets(&mut self, from: &Resource<r::Node>, to: &Resource<r::Node>) {
-        if let Some(target) = self.target_graph_from_node(&from) {
+    pub fn disconnect_sockets(&mut self, from: &Resource<r::Socket>, to: &Resource<r::Socket>) {
+        let from_node = from.socket_node();
+        if let Some(target) = self.target_graph_from_node(&from_node) {
             use petgraph::visit::EdgeRef;
 
-            let from_idx = target.resources.get(&from.drop_fragment()).unwrap();
-            let to_idx = target.resources.get(&to.drop_fragment()).unwrap();
+            let from_idx = target.resources.get(&from_node).unwrap();
+            let to_idx = target.resources.get(&to.socket_node()).unwrap();
 
             // Assuming that there's only ever one edge connecting two sockets.
             if let Some(e) = target
@@ -239,9 +241,11 @@ impl Graphs {
         }
     }
 
-    pub fn monomorphize_socket(&mut self, socket: &Resource<r::Node>, ty: ImageType) {
-        if let Some(target) = self.target_graph_from_node(&socket) {
-            let idx = target.resources.get(&socket.drop_fragment()).unwrap();
+    pub fn monomorphize_socket(&mut self, socket: &Resource<r::Socket>, ty: ImageType) {
+        let node = socket.socket_node();
+
+        if let Some(target) = self.target_graph_from_node(&node) {
+            let idx = target.resources.get(&node).unwrap();
             let node = target.graph.node_weight_mut(*idx).unwrap();
             let var = type_variable_from_socket_iter(
                 node.inputs.iter().chain(node.outputs.iter()),
@@ -252,9 +256,11 @@ impl Graphs {
         }
     }
 
-    pub fn demonomorphize_socket(&mut self, socket: &Resource<r::Node>) {
-        if let Some(target) = self.target_graph_from_node(&socket) {
-            let idx = target.resources.get(&socket.drop_fragment()).unwrap();
+    pub fn demonomorphize_socket(&mut self, socket: &Resource<r::Socket>) {
+        let node = socket.socket_node();
+
+        if let Some(target) = self.target_graph_from_node(&node) {
+            let idx = target.resources.get(&node).unwrap();
             let node = target.graph.node_weight_mut(*idx).unwrap();
             let var = type_variable_from_socket_iter(
                 node.inputs.iter().chain(node.outputs.iter()),
@@ -422,7 +428,7 @@ where
             Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
                 if let Some(t) = thmb.to::<B>() {
                     let id = self.image_map.insert(renderer.create_image(t, 128, 128));
-                    self.app_state.register_thumbnail(&res.drop_fragment(), id);
+                    self.app_state.register_thumbnail(&res, id);
                 }
             }
             Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(_res)) => {
@@ -689,14 +695,14 @@ where
                         .node_weight(from)
                         .unwrap()
                         .resource
-                        .extend_fragment(&from_socket);
+                        .node_socket(&from_socket);
                     let to_res = self
                         .app_state
                         .graphs
                         .node_weight(to)
                         .unwrap()
                         .resource
-                        .extend_fragment(&to_socket);
+                        .node_socket(&to_socket);
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
                             from_res, to_res,
@@ -723,7 +729,7 @@ where
                                 .node_weight(idx)
                                 .unwrap()
                                 .resource
-                                .extend_fragment(&socket),
+                                .node_socket(&socket),
                         )))
                         .unwrap();
                 }

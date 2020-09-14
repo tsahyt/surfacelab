@@ -14,7 +14,7 @@ pub type Graph = graph::Graph<Node, EdgeLabel, petgraph::Directed>;
 type EdgeLabel = (String, String);
 
 /// A vector of resource tuples describing connections between sockets.
-type Connections = Vec<(Resource<r::Node>, Resource<r::Node>)>;
+pub type Connections = Vec<(Resource<r::Socket>, Resource<r::Socket>)>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ComplexOperator {
@@ -198,8 +198,8 @@ impl NodeGraph {
             let conn = self.graph.edge_weight(idx).unwrap();
             let (source_idx, sink_idx) = self.graph.edge_endpoints(idx).unwrap();
             events.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                self.node_resource(&source_idx).extend_fragment(&conn.0),
-                self.node_resource(&sink_idx).extend_fragment(&conn.1),
+                self.node_resource(&source_idx).node_socket(&conn.0),
+                self.node_resource(&sink_idx).node_socket(&conn.1),
             )));
         }
 
@@ -213,7 +213,7 @@ impl NodeGraph {
                     .iter()
                     .chain(node.operator.outputs().iter())
                     .filter(|(_, t)| **t == OperatorType::Polymorphic(*tvar.0))
-                    .map(|x| self.node_resource(&idx).extend_fragment(x.0))
+                    .map(|x| self.node_resource(&idx).node_socket(x.0))
                 {
                     events.push(Lang::GraphEvent(GraphEvent::SocketMonomorphized(
                         res, *tvar.1,
@@ -245,7 +245,7 @@ impl NodeGraph {
             .collect()
     }
 
-    pub fn connections(&self) -> Vec<(Resource<r::Node>, Resource<r::Node>)> {
+    pub fn connections(&self) -> Connections {
         self.graph
             .edge_indices()
             .map(|idx| {
@@ -253,8 +253,8 @@ impl NodeGraph {
                 let (source_socket, sink_socket) = self.graph.edge_weight(idx).unwrap();
                 (
                     self.node_resource(&source_idx)
-                        .extend_fragment(source_socket),
-                    self.node_resource(&sink_idx).extend_fragment(sink_socket),
+                        .node_socket(source_socket),
+                    self.node_resource(&sink_idx).node_socket(sink_socket),
                 )
             })
             .collect()
@@ -353,8 +353,8 @@ impl NodeGraph {
                 let sink = self.node_resource(&x.target());
                 let sockets = x.weight();
                 (
-                    source.extend_fragment(&sockets.0),
-                    sink.extend_fragment(&sockets.1),
+                    source.node_socket(&sockets.0),
+                    sink.node_socket(&sockets.1),
                 )
             })
             .collect();
@@ -496,7 +496,7 @@ impl NodeGraph {
             .get_by_left(&sink_node.to_string())
             .ok_or(format!("Sink for URI {} not found", &sink_node))?
             .clone();
-        let sink = self.node_resource(&sink_path).extend_fragment(sink_socket);
+        let sink = self.node_resource(&sink_path).node_socket(sink_socket);
 
         let mut resp = Vec::new();
 
@@ -532,7 +532,7 @@ impl NodeGraph {
             .map(|e| {
                 (
                     self.node_resource(&e.source())
-                        .extend_fragment(&e.weight().0),
+                        .node_socket(&e.weight().0),
                     e.id(),
                 )
             })
@@ -556,7 +556,7 @@ impl NodeGraph {
         node: &str,
         variable: TypeVariable,
         ty: Option<ImageType>,
-    ) -> Result<Vec<Resource<r::Node>>, String> {
+    ) -> Result<Vec<Resource<r::Socket>>, String> {
         let path = self
             .indices
             .get_by_left(&node.to_string())
@@ -578,7 +578,7 @@ impl NodeGraph {
             .operator
             .sockets_by_type_variable(variable)
             .iter()
-            .map(|x| node_res.extend_fragment(x))
+            .map(|x| node_res.node_socket(x))
             .collect();
 
         Ok(affected)
@@ -672,7 +672,7 @@ impl NodeGraph {
 
     /// Get all output sockets in the current node graph, as well as all
     /// *inputs* of Output nodes, i.e. everything that can be exported.
-    pub fn get_output_sockets(&self) -> Vec<(Resource<r::Node>, ImageType)> {
+    pub fn get_output_sockets(&self) -> Vec<(Resource<r::Socket>, ImageType)> {
         let mut result = Vec::new();
 
         for node_index in self.graph.node_indices() {
@@ -682,13 +682,13 @@ impl NodeGraph {
             if let Operator::AtomicOperator(AtomicOperator::Output { .. }) = node.operator {
                 for input in node.operator.inputs().iter() {
                     if let Ok(OperatorType::Monomorphic(ty)) = node.monomorphic_type(&input.0) {
-                        result.push((res.extend_fragment(&input.0), ty))
+                        result.push((res.node_socket(&input.0), ty))
                     }
                 }
             } else {
                 for output in node.operator.outputs().iter() {
                     if let Ok(OperatorType::Monomorphic(ty)) = node.monomorphic_type(&output.0) {
-                        result.push((res.extend_fragment(&output.0), ty))
+                        result.push((res.node_socket(&output.0), ty))
                     }
                 }
             }
