@@ -243,7 +243,7 @@ impl<'a> Widget for Tabs<'a> {
         let canvas_style = style.canvas(&ui.theme);
         let max_text_width = style
             .font_id(&ui.theme)
-            .or(ui.fonts.ids().next())
+            .or_else(|| ui.fonts.ids().next())
             .and_then(|id| ui.fonts.get(id))
             .map(|font| max_text_width(self.tabs.iter(), font_size, font))
             .unwrap_or(0.0);

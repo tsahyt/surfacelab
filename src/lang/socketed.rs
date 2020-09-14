@@ -31,9 +31,9 @@ pub trait Socketed {
             })
     }
 
-    fn default_name<'a>(&'a self) -> &'a str;
+    fn default_name(&self) -> &str;
 
-    fn title<'a>(&'a self) -> &'a str;
+    fn title(&self) -> &str;
 
     fn external_data(&self) -> bool {
         false

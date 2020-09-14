@@ -259,7 +259,7 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
-                            if new != *value {
+                            if (new - *value).abs() > std::f32::EPSILON {
                                 ev.push(Event::ChangeParameter(
                                     parameter
                                         .transmitter

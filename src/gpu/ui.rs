@@ -260,7 +260,7 @@ where
 }
 
 fn conv_vertex_buffer(buffer: &[conrod_core::mesh::Vertex]) -> &[Vertex] {
-    unsafe { std::mem::transmute(buffer) }
+    unsafe { &*(buffer as *const [conrod_core::mesh::Vertex] as *const [Vertex]) }
 }
 
 impl<B> Drop for VertexBuffer<B>

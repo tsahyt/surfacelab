@@ -459,7 +459,7 @@ where
                 GraphEvent::NodeResized(res, new_size) => {
                     self.sockets.resize(res, *new_size as u32);
                     self.sockets
-                        .reinit_output_images(res, &mut self.gpu, *new_size as u32);
+                        .reinit_output_images(res, &self.gpu, *new_size as u32);
                 }
                 GraphEvent::Relinearized(graph, instrs) => {
                     self.linearizations.insert(graph.clone(), instrs.clone());

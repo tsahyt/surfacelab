@@ -53,11 +53,8 @@ impl NodeManager {
 
         // Rebuild parameter boxes for node added events
         for ev in events.iter_mut() {
-            match ev {
-                Lang::GraphEvent(GraphEvent::NodeAdded(_, op, pbox, _, _)) => {
-                    *pbox = self.operator_param_box(&op);
-                }
-                _ => {}
+            if let Lang::GraphEvent(GraphEvent::NodeAdded(_, op, pbox, _, _)) = ev {
+                *pbox = self.operator_param_box(&op);
             }
         }
 

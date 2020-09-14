@@ -310,11 +310,10 @@ impl NodeGraph {
     ) -> Result<(Option<OutputType>, Connections), String> {
         use petgraph::visit::EdgeRef;
 
-        let node = self
+        let node = *self
             .indices
             .get_by_left(&resource.to_string())
-            .ok_or(format!("Node for URI {} not found!", resource))?
-            .clone();
+            .ok_or(format!("Node for URI {} not found!", resource))?;
 
         log::trace!(
             "Removing node with identifier {:?}, indexed {:?}",
@@ -398,16 +397,14 @@ impl NodeGraph {
     ) -> Result<Vec<Lang>, String> {
         let mut response = Vec::new();
         // Get relevant resources
-        let from_path = self
+        let from_path = *self
             .indices
             .get_by_left(&from_node.to_string())
-            .ok_or(format!("Node for URI {} not found!", &from_node))?
-            .clone();
-        let to_path = self
+            .ok_or(format!("Node for URI {} not found!", &from_node))?;
+        let to_path = *self
             .indices
             .get_by_left(&to_node.to_string())
-            .ok_or(format!("Node for URI {} not found!", &to_node))?
-            .clone();
+            .ok_or(format!("Node for URI {} not found!", &to_node))?;
 
         // Check that from is a source and to is a sink
         if !(self
@@ -485,11 +482,10 @@ impl NodeGraph {
     ) -> Result<Vec<Lang>, String> {
         use petgraph::visit::EdgeRef;
 
-        let sink_path = self
+        let sink_path = *self
             .indices
             .get_by_left(&sink_node.to_string())
-            .ok_or(format!("Sink for URI {} not found", &sink_node))?
-            .clone();
+            .ok_or(format!("Sink for URI {} not found", &sink_node))?;
         let sink = self.node_resource(&sink_path).node_socket(sink_socket);
 
         let mut resp = Vec::new();
@@ -550,11 +546,10 @@ impl NodeGraph {
         variable: TypeVariable,
         ty: Option<ImageType>,
     ) -> Result<Vec<Resource<r::Socket>>, String> {
-        let path = self
+        let path = *self
             .indices
             .get_by_left(&node.to_string())
-            .ok_or(format!("Node for URI {} not found!", &node))?
-            .clone();
+            .ok_or(format!("Node for URI {} not found!", &node))?;
         let node_res = self.node_resource(&path);
 
         let node_data = self

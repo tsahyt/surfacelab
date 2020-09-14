@@ -436,8 +436,7 @@ impl<'a> Widget for Graph<'a> {
             .widget_input(id)
             .presses()
             .key()
-            .find(|x| x.key == input::Key::X)
-            .is_some();
+            .any(|x| x.key == input::Key::X);
 
         // Build a node for each known index
         for idx in self.graph.node_indices() {

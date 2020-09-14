@@ -78,7 +78,7 @@ impl ComplexOperator {
             title: graph
                 .file()
                 .map(|x| x.to_string())
-                .unwrap_or("Unnamed Graph".to_string()),
+                .unwrap_or_else(|| "Unnamed Graph".to_string()),
             inputs: HashMap::new(),
             outputs: HashMap::new(),
             graph,
@@ -108,7 +108,7 @@ impl Socketed for ComplexOperator {
         &self.title
     }
 
-    fn default_name<'a>(&'a self) -> &str {
+    fn default_name(&self) -> &str {
         self.graph.file().unwrap_or("unknown")
     }
 

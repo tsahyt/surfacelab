@@ -81,6 +81,12 @@ pub struct Graphs {
     active_resource: Resource<r::Graph>,
 }
 
+impl Default for Graphs {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Graphs {
     pub fn new() -> Self {
         Graphs {
@@ -286,7 +292,7 @@ impl Graphs {
         if let Some(target) = self.target_graph_from_graph(graph) {
             target
                 .exposed_parameters
-                .push((param.graph_field.clone(), param.clone()));
+                .push((param.graph_field.clone(), param));
         }
     }
 
@@ -296,7 +302,7 @@ impl Graphs {
                 target
                     .exposed_parameters
                     .iter()
-                    .position(|x| &x.0 == field)
+                    .position(|x| x.0 == field)
                     .expect("Tried to remove unknown parameter"),
             );
         }
@@ -590,20 +596,17 @@ where
             .parent(self.ids.top_bar_canvas)
             .set(self.ids.open_surface, ui)
         {
-            match FileSelection::new("Select a surface file")
+            if let Ok(Some(path)) = FileSelection::new("Select a surface file")
                 .title("Open Surface")
                 .mode(FileSelectionMode::Open)
                 .show()
             {
-                Ok(Some(path)) => {
-                    self.sender
-                        .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
-                            std::path::PathBuf::from(path),
-                        )))
-                        .unwrap();
-                    self.app_state.graphs.clear_all();
-                }
-                _ => {}
+                self.sender
+                    .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
+                        std::path::PathBuf::from(path),
+                    )))
+                    .unwrap();
+                self.app_state.graphs.clear_all();
             }
         }
 
@@ -616,23 +619,20 @@ where
             .parent(self.ids.top_bar_canvas)
             .set(self.ids.save_surface, ui)
         {
-            match FileSelection::new("Select a surface file")
+            if let Ok(Some(path)) = FileSelection::new("Select a surface file")
                 .title("Save Surface")
                 .mode(FileSelectionMode::Save)
                 .show()
             {
-                Ok(Some(path)) => {
-                    self.sender
-                        .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
-                            std::path::PathBuf::from(path),
-                        )))
-                        .unwrap();
-                }
-                _ => {}
+                self.sender
+                    .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
+                        std::path::PathBuf::from(path),
+                    )))
+                    .unwrap();
             }
         }
 
-        for selection in
+        if let Some(selection) =
             widget::DropDownList::new(&self.app_state.graphs.list_graph_names(), Some(0))
                 .label_font_size(12)
                 .parent(self.ids.top_bar_canvas)
@@ -888,11 +888,8 @@ where
                             .icon_font(self.fonts.icon_font)
                             .set(self.ids.render_params, ui)
                     {
-                        match ev {
-                            param_box::Event::ChangeParameter(lang) => {
-                                self.sender.send(lang).unwrap()
-                            }
-                            _ => {}
+                        if let param_box::Event::ChangeParameter(lang) = ev {
+                            self.sender.send(lang).unwrap()
                         }
                     }
                 }

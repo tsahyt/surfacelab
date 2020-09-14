@@ -220,8 +220,7 @@ impl NodeManager {
                 UserGraphEvent::AddGraph => {
                     let name = (0..)
                         .map(|i| format!("unnamed.{}", i))
-                        .filter(|n| !self.graphs.contains_key(n))
-                        .next()
+                        .find(|n| !self.graphs.contains_key(n))
                         .unwrap();
                     self.graphs
                         .insert(name.to_string(), nodegraph::NodeGraph::new(&name));
