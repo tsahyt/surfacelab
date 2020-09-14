@@ -55,12 +55,15 @@ impl<S> Clone for Resource<S> {
         Self {
             resource_path: self.resource_path.clone(),
             fragment: self.fragment.clone(),
-            phantom_data: std::marker::PhantomData
+            phantom_data: std::marker::PhantomData,
         }
     }
 }
 
-impl<S> std::fmt::Display for Resource<S> where S: Scheme {
+impl<S> std::fmt::Display for Resource<S>
+where
+    S: Scheme,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(frag) = &self.fragment {
             write!(
@@ -86,7 +89,7 @@ impl Resource<Node> {
         Self {
             resource_path: path.as_ref().to_path_buf(),
             fragment,
-            phantom_data: std::marker::PhantomData
+            phantom_data: std::marker::PhantomData,
         }
     }
 
@@ -94,7 +97,7 @@ impl Resource<Node> {
         Resource {
             resource_path: self.resource_path.clone(),
             fragment: Some(socket.to_string()),
-            phantom_data: std::marker::PhantomData
+            phantom_data: std::marker::PhantomData,
         }
     }
 
@@ -104,7 +107,7 @@ impl Resource<Node> {
         Resource {
             resource_path: path,
             fragment: None,
-            phantom_data: std::marker::PhantomData
+            phantom_data: std::marker::PhantomData,
         }
     }
 
@@ -112,7 +115,7 @@ impl Resource<Node> {
         Resource {
             resource_path: self.resource_path.clone(),
             fragment: Some(parameter.to_string()),
-            phantom_data: std::marker::PhantomData
+            phantom_data: std::marker::PhantomData,
         }
     }
 }
@@ -122,7 +125,7 @@ impl Resource<Graph> {
         Self {
             resource_path: path.as_ref().to_path_buf(),
             fragment,
-            phantom_data: std::marker::PhantomData
+            phantom_data: std::marker::PhantomData,
         }
     }
 }
@@ -132,7 +135,7 @@ impl Resource<Param> {
         Self {
             resource_path: path.as_ref().to_path_buf(),
             fragment: Some(fragment.to_string()),
-            phantom_data: std::marker::PhantomData
+            phantom_data: std::marker::PhantomData,
         }
     }
 
@@ -140,7 +143,7 @@ impl Resource<Param> {
         Resource {
             resource_path: self.resource_path.clone(),
             fragment: None,
-            phantom_data: std::marker::PhantomData
+            phantom_data: std::marker::PhantomData,
         }
     }
 }
@@ -150,7 +153,7 @@ impl Resource<Socket> {
         Self {
             resource_path: path.as_ref().to_path_buf(),
             fragment: Some(fragment.to_string()),
-            phantom_data: std::marker::PhantomData
+            phantom_data: std::marker::PhantomData,
         }
     }
 
@@ -158,7 +161,7 @@ impl Resource<Socket> {
         Resource {
             resource_path: self.resource_path.clone(),
             fragment: None,
-            phantom_data: std::marker::PhantomData
+            phantom_data: std::marker::PhantomData,
         }
     }
 }

@@ -119,7 +119,11 @@ where
     }
 
     /// Remove all sockets for the given node.
-    pub fn remove_all_for_node(&mut self, res: &Resource<Node>, gpu: &mut gpu::compute::GPUCompute<B>) {
+    pub fn remove_all_for_node(
+        &mut self,
+        res: &Resource<Node>,
+        gpu: &mut gpu::compute::GPUCompute<B>,
+    ) {
         debug_assert!(res.fragment().is_none());
         if let Some(mut socket) = self.0.remove(res) {
             if let Some(thumbnail) = socket.thumbnail.take() {
@@ -169,9 +173,7 @@ where
 
     /// Get the thumbnail for a resource (node or socket thereof) if it exists
     pub fn get_thumbnail(&self, res: &Resource<Node>) -> Option<&gpu::compute::ThumbnailIndex> {
-        self.0
-            .get(res)
-            .and_then(|s| s.thumbnail.as_ref())
+        self.0.get(res).and_then(|s| s.thumbnail.as_ref())
     }
 
     pub fn add_output_socket(
@@ -262,7 +264,10 @@ where
     }
 
     /// Obtain the output image given a socket resource, mutably
-    pub fn get_output_image_mut(&mut self, res: &Resource<Socket>) -> Option<&mut gpu::compute::Image<B>> {
+    pub fn get_output_image_mut(
+        &mut self,
+        res: &Resource<Socket>,
+    ) -> Option<&mut gpu::compute::Image<B>> {
         self.get_output_image_typed_mut(res).map(|x| x.0)
     }
 
@@ -478,7 +483,11 @@ where
                         // NOTE: Polymorphic operators never have external data.
                         let img = self
                             .gpu
-                            .create_compute_image(self.sockets.get_image_size(&res.socket_node()), *ty, false)
+                            .create_compute_image(
+                                self.sockets.get_image_size(&res.socket_node()),
+                                *ty,
+                                false,
+                            )
                             .unwrap();
                         // The socket is a known output, and thus the actual
                         // size should also already be known!
@@ -492,9 +501,7 @@ where
                         self.sockets.remove_image(res);
                         let node = res.socket_node();
                         self.sockets.clear_thumbnail(&node, &mut self.gpu);
-                        response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(
-                            node,
-                        )))
+                        response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(node)))
                     }
                 }
                 _ => {}
@@ -547,7 +554,8 @@ where
             .clone();
         let mut response = Vec::new();
 
-        let mut substitutions_map: HashMap<Resource<Node>, Vec<&ParamSubstitution>> = HashMap::new();
+        let mut substitutions_map: HashMap<Resource<Node>, Vec<&ParamSubstitution>> =
+            HashMap::new();
         for s in substitutions {
             substitutions_map
                 .entry(s.resource().clone())
@@ -624,7 +632,10 @@ where
     ///
     /// The thumbnail generation will only happen if the output socket has been
     /// updated in the current seq step.
-    fn execute_thumbnail(&mut self, socket: &Resource<Socket>) -> Result<Vec<ComputeEvent>, String> {
+    fn execute_thumbnail(
+        &mut self,
+        socket: &Resource<Socket>,
+    ) -> Result<Vec<ComputeEvent>, String> {
         let node = socket.socket_node();
         let mut response = Vec::new();
         let updated = self
@@ -687,7 +698,11 @@ where
     /// *Note*: The source image has to be backed. This is *not* checked and may result
     /// in segfaults or all sorts of nasty behaviour. The target image will be
     /// allocated if not already.
-    fn execute_copy(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) -> Result<(), String> {
+    fn execute_copy(
+        &mut self,
+        from: &Resource<Socket>,
+        to: &Resource<Socket>,
+    ) -> Result<(), String> {
         log::trace!("Executing copy from {} to {}", from, to);
 
         self.sockets
@@ -712,7 +727,11 @@ where
         Ok(())
     }
 
-    fn execute_image(&mut self, res: &Resource<Node>, path: &std::path::PathBuf) -> Result<(), String> {
+    fn execute_image(
+        &mut self,
+        res: &Resource<Node>,
+        path: &std::path::PathBuf,
+    ) -> Result<(), String> {
         log::trace!("Processing Image operator {}", res);
 
         let image = self
@@ -758,7 +777,11 @@ where
 
     // NOTE: Images sent as OutputReady could technically get dropped before the
     // renderer is done copying them.
-    fn execute_output(&mut self, op: &Output, res: &Resource<Node>) -> Result<Vec<ComputeEvent>, String> {
+    fn execute_output(
+        &mut self,
+        op: &Output,
+        res: &Resource<Node>,
+    ) -> Result<Vec<ComputeEvent>, String> {
         let output_type = op.output_type;
         let socket_res = res.node_socket("data");
 
@@ -787,8 +810,13 @@ where
             gpu::BrokerImage::from::<B>(image.get_raw(), image.alive()),
             image.get_layout(),
             image.get_access(),
-            self.sockets
-                .get_image_size(&self.sockets.get_input_resource(&socket_res).unwrap().socket_node()),
+            self.sockets.get_image_size(
+                &self
+                    .sockets
+                    .get_input_resource(&socket_res)
+                    .unwrap()
+                    .socket_node(),
+            ),
             output_type,
         )];
 
@@ -897,7 +925,11 @@ where
         final_image.save(path).unwrap();
     }
 
-    fn execute_operator(&mut self, op: &AtomicOperator, res: &Resource<Node>) -> Result<(), String> {
+    fn execute_operator(
+        &mut self,
+        op: &AtomicOperator,
+        res: &Resource<Node>,
+    ) -> Result<(), String> {
         use shaders::Uniforms;
 
         log::trace!("Executing operator {:?} of {}", op, res);

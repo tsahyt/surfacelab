@@ -1,5 +1,5 @@
-use crate::lang::*;
 use crate::lang::resource as r;
+use crate::lang::*;
 
 use bimap::BiHashMap;
 use petgraph::graph;
@@ -252,8 +252,7 @@ impl NodeGraph {
                 let (source_idx, sink_idx) = self.graph.edge_endpoints(idx).unwrap();
                 let (source_socket, sink_socket) = self.graph.edge_weight(idx).unwrap();
                 (
-                    self.node_resource(&source_idx)
-                        .node_socket(source_socket),
+                    self.node_resource(&source_idx).node_socket(source_socket),
                     self.node_resource(&sink_idx).node_socket(sink_socket),
                 )
             })
@@ -352,10 +351,7 @@ impl NodeGraph {
                 let source = self.node_resource(&x.source());
                 let sink = self.node_resource(&x.target());
                 let sockets = x.weight();
-                (
-                    source.node_socket(&sockets.0),
-                    sink.node_socket(&sockets.1),
-                )
+                (source.node_socket(&sockets.0), sink.node_socket(&sockets.1))
             })
             .collect();
 
@@ -531,8 +527,7 @@ impl NodeGraph {
             .filter(|e| e.weight().1 == sink_socket)
             .map(|e| {
                 (
-                    self.node_resource(&e.source())
-                        .node_socket(&e.weight().0),
+                    self.node_resource(&e.source()).node_socket(&e.weight().0),
                     e.id(),
                 )
             })
@@ -757,9 +752,7 @@ impl NodeGraph {
                     }
 
                     if let Some(thumbnail_output) = node.operator.outputs().keys().next() {
-                        traversal.push(Instruction::Thumbnail(
-                            res.node_socket(thumbnail_output),
-                        ));
+                        traversal.push(Instruction::Thumbnail(res.node_socket(thumbnail_output)));
                     }
 
                     if let Some(((source, sink), idx)) = l {

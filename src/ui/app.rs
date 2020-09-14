@@ -1,5 +1,5 @@
-use crate::{broker::BrokerSender, lang::*};
 use crate::lang::resource as r;
+use crate::{broker::BrokerSender, lang::*};
 use conrod_core::*;
 use dialog::{DialogBox, FileSelection, FileSelectionMode};
 use std::collections::HashMap;
