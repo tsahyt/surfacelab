@@ -111,6 +111,12 @@ impl Socketed for ComplexOperator {
     fn default_name<'a>(&'a self) -> &str {
         self.graph.file().unwrap_or("unknown")
     }
+
+    /// Complex Operators have data external to them, i.e. their outputs sockets
+    /// are *copied to*, like Images or Inputs.
+    fn external_data(&self) -> bool {
+        true
+    }
 }
 
 #[enum_dispatch(Socketed, Parameters)]
@@ -132,13 +138,6 @@ impl Operator {
         match self {
             Operator::AtomicOperator(_) => false,
             Operator::ComplexOperator(o) => &o.graph == graph,
-        }
-    }
-
-    pub fn external_data(&self) -> bool {
-        match self {
-            Self::AtomicOperator(op) => op.external_data(),
-            _ => false,
         }
     }
 }

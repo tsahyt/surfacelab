@@ -232,7 +232,7 @@ where
         &self,
         size: u32,
         ty: lang::ImageType,
-        upload: bool,
+        transfer_dst: bool,
     ) -> Result<Image<B>, String> {
         let lock = self.gpu.lock().unwrap();
 
@@ -258,17 +258,12 @@ where
                 format,
                 hal::image::Tiling::Optimal,
                 hal::image::Usage::SAMPLED
-                    | if !upload {
+                    | if !transfer_dst {
                         hal::image::Usage::STORAGE
                     } else {
-                        hal::image::Usage::empty()
-                    }
-                    | hal::image::Usage::TRANSFER_SRC
-                    | if upload {
                         hal::image::Usage::TRANSFER_DST
-                    } else {
-                        hal::image::Usage::empty()
-                    },
+                    }
+                    | hal::image::Usage::TRANSFER_SRC,
                 hal::image::ViewCapabilities::empty(),
             )
         }
@@ -742,23 +737,18 @@ where
 
         unsafe {
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
+            cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
             cmd_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
                 hal::memory::Dependencies::empty(),
                 &[
-                    hal::memory::Barrier::Image {
-                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-                            ..(
-                                hal::image::Access::TRANSFER_WRITE,
-                                hal::image::Layout::TransferDstOptimal,
-                            ),
-                        target: &*to.raw,
-                        families: None,
-                        range: super::COLOR_RANGE.clone(),
-                    },
                     from.barrier_to(
                         hal::image::Access::TRANSFER_READ,
                         hal::image::Layout::TransferSrcOptimal,
+                    ),
+                    to.barrier_to(
+                        hal::image::Access::TRANSFER_WRITE,
+                        hal::image::Layout::TransferDstOptimal,
                     ),
                 ],
             );
@@ -794,10 +784,16 @@ where
             cmd_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
-                &[from.barrier_to(
-                    hal::image::Access::SHADER_READ,
-                    hal::image::Layout::ShaderReadOnlyOptimal,
-                )],
+                &[
+                    from.barrier_to(
+                        hal::image::Access::SHADER_READ,
+                        hal::image::Layout::ShaderReadOnlyOptimal,
+                    ),
+                    to.barrier_to(
+                        hal::image::Access::SHADER_READ,
+                        hal::image::Layout::ShaderReadOnlyOptimal,
+                    ),
+                ],
             );
             cmd_buffer.finish();
 

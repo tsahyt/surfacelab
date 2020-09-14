@@ -191,6 +191,12 @@ impl Socketed for Input {
         "Input"
     }
 
+    /// Inputs have external data, since their output sockets take all data from
+    /// a copy operation
+    fn external_data(&self) -> bool {
+        true
+    }
+
     fn is_input(&self) -> bool {
         true
     }

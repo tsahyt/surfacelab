@@ -61,6 +61,7 @@ struct TypedOutput<B: gpu::Backend> {
     image: gpu::compute::Image<B>,
     ty: ImageType,
     force: bool,
+    transfer_dst: bool,
 }
 
 impl<B> TypedOutput<B>
@@ -70,7 +71,9 @@ where
     /// Reinitialize the GPU image with a (possibly new) size. This will also
     /// force the image on the next evaluation.
     fn reinit_image(&mut self, gpu: &gpu::compute::GPUCompute<B>, size: u32) {
-        self.image = gpu.create_compute_image(size, self.ty, false).unwrap();
+        self.image = gpu
+            .create_compute_image(size, self.ty, self.transfer_dst)
+            .unwrap();
         self.force = true;
     }
 }
@@ -178,6 +181,7 @@ where
         res: &Resource,
         image: Option<(gpu::compute::Image<B>, ImageType)>,
         size: u32,
+        transfer_dst: bool,
     ) {
         let sockets = self.ensure_node_exists(res, size);
         let socket_name = res.fragment().unwrap().to_string();
@@ -189,6 +193,7 @@ where
                     image: img,
                     ty,
                     force: false,
+                    transfer_dst,
                 },
             );
         }
@@ -412,7 +417,15 @@ where
                             // If the type is monomorphic, we can create the image
                             // right away, otherwise creation needs to be delayed
                             // until the type is known.
-                            log::trace!("Adding monomorphic socket {}", socket_res);
+                            log::trace!(
+                                "Adding monomorphic socket {}, {} external data",
+                                socket_res,
+                                if op.external_data() {
+                                    "with"
+                                } else {
+                                    "without"
+                                }
+                            );
                             let img = self
                                 .gpu
                                 .create_compute_image(
@@ -421,10 +434,19 @@ where
                                     op.external_data(),
                                 )
                                 .unwrap();
-                            self.sockets
-                                .add_output_socket(&socket_res, Some((img, *ty)), *size);
+                            self.sockets.add_output_socket(
+                                &socket_res,
+                                Some((img, *ty)),
+                                *size,
+                                op.external_data(),
+                            );
                         } else {
-                            self.sockets.add_output_socket(&socket_res, None, *size);
+                            self.sockets.add_output_socket(
+                                &socket_res,
+                                None,
+                                *size,
+                                op.external_data(),
+                            );
                         }
                     }
                 }
@@ -456,13 +478,15 @@ where
                 GraphEvent::SocketMonomorphized(res, ty) => {
                     if self.sockets.is_known_output(res) {
                         log::trace!("Adding monomorphized socket {}", res);
+                        // NOTE: Polymorphic operators never have external data.
                         let img = self
                             .gpu
                             .create_compute_image(self.sockets.get_image_size(res), *ty, false)
                             .unwrap();
                         // The socket is a known output, and thus the actual
                         // size should also already be known!
-                        self.sockets.add_output_socket(res, Some((img, *ty)), 1024);
+                        self.sockets
+                            .add_output_socket(res, Some((img, *ty)), 1024, false);
                     }
                 }
                 GraphEvent::SocketDemonomorphized(res) => {
@@ -552,8 +576,6 @@ where
             Instruction::Move(from, to) => {
                 log::trace!("Moving texture from {} to {}", from, to);
                 debug_assert!(self.sockets.get_output_image(from).is_some());
-
-
 
                 self.sockets.connect_input(from, to);
             }
@@ -669,10 +691,10 @@ where
     fn execute_copy(&mut self, from: &Resource, to: &Resource) -> Result<(), String> {
         log::trace!("Executing copy from {} to {}", from, to);
 
-        self
-            .sockets
+        self.sockets
             .get_output_image_mut(to)
-            .expect("Unable to find source image for copy").ensure_alloc(&self.gpu)?;
+            .expect("Unable to find source image for copy")
+            .ensure_alloc(&self.gpu)?;
 
         let from_image = self
             .sockets
