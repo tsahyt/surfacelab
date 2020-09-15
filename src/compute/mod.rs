@@ -361,6 +361,24 @@ where
             x.output_size = new_size;
         }
     }
+
+    /// Renames all sockets that contain the given graph to use the new graph.
+    /// In effect this is "moving" sockets.
+    pub fn rename_graph(&mut self, from: &Resource<Graph>, to: &Resource<Graph>) {
+        for (mut node, mut socket_data) in self.0.drain().collect::<Vec<_>>() {
+            if &node.node_graph() == from {
+                node.set_graph(to.path());
+            }
+
+            for socket in socket_data.inputs.values_mut() {
+                if &socket.socket_node().node_graph() == from {
+                    socket.set_graph(to.path());
+                }
+            }
+
+            self.0.insert(node, socket_data);
+        }
+    }
 }
 
 struct ComputeManager<B: gpu::Backend> {
@@ -503,6 +521,10 @@ where
                         self.sockets.clear_thumbnail(&node, &mut self.gpu);
                         response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(node)))
                     }
+                }
+                GraphEvent::GraphRenamed(from, to) => {
+                    self.sockets.rename_graph(from, to);
+                    self.linearizations.remove(to);
                 }
                 _ => {}
             },

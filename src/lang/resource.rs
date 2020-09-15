@@ -198,4 +198,11 @@ impl<S> Resource<S> {
     pub fn directory(&self) -> Option<&str> {
         self.path().parent().and_then(|x| x.to_str())
     }
+
+    pub fn set_graph<P: AsRef<Path>>(&mut self, graph: P) {
+        let file = self.resource_path.file_name().unwrap();
+        let mut path = graph.as_ref().to_path_buf();
+        path.push(file);
+        self.resource_path = path;
+    }
 }

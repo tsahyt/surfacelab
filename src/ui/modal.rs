@@ -69,7 +69,13 @@ where
             .color(color::Color::Rgba(0., 0., 0., 0.9))
             .set(args.state.canvas, args.ui);
 
-        if args.ui.widget_input(args.state.canvas).clicks().next().is_some() {
+        if args
+            .ui
+            .widget_input(args.state.canvas)
+            .clicks()
+            .next()
+            .is_some()
+        {
             return Event::Hide;
         }
 
