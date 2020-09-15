@@ -229,6 +229,15 @@ impl NodeManager {
                     )));
                 }
                 UserGraphEvent::ChangeGraph(res) => {
+                    let instructions = self
+                        .graphs
+                        .get_mut(self.active_graph.path_str().unwrap())
+                        .unwrap()
+                        .linearize();
+                    response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                        self.active_graph.clone(),
+                        instructions,
+                    )));
                     self.active_graph = res.clone();
                 }
                 UserGraphEvent::RenameGraph(from, to) => {
