@@ -105,6 +105,7 @@ impl GraphParameter {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ParamSubstitution {
+    // TODO: resource + field -> Resource<Param>
     resource: Resource<Node>,
     field: String,
     value: Vec<u8>,
@@ -117,6 +118,10 @@ impl ParamSubstitution {
 
     pub fn resource(&self) -> &Resource<Node> {
         &self.resource
+    }
+
+    pub fn resource_mut(&mut self) -> &mut Resource<Node> {
+        &mut self.resource
     }
 
     pub fn get_value(&self) -> &[u8] {

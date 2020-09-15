@@ -189,6 +189,10 @@ impl NodeGraph {
                     complex.inputs = new.inputs.clone();
                     complex.outputs = new.outputs.clone();
 
+                    for (_, subs) in complex.parameters.iter_mut() {
+                        subs.resource_mut().set_graph(new.graph.path())
+                    }
+
                     let params = complex.parameters.clone();
                     updated.push((self.node_resource(&idx), params));
                 }
