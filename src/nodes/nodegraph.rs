@@ -17,11 +17,6 @@ type EdgeLabel = (String, String);
 pub type Connections = Vec<(Resource<r::Socket>, Resource<r::Socket>)>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ComplexOperator {
-    graph: Resource<Graph>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
     operator: Operator,
     position: (f64, f64),
@@ -173,6 +168,28 @@ impl NodeGraph {
                 .collect::<std::path::PathBuf>(),
             None,
         )
+    }
+
+    /// Update all the complex operators matching a call to the old graph. Will
+    /// return true if any update has been performed in the process.
+    pub fn update_complex_operators(&mut self, graph: &Resource<r::Graph>, new: &ComplexOperator) -> bool {
+        let mut updated = false;
+
+        for idx in self.graph.node_indices() {
+            let node = self.graph.node_weight_mut(idx).unwrap();
+            if let Operator::ComplexOperator(complex) = &mut node.operator {
+                if &complex.graph == graph {
+                    complex.graph = new.graph.clone();
+                    complex.title = new.title.clone();
+                    complex.inputs = new.inputs.clone();
+                    complex.outputs = new.outputs.clone();
+
+                    updated |= true;
+                }
+            }
+        }
+
+        updated
     }
 
     /// Rebuild all events that create this graph. Note that parameter boxes

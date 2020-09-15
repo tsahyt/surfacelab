@@ -234,15 +234,42 @@ impl NodeManager {
                 UserGraphEvent::RenameGraph(from, to) => {
                     if let Some(mut graph) = self.graphs.remove(from.path().to_str().unwrap()) {
                         log::trace!("Renaming graph {} to {}", from, to);
+                        // Renaming
                         let new_name = to.path().to_str().unwrap();
                         graph.rename(new_name);
+
+                        // Creating a new complex operator representing this graph
+                        let mut operator = ComplexOperator::new(to.clone());
+                        operator.outputs = graph.outputs();
+                        operator.inputs = graph.inputs();
+                        let instructions = graph.linearize();
+
                         self.graphs.insert(new_name.to_string(), graph);
+                        response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphRenamed(
+                            from.clone(),
+                            to.clone(),
+                        )));
+
+                        // Publish linearization of newly named graph
+                        {
+                            response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                                to.clone(),
+                                instructions,
+                            )));
+                        }
+
+                        // Update all graphs and linearizations that call the renamed graph
+                        for graph in self.graphs.values_mut() {
+                            if graph.update_complex_operators(&from, &operator) {
+                                let instructions = graph.linearize();
+                                response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                                    graph.graph_resource(),
+                                    instructions,
+                                )));
+                            }
+                        }
                     }
 
-                    response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphRenamed(
-                        from.clone(),
-                        to.clone(),
-                    )));
                 }
                 UserGraphEvent::ExposeParameter(res, graph_field, title, control) => {
                     let graph = self

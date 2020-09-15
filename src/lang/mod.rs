@@ -66,7 +66,7 @@ impl AtomicOperator {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ComplexOperator {
     pub graph: Resource<Graph>,
-    title: String,
+    pub title: String,
     pub inputs: HashMap<String, (OperatorType, Resource<Node>)>,
     pub outputs: HashMap<String, (OperatorType, Resource<Node>)>,
     pub parameters: HashMap<String, ParamSubstitution>,
