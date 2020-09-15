@@ -104,15 +104,25 @@ impl Graphs {
     }
 
     pub fn rename_graph(&mut self, from: &Resource<r::Graph>, to: &Resource<r::Graph>) {
+        fn update(target: &mut Graph, to: &Resource<r::Graph>) {
+            target.param_box.categories[0].parameters[0].control = Control::Entry {
+                value: to.file().unwrap().to_string(),
+            };
+            for gp in target.exposed_parameters.iter_mut().map(|x| &mut x.1) {
+                gp.parameter.set_graph(to.path());
+            }
+            for (mut res, idx) in target.resources.drain().collect::<Vec<_>>() {
+                res.set_graph(to.path());
+                target.resources.insert(res.clone(), idx);
+                target.graph.node_weight_mut(idx).unwrap().resource = res;
+            }
+        }
+
         if &self.active_resource == from {
             self.active_resource = to.clone();
-            self.active_graph.param_box.categories[0].parameters[0].control = Control::Entry {
-                value: to.file().unwrap().to_string(),
-            };
+            update(&mut self.active_graph, to);
         } else if let Some(mut graph) = self.graphs.remove(from) {
-            graph.param_box.categories[0].parameters[0].control = Control::Entry {
-                value: to.file().unwrap().to_string(),
-            };
+            update(&mut graph, to);
             self.graphs.insert(to.clone(), graph);
         }
     }
