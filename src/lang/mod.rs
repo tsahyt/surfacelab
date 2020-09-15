@@ -272,6 +272,7 @@ pub enum GraphEvent {
     NodeRemoved(Resource<Node>),
     NodeRenamed(Resource<Node>, Resource<Node>),
     NodeResized(Resource<Node>, u32),
+    ComplexOperatorUpdated(Resource<Node>, ComplexOperator, ParamBoxDescription<Field>),
     ConnectedSockets(Resource<Socket>, Resource<Socket>),
     DisconnectedSockets(Resource<Socket>, Resource<Socket>),
     Relinearized(Resource<Graph>, Vec<Instruction>),

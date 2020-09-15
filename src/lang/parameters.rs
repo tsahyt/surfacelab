@@ -119,6 +119,10 @@ impl ParamSubstitution {
         &self.resource
     }
 
+    pub fn get_value(&self) -> &[u8] {
+        &self.value
+    }
+
     pub fn set_value(&mut self, value: &[u8]) {
         self.value = value.to_vec();
     }
@@ -390,6 +394,54 @@ where
         self.extend_categories(other.categories.iter().cloned());
         self
     }
+
+    pub fn parameters_mut(&mut self) -> BoxParameters<'_, T> {
+        BoxParameters::new(&mut self.categories)
+    }
+}
+
+pub struct BoxParameters<'a, T>
+where
+    T: MessageWriter,
+{
+    cats: std::slice::IterMut<'a, ParamCategory<T>>,
+    params: Option<std::slice::IterMut<'a, Parameter<T>>>,
+}
+
+impl<'a, T> BoxParameters<'a, T>
+where
+    T: MessageWriter,
+{
+    pub fn new(categories: &'a mut [ParamCategory<T>]) -> Self {
+        Self {
+            cats: categories.iter_mut(),
+            params: None,
+        }
+    }
+}
+
+impl<'a, T> Iterator for BoxParameters<'a, T>
+where
+    T: MessageWriter,
+{
+    type Item = &'a mut Parameter<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.params.is_none() {
+            self.params = self.cats.next().map(|x| x.parameters.iter_mut());
+        }
+
+        match &mut self.params {
+            None => None,
+            Some(ps) => match ps.next() {
+                None => {
+                    self.params = None;
+                    self.next()
+                }
+                x => x,
+            },
+        }
+    }
 }
 
 impl ParamBoxDescription<RenderField> {
@@ -555,6 +607,25 @@ impl Control {
             }
             Self::Toggle { def } => (if *def { 1 as u32 } else { 0 as u32 }).to_data(),
             Self::Entry { value } => value.as_bytes().to_vec(),
+        }
+    }
+
+    pub fn set_value(&mut self, data: &[u8]) {
+        match self {
+            Control::Slider { value, .. } => *value = f32::from_data(data),
+            Control::DiscreteSlider { value, .. } => *value = i32::from_data(data),
+            Control::RgbColor { value } => *value = <[f32; 3]>::from_data(data),
+            Control::Enum { selected, .. } => *selected = u32::from_data(data) as usize,
+            Control::File { selected } => todo!(),
+            Control::Ramp { steps } => todo!(),
+            Control::Toggle { def } => {
+                *def = if u32::from_data(data) == 1 {
+                    true
+                } else {
+                    false
+                }
+            }
+            Control::Entry { value } => todo!(),
         }
     }
 }

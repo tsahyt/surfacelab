@@ -103,7 +103,8 @@ impl NodeGraph {
             .collect()
     }
 
-    /// Construct a ParamBoxDescription from the current graph for its exposed parameters.
+    /// Construct a ParamBoxDescription from the current graph for its exposed
+    /// parameters.
     pub fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.name.clone(),
@@ -170,10 +171,14 @@ impl NodeGraph {
         )
     }
 
-    /// Update all the complex operators matching a call to the old graph. Will
-    /// return true if any update has been performed in the process.
-    pub fn update_complex_operators(&mut self, graph: &Resource<r::Graph>, new: &ComplexOperator) -> bool {
-        let mut updated = false;
+    /// Update all the complex operators matching a call to the old graph.
+    /// Returns a vector of all node resources that have been updated.
+    pub fn update_complex_operators(
+        &mut self,
+        graph: &Resource<r::Graph>,
+        new: &ComplexOperator,
+    ) -> Vec<(Resource<r::Node>, HashMap<String, ParamSubstitution>)> {
+        let mut updated = Vec::new();
 
         for idx in self.graph.node_indices() {
             let node = self.graph.node_weight_mut(idx).unwrap();
@@ -184,7 +189,8 @@ impl NodeGraph {
                     complex.inputs = new.inputs.clone();
                     complex.outputs = new.outputs.clone();
 
-                    updated |= true;
+                    let params = complex.parameters.clone();
+                    updated.push((self.node_resource(&idx), params));
                 }
             }
         }

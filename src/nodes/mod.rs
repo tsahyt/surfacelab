@@ -258,18 +258,37 @@ impl NodeManager {
                             )));
                         }
 
+                        let pbox_prototype =
+                            self.operator_param_box(&Operator::ComplexOperator(operator.clone()));
+
                         // Update all graphs and linearizations that call the renamed graph
                         for graph in self.graphs.values_mut() {
-                            if graph.update_complex_operators(&from, &operator) {
+                            let updated = graph.update_complex_operators(&from, &operator);
+
+                            if !updated.is_empty() {
                                 let instructions = graph.linearize();
                                 response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                                     graph.graph_resource(),
                                     instructions,
                                 )));
                             }
+
+                            for (node, params) in updated {
+                                let mut pbox = pbox_prototype.clone();
+                                for param in pbox.parameters_mut() {
+                                    if let Some(subs) = params.get(&param.transmitter.0) {
+                                        param.control.set_value(subs.get_value());
+                                    }
+                                }
+
+                                response.push(Lang::GraphEvent(GraphEvent::ComplexOperatorUpdated(
+                                    node.clone(),
+                                    operator.clone(),
+                                    pbox,
+                                )))
+                            }
                         }
                     }
-
                 }
                 UserGraphEvent::ExposeParameter(res, graph_field, title, control) => {
                     let graph = self

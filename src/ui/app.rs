@@ -479,6 +479,8 @@ where
             GraphEvent::NodeRenamed(from, to) => {
                 self.app_state.graphs.rename_node(from, to);
             }
+            GraphEvent::ComplexOperatorUpdated(node, op, pbox) => {
+            }
             GraphEvent::ConnectedSockets(from, to) => {
                 self.app_state.graphs.connect_sockets(from, to)
             }
