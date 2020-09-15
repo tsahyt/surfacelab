@@ -307,6 +307,20 @@ impl Graphs {
             );
         }
     }
+
+    pub fn update_complex_operator(
+        &mut self,
+        node: &Resource<r::Node>,
+        op: &ComplexOperator,
+        pbox: &ParamBoxDescription<Field>,
+    ) {
+        if let Some(target) = self.target_graph_from_node(node) {
+            if let Some(idx) = target.resources.get(node) {
+                let node_weight = target.graph.node_weight_mut(*idx).unwrap();
+                node_weight.update(Operator::ComplexOperator(op.clone()), pbox.clone());
+            }
+        }
+    }
 }
 
 impl std::ops::Deref for Graphs {
@@ -480,6 +494,9 @@ where
                 self.app_state.graphs.rename_node(from, to);
             }
             GraphEvent::ComplexOperatorUpdated(node, op, pbox) => {
+                self.app_state
+                    .graphs
+                    .update_complex_operator(node, op, pbox);
             }
             GraphEvent::ConnectedSockets(from, to) => {
                 self.app_state.graphs.connect_sockets(from, to)

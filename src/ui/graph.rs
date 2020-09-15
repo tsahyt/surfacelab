@@ -55,6 +55,28 @@ impl NodeData {
             type_variables: HashMap::new(),
         }
     }
+
+    pub fn update(&mut self, operator: Operator, param_box: ParamBoxDescription<Field>) {
+        let mut inputs: Vec<_> = operator
+            .inputs()
+            .iter()
+            .map(|(a, b)| (a.clone(), *b))
+            .collect();
+        inputs.sort();
+        self.inputs = inputs;
+        let mut outputs: Vec<_> = operator
+            .outputs()
+            .iter()
+            .map(|(a, b)| (a.clone(), *b))
+            .collect();
+        outputs.sort();
+        self.outputs = outputs;
+        self.title = operator.title().to_owned();
+
+        self.param_box = node_attributes(&self.resource, !operator.is_output())
+            .map_transmitters(|t| t.clone().into())
+            .merge(param_box.map_transmitters(|t| t.clone().into()));
+    }
 }
 
 fn node_attributes(res: &Resource<Node>, scalable: bool) -> ParamBoxDescription<ResourceField> {
