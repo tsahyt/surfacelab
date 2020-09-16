@@ -523,6 +523,26 @@ impl NodeGraph {
 
         let mut resp = Vec::new();
 
+        let source = self
+            .graph
+            .edges_directed(sink_path, petgraph::Direction::Incoming)
+            .filter(|e| e.weight().1 == sink_socket)
+            .map(|e| {
+                (
+                    self.node_resource(&e.source()).node_socket(&e.weight().0),
+                    e.id(),
+                )
+            })
+            .next();
+
+        if let Some(s) = &source {
+            self.graph.remove_edge(s.1);
+            resp.push(Lang::GraphEvent(GraphEvent::DisconnectedSockets(
+                s.0.clone(),
+                sink.clone(),
+            )));
+        }
+
         // Demonomorphize if nothing else keeps the type variable occupied
         let node = self.graph.node_weight(sink_path).unwrap();
         if let OperatorType::Polymorphic(tvar) = node.operator.inputs().get(sink_socket).unwrap() {
@@ -543,30 +563,11 @@ impl NodeGraph {
             {
                 self.set_type_variable(sink_node, *tvar, None).unwrap();
                 resp.push(Lang::GraphEvent(GraphEvent::SocketDemonomorphized(
-                    sink.clone(),
+                    sink,
                 )));
             }
         }
 
-        let source = self
-            .graph
-            .edges_directed(sink_path, petgraph::Direction::Incoming)
-            .filter(|e| e.weight().1 == sink_socket)
-            .map(|e| {
-                (
-                    self.node_resource(&e.source()).node_socket(&e.weight().0),
-                    e.id(),
-                )
-            })
-            .next();
-
-        if let Some(s) = &source {
-            self.graph.remove_edge(s.1);
-            resp.push(Lang::GraphEvent(GraphEvent::DisconnectedSockets(
-                s.0.clone(),
-                sink,
-            )));
-        }
 
         Ok(resp)
     }
