@@ -41,7 +41,7 @@ impl NodeData {
             .collect();
         outputs.sort();
         let title = operator.title().to_owned();
-        let pbox = node_attributes(&resource, !operator.is_output())
+        let pbox = node_attributes(&resource, !operator.external_data())
             .map_transmitters(|t| t.clone().into())
             .merge(param_box.map_transmitters(|t| t.clone().into()));
         Self {
@@ -73,7 +73,7 @@ impl NodeData {
         self.outputs = outputs;
         self.title = operator.title().to_owned();
 
-        self.param_box = node_attributes(&self.resource, !operator.is_output())
+        self.param_box = node_attributes(&self.resource, !operator.external_data())
             .map_transmitters(|t| t.clone().into())
             .merge(param_box.map_transmitters(|t| t.clone().into()));
     }

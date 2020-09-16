@@ -153,11 +153,15 @@ impl NodeManager {
                     let node = res.file().unwrap();
                     let field = res.fragment().unwrap();
                     let graph = res.directory().unwrap();
-                    self.graphs
+                    if let Some(side_effect) = self
+                        .graphs
                         .get_mut(graph)
                         .unwrap()
                         .parameter_change(node, field, data)
-                        .unwrap_or_else(|e| log::error!("{}", e));
+                        .unwrap()
+                    {
+                        response.push(side_effect);
+                    }
                     if let Some(instrs) = self.relinearize(&Resource::graph(graph, None)) {
                         response.push(instrs);
                     }

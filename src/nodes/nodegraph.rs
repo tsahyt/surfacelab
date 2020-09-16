@@ -28,11 +28,14 @@ pub struct Node {
 impl Node {
     pub fn new(operator: Operator) -> Self {
         Node {
-            operator,
             position: (0.0, 0.0),
             size: 0,
-            absolute_size: false,
+            absolute_size: match operator {
+                Operator::AtomicOperator(AtomicOperator::Image(..)) => true,
+                _ => false,
+            },
             type_variables: HashMap::new(),
+            operator,
         }
     }
 
@@ -403,18 +406,36 @@ impl NodeGraph {
     }
 
     /// Change a parameter in a resource in this graph. Will return an error if
-    /// the resource does not exist in this graph.
-    pub fn parameter_change(&mut self, res: &str, field: &str, data: &[u8]) -> Result<(), String> {
+    /// the resource does not exist in this graph. May return a message as a
+    /// side effect of changing the parameter.
+    pub fn parameter_change(
+        &mut self,
+        res: &str,
+        field: &str,
+        data: &[u8],
+    ) -> Result<Option<Lang>, String> {
         let node = self
             .indices
             .get_by_left(&res.to_string())
             .ok_or("Missing node for parameter change")?;
+        let node_res = self.node_resource(node);
         let node_data = self.graph.node_weight_mut(*node).unwrap();
         node_data.operator.set_parameter(field, data);
 
         log::trace!("Parameter changed to {:?}", node_data.operator);
 
-        Ok(())
+        if let Operator::AtomicOperator(AtomicOperator::Image(Image { path })) = &node_data.operator
+        {
+            let (w, h) = image::image_dimensions(path)
+                .map_err(|e| format!("Error reading image dimensions: {}", e))?;
+            node_data.size = w.max(h) as i32;
+            Ok(Some(Lang::GraphEvent(GraphEvent::NodeResized(
+                node_res,
+                node_data.size as u32,
+            ))))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Connect two sockets in the node graph. If there is already a connection

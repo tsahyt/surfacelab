@@ -22,7 +22,6 @@ pub use perlin_noise::*;
 pub use ramp::*;
 pub use rgb::*;
 
-// TODO: Image size from disk
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Image {
     pub path: std::path::PathBuf,
@@ -53,6 +52,10 @@ impl Socketed for Image {
 
     fn title(&self) -> &'static str {
         "Image"
+    }
+
+    fn external_data(&self) -> bool {
+        true
     }
 }
 
