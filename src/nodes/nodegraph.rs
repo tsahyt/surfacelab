@@ -189,6 +189,12 @@ impl NodeGraph {
                     complex.inputs = new.inputs.clone();
                     complex.outputs = new.outputs.clone();
 
+                    for (field, subs) in &new.parameters {
+                        if complex.parameters.get(field).is_none() {
+                            complex.parameters.insert(field.clone(), subs.clone());
+                        }
+                    }
+
                     for (_, subs) in complex.parameters.iter_mut() {
                         subs.resource_mut().set_graph(new.graph.path())
                     }

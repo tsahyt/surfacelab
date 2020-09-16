@@ -249,13 +249,14 @@ impl NodeManager {
 
                         // Typically we're renaming the active graph, and thus need to update this
                         if &self.active_graph == from {
-                           self.active_graph = to.clone();
+                            self.active_graph = to.clone();
                         }
 
                         // Creating a new complex operator representing this graph
                         let mut operator = ComplexOperator::new(to.clone());
                         operator.outputs = graph.outputs();
                         operator.inputs = graph.inputs();
+                        operator.parameters = graph.default_substitutions();
                         let instructions = graph.linearize();
 
                         self.graphs.insert(new_name.to_string(), graph);
