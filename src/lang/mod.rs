@@ -236,7 +236,7 @@ impl OperatorType {
 /// Events concerning node operation triggered by the user
 #[derive(Debug)]
 pub enum UserNodeEvent {
-    NewNode(Resource<Graph>, Operator),
+    NewNode(Resource<Graph>, Operator, (f64, f64)),
     RemoveNode(Resource<Node>),
     ConnectSockets(Resource<Socket>, Resource<Socket>),
     DisconnectSinkSocket(Resource<Socket>),

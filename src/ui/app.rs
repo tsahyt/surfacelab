@@ -354,7 +354,7 @@ pub struct App {
     render_image: Option<image::Id>,
     monitor_resolution: (u32, u32),
 
-    add_modal: bool,
+    add_modal: Option<Point>,
     render_modal: bool,
 
     render_params: ParamBoxDescription<RenderField>,
@@ -370,7 +370,7 @@ impl App {
             active_element: None,
             render_image: None,
             monitor_resolution: (monitor_size.0, monitor_size.1),
-            add_modal: false,
+            add_modal: None,
             render_modal: false,
             render_params: ParamBoxDescription::render_parameters(),
             surface_params: ParamBoxDescription::surface_parameters(),
@@ -766,13 +766,13 @@ where
                 graph::Event::ActiveElement(idx) => {
                     self.app_state.active_element = Some(idx);
                 }
-                graph::Event::AddModal => {
-                    self.app_state.add_modal = true;
+                graph::Event::AddModal(pt) => {
+                    self.app_state.add_modal = Some(pt);
                 }
             }
         }
 
-        if self.app_state.add_modal {
+        if let Some(insertion_pt) = self.app_state.add_modal {
             use super::modal;
 
             // TODO: Find a way to filter without allocating each frame
@@ -803,12 +803,13 @@ where
                             .label_font_size(12)
                             .color(conrod_core::color::LIGHT_CHARCOAL);
                         for _press in item.set(button, ui) {
-                            self.app_state.add_modal = false;
+                            self.app_state.add_modal = None;
 
                             self.sender
                                 .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
                                     self.app_state.graphs.get_active().clone(),
                                     operators[i].clone(),
+                                    (insertion_pt[0], insertion_pt[1])
                                 )))
                                 .unwrap();
                         }
@@ -819,7 +820,7 @@ where
                     }
                 }
                 modal::Event::Hide => {
-                    self.app_state.add_modal = false;
+                    self.app_state.add_modal = None;
                 }
             }
         }

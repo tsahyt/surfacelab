@@ -149,6 +149,13 @@ impl Camera {
         [point[0] / self.zoom, point[1] / self.zoom]
     }
 
+    pub fn inv_transform(&self, point: Point) -> Point {
+        [
+            (point[0] / self.zoom) - self.position[0],
+            (point[1] / self.zoom) - self.position[1]
+        ]
+    }
+
     pub fn pan(&mut self, dx: f64, dy: f64) {
         self.position[0] += dx;
         self.position[1] += dy;
@@ -291,7 +298,7 @@ pub enum Event {
     SocketClear(petgraph::graph::NodeIndex, String),
     NodeDelete(petgraph::graph::NodeIndex),
     ActiveElement(petgraph::graph::NodeIndex),
-    AddModal,
+    AddModal(Point),
 }
 
 impl<'a> Graph<'a> {
@@ -620,7 +627,7 @@ impl<'a> Widget for Graph<'a> {
             ui.widget_input(id)
                 .clicks()
                 .button(input::MouseButton::Right)
-                .map(|_| Event::AddModal),
+                .map(|c| Event::AddModal(state.camera.inv_transform(c.xy))),
         );
 
         evs

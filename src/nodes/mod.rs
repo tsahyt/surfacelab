@@ -47,7 +47,7 @@ impl NodeManager {
 
         match &*event {
             Lang::UserNodeEvent(event) => match event {
-                UserNodeEvent::NewNode(graph, op) => {
+                UserNodeEvent::NewNode(graph, op, pos) => {
                     let graph_name = graph.path().to_str().unwrap();
 
                     let op = match op {
@@ -76,7 +76,7 @@ impl NodeManager {
                         ),
                         op.clone(),
                         self.operator_param_box(&op),
-                        None,
+                        Some(*pos),
                         size as u32,
                     )))
                 }
