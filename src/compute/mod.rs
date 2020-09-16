@@ -580,7 +580,7 @@ where
             HashMap::new();
         for s in substitutions {
             substitutions_map
-                .entry(s.resource().clone())
+                .entry(s.resource().parameter_node())
                 .and_modify(|x| x.push(s))
                 .or_insert_with(|| vec![s]);
         }

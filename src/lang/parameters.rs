@@ -96,8 +96,7 @@ pub struct GraphParameter {
 impl GraphParameter {
     pub fn to_substitution(&self) -> ParamSubstitution {
         ParamSubstitution {
-            resource: self.parameter.clone().parameter_node(),
-            field: self.parameter.fragment().unwrap().to_owned(),
+            resource: self.parameter.clone(),
             value: self.control.value(),
         }
     }
@@ -105,22 +104,20 @@ impl GraphParameter {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ParamSubstitution {
-    // TODO: resource + field -> Resource<Param>
-    resource: Resource<Node>,
-    field: String,
+    resource: Resource<Param>,
     value: Vec<u8>,
 }
 
 impl ParamSubstitution {
     pub fn substitute<T: Parameters>(&self, on: &mut T) {
-        on.set_parameter(&self.field, &self.value);
+        on.set_parameter(&self.resource.fragment().unwrap(), &self.value);
     }
 
-    pub fn resource(&self) -> &Resource<Node> {
+    pub fn resource(&self) -> &Resource<Param> {
         &self.resource
     }
 
-    pub fn resource_mut(&mut self) -> &mut Resource<Node> {
+    pub fn resource_mut(&mut self) -> &mut Resource<Param> {
         &mut self.resource
     }
 
