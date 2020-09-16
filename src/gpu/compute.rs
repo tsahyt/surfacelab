@@ -37,7 +37,7 @@ pub struct GPUCompute<B: Backend> {
     fence: ManuallyDrop<B::Fence>,
 }
 
-type AllocId = u16;
+type AllocId = u32;
 
 #[derive(Debug, Clone)]
 struct Chunk {
