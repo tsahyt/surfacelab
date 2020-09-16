@@ -4,6 +4,8 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::iter::FromIterator;
 
+// TODO: Scale socket placement and size with camera
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SelectionState {
     Selected,

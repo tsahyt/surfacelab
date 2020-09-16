@@ -9,6 +9,8 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Instant;
 
+// TODO: Compute image cache eviction
+
 use super::{Backend, Shader, ShaderType, GPU};
 
 pub struct GPUCompute<B: Backend> {
