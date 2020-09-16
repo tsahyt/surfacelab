@@ -44,6 +44,7 @@ widget_ids!(
         // Parameter Area
         node_param_box,
         graph_param_box,
+        surface_param_box,
         exposed_param_title,
         exposed_param_list,
     }
@@ -357,6 +358,7 @@ pub struct App {
     render_modal: bool,
 
     render_params: ParamBoxDescription<RenderField>,
+    surface_params: ParamBoxDescription<SurfaceField>,
 
     registered_operators: Vec<Operator>,
 }
@@ -371,6 +373,7 @@ impl App {
             add_modal: false,
             render_modal: false,
             render_params: ParamBoxDescription::render_parameters(),
+            surface_params: ParamBoxDescription::surface_parameters(),
             registered_operators: AtomicOperator::all_default()
                 .iter()
                 .map(|x| Operator::from(x.clone()))
@@ -1035,5 +1038,18 @@ where
         }
     }
 
-    fn surface_section(&mut self, ui: &mut UiCell) {}
+    fn surface_section(&mut self, ui: &mut UiCell) {
+        use super::param_box;
+
+        for ev in param_box::ParamBox::new(&mut self.app_state.surface_params, &())
+            .parent(self.ids.surface_settings_canvas)
+            .w_of(self.ids.surface_settings_canvas)
+            .mid_top()
+            .set(self.ids.surface_param_box, ui)
+        {
+            if let param_box::Event::ChangeParameter(event) = ev {
+                self.sender.send(event).unwrap()
+            }
+        }
+    }
 }

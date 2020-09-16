@@ -290,6 +290,19 @@ impl MessageWriter for RenderField {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum SurfaceField {
+    Resize,
+}
+
+impl MessageWriter for SurfaceField {
+    type Resource = ();
+
+    fn transmit(&self, _resource: &Self::Resource, data: &[u8]) -> super::Lang {
+        super::Lang::UserIOEvent(super::UserIOEvent::SetParentSize(u32::from_data(data) * 1024))
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct ParamBoxDescription<T: MessageWriter> {
     pub box_title: String,
@@ -520,6 +533,27 @@ impl ParamBoxDescription<GraphField> {
                         value: name.to_owned(),
                     },
                     transmitter: GraphField::Name,
+                    expose_status: None,
+                }],
+            }],
+        }
+    }
+}
+
+impl ParamBoxDescription<SurfaceField> {
+    pub fn surface_parameters() -> Self {
+        Self {
+            box_title: "Surface".to_string(),
+            categories: vec![ParamCategory {
+                name: "Surface Attributes",
+                parameters: vec![Parameter {
+                    name: "Parent Size".to_string(),
+                    control: Control::DiscreteSlider {
+                        value: 1,
+                        min: 1,
+                        max: 4,
+                    },
+                    transmitter: SurfaceField::Resize,
                     expose_status: None,
                 }],
             }],
