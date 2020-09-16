@@ -132,10 +132,6 @@ impl Graphs {
         &self.active_resource
     }
 
-    pub fn index_of(&self, resource: &Resource<r::Node>) -> Option<petgraph::graph::NodeIndex> {
-        self.active_graph.resources.get(&resource).copied()
-    }
-
     pub fn insert_index(&mut self, resource: Resource<r::Node>, index: petgraph::graph::NodeIndex) {
         self.active_graph.resources.insert(resource, index);
     }
@@ -332,6 +328,29 @@ impl Graphs {
             }
         }
     }
+
+    pub fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
+        if let Some(node) = self.target_graph_from_node(node).and_then(|target| {
+            let idx = target.resources.get(node)?;
+            target.graph.node_weight_mut(*idx)
+        }) {
+            node.thumbnail = Some(thumbnail);
+        }
+    }
+
+    pub fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id> {
+        let mut old_id = None;
+
+        if let Some(node) = self.target_graph_from_node(node).and_then(|target| {
+            let idx = target.resources.get(node)?;
+            target.graph.node_weight_mut(*idx)
+        }) {
+            old_id = node.thumbnail;
+            node.thumbnail = None;
+        }
+
+        old_id
+    }
 }
 
 impl std::ops::Deref for Graphs {
@@ -387,14 +406,6 @@ impl App {
         let ae = self.active_element?;
         let node = self.graphs.node_weight_mut(ae)?;
         Some((&mut node.param_box, &node.resource))
-    }
-
-    pub fn register_thumbnail(&mut self, resource: &Resource<r::Node>, thumbnail: image::Id) {
-        if let Some(idx) = self.graphs.index_of(resource) {
-            if let Some(node) = self.graphs.node_weight_mut(idx) {
-                node.thumbnail = Some(thumbnail);
-            }
-        }
     }
 }
 
@@ -459,11 +470,13 @@ where
             Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
                 if let Some(t) = thmb.to::<B>() {
                     let id = self.image_map.insert(renderer.create_image(t, 128, 128));
-                    self.app_state.register_thumbnail(&res, id);
+                    self.app_state.graphs.register_thumbnail(&res, id);
                 }
             }
-            Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(_res)) => {
-                // TODO: purge old thumbnail descriptors
+            Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(res)) => {
+                if let Some(id) = self.app_state.graphs.unregister_thumbnail(&res) {
+                    self.image_map.remove(id);
+                }
             }
             Lang::GraphEvent(ev) => self.handle_graph_event(ev),
             _ => {}
@@ -809,7 +822,7 @@ where
                                 .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
                                     self.app_state.graphs.get_active().clone(),
                                     operators[i].clone(),
-                                    (insertion_pt[0], insertion_pt[1])
+                                    (insertion_pt[0], insertion_pt[1]),
                                 )))
                                 .unwrap();
                         }
