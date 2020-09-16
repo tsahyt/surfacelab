@@ -657,15 +657,9 @@ impl Control {
             Control::DiscreteSlider { value, .. } => *value = i32::from_data(data),
             Control::RgbColor { value } => *value = <[f32; 3]>::from_data(data),
             Control::Enum { selected, .. } => *selected = u32::from_data(data) as usize,
-            Control::File { selected } => todo!(),
+            Control::File { selected } => *selected = Some(PathBuf::from_data(data)),
             Control::Ramp { steps } => todo!(),
-            Control::Toggle { def } => {
-                *def = if u32::from_data(data) == 1 {
-                    true
-                } else {
-                    false
-                }
-            }
+            Control::Toggle { def } => *def = u32::from_data(data) == 1,
             Control::Entry { value } => todo!(),
         }
     }

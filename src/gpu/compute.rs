@@ -671,8 +671,6 @@ where
             lock.device.reset_fence(&self.fence).unwrap();
         }
 
-        // Build barrier
-
         // Copy buffer to image
         unsafe {
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
