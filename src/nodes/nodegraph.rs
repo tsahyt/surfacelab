@@ -722,9 +722,9 @@ impl NodeGraph {
     pub fn linearize(&self) -> Vec<Instruction> {
         use petgraph::visit::EdgeRef;
 
-        enum Action {
-            Traverse(Option<(EdgeLabel, graph::NodeIndex)>),
-            Visit(Option<(EdgeLabel, graph::NodeIndex)>),
+        enum Action<'a> {
+            Traverse(Option<(&'a EdgeLabel, graph::NodeIndex)>),
+            Visit(Option<(&'a EdgeLabel, graph::NodeIndex)>),
         };
 
         let mut stack: Vec<(graph::NodeIndex, Action)> = self
@@ -750,7 +750,7 @@ impl NodeGraph {
                         let sink = edge.target();
                         stack.push((
                             edge.source(),
-                            Action::Traverse(Some((label.to_owned(), sink))),
+                            Action::Traverse(Some((label, sink))),
                         ));
                     }
                 }
