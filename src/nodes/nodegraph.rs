@@ -829,4 +829,12 @@ impl NodeGraph {
             self.parameters.insert(new_field.to_owned(), param);
         }
     }
+
+    pub fn complex_operator_stub(&self) -> ComplexOperator {
+        let mut co = ComplexOperator::new(self.graph_resource());
+        co.outputs = self.outputs();
+        co.inputs = self.inputs();
+        co.parameters = self.default_substitutions();
+        co
+    }
 }

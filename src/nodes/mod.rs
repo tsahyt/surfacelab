@@ -52,11 +52,11 @@ impl NodeManager {
 
                     let op = match op {
                         lang::Operator::ComplexOperator(co) => {
-                            let graph = self.graphs.get(co.graph.file().unwrap()).unwrap();
-                            let mut co = co.clone();
-                            co.outputs = graph.outputs();
-                            co.inputs = graph.inputs();
-                            co.parameters = graph.default_substitutions();
+                            let co = self
+                                .graphs
+                                .get(co.graph.file().unwrap())
+                                .unwrap()
+                                .complex_operator_stub();
                             lang::Operator::ComplexOperator(co)
                         }
                         lang::Operator::AtomicOperator(_) => op.clone(),
@@ -253,10 +253,7 @@ impl NodeManager {
                         }
 
                         // Creating a new complex operator representing this graph
-                        let mut operator = ComplexOperator::new(to.clone());
-                        operator.outputs = graph.outputs();
-                        operator.inputs = graph.inputs();
-                        operator.parameters = graph.default_substitutions();
+                        let operator = graph.complex_operator_stub();
                         let instructions = graph.linearize();
 
                         self.graphs.insert(new_name.to_string(), graph);
@@ -273,71 +270,61 @@ impl NodeManager {
                             )));
                         }
 
-                        let pbox_prototype =
-                            self.operator_param_box(&Operator::ComplexOperator(operator.clone()));
-
                         // Update all graphs and linearizations that call the renamed graph
-                        for graph in self.graphs.values_mut() {
-                            let updated = graph.update_complex_operators(&from, &operator);
-
-                            if !updated.is_empty() {
-                                let instructions = graph.linearize();
-                                response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                                    graph.graph_resource(),
-                                    instructions,
-                                )));
-                            }
-
-                            for (node, params) in updated {
-                                let mut pbox = pbox_prototype.clone();
-                                for param in pbox.parameters_mut() {
-                                    if let Some(subs) = params.get(&param.transmitter.0) {
-                                        param.control.set_value(subs.get_value());
-                                    }
-                                }
-
-                                response.push(Lang::GraphEvent(GraphEvent::ComplexOperatorUpdated(
-                                    node.clone(),
-                                    operator.clone(),
-                                    pbox,
-                                )))
-                            }
-                        }
+                        response.append(&mut self.update_complex_operators(&from, &operator));
                     }
                 }
                 UserGraphEvent::ExposeParameter(res, graph_field, title, control) => {
-                    let graph = self
-                        .graphs
-                        .get_mut(res.directory().unwrap())
-                        .expect("Node Graph not found");
-                    log::trace!(
-                        "Exposing Parameter {} as {}, titled {}, with control {:?}",
-                        res,
-                        graph_field,
-                        title,
-                        control,
-                    );
-                    if let Some(param) =
-                        graph.expose_parameter(res.clone(), graph_field, title, control.clone())
-                    {
-                        response.push(lang::Lang::GraphEvent(lang::GraphEvent::ParameterExposed(
-                            res.clone().parameter_node().node_graph(),
-                            param.clone(),
-                        )))
+                    let op_stub = {
+                        let graph = self
+                            .graphs
+                            .get_mut(res.directory().unwrap())
+                            .expect("Node Graph not found");
+                        log::trace!(
+                            "Exposing Parameter {} as {}, titled {}, with control {:?}",
+                            res,
+                            graph_field,
+                            title,
+                            control,
+                        );
+                        if let Some(param) =
+                            graph.expose_parameter(res.clone(), graph_field, title, control.clone())
+                        {
+                            response.push(lang::Lang::GraphEvent(
+                                lang::GraphEvent::ParameterExposed(
+                                    res.clone().parameter_node().node_graph(),
+                                    param.clone(),
+                                ),
+                            ));
+
+                            Some(graph.complex_operator_stub())
+                        } else {
+                            None
+                        }
+                    };
+                    if let Some(op_stub) = op_stub {
+                        response.append(&mut self.update_complex_operators(
+                            &res.parameter_node().node_graph(),
+                            &op_stub,
+                        ));
                     }
                 }
                 UserGraphEvent::ConcealParameter(graph_res, graph_field) => {
-                    let graph = self
-                        .graphs
-                        .get_mut(graph_res.path_str().unwrap())
-                        .expect("Node Graph not found");
-                    graph.conceal_parameter(graph_field);
-                    response.push(lang::Lang::GraphEvent(
-                        lang::GraphEvent::ParameterConcealed(
-                            graph_res.clone(),
-                            graph_field.clone(),
-                        ),
-                    ))
+                    let op_stub = {
+                        let graph = self
+                            .graphs
+                            .get_mut(graph_res.path_str().unwrap())
+                            .expect("Node Graph not found");
+                        graph.conceal_parameter(graph_field);
+                        response.push(lang::Lang::GraphEvent(
+                            lang::GraphEvent::ParameterConcealed(
+                                graph_res.clone(),
+                                graph_field.clone(),
+                            ),
+                        ));
+                        graph.complex_operator_stub()
+                    };
+                    response.append(&mut self.update_complex_operators(graph_res, &op_stub));
                 }
                 UserGraphEvent::RetitleParameter(graph_res, graph_field, new_title) => {
                     let graph = self
@@ -409,6 +396,47 @@ impl NodeManager {
         }
 
         Some(response)
+    }
+
+    fn update_complex_operators(
+        &mut self,
+        changed_graph: &lang::Resource<lang::Graph>,
+        op_stub: &lang::ComplexOperator,
+    ) -> Vec<lang::Lang> {
+        use lang::*;
+
+        let mut response = Vec::new();
+
+        let pbox_prototype = self.operator_param_box(&Operator::ComplexOperator(op_stub.clone()));
+
+        for graph in self.graphs.values_mut() {
+            let updated = graph.update_complex_operators(&changed_graph, &op_stub);
+
+            if !updated.is_empty() {
+                let instructions = graph.linearize();
+                response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                    graph.graph_resource(),
+                    instructions,
+                )));
+            }
+
+            for (node, params) in updated {
+                let mut pbox = pbox_prototype.clone();
+                for param in pbox.parameters_mut() {
+                    if let Some(subs) = params.get(&param.transmitter.0) {
+                        param.control.set_value(subs.get_value());
+                    }
+                }
+
+                response.push(Lang::GraphEvent(GraphEvent::ComplexOperatorUpdated(
+                    node.clone(),
+                    op_stub.clone(),
+                    pbox,
+                )))
+            }
+        }
+
+        response
     }
 }
 
