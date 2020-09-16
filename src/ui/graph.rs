@@ -152,7 +152,7 @@ impl Camera {
     pub fn inv_transform(&self, point: Point) -> Point {
         [
             (point[0] / self.zoom) - self.position[0],
-            (point[1] / self.zoom) - self.position[1]
+            (point[1] / self.zoom) - self.position[1],
         ]
     }
 

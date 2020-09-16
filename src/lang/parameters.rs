@@ -299,7 +299,9 @@ impl MessageWriter for SurfaceField {
     type Resource = ();
 
     fn transmit(&self, _resource: &Self::Resource, data: &[u8]) -> super::Lang {
-        super::Lang::UserIOEvent(super::UserIOEvent::SetParentSize(u32::from_data(data) * 1024))
+        super::Lang::UserIOEvent(super::UserIOEvent::SetParentSize(
+            u32::from_data(data) * 1024,
+        ))
     }
 }
 
