@@ -125,11 +125,7 @@ impl NodeManager {
                             )));
                             response.append(&mut res);
 
-                            let instructions = self.graphs.get_mut(graph).unwrap().linearize();
-                            response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                                Resource::graph(graph, None),
-                                instructions,
-                            )));
+                            response.push(self.relinearize(&Resource::graph(graph, None)));
                             response.push(Lang::GraphEvent(GraphEvent::Recompute(
                                 self.active_graph.clone(),
                             )));
@@ -160,11 +156,7 @@ impl NodeManager {
                         .unwrap()
                         .parameter_change(node, field, data)
                         .unwrap_or_else(|e| log::error!("{}", e));
-                    let instructions = self.graphs.get_mut(graph).unwrap().linearize();
-                    response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                        Resource::graph(graph, None),
-                        instructions,
-                    )));
+                    response.push(self.relinearize(&Resource::graph(graph, None)));
                     response.push(Lang::GraphEvent(GraphEvent::Recompute(
                         self.active_graph.clone(),
                     )));
@@ -229,15 +221,7 @@ impl NodeManager {
                     )));
                 }
                 UserGraphEvent::ChangeGraph(res) => {
-                    let instructions = self
-                        .graphs
-                        .get_mut(self.active_graph.path_str().unwrap())
-                        .unwrap()
-                        .linearize();
-                    response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                        self.active_graph.clone(),
-                        instructions,
-                    )));
+                    response.push(self.relinearize(&self.active_graph));
                     self.active_graph = res.clone();
                 }
                 UserGraphEvent::RenameGraph(from, to) => {
@@ -383,11 +367,7 @@ impl NodeManager {
                 }
 
                 // Recompute on size change
-                let instructions = self.graphs.get_mut("base").unwrap().linearize();
-                response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                    self.active_graph.clone(),
-                    instructions,
-                )));
+                response.push(self.relinearize(&self.active_graph));
                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                     self.active_graph.clone(),
                 )));
@@ -437,6 +417,14 @@ impl NodeManager {
         }
 
         response
+    }
+
+    fn relinearize(&self, graph: &lang::Resource<lang::Graph>) -> lang::Lang {
+        let instructions = self.graphs.get(graph.directory().unwrap()).unwrap().linearize();
+        lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
+            graph.clone(),
+            instructions,
+        ))
     }
 }
 
