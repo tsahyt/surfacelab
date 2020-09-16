@@ -562,12 +562,9 @@ impl NodeGraph {
                 .is_none()
             {
                 self.set_type_variable(sink_node, *tvar, None).unwrap();
-                resp.push(Lang::GraphEvent(GraphEvent::SocketDemonomorphized(
-                    sink,
-                )));
+                resp.push(Lang::GraphEvent(GraphEvent::SocketDemonomorphized(sink)));
             }
         }
-
 
         Ok(resp)
     }
@@ -719,7 +716,10 @@ impl NodeGraph {
         result
     }
 
-    pub fn linearize(&self) -> Vec<Instruction> {
+    /// Linearize this node graph into a vector of instructions that can be
+    /// interpreted by the compute backend. May fail when there are unconnected
+    /// inputs to a node.
+    pub fn linearize(&self) -> Option<Vec<Instruction>> {
         use petgraph::visit::EdgeRef;
 
         enum Action<'a> {
@@ -744,14 +744,14 @@ impl NodeGraph {
         while let Some((nx, mark)) = stack.pop() {
             match mark {
                 Action::Traverse(l) => {
+                    if !self.all_node_inputs_connected(nx) {
+                        return None;
+                    }
                     stack.push((nx, Action::Visit(l)));
                     for edge in self.graph.edges_directed(nx, petgraph::Direction::Incoming) {
                         let label = edge.weight();
                         let sink = edge.target();
-                        stack.push((
-                            edge.source(),
-                            Action::Traverse(Some((label, sink))),
-                        ));
+                        stack.push((edge.source(), Action::Traverse(Some((label, sink)))));
                     }
                 }
                 Action::Visit(l) => {
@@ -792,7 +792,7 @@ impl NodeGraph {
             }
         }
 
-        traversal
+        Some(traversal)
     }
 
     pub fn expose_parameter(
@@ -837,5 +837,13 @@ impl NodeGraph {
         co.inputs = self.inputs();
         co.parameters = self.default_substitutions();
         co
+    }
+
+    fn all_node_inputs_connected(&self, idx: graph::NodeIndex) -> bool {
+        self.graph.node_weight(idx).unwrap().operator.inputs().len()
+            == self
+                .graph
+                .edges_directed(idx, petgraph::EdgeDirection::Incoming)
+                .count()
     }
 }

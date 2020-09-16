@@ -125,7 +125,9 @@ impl NodeManager {
                             )));
                             response.append(&mut res);
 
-                            response.push(self.relinearize(&Resource::graph(graph, None)));
+                            if let Some(instrs) = self.relinearize(&Resource::graph(graph, None)) {
+                                response.push(instrs);
+                            }
                             response.push(Lang::GraphEvent(GraphEvent::Recompute(
                                 self.active_graph.clone(),
                             )));
@@ -156,7 +158,9 @@ impl NodeManager {
                         .unwrap()
                         .parameter_change(node, field, data)
                         .unwrap_or_else(|e| log::error!("{}", e));
-                    response.push(self.relinearize(&Resource::graph(graph, None)));
+                    if let Some(instrs) = self.relinearize(&Resource::graph(graph, None)) {
+                        response.push(instrs);
+                    }
                     response.push(Lang::GraphEvent(GraphEvent::Recompute(
                         self.active_graph.clone(),
                     )));
@@ -221,7 +225,9 @@ impl NodeManager {
                     )));
                 }
                 UserGraphEvent::ChangeGraph(res) => {
-                    response.push(self.relinearize(&self.active_graph));
+                    if let Some(instrs) = self.relinearize(&self.active_graph) {
+                        response.push(instrs);
+                    }
                     self.active_graph = res.clone();
                 }
                 UserGraphEvent::RenameGraph(from, to) => {
@@ -247,10 +253,10 @@ impl NodeManager {
                         )));
 
                         // Publish linearization of newly named graph
-                        {
+                        if let Some(instrs) = instructions {
                             response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                                 to.clone(),
-                                instructions,
+                                instrs,
                             )));
                         }
 
@@ -367,7 +373,9 @@ impl NodeManager {
                 }
 
                 // Recompute on size change
-                response.push(self.relinearize(&self.active_graph));
+                if let Some(linearize) = self.relinearize(&self.active_graph) {
+                    response.push(linearize);
+                }
                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                     self.active_graph.clone(),
                 )));
@@ -393,11 +401,12 @@ impl NodeManager {
             let updated = graph.update_complex_operators(&changed_graph, &op_stub);
 
             if !updated.is_empty() {
-                let instructions = graph.linearize();
-                response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                    graph.graph_resource(),
-                    instructions,
-                )));
+                if let Some(instructions) = graph.linearize() {
+                    response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                        graph.graph_resource(),
+                        instructions,
+                    )));
+                }
             }
 
             for (node, params) in updated {
@@ -419,12 +428,14 @@ impl NodeManager {
         response
     }
 
-    fn relinearize(&self, graph: &lang::Resource<lang::Graph>) -> lang::Lang {
-        let instructions = self.graphs.get(graph.path_str().unwrap()).unwrap().linearize();
-        lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
-            graph.clone(),
-            instructions,
-        ))
+    fn relinearize(&self, graph: &lang::Resource<lang::Graph>) -> Option<lang::Lang> {
+        self.graphs
+            .get(graph.path_str().unwrap())
+            .unwrap()
+            .linearize()
+            .map(|instructions| {
+                lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(graph.clone(), instructions))
+            })
     }
 }
 
