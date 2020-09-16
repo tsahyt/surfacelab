@@ -420,7 +420,7 @@ impl NodeManager {
     }
 
     fn relinearize(&self, graph: &lang::Resource<lang::Graph>) -> lang::Lang {
-        let instructions = self.graphs.get(graph.directory().unwrap()).unwrap().linearize();
+        let instructions = self.graphs.get(graph.path_str().unwrap()).unwrap().linearize();
         lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
             graph.clone(),
             instructions,
