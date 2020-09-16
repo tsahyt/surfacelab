@@ -93,6 +93,13 @@ pub fn start_render_thread<B: gpu::Backend>(
                             .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
                             .unwrap();
                     }
+                    Lang::UserRenderEvent(UserRenderEvent::TextureScale(id, scale)) => {
+                        render_manager.set_texture_scale(*id, *scale);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
+                    }
                     Lang::UserRenderEvent(UserRenderEvent::LightType(id, light_type)) => {
                         render_manager.set_light_type(*id, *light_type);
                         render_manager.redraw(*id);
@@ -311,6 +318,13 @@ where
     pub fn set_displacement_amount(&mut self, renderer_id: RendererID, displacement: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_displacement_amount(displacement);
+            r.render();
+        }
+    }
+
+    pub fn set_texture_scale(&mut self, renderer_id: RendererID, scale: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_texture_scale(scale);
             r.render();
         }
     }

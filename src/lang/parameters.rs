@@ -257,6 +257,7 @@ impl MessageWriter for GraphField {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum RenderField {
+    TextureScale,
     DisplacementAmount,
     LightType,
     LightStrength,
@@ -269,6 +270,9 @@ impl MessageWriter for RenderField {
 
     fn transmit(&self, renderer: &super::RendererID, data: &[u8]) -> super::Lang {
         match self {
+            RenderField::TextureScale => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::TextureScale(*renderer, f32::from_data(data)),
+            ),
             RenderField::DisplacementAmount => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::DisplacementAmount(*renderer, f32::from_data(data)),
             ),
@@ -474,11 +478,20 @@ impl ParamBoxDescription<RenderField> {
                     parameters: vec![Parameter {
                         name: "Displacement Amount".to_string(),
                         control: Control::Slider {
-                            value: 1.0,
+                            value: 0.5,
                             min: 0.0,
                             max: 3.0,
                         },
                         transmitter: RenderField::DisplacementAmount,
+                        expose_status: None,
+                    }, Parameter {
+                        name: "Texture Scale".to_string(),
+                        control: Control::Slider {
+                            value: 8.0,
+                            min: 0.0,
+                            max: 64.0,
+                        },
+                        transmitter: RenderField::TextureScale,
                         expose_status: None,
                     }],
                 },

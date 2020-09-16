@@ -19,6 +19,7 @@ layout(set = 0, binding = 2) uniform Camera {
     float theta;
     float radius;
     float displacement_amount;
+    float tex_scale;
     uint light_type;
     float light_strength;
     uint draw_shadow;
@@ -40,7 +41,6 @@ const int MAX_STEPS = 300;
 const int MAX_STEPS_AO = 6;
 const float MAX_DIST = 24.0;
 const float SURF_DIST = .0002;
-const float TEX_SCALE = 8.;
 const float TEX_MIDLEVEL = .5;
 
 // DEBUG FLAGS
@@ -61,7 +61,7 @@ float lod_by_distance(float d) {
 
 float heightfield(vec2 p, float lod) {
     if(has_displacement != 0) {
-        float h = textureLod(sampler2D(t_Displ, s_Texture), p / TEX_SCALE, lod).r;
+        float h = textureLod(sampler2D(t_Displ, s_Texture), p / tex_scale, lod).r;
         return h - TEX_MIDLEVEL;
     } else {
         return 0.;
@@ -70,7 +70,7 @@ float heightfield(vec2 p, float lod) {
 
 vec3 albedo(vec2 p, float lod) {
     if(has_albedo != 0) {
-        return textureLod(sampler2D(t_Albedo, s_Texture), p / TEX_SCALE, lod).rgb;
+        return textureLod(sampler2D(t_Albedo, s_Texture), p / tex_scale, lod).rgb;
     } else {
         return vec3(0.75);
     }
@@ -78,7 +78,7 @@ vec3 albedo(vec2 p, float lod) {
 
 float roughness(vec2 p, float lod) {
     if(has_roughness != 0) {
-        float r = textureLod(sampler2D(t_Roughness, s_Texture), p / TEX_SCALE, lod).x;
+        float r = textureLod(sampler2D(t_Roughness, s_Texture), p / tex_scale, lod).x;
         return r;
     } else {
         return 0.5;
@@ -87,7 +87,7 @@ float roughness(vec2 p, float lod) {
 
 float metallic(vec2 p, float lod) {
     if(has_metallic != 0) {
-        float r = textureLod(sampler2D(t_Metallic, s_Texture), p / TEX_SCALE, lod).x;
+        float r = textureLod(sampler2D(t_Metallic, s_Texture), p / tex_scale, lod).x;
         return r;
     } else {
         return 0.;
@@ -114,7 +114,7 @@ vec3 sdf_normal(vec3 p, float lod) {
 //  Get normals from normal map
 vec3 normal(vec3 p, float lod) {
     if(has_normal != 0) {
-        vec3 n = textureLod(sampler2D(t_Normal, s_Texture), p.xz / TEX_SCALE, lod).xzy;
+        vec3 n = textureLod(sampler2D(t_Normal, s_Texture), p.xz / tex_scale, lod).xzy;
         return normalize(n * 2. - 1);
     } else {
         return sdf_normal(p, lod);
@@ -163,7 +163,7 @@ float rayShadowSoft(vec3 ro, vec3 rd, float w, out float itrc) {
         float dS = max(sdf(ro + rd * dO, lod_by_distance(dO) + SHADOW_LOD_OFFSET), SURF_DIST);
         s = min(s, 0.5 + 0.5 * dS / (w * dO));
         if (s < 0 || dO > MAX_DIST) break;
-        dO += 2 * TEX_SCALE * dS;
+        dO += 2 * tex_scale * dS;
         itrc += 1;
     }
 
@@ -338,7 +338,7 @@ void main() {
     col = pow(col, vec3(1. / 1.2));
 
     #ifdef DBG_TEXGRID
-    if (fract(p.x / TEX_SCALE) < DBG_TEXGRID / TEX_SCALE || fract(p.z / TEX_SCALE) < DBG_TEXGRID / TEX_SCALE) { col += vec3(0.3, 0.8, 0.); }
+    if (fract(p.x / tex_scale) < DBG_TEXGRID / tex_scale || fract(p.z / tex_scale) < DBG_TEXGRID / tex_scale) { col += vec3(0.3, 0.8, 0.); }
     #endif
 
     // View Falloff

@@ -302,6 +302,7 @@ pub enum UserRenderEvent {
     LightMove(RendererID, f32, f32),
     ChannelChange2D(RendererID, MaterialChannel),
     DisplacementAmount(RendererID, f32),
+    TextureScale(RendererID, f32),
     LightType(RendererID, LightType),
     LightStrength(RendererID, f32),
     SetShadow(RendererID, ParameterBool),

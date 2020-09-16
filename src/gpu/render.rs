@@ -42,6 +42,7 @@ struct RenderView3D {
     theta: f32,
     rad: f32,
     displacement: f32,
+    tex_scale: f32,
     light_type: LightType,
     light_strength: f32,
     shadow: ParameterBool,
@@ -58,6 +59,7 @@ impl Default for RenderView3D {
             theta: 1.,
             rad: 6.,
             displacement: 0.5,
+            tex_scale: 8.,
             light_type: LightType::PointLight,
             light_strength: 100.0,
             shadow: 1,
@@ -1231,6 +1233,12 @@ where
     pub fn set_displacement_amount(&mut self, displacement: f32) {
         if let RenderView::RenderView3D(view) = &mut self.view {
             view.displacement = displacement;
+        }
+    }
+
+    pub fn set_texture_scale(&mut self, scale: f32) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.tex_scale = scale;
         }
     }
 
