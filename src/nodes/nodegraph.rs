@@ -29,7 +29,7 @@ impl Node {
     pub fn new(operator: Operator) -> Self {
         Node {
             position: (0.0, 0.0),
-            size: 0,
+            size: 32,
             absolute_size: match operator {
                 Operator::AtomicOperator(AtomicOperator::Image(..)) => true,
                 _ => false,
@@ -58,13 +58,21 @@ impl Node {
     }
 
     pub fn node_size(&self, parent: u32) -> u32 {
+        // Image operators are special in sizing, storing an actually absolute size
+        if let Operator::AtomicOperator(AtomicOperator::Image(..)) = self.operator {
+            return self.size as u32;
+        }
+
+        // All other "absolute sizes" are powers of two
         if self.absolute_size {
             if self.size > 0 {
                 2 << self.size as i16
             } else {
                 2 >> -self.size as i16
             }
-        } else if self.size > 0 {
+        }
+        // Otherwise the size is relative to parent
+        else if self.size > 0 {
             parent << self.size as i16
         } else {
             parent >> -self.size as i16
@@ -431,7 +439,7 @@ impl NodeGraph {
                 node_data.size = w.max(h) as i32;
                 Ok(Some(Lang::GraphEvent(GraphEvent::NodeResized(
                     node_res,
-                    node_data.size as u32,
+                    node_data.node_size(1)
                 ))))
             } else {
                 Ok(None)
