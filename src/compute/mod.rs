@@ -356,10 +356,13 @@ where
     }
 
     /// Resize outputs
-    pub fn resize(&mut self, res: &Resource<Node>, new_size: u32) {
+    pub fn resize(&mut self, res: &Resource<Node>, new_size: u32) -> bool {
+        let mut resized = false;
         if let Some(x) = self.0.get_mut(res) {
+            resized = x.output_size == new_size;
             x.output_size = new_size;
         }
+        resized
     }
 
     /// Renames all sockets that contain the given graph to use the new graph.
@@ -475,9 +478,10 @@ where
                 }
                 GraphEvent::NodeRenamed(from, to) => self.rename(from, to),
                 GraphEvent::NodeResized(res, new_size) => {
-                    self.sockets.resize(res, *new_size as u32);
-                    self.sockets
-                        .reinit_output_images(res, &self.gpu, *new_size as u32);
+                    if self.sockets.resize(res, *new_size as u32) {
+                        self.sockets
+                            .reinit_output_images(res, &self.gpu, *new_size as u32);
+                    }
                 }
                 GraphEvent::Relinearized(graph, instrs) => {
                     self.linearizations.insert(graph.clone(), instrs.clone());
