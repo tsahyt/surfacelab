@@ -676,7 +676,7 @@ where
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
             command_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::TRANSFER,
+                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
                 hal::memory::Dependencies::empty(),
                 &[image.barrier_to(
                     hal::image::Access::TRANSFER_WRITE,
