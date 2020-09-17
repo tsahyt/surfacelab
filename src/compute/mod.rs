@@ -632,7 +632,7 @@ where
                         }
                     }
                     _ => {
-                        self.execute_operator(&op, res)?;
+                        self.execute_atomic_operator(&op, res)?;
                     }
                 }
             }
@@ -962,7 +962,7 @@ where
         final_image.save(path).unwrap();
     }
 
-    fn execute_operator(
+    fn execute_atomic_operator(
         &mut self,
         op: &AtomicOperator,
         res: &Resource<Node>,
