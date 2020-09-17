@@ -472,25 +472,28 @@ impl ParamBoxDescription<RenderField> {
             categories: vec![
                 ParamCategory {
                     name: "Geometry",
-                    parameters: vec![Parameter {
-                        name: "Displacement Amount".to_string(),
-                        control: Control::Slider {
-                            value: 0.5,
-                            min: 0.0,
-                            max: 3.0,
+                    parameters: vec![
+                        Parameter {
+                            name: "Displacement Amount".to_string(),
+                            control: Control::Slider {
+                                value: 0.5,
+                                min: 0.0,
+                                max: 3.0,
+                            },
+                            transmitter: RenderField::DisplacementAmount,
+                            expose_status: None,
                         },
-                        transmitter: RenderField::DisplacementAmount,
-                        expose_status: None,
-                    }, Parameter {
-                        name: "Texture Scale".to_string(),
-                        control: Control::Slider {
-                            value: 8.0,
-                            min: 0.0,
-                            max: 64.0,
+                        Parameter {
+                            name: "Texture Scale".to_string(),
+                            control: Control::Slider {
+                                value: 8.0,
+                                min: 0.0,
+                                max: 64.0,
+                            },
+                            transmitter: RenderField::TextureScale,
+                            expose_status: None,
                         },
-                        transmitter: RenderField::TextureScale,
-                        expose_status: None,
-                    }],
+                    ],
                 },
                 ParamCategory {
                     name: "Lighting",

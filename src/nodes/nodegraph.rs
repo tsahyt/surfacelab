@@ -424,15 +424,18 @@ impl NodeGraph {
 
         log::trace!("Parameter changed to {:?}", node_data.operator);
 
-        if let Operator::AtomicOperator(AtomicOperator::Image(Image { path })) = &node_data.operator
+        if let Operator::AtomicOperator(AtomicOperator::Image(Image { path, .. })) =
+            &node_data.operator
         {
-            let (w, h) = image::image_dimensions(path)
-                .map_err(|e| format!("Error reading image dimensions: {}", e))?;
-            node_data.size = w.max(h) as i32;
-            Ok(Some(Lang::GraphEvent(GraphEvent::NodeResized(
-                node_res,
-                node_data.size as u32,
-            ))))
+            if let Ok((w, h)) = image::image_dimensions(path) {
+                node_data.size = w.max(h) as i32;
+                Ok(Some(Lang::GraphEvent(GraphEvent::NodeResized(
+                    node_res,
+                    node_data.size as u32,
+                ))))
+            } else {
+                Ok(None)
+            }
         } else {
             Ok(None)
         }

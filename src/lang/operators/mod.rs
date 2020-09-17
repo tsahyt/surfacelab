@@ -25,12 +25,14 @@ pub use rgb::*;
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Image {
     pub path: std::path::PathBuf,
+    pub color_space: crate::lang::ColorSpace,
 }
 
 impl Default for Image {
     fn default() -> Self {
         Self {
             path: std::path::PathBuf::new(),
+            color_space: crate::lang::ColorSpace::Srgb,
         }
     }
 }
@@ -71,18 +73,32 @@ impl OperatorParamBox for Image {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "Basic Parameters",
-                parameters: vec![Parameter {
-                    name: "Image Path".to_string(),
-                    transmitter: Field(Self::PATH.to_string()),
-                    control: Control::File {
-                        selected: if self.path.file_name().is_none() {
-                            None
-                        } else {
-                            Some(self.path.to_owned())
+                parameters: vec![
+                    Parameter {
+                        name: "Image Path".to_string(),
+                        transmitter: Field(Self::PATH.to_string()),
+                        control: Control::File {
+                            selected: if self.path.file_name().is_none() {
+                                None
+                            } else {
+                                Some(self.path.to_owned())
+                            },
                         },
+                        expose_status: Some(ExposeStatus::Unexposed),
                     },
-                    expose_status: Some(ExposeStatus::Unexposed),
-                }],
+                    Parameter {
+                        name: "Color Space".to_string(),
+                        transmitter: Field(Self::COLOR_SPACE.to_string()),
+                        control: Control::Enum {
+                            selected: self.color_space as usize,
+                            variants: crate::lang::ColorSpace::VARIANTS
+                                .iter()
+                                .map(|x| x.to_string())
+                                .collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                ],
             }],
         }
     }

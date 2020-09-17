@@ -389,7 +389,7 @@ struct ComputeManager<B: gpu::Backend> {
     sockets: Sockets<B>,
 
     shader_library: shaders::ShaderLibrary<B>,
-    external_images: HashMap<std::path::PathBuf, ExternalImage>,
+    external_images: HashMap<(std::path::PathBuf, ColorSpace), ExternalImage>,
 
     /// Last known linearization of a graph
     linearizations: HashMap<Resource<Graph>, Vec<Instruction>>,
@@ -616,8 +616,8 @@ where
                 }
 
                 match op {
-                    AtomicOperator::Image(Image { path }) => {
-                        self.execute_image(res, &path)?;
+                    AtomicOperator::Image(Image { path, color_space }) => {
+                        self.execute_image(res, &path, color_space)?;
                     }
                     AtomicOperator::Input(..) => {
                         self.execute_input(res)?;
@@ -753,6 +753,7 @@ where
         &mut self,
         res: &Resource<Node>,
         path: &std::path::PathBuf,
+        color_space: ColorSpace,
     ) -> Result<(), String> {
         log::trace!("Processing Image operator {}", res);
 
@@ -761,14 +762,24 @@ where
             .get_output_image_mut(&res.node_socket("image"))
             .expect("Trying to process missing socket");
 
-        let external_image = self.external_images.entry(path.clone()).or_insert_with(|| {
-            log::trace!("Loading external image {:?}", path);
-            let buf = load_rgba16f_image(path).expect("Failed to read image");
-            ExternalImage {
-                state: ExternalImageState::InMemory,
-                buffer: buf,
-            }
-        });
+        let external_image = self
+            .external_images
+            .entry((path.clone(), color_space))
+            .or_insert_with(|| {
+                log::trace!("Loading external image {:?}", path);
+                let buf = match color_space {
+                    ColorSpace::Srgb => {
+                        load_rgba16f_image(path, f16_from_u8_gamma, f16_from_u16_gamma)
+                            .expect("Failed to read image")
+                    }
+                    ColorSpace::Linear => load_rgba16f_image(path, f16_from_u8, f16_from_u16)
+                        .expect("Failed to read image"),
+                };
+                ExternalImage {
+                    state: ExternalImageState::InMemory,
+                    buffer: buf,
+                }
+            });
 
         match external_image.state {
             ExternalImageState::InMemory => {
@@ -1093,18 +1104,33 @@ fn convert_image(
         .ok_or_else(|| "Error while creating image buffer".to_string())
 }
 
-fn load_rgba16f_image<P: AsRef<std::path::Path>>(path: P) -> Result<Vec<u16>, String> {
+fn f16_from_u8(sample: u8) -> u16 {
+    half::f16::from_f32(sample as f32 / 256.0).to_bits()
+}
+
+fn f16_from_u16(sample: u16) -> u16 {
+    half::f16::from_f32(sample as f32 / 65536.0).to_bits()
+}
+
+fn f16_from_u8_gamma(sample: u8) -> u16 {
+    half::f16::from_f32((sample as f32 / 256.0).powf(2.2)).to_bits()
+}
+
+fn f16_from_u16_gamma(sample: u16) -> u16 {
+    half::f16::from_f32((sample as f32 / 65536.0).powf(2.2)).to_bits()
+}
+
+/// Load an image from a path into a u16 buffer with f16 encoding, using the
+/// provided sampling functions. Those functions can be used to alter each
+/// sample if necessary, e.g. to perform gamma correction.
+fn load_rgba16f_image<P: AsRef<std::path::Path>, F: Fn(u8) -> u16, G: Fn(u16) -> u16>(
+    path: P,
+    sample8: F,
+    sample16: G,
+) -> Result<Vec<u16>, String> {
     use image::GenericImageView;
 
     let img = image::open(path).map_err(|e| format!("Failed to read image: {}", e))?;
-
-    fn sample8(sample: u8) -> u16 {
-        half::f16::from_f32(sample as f32 / 256.0).to_bits()
-    }
-
-    fn sample16(sample: u16) -> u16 {
-        half::f16::from_f32(sample as f32 / 65536.0).to_bits()
-    }
 
     let mut loaded: Vec<u16> = Vec::with_capacity(img.width() as usize * img.height() as usize * 4);
 

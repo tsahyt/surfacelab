@@ -6,6 +6,7 @@ pub mod socketed;
 
 use enum_dispatch::*;
 use enumset::EnumSetType;
+
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
@@ -307,6 +308,24 @@ pub enum UserRenderEvent {
     LightStrength(RendererID, f32),
     SetShadow(RendererID, ParameterBool),
     SetAO(RendererID, ParameterBool),
+}
+
+#[repr(u32)]
+#[derive(
+    Debug,
+    EnumVariantNames,
+    ParameterField,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    Hash,
+)]
+pub enum ColorSpace {
+    Srgb,
+    Linear,
 }
 
 pub type ChannelSpec = (Resource<Socket>, ImageChannel);
