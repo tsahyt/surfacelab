@@ -45,14 +45,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum ExternalImageState {
-    Uploaded,
-    InMemory,
-}
-
 struct ExternalImage {
-    state: ExternalImageState,
     buffer: Vec<u16>,
 }
 
@@ -780,24 +773,14 @@ where
                         .expect("Failed to read image"),
                 };
                 ExternalImage {
-                    state: ExternalImageState::InMemory,
                     buffer: buf,
                 }
             });
 
-        match external_image.state {
-            ExternalImageState::InMemory => {
-                log::trace!("Uploading image to GPU");
-                image.ensure_alloc(&self.gpu)?;
-                self.gpu.upload_image(&image, &external_image.buffer)?;
-                self.sockets.set_output_image_updated(res, self.seq);
-                external_image.state = ExternalImageState::Uploaded;
-            }
-            ExternalImageState::Uploaded => {
-                self.sockets.set_output_image_updated(res, self.seq);
-                log::trace!("Reusing uploaded image");
-            }
-        }
+        log::trace!("Uploading image to GPU");
+        image.ensure_alloc(&self.gpu)?;
+        self.gpu.upload_image(&image, &external_image.buffer)?;
+        self.sockets.set_output_image_updated(res, self.seq);
 
         Ok(())
     }
