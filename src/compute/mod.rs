@@ -359,7 +359,7 @@ where
     pub fn resize(&mut self, res: &Resource<Node>, new_size: u32) -> bool {
         let mut resized = false;
         if let Some(x) = self.0.get_mut(res) {
-            resized = x.output_size == new_size;
+            resized = x.output_size != new_size;
             x.output_size = new_size;
         }
         resized

@@ -436,17 +436,18 @@ impl NodeGraph {
             &node_data.operator
         {
             if let Ok((w, h)) = image::image_dimensions(path) {
-                node_data.size = w.max(h) as i32;
-                Ok(Some(Lang::GraphEvent(GraphEvent::NodeResized(
-                    node_res,
-                    node_data.node_size(1)
-                ))))
-            } else {
-                Ok(None)
+                let new_size = w.max(h) as i32;
+                if node_data.size != new_size {
+                    node_data.size = new_size;
+                    return Ok(Some(Lang::GraphEvent(GraphEvent::NodeResized(
+                        node_res,
+                        node_data.node_size(1)
+                    ))));
+                }
             }
-        } else {
-            Ok(None)
         }
+
+        Ok(None)
     }
 
     /// Connect two sockets in the node graph. If there is already a connection
