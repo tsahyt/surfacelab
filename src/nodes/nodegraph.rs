@@ -29,7 +29,7 @@ impl Node {
     pub fn new(operator: Operator) -> Self {
         Node {
             position: (0.0, 0.0),
-            size: 32,
+            size: 0,
             absolute_size: match operator {
                 Operator::AtomicOperator(AtomicOperator::Image(..)) => true,
                 _ => false,
@@ -60,7 +60,7 @@ impl Node {
     pub fn node_size(&self, parent: u32) -> u32 {
         // Image operators are special in sizing, storing an actually absolute size
         if let Operator::AtomicOperator(AtomicOperator::Image(..)) = self.operator {
-            return self.size as u32;
+            return self.size.max(32) as u32;
         }
 
         // All other "absolute sizes" are powers of two
