@@ -45,8 +45,8 @@ impl NodeManager {
             let res = Resource::graph(&name, None);
             events.push(Lang::GraphEvent(GraphEvent::GraphAdded(res.clone())));
             events.append(&mut graph.rebuild_events(self.parent_size));
-            if let Some(instrs) = graph.linearize(nodegraph::LinearizationMode::TopoSort) {
-                events.push(Lang::GraphEvent(GraphEvent::Relinearized(res, instrs)))
+            if let Some((instrs, last_use)) = graph.linearize(nodegraph::LinearizationMode::TopoSort) {
+                events.push(Lang::GraphEvent(GraphEvent::Relinearized(res, instrs, last_use)))
             }
         }
 

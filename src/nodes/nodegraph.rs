@@ -772,7 +772,10 @@ impl NodeGraph {
     ///
     /// Linearization may fail when a node is missing inputs, and will return
     /// None in this case.
-    pub fn linearize(&self, mode: LinearizationMode) -> Option<Vec<Instruction>> {
+    pub fn linearize(
+        &self,
+        mode: LinearizationMode,
+    ) -> Option<(Vec<Instruction>, Vec<(Resource<r::Node>, usize)>)> {
         use petgraph::visit::EdgeRef;
 
         enum Action<'a> {
@@ -854,9 +857,7 @@ impl NodeGraph {
             }
         }
 
-        dbg!(final_usage);
-
-        Some(traversal)
+        Some((traversal, final_usage.drain().collect()))
     }
 
     pub fn expose_parameter(

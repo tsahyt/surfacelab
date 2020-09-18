@@ -257,10 +257,11 @@ impl NodeManager {
                         )));
 
                         // Publish linearization of newly named graph
-                        if let Some(instrs) = instructions {
+                        if let Some((instrs, last_use)) = instructions {
                             response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                                 to.clone(),
                                 instrs,
+                                last_use,
                             )));
                         }
 
@@ -405,11 +406,12 @@ impl NodeManager {
             let updated = graph.update_complex_operators(&changed_graph, &op_stub);
 
             if !updated.is_empty() {
-                if let Some(instructions) = graph.linearize(nodegraph::LinearizationMode::TopoSort)
+                if let Some((instructions, last_use)) = graph.linearize(nodegraph::LinearizationMode::TopoSort)
                 {
                     response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                         graph.graph_resource(),
                         instructions,
+                        last_use
                     )));
                 }
             }
@@ -438,8 +440,8 @@ impl NodeManager {
             .get(graph.path_str().unwrap())
             .unwrap()
             .linearize(nodegraph::LinearizationMode::TopoSort)
-            .map(|instructions| {
-                lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(graph.clone(), instructions))
+            .map(|(instructions, last_use)| {
+                lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(graph.clone(), instructions, last_use))
             })
     }
 }

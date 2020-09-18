@@ -410,7 +410,7 @@ struct ComputeManager<B: gpu::Backend> {
     external_images: HashMap<(std::path::PathBuf, ColorSpace), Option<ExternalImage>>,
 
     /// Last known linearization of a graph
-    linearizations: HashMap<Resource<Graph>, Vec<Instruction>>,
+    linearizations: HashMap<Resource<Graph>, (Vec<Instruction>, Vec<(Resource<Node>, usize)>)>,
 
     /// Number of executions, kept for cache invalidation
     seq: u64,
@@ -498,8 +498,8 @@ where
                             .reinit_output_images(res, &self.gpu, *new_size as u32);
                     }
                 }
-                GraphEvent::Relinearized(graph, instrs) => {
-                    self.linearizations.insert(graph.clone(), instrs.clone());
+                GraphEvent::Relinearized(graph, instrs, last_use) => {
+                    self.linearizations.insert(graph.clone(), (instrs.clone(), last_use.clone()));
                 }
                 GraphEvent::Recompute(graph) => {
                     match self.interpret_linearization(graph, std::iter::empty()) {
@@ -588,7 +588,8 @@ where
         I: Iterator<Item = &'a ParamSubstitution>,
     {
         self.seq += 1;
-        let instrs = self
+        // FIXME: This clone is wholly unnecessary, but is required to make the borrow checker happy.
+        let (instrs, last_known) = self
             .linearizations
             .get(graph)
             .ok_or_else(|| "Unknown graph")?
