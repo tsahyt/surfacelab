@@ -80,5 +80,7 @@ void main() {
         res = clamp(res, 0., 1.);
     }
 
+    res.a = 1.0;
+
     imageStore(t_Out, idx, res);
 }
