@@ -100,7 +100,7 @@ struct SocketData<B: gpu::Backend> {
 }
 
 impl<B: gpu::Backend> SocketData<B> {
-    const TIMING_DECAY: f64 = 0.5;
+    const TIMING_DECAY: f64 = 0.15;
 
     pub fn update_time_ema(&mut self, seconds: f64) {
         self.time_ema = self.time_ema + Self::TIMING_DECAY * (seconds - self.time_ema);
