@@ -51,6 +51,8 @@ const float TEX_MIDLEVEL = .5;
 // - performance tuning (see ITERCNT)
 // - stepping size has to adjust with displacement amount/slope
 // - check validity of ambient occlusion approximation
+//
+// TODO: Include texture scale in mip mapping considerations for performance gain
 
 #define LOD_BIAS .5
 #define SHADOW_LOD_OFFSET 2.
