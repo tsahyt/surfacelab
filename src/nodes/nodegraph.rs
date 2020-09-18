@@ -441,7 +441,7 @@ impl NodeGraph {
                     node_data.size = new_size;
                     return Ok(Some(Lang::GraphEvent(GraphEvent::NodeResized(
                         node_res,
-                        node_data.node_size(1)
+                        node_data.node_size(1),
                     ))));
                 }
             }

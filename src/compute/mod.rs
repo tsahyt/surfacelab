@@ -46,7 +46,6 @@ pub fn start_compute_thread<B: gpu::Backend>(
 }
 
 struct ExternalImage {
-    uploaded: Vec<Resource<Node>>,
     buffer: Vec<u16>,
 }
 
@@ -765,9 +764,7 @@ where
             hasher.finish()
         };
         match self.last_known.get(res) {
-            Some(hash)
-                if *hash == parameter_hash && !self.sockets.get_force(&res) =>
-            {
+            Some(hash) if *hash == parameter_hash && !self.sockets.get_force(&res) => {
                 log::trace!("Reusing cached image");
                 return Ok(());
             }
@@ -794,7 +791,6 @@ where
                 };
                 ExternalImage {
                     buffer: buf,
-                    uploaded: Vec::new(),
                 }
             });
 
