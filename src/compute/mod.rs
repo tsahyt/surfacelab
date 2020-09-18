@@ -46,6 +46,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
 }
 
 struct ExternalImage {
+    uploaded: Vec<Resource<Node>>,
     buffer: Vec<u16>,
 }
 
@@ -754,6 +755,25 @@ where
     ) -> Result<(), String> {
         log::trace!("Processing Image operator {}", res);
 
+        let parameter_hash = {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+
+            let mut hasher = DefaultHasher::new();
+            path.hash(&mut hasher);
+            color_space.hash(&mut hasher);
+            hasher.finish()
+        };
+        match self.last_known.get(res) {
+            Some(hash)
+                if *hash == parameter_hash && !self.sockets.get_force(&res) =>
+            {
+                log::trace!("Reusing cached image");
+                return Ok(());
+            }
+            _ => {}
+        };
+
         let image = self
             .sockets
             .get_output_image_mut(&res.node_socket("image"))
@@ -774,12 +794,14 @@ where
                 };
                 ExternalImage {
                     buffer: buf,
+                    uploaded: Vec::new(),
                 }
             });
 
         log::trace!("Uploading image to GPU");
         image.ensure_alloc(&self.gpu)?;
         self.gpu.upload_image(&image, &external_image.buffer)?;
+        self.last_known.insert(res.clone(), parameter_hash);
         self.sockets.set_output_image_updated(res, self.seq);
 
         Ok(())
