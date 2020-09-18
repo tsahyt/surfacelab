@@ -385,7 +385,7 @@ struct ComputeManager<B: gpu::Backend> {
     sockets: Sockets<B>,
 
     shader_library: shaders::ShaderLibrary<B>,
-    external_images: HashMap<(std::path::PathBuf, ColorSpace), ExternalImage>,
+    external_images: HashMap<(std::path::PathBuf, ColorSpace), Option<ExternalImage>>,
 
     /// Last known linearization of a graph
     linearizations: HashMap<Resource<Graph>, Vec<Instruction>>,
@@ -776,31 +776,32 @@ where
             .get_output_image_mut(&res.node_socket("image"))
             .expect("Trying to process missing socket");
 
-        let external_image = self
+        if let Some(external_image) = self
             .external_images
             .entry((path.clone(), color_space))
             .or_insert_with(|| {
                 log::trace!("Loading external image {:?}", path);
                 let buf = match color_space {
                     ColorSpace::Srgb => {
-                        load_rgba16f_image(path, f16_from_u8_gamma, f16_from_u16_gamma)
-                            .expect("Failed to read image")
+                        load_rgba16f_image(path, f16_from_u8_gamma, f16_from_u16_gamma).ok()?
                     }
-                    ColorSpace::Linear => load_rgba16f_image(path, f16_from_u8, f16_from_u16)
-                        .expect("Failed to read image"),
+                    ColorSpace::Linear => {
+                        load_rgba16f_image(path, f16_from_u8, f16_from_u16).ok()?
+                    }
                 };
-                ExternalImage {
-                    buffer: buf,
-                }
-            });
+                Some(ExternalImage { buffer: buf })
+            })
+        {
+            log::trace!("Uploading image to GPU");
+            image.ensure_alloc(&self.gpu)?;
+            self.gpu.upload_image(&image, &external_image.buffer)?;
+            self.last_known.insert(res.clone(), parameter_hash);
+            self.sockets.set_output_image_updated(res, self.seq);
 
-        log::trace!("Uploading image to GPU");
-        image.ensure_alloc(&self.gpu)?;
-        self.gpu.upload_image(&image, &external_image.buffer)?;
-        self.last_known.insert(res.clone(), parameter_hash);
-        self.sockets.set_output_image_updated(res, self.seq);
-
-        Ok(())
+            Ok(())
+        } else {
+            Err("Failed to read external image".to_string())
+        }
     }
 
     fn execute_input(&mut self, res: &Resource<Node>) -> Result<(), String> {
