@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Instant;
 
 pub mod shaders;
 
@@ -90,7 +91,21 @@ struct SocketData<B: gpu::Backend> {
     /// Input sockets only map to the output sockets they are connected to
     inputs: HashMap<String, Resource<Socket>>,
 
+    /// Exponential Moving Average over computation time for this set of
+    /// sockets, to get some estimate of how long computation may take in the
+    /// future. Measured in seconds, for easy conversion from Durations.
+    time_ema: f64,
+
     thumbnail: Option<gpu::compute::ThumbnailIndex>,
+}
+
+impl<B: gpu::Backend> SocketData<B> {
+    const TIMING_DECAY: f64 = 0.5;
+
+    pub fn update_time_ema(&mut self, seconds: f64) {
+        self.time_ema = self.time_ema + Self::TIMING_DECAY * (seconds - self.time_ema);
+        log::trace!("Average execution time {0:.1} µs", self.time_ema * 1e6);
+    }
 }
 
 struct Sockets<B: gpu::Backend>(HashMap<Resource<Node>, SocketData<B>>);
@@ -108,6 +123,12 @@ where
             if let Some(thumbnail) = socket.thumbnail.take() {
                 gpu.return_thumbnail(thumbnail);
             }
+        }
+    }
+
+    pub fn update_timing_data(&mut self, node: &Resource<Node>, seconds: f64) {
+        if let Some(sdata) = self.0.get_mut(&node) {
+            sdata.update_time_ema(seconds);
         }
     }
 
@@ -132,6 +153,7 @@ where
             known_outputs: HashSet::new(),
             output_size: size,
             inputs: HashMap::new(),
+            time_ema: 0.0,
             thumbnail: None,
         })
     }
@@ -771,6 +793,7 @@ where
             _ => {}
         };
 
+        let start_time = Instant::now();
         let image = self
             .sockets
             .get_output_image_mut(&res.node_socket("image"))
@@ -797,19 +820,25 @@ where
             self.gpu.upload_image(&image, &external_image.buffer)?;
             self.last_known.insert(res.clone(), parameter_hash);
             self.sockets.set_output_image_updated(res, self.seq);
+            self.sockets
+                .update_timing_data(res, start_time.elapsed().as_secs_f64());
 
             Ok(())
         } else {
+            self.sockets
+                .update_timing_data(res, start_time.elapsed().as_secs_f64());
             Err("Failed to read external image".to_string())
         }
     }
 
     fn execute_input(&mut self, res: &Resource<Node>) -> Result<(), String> {
+        let start_time = Instant::now();
         let socket_res = res.node_socket("data");
         self.sockets
             .get_output_image_mut(&socket_res)
             .expect("Missing output image on input socket")
             .ensure_alloc(&self.gpu)?;
+        self.sockets.update_timing_data(res, start_time.elapsed().as_secs_f64());
 
         Ok(())
     }
@@ -1012,6 +1041,8 @@ where
             _ => {}
         };
 
+        let start_time = Instant::now();
+
         let mut inputs = HashMap::new();
         for socket in op.inputs().keys() {
             let socket_res = res.node_socket(&socket);
@@ -1055,6 +1086,8 @@ where
 
         self.last_known.insert(res.clone(), uniform_hash);
         self.sockets.set_output_image_updated(res, self.seq);
+        self.sockets
+            .update_timing_data(res, start_time.elapsed().as_secs_f64());
 
         Ok(())
     }

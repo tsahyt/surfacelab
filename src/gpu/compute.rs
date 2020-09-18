@@ -7,7 +7,6 @@ use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex, Weak};
-use std::time::Instant;
 
 // TODO: Compute image cache eviction
 
@@ -430,7 +429,6 @@ where
         pipeline: &ComputePipeline<B>,
         descriptors: &B::DescriptorSet,
     ) {
-        let start_time = Instant::now();
         unsafe {
             let lock = self.gpu.lock().unwrap();
             lock.device.reset_fence(&self.fence).unwrap();
@@ -479,11 +477,6 @@ where
             lock.device.wait_for_fence(&self.fence, !0).unwrap();
             self.command_pool.free(Some(command_buffer));
         }
-
-        log::debug!(
-            "Pipeline executed in {}µs",
-            start_time.elapsed().as_micros()
-        );
     }
 
     pub fn uniform_buffer(&self) -> &B::Buffer {
@@ -1034,11 +1027,16 @@ where
 
     /// Allocate fresh memory to the image from the underlying memory pool in compute.
     pub fn allocate_memory(&mut self, compute: &GPUCompute<B>) -> Result<(), String> {
-        log::trace!("Allocating memory for {}x{} image", self.size, self.size);
         debug_assert!(self.alloc.is_none());
 
         // Handle memory manager
         let bytes = self.size as u64 * self.size as u64 * self.px_width as u64;
+        log::trace!(
+            "Allocating memory for {}x{} image ({} bytes)",
+            self.size,
+            self.size,
+            bytes
+        );
         let (offset, chunks) = compute
             .find_free_image_memory(bytes)
             .ok_or("Unable to find free memory for image")?;
