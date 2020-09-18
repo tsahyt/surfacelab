@@ -838,7 +838,8 @@ where
             .get_output_image_mut(&socket_res)
             .expect("Missing output image on input socket")
             .ensure_alloc(&self.gpu)?;
-        self.sockets.update_timing_data(res, start_time.elapsed().as_secs_f64());
+        self.sockets
+            .update_timing_data(res, start_time.elapsed().as_secs_f64());
 
         Ok(())
     }

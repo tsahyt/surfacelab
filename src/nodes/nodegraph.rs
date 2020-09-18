@@ -16,6 +16,12 @@ type EdgeLabel = (String, String);
 /// A vector of resource tuples describing connections between sockets.
 pub type Connections = Vec<(Resource<r::Socket>, Resource<r::Socket>)>;
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum LinearizationMode {
+    TopoSort,
+    FullTraversal,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
     operator: Operator,
@@ -750,9 +756,23 @@ impl NodeGraph {
     }
 
     /// Linearize this node graph into a vector of instructions that can be
-    /// interpreted by the compute backend. May fail when there are unconnected
-    /// inputs to a node.
-    pub fn linearize(&self) -> Option<Vec<Instruction>> {
+    /// interpreted by the compute backend.
+    ///
+    /// Takes a LinearizationMode as a parameter. The default mode should be
+    /// TopoSort, which avoids revisiting nodes. However, a FullTraversal can be
+    /// required on low end machines with little VRAM. In such cases it may
+    /// becomes necessary to evict images temporarily if they are not needed
+    /// immediately. In this case, they need to be recomputed later. The full
+    /// traversal visits each node as many times as its output is used.
+    ///
+    /// In general using full traversals does not cause any immediate harm
+    /// however, as the compute manager is expected to take care of any caching.
+    /// TopoSort will however reduce the load on all components, including the
+    /// linearization procedure itself.
+    ///
+    /// Linearization may fail when a node is missing inputs, and will return
+    /// None in this case.
+    pub fn linearize(&self, mode: LinearizationMode) -> Option<Vec<Instruction>> {
         use petgraph::visit::EdgeRef;
 
         enum Action<'a> {
@@ -772,7 +792,9 @@ impl NodeGraph {
             .map(|x| (*x, Action::Traverse(None)))
             .collect();
 
+        let mut final_usage: HashMap<Resource<r::Node>, usize> = HashMap::new();
         let mut traversal = Vec::new();
+        let mut step = 0;
 
         while let Some((nx, mark)) = stack.pop() {
             match mark {
@@ -788,42 +810,51 @@ impl NodeGraph {
                     }
                 }
                 Action::Visit(l) => {
+                    step += 1;
+
                     let node = self.graph.node_weight(nx).unwrap();
                     let res = self.node_resource(&nx);
-                    match &node.operator {
-                        Operator::AtomicOperator(op) => {
-                            traversal.push(Instruction::Execute(res.clone(), op.to_owned()));
-                        }
-                        Operator::ComplexOperator(op) => {
-                            for (socket, (_, input)) in op.inputs.iter() {
-                                traversal.push(Instruction::Copy(
-                                    res.node_socket(socket),
-                                    input.node_socket("data"),
-                                ))
-                            }
-                            traversal.push(Instruction::Call(res.clone(), op.to_owned()));
-                            for (socket, (_, output)) in op.outputs.iter() {
-                                traversal.push(Instruction::Copy(
-                                    output.node_socket("data"),
-                                    res.node_socket(socket),
-                                ))
-                            }
-                        }
-                    }
 
-                    if let Some(thumbnail_output) = node.operator.outputs().keys().next() {
-                        traversal.push(Instruction::Thumbnail(res.node_socket(thumbnail_output)));
+                    if !final_usage.contains_key(&res) || mode == LinearizationMode::FullTraversal {
+                        match &node.operator {
+                            Operator::AtomicOperator(op) => {
+                                traversal.push(Instruction::Execute(res.clone(), op.to_owned()));
+                            }
+                            Operator::ComplexOperator(op) => {
+                                for (socket, (_, input)) in op.inputs.iter() {
+                                    traversal.push(Instruction::Copy(
+                                        res.node_socket(socket),
+                                        input.node_socket("data"),
+                                    ))
+                                }
+                                traversal.push(Instruction::Call(res.clone(), op.to_owned()));
+                                for (socket, (_, output)) in op.outputs.iter() {
+                                    traversal.push(Instruction::Copy(
+                                        output.node_socket("data"),
+                                        res.node_socket(socket),
+                                    ))
+                                }
+                            }
+                        }
+
+                        if let Some(thumbnail_output) = node.operator.outputs().keys().next() {
+                            traversal
+                                .push(Instruction::Thumbnail(res.node_socket(thumbnail_output)));
+                        }
                     }
 
                     if let Some(((source, sink), idx)) = l {
                         let to_node = self.node_resource(&idx);
                         let from = res.node_socket(&source);
                         let to = to_node.node_socket(&sink);
+                        final_usage.insert(res, step);
                         traversal.push(Instruction::Move(from, to));
                     }
                 }
             }
         }
+
+        dbg!(final_usage);
 
         Some(traversal)
     }

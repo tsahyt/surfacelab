@@ -248,7 +248,7 @@ impl NodeManager {
 
                         // Creating a new complex operator representing this graph
                         let operator = graph.complex_operator_stub();
-                        let instructions = graph.linearize();
+                        let instructions = graph.linearize(nodegraph::LinearizationMode::TopoSort);
 
                         self.graphs.insert(new_name.to_string(), graph);
                         response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphRenamed(
@@ -405,7 +405,8 @@ impl NodeManager {
             let updated = graph.update_complex_operators(&changed_graph, &op_stub);
 
             if !updated.is_empty() {
-                if let Some(instructions) = graph.linearize() {
+                if let Some(instructions) = graph.linearize(nodegraph::LinearizationMode::TopoSort)
+                {
                     response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                         graph.graph_resource(),
                         instructions,
@@ -436,7 +437,7 @@ impl NodeManager {
         self.graphs
             .get(graph.path_str().unwrap())
             .unwrap()
-            .linearize()
+            .linearize(nodegraph::LinearizationMode::TopoSort)
             .map(|instructions| {
                 lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(graph.clone(), instructions))
             })
