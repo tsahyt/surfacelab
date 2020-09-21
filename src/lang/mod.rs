@@ -152,6 +152,15 @@ pub enum Instruction {
     Thumbnail(Resource<Socket>),
 }
 
+impl Instruction {
+    pub fn is_execution_step(&self) -> bool {
+        match self {
+            Self::Execute(..) | Self::Call(..) => true,
+            _ => false
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(
     AsBytes,

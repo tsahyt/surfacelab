@@ -64,11 +64,15 @@ where
 {
     /// Reinitialize the GPU image with a (possibly new) size. This will also
     /// force the image on the next evaluation.
-    fn reinit_image(&mut self, gpu: &gpu::compute::GPUCompute<B>, size: u32) {
+    pub fn reinit_image(&mut self, gpu: &gpu::compute::GPUCompute<B>, size: u32) {
         self.image = gpu
             .create_compute_image(size, self.ty, self.transfer_dst)
             .unwrap();
         self.force = true;
+    }
+
+    pub fn free_image(&mut self, gpu: &gpu::compute::GPUCompute<B>) {
+        self.image.free_memory(gpu);
     }
 }
 
@@ -230,6 +234,20 @@ where
             .get_mut(&res.socket_node())
             .expect("Trying to remove image from unknown resource");
         sockets.typed_outputs.remove(res.fragment().unwrap());
+    }
+
+    pub fn free_images_for_node(
+        &mut self,
+        node: &Resource<Node>,
+        gpu: &mut gpu::compute::GPUCompute<B>,
+    ) {
+        let sockets = self
+            .0
+            .get_mut(node)
+            .expect("Trying to free images from unknown node");
+        for out in sockets.typed_outputs.values_mut() {
+            out.free_image(gpu)
+        }
     }
 
     pub fn reinit_output_images(
@@ -636,11 +654,14 @@ where
                 .or_insert_with(|| vec![s]);
         }
 
+        let mut step = 0;
         for i in instrs.iter() {
+            if i.is_execution_step() { step += 1; }
+
             match self.interpret(i, &substitutions_map) {
                 Ok(mut r) => response.append(&mut r),
                 Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
-                    self.cleanup(&last_known);
+                    self.cleanup(step, &last_known);
                     match self.interpret(i, &substitutions_map) {
                         Ok(mut r) => response.append(&mut r),
                         e => return e,
@@ -653,8 +674,19 @@ where
         Ok(response)
     }
 
-    fn cleanup(&mut self, last_known: &[(Resource<Node>, usize)]) {
-        log::debug!("Compute Image cleanup triggered")
+    fn cleanup(&mut self, step: usize, last_known: &[(Resource<Node>, usize)]) {
+        log::debug!("Compute Image cleanup triggered");
+
+        dbg!(last_known, step);
+
+        let cleanable = last_known
+            .iter()
+            .filter_map(|(r, l)| if *l < step { Some(r) } else { None });
+
+        for node in cleanable {
+            log::trace!("Releasing memory of {}", node);
+            self.sockets.free_images_for_node(node, &mut self.gpu);
+        }
     }
 
     fn interpret(
