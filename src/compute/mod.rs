@@ -638,7 +638,7 @@ where
     {
         self.seq += 1;
         // FIXME: This clone is wholly unnecessary, but is required to make the borrow checker happy.
-        let (instrs, last_known) = self
+        let (instrs, final_use) = self
             .linearizations
             .get(graph)
             .expect("Unknown graph")
@@ -661,7 +661,7 @@ where
             match self.interpret(i, &substitutions_map) {
                 Ok(mut r) => response.append(&mut r),
                 Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
-                    self.cleanup(step, &last_known);
+                    self.cleanup(step, &final_use);
                     match self.interpret(i, &substitutions_map) {
                         Ok(mut r) => response.append(&mut r),
                         e => return e,
@@ -674,12 +674,12 @@ where
         Ok(response)
     }
 
-    fn cleanup(&mut self, step: usize, last_known: &[(Resource<Node>, usize)]) {
+    fn cleanup(&mut self, step: usize, final_use: &[(Resource<Node>, usize)]) {
         log::debug!("Compute Image cleanup triggered");
 
-        dbg!(last_known, step);
+        dbg!(final_use, step);
 
-        let cleanable = last_known
+        let cleanable = final_use
             .iter()
             .filter_map(|(r, l)| if *l < step { Some(r) } else { None });
 
