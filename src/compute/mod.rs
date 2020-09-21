@@ -399,6 +399,36 @@ where
     }
 }
 
+#[derive(Debug)]
+pub enum InterpretationError {
+    /// An error occurred regarding GPU Compute Images
+    ImageError(gpu::compute::ImageError),
+    /// An error occurred during uploading of an image
+    UploadError(gpu::compute::UploadError),
+    /// An error occured during pipeline execution,
+    PipelineError(gpu::compute::PipelineError),
+    /// Failed to read external image
+    ExternalImageRead,
+}
+
+impl From<gpu::compute::ImageError> for InterpretationError {
+    fn from(e: gpu::compute::ImageError) -> Self {
+        InterpretationError::ImageError(e)
+    }
+}
+
+impl From<gpu::compute::UploadError> for InterpretationError {
+    fn from(e: gpu::compute::UploadError) -> Self {
+        InterpretationError::UploadError(e)
+    }
+}
+
+impl From<gpu::compute::PipelineError> for InterpretationError {
+    fn from(e: gpu::compute::PipelineError) -> Self {
+        InterpretationError::PipelineError(e)
+    }
+}
+
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
 
@@ -505,7 +535,7 @@ where
                 GraphEvent::Recompute(graph) => {
                     match self.interpret_linearization(graph, std::iter::empty()) {
                         Err(e) => {
-                            log::error!("Error during compute interpretation: {}", e);
+                            log::error!("Error during compute interpretation: {:?}", e);
                             log::error!("Aborting compute!");
                         }
                         Ok(r) => {
@@ -584,7 +614,7 @@ where
         &mut self,
         graph: &Resource<Graph>,
         substitutions: I,
-    ) -> Result<Vec<ComputeEvent>, String>
+    ) -> Result<Vec<ComputeEvent>, InterpretationError>
     where
         I: Iterator<Item = &'a ParamSubstitution>,
     {
@@ -593,7 +623,7 @@ where
         let (instrs, last_known) = self
             .linearizations
             .get(graph)
-            .ok_or_else(|| "Unknown graph")?
+            .expect("Unknown graph")
             .clone();
         let mut response = Vec::new();
 
@@ -618,7 +648,7 @@ where
         &mut self,
         instr: &Instruction,
         substitutions: &HashMap<Resource<Node>, Vec<&ParamSubstitution>>,
-    ) -> Result<Vec<ComputeEvent>, String> {
+    ) -> Result<Vec<ComputeEvent>, InterpretationError> {
         let mut response = Vec::new();
 
         match instr {
@@ -644,7 +674,7 @@ where
                         self.execute_input(res)?;
                     }
                     AtomicOperator::Output(output) => {
-                        for res in self.execute_output(&output, res)? {
+                        for res in self.execute_output(&output, res) {
                             response.push(res);
                         }
                     }
@@ -718,7 +748,11 @@ where
     /// This will recurse into the subgraph, interpret its entire linearization,
     /// and then ensure that all output sockets of the complex operator are
     /// backed by GPU images to make them ready for copying.
-    fn execute_call(&mut self, res: &Resource<Node>, op: &ComplexOperator) -> Result<(), String> {
+    fn execute_call(
+        &mut self,
+        res: &Resource<Node>,
+        op: &ComplexOperator,
+    ) -> Result<(), InterpretationError> {
         log::trace!("Calling complex operator of {}", res);
         self.interpret_linearization(&op.graph, op.parameters.values())?;
 
@@ -727,8 +761,7 @@ where
             self.sockets
                 .get_output_image_mut(&socket_res)
                 .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
-                .ensure_alloc(&self.gpu)
-                .map_err(|e| format!("{:?}", e))?;
+                .ensure_alloc(&self.gpu)?;
         }
 
         Ok(())
@@ -743,14 +776,13 @@ where
         &mut self,
         from: &Resource<Socket>,
         to: &Resource<Socket>,
-    ) -> Result<(), String> {
+    ) -> Result<(), InterpretationError> {
         log::trace!("Executing copy from {} to {}", from, to);
 
         self.sockets
             .get_output_image_mut(to)
             .expect("Unable to find source image for copy")
-            .ensure_alloc(&self.gpu)
-            .map_err(|e| format!("{:?}", e))?;
+            .ensure_alloc(&self.gpu)?;
 
         let from_image = self
             .sockets
@@ -774,7 +806,7 @@ where
         res: &Resource<Node>,
         path: &std::path::PathBuf,
         color_space: ColorSpace,
-    ) -> Result<(), String> {
+    ) -> Result<(), InterpretationError> {
         log::trace!("Processing Image operator {}", res);
 
         let parameter_hash = {
@@ -817,12 +849,8 @@ where
             })
         {
             log::trace!("Uploading image to GPU");
-            image
-                .ensure_alloc(&self.gpu)
-                .map_err(|e| format!("{:?}", e))?;
-            self.gpu
-                .upload_image(&image, &external_image.buffer)
-                .map_err(|e| format!("{:?}", e))?;
+            image.ensure_alloc(&self.gpu)?;
+            self.gpu.upload_image(&image, &external_image.buffer)?;
             self.last_known.insert(res.clone(), parameter_hash);
             self.sockets.set_output_image_updated(res, self.seq);
             self.sockets
@@ -832,18 +860,17 @@ where
         } else {
             self.sockets
                 .update_timing_data(res, start_time.elapsed().as_secs_f64());
-            Err("Failed to read external image".to_string())
+            Err(InterpretationError::ExternalImageRead)
         }
     }
 
-    fn execute_input(&mut self, res: &Resource<Node>) -> Result<(), String> {
+    fn execute_input(&mut self, res: &Resource<Node>) -> Result<(), InterpretationError> {
         let start_time = Instant::now();
         let socket_res = res.node_socket("data");
         self.sockets
             .get_output_image_mut(&socket_res)
             .expect("Missing output image on input socket")
-            .ensure_alloc(&self.gpu)
-            .map_err(|e| format!("{:?}", e))?;
+            .ensure_alloc(&self.gpu)?;
         self.sockets
             .update_timing_data(res, start_time.elapsed().as_secs_f64());
 
@@ -852,11 +879,7 @@ where
 
     // NOTE: Images sent as OutputReady could technically get dropped before the
     // renderer is done copying them.
-    fn execute_output(
-        &mut self,
-        op: &Output,
-        res: &Resource<Node>,
-    ) -> Result<Vec<ComputeEvent>, String> {
+    fn execute_output(&mut self, op: &Output, res: &Resource<Node>) -> Vec<ComputeEvent> {
         let output_type = op.output_type;
         let socket_res = res.node_socket("data");
 
@@ -906,7 +929,7 @@ where
         }
         result.push(ComputeEvent::ThumbnailUpdated(res.clone()));
 
-        Ok(result)
+        result
     }
 
     fn export_to_rgba<P: AsRef<Path>>(&mut self, spec: [ChannelSpec; 4], size: u32, path: P) {
@@ -1004,7 +1027,7 @@ where
         &mut self,
         op: &AtomicOperator,
         res: &Resource<Node>,
-    ) -> Result<(), String> {
+    ) -> Result<(), InterpretationError> {
         use shaders::Uniforms;
 
         log::trace!("Executing operator {:?} of {}", op, res);
@@ -1015,8 +1038,7 @@ where
             self.sockets
                 .get_output_image_mut(&socket_res)
                 .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
-                .ensure_alloc(&self.gpu)
-                .map_err(|e| format!("{:?}", e))?;
+                .ensure_alloc(&self.gpu)?;
         }
 
         // In debug builds, ensure that all input images exist and are backed
@@ -1082,9 +1104,7 @@ where
             &outputs,
         );
 
-        self.gpu
-            .fill_uniforms(uniforms)
-            .map_err(|e| format!("{:?}", e))?;
+        self.gpu.fill_uniforms(uniforms)?;
         self.gpu.write_descriptor_sets(descriptors);
         self.gpu.run_pipeline(
             self.sockets.get_image_size(res),
