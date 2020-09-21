@@ -406,12 +406,13 @@ impl NodeManager {
             let updated = graph.update_complex_operators(&changed_graph, &op_stub);
 
             if !updated.is_empty() {
-                if let Some((instructions, last_use)) = graph.linearize(nodegraph::LinearizationMode::TopoSort)
+                if let Some((instructions, last_use)) =
+                    graph.linearize(nodegraph::LinearizationMode::TopoSort)
                 {
                     response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                         graph.graph_resource(),
                         instructions,
-                        last_use
+                        last_use,
                     )));
                 }
             }
@@ -441,7 +442,11 @@ impl NodeManager {
             .unwrap()
             .linearize(nodegraph::LinearizationMode::TopoSort)
             .map(|(instructions, last_use)| {
-                lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(graph.clone(), instructions, last_use))
+                lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
+                    graph.clone(),
+                    instructions,
+                    last_use,
+                ))
             })
     }
 }

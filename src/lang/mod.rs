@@ -276,7 +276,11 @@ pub enum GraphEvent {
     ComplexOperatorUpdated(Resource<Node>, ComplexOperator, ParamBoxDescription<Field>),
     ConnectedSockets(Resource<Socket>, Resource<Socket>),
     DisconnectedSockets(Resource<Socket>, Resource<Socket>),
-    Relinearized(Resource<Graph>, Vec<Instruction>, Vec<(Resource<Node>, usize)>),
+    Relinearized(
+        Resource<Graph>,
+        Vec<Instruction>,
+        Vec<(Resource<Node>, usize)>,
+    ),
     Recompute(Resource<Graph>),
     SocketMonomorphized(Resource<Socket>, ImageType),
     SocketDemonomorphized(Resource<Socket>),
