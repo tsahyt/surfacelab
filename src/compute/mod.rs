@@ -637,11 +637,24 @@ where
         }
 
         for i in instrs.iter() {
-            let mut r = self.interpret(i, &substitutions_map)?;
-            response.append(&mut r);
+            match self.interpret(i, &substitutions_map) {
+                Ok(mut r) => response.append(&mut r),
+                Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
+                    self.cleanup(&last_known);
+                    match self.interpret(i, &substitutions_map) {
+                        Ok(mut r) => response.append(&mut r),
+                        e => return e,
+                    }
+                }
+                e => return e,
+            }
         }
 
         Ok(response)
+    }
+
+    fn cleanup(&mut self, last_known: &[(Resource<Node>, usize)]) {
+        log::debug!("Compute Image cleanup triggered")
     }
 
     fn interpret(
