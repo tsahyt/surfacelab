@@ -25,6 +25,6 @@ fn main() {
             compute_thread.join().unwrap();
             render_thread.join().unwrap();
         }
-        Err(err) => log::error!("{}", err),
+        Err(err) => log::error!("{:?}", err),
     }
 }

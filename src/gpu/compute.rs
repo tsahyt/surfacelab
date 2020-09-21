@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 // TODO: Compute image cache eviction
 
-use super::{Backend, Shader, ShaderType, GPU};
+use super::{Backend, Shader, ShaderType, GPU, InitializationError};
 
 pub struct GPUCompute<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
@@ -42,16 +42,6 @@ type AllocId = u32;
 struct Chunk {
     offset: u64,
     alloc: Option<AllocId>,
-}
-
-#[derive(Debug)]
-pub enum InitializationError {
-    /// Failed to acquire a resource during initialization
-    ResourceAcquisition(&'static str),
-    /// Failed to allocate memory
-    Allocation(&'static str),
-    /// Failed to bind memory to a resource
-    Bind,
 }
 
 #[derive(Debug)]
@@ -287,9 +277,9 @@ where
     pub fn create_shader(&self, spirv: &[u8]) -> Result<Shader<B>, PipelineError> {
         let lock = self.gpu.lock().unwrap();
         let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
-            .map_err(|e| PipelineError::ShaderSPIRV)?;
+            .map_err(|_| PipelineError::ShaderSPIRV)?;
         let shader = unsafe { lock.device.create_shader_module(&loaded_spirv) }
-            .map_err(|e| PipelineError::ShaderModule)?;
+            .map_err(|_| PipelineError::ShaderModule)?;
         Ok(Shader {
             raw: ManuallyDrop::new(shader),
             ty: ShaderType::Compute,
@@ -415,7 +405,7 @@ where
                         size: Some(Self::UNIFORM_BUFFER_SIZE),
                     },
                 )
-                .map_err(|e| PipelineError::UniformMapping)?;
+                .map_err(|_| PipelineError::UniformMapping)?;
             std::ptr::copy_nonoverlapping(
                 uniforms.as_ptr() as *const u8,
                 mapping,
@@ -650,7 +640,7 @@ where
                         size: Some(bytes),
                     },
                 )
-                .map_err(|e| DownloadError::Map)?;
+                .map_err(|_| DownloadError::Map)?;
             let slice = std::slice::from_raw_parts::<u8>(mapping as *const u8, bytes as usize);
             let owned = slice.to_owned();
             lock.device.unmap_memory(&mem);

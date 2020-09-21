@@ -61,15 +61,26 @@ where
     }
 }
 
+#[derive(Debug)]
+pub enum InitializationError {
+    /// Failed to acquire a resource during initialization
+    ResourceAcquisition(&'static str),
+    /// Failed to allocate memory
+    Allocation(&'static str),
+    /// Failed to bind memory to a resource
+    Bind,
+    MissingFeature(&'static str),
+}
+
 /// Initialize the GPU, optionally headless. When headless is specified,
 /// no graphics capable family is required.
 ///
 /// TODO: Late creation of GPU to check for surface compatibility when not running headless
-pub fn initialize_gpu(headless: bool) -> Result<Arc<Mutex<GPU<back::Backend>>>, String> {
+pub fn initialize_gpu(headless: bool) -> Result<Arc<Mutex<GPU<back::Backend>>>, InitializationError> {
     log::info!("Initializing GPU");
 
     let instance = back::Instance::create("surfacelab", 1)
-        .map_err(|e| format!("Failed to create an instance! {:?}", e))?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Instance"))?;
     let adapter = instance
         .enumerate_adapters()
         .into_iter()
@@ -80,12 +91,12 @@ pub fn initialize_gpu(headless: bool) -> Result<Arc<Mutex<GPU<back::Backend>>>, 
             })
         })
         .ok_or(if headless {
-            "Failed to find a GPU with compute support"
+            InitializationError::MissingFeature("Compute")
         } else {
-            "Failed to find a GPU with compute and graphics support!"
+            InitializationError::MissingFeature("Graphics")
         })?;
 
-    let gpu = GPU::new(instance, adapter, headless)?;
+    let gpu = GPU::new(instance, adapter, headless);
     Ok(Arc::new(Mutex::new(gpu)))
 }
 
@@ -97,7 +108,7 @@ where
         instance: B::Instance,
         adapter: hal::adapter::Adapter<B>,
         headless: bool,
-    ) -> Result<Self, String> {
+    ) -> Self {
         log::debug!("Using adapter {:?}", adapter);
 
         let memory_properties = adapter.physical_device.memory_properties();
@@ -124,13 +135,13 @@ where
         let queue_group = gpu.queue_groups.pop().unwrap();
         let device = gpu.device;
 
-        Ok(GPU {
+        GPU {
             instance,
             device,
             queue_group,
             adapter,
             memory_properties,
-        })
+        }
     }
 }
 
