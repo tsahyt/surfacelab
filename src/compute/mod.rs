@@ -16,7 +16,7 @@ pub fn start_compute_thread<B: gpu::Backend>(
     let (sender, receiver, disconnector) = broker.subscribe();
     match gpu::compute::GPUCompute::new(gpu) {
         Err(e) => {
-            log::error!("Failed to initialize GPU Compute: {}", e);
+            log::error!("Failed to initialize GPU Compute: {:?}", e);
             panic!("Critical Error");
         }
         Ok(gpu) => thread::Builder::new()
@@ -499,7 +499,8 @@ where
                     }
                 }
                 GraphEvent::Relinearized(graph, instrs, last_use) => {
-                    self.linearizations.insert(graph.clone(), (instrs.clone(), last_use.clone()));
+                    self.linearizations
+                        .insert(graph.clone(), (instrs.clone(), last_use.clone()));
                 }
                 GraphEvent::Recompute(graph) => {
                     match self.interpret_linearization(graph, std::iter::empty()) {
@@ -659,7 +660,7 @@ where
                 self.execute_copy(from, to)?;
             }
             Instruction::Thumbnail(socket) => {
-                let mut r = self.execute_thumbnail(socket)?;
+                let mut r = self.execute_thumbnail(socket);
                 response.append(&mut r);
             }
         }
@@ -674,10 +675,7 @@ where
     ///
     /// The thumbnail generation will only happen if the output socket has been
     /// updated in the current seq step.
-    fn execute_thumbnail(
-        &mut self,
-        socket: &Resource<Socket>,
-    ) -> Result<Vec<ComputeEvent>, String> {
+    fn execute_thumbnail(&mut self, socket: &Resource<Socket>) -> Vec<ComputeEvent> {
         let node = socket.socket_node();
         let mut response = Vec::new();
         let updated = self
@@ -698,7 +696,7 @@ where
                 .sockets
                 .get_output_image(socket)
                 .expect("Missing output image for socket");
-            self.gpu.generate_thumbnail(image, thumbnail)?;
+            self.gpu.generate_thumbnail(image, thumbnail);
             if new {
                 response.push(ComputeEvent::ThumbnailCreated(
                     node.clone(),
@@ -712,7 +710,7 @@ where
         } else {
             log::trace!("Skipping thumbnail generation");
         }
-        Ok(response)
+        response
     }
 
     /// Execute a call instruction.
@@ -729,7 +727,8 @@ where
             self.sockets
                 .get_output_image_mut(&socket_res)
                 .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
-                .ensure_alloc(&self.gpu)?;
+                .ensure_alloc(&self.gpu)
+                .map_err(|e| format!("{:?}", e))?;
         }
 
         Ok(())
@@ -750,7 +749,8 @@ where
         self.sockets
             .get_output_image_mut(to)
             .expect("Unable to find source image for copy")
-            .ensure_alloc(&self.gpu)?;
+            .ensure_alloc(&self.gpu)
+            .map_err(|e| format!("{:?}", e))?;
 
         let from_image = self
             .sockets
@@ -762,7 +762,7 @@ where
             .get_output_image(to)
             .expect("Unable to find source image for copy");
 
-        self.gpu.copy_image(from_image, to_image)?;
+        self.gpu.copy_image(from_image, to_image);
         self.sockets
             .set_output_image_updated(&to.socket_node(), self.seq);
 
@@ -817,8 +817,12 @@ where
             })
         {
             log::trace!("Uploading image to GPU");
-            image.ensure_alloc(&self.gpu)?;
-            self.gpu.upload_image(&image, &external_image.buffer)?;
+            image
+                .ensure_alloc(&self.gpu)
+                .map_err(|e| format!("{:?}", e))?;
+            self.gpu
+                .upload_image(&image, &external_image.buffer)
+                .map_err(|e| format!("{:?}", e))?;
             self.last_known.insert(res.clone(), parameter_hash);
             self.sockets.set_output_image_updated(res, self.seq);
             self.sockets
@@ -838,7 +842,8 @@ where
         self.sockets
             .get_output_image_mut(&socket_res)
             .expect("Missing output image on input socket")
-            .ensure_alloc(&self.gpu)?;
+            .ensure_alloc(&self.gpu)
+            .map_err(|e| format!("{:?}", e))?;
         self.sockets
             .update_timing_data(res, start_time.elapsed().as_secs_f64());
 
@@ -873,7 +878,7 @@ where
             .ensure_node_thumbnail_exists(&res, ty, &mut self.gpu);
         let image = self.sockets.get_input_image(&socket_res).unwrap();
         let thumbnail = self.sockets.get_thumbnail(&res).unwrap();
-        self.gpu.generate_thumbnail(image, thumbnail)?;
+        self.gpu.generate_thumbnail(image, thumbnail);
 
         let mut result = vec![ComputeEvent::OutputReady(
             res.clone(),
@@ -1010,7 +1015,8 @@ where
             self.sockets
                 .get_output_image_mut(&socket_res)
                 .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
-                .ensure_alloc(&self.gpu)?;
+                .ensure_alloc(&self.gpu)
+                .map_err(|e| format!("{:?}", e))?;
         }
 
         // In debug builds, ensure that all input images exist and are backed
@@ -1076,7 +1082,9 @@ where
             &outputs,
         );
 
-        self.gpu.fill_uniforms(uniforms)?;
+        self.gpu
+            .fill_uniforms(uniforms)
+            .map_err(|e| format!("{:?}", e))?;
         self.gpu.write_descriptor_sets(descriptors);
         self.gpu.run_pipeline(
             self.sockets.get_image_size(res),

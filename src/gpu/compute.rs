@@ -44,6 +44,74 @@ struct Chunk {
     alloc: Option<AllocId>,
 }
 
+#[derive(Debug)]
+pub enum InitializationError {
+    /// Failed to acquire a resource during initialization
+    ResourceAcquisition(&'static str),
+    /// Failed to allocate memory
+    Allocation(&'static str),
+    /// Failed to bind memory to a resource
+    Bind,
+}
+
+#[derive(Debug)]
+pub enum PipelineError {
+    /// Failed to read shader SPIR-V
+    ShaderSPIRV,
+    /// Failed to build shader module
+    ShaderModule,
+    /// Failed to map Uniform Buffer into CPU space
+    UniformMapping,
+    /// Errors during downloading of images
+    DownloadError(DownloadError),
+    /// Errors during uploading of images
+    UploadError(UploadError),
+}
+
+#[derive(Debug)]
+pub enum DownloadError {
+    /// Failed to create download buffer
+    Creation,
+    /// Failed to allocate memory for download buffer
+    Allocation,
+    /// Failed to bind memory for download buffer
+    BufferBind,
+    /// Failed to map download buffer into CPU space
+    Map,
+}
+
+impl From<DownloadError> for PipelineError {
+    fn from(e: DownloadError) -> Self {
+        Self::DownloadError(e)
+    }
+}
+
+#[derive(Debug)]
+pub enum UploadError {
+    /// Failed to create upload buffer
+    Creation,
+    /// Failed to allocate memory for upload buffer
+    Allocation,
+    /// Failed to bind memory for upload buffer
+    BufferBind,
+}
+
+impl From<UploadError> for PipelineError {
+    fn from(e: UploadError) -> Self {
+        Self::UploadError(e)
+    }
+}
+
+#[derive(Debug)]
+pub enum ImageError {
+    /// Failed to bind image to memory
+    Bind,
+    /// Failed to create an image view
+    ViewCreation,
+    /// Failed to find free memory for image
+    OutOfMemory,
+}
+
 impl<B> GPUCompute<B>
 where
     B: Backend,
@@ -55,7 +123,7 @@ where
     const N_CHUNKS: u64 = Self::IMAGE_MEMORY_SIZE / Self::CHUNK_SIZE;
 
     /// Create a new GPUCompute instance.
-    pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, String> {
+    pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, InitializationError> {
         log::info!("Obtaining GPU Compute Resources");
 
         // Thumbnail Data. Produce this first before we lock the GPU for the
@@ -70,7 +138,7 @@ where
                 hal::pool::CommandPoolCreateFlags::empty(),
             )
         }
-        .map_err(|_| "Cannot create command pool!")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Command Pool"))?;
 
         // The uniform buffer is created once and shared across all compute
         // shaders, since only one is ever running at the same time. The size
@@ -83,7 +151,7 @@ where
                     Self::UNIFORM_BUFFER_SIZE,
                     hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM,
                 )
-                .map_err(|_| "Cannot create compute uniform buffer")?;
+                .map_err(|_| InitializationError::ResourceAcquisition("Uniform Buffer"))?;
             let buffer_req = lock.device.get_buffer_requirements(&buf);
             let upload_type = lock
                 .memory_properties
@@ -106,10 +174,10 @@ where
             let mem = lock
                 .device
                 .allocate_memory(upload_type, Self::UNIFORM_BUFFER_SIZE)
-                .map_err(|_| "Failed to allocate device memory for compute uniform buffer")?;
+                .map_err(|_| InitializationError::Allocation("Uniform Buffer"))?;
             lock.device
                 .bind_buffer_memory(&mem, 0, &mut buf)
-                .map_err(|_| "Failed to bind compute uniform buffer to memory")?;
+                .map_err(|_| InitializationError::Bind)?;
             (buf, mem)
         };
 
@@ -130,7 +198,7 @@ where
                 .into();
             lock.device
                 .allocate_memory(memory_type, Self::IMAGE_MEMORY_SIZE)
-                .map_err(|_| "Failed to allocate memory region for compute images")?
+                .map_err(|_| InitializationError::Allocation("Image Memory"))?
         };
 
         // Descriptor Pool. We need to set out resource limits here. Since we
@@ -174,7 +242,7 @@ where
                 DescriptorPoolCreateFlags::empty(),
             )
         }
-        .map_err(|_| "Failed to create descriptor pool")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Descriptor Pool"))?;
 
         let fence = ManuallyDrop::new(lock.device.create_fence(false).unwrap());
 
@@ -185,7 +253,7 @@ where
                 hal::image::WrapMode::Tile,
             ))
         }
-        .map_err(|_| "Failed to create sampler")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Sampler"))?;
 
         Ok(GPUCompute {
             gpu: gpu.clone(),
@@ -216,12 +284,12 @@ where
     /// Build a new compute shader given raw SPIR-V. The resulting shader will
     /// destroy itself when dropped. The parent GPU can not be dropped before
     /// all its shaders are dropped!
-    pub fn create_shader(&self, spirv: &[u8]) -> Result<Shader<B>, String> {
+    pub fn create_shader(&self, spirv: &[u8]) -> Result<Shader<B>, PipelineError> {
         let lock = self.gpu.lock().unwrap();
         let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
-            .map_err(|e| format!("Failed to load SPIR-V: {}", e))?;
+            .map_err(|e| PipelineError::ShaderSPIRV)?;
         let shader = unsafe { lock.device.create_shader_module(&loaded_spirv) }
-            .map_err(|e| format!("Failed to build shader module: {}", e))?;
+            .map_err(|e| PipelineError::ShaderModule)?;
         Ok(Shader {
             raw: ManuallyDrop::new(shader),
             ty: ShaderType::Compute,
@@ -234,7 +302,7 @@ where
         size: u32,
         ty: lang::ImageType,
         transfer_dst: bool,
-    ) -> Result<Image<B>, String> {
+    ) -> Result<Image<B>, InitializationError> {
         let lock = self.gpu.lock().unwrap();
 
         // Determine formats and sizes
@@ -268,7 +336,7 @@ where
                 hal::image::ViewCapabilities::empty(),
             )
         }
-        .map_err(|_| "Failed to create compute image")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Compute Image"))?;
 
         Ok(Image {
             parent: self,
@@ -332,7 +400,7 @@ where
 
     /// Fill the uniform buffer with the given data. The data *must* fit into
     /// UNIFORM_BUFFER_SIZE.
-    pub fn fill_uniforms(&self, uniforms: &[u8]) -> Result<(), String> {
+    pub fn fill_uniforms(&self, uniforms: &[u8]) -> Result<(), PipelineError> {
         debug_assert!(uniforms.len() <= Self::UNIFORM_BUFFER_SIZE as usize);
 
         let lock = self.gpu.lock().unwrap();
@@ -347,9 +415,7 @@ where
                         size: Some(Self::UNIFORM_BUFFER_SIZE),
                     },
                 )
-                .map_err(|e| {
-                    format!("Failed to map uniform buffer into CPU address space: {}", e)
-                })?;
+                .map_err(|e| PipelineError::UniformMapping)?;
             std::ptr::copy_nonoverlapping(
                 uniforms.as_ptr() as *const u8,
                 mapping,
@@ -366,7 +432,7 @@ where
         &self,
         shader: &Shader<B>,
         bindings: I,
-    ) -> Result<ComputePipeline<B>, String>
+    ) -> Result<ComputePipeline<B>, InitializationError>
     where
         I: IntoIterator,
         I::Item: Borrow<hal::pso::DescriptorSetLayoutBinding>,
@@ -375,9 +441,9 @@ where
 
         // Layouts
         let set_layout = unsafe { lock.device.create_descriptor_set_layout(bindings, &[]) }
-            .map_err(|_| "Failed to create descriptor set layout")?;
+            .map_err(|_| InitializationError::ResourceAcquisition("Descriptor Set Layout"))?;
         let pipeline_layout = unsafe { lock.device.create_pipeline_layout(Some(&set_layout), &[]) }
-            .map_err(|_| "Failed to create pipeline layout")?;
+            .map_err(|_| InitializationError::ResourceAcquisition("Pipeline Layout"))?;
 
         let entry_point = hal::pso::EntryPoint {
             entry: "main",
@@ -392,7 +458,7 @@ where
                 None,
             )
         }
-        .map_err(|_| "Failed to create pipeline")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Pipeline"))?;
 
         Ok(ComputePipeline {
             raw: pipeline,
@@ -489,7 +555,7 @@ where
 
     /// Download a raw image from the GPU by copying it into a temporary CPU
     /// visible buffer.
-    pub fn download_image(&mut self, image: &Image<B>) -> Result<Vec<u8>, String> {
+    pub fn download_image(&mut self, image: &Image<B>) -> Result<Vec<u8>, DownloadError> {
         let mut lock = self.gpu.lock().unwrap();
         let bytes = (image.size * image.size * image.px_width as u32) as u64;
 
@@ -499,7 +565,7 @@ where
             lock.device
                 .create_buffer(bytes, hal::buffer::Usage::TRANSFER_DST)
         }
-        .map_err(|_| "Cannot create download buffer")?;
+        .map_err(|_| DownloadError::Creation)?;
 
         let buf_req = unsafe { lock.device.get_buffer_requirements(&buf) };
         let mem_type = lock
@@ -516,12 +582,12 @@ where
             .unwrap()
             .into();
         let mem = unsafe { lock.device.allocate_memory(mem_type, bytes) }
-            .map_err(|_| "Failed to allocate device memory for download buffer")?;
+            .map_err(|_| DownloadError::Allocation)?;
 
         unsafe {
             lock.device
                 .bind_buffer_memory(&mem, 0, &mut buf)
-                .map_err(|_| "Failed to bind download buffer to memory")?
+                .map_err(|_| DownloadError::BufferBind)?
         };
 
         // Reset fence
@@ -584,12 +650,7 @@ where
                         size: Some(bytes),
                     },
                 )
-                .map_err(|e| {
-                    format!(
-                        "Failed to map download buffer into CPU address space: {}",
-                        e
-                    )
-                })?;
+                .map_err(|e| DownloadError::Map)?;
             let slice = std::slice::from_raw_parts::<u8>(mapping as *const u8, bytes as usize);
             let owned = slice.to_owned();
             lock.device.unmap_memory(&mem);
@@ -606,7 +667,7 @@ where
     }
 
     /// Upload image. This assumes the image to be allocated!
-    pub fn upload_image(&mut self, image: &Image<B>, buffer: &[u16]) -> Result<(), String> {
+    pub fn upload_image(&mut self, image: &Image<B>, buffer: &[u16]) -> Result<(), UploadError> {
         debug_assert!(image.alloc.is_some());
         let mut lock = self.gpu.lock().unwrap();
         let bytes = (image.size * image.size * image.px_width as u32) as u64;
@@ -616,7 +677,7 @@ where
             lock.device
                 .create_buffer(bytes, hal::buffer::Usage::TRANSFER_SRC)
         }
-        .map_err(|_| "Cannot create upload buffer")?;
+        .map_err(|_| UploadError::Creation)?;
 
         let buf_req = unsafe { lock.device.get_buffer_requirements(&buf) };
         let mem_type = lock
@@ -633,12 +694,12 @@ where
             .unwrap()
             .into();
         let mem = unsafe { lock.device.allocate_memory(mem_type, bytes) }
-            .map_err(|_| "Failed to allocate device memory for upload buffer")?;
+            .map_err(|_| UploadError::Allocation)?;
 
         unsafe {
             lock.device
                 .bind_buffer_memory(&mem, 0, &mut buf)
-                .map_err(|_| "Failed to bind download buffer to memory")?
+                .map_err(|_| UploadError::BufferBind)?
         };
 
         // Upload image to staging buffer
@@ -723,7 +784,7 @@ where
     }
 
     /// Copy data between images. This assumes that both images are already allocated!
-    pub fn copy_image(&mut self, from: &Image<B>, to: &Image<B>) -> Result<(), String> {
+    pub fn copy_image(&mut self, from: &Image<B>, to: &Image<B>) {
         let mut lock = self.gpu.lock().unwrap();
 
         unsafe { lock.device.reset_fence(&self.fence).unwrap() };
@@ -795,16 +856,10 @@ where
             lock.device.wait_for_fence(&self.fence, !0).unwrap();
             self.command_pool.free(Some(cmd_buffer));
         }
-
-        Ok(())
     }
 
     /// Create a thumbnail of the given image and return it
-    pub fn generate_thumbnail(
-        &mut self,
-        image: &Image<B>,
-        thumbnail: &ThumbnailIndex,
-    ) -> Result<(), String> {
+    pub fn generate_thumbnail(&mut self, image: &Image<B>, thumbnail: &ThumbnailIndex) {
         let mut lock = self.gpu.lock().unwrap();
         unsafe { lock.device.reset_fence(&self.fence).unwrap() };
 
@@ -893,8 +948,6 @@ where
             lock.device.wait_for_fence(&self.fence, !0).unwrap();
             self.command_pool.free(Some(cmd_buffer));
         }
-
-        Ok(())
     }
 
     /// Get a new thumbnail from the cache
@@ -978,14 +1031,14 @@ impl<B> Image<B>
 where
     B: Backend,
 {
-    fn bind_memory(&mut self, offset: u64, compute: &GPUCompute<B>) -> Result<(), String> {
+    fn bind_memory(&mut self, offset: u64, compute: &GPUCompute<B>) -> Result<(), ImageError> {
         let lock = compute.gpu.lock().unwrap();
 
         unsafe {
             lock.device
                 .bind_image_memory(&compute.image_mem, offset, &mut self.raw)
         }
-        .map_err(|_| "Failed to bind Image to memory")?;
+        .map_err(|_| ImageError::Bind)?;
 
         // Create view once the image is bound
         let view = unsafe {
@@ -997,7 +1050,7 @@ where
                 super::COLOR_RANGE.clone(),
             )
         }
-        .map_err(|_| "Failed to create image view")?;
+        .map_err(|_| ImageError::ViewCreation)?;
         unsafe {
             if let Some(view) = ManuallyDrop::take(&mut self.view) {
                 lock.device.destroy_image_view(view);
@@ -1026,7 +1079,7 @@ where
     }
 
     /// Allocate fresh memory to the image from the underlying memory pool in compute.
-    pub fn allocate_memory(&mut self, compute: &GPUCompute<B>) -> Result<(), String> {
+    pub fn allocate_memory(&mut self, compute: &GPUCompute<B>) -> Result<(), ImageError> {
         debug_assert!(self.alloc.is_none());
 
         // Handle memory manager
@@ -1039,7 +1092,7 @@ where
         );
         let (offset, chunks) = compute
             .find_free_image_memory(bytes)
-            .ok_or("Unable to find free memory for image")?;
+            .ok_or(ImageError::OutOfMemory)?;
         let alloc = compute.allocate_image_memory(&chunks);
         self.alloc = Some(Alloc {
             parent: self.parent,
@@ -1075,7 +1128,7 @@ where
 
     /// Ensures that the image is backed. If no memory is currently allocated to
     /// it, new memory will be allocated. May fail if out of memory!
-    pub fn ensure_alloc(&mut self, compute: &GPUCompute<B>) -> Result<(), String> {
+    pub fn ensure_alloc(&mut self, compute: &GPUCompute<B>) -> Result<(), ImageError> {
         if self.alloc.is_none() {
             return self.allocate_memory(compute);
         }

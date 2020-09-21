@@ -179,9 +179,12 @@ where
         for op in lang::AtomicOperator::all_default() {
             log::trace!("Initializing operator {}", op.title());
             if let Some(operator_shader) = op.operator_shader() {
-                let shader: gpu::Shader<B> = gpu.create_shader(operator_shader.spirv)?;
-                let pipeline: gpu::compute::ComputePipeline<B> =
-                    gpu.create_pipeline(&shader, operator_shader.layout())?;
+                let shader: gpu::Shader<B> = gpu
+                    .create_shader(operator_shader.spirv)
+                    .map_err(|e| format!("{:?}", e))?;
+                let pipeline: gpu::compute::ComputePipeline<B> = gpu
+                    .create_pipeline(&shader, operator_shader.layout())
+                    .map_err(|e| format!("{:?}", e))?;
                 let desc_set = gpu.allocate_descriptor_set(pipeline.set_layout())?;
 
                 shaders.insert(op.default_name().to_string(), shader);
