@@ -10,7 +10,10 @@ use std::sync::{Arc, Mutex, Weak};
 
 // TODO: Compute image cache eviction
 
-use super::{Backend, Shader, ShaderType, GPU, InitializationError};
+use super::{
+    Backend, DownloadError, InitializationError, PipelineError, Shader, ShaderType, UploadError,
+    GPU,
+};
 
 pub struct GPUCompute<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
@@ -42,54 +45,6 @@ type AllocId = u32;
 struct Chunk {
     offset: u64,
     alloc: Option<AllocId>,
-}
-
-#[derive(Debug)]
-pub enum PipelineError {
-    /// Failed to read shader SPIR-V
-    ShaderSPIRV,
-    /// Failed to build shader module
-    ShaderModule,
-    /// Failed to map Uniform Buffer into CPU space
-    UniformMapping,
-    /// Errors during downloading of images
-    DownloadError(DownloadError),
-    /// Errors during uploading of images
-    UploadError(UploadError),
-}
-
-#[derive(Debug)]
-pub enum DownloadError {
-    /// Failed to create download buffer
-    Creation,
-    /// Failed to allocate memory for download buffer
-    Allocation,
-    /// Failed to bind memory for download buffer
-    BufferBind,
-    /// Failed to map download buffer into CPU space
-    Map,
-}
-
-impl From<DownloadError> for PipelineError {
-    fn from(e: DownloadError) -> Self {
-        Self::DownloadError(e)
-    }
-}
-
-#[derive(Debug)]
-pub enum UploadError {
-    /// Failed to create upload buffer
-    Creation,
-    /// Failed to allocate memory for upload buffer
-    Allocation,
-    /// Failed to bind memory for upload buffer
-    BufferBind,
-}
-
-impl From<UploadError> for PipelineError {
-    fn from(e: UploadError) -> Self {
-        Self::UploadError(e)
-    }
 }
 
 #[derive(Debug)]
@@ -274,12 +229,12 @@ where
     /// Build a new compute shader given raw SPIR-V. The resulting shader will
     /// destroy itself when dropped. The parent GPU can not be dropped before
     /// all its shaders are dropped!
-    pub fn create_shader(&self, spirv: &[u8]) -> Result<Shader<B>, PipelineError> {
+    pub fn create_shader(&self, spirv: &[u8]) -> Result<Shader<B>, InitializationError> {
         let lock = self.gpu.lock().unwrap();
         let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
-            .map_err(|_| PipelineError::ShaderSPIRV)?;
+            .map_err(|_| InitializationError::ShaderSPIRV)?;
         let shader = unsafe { lock.device.create_shader_module(&loaded_spirv) }
-            .map_err(|_| PipelineError::ShaderModule)?;
+            .map_err(|_| InitializationError::ShaderModule)?;
         Ok(Shader {
             raw: ManuallyDrop::new(shader),
             ty: ShaderType::Compute,

@@ -404,9 +404,9 @@ pub enum InterpretationError {
     /// An error occurred regarding GPU Compute Images
     ImageError(gpu::compute::ImageError),
     /// An error occurred during uploading of an image
-    UploadError(gpu::compute::UploadError),
+    UploadError(gpu::UploadError),
     /// An error occured during pipeline execution,
-    PipelineError(gpu::compute::PipelineError),
+    PipelineError(gpu::PipelineError),
     /// Failed to read external image
     ExternalImageRead,
 }
@@ -417,14 +417,14 @@ impl From<gpu::compute::ImageError> for InterpretationError {
     }
 }
 
-impl From<gpu::compute::UploadError> for InterpretationError {
-    fn from(e: gpu::compute::UploadError) -> Self {
+impl From<gpu::UploadError> for InterpretationError {
+    fn from(e: gpu::UploadError) -> Self {
         InterpretationError::UploadError(e)
     }
 }
 
-impl From<gpu::compute::PipelineError> for InterpretationError {
-    fn from(e: gpu::compute::PipelineError) -> Self {
+impl From<gpu::PipelineError> for InterpretationError {
+    fn from(e: gpu::PipelineError) -> Self {
         InterpretationError::PipelineError(e)
     }
 }

@@ -70,13 +70,63 @@ pub enum InitializationError {
     /// Failed to bind memory to a resource
     Bind,
     MissingFeature(&'static str),
+    /// Failed to read shader SPIR-V
+    ShaderSPIRV,
+    /// Failed to build shader module
+    ShaderModule,
+}
+
+#[derive(Debug)]
+pub enum PipelineError {
+    /// Failed to map Uniform Buffer into CPU space
+    UniformMapping,
+    /// Errors during downloading of images
+    DownloadError(DownloadError),
+    /// Errors during uploading of images
+    UploadError(UploadError),
+}
+
+#[derive(Debug)]
+pub enum DownloadError {
+    /// Failed to create download buffer
+    Creation,
+    /// Failed to allocate memory for download buffer
+    Allocation,
+    /// Failed to bind memory for download buffer
+    BufferBind,
+    /// Failed to map download buffer into CPU space
+    Map,
+}
+
+impl From<DownloadError> for PipelineError {
+    fn from(e: DownloadError) -> Self {
+        Self::DownloadError(e)
+    }
+}
+
+#[derive(Debug)]
+pub enum UploadError {
+    /// Failed to create upload buffer
+    Creation,
+    /// Failed to allocate memory for upload buffer
+    Allocation,
+    /// Failed to bind memory for upload buffer
+    BufferBind,
+}
+
+impl From<UploadError> for PipelineError {
+    fn from(e: UploadError) -> Self {
+        Self::UploadError(e)
+    }
 }
 
 /// Initialize the GPU, optionally headless. When headless is specified,
 /// no graphics capable family is required.
 ///
 /// TODO: Late creation of GPU to check for surface compatibility when not running headless
-pub fn initialize_gpu(headless: bool) -> Result<Arc<Mutex<GPU<back::Backend>>>, InitializationError> {
+pub fn initialize_gpu(
+    headless: bool,
+) -> Result<Arc<Mutex<GPU<back::Backend>>>, InitializationError> {
     log::info!("Initializing GPU");
 
     let instance = back::Instance::create("surfacelab", 1)
@@ -104,11 +154,7 @@ impl<B> GPU<B>
 where
     B: Backend,
 {
-    pub fn new(
-        instance: B::Instance,
-        adapter: hal::adapter::Adapter<B>,
-        headless: bool,
-    ) -> Self {
+    pub fn new(instance: B::Instance, adapter: hal::adapter::Adapter<B>, headless: bool) -> Self {
         log::debug!("Using adapter {:?}", adapter);
 
         let memory_properties = adapter.physical_device.memory_properties();

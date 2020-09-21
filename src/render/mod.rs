@@ -199,13 +199,16 @@ where
         viewport_dimensions: (u32, u32),
         ty: RendererType,
     ) -> Result<gpu::BrokerImageView, String> {
-        let mut renderer = Renderer::new(gpu::render::GPURender::new(
-            &self.gpu,
-            monitor_dimensions,
-            viewport_dimensions,
-            1024,
-            ty,
-        )?);
+        let mut renderer = Renderer::new(
+            gpu::render::GPURender::new(
+                &self.gpu,
+                monitor_dimensions,
+                viewport_dimensions,
+                1024,
+                ty,
+            )
+            .map_err(|e| format!("{:?}", e))?,
+        );
         renderer.render();
         let view = gpu::BrokerImageView::from::<B>(renderer.target_view(), renderer.alive());
         self.renderers.insert(id, renderer);
@@ -261,8 +264,7 @@ where
     ) {
         for r in self.renderers.values_mut() {
             if let Some(img) = image.to::<B>() {
-                r.transfer_image(img, layout, access, image_size, output_type)
-                    .unwrap();
+                r.transfer_image(img, layout, access, image_size, output_type);
                 r.render();
             }
         }

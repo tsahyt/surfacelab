@@ -10,7 +10,7 @@ static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../shaders/quad.spv");
 static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../shaders/renderer2d.spv");
 static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../shaders/renderer3d.spv");
 
-use super::{Backend, GPU};
+use super::{Backend, InitializationError, PipelineError, GPU};
 
 #[derive(AsBytes, Debug)]
 #[repr(C)]
@@ -121,7 +121,7 @@ where
         memory_properties: &hal::adapter::MemoryProperties,
         format: hal::format::Format,
         monitor_dimensions: (u32, u32),
-    ) -> Result<Self, String> {
+    ) -> Result<Self, InitializationError> {
         // Create Image
         let mut image = unsafe {
             device.create_image(
@@ -133,7 +133,7 @@ where
                 hal::image::ViewCapabilities::empty(),
             )
         }
-        .map_err(|_| "Failed to create render image")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Target Image"))?;
 
         // Allocate and bind memory for image
         let requirements = unsafe { device.get_image_requirements(&image) };
@@ -148,8 +148,9 @@ where
             .unwrap()
             .into();
         let memory = unsafe { device.allocate_memory(memory_type, requirements.size) }
-            .map_err(|_| "Failed to allocate memory for render image")?;
-        unsafe { device.bind_image_memory(&memory, 0, &mut image) }.unwrap();
+            .map_err(|_| InitializationError::Allocation("Render Target Image"))?;
+        unsafe { device.bind_image_memory(&memory, 0, &mut image) }
+            .map_err(|_| InitializationError::Bind)?;
 
         let view = unsafe {
             device.create_image_view(
@@ -160,7 +161,7 @@ where
                 super::COLOR_RANGE.clone(),
             )
         }
-        .map_err(|_| "Failed to create render image view")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Target Image View"))?;
 
         Ok(Self {
             image: ManuallyDrop::new(image),
@@ -248,7 +249,7 @@ where
         device: &B::Device,
         memory_properties: &hal::adapter::MemoryProperties,
         image_size: u32,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, InitializationError> {
         let mip_levels = 8;
 
         // Create Image
@@ -262,7 +263,7 @@ where
                 hal::image::ViewCapabilities::empty(),
             )
         }
-        .map_err(|_| "Failed to create render image")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Image"))?;
 
         // Allocate and bind memory for image
         let requirements = unsafe { device.get_image_requirements(&image) };
@@ -277,7 +278,7 @@ where
             .unwrap()
             .into();
         let image_memory = unsafe { device.allocate_memory(memory_type, requirements.size) }
-            .map_err(|_| "Failed to allocate memory for render image")?;
+            .map_err(|_| InitializationError::Allocation("Render Image"))?;
         unsafe { device.bind_image_memory(&image_memory, 0, &mut image) }.unwrap();
 
         let image_view = unsafe {
@@ -289,7 +290,7 @@ where
                 super::COLOR_RANGE.clone(),
             )
         }
-        .map_err(|_| "Failed to create render image view")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Image View"))?;
 
         Ok(ImageSlot {
             image: ManuallyDrop::new(image),
@@ -314,7 +315,7 @@ where
         viewport_dimensions: (u32, u32),
         image_size: u32,
         ty: crate::lang::RendererType,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, InitializationError> {
         log::info!("Obtaining GPU Render Resources");
         let lock = gpu.lock().unwrap();
 
@@ -327,7 +328,7 @@ where
                 hal::pool::CommandPoolCreateFlags::empty(),
             )
         }
-        .map_err(|_| "Can't create command pool!")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Command Pool"))?;
 
         let mut descriptor_pool = unsafe {
             use hal::pso::*;
@@ -359,7 +360,7 @@ where
                 DescriptorPoolCreateFlags::empty(),
             )
         }
-        .map_err(|_| "Failed to create render descriptor pool")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Descriptor Pool"))?;
 
         // Main Rendering Data
         let main_set_layout = unsafe {
@@ -455,10 +456,10 @@ where
                 &[],
             )
         }
-        .expect("Can't create main descriptor set layout");
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Main Descriptor Set"))?;
 
         let main_descriptor_set = unsafe { descriptor_pool.allocate_set(&main_set_layout) }
-            .map_err(|_| "Failed to allocate render descriptor set")?;
+            .map_err(|_| InitializationError::ResourceAcquisition("Render Descriptor Pool"))?;
 
         let (main_render_pass, main_pipeline, main_pipeline_layout) = Self::new_pipeline(
             &lock.device,
@@ -495,7 +496,7 @@ where
                 hal::image::WrapMode::Tile,
             ))
         }
-        .map_err(|_| "Failed to create render sampler")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Sampler"))?;
 
         // Uniforms
         let (uniform_buf, uniform_mem) =
@@ -559,14 +560,14 @@ where
     fn new_uniform_buffer(
         device: &B::Device,
         memory_properties: &hal::adapter::MemoryProperties,
-    ) -> Result<(B::Buffer, B::Memory), String> {
+    ) -> Result<(B::Buffer, B::Memory), InitializationError> {
         let mut buf = unsafe {
             device.create_buffer(
                 Self::UNIFORM_BUFFER_SIZE,
                 hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM,
             )
         }
-        .map_err(|_| "Cannot create compute uniform buffer")?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Uniform Buffer"))?;
         let buffer_req = unsafe { device.get_buffer_requirements(&buf) };
         let upload_type = memory_properties
             .memory_types
@@ -586,9 +587,9 @@ where
             .unwrap()
             .into();
         let mem = unsafe { device.allocate_memory(upload_type, Self::UNIFORM_BUFFER_SIZE) }
-            .map_err(|_| "Failed to allocate device memory for compute uniform buffer")?;
+            .map_err(|_| InitializationError::Allocation("Render Uniform Buffer"))?;
         unsafe { device.bind_buffer_memory(&mem, 0, &mut buf) }
-            .map_err(|_| "Failed to bind compute uniform buffer to memory")?;
+            .map_err(|_| InitializationError::Bind)?;
         Ok((buf, mem))
     }
 
@@ -599,7 +600,7 @@ where
         set_layout: &B::DescriptorSetLayout,
         vertex_shader: &[u8],
         fragment_shader: &[u8],
-    ) -> Result<(B::RenderPass, B::GraphicsPipeline, B::PipelineLayout), String> {
+    ) -> Result<(B::RenderPass, B::GraphicsPipeline, B::PipelineLayout), InitializationError> {
         // Create Render Pass
         let render_pass = {
             let attachment = hal::pass::Attachment {
@@ -623,28 +624,26 @@ where
             };
 
             unsafe { device.create_render_pass(&[attachment], &[subpass], &[]) }
-                .expect("Can't create render pass")
-        };
+        }
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Pass"))?;
 
         // Pipeline
-        let pipeline_layout = unsafe {
-            device
-                .create_pipeline_layout(std::iter::once(set_layout), &[])
-                .expect("Can't create pipeline layout")
-        };
+        let pipeline_layout =
+            unsafe { device.create_pipeline_layout(std::iter::once(set_layout), &[]) }
+                .map_err(|_| InitializationError::ResourceAcquisition("Render Pipeline Layout"))?;
 
         let pipeline = {
             let vs_module = {
                 let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(vertex_shader))
-                    .map_err(|e| format!("Failed to load vertex shader SPIR-V: {}", e))?;
+                    .map_err(|_| InitializationError::ShaderSPIRV)?;
                 unsafe { device.create_shader_module(&loaded_spirv) }
-                    .map_err(|e| format!("Failed to build vertex shader module: {}", e))?
+                    .map_err(|_| InitializationError::ShaderModule)?
             };
             let fs_module = {
                 let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(fragment_shader))
-                    .map_err(|e| format!("Failed to load fragment shader SPIR-V: {}", e))?;
+                    .map_err(|_| InitializationError::ShaderSPIRV)?;
                 unsafe { device.create_shader_module(&loaded_spirv) }
-                    .map_err(|e| format!("Failed to build fragment shader module: {}", e))?
+                    .map_err(|_| InitializationError::ShaderModule)?
             };
 
             let pipeline = {
@@ -700,7 +699,7 @@ where
         Ok((render_pass, pipeline, pipeline_layout))
     }
 
-    pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), String> {
+    pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), InitializationError> {
         let lock = self.gpu.lock().unwrap();
 
         self.image_slots = ImageSlots {
@@ -766,7 +765,7 @@ where
         device: &B::Device,
         occupancy: &[u8],
         uniforms: &[u8],
-    ) -> Result<(), String> {
+    ) -> Result<(), PipelineError> {
         debug_assert!(uniforms.len() <= Self::UNIFORM_BUFFER_SIZE as usize);
         debug_assert!(occupancy.len() <= Self::UNIFORM_BUFFER_SIZE as usize);
 
@@ -779,9 +778,7 @@ where
                         size: Some(Self::UNIFORM_BUFFER_SIZE),
                     },
                 )
-                .map_err(|e| {
-                    format!("Failed to map uniform buffer into CPU address space: {}", e)
-                })?;
+                .map_err(|_| PipelineError::UniformMapping)?;
             std::ptr::copy_nonoverlapping(uniforms.as_ptr(), mapping, uniforms.len());
             device.unmap_memory(&*self.uniform_memory);
         }
@@ -795,12 +792,7 @@ where
                         size: Some(Self::UNIFORM_BUFFER_SIZE),
                     },
                 )
-                .map_err(|e| {
-                    format!(
-                        "Failed to map occupancy buffer into CPU address space: {}",
-                        e
-                    )
-                })?;
+                .map_err(|_| PipelineError::UniformMapping)?;
             std::ptr::copy_nonoverlapping(occupancy.as_ptr(), mapping, occupancy.len());
             device.unmap_memory(&*self.occupancy_memory);
         }
@@ -1041,14 +1033,14 @@ where
         source_access: hal::image::Access,
         source_size: i32,
         image_use: crate::lang::OutputType,
-    ) -> Result<(), String> {
+    ) {
         let image_slot = match image_use {
             crate::lang::OutputType::Displacement => &mut self.image_slots.displacement,
             crate::lang::OutputType::Albedo => &mut self.image_slots.albedo,
             crate::lang::OutputType::Roughness => &mut self.image_slots.roughness,
             crate::lang::OutputType::Normal => &mut self.image_slots.normal,
             crate::lang::OutputType::Metallic => &mut self.image_slots.metallic,
-            _ => return Ok(()),
+            _ => return,
         };
 
         image_slot.occupied = true;
@@ -1164,8 +1156,6 @@ where
         unsafe {
             self.command_pool.free(Some(cmd_buffer));
         }
-
-        Ok(())
     }
 
     pub fn vacate_image(&mut self, image_use: crate::lang::OutputType) {
