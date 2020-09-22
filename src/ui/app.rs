@@ -380,6 +380,7 @@ pub struct App {
     surface_params: ParamBoxDescription<SurfaceField>,
 
     registered_operators: Vec<Operator>,
+    addable_operators: Vec<Operator>,
 }
 
 impl App {
@@ -394,6 +395,10 @@ impl App {
             render_params: ParamBoxDescription::render_parameters(),
             surface_params: ParamBoxDescription::surface_parameters(),
             registered_operators: AtomicOperator::all_default()
+                .iter()
+                .map(|x| Operator::from(x.clone()))
+                .collect(),
+            addable_operators: AtomicOperator::all_default()
                 .iter()
                 .map(|x| Operator::from(x.clone()))
                 .collect(),
@@ -691,7 +696,14 @@ where
                         graph.clone(),
                     )))
                     .unwrap();
-                self.app_state.graphs.set_active(graph)
+                self.app_state.graphs.set_active(graph);
+                self.app_state.addable_operators = self
+                    .app_state
+                    .registered_operators
+                    .iter()
+                    .filter(|o| !o.is_graph(self.app_state.graphs.get_active()))
+                    .cloned()
+                    .collect();
             }
         }
 
@@ -788,13 +800,7 @@ where
         if let Some(insertion_pt) = self.app_state.add_modal {
             use super::modal;
 
-            // TODO: Find a way to filter without allocating each frame
-            let operators: Vec<_> = self
-                .app_state
-                .registered_operators
-                .iter()
-                .filter(|o| !o.is_graph(self.app_state.graphs.get_active()))
-                .collect();
+            let operators = &self.app_state.addable_operators;
 
             match modal::Modal::new(
                 widget::List::flow_down(operators.len())
