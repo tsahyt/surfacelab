@@ -8,7 +8,6 @@ use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex, Weak};
 
-// TODO: Compute image cache eviction
 // TODO: Compute image memory defragmentation
 
 use super::{
