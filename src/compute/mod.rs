@@ -656,10 +656,6 @@ where
 
         let mut step = 0;
         for i in instrs.iter() {
-            if i.is_execution_step() {
-                step += 1;
-            }
-
             match self.interpret(i, &substitutions_map) {
                 Ok(mut r) => response.append(&mut r),
                 Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
@@ -670,6 +666,10 @@ where
                     }
                 }
                 e => return e,
+            }
+
+            if i.is_execution_step() {
+                step += 1;
             }
         }
 

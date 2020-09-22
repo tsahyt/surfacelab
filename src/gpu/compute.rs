@@ -9,6 +9,7 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex, Weak};
 
 // TODO: Compute image cache eviction
+// TODO: Compute image memory defragmentation
 
 use super::{
     Backend, DownloadError, InitializationError, PipelineError, Shader, ShaderType, UploadError,
@@ -1029,16 +1030,19 @@ where
 
         // Handle memory manager
         let bytes = self.size as u64 * self.size as u64 * self.px_width as u64;
-        log::trace!(
-            "Allocating memory for {}x{} image ({} bytes)",
-            self.size,
-            self.size,
-            bytes
-        );
         let (offset, chunks) = compute
             .find_free_image_memory(bytes)
             .ok_or(ImageError::OutOfMemory)?;
         let alloc = compute.allocate_image_memory(&chunks);
+
+        log::trace!(
+            "Allocated memory for {}x{} image ({} bytes, id {})",
+            self.size,
+            self.size,
+            bytes,
+            alloc,
+        );
+
         self.alloc = Some(Alloc {
             parent: self.parent,
             id: alloc,

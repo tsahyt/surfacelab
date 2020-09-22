@@ -867,7 +867,6 @@ impl NodeGraph {
             }
         }
 
-        dbg!(&final_usage);
         Some((traversal, final_usage.drain().collect()))
     }
 
