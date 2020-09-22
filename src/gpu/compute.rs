@@ -326,7 +326,7 @@ where
         for i in chunks {
             self.image_mem_chunks.borrow_mut()[*i].alloc = Some(alloc);
         }
-        self.allocs.set(alloc + 1);
+        self.allocs.set(alloc.wrapping_add(1));
         alloc
     }
 
