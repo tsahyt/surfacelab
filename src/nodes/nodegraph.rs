@@ -779,8 +779,12 @@ impl NodeGraph {
         use petgraph::visit::EdgeRef;
 
         enum Action<'a> {
+            /// Traverse deeper into the node graph, coming from the given label
             Traverse(Option<(&'a EdgeLabel, graph::NodeIndex)>),
+            /// Execute the given node, emitting output, coming from this label
             Visit(Option<(&'a EdgeLabel, graph::NodeIndex)>),
+            /// Indicates a use point of the given node
+            Use(graph::NodeIndex),
         };
 
         let mut stack: Vec<(graph::NodeIndex, Action)> = self
@@ -807,18 +811,21 @@ impl NodeGraph {
                     }
                     stack.push((nx, Action::Visit(l)));
                     for edge in self.graph.edges_directed(nx, petgraph::Direction::Incoming) {
+                        stack.push((edge.target(), Action::Use(edge.source())));
+                    }
+                    for edge in self.graph.edges_directed(nx, petgraph::Direction::Incoming) {
                         let label = edge.weight();
                         let sink = edge.target();
                         stack.push((edge.source(), Action::Traverse(Some((label, sink)))));
                     }
                 }
                 Action::Visit(l) => {
-                    step += 1;
-
                     let node = self.graph.node_weight(nx).unwrap();
                     let res = self.node_resource(&nx);
 
                     if !final_usage.contains_key(&res) || mode == LinearizationMode::FullTraversal {
+                        step += 1;
+
                         match &node.operator {
                             Operator::AtomicOperator(op) => {
                                 traversal.push(Instruction::Execute(res.clone(), op.to_owned()));
@@ -850,13 +857,17 @@ impl NodeGraph {
                         let to_node = self.node_resource(&idx);
                         let from = res.node_socket(&source);
                         let to = to_node.node_socket(&sink);
-                        final_usage.insert(res, step);
                         traversal.push(Instruction::Move(from, to));
                     }
+                }
+                Action::Use(idx) => {
+                    let res = self.node_resource(&idx);
+                    final_usage.insert(res, step);
                 }
             }
         }
 
+        dbg!(&final_usage);
         Some((traversal, final_usage.drain().collect()))
     }
 

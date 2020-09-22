@@ -156,7 +156,7 @@ impl Instruction {
     pub fn is_execution_step(&self) -> bool {
         match self {
             Self::Execute(..) | Self::Call(..) => true,
-            _ => false
+            _ => false,
         }
     }
 }
