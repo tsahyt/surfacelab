@@ -233,6 +233,7 @@ where
         sockets.typed_outputs.remove(res.fragment().unwrap());
     }
 
+    /// Free the images for one specific node.
     pub fn free_images_for_node(
         &mut self,
         node: &Resource<Node>,
@@ -244,6 +245,15 @@ where
             .expect("Trying to free images from unknown node");
         for out in sockets.typed_outputs.values_mut() {
             out.reinit_image(gpu, sockets.output_size)
+        }
+    }
+
+    /// Frees *all* compute images. The nuclear cleanup option.
+    pub fn free_all_images(&mut self, gpu: &mut gpu::compute::GPUCompute<B>) {
+        for sockets in self.0.values_mut() {
+            for out in sockets.typed_outputs.values_mut() {
+                out.reinit_image(gpu, sockets.output_size)
+            }
         }
     }
 
@@ -676,15 +686,18 @@ where
     fn cleanup(&mut self, step: usize, final_use: &[(Resource<Node>, usize)]) {
         log::debug!("Compute Image cleanup triggered");
 
-        dbg!(final_use, step);
+        if step == 0 {
+            log::debug!("Performing full cleanup");
+            self.sockets.free_all_images(&mut self.gpu);
+        } else {
+            log::debug!("Performing selective cleanup");
+            let cleanable = final_use
+                .iter()
+                .filter_map(|(r, l)| if *l < step { Some(r) } else { None });
 
-        let cleanable = final_use
-            .iter()
-            .filter_map(|(r, l)| if *l < step { Some(r) } else { None });
-
-        for node in cleanable {
-            log::trace!("Releasing memory of {}", node);
-            self.sockets.free_images_for_node(node, &mut self.gpu);
+            for node in cleanable {
+                self.sockets.free_images_for_node(node, &mut self.gpu);
+            }
         }
     }
 
