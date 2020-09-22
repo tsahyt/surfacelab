@@ -63,16 +63,12 @@ where
     B: gpu::Backend,
 {
     /// Reinitialize the GPU image with a (possibly new) size. This will also
-    /// force the image on the next evaluation.
+    /// force the image on the next evaluation. This image will not be
+    /// immediately backed by memory.
     pub fn reinit_image(&mut self, gpu: &gpu::compute::GPUCompute<B>, size: u32) {
         self.image = gpu
             .create_compute_image(size, self.ty, self.transfer_dst)
             .unwrap();
-        self.force = true;
-    }
-
-    pub fn free_image(&mut self, gpu: &gpu::compute::GPUCompute<B>) {
-        self.image.free_memory(gpu);
         self.force = true;
     }
 }
@@ -247,7 +243,7 @@ where
             .get_mut(node)
             .expect("Trying to free images from unknown node");
         for out in sockets.typed_outputs.values_mut() {
-            out.free_image(gpu)
+            out.reinit_image(gpu, sockets.output_size)
         }
     }
 

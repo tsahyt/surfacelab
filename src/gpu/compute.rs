@@ -1055,21 +1055,6 @@ where
         Ok(())
     }
 
-    /// Release the Image's hold on the backing memory.
-    pub fn free_memory(&mut self, compute: &GPUCompute<B>) {
-        //debug_assert!(self.alloc.is_some());
-        if self.alloc.is_some() {
-            unsafe {
-                if let Some(view) = ManuallyDrop::take(&mut self.view) {
-                    let lock = compute.gpu.lock().unwrap();
-                    lock.device.destroy_image_view(view);
-                }
-            }
-
-            self.alloc = None;
-        }
-    }
-
     /// Determine whether an Image is backed by Device memory
     pub fn is_backed(&self) -> bool {
         self.alloc.is_some()
