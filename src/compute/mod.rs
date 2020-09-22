@@ -73,6 +73,7 @@ where
 
     pub fn free_image(&mut self, gpu: &gpu::compute::GPUCompute<B>) {
         self.image.free_memory(gpu);
+        self.force = true;
     }
 }
 
