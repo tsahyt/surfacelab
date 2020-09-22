@@ -691,9 +691,14 @@ where
             self.sockets.free_all_images(&mut self.gpu);
         } else {
             log::debug!("Performing selective cleanup");
-            let cleanable = final_use
+            let cleanable_past = final_use
                 .iter()
                 .filter_map(|(r, l)| if *l < step { Some(r) } else { None });
+
+            // TODO: Clean up all future images that must be changed. Best done via dry run
+            let cleanable_future = std::iter::empty();
+
+            let cleanable = cleanable_past.chain(cleanable_future);
 
             for node in cleanable {
                 self.sockets.free_images_for_node(node, &mut self.gpu);
