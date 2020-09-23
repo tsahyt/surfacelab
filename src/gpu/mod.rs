@@ -205,7 +205,6 @@ where
 /// Implemented as Arc/Weak. Arc is to be held at the resource "home", Weak can
 /// be distributed.
 pub type ResourceAlive = Weak<()>;
-// TODO: ResourceAlive should include a mutex such that we have more than spot checks
 
 /// Image variant hiding the parameterization over the backend. Deeply
 /// unsafe! Must be used with similar backend types on both ends. No care is
@@ -222,6 +221,8 @@ pub struct BrokerImage {
     alive: ResourceAlive,
     raw: *const (),
 }
+
+// TODO: Do not send Image, instead use views and render directly from compute memory
 
 unsafe impl Send for BrokerImage {}
 unsafe impl Sync for BrokerImage {}
@@ -240,7 +241,7 @@ impl BrokerImage {
     }
 }
 
-/// Image View variant for broker transmission. See `BrokerImage` for caveats
+/// A type hiding the backend safely in order to send it over the bus.
 #[derive(Debug, Clone)]
 pub struct BrokerImageView {
     inner: Arc<dyn Any + 'static + Send + Sync>,
