@@ -1,6 +1,7 @@
 use gfx_backend_vulkan as back;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
+use std::any::Any;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex, Weak};
 
@@ -240,25 +241,22 @@ impl BrokerImage {
 }
 
 /// Image View variant for broker transmission. See `BrokerImage` for caveats
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BrokerImageView {
-    alive: ResourceAlive,
-    raw: *const (),
+    inner: Arc<dyn Any + 'static + Send + Sync>,
 }
 
-unsafe impl Send for BrokerImageView {}
-unsafe impl Sync for BrokerImageView {}
-
 impl BrokerImageView {
-    pub fn from<B: Backend>(view: &B::ImageView, alive: Weak<()>) -> Self {
-        let ptr = view as *const B::ImageView as *const ();
-        Self { alive, raw: ptr }
+    pub fn from<B: Backend>(view: &Arc<Mutex<B::ImageView>>) -> Self {
+        Self {
+            inner: view.clone(),
+        }
     }
 
-    pub fn to<B: Backend>(&self) -> Option<&B::ImageView> {
-        match self.alive.upgrade() {
-            Some(_) => unsafe { Some(&*(self.raw as *const B::ImageView)) },
-            None => None,
-        }
+    pub fn to<B: Backend>(self) -> Option<Weak<Mutex<B::ImageView>>> {
+        self.inner
+            .downcast::<Mutex<B::ImageView>>()
+            .ok()
+            .map(|x| Arc::downgrade(&x))
     }
 }

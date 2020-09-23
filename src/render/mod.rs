@@ -1,6 +1,6 @@
 use crate::{broker, gpu, lang::*};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use strum::IntoEnumIterator;
 
@@ -140,19 +140,11 @@ pub fn start_render_thread<B: gpu::Backend>(
 
 struct Renderer<B: gpu::Backend> {
     gpu: gpu::render::GPURender<B>,
-    alive: Arc<()>,
 }
 
 impl<B: gpu::Backend> Renderer<B> {
     pub fn new(gpu: gpu::render::GPURender<B>) -> Self {
-        Self {
-            gpu,
-            alive: Arc::new(()),
-        }
-    }
-
-    pub fn alive(&self) -> Weak<()> {
-        Arc::downgrade(&self.alive)
+        Self { gpu }
     }
 }
 
@@ -210,7 +202,7 @@ where
             .map_err(|e| format!("{:?}", e))?,
         );
         renderer.render();
-        let view = gpu::BrokerImageView::from::<B>(renderer.target_view(), renderer.alive());
+        let view = gpu::BrokerImageView::from::<B>(renderer.target_view());
         self.renderers.insert(id, renderer);
 
         Ok(view)

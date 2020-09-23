@@ -691,9 +691,10 @@ where
             self.sockets.free_all_images(&mut self.gpu);
         } else {
             log::debug!("Performing selective cleanup");
-            let cleanable_past = final_use
-                .iter()
-                .filter_map(|(r, l)| if *l < step { Some(r) } else { None });
+            let cleanable_past =
+                final_use
+                    .iter()
+                    .filter_map(|(r, l)| if *l < step { Some(r) } else { None });
 
             // TODO: Clean up all future images that must be changed. Best done via dry run
             let cleanable_future = std::iter::empty();
@@ -794,7 +795,6 @@ where
                     node.clone(),
                     gpu::BrokerImageView::from::<B>(
                         self.gpu.view_thumbnail(thumbnail),
-                        self.gpu.alive_thumbnail(thumbnail),
                     ),
                 ));
             }
@@ -985,7 +985,6 @@ where
                 res.clone(),
                 gpu::BrokerImageView::from::<B>(
                     self.gpu.view_thumbnail(thumbnail),
-                    self.gpu.alive_thumbnail(thumbnail),
                 ),
             ));
         }

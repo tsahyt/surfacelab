@@ -6,7 +6,7 @@ use smallvec::{smallvec, SmallVec};
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 
 // TODO: Compute image memory defragmentation
 
@@ -905,12 +905,8 @@ where
         self.thumbnail_cache.free(thumbnail);
     }
 
-    pub fn view_thumbnail(&self, thumbnail: &ThumbnailIndex) -> &B::ImageView {
+    pub fn view_thumbnail(&self, thumbnail: &ThumbnailIndex) -> &Arc<Mutex<B::ImageView>> {
         self.thumbnail_cache.image_view(thumbnail)
-    }
-
-    pub fn alive_thumbnail(&self, thumbnail: &ThumbnailIndex) -> Weak<()> {
-        self.thumbnail_cache.alive(thumbnail)
     }
 }
 
@@ -1152,8 +1148,7 @@ pub struct ThumbnailCache<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     memory: SmallVec<[B::Memory; 4]>,
     images: Vec<Option<B::Image>>,
-    views: Vec<Option<B::ImageView>>,
-    alive: Vec<Option<Arc<()>>>,
+    views: Vec<Option<Arc<Mutex<B::ImageView>>>>,
 }
 
 impl<B> Drop for ThumbnailCache<B>
@@ -1230,7 +1225,6 @@ where
             memory,
             images: (0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None).collect(),
             views: (0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None).collect(),
-            alive: (0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None).collect(),
         }
     }
 
@@ -1293,8 +1287,7 @@ where
         .expect("Error creating thumbnail image view");
 
         self.images[i] = Some(image);
-        self.views[i] = Some(view);
-        self.alive[i] = Some(Arc::new(()));
+        self.views[i] = Some(Arc::new(Mutex::new(view)));
     }
 
     fn grow(&mut self) {
@@ -1328,8 +1321,6 @@ where
             .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
         self.views
             .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
-        self.alive
-            .extend((0..Self::THUMBNAIL_CHUNK_LENGTH).map(|_| None));
     }
 
     /// Get the underlying Image from a thumbnail
@@ -1338,12 +1329,8 @@ where
     }
 
     /// Get the underlying image view from a thumbnail
-    pub fn image_view(&self, index: &ThumbnailIndex) -> &B::ImageView {
+    pub fn image_view(&self, index: &ThumbnailIndex) -> &Arc<Mutex<B::ImageView>> {
         self.views[index.0].as_ref().unwrap()
-    }
-
-    pub fn alive(&self, index: &ThumbnailIndex) -> super::ResourceAlive {
-        Arc::downgrade(self.alive[index.0].as_ref().unwrap())
     }
 
     /// Free a thumbnail by its index. Note that this takes ownership.
@@ -1353,13 +1340,16 @@ where
         unsafe {
             lock.device
                 .destroy_image(self.images[index.0].take().unwrap());
-            lock.device
-                .destroy_image_view(self.views[index.0].take().unwrap());
+            lock.device.destroy_image_view(
+                Arc::try_unwrap(self.views[index.0].take().unwrap())
+                    .unwrap()
+                    .into_inner()
+                    .unwrap(),
+            );
         }
 
         self.images[index.0] = None;
         self.views[index.0] = None;
-        self.alive[index.0] = None;
     }
 
     /// The size of a single thumbnail, measured in pixels per side.

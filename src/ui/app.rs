@@ -460,9 +460,10 @@ where
     ) {
         match event {
             Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
-                if let Some(view) = view.to::<B>() {
+                if let Some(view) = view.clone().to::<B>().and_then(|x| x.upgrade()) {
+                    let lock = view.lock().unwrap();
                     let id = self.image_map.insert(renderer.create_image(
-                        view,
+                        &lock,
                         self.app_state.monitor_resolution.0,
                         self.app_state.monitor_resolution.1,
                     ));
@@ -473,8 +474,11 @@ where
                 ui.needs_redraw();
             }
             Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
-                if let Some(t) = thmb.to::<B>() {
-                    let id = self.image_map.insert(renderer.create_image(t, 128, 128));
+                if let Some(t) = thmb.clone().to::<B>().and_then(|x| x.upgrade()) {
+                    let lock = t.lock().unwrap();
+                    let id = self
+                        .image_map
+                        .insert(renderer.create_image(&lock, 128, 128));
                     self.app_state.graphs.register_thumbnail(&res, id);
                 }
             }
@@ -845,7 +849,6 @@ where
         }
     }
 
-    // FIXME: Render View shows nothing in release builds
     fn render_view(&mut self, ui: &mut UiCell) {
         use super::renderview::*;
 

@@ -106,8 +106,9 @@ pub struct GPURender<B: Backend> {
 }
 
 struct RenderTarget<B: Backend> {
+    gpu: Arc<Mutex<GPU<B>>>,
     image: ManuallyDrop<B::Image>,
-    view: ManuallyDrop<B::ImageView>,
+    view: ManuallyDrop<Arc<Mutex<B::ImageView>>>,
     memory: ManuallyDrop<B::Memory>,
     image_layout: hal::image::Layout,
 }
@@ -117,14 +118,15 @@ where
     B: Backend,
 {
     pub fn new(
-        device: &B::Device,
-        memory_properties: &hal::adapter::MemoryProperties,
+        gpu: Arc<Mutex<GPU<B>>>,
         format: hal::format::Format,
         monitor_dimensions: (u32, u32),
     ) -> Result<Self, InitializationError> {
+        let lock = gpu.lock().unwrap();
+
         // Create Image
         let mut image = unsafe {
-            device.create_image(
+            lock.device.create_image(
                 hal::image::Kind::D2(monitor_dimensions.0, monitor_dimensions.1, 1, 1),
                 1,
                 format,
@@ -136,8 +138,9 @@ where
         .map_err(|_| InitializationError::ResourceAcquisition("Render Target Image"))?;
 
         // Allocate and bind memory for image
-        let requirements = unsafe { device.get_image_requirements(&image) };
-        let memory_type = memory_properties
+        let requirements = unsafe { lock.device.get_image_requirements(&image) };
+        let memory_type = lock
+            .memory_properties
             .memory_types
             .iter()
             .position(|mem_type| {
@@ -147,13 +150,13 @@ where
             })
             .unwrap()
             .into();
-        let memory = unsafe { device.allocate_memory(memory_type, requirements.size) }
+        let memory = unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
             .map_err(|_| InitializationError::Allocation("Render Target Image"))?;
-        unsafe { device.bind_image_memory(&memory, 0, &mut image) }
+        unsafe { lock.device.bind_image_memory(&memory, 0, &mut image) }
             .map_err(|_| InitializationError::Bind)?;
 
         let view = unsafe {
-            device.create_image_view(
+            lock.device.create_image_view(
                 &image,
                 hal::image::ViewKind::D2,
                 format,
@@ -164,15 +167,16 @@ where
         .map_err(|_| InitializationError::ResourceAcquisition("Render Target Image View"))?;
 
         Ok(Self {
+            gpu: gpu.clone(),
             image: ManuallyDrop::new(image),
-            view: ManuallyDrop::new(view),
+            view: ManuallyDrop::new(Arc::new(Mutex::new(view))),
             memory: ManuallyDrop::new(memory),
             image_layout: hal::image::Layout::Undefined,
         })
     }
 
-    pub fn image_view(&self) -> &B::ImageView {
-        &*self.view
+    pub fn image_view(&self) -> &Arc<Mutex<B::ImageView>> {
+        &self.view
     }
 
     pub fn barrier(&mut self) -> hal::memory::Barrier<B> {
@@ -189,6 +193,27 @@ where
 
         self.image_layout = hal::image::Layout::ShaderReadOnlyOptimal;
         barrier
+    }
+}
+
+impl<B> Drop for RenderTarget<B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        let lock = self.gpu.lock().unwrap();
+        unsafe {
+            lock.device
+                .free_memory(ManuallyDrop::take(&mut self.memory));
+            lock.device.destroy_image_view(
+                Arc::try_unwrap(ManuallyDrop::take(&mut self.view))
+                    .unwrap()
+                    .into_inner()
+                    .unwrap(),
+            );
+            lock.device
+                .destroy_image(ManuallyDrop::take(&mut self.image));
+        }
     }
 }
 
@@ -317,9 +342,10 @@ where
         ty: crate::lang::RendererType,
     ) -> Result<Self, InitializationError> {
         log::info!("Obtaining GPU Render Resources");
-        let lock = gpu.lock().unwrap();
-
         let format = hal::format::Format::Rgba8Srgb;
+        let render_target = RenderTarget::new(gpu.clone(), format, monitor_dimensions)?;
+
+        let lock = gpu.lock().unwrap();
         log::debug!("Using render format {:?}", format);
 
         let command_pool = unsafe {
@@ -482,12 +508,6 @@ where
             },
             depth: 0.0..1.0,
         };
-        let render_target = RenderTarget::new(
-            &lock.device,
-            &lock.memory_properties,
-            format,
-            monitor_dimensions,
-        )?;
 
         // Shared Sampler
         let sampler = unsafe {
@@ -818,7 +838,9 @@ where
                 lock.device
                     .create_framebuffer(
                         &self.main_render_pass,
-                        std::iter::once(self.render_target.image_view()),
+                        std::iter::once(
+                            &self.render_target.image_view().lock().unwrap() as &B::ImageView
+                        ),
                         hal::image::Extent {
                             width: self.dimensions.width,
                             height: self.dimensions.height,
@@ -1012,7 +1034,7 @@ where
         }
     }
 
-    pub fn target_view(&self) -> &B::ImageView {
+    pub fn target_view(&self) -> &Arc<Mutex<B::ImageView>> {
         self.render_target.image_view()
     }
 
@@ -1285,12 +1307,6 @@ where
         free_slot(&lock.device, &mut self.image_slots.metallic);
 
         unsafe {
-            lock.device
-                .free_memory(ManuallyDrop::take(&mut self.render_target.memory));
-            lock.device
-                .destroy_image_view(ManuallyDrop::take(&mut self.render_target.view));
-            lock.device
-                .destroy_image(ManuallyDrop::take(&mut self.render_target.image));
             lock.device
                 .destroy_buffer(ManuallyDrop::take(&mut self.uniform_buffer));
             lock.device
