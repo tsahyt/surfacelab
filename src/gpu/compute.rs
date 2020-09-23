@@ -1341,10 +1341,13 @@ where
             lock.device
                 .destroy_image(self.images[index.0].take().unwrap());
             lock.device.destroy_image_view(
-                Arc::try_unwrap(self.views[index.0].take().unwrap())
-                    .unwrap()
-                    .into_inner()
-                    .unwrap(),
+                loop {
+                    if let Ok(a) = Arc::try_unwrap(self.views[index.0].take().unwrap()) {
+                        break a;
+                    }
+                }
+                .into_inner()
+                .unwrap(),
             );
         }
 

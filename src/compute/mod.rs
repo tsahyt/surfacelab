@@ -793,9 +793,7 @@ where
             if new {
                 response.push(ComputeEvent::ThumbnailCreated(
                     node.clone(),
-                    gpu::BrokerImageView::from::<B>(
-                        self.gpu.view_thumbnail(thumbnail),
-                    ),
+                    gpu::BrokerImageView::from::<B>(self.gpu.view_thumbnail(thumbnail)),
                 ));
             }
             response.push(ComputeEvent::ThumbnailUpdated(node.clone()));
@@ -983,9 +981,7 @@ where
         if new {
             result.push(ComputeEvent::ThumbnailCreated(
                 res.clone(),
-                gpu::BrokerImageView::from::<B>(
-                    self.gpu.view_thumbnail(thumbnail),
-                ),
+                gpu::BrokerImageView::from::<B>(self.gpu.view_thumbnail(thumbnail)),
             ));
         }
         result.push(ComputeEvent::ThumbnailUpdated(res.clone()));

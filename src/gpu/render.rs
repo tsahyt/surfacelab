@@ -206,10 +206,13 @@ where
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.memory));
             lock.device.destroy_image_view(
-                Arc::try_unwrap(ManuallyDrop::take(&mut self.view))
-                    .unwrap()
-                    .into_inner()
-                    .unwrap(),
+                loop {
+                    if let Ok(a) = Arc::try_unwrap(ManuallyDrop::take(&mut self.view)) {
+                        break a;
+                    }
+                }
+                .into_inner()
+                .unwrap(),
             );
             lock.device
                 .destroy_image(ManuallyDrop::take(&mut self.image));
