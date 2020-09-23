@@ -460,7 +460,7 @@ where
     ) {
         match event {
             Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
-                if let Some(view) = view.clone().to::<B>().and_then(|x| x.upgrade()) {
+                if let Some(view) = view.clone().to::<B>().upgrade() {
                     let lock = view.lock().unwrap();
                     let id = self.image_map.insert(renderer.create_image(
                         &lock,
@@ -474,7 +474,7 @@ where
                 ui.needs_redraw();
             }
             Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
-                if let Some(t) = thmb.clone().to::<B>().and_then(|x| x.upgrade()) {
+                if let Some(t) = thmb.clone().to::<B>().upgrade() {
                     let lock = t.lock().unwrap();
                     let id = self
                         .image_map

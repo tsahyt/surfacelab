@@ -253,10 +253,11 @@ impl BrokerImageView {
         }
     }
 
-    pub fn to<B: Backend>(self) -> Option<Weak<Mutex<B::ImageView>>> {
+    pub fn to<B: Backend>(self) -> Weak<Mutex<B::ImageView>> {
         self.inner
             .downcast::<Mutex<B::ImageView>>()
             .ok()
             .map(|x| Arc::downgrade(&x))
+            .unwrap()
     }
 }
