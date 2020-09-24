@@ -937,8 +937,6 @@ where
         Ok(())
     }
 
-    // FIXME: Race condition on output copy when output images get dropped
-    // or cycled, e.g. due to cleanups
     fn execute_output(&mut self, op: &Output, res: &Resource<Node>) -> Vec<ComputeEvent> {
         let output_type = op.output_type;
         let socket_res = res.node_socket("data");
