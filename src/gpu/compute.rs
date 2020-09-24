@@ -750,7 +750,7 @@ where
         unsafe { lock.device.reset_fence(&self.fence).unwrap() };
 
         let from_lock = from.raw.lock().unwrap();
-        let to_lock = from.raw.lock().unwrap();
+        let to_lock = to.raw.lock().unwrap();
 
         unsafe {
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
@@ -944,6 +944,7 @@ where
         log::info!("Releasing GPU Compute resources");
 
         let lock = self.gpu.lock().unwrap();
+
         unsafe {
             lock.device
                 .destroy_fence(ManuallyDrop::take(&mut self.fence));
@@ -998,8 +999,8 @@ where
     B: Backend,
 {
     fn bind_memory(&mut self, offset: u64, compute: &GPUCompute<B>) -> Result<(), ImageError> {
-        let lock = compute.gpu.lock().unwrap();
         let mut raw_lock = self.raw.lock().unwrap();
+        let lock = compute.gpu.lock().unwrap();
 
         unsafe {
             lock.device
@@ -1130,22 +1131,20 @@ where
     fn drop(&mut self) {
         let parent = unsafe { &*self.parent };
 
-        {
-            let lock = parent.gpu.lock().unwrap();
-            unsafe {
-                if let Some(view) = ManuallyDrop::take(&mut self.view) {
-                    lock.device.destroy_image_view(view);
-                }
-                lock.device.destroy_image(
-                    loop {
-                        if let Ok(a) = Arc::try_unwrap(ManuallyDrop::take(&mut self.raw)) {
-                            break a;
-                        }
-                    }
-                    .into_inner()
-                    .unwrap(),
-                );
+        let lock = parent.gpu.lock().unwrap();
+        unsafe {
+            if let Some(view) = ManuallyDrop::take(&mut self.view) {
+                lock.device.destroy_image_view(view);
             }
+            lock.device.destroy_image(
+                loop {
+                    if let Ok(a) = Arc::try_unwrap(ManuallyDrop::take(&mut self.raw)) {
+                        break a;
+                    }
+                }
+                .into_inner()
+                .unwrap(),
+            );
         }
     }
 }

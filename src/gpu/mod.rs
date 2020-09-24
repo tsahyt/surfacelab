@@ -204,43 +204,47 @@ where
 /// An Image type hiding the backend safely in order to send it over the bus.
 #[derive(Debug, Clone)]
 pub struct BrokerImage {
-    inner: Arc<dyn Any + 'static + Send + Sync>,
+    inner: Weak<dyn Any + 'static + Send + Sync>,
 }
 
 impl BrokerImage {
     pub fn from<B: Backend>(image: &Arc<Mutex<B::Image>>) -> Self {
+        let gen_img: Arc<dyn Any + 'static + Send + Sync> = image.clone();
         Self {
-            inner: image.clone(),
+            inner: Arc::downgrade(&gen_img),
         }
     }
 
-    pub fn to<B: Backend>(self) -> Weak<Mutex<B::Image>> {
+    pub fn to<B: Backend>(self) -> Option<Weak<Mutex<B::Image>>> {
         self.inner
-            .downcast::<Mutex<B::Image>>()
-            .ok()
+            .upgrade()
+            .and_then(|x|
+                x.downcast::<Mutex<B::Image>>().ok()
+            )
             .map(|x| Arc::downgrade(&x))
-            .unwrap()
     }
 }
 
 /// An ImageView type hiding the backend safely in order to send it over the bus.
 #[derive(Debug, Clone)]
 pub struct BrokerImageView {
-    inner: Arc<dyn Any + 'static + Send + Sync>,
+    inner: Weak<dyn Any + 'static + Send + Sync>,
 }
 
 impl BrokerImageView {
-    pub fn from<B: Backend>(view: &Arc<Mutex<B::ImageView>>) -> Self {
+    pub fn from<B: Backend>(image: &Arc<Mutex<B::ImageView>>) -> Self {
+        let gen_img: Arc<dyn Any + 'static + Send + Sync> = image.clone();
         Self {
-            inner: view.clone(),
+            inner: Arc::downgrade(&gen_img),
         }
     }
 
-    pub fn to<B: Backend>(self) -> Weak<Mutex<B::ImageView>> {
+    pub fn to<B: Backend>(self) -> Option<Weak<Mutex<B::ImageView>>> {
         self.inner
-            .downcast::<Mutex<B::ImageView>>()
-            .ok()
+            .upgrade()
+            .and_then(|x|
+                x.downcast::<Mutex<B::ImageView>>().ok()
+            )
             .map(|x| Arc::downgrade(&x))
-            .unwrap()
     }
 }
