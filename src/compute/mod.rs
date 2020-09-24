@@ -965,7 +965,7 @@ where
 
         let mut result = vec![ComputeEvent::OutputReady(
             res.clone(),
-            gpu::BrokerImage::from::<B>(image.get_raw(), image.alive()),
+            gpu::BrokerImage::from::<B>(image.get_raw()),
             image.get_layout(),
             image.get_access(),
             self.sockets.get_image_size(

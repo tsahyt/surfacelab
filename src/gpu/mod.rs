@@ -201,47 +201,29 @@ where
     }
 }
 
-/// Type for cross thread checks of whether a resource is still alive.
-/// Implemented as Arc/Weak. Arc is to be held at the resource "home", Weak can
-/// be distributed.
-pub type ResourceAlive = Weak<()>;
-
-/// Image variant hiding the parameterization over the backend. Deeply
-/// unsafe! Must be used with similar backend types on both ends. No care is
-/// taken to ensure this.
-///
-/// This exists solely for transmitting an image over the broker bus
-/// without incurring the type parameter all throughout the language.
-///
-/// Some manual care is required to make sure the images does not drop while
-/// the data is in use in both threads. To do so, the `from` method takes a
-/// `Weak` that must be alive if and only if the backing image is still alive.
-#[derive(Debug)]
+/// An Image type hiding the backend safely in order to send it over the bus.
+#[derive(Debug, Clone)]
 pub struct BrokerImage {
-    alive: ResourceAlive,
-    raw: *const (),
+    inner: Arc<dyn Any + 'static + Send + Sync>,
 }
-
-// TODO: Do not send Image, instead use views and render directly from compute memory
-
-unsafe impl Send for BrokerImage {}
-unsafe impl Sync for BrokerImage {}
 
 impl BrokerImage {
-    pub fn from<B: Backend>(view: &B::Image, alive: Weak<()>) -> Self {
-        let ptr = view as *const B::Image as *const ();
-        Self { alive, raw: ptr }
+    pub fn from<B: Backend>(image: &Arc<Mutex<B::Image>>) -> Self {
+        Self {
+            inner: image.clone(),
+        }
     }
 
-    pub fn to<B: Backend>(&self) -> Option<&B::Image> {
-        match self.alive.upgrade() {
-            Some(_) => unsafe { Some(&*(self.raw as *const B::Image)) },
-            None => None,
-        }
+    pub fn to<B: Backend>(self) -> Weak<Mutex<B::Image>> {
+        self.inner
+            .downcast::<Mutex<B::Image>>()
+            .ok()
+            .map(|x| Arc::downgrade(&x))
+            .unwrap()
     }
 }
 
-/// A type hiding the backend safely in order to send it over the bus.
+/// An ImageView type hiding the backend safely in order to send it over the bus.
 #[derive(Debug, Clone)]
 pub struct BrokerImageView {
     inner: Arc<dyn Any + 'static + Send + Sync>,

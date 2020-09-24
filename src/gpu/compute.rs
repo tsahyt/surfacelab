@@ -287,13 +287,12 @@ where
             parent: self,
             size,
             px_width,
-            raw: ManuallyDrop::new(image),
+            raw: ManuallyDrop::new(Arc::new(Mutex::new(image))),
             layout: Cell::new(hal::image::Layout::Undefined),
             access: Cell::new(hal::image::Access::empty()),
             view: ManuallyDrop::new(None),
             alloc: None,
             format,
-            alive: Arc::new(()),
         })
     }
 
@@ -445,20 +444,29 @@ where
             lock.device.reset_fence(&self.fence).unwrap();
         }
 
-        let pre_barriers: Vec<_> = {
-            let input_barriers = input_images.iter().map(|i| {
+        let input_locks: SmallVec<[_; 6]> =
+            input_images.iter().map(|i| i.raw.lock().unwrap()).collect();
+        let output_locks: SmallVec<[_; 2]> = output_images
+            .iter()
+            .map(|i| i.raw.lock().unwrap())
+            .collect();
+
+        let pre_barriers = {
+            let input_barriers = input_images.iter().enumerate().map(|(k, i)| {
                 i.barrier_to(
+                    &input_locks[k],
                     hal::image::Access::SHADER_READ,
                     hal::image::Layout::ShaderReadOnlyOptimal,
                 )
             });
-            let output_barriers = output_images.iter().map(|i| {
+            let output_barriers = output_images.iter().enumerate().map(|(k, i)| {
                 i.barrier_to(
+                    &output_locks[k],
                     hal::image::Access::SHADER_WRITE,
                     hal::image::Layout::General,
                 )
             });
-            input_barriers.chain(output_barriers).collect()
+            input_barriers.chain(output_barriers)
         };
 
         let command_buffer = unsafe {
@@ -467,7 +475,7 @@ where
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
-                &pre_barriers,
+                pre_barriers,
             );
             command_buffer.bind_compute_pipeline(&pipeline.raw);
             command_buffer.bind_compute_descriptor_sets(
@@ -540,8 +548,11 @@ where
             lock.device.reset_fence(&self.fence).unwrap();
         }
 
-        // Build barrier
+        // Lock image and build barrier
+        let image_lock = image.raw.lock().unwrap();
+
         let barrier = image.barrier_to(
+            &image_lock,
             hal::image::Access::TRANSFER_READ,
             hal::image::Layout::TransferSrcOptimal,
         );
@@ -556,7 +567,7 @@ where
                 &[barrier],
             );
             command_buffer.copy_image_to_buffer(
-                &image.raw,
+                &image_lock,
                 hal::image::Layout::TransferSrcOptimal,
                 &buf,
                 Some(hal::command::BufferImageCopy {
@@ -671,6 +682,8 @@ where
         }
 
         // Copy buffer to image
+        let image_lock = image.raw.lock().unwrap();
+
         unsafe {
             let mut command_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
@@ -678,13 +691,14 @@ where
                 hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::TRANSFER,
                 hal::memory::Dependencies::empty(),
                 &[image.barrier_to(
+                    &image_lock,
                     hal::image::Access::TRANSFER_WRITE,
                     hal::image::Layout::TransferDstOptimal,
                 )],
             );
             command_buffer.copy_buffer_to_image(
                 &buf,
-                &image.raw,
+                &image_lock,
                 hal::image::Layout::TransferDstOptimal,
                 Some(hal::command::BufferImageCopy {
                     buffer_offset: 0,
@@ -707,6 +721,7 @@ where
                 hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
                 &[image.barrier_to(
+                    &image_lock,
                     hal::image::Access::SHADER_READ,
                     hal::image::Layout::ShaderReadOnlyOptimal,
                 )],
@@ -734,6 +749,9 @@ where
 
         unsafe { lock.device.reset_fence(&self.fence).unwrap() };
 
+        let from_lock = from.raw.lock().unwrap();
+        let to_lock = from.raw.lock().unwrap();
+
         unsafe {
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
@@ -742,19 +760,21 @@ where
                 hal::memory::Dependencies::empty(),
                 &[
                     from.barrier_to(
+                        &from_lock,
                         hal::image::Access::TRANSFER_READ,
                         hal::image::Layout::TransferSrcOptimal,
                     ),
                     to.barrier_to(
+                        &to_lock,
                         hal::image::Access::TRANSFER_WRITE,
                         hal::image::Layout::TransferDstOptimal,
                     ),
                 ],
             );
             cmd_buffer.blit_image(
-                &*from.raw,
+                &from_lock,
                 hal::image::Layout::TransferSrcOptimal,
-                &*to.raw,
+                &to_lock,
                 hal::image::Layout::TransferDstOptimal,
                 hal::image::Filter::Nearest,
                 &[hal::command::ImageBlit {
@@ -785,10 +805,12 @@ where
                 hal::memory::Dependencies::empty(),
                 &[
                     from.barrier_to(
+                        &from_lock,
                         hal::image::Access::SHADER_READ,
                         hal::image::Layout::ShaderReadOnlyOptimal,
                     ),
                     to.barrier_to(
+                        &to_lock,
                         hal::image::Access::SHADER_READ,
                         hal::image::Layout::ShaderReadOnlyOptimal,
                     ),
@@ -810,6 +832,8 @@ where
 
         let thumbnail_image = self.thumbnail_cache.image(thumbnail);
 
+        let image_lock = image.raw.lock().unwrap();
+
         // Blit image to thumbnail size
         unsafe {
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
@@ -829,13 +853,14 @@ where
                         range: super::COLOR_RANGE.clone(),
                     },
                     image.barrier_to(
+                        &image_lock,
                         hal::image::Access::TRANSFER_READ,
                         hal::image::Layout::TransferSrcOptimal,
                     ),
                 ],
             );
             cmd_buffer.blit_image(
-                &*image.raw,
+                &image_lock,
                 hal::image::Layout::TransferSrcOptimal,
                 thumbnail_image,
                 hal::image::Layout::TransferDstOptimal,
@@ -868,6 +893,7 @@ where
                 hal::memory::Dependencies::empty(),
                 &[
                     image.barrier_to(
+                        &image_lock,
                         hal::image::Access::SHADER_READ,
                         hal::image::Layout::ShaderReadOnlyOptimal,
                     ),
@@ -959,13 +985,12 @@ pub struct Image<B: Backend> {
     parent: *const GPUCompute<B>,
     size: u32,
     px_width: u8,
-    raw: ManuallyDrop<B::Image>,
+    raw: ManuallyDrop<Arc<Mutex<B::Image>>>,
     layout: Cell<hal::image::Layout>,
     access: Cell<hal::image::Access>,
     view: ManuallyDrop<Option<B::ImageView>>,
     alloc: Option<Alloc<B>>,
     format: hal::format::Format,
-    alive: Arc<()>,
 }
 
 impl<B> Image<B>
@@ -974,17 +999,18 @@ where
 {
     fn bind_memory(&mut self, offset: u64, compute: &GPUCompute<B>) -> Result<(), ImageError> {
         let lock = compute.gpu.lock().unwrap();
+        let mut raw_lock = self.raw.lock().unwrap();
 
         unsafe {
             lock.device
-                .bind_image_memory(&compute.image_mem, offset, &mut self.raw)
+                .bind_image_memory(&compute.image_mem, offset, &mut raw_lock)
         }
         .map_err(|_| ImageError::Bind)?;
 
         // Create view once the image is bound
         let view = unsafe {
             lock.device.create_image_view(
-                &self.raw,
+                &raw_lock,
                 hal::image::ViewKind::D2,
                 self.format,
                 hal::format::Swizzle::NO,
@@ -1002,18 +1028,19 @@ where
         Ok(())
     }
 
-    pub fn barrier_to(
+    pub fn barrier_to<'a>(
         &self,
+        image: &'a B::Image,
         access: hal::image::Access,
         layout: hal::image::Layout,
-    ) -> hal::memory::Barrier<B> {
+    ) -> hal::memory::Barrier<'a, B> {
         let old_access = self.access.get();
         let old_layout = self.layout.get();
         self.access.set(access);
         self.layout.set(layout);
         hal::memory::Barrier::Image {
             states: (old_access, old_layout)..(access, layout),
-            target: &*self.raw,
+            target: image,
             families: None,
             range: super::COLOR_RANGE.clone(),
         }
@@ -1089,13 +1116,8 @@ where
     }
 
     /// Get the raw image
-    pub fn get_raw(&self) -> &B::Image {
+    pub fn get_raw(&self) -> &Arc<Mutex<B::Image>> {
         &*self.raw
-    }
-
-    /// Get the live status of the image
-    pub fn alive(&self) -> super::ResourceAlive {
-        Arc::downgrade(&self.alive)
     }
 }
 
@@ -1114,7 +1136,15 @@ where
                 if let Some(view) = ManuallyDrop::take(&mut self.view) {
                     lock.device.destroy_image_view(view);
                 }
-                lock.device.destroy_image(ManuallyDrop::take(&mut self.raw));
+                lock.device.destroy_image(
+                    loop {
+                        if let Ok(a) = Arc::try_unwrap(ManuallyDrop::take(&mut self.raw)) {
+                            break a;
+                        }
+                    }
+                    .into_inner()
+                    .unwrap(),
+                );
             }
         }
     }

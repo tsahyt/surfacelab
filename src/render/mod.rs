@@ -255,8 +255,9 @@ where
         output_type: OutputType,
     ) {
         for r in self.renderers.values_mut() {
-            if let Some(img) = image.to::<B>() {
-                r.transfer_image(img, layout, access, image_size, output_type);
+            if let Some(img) = image.clone().to::<B>().upgrade() {
+                let lock = img.lock().unwrap();
+                r.transfer_image(&lock, layout, access, image_size, output_type);
                 r.render();
             }
         }
