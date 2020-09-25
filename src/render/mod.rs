@@ -256,8 +256,10 @@ where
     ) {
         for r in self.renderers.values_mut() {
             if let Some(img) = image.clone().to::<B>().and_then(|i| i.upgrade()) {
-                let lock = img.lock().unwrap();
-                r.transfer_image(&lock, layout, access, image_size, output_type);
+                {
+                    let lock = img.lock().unwrap();
+                    r.transfer_image(&lock, layout, access, image_size, output_type);
+                }
                 r.render();
             }
         }

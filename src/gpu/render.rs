@@ -201,19 +201,25 @@ where
     B: Backend,
 {
     fn drop(&mut self) {
-        let lock = self.gpu.lock().unwrap();
-        unsafe {
-            lock.device
-                .free_memory(ManuallyDrop::take(&mut self.memory));
-            lock.device.destroy_image_view(
-                loop {
-                    if let Ok(a) = Arc::try_unwrap(ManuallyDrop::take(&mut self.view)) {
-                        break a;
-                    }
+        let view = {
+            let mut inner = unsafe { ManuallyDrop::take(&mut self.view) };
+            loop {
+                match Arc::try_unwrap(inner) {
+                    Ok(t) => break t,
+                    Err(a) => inner = a,
                 }
+            }
+        };
+        let lock = self.gpu.lock().unwrap();
+
+        unsafe {
+            lock.device.destroy_image_view(
+                view
                 .into_inner()
                 .unwrap(),
             );
+            lock.device
+                .free_memory(ManuallyDrop::take(&mut self.memory));
             lock.device
                 .destroy_image(ManuallyDrop::take(&mut self.image));
         }

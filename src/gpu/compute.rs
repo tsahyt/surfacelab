@@ -1129,24 +1129,33 @@ where
     /// the last reference to it drops.
     fn drop(&mut self) {
         let parent = unsafe { &*self.parent };
-
-        let lock = parent.gpu.lock().unwrap();
-        unsafe {
-            if let Some(view) = ManuallyDrop::take(&mut self.view) {
-                lock.device.destroy_image_view(view);
-            }
-            lock.device.destroy_image(
-                loop {
-                    if let Ok(a) = Arc::try_unwrap(ManuallyDrop::take(&mut self.raw)) {
-                        break a;
-                    }
+        let image = {
+            let mut raw = unsafe { ManuallyDrop::take(&mut self.raw) };
+            loop {
+                match Arc::try_unwrap(raw) {
+                    Ok(t) => break t,
+                    Err(a) => raw = a,
                 }
+            }
+        };
+
+        // NOTE: Lock *after* having aquired the image, to avoid a deadlock
+        // between here and the image copy in render
+        let lock = parent.gpu.lock().unwrap();
+
+        unsafe {
+            lock.device.destroy_image(
+                image
                 .into_inner()
                 .unwrap(),
             );
+            if let Some(view) = ManuallyDrop::take(&mut self.view) {
+                lock.device.destroy_image_view(view);
+            }
         }
     }
 }
+
 
 // NOTE: The resources claimed by a compute pipeline are never cleaned up.
 // gfx-hal has functions to do so, but it of course requires a handle back to
@@ -1364,15 +1373,20 @@ where
 
     /// Free a thumbnail by its index. Note that this takes ownership.
     pub fn free(&mut self, index: ThumbnailIndex) {
+        let view = {
+            let mut inner = self.views[index.0].take().unwrap();
+            loop {
+                match Arc::try_unwrap(inner) {
+                    Ok(t) => break t,
+                    Err(a) => inner = a,
+                }
+            }
+        };
         let lock = self.gpu.lock().unwrap();
 
         unsafe {
             lock.device.destroy_image_view(
-                loop {
-                    if let Ok(a) = Arc::try_unwrap(self.views[index.0].take().unwrap()) {
-                        break a;
-                    }
-                }
+                view
                 .into_inner()
                 .unwrap(),
             );
