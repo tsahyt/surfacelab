@@ -2,6 +2,7 @@ use crate::{broker, gpu, lang::*};
 use image::{imageops, ImageBuffer, Luma, Rgb, Rgba};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
@@ -454,6 +455,11 @@ impl From<gpu::PipelineError> for InterpretationError {
     }
 }
 
+struct Linearization {
+    instructions: Vec<Instruction>,
+    final_use: Vec<(Resource<Node>, usize)>,
+}
+
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
 
@@ -465,7 +471,7 @@ struct ComputeManager<B: gpu::Backend> {
     external_images: HashMap<(std::path::PathBuf, ColorSpace), Option<ExternalImage>>,
 
     /// Last known linearization of a graph
-    linearizations: HashMap<Resource<Graph>, (Vec<Instruction>, Vec<(Resource<Node>, usize)>)>,
+    linearizations: HashMap<Resource<Graph>, Rc<Linearization>>,
 
     /// Number of executions, kept for cache invalidation
     seq: u64,
@@ -554,8 +560,13 @@ where
                     }
                 }
                 GraphEvent::Relinearized(graph, instrs, last_use) => {
-                    self.linearizations
-                        .insert(graph.clone(), (instrs.clone(), last_use.clone()));
+                    self.linearizations.insert(
+                        graph.clone(),
+                        Rc::new(Linearization {
+                            instructions: instrs.clone(),
+                            final_use: last_use.clone(),
+                        }),
+                    );
                 }
                 GraphEvent::Recompute(graph) => {
                     match self.interpret_linearization(graph, std::iter::empty()) {
@@ -644,8 +655,7 @@ where
         I: Iterator<Item = &'a ParamSubstitution>,
     {
         self.seq += 1;
-        // FIXME: This clone is wholly unnecessary, but is required to make the borrow checker happy.
-        let (instrs, final_use) = self
+        let linearization = self
             .linearizations
             .get(graph)
             .expect("Unknown graph")
@@ -662,11 +672,11 @@ where
         }
 
         let mut step = 0;
-        for i in instrs.iter() {
+        for i in linearization.instructions.iter() {
             match self.interpret(i, &substitutions_map) {
                 Ok(mut r) => response.append(&mut r),
                 Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
-                    self.cleanup(step, &final_use);
+                    self.cleanup(step, &linearization.final_use);
                     match self.interpret(i, &substitutions_map) {
                         Ok(mut r) => response.append(&mut r),
                         e => return e,

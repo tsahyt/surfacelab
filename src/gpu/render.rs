@@ -213,11 +213,7 @@ where
         let lock = self.gpu.lock().unwrap();
 
         unsafe {
-            lock.device.destroy_image_view(
-                view
-                .into_inner()
-                .unwrap(),
-            );
+            lock.device.destroy_image_view(view.into_inner().unwrap());
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.memory));
             lock.device

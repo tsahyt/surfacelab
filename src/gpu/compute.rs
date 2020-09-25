@@ -1144,18 +1144,13 @@ where
         let lock = parent.gpu.lock().unwrap();
 
         unsafe {
-            lock.device.destroy_image(
-                image
-                .into_inner()
-                .unwrap(),
-            );
+            lock.device.destroy_image(image.into_inner().unwrap());
             if let Some(view) = ManuallyDrop::take(&mut self.view) {
                 lock.device.destroy_image_view(view);
             }
         }
     }
 }
-
 
 // NOTE: The resources claimed by a compute pipeline are never cleaned up.
 // gfx-hal has functions to do so, but it of course requires a handle back to
@@ -1385,11 +1380,7 @@ where
         let lock = self.gpu.lock().unwrap();
 
         unsafe {
-            lock.device.destroy_image_view(
-                view
-                .into_inner()
-                .unwrap(),
-            );
+            lock.device.destroy_image_view(view.into_inner().unwrap());
             lock.device
                 .destroy_image(self.images[index.0].take().unwrap());
         }
