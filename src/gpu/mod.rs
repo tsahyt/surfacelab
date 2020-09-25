@@ -218,9 +218,7 @@ impl BrokerImage {
     pub fn to<B: Backend>(self) -> Option<Weak<Mutex<B::Image>>> {
         self.inner
             .upgrade()
-            .and_then(|x|
-                x.downcast::<Mutex<B::Image>>().ok()
-            )
+            .and_then(|x| x.downcast::<Mutex<B::Image>>().ok())
             .map(|x| Arc::downgrade(&x))
     }
 }
@@ -242,9 +240,7 @@ impl BrokerImageView {
     pub fn to<B: Backend>(self) -> Option<Weak<Mutex<B::ImageView>>> {
         self.inner
             .upgrade()
-            .and_then(|x|
-                x.downcast::<Mutex<B::ImageView>>().ok()
-            )
+            .and_then(|x| x.downcast::<Mutex<B::ImageView>>().ok())
             .map(|x| Arc::downgrade(&x))
     }
 }

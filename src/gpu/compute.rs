@@ -827,12 +827,11 @@ where
 
     /// Create a thumbnail of the given image and return it
     pub fn generate_thumbnail(&mut self, image: &Image<B>, thumbnail: &ThumbnailIndex) {
+        let thumbnail_image = self.thumbnail_cache.image(thumbnail);
+        let image_lock = image.raw.lock().unwrap();
+
         let mut lock = self.gpu.lock().unwrap();
         unsafe { lock.device.reset_fence(&self.fence).unwrap() };
-
-        let thumbnail_image = self.thumbnail_cache.image(thumbnail);
-
-        let image_lock = image.raw.lock().unwrap();
 
         // Blit image to thumbnail size
         unsafe {
@@ -1367,8 +1366,6 @@ where
         let lock = self.gpu.lock().unwrap();
 
         unsafe {
-            lock.device
-                .destroy_image(self.images[index.0].take().unwrap());
             lock.device.destroy_image_view(
                 loop {
                     if let Ok(a) = Arc::try_unwrap(self.views[index.0].take().unwrap()) {
@@ -1378,6 +1375,8 @@ where
                 .into_inner()
                 .unwrap(),
             );
+            lock.device
+                .destroy_image(self.images[index.0].take().unwrap());
         }
 
         self.images[index.0] = None;

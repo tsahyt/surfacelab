@@ -17,10 +17,12 @@ use std::sync::{Arc, Mutex};
 
 use std::{
     borrow::Borrow,
+    collections::HashMap,
     io::Cursor,
     iter,
     mem::{self, ManuallyDrop},
     ptr,
+    sync::Weak,
 };
 
 use conrod_core::{self, mesh::*};
@@ -72,6 +74,9 @@ pub struct Image<B: Backend> {
     width: u32,
     /// The height of the image.
     height: u32,
+    /// A weak reference to the view, such that we can check whether it is alive
+    /// and lock it for rendering, to ensure it cannot be freed while we're using it.
+    view: Weak<Mutex<B::ImageView>>,
 }
 
 impl<B> ImageDimensions for Image<B>
@@ -969,7 +974,9 @@ where
         };
 
         // Rendering
+        let mut image_locks = HashMap::new();
         let cmd_buffer = &mut *self.command_buffer;
+
         unsafe {
             cmd_buffer.begin_primary(command::CommandBufferFlags::ONE_TIME_SUBMIT);
 
@@ -1024,17 +1031,19 @@ where
                     },
                     Draw::Image(img_id, range) => unsafe {
                         if !ExactSizeIterator::is_empty(&range) {
-                            let descriptor = image_map
-                                .get(&img_id)
-                                .map(|img| &img.descriptor)
-                                .unwrap_or(&self.image_desc_default);
-                            cmd_buffer.bind_graphics_descriptor_sets(
-                                &self.pipeline_layout,
-                                0,
-                                vec![&self.basic_desc_set, descriptor],
-                                &[],
-                            );
-                            cmd_buffer.draw(range.start as u32..range.end as u32, 0..1);
+                            if let Some(image) = image_map.get(&img_id) {
+                                // It is enough to hold a strong reference to prevent a drop
+                                image_locks
+                                    .entry(img_id)
+                                    .or_insert_with(|| image.view.upgrade());
+                                cmd_buffer.bind_graphics_descriptor_sets(
+                                    &self.pipeline_layout,
+                                    0,
+                                    vec![&self.basic_desc_set, &image.descriptor],
+                                    &[],
+                                );
+                                cmd_buffer.draw(range.start as u32..range.end as u32, 0..1);
+                            }
                         }
                     },
                 },
@@ -1097,8 +1106,17 @@ where
     }
 
     /// Create an image for use in the image map for rendering
-    pub fn create_image(&mut self, image_view: &B::ImageView, width: u32, height: u32) -> Image<B> {
+    pub fn create_image(
+        &mut self,
+        view: Weak<Mutex<B::ImageView>>,
+        width: u32,
+        height: u32,
+    ) -> Option<Image<B>> {
+        let strong_ref = view.upgrade()?;
+        let image_view = strong_ref.lock().unwrap();
+
         let lock = self.gpu.lock().unwrap();
+
         let desc = unsafe { self.image_desc_pool.allocate_set(&*self.image_set_layout) }.unwrap();
 
         unsafe {
@@ -1108,17 +1126,18 @@ where
                     binding: 0,
                     array_offset: 0,
                     descriptors: Some(pso::Descriptor::Image(
-                        image_view,
+                        &image_view as &B::ImageView,
                         i::Layout::ShaderReadOnlyOptimal,
                     )),
                 }]);
         }
 
-        Image {
+        Some(Image {
             descriptor: desc,
             width,
             height,
-        }
+            view,
+        })
     }
 
     /// Destroy an image, freeing up the descriptor set resources. This does

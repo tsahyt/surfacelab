@@ -460,26 +460,26 @@ where
     ) {
         match event {
             Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
-                if let Some(view) = view.clone().to::<B>().and_then(|i| i.upgrade()) {
-                    let lock = view.lock().unwrap();
-                    let id = self.image_map.insert(renderer.create_image(
-                        &lock,
+                if let Some(view) = view.clone().to::<B>() {
+                    if let Some(img) = renderer.create_image(
+                        view,
                         self.app_state.monitor_resolution.0,
                         self.app_state.monitor_resolution.1,
-                    ));
-                    self.app_state.render_image = Some(id);
+                    ) {
+                        let id = self.image_map.insert(img);
+                        self.app_state.render_image = Some(id);
+                    }
                 }
             }
             Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
                 ui.needs_redraw();
             }
             Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
-                if let Some(t) = thmb.clone().to::<B>().and_then(|i| i.upgrade()) {
-                    let lock = t.lock().unwrap();
-                    let id = self
-                        .image_map
-                        .insert(renderer.create_image(&lock, 128, 128));
-                    self.app_state.graphs.register_thumbnail(&res, id);
+                if let Some(t) = thmb.clone().to::<B>() {
+                    if let Some(img) = renderer.create_image(t, 128, 128) {
+                        let id = self.image_map.insert(img);
+                        self.app_state.graphs.register_thumbnail(&res, id);
+                    }
                 }
             }
             Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(res)) => {
