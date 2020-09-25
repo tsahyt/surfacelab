@@ -232,7 +232,7 @@ where
     ) -> Result<Self, InitializationError> {
         log::info!("Obtaining GPU Render Resources");
         let format = hal::format::Format::Rgba8Srgb;
-        let render_target = RenderTarget::new(gpu.clone(), format, monitor_dimensions)?;
+        let render_target = RenderTarget::new(gpu.clone(), format, 1, monitor_dimensions)?;
 
         let lock = gpu.lock().unwrap();
         log::debug!("Using render format {:?}", format);

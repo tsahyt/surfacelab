@@ -201,12 +201,13 @@ where
     }
 }
 
-struct RenderTarget<B: Backend> {
+pub struct RenderTarget<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     image: ManuallyDrop<B::Image>,
     view: ManuallyDrop<Arc<Mutex<B::ImageView>>>,
     memory: ManuallyDrop<B::Memory>,
     image_layout: hal::image::Layout,
+    samples: hal::image::NumSamples,
 }
 
 impl<B> RenderTarget<B>
@@ -216,17 +217,18 @@ where
     pub fn new(
         gpu: Arc<Mutex<GPU<B>>>,
         format: hal::format::Format,
-        monitor_dimensions: (u32, u32),
+        samples: hal::image::NumSamples,
+        dimensions: (u32, u32),
     ) -> Result<Self, InitializationError> {
         let lock = gpu.lock().unwrap();
 
         // Create Image
         let mut image = unsafe {
             lock.device.create_image(
-                hal::image::Kind::D2(monitor_dimensions.0, monitor_dimensions.1, 1, 1),
+                hal::image::Kind::D2(dimensions.0, dimensions.1, 1, samples),
                 1,
                 format,
-                hal::image::Tiling::Linear,
+                hal::image::Tiling::Optimal,
                 hal::image::Usage::COLOR_ATTACHMENT | hal::image::Usage::SAMPLED,
                 hal::image::ViewCapabilities::empty(),
             )
@@ -268,6 +270,7 @@ where
             view: ManuallyDrop::new(Arc::new(Mutex::new(view))),
             memory: ManuallyDrop::new(memory),
             image_layout: hal::image::Layout::Undefined,
+            samples,
         })
     }
 
@@ -289,6 +292,10 @@ where
 
         self.image_layout = hal::image::Layout::ShaderReadOnlyOptimal;
         barrier
+    }
+
+    pub fn samples(&self) -> hal::image::NumSamples {
+        self.samples
     }
 }
 
