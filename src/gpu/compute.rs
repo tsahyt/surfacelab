@@ -1170,6 +1170,7 @@ where
 }
 
 /// An index into the thumbnail cache
+#[derive(Debug)]
 pub struct ThumbnailIndex(usize);
 
 pub struct ThumbnailCache<B: Backend> {
@@ -1378,9 +1379,6 @@ where
             lock.device
                 .destroy_image(self.images[index.0].take().unwrap());
         }
-
-        self.images[index.0] = None;
-        self.views[index.0] = None;
     }
 
     /// The size of a single thumbnail, measured in pixels per side.
