@@ -1,4 +1,5 @@
 use crate::lang::{LightType, ParameterBool};
+use super::RenderTarget;
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
@@ -103,123 +104,6 @@ pub struct GPURender<B: Backend> {
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
     transfer_fence: ManuallyDrop<B::Fence>,
-}
-
-struct RenderTarget<B: Backend> {
-    gpu: Arc<Mutex<GPU<B>>>,
-    image: ManuallyDrop<B::Image>,
-    view: ManuallyDrop<Arc<Mutex<B::ImageView>>>,
-    memory: ManuallyDrop<B::Memory>,
-    image_layout: hal::image::Layout,
-}
-
-impl<B> RenderTarget<B>
-where
-    B: Backend,
-{
-    pub fn new(
-        gpu: Arc<Mutex<GPU<B>>>,
-        format: hal::format::Format,
-        monitor_dimensions: (u32, u32),
-    ) -> Result<Self, InitializationError> {
-        let lock = gpu.lock().unwrap();
-
-        // Create Image
-        let mut image = unsafe {
-            lock.device.create_image(
-                hal::image::Kind::D2(monitor_dimensions.0, monitor_dimensions.1, 1, 1),
-                1,
-                format,
-                hal::image::Tiling::Linear,
-                hal::image::Usage::COLOR_ATTACHMENT | hal::image::Usage::SAMPLED,
-                hal::image::ViewCapabilities::empty(),
-            )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Target Image"))?;
-
-        // Allocate and bind memory for image
-        let requirements = unsafe { lock.device.get_image_requirements(&image) };
-        let memory_type = lock
-            .memory_properties
-            .memory_types
-            .iter()
-            .position(|mem_type| {
-                mem_type
-                    .properties
-                    .contains(hal::memory::Properties::DEVICE_LOCAL)
-            })
-            .unwrap()
-            .into();
-        let memory = unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
-            .map_err(|_| InitializationError::Allocation("Render Target Image"))?;
-        unsafe { lock.device.bind_image_memory(&memory, 0, &mut image) }
-            .map_err(|_| InitializationError::Bind)?;
-
-        let view = unsafe {
-            lock.device.create_image_view(
-                &image,
-                hal::image::ViewKind::D2,
-                format,
-                hal::format::Swizzle::NO,
-                super::COLOR_RANGE.clone(),
-            )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Target Image View"))?;
-
-        Ok(Self {
-            gpu: gpu.clone(),
-            image: ManuallyDrop::new(image),
-            view: ManuallyDrop::new(Arc::new(Mutex::new(view))),
-            memory: ManuallyDrop::new(memory),
-            image_layout: hal::image::Layout::Undefined,
-        })
-    }
-
-    pub fn image_view(&self) -> &Arc<Mutex<B::ImageView>> {
-        &self.view
-    }
-
-    pub fn barrier(&mut self) -> hal::memory::Barrier<B> {
-        let barrier = hal::memory::Barrier::Image {
-            states: (hal::image::Access::empty(), self.image_layout)
-                ..(
-                    hal::image::Access::COLOR_ATTACHMENT_WRITE,
-                    hal::image::Layout::ColorAttachmentOptimal,
-                ),
-            target: &*self.image,
-            families: None,
-            range: super::COLOR_RANGE.clone(),
-        };
-
-        self.image_layout = hal::image::Layout::ShaderReadOnlyOptimal;
-        barrier
-    }
-}
-
-impl<B> Drop for RenderTarget<B>
-where
-    B: Backend,
-{
-    fn drop(&mut self) {
-        let view = {
-            let mut inner = unsafe { ManuallyDrop::take(&mut self.view) };
-            loop {
-                match Arc::try_unwrap(inner) {
-                    Ok(t) => break t,
-                    Err(a) => inner = a,
-                }
-            }
-        };
-        let lock = self.gpu.lock().unwrap();
-
-        unsafe {
-            lock.device.destroy_image_view(view.into_inner().unwrap());
-            lock.device
-                .free_memory(ManuallyDrop::take(&mut self.memory));
-            lock.device
-                .destroy_image(ManuallyDrop::take(&mut self.image));
-        }
-    }
 }
 
 struct ImageSlots<B: Backend> {
