@@ -208,6 +208,7 @@ pub struct RenderTarget<B: Backend> {
     memory: ManuallyDrop<B::Memory>,
     image_layout: hal::image::Layout,
     samples: hal::image::NumSamples,
+    format: hal::format::Format,
 }
 
 impl<B> RenderTarget<B>
@@ -271,6 +272,7 @@ where
             memory: ManuallyDrop::new(memory),
             image_layout: hal::image::Layout::Undefined,
             samples,
+            format,
         })
     }
 
@@ -296,6 +298,10 @@ where
 
     pub fn samples(&self) -> hal::image::NumSamples {
         self.samples
+    }
+
+    pub fn format(&self) -> hal::format::Format {
+        self.format
     }
 }
 

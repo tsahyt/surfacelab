@@ -1,4 +1,4 @@
-use super::GPU;
+use super::{RenderTarget, GPU};
 
 use gfx_hal as hal;
 use hal::{
@@ -27,6 +27,8 @@ use std::{
 
 use conrod_core::{self, mesh::*};
 
+const TARGET_FORMAT: f::Format = f::Format::Bgra8Srgb;
+const MSAA_SAMPLES: i::NumSamples = 4;
 const ENTRY_NAME: &str = "main";
 const GLYPH_CACHE_FORMAT: hal::format::Format = hal::format::Format::R8Unorm;
 const COLOR_RANGE: i::SubresourceRange = i::SubresourceRange {
@@ -497,7 +499,7 @@ pub struct Renderer<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
 
     surface: ManuallyDrop<B::Surface>,
-    format: hal::format::Format,
+    surface_format: hal::format::Format,
 
     dimensions: window::Extent2D,
     viewport: pso::Viewport,
@@ -523,11 +525,12 @@ pub struct Renderer<B: Backend> {
     vertex_buffer: VertexBuffer<B>,
     glyph_cache: GlyphCache<B>,
 
+    render_target: RenderTarget<B>,
+
     sampler: ManuallyDrop<B::Sampler>,
     mesh: conrod_core::mesh::Mesh,
 }
 
-// TODO: MSAA for UI rendering
 impl<B> Renderer<B>
 where
     B: Backend,
@@ -540,6 +543,13 @@ where
     ) -> Renderer<B> {
         let vertex_buffer = VertexBuffer::new(gpu.clone()).expect("Error creating Vertex Buffer");
         let glyph_cache = GlyphCache::new(gpu.clone(), glyph_cache_dims);
+        let render_target = RenderTarget::new(
+            gpu.clone(),
+            TARGET_FORMAT,
+            MSAA_SAMPLES,
+            (dimensions.width, dimensions.height),
+        )
+        .expect("Failed to initialize render target");
 
         let lock = gpu.lock().unwrap();
 
@@ -689,16 +699,17 @@ where
         }
 
         let caps = surface.capabilities(&lock.adapter.physical_device);
-        let formats = surface.supported_formats(&lock.adapter.physical_device);
-        let format = formats.map_or(f::Format::Rgba8Srgb, |formats| {
-            formats
-                .iter()
-                .find(|format| format.base_format().1 == ChannelType::Srgb)
-                .copied()
-                .unwrap_or(formats[0])
-        });
+        let surface_format = surface
+            .supported_formats(&lock.adapter.physical_device)
+            .map_or(f::Format::Bgra8Srgb, |formats| {
+                formats
+                    .iter()
+                    .find(|format| format.base_format().1 == ChannelType::Srgb)
+                    .copied()
+                    .unwrap_or(formats[0])
+            });
 
-        let swap_config = window::SwapchainConfig::from_caps(&caps, format, dimensions);
+        let swap_config = window::SwapchainConfig::from_caps(&caps, surface_format, dimensions);
         let extent = swap_config.extent;
         unsafe {
             surface
@@ -707,11 +718,22 @@ where
         };
 
         let render_pass = {
-            let attachment = pass::Attachment {
-                format: Some(format),
-                samples: 1,
+            let color_attachment = pass::Attachment {
+                format: Some(TARGET_FORMAT),
+                samples: render_target.samples(),
                 ops: pass::AttachmentOps::new(
                     pass::AttachmentLoadOp::Clear,
+                    pass::AttachmentStoreOp::Store,
+                ),
+                stencil_ops: pass::AttachmentOps::DONT_CARE,
+                layouts: i::Layout::Undefined..i::Layout::ColorAttachmentOptimal,
+            };
+
+            let present_attachment = pass::Attachment {
+                format: Some(surface_format),
+                samples: 1,
+                ops: pass::AttachmentOps::new(
+                    pass::AttachmentLoadOp::DontCare,
                     pass::AttachmentStoreOp::Store,
                 ),
                 stencil_ops: pass::AttachmentOps::DONT_CARE,
@@ -722,13 +744,16 @@ where
                 colors: &[(0, i::Layout::ColorAttachmentOptimal)],
                 depth_stencil: None,
                 inputs: &[],
-                resolves: &[],
+                resolves: &[(1, i::Layout::Present)],
                 preserves: &[],
             };
 
             unsafe {
-                lock.device
-                    .create_render_pass(&[attachment], &[subpass], &[])
+                lock.device.create_render_pass(
+                    &[color_attachment, present_attachment],
+                    &[subpass],
+                    &[],
+                )
             }
             .expect("Can't create render pass")
         };
@@ -798,6 +823,13 @@ where
                     &pipeline_layout,
                     subpass,
                 );
+                pipeline_desc.multisampling = Some(pso::Multisampling {
+                    rasterization_samples: render_target.samples(),
+                    sample_shading: None,
+                    sample_mask: !0,
+                    alpha_coverage: false,
+                    alpha_to_one: false,
+                });
                 pipeline_desc.blender.targets.push(pso::ColorBlendDesc {
                     mask: pso::ColorMask::ALL,
                     blend: Some(pso::BlendState::ALPHA),
@@ -870,7 +902,7 @@ where
         Renderer {
             gpu: gpu.clone(),
             surface: ManuallyDrop::new(surface),
-            format,
+            surface_format,
             dimensions,
             viewport,
             render_pass: ManuallyDrop::new(render_pass),
@@ -888,6 +920,7 @@ where
             command_buffer: ManuallyDrop::new(command_buffer),
             vertex_buffer,
             glyph_cache,
+            render_target,
             sampler: ManuallyDrop::new(sampler),
             mesh,
         }
@@ -898,10 +931,18 @@ where
             self.dimensions = ext;
         }
 
+        self.render_target = RenderTarget::new(
+            self.gpu.clone(),
+            self.render_target.format(),
+            self.render_target.samples(),
+            (self.dimensions.width, self.dimensions.height),
+        ).expect("Failed to rebuild render target");
+
         let lock = self.gpu.lock().unwrap();
 
         let caps = self.surface.capabilities(&lock.adapter.physical_device);
-        let swap_config = window::SwapchainConfig::from_caps(&caps, self.format, self.dimensions);
+        let swap_config =
+            window::SwapchainConfig::from_caps(&caps, self.surface_format, self.dimensions);
         let extent = swap_config.extent.to_extent();
 
         unsafe {
@@ -944,12 +985,13 @@ where
 
         let framebuffer = {
             let lock = self.gpu.lock().unwrap();
+            let target_lock = self.render_target.image_view().lock().unwrap();
 
             let framebuffer = unsafe {
                 lock.device
                     .create_framebuffer(
                         &self.render_pass,
-                        iter::once(surface_image.borrow()),
+                        vec![&target_lock as &B::ImageView, surface_image.borrow()],
                         i::Extent {
                             width: self.dimensions.width,
                             height: self.dimensions.height,
@@ -1002,11 +1044,18 @@ where
                 &self.render_pass,
                 &framebuffer,
                 self.viewport.rect,
-                &[command::ClearValue {
-                    color: command::ClearColor {
-                        float32: [0.0, 0.0, 0.0, 1.0],
+                &[
+                    command::ClearValue {
+                        color: command::ClearColor {
+                            float32: [0.0, 0.0, 0.0, 1.0],
+                        },
                     },
-                }],
+                    command::ClearValue {
+                        color: command::ClearColor {
+                            float32: [0.0, 0.0, 0.0, 1.0],
+                        },
+                    },
+                ],
                 command::SubpassContents::Inline,
             );
         }

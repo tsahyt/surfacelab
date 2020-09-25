@@ -1,5 +1,5 @@
-use crate::lang::{LightType, ParameterBool};
 use super::RenderTarget;
+use crate::lang::{LightType, ParameterBool};
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
