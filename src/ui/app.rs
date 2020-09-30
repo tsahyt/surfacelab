@@ -47,6 +47,10 @@ widget_ids!(
         surface_param_box,
         exposed_param_title,
         exposed_param_list,
+
+        // Exporting
+        export_label,
+        export_list,
     }
 );
 
@@ -1062,7 +1066,7 @@ where
     }
 
     fn surface_section(&mut self, ui: &mut UiCell) {
-        use super::param_box;
+        use super::{param_box, export_row};
 
         for ev in param_box::ParamBox::new(&mut self.app_state.surface_params, &())
             .parent(self.ids.surface_settings_canvas)
@@ -1073,6 +1077,28 @@ where
             if let param_box::Event::ChangeParameter(event) = ev {
                 self.sender.send(event).unwrap()
             }
+        }
+
+        widget::Text::new("Export Surface")
+            .parent(self.ids.surface_settings_canvas)
+            .mid_top_with_margin(96.0)
+            .color(color::WHITE)
+            .font_size(12)
+            .set(self.ids.export_label, ui);
+
+        let export_images = ["Foo", "Bar"];
+        let (mut rows, scrollbar) = widget::List::flow_down(export_images.len())
+            .parent(self.ids.surface_settings_canvas)
+            .item_size(160.0)
+            .padded_w_of(self.ids.surface_settings_canvas, 8.0)
+            .h(320.0)
+            .mid_top_with_margin(112.0)
+            .scrollbar_on_top()
+            .set(self.ids.export_list, ui);
+
+        while let Some(row) = rows.next(ui) {
+            let widget = export_row::ExportRow::new();
+            row.set(widget, ui);
         }
     }
 }

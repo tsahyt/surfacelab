@@ -8,6 +8,7 @@ use std::thread;
 pub mod app;
 pub mod color_picker;
 pub mod color_ramp;
+pub mod export_row;
 pub mod exposed_param_row;
 pub mod graph;
 pub mod modal;
