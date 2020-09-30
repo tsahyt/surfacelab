@@ -936,7 +936,8 @@ where
             self.render_target.format(),
             self.render_target.samples(),
             (self.dimensions.width, self.dimensions.height),
-        ).expect("Failed to rebuild render target");
+        )
+        .expect("Failed to rebuild render target");
 
         let lock = self.gpu.lock().unwrap();
 
