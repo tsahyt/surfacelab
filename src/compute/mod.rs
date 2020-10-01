@@ -539,6 +539,10 @@ where
                                 *size,
                                 op.external_data(),
                             );
+                            response.push(Lang::ComputeEvent(ComputeEvent::SocketCreated(
+                                socket_res.clone(),
+                                *ty,
+                            )));
                         } else {
                             self.sockets.add_output_socket(
                                 &socket_res,
@@ -597,6 +601,10 @@ where
                         // size should also already be known!
                         self.sockets
                             .add_output_socket(res, Some((img, *ty)), 1024, false);
+                        response.push(Lang::ComputeEvent(ComputeEvent::SocketCreated(
+                            res.clone(),
+                            *ty,
+                        )));
                     }
                 }
                 GraphEvent::SocketDemonomorphized(res) => {
@@ -605,7 +613,10 @@ where
                         self.sockets.remove_image(res);
                         let node = res.socket_node();
                         self.sockets.clear_thumbnail(&node, &mut self.gpu);
-                        response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(node)))
+                        response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(node)));
+                        response.push(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(
+                            res.clone(),
+                        )));
                     }
                 }
                 GraphEvent::GraphRenamed(from, to) => {

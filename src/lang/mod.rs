@@ -343,11 +343,96 @@ pub enum ColorSpace {
 
 pub type ChannelSpec = (Resource<Socket>, ImageChannel);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExportSpec {
     RGBA([ChannelSpec; 4]),
     RGB([ChannelSpec; 3]),
     Grayscale(ChannelSpec),
+}
+
+impl ExportSpec {
+    pub fn image_type(self, ty: ImageType) -> Self {
+        match &self {
+            ExportSpec::RGBA(cs) => match ty {
+                ImageType::Rgb => self,
+                ImageType::Grayscale => ExportSpec::Grayscale(cs[0].clone()),
+            },
+            ExportSpec::RGB(cs) => match ty {
+                ImageType::Rgb => self,
+                ImageType::Grayscale => ExportSpec::Grayscale(cs[0].clone()),
+            },
+            ExportSpec::Grayscale(c) => match ty {
+                ImageType::Grayscale => self,
+                ImageType::Rgb => ExportSpec::RGB([c.clone(), c.clone(), c.clone()]),
+            },
+        }
+    }
+
+    pub fn alpha(self, alpha: bool) -> Self {
+        if alpha {
+            match &self {
+                ExportSpec::RGB(cs) => {
+                    ExportSpec::RGBA([cs[0].clone(), cs[1].clone(), cs[2].clone(), cs[2].clone()])
+                }
+                _ => self,
+            }
+        } else {
+            match &self {
+                ExportSpec::RGBA(cs) => {
+                    ExportSpec::RGB([cs[0].clone(), cs[1].clone(), cs[2].clone()])
+                }
+                _ => self,
+            }
+        }
+    }
+
+    pub fn set_r(&mut self, spec: ChannelSpec) {
+        match self {
+            ExportSpec::RGBA(cs) => {
+                cs[0] = spec;
+            }
+            ExportSpec::RGB(cs) => {
+                cs[0] = spec;
+            }
+            ExportSpec::Grayscale(c) => {
+                *c = spec;
+            }
+        }
+    }
+
+    pub fn set_g(&mut self, spec: ChannelSpec) {
+        match self {
+            ExportSpec::RGBA(cs) => {
+                cs[1] = spec;
+            }
+            ExportSpec::RGB(cs) => {
+                cs[1] = spec;
+            }
+            ExportSpec::Grayscale(c) => {}
+        }
+    }
+
+    pub fn set_b(&mut self, spec: ChannelSpec) {
+        match self {
+            ExportSpec::RGBA(cs) => {
+                cs[2] = spec;
+            }
+            ExportSpec::RGB(cs) => {
+                cs[2] = spec;
+            }
+            ExportSpec::Grayscale(_) => {}
+        }
+    }
+
+    pub fn set_a(&mut self, spec: ChannelSpec) {
+        match self {
+            ExportSpec::RGBA(cs) => {
+                cs[3] = spec;
+            }
+            ExportSpec::RGB(_) => {}
+            ExportSpec::Grayscale(_) => {}
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -371,6 +456,8 @@ pub enum ComputeEvent {
         u32,
         OutputType,
     ),
+    SocketCreated(Resource<Socket>, ImageType),
+    SocketDestroyed(Resource<Socket>),
     ThumbnailCreated(Resource<Node>, crate::gpu::BrokerImageView),
     ThumbnailDestroyed(Resource<Node>),
     ThumbnailUpdated(Resource<Node>),

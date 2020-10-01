@@ -9,6 +9,8 @@ impl IconName {
     pub const EXPOSE: IconName = IconName("\u{f0003}");
     pub const UNEXPOSE: IconName = IconName("\u{f1511}");
     pub const GRAPH: IconName = IconName("\u{f1049}");
+    pub const PLUS: IconName = IconName("\u{f0704}");
+    pub const MINUS: IconName = IconName("\u{f06f2}");
 }
 
 pub fn icon_button<'a>(

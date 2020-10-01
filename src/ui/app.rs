@@ -50,6 +50,7 @@ widget_ids!(
 
         // Exporting
         export_label,
+        export_add,
         export_list,
     }
 );
@@ -385,6 +386,8 @@ pub struct App {
 
     registered_operators: Vec<Operator>,
     addable_operators: Vec<Operator>,
+    registered_sockets: Vec<super::export_row::RegisteredSocket>,
+    export_entries: Vec<ExportSpec>,
 }
 
 impl App {
@@ -406,6 +409,8 @@ impl App {
                 .iter()
                 .map(|x| Operator::from(x.clone()))
                 .collect(),
+            registered_sockets: Vec::new(),
+            export_entries: Vec::new(),
         }
     }
 
@@ -415,6 +420,13 @@ impl App {
         let ae = self.active_element?;
         let node = self.graphs.node_weight_mut(ae)?;
         Some((&mut node.param_box, &node.resource))
+    }
+
+    pub fn add_export_entry(&mut self) {
+        if let Some(default) = self.registered_sockets.last() {
+            self.export_entries
+                .push(ExportSpec::Grayscale(default.spec.clone()));
+        }
     }
 }
 
@@ -490,6 +502,33 @@ where
                 if let Some(id) = self.app_state.graphs.unregister_thumbnail(&res) {
                     self.image_map.remove(id);
                 }
+            }
+            Lang::ComputeEvent(ComputeEvent::SocketCreated(res, ty)) => match ty {
+                ImageType::Grayscale => {
+                    self.app_state.registered_sockets.push(
+                        super::export_row::RegisteredSocket::new((res.clone(), ImageChannel::R)),
+                    );
+                }
+                ImageType::Rgb => {
+                    self.app_state.registered_sockets.push(
+                        super::export_row::RegisteredSocket::new((res.clone(), ImageChannel::R)),
+                    );
+                    self.app_state.registered_sockets.push(
+                        super::export_row::RegisteredSocket::new((res.clone(), ImageChannel::G)),
+                    );
+                    self.app_state.registered_sockets.push(
+                        super::export_row::RegisteredSocket::new((res.clone(), ImageChannel::B)),
+                    );
+                }
+            },
+            Lang::ComputeEvent(ComputeEvent::SocketDestroyed(res)) => {
+                // self.app_state.registered_sockets.remove(
+                //     self.app_state
+                //         .registered_sockets
+                //         .iter()
+                //         .position(|x| x == res)
+                //         .expect("Trying to remove unknown registered socket"),
+                // );
             }
             Lang::GraphEvent(ev) => self.handle_graph_event(ev),
             _ => {}
@@ -1066,7 +1105,7 @@ where
     }
 
     fn surface_section(&mut self, ui: &mut UiCell) {
-        use super::{param_box, export_row};
+        use super::{export_row, param_box, util::*};
 
         for ev in param_box::ParamBox::new(&mut self.app_state.surface_params, &())
             .parent(self.ids.surface_settings_canvas)
@@ -1079,15 +1118,26 @@ where
             }
         }
 
-        widget::Text::new("Export Surface")
+        widget::Text::new("Export Settings")
             .parent(self.ids.surface_settings_canvas)
             .mid_top_with_margin(96.0)
             .color(color::WHITE)
             .font_size(12)
             .set(self.ids.export_label, ui);
 
-        let export_images = ["Foo", "Bar"];
-        let (mut rows, scrollbar) = widget::List::flow_down(export_images.len())
+        for _ev in icon_button(IconName::PLUS, self.fonts.icon_font)
+            .parent(self.ids.surface_settings_canvas)
+            .top_right_with_margins(96.0, 16.0)
+            .color(color::DARK_CHARCOAL)
+            .label_color(color::WHITE)
+            .label_font_size(12)
+            .wh([20.0, 16.0])
+            .set(self.ids.export_add, ui)
+        {
+            self.app_state.add_export_entry();
+        }
+
+        let (mut rows, scrollbar) = widget::List::flow_down(self.app_state.export_entries.len())
             .parent(self.ids.surface_settings_canvas)
             .item_size(160.0)
             .padded_w_of(self.ids.surface_settings_canvas, 8.0)
@@ -1097,8 +1147,42 @@ where
             .set(self.ids.export_list, ui);
 
         while let Some(row) = rows.next(ui) {
-            let widget = export_row::ExportRow::new();
-            row.set(widget, ui);
+            let widget = export_row::ExportRow::new(
+                &self.app_state.export_entries[row.i],
+                &self.app_state.registered_sockets,
+            );
+            match row.set(widget, ui) {
+                Some(export_row::Event::ChangeToRGB) => {
+                    self.app_state.export_entries[row.i] = self.app_state.export_entries[row.i]
+                        .clone()
+                        .image_type(ImageType::Rgb)
+                        .alpha(false);
+                }
+                Some(export_row::Event::ChangeToRGBA) => {
+                    self.app_state.export_entries[row.i] = self.app_state.export_entries[row.i]
+                        .clone()
+                        .image_type(ImageType::Rgb)
+                        .alpha(true);
+                }
+                Some(export_row::Event::ChangeToGrayscale) => {
+                    self.app_state.export_entries[row.i] = self.app_state.export_entries[row.i]
+                        .clone()
+                        .image_type(ImageType::Grayscale);
+                }
+                Some(export_row::Event::SetChannelR(spec)) => {
+                    self.app_state.export_entries[row.i].set_r(spec);
+                }
+                Some(export_row::Event::SetChannelG(spec)) => {
+                    self.app_state.export_entries[row.i].set_g(spec);
+                }
+                Some(export_row::Event::SetChannelB(spec)) => {
+                    self.app_state.export_entries[row.i].set_b(spec);
+                }
+                Some(export_row::Event::SetChannelA(spec)) => {
+                    self.app_state.export_entries[row.i].set_a(spec);
+                }
+                None => {}
+            }
         }
     }
 }
