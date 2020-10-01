@@ -29,6 +29,7 @@ widget_ids!(
         new_surface,
         open_surface,
         save_surface,
+        export_surface,
         graph_selector,
         graph_add,
 
@@ -729,6 +730,38 @@ where
             }
         }
 
+        for _press in icon_button(IconName::EXPORT, self.fonts.icon_font)
+            .label_font_size(14)
+            .label_color(color::WHITE)
+            .color(color::DARK_CHARCOAL)
+            .wh([32., 32.0])
+            .right(8.0)
+            .parent(self.ids.top_bar_canvas)
+            .set(self.ids.export_surface, ui)
+        {
+            if let Ok(Some(path)) = FileSelection::new("Select a base name")
+                .title("Export Surface")
+                .mode(FileSelectionMode::Save)
+                .show()
+            {
+                for (i, export_entry) in self.app_state.export_entries.iter().enumerate() {
+                    let mut e_path = std::path::PathBuf::from(&path);
+                    e_path.set_file_name(format!(
+                        "{}_{}.png",
+                        e_path.file_name().unwrap().to_str().unwrap(),
+                        i
+                    ));
+                    self.sender
+                        .send(Lang::UserIOEvent(UserIOEvent::ExportImage(
+                            export_entry.clone(),
+                            1024,
+                            e_path,
+                        )))
+                        .unwrap();
+                }
+            }
+        }
+
         if let Some(selection) =
             widget::DropDownList::new(&self.app_state.graphs.list_graph_names(), Some(0))
                 .label_font_size(12)
@@ -1118,7 +1151,7 @@ where
             }
         }
 
-        widget::Text::new("Export Settings")
+        widget::Text::new("Export Specification")
             .parent(self.ids.surface_settings_canvas)
             .mid_top_with_margin(96.0)
             .color(color::WHITE)
@@ -1139,7 +1172,6 @@ where
 
         let (mut rows, scrollbar) = widget::List::flow_down(self.app_state.export_entries.len())
             .parent(self.ids.surface_settings_canvas)
-            .item_size(160.0)
             .padded_w_of(self.ids.surface_settings_canvas, 8.0)
             .h(320.0)
             .mid_top_with_margin(112.0)
@@ -1183,6 +1215,10 @@ where
                 }
                 None => {}
             }
+        }
+
+        if let Some(s) = scrollbar {
+            s.set(ui);
         }
     }
 }

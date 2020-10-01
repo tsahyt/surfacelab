@@ -337,12 +337,6 @@ impl NodeManager {
                 }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
-            Lang::UserIOEvent(UserIOEvent::RequestExport(None)) => {
-                let exportable = self.graphs.get_mut("base").unwrap().get_output_sockets();
-                response.push(Lang::UserIOEvent(UserIOEvent::RequestExport(Some(
-                    exportable,
-                ))));
-            }
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
                 match self.open_surface(path) {
                     Ok(mut evs) => {

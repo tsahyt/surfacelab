@@ -55,6 +55,8 @@ pub struct Style {}
 
 widget_ids! {
     pub struct Ids {
+        image_name_label,
+        image_name_field,
         image_type_label,
         image_type_selector,
         channel_r_label,
@@ -108,12 +110,37 @@ impl<'a> Widget for ExportRow<'a> {
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let mut res = None;
 
-        widget::Text::new("Type")
+        widget::Text::new("File Prefix")
             .parent(args.id)
             .color(color::WHITE)
             .font_size(10)
             .top_left_with_margins(0., 16.0)
+            .set(args.state.ids.image_name_label, args.ui);
+
+        for event in widget::TextBox::new("name")
+            .parent(args.id)
+            .font_size(10)
+            .down(16.0)
+            .padded_w_of(args.id, 16.0)
+            .h(16.0)
+            .set(args.state.ids.image_name_field, args.ui)
+        {
+            // match event {
+            //     widget::text_box::Event::Update(new) => {
+            //         self.param.graph_field = new;
+            //     }
+            //     widget::text_box::Event::Enter => {
+            //         ev = Some(Event::UpdateField);
+            //     }
+            // }
+        }
+
+        widget::Text::new("Type")
+            .parent(args.id)
+            .color(color::WHITE)
+            .font_size(10)
             .set(args.state.ids.image_type_label, args.ui);
+
         for new_selection in widget::DropDownList::new(
             &["RGB", "RGBA", "Grayscale"],
             Some(match self.spec {

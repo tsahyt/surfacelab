@@ -438,7 +438,6 @@ impl ExportSpec {
 #[derive(Debug)]
 pub enum UserIOEvent {
     ExportImage(ExportSpec, u32, PathBuf),
-    RequestExport(Option<Vec<(Resource<Socket>, ImageType)>>),
     OpenSurface(PathBuf),
     SaveSurface(PathBuf),
     SetParentSize(u32),
