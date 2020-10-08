@@ -1,4 +1,4 @@
-use crate::lang::{ChannelSpec, ExportSpec, ImageChannel};
+use crate::lang::{ChannelSpec, ExportSpec, ImageChannel, Resource, Socket};
 use conrod_core::*;
 
 pub struct RegisteredSocket {
@@ -27,6 +27,10 @@ impl RegisteredSocket {
                 },
             ),
         }
+    }
+
+    pub fn resource(&self) -> &Resource<Socket> {
+        &self.spec.0
     }
 }
 

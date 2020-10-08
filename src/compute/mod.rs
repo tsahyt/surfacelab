@@ -139,13 +139,17 @@ where
         &mut self,
         res: &Resource<Node>,
         gpu: &mut gpu::compute::GPUCompute<B>,
-    ) {
-        debug_assert!(res.fragment().is_none());
+    ) -> Vec<Resource<Socket>> {
+        let mut result = Vec::new();
+
         if let Some(mut socket) = self.0.remove(res) {
+            result.extend(socket.typed_outputs.keys().map(|s| res.node_socket(s)));
             if let Some(thumbnail) = socket.thumbnail.take() {
                 gpu.return_thumbnail(thumbnail);
             }
         }
+
+        result
     }
 
     /// Ensure the node is known
@@ -554,7 +558,13 @@ where
                     }
                 }
                 GraphEvent::NodeRemoved(res) => {
-                    self.sockets.remove_all_for_node(res, &mut self.gpu)
+                    for socket in self
+                        .sockets
+                        .remove_all_for_node(res, &mut self.gpu)
+                        .drain(0..)
+                    {
+                        response.push(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(socket)))
+                    }
                 }
                 GraphEvent::NodeRenamed(from, to) => self.rename(from, to),
                 GraphEvent::NodeResized(res, new_size) => {

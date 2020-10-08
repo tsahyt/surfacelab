@@ -302,6 +302,7 @@ pub enum GraphEvent {
 #[derive(Debug)]
 pub enum SurfaceEvent {
     ExportImage(ExportSpec, u32, PathBuf),
+    ExportSpecLoaded(String, ExportSpec),
 }
 
 pub type RendererID = u64;

@@ -525,15 +525,16 @@ where
                 }
             },
             Lang::ComputeEvent(ComputeEvent::SocketDestroyed(res)) => {
-                // self.app_state.registered_sockets.remove(
-                //     self.app_state
-                //         .registered_sockets
-                //         .iter()
-                //         .position(|x| x == res)
-                //         .expect("Trying to remove unknown registered socket"),
-                // );
+                self.app_state
+                    .registered_sockets
+                    .drain_filter(|x| x.resource() == res);
             }
             Lang::GraphEvent(ev) => self.handle_graph_event(ev),
+            Lang::SurfaceEvent(SurfaceEvent::ExportSpecLoaded(name, spec)) => {
+                self.app_state
+                    .export_entries
+                    .push((name.clone(), spec.clone()));
+            }
             _ => {}
         }
     }

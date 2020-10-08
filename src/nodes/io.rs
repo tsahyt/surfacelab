@@ -64,6 +64,13 @@ impl NodeManager {
             }
         }
 
+        // Export Specs
+        for (name, spec) in self.export_specs.iter() {
+            events.push(Lang::SurfaceEvent(
+                crate::lang::SurfaceEvent::ExportSpecLoaded(name.clone(), spec.clone()),
+            ));
+        }
+
         // Finally make sure base is picked
         events.push(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
             Resource::graph("base", None),
