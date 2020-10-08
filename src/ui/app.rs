@@ -594,6 +594,8 @@ where
             }
             GraphEvent::Cleared => {
                 self.app_state.graphs.clear_all();
+                self.app_state.export_entries.clear();
+                self.app_state.registered_sockets.clear();
             }
             GraphEvent::ParameterExposed(graph, param) => {
                 self.app_state
