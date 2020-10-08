@@ -129,9 +129,7 @@ impl<'a> Widget for ExportRow<'a> {
             .set(args.state.ids.image_name_field, args.ui)
         {
             match event {
-                widget::text_box::Event::Update(new) => {
-                    res = Some(Event::Rename(new))
-                }
+                widget::text_box::Event::Update(new) => res = Some(Event::Rename(new)),
                 _ => {}
             }
         }

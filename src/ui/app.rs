@@ -425,8 +425,10 @@ impl App {
 
     pub fn add_export_entry(&mut self) {
         if let Some(default) = self.registered_sockets.last() {
-            self.export_entries
-                .push(("unnamed".to_owned(), ExportSpec::Grayscale(default.spec.clone())));
+            self.export_entries.push((
+                "unnamed".to_owned(),
+                ExportSpec::Grayscale(default.spec.clone()),
+            ));
         }
     }
 }
