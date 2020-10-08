@@ -1,4 +1,4 @@
-use crate::lang::{ChannelSpec, ExportSpec, ImageChannel, Resource, Socket};
+use crate::lang::{ChannelSpec, ExportSpec, ImageChannel};
 use conrod_core::*;
 
 pub struct RegisteredSocket {
@@ -34,17 +34,19 @@ impl RegisteredSocket {
 pub struct ExportRow<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
+    name: &'a str,
     spec: &'a ExportSpec,
     sockets: &'a [RegisteredSocket],
     style: Style,
 }
 
 impl<'a> ExportRow<'a> {
-    pub fn new(spec: &'a ExportSpec, sockets: &'a [RegisteredSocket]) -> Self {
+    pub fn new(spec: &'a (String, ExportSpec), sockets: &'a [RegisteredSocket]) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
-            spec,
+            name: &spec.0,
+            spec: &spec.1,
             sockets,
         }
     }
@@ -86,6 +88,7 @@ pub enum Event {
     SetChannelG(ChannelSpec),
     SetChannelB(ChannelSpec),
     SetChannelA(ChannelSpec),
+    Rename(String),
 }
 
 impl<'a> Widget for ExportRow<'a> {
@@ -117,7 +120,7 @@ impl<'a> Widget for ExportRow<'a> {
             .top_left_with_margins(0., 16.0)
             .set(args.state.ids.image_name_label, args.ui);
 
-        for event in widget::TextBox::new("name")
+        for event in widget::TextBox::new(self.name)
             .parent(args.id)
             .font_size(10)
             .down(16.0)
@@ -125,14 +128,12 @@ impl<'a> Widget for ExportRow<'a> {
             .h(16.0)
             .set(args.state.ids.image_name_field, args.ui)
         {
-            // match event {
-            //     widget::text_box::Event::Update(new) => {
-            //         self.param.graph_field = new;
-            //     }
-            //     widget::text_box::Event::Enter => {
-            //         ev = Some(Event::UpdateField);
-            //     }
-            // }
+            match event {
+                widget::text_box::Event::Update(new) => {
+                    res = Some(Event::Rename(new))
+                }
+                _ => {}
+            }
         }
 
         widget::Text::new("Type")
