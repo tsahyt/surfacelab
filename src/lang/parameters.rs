@@ -671,9 +671,26 @@ impl Control {
             Control::RgbColor { value } => *value = <[f32; 3]>::from_data(data),
             Control::Enum { selected, .. } => *selected = u32::from_data(data) as usize,
             Control::File { selected } => *selected = Some(PathBuf::from_data(data)),
-            Control::Ramp { steps } => todo!(),
+            Control::Ramp { steps } => {
+                *steps = data
+                    .chunks(std::mem::size_of::<[f32; 4]>())
+                    .map(|chunk| {
+                        let fields: Vec<f32> = chunk
+                            .chunks(4)
+                            .map(|z| {
+                                let mut arr: [u8; 4] = Default::default();
+                                arr.copy_from_slice(z);
+                                f32::from_be_bytes(arr)
+                            })
+                            .collect();
+                        [fields[0], fields[1], fields[2], fields[3]]
+                    })
+                    .collect()
+            }
             Control::Toggle { def } => *def = u32::from_data(data) == 1,
-            Control::Entry { value } => todo!(),
+            Control::Entry { value } => {
+                *value = unsafe { std::str::from_utf8_unchecked(data) }.to_owned()
+            }
         }
     }
 }
