@@ -249,11 +249,15 @@ impl Graphs {
         }
     }
 
-    // FIXME: removal renumbers the nodes, so we need to update the indexing as well
     pub fn remove_node(&mut self, node: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&node) {
             if let Some(idx) = target.resources.remove(node) {
+                // Obtain last node before removal for reindexing
+                let last_idx = target.graph.node_indices().next_back().unwrap();
+                let last_res = target.graph.node_weight(last_idx).unwrap().resource.clone();
+
                 target.graph.remove_node(idx);
+                target.resources.insert(last_res, idx);
             }
         }
     }
