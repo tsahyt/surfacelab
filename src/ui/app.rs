@@ -1217,6 +1217,7 @@ where
                     updated_spec = true;
                 }
                 Some(export_row::Event::Rename(new)) => {
+                    // TODO: renaming two specs to the same name causes discrepancies with the backend
                     self.sender
                         .send(Lang::UserIOEvent(UserIOEvent::RenameExport(
                             self.app_state.export_entries[row.i].0.clone(),
