@@ -1,5 +1,5 @@
 use super::{nodegraph, NodeManager};
-use crate::lang::{GraphEvent, Lang, Resource, UserGraphEvent};
+use crate::lang::{ExportSpec, GraphEvent, Lang, Resource, UserGraphEvent};
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -10,6 +10,7 @@ use std::path::Path;
 #[derive(Debug, Serialize, Deserialize)]
 struct SurfaceFile<'a> {
     parent_size: u32,
+    export_specs: Cow<'a, HashMap<String, ExportSpec>>,
     graphs: Cow<'a, HashMap<String, nodegraph::NodeGraph>>,
 }
 
@@ -18,6 +19,7 @@ impl NodeManager {
         log::info!("Saving to {:?}", path);
         let surf = SurfaceFile {
             parent_size: self.parent_size,
+            export_specs: Cow::Borrowed(&self.export_specs),
             graphs: Cow::Borrowed(&self.graphs),
         };
 
@@ -37,6 +39,7 @@ impl NodeManager {
 
         // Rebuilding internal structures
         self.graphs = surf.graphs.into_owned();
+        self.export_specs = surf.export_specs.into_owned();
         self.parent_size = surf.parent_size;
 
         // Rebuild events for all graphs in the surface file

@@ -746,21 +746,10 @@ where
                 .mode(FileSelectionMode::Save)
                 .show()
             {
-                for export_entry in self.app_state.export_entries.iter() {
-                    let mut e_path = std::path::PathBuf::from(&path);
-                    e_path.set_file_name(format!(
-                        "{}_{}.png",
-                        e_path.file_name().unwrap().to_str().unwrap(),
-                        export_entry.0
-                    ));
-                    self.sender
-                        .send(Lang::UserIOEvent(UserIOEvent::ExportImage(
-                            export_entry.1.clone(),
-                            1024,
-                            e_path,
-                        )))
-                        .unwrap();
-                }
+                let e_path = std::path::PathBuf::from(&path);
+                self.sender
+                    .send(Lang::UserIOEvent(UserIOEvent::RunExports(e_path)))
+                    .unwrap();
             }
         }
 
@@ -1185,6 +1174,7 @@ where
                 &self.app_state.export_entries[row.i],
                 &self.app_state.registered_sockets,
             );
+            let mut updated_spec = false;
             match row.set(widget, ui) {
                 Some(export_row::Event::ChangeToRGB) => {
                     self.app_state.export_entries[row.i].1 = self.app_state.export_entries[row.i]
@@ -1192,6 +1182,7 @@ where
                         .clone()
                         .image_type(ImageType::Rgb)
                         .alpha(false);
+                    updated_spec = true;
                 }
                 Some(export_row::Event::ChangeToRGBA) => {
                     self.app_state.export_entries[row.i].1 = self.app_state.export_entries[row.i]
@@ -1199,29 +1190,50 @@ where
                         .clone()
                         .image_type(ImageType::Rgb)
                         .alpha(true);
+                    updated_spec = true;
                 }
                 Some(export_row::Event::ChangeToGrayscale) => {
                     self.app_state.export_entries[row.i].1 = self.app_state.export_entries[row.i]
                         .1
                         .clone()
                         .image_type(ImageType::Grayscale);
+                    updated_spec = true;
                 }
                 Some(export_row::Event::SetChannelR(spec)) => {
                     self.app_state.export_entries[row.i].1.set_r(spec);
+                    updated_spec = true;
                 }
                 Some(export_row::Event::SetChannelG(spec)) => {
                     self.app_state.export_entries[row.i].1.set_g(spec);
+                    updated_spec = true;
                 }
                 Some(export_row::Event::SetChannelB(spec)) => {
                     self.app_state.export_entries[row.i].1.set_b(spec);
+                    updated_spec = true;
                 }
                 Some(export_row::Event::SetChannelA(spec)) => {
                     self.app_state.export_entries[row.i].1.set_a(spec);
+                    updated_spec = true;
                 }
                 Some(export_row::Event::Rename(new)) => {
+                    self.sender
+                        .send(Lang::UserIOEvent(UserIOEvent::RenameExport(
+                            self.app_state.export_entries[row.i].0.clone(),
+                            new.clone(),
+                        )))
+                        .unwrap();
                     self.app_state.export_entries[row.i].0 = new;
                 }
                 None => {}
+            }
+
+            if updated_spec {
+                self.sender
+                    .send(Lang::UserIOEvent(UserIOEvent::DeclareExport(
+                        self.app_state.export_entries[row.i].0.clone(),
+                        self.app_state.export_entries[row.i].1.clone(),
+                    )))
+                    .unwrap();
             }
         }
 

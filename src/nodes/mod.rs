@@ -11,6 +11,7 @@ pub mod nodegraph;
 
 struct NodeManager {
     parent_size: u32,
+    export_specs: HashMap<String, lang::ExportSpec>,
     graphs: HashMap<String, nodegraph::NodeGraph>,
     active_graph: lang::Resource<lang::Graph>,
 }
@@ -20,6 +21,7 @@ impl NodeManager {
     pub fn new() -> Self {
         NodeManager {
             parent_size: 1024,
+            export_specs: HashMap::new(),
             graphs: hashmap! { "base".to_string() => nodegraph::NodeGraph::new("base") },
             active_graph: lang::Resource::graph("base", None),
         }
@@ -378,6 +380,30 @@ impl NodeManager {
                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                     self.active_graph.clone(),
                 )));
+            }
+            Lang::UserIOEvent(UserIOEvent::DeclareExport(name, spec)) => {
+                self.export_specs.insert(name.clone(), spec.clone());
+            }
+            Lang::UserIOEvent(UserIOEvent::RenameExport(from, to)) => {
+                if let Some(spec) = self.export_specs.remove(from) {
+                    self.export_specs.insert(to.clone(), spec);
+                }
+            }
+            Lang::UserIOEvent(UserIOEvent::RunExports(base)) => {
+                for (name, spec) in self.export_specs.iter() {
+                    let mut path = base.clone();
+                    path.set_file_name(format!(
+                        "{}_{}.png",
+                        path.file_name().unwrap().to_str().unwrap(),
+                        name
+                    ));
+                    log::debug!("Dispatching export to {:#?}", path);
+                    response.push(Lang::SurfaceEvent(SurfaceEvent::ExportImage(
+                        spec.clone(),
+                        self.parent_size,
+                        path,
+                    )));
+                }
             }
             _ => {}
         }

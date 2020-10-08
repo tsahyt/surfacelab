@@ -299,6 +299,11 @@ pub enum GraphEvent {
     Cleared,
 }
 
+#[derive(Debug)]
+pub enum SurfaceEvent {
+    ExportImage(ExportSpec, u32, PathBuf),
+}
+
 pub type RendererID = u64;
 
 #[derive(AsBytes, Copy, Clone, Debug, ParameterField)]
@@ -343,7 +348,7 @@ pub enum ColorSpace {
 
 pub type ChannelSpec = (Resource<Socket>, ImageChannel);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExportSpec {
     RGBA([ChannelSpec; 4]),
     RGB([ChannelSpec; 3]),
@@ -408,7 +413,7 @@ impl ExportSpec {
             ExportSpec::RGB(cs) => {
                 cs[1] = spec;
             }
-            ExportSpec::Grayscale(c) => {}
+            ExportSpec::Grayscale(_) => {}
         }
     }
 
@@ -437,10 +442,12 @@ impl ExportSpec {
 
 #[derive(Debug)]
 pub enum UserIOEvent {
-    ExportImage(ExportSpec, u32, PathBuf),
     OpenSurface(PathBuf),
     SaveSurface(PathBuf),
     SetParentSize(u32),
+    DeclareExport(String, ExportSpec),
+    RenameExport(String, String),
+    RunExports(PathBuf),
     NewSurface,
     Quit,
 }
@@ -477,7 +484,7 @@ pub enum MaterialChannel {
     Metallic,
 }
 
-#[derive(Debug, Display, Clone, Copy)]
+#[derive(Debug, Display, Clone, Copy, Serialize, Deserialize)]
 pub enum ImageChannel {
     R,
     G,
@@ -518,6 +525,7 @@ pub enum Lang {
     UserIOEvent(UserIOEvent),
     UIEvent(UIEvent),
     GraphEvent(GraphEvent),
+    SurfaceEvent(SurfaceEvent),
     ComputeEvent(ComputeEvent),
     RenderEvent(RenderEvent),
 }
