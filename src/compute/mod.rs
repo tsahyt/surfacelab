@@ -875,6 +875,7 @@ where
             .expect("Unable to find source image for copy")
             .ensure_alloc(&self.gpu)?;
 
+        #[allow(clippy::or_fun_call)]
         let from_image = self
             .sockets
             .get_output_image(from)

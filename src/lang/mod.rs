@@ -143,6 +143,10 @@ impl Operator {
     }
 }
 
+pub type Linearization = Vec<Instruction>;
+
+pub type LastUses = Vec<(Resource<Node>, usize)>;
+
 #[derive(Clone, Debug)]
 pub enum Instruction {
     Execute(Resource<Node>, AtomicOperator),

@@ -132,9 +132,8 @@ impl<'a> Widget for ExportRow<'a> {
             .h(16.0)
             .set(args.state.ids.image_name_field, args.ui)
         {
-            match event {
-                widget::text_box::Event::Update(new) => res = Some(Event::Rename(new)),
-                _ => {}
+            if let widget::text_box::Event::Update(new) = event {
+                res = Some(Event::Rename(new));
             }
         }
 
@@ -144,19 +143,19 @@ impl<'a> Widget for ExportRow<'a> {
             .font_size(10)
             .set(args.state.ids.image_type_label, args.ui);
 
-        for new_selection in widget::DropDownList::new(
+        if let Some(new_selection) = widget::DropDownList::new(
             &["RGB", "RGBA", "Grayscale"],
             Some(match self.spec {
                 ExportSpec::RGBA(_) => 1,
                 ExportSpec::RGB(_) => 0,
                 ExportSpec::Grayscale(_) => 2,
             }),
-        )
-        .parent(args.id)
-        .label_font_size(10)
-        .padded_w_of(args.id, 16.0)
-        .h(16.0)
-        .set(args.state.ids.image_type_selector, args.ui)
+            )
+            .parent(args.id)
+            .label_font_size(10)
+            .padded_w_of(args.id, 16.0)
+            .h(16.0)
+            .set(args.state.ids.image_type_selector, args.ui)
         {
             match new_selection {
                 0 => res = Some(Event::ChangeToRGB),

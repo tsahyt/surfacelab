@@ -775,7 +775,7 @@ impl NodeGraph {
     pub fn linearize(
         &self,
         mode: LinearizationMode,
-    ) -> Option<(Vec<Instruction>, Vec<(Resource<r::Node>, usize)>)> {
+    ) -> Option<(Linearization, LastUses)> {
         use petgraph::visit::EdgeRef;
 
         enum Action<'a> {
