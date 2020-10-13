@@ -772,10 +772,7 @@ impl NodeGraph {
     ///
     /// Linearization may fail when a node is missing inputs, and will return
     /// None in this case.
-    pub fn linearize(
-        &self,
-        mode: LinearizationMode,
-    ) -> Option<(Linearization, LastUses)> {
+    pub fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, LastUses)> {
         use petgraph::visit::EdgeRef;
 
         enum Action<'a> {

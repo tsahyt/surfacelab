@@ -150,12 +150,12 @@ impl<'a> Widget for ExportRow<'a> {
                 ExportSpec::RGB(_) => 0,
                 ExportSpec::Grayscale(_) => 2,
             }),
-            )
-            .parent(args.id)
-            .label_font_size(10)
-            .padded_w_of(args.id, 16.0)
-            .h(16.0)
-            .set(args.state.ids.image_type_selector, args.ui)
+        )
+        .parent(args.id)
+        .label_font_size(10)
+        .padded_w_of(args.id, 16.0)
+        .h(16.0)
+        .set(args.state.ids.image_type_selector, args.ui)
         {
             match new_selection {
                 0 => res = Some(Event::ChangeToRGB),

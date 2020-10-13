@@ -480,7 +480,7 @@ pub enum RendererType {
     Renderer2D,
 }
 
-#[derive(EnumSetType, Debug)]
+#[derive(EnumSetType, Debug, Hash, Serialize, Deserialize)]
 pub enum MaterialChannel {
     Displacement,
     Albedo,
