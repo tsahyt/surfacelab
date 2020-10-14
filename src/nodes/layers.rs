@@ -71,15 +71,18 @@ impl LayerBlendOptions {
 /// A layer is either a fill layer or an FX layer. Each layer has a name, such
 /// that it can be referenced via a Resource. The resource type for a layer is
 /// `Resource<Node>`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Layer {
     FillLayer(String, FillLayer),
     FxLayer(String, FxLayer),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LayerStack {
     name: String,
     layers: Vec<Layer>,
     resources: HashMap<String, usize>,
+    parameters: HashMap<String, GraphParameter>,
 }
 
 impl LayerStack {
@@ -88,6 +91,7 @@ impl LayerStack {
             name: name.to_owned(),
             layers: Vec::new(),
             resources: HashMap::new(),
+            parameters: HashMap::new(),
         }
     }
 
@@ -95,7 +99,11 @@ impl LayerStack {
         Resource::node(&format!("{}/{}", self.name, layer), None)
     }
 
-    fn blend_resource(&self, layer: &str) -> Resource<Node> {
+    pub fn stack_resource(&self) -> Resource<Graph> {
+        Resource::graph(self.name.clone(), None)
+    }
+
+    pub fn blend_resource(&self, layer: &str) -> Resource<Node> {
         Resource::node(&format!("{}/{}.blend", self.name, layer), None)
     }
 
@@ -380,5 +388,15 @@ impl LayerStack {
                 Layer::FxLayer(_, layer) => layer.operator.set_parameter(field, data),
             }
         }
+    }
+}
+
+impl super::ExposedParameters for LayerStack {
+    fn exposed_parameters(&self) -> &HashMap<String, GraphParameter> {
+        &self.parameters
+    }
+
+    fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter> {
+        &mut self.parameters
     }
 }

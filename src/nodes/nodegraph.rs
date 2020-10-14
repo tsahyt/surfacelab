@@ -867,42 +867,6 @@ impl NodeGraph {
         Some((traversal, final_usage.drain().collect()))
     }
 
-    pub fn expose_parameter(
-        &mut self,
-        parameter: Resource<Param>,
-        graph_field: &str,
-        title: &str,
-        control: Control,
-    ) -> Option<&GraphParameter> {
-        self.parameters.insert(
-            graph_field.to_owned(),
-            GraphParameter {
-                graph_field: graph_field.to_owned(),
-                parameter,
-                title: title.to_string(),
-                control,
-            },
-        );
-        self.parameters.get(graph_field)
-    }
-
-    pub fn conceal_parameter(&mut self, graph_field: &str) {
-        self.parameters.remove(graph_field);
-    }
-
-    pub fn retitle_parameter(&mut self, graph_field: &str, new_title: &str) {
-        if let Some(param) = self.parameters.get_mut(graph_field) {
-            param.title = new_title.to_owned();
-        }
-    }
-
-    pub fn refield_parameter(&mut self, graph_field: &str, new_field: &str) {
-        if let Some(mut param) = self.parameters.remove(graph_field) {
-            param.graph_field = new_field.to_owned();
-            self.parameters.insert(new_field.to_owned(), param);
-        }
-    }
-
     pub fn complex_operator_stub(&self) -> ComplexOperator {
         let mut co = ComplexOperator::new(self.graph_resource());
         co.outputs = self.outputs();
@@ -917,5 +881,15 @@ impl NodeGraph {
                 .graph
                 .edges_directed(idx, petgraph::EdgeDirection::Incoming)
                 .count()
+    }
+}
+
+impl super::ExposedParameters for NodeGraph {
+    fn exposed_parameters(&self) -> &HashMap<String, GraphParameter> {
+        &self.parameters
+    }
+
+    fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter> {
+        &mut self.parameters
     }
 }

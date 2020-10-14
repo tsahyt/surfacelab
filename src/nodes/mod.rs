@@ -1,4 +1,4 @@
-use crate::{broker, lang, lang::OperatorParamBox};
+use crate::{broker, lang, lang::OperatorParamBox, lang::*};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
@@ -9,11 +9,77 @@ pub mod io;
 pub mod layers;
 pub mod nodegraph;
 
+enum NodeGraph {
+    NodeGraph(nodegraph::NodeGraph),
+    LayerStack(layers::LayerStack),
+}
+
 struct NodeManager {
     parent_size: u32,
     export_specs: HashMap<String, lang::ExportSpec>,
     graphs: HashMap<String, nodegraph::NodeGraph>,
     active_graph: lang::Resource<lang::Graph>,
+}
+
+trait ExposedParameters {
+    fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter>;
+    fn exposed_parameters(&self) -> &HashMap<String, GraphParameter>;
+
+    fn expose_parameter(
+        &mut self,
+        parameter: Resource<Param>,
+        graph_field: &str,
+        title: &str,
+        control: Control,
+    ) -> Option<&GraphParameter> {
+        self.exposed_parameters_mut().insert(
+            graph_field.to_owned(),
+            GraphParameter {
+                graph_field: graph_field.to_owned(),
+                parameter,
+                title: title.to_string(),
+                control,
+            },
+        );
+        self.exposed_parameters().get(graph_field)
+    }
+
+    fn conceal_parameter(&mut self, graph_field: &str) {
+        self.exposed_parameters_mut().remove(graph_field);
+    }
+
+    fn retitle_parameter(&mut self, graph_field: &str, new_title: &str) {
+        if let Some(param) = self.exposed_parameters_mut().get_mut(graph_field) {
+            param.title = new_title.to_owned();
+        }
+    }
+
+    fn refield_parameter(&mut self, graph_field: &str, new_field: &str) {
+        if let Some(mut param) = self.exposed_parameters_mut().remove(graph_field) {
+            param.graph_field = new_field.to_owned();
+            self.exposed_parameters_mut()
+                .insert(new_field.to_owned(), param);
+        }
+    }
+
+    fn param_box_description(&self, title: String) -> ParamBoxDescription<Field> {
+        ParamBoxDescription {
+            box_title: title,
+            categories: vec![ParamCategory {
+                name: "Exposed Parameters",
+                parameters: self
+                    .exposed_parameters()
+                    .iter()
+                    .map(|(k, v)| Parameter {
+                        name: v.title.clone(),
+                        transmitter: Field(k.clone()),
+                        control: v.control.clone(),
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    })
+                    .collect(),
+            }],
+        }
+    }
 }
 
 // FIXME: Changing output socket type after connection has already been made does not propagate type changes into preceeding polymorphic nodes!
