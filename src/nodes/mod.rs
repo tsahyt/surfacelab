@@ -21,10 +21,16 @@ struct NodeManager {
     active_graph: lang::Resource<lang::Graph>,
 }
 
-trait ExposedParameters {
+/// Trait describing functionality relating to exposed parameters on node
+/// graphs.
+trait ExposedParameters: NodeCollection {
+    /// Get a mutable reference to the exposed parameters of the node graph.
     fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter>;
+
+    /// Get a reference to the exposed parameters of the node graph.
     fn exposed_parameters(&self) -> &HashMap<String, GraphParameter>;
 
+    /// Expose a parameter
     fn expose_parameter(
         &mut self,
         parameter: Resource<Param>,
@@ -44,16 +50,19 @@ trait ExposedParameters {
         self.exposed_parameters().get(graph_field)
     }
 
+    /// Conceal a parameter
     fn conceal_parameter(&mut self, graph_field: &str) {
         self.exposed_parameters_mut().remove(graph_field);
     }
 
+    /// Retitle a parameter
     fn retitle_parameter(&mut self, graph_field: &str, new_title: &str) {
         if let Some(param) = self.exposed_parameters_mut().get_mut(graph_field) {
             param.title = new_title.to_owned();
         }
     }
 
+    /// Refield a parameter, i.e. change the name of the field.
     fn refield_parameter(&mut self, graph_field: &str, new_field: &str) {
         if let Some(mut param) = self.exposed_parameters_mut().remove(graph_field) {
             param.graph_field = new_field.to_owned();
@@ -62,6 +71,7 @@ trait ExposedParameters {
         }
     }
 
+    /// Obtain a ParamBoxDescription for the exposed parameters of this node graph
     fn param_box_description(&self, title: String) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: title,
@@ -80,6 +90,36 @@ trait ExposedParameters {
             }],
         }
     }
+
+    /// Construct the default map of parameter substitutions from this graph.
+    /// This will include all parameters with their default values.
+    fn default_substitutions(&self) -> HashMap<String, ParamSubstitution> {
+        self.exposed_parameters()
+            .values()
+            .map(|v| (v.graph_field.clone(), v.to_substitution()))
+            .collect()
+    }
+
+    /// Create a stub for a complex operator representing this node graph.
+    fn complex_operator_stub(&self) -> ComplexOperator {
+        let mut co = ComplexOperator::new(self.graph_resource());
+        co.outputs = self.outputs();
+        co.inputs = self.inputs();
+        co.parameters = self.default_substitutions();
+        co
+    }
+}
+
+/// General functions of a node graph
+trait NodeCollection {
+    /// Obtain the inputs, i.e. set of input nodes, in the node graph
+    fn inputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)>;
+
+    /// Obtain the outputs, i.e. set of output nodes, in the node graph
+    fn outputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)>;
+
+    fn graph_resource(&self) -> Resource<Graph>;
+    fn rename(&mut self, name: &str);
 }
 
 // FIXME: Changing output socket type after connection has already been made does not propagate type changes into preceeding polymorphic nodes!

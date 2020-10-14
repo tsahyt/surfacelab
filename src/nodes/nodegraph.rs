@@ -1,5 +1,6 @@
 use crate::lang::resource as r;
 use crate::lang::*;
+use super::{NodeCollection, ExposedParameters};
 
 use bimap::BiHashMap;
 use petgraph::graph;
@@ -107,19 +108,6 @@ impl NodeGraph {
         }
     }
 
-    pub fn rename(&mut self, name: &str) {
-        self.name = name.to_string();
-    }
-
-    /// Construct the default map of parameter substitutions from this graph.
-    /// This will include all parameters with their default values.
-    pub fn default_substitutions(&self) -> HashMap<String, ParamSubstitution> {
-        self.parameters
-            .values()
-            .map(|v| (v.graph_field.clone(), v.to_substitution()))
-            .collect()
-    }
-
     /// Construct a ParamBoxDescription from the current graph for its exposed
     /// parameters.
     pub fn param_box_description(&self) -> ParamBoxDescription<Field> {
@@ -141,43 +129,6 @@ impl NodeGraph {
         }
     }
 
-    pub fn inputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
-        HashMap::from_iter(self.graph.node_indices().filter_map(|idx| {
-            let node = self.graph.node_weight(idx).unwrap();
-            let res = self.node_resource(&idx);
-            match &node.operator {
-                Operator::AtomicOperator(AtomicOperator::Input(inp)) => Some((
-                    res.file().unwrap().to_string(),
-                    (*inp.outputs().get("data").unwrap(), res.clone()),
-                )),
-                _ => None,
-            }
-        }))
-    }
-
-    pub fn outputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
-        let mut result = HashMap::new();
-
-        for idx in self.outputs.iter() {
-            let res = self.node_resource(idx);
-            let name = res.file().unwrap().to_string();
-            let ty = *self
-                .graph
-                .node_weight(*idx)
-                .unwrap()
-                .operator
-                .inputs()
-                .get("data")
-                .unwrap();
-            result.insert(name, (ty, res));
-        }
-
-        result
-    }
-
-    pub fn graph_resource(&self) -> Resource<r::Graph> {
-        Resource::graph(self.name.clone(), None)
-    }
 
     fn node_resource(&self, idx: &petgraph::graph::NodeIndex) -> Resource<r::Node> {
         Resource::node(
@@ -884,12 +835,56 @@ impl NodeGraph {
     }
 }
 
-impl super::ExposedParameters for NodeGraph {
+impl ExposedParameters for NodeGraph {
     fn exposed_parameters(&self) -> &HashMap<String, GraphParameter> {
         &self.parameters
     }
 
     fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter> {
         &mut self.parameters
+    }
+}
+
+impl NodeCollection for NodeGraph {
+    fn inputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
+        HashMap::from_iter(self.graph.node_indices().filter_map(|idx| {
+            let node = self.graph.node_weight(idx).unwrap();
+            let res = self.node_resource(&idx);
+            match &node.operator {
+                Operator::AtomicOperator(AtomicOperator::Input(inp)) => Some((
+                    res.file().unwrap().to_string(),
+                    (*inp.outputs().get("data").unwrap(), res.clone()),
+                )),
+                _ => None,
+            }
+        }))
+    }
+
+    fn outputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
+        let mut result = HashMap::new();
+
+        for idx in self.outputs.iter() {
+            let res = self.node_resource(idx);
+            let name = res.file().unwrap().to_string();
+            let ty = *self
+                .graph
+                .node_weight(*idx)
+                .unwrap()
+                .operator
+                .inputs()
+                .get("data")
+                .unwrap();
+            result.insert(name, (ty, res));
+        }
+
+        result
+    }
+
+    fn graph_resource(&self) -> Resource<r::Graph> {
+        Resource::graph(self.name.clone(), None)
+    }
+
+    fn rename(&mut self, name: &str) {
+        self.name = name.to_string();
     }
 }

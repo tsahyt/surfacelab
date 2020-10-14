@@ -99,10 +99,6 @@ impl LayerStack {
         Resource::node(&format!("{}/{}", self.name, layer), None)
     }
 
-    pub fn stack_resource(&self) -> Resource<Graph> {
-        Resource::graph(self.name.clone(), None)
-    }
-
     pub fn blend_resource(&self, layer: &str) -> Resource<Node> {
         Resource::node(&format!("{}/{}.blend", self.name, layer), None)
     }
@@ -398,5 +394,25 @@ impl super::ExposedParameters for LayerStack {
 
     fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter> {
         &mut self.parameters
+    }
+}
+
+impl super::NodeCollection for LayerStack {
+    /// Layer stacks do not have inputs, so this always returns an empty HashMap.
+    fn inputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)> {
+        HashMap::new()
+    }
+
+    /// Layer stacks always have the same set of outputs, one per possible material channel.
+    fn outputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)> {
+        todo!()
+    }
+
+    fn graph_resource(&self) -> Resource<Graph> {
+        Resource::graph(self.name.clone(), None)
+    }
+
+    fn rename(&mut self, name: &str) {
+        self.name = name.to_string();
     }
 }
