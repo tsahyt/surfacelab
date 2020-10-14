@@ -679,33 +679,6 @@ impl NodeGraph {
             .collect()
     }
 
-    /// Get all output sockets in the current node graph, as well as all
-    /// *inputs* of Output nodes, i.e. everything that can be exported.
-    pub fn get_output_sockets(&self) -> Vec<(Resource<r::Socket>, ImageType)> {
-        let mut result = Vec::new();
-
-        for node_index in self.graph.node_indices() {
-            let node = self.graph.node_weight(node_index).unwrap();
-            let res = self.node_resource(&node_index);
-
-            if let Operator::AtomicOperator(AtomicOperator::Output { .. }) = node.operator {
-                for input in node.operator.inputs().iter() {
-                    if let Ok(OperatorType::Monomorphic(ty)) = node.monomorphic_type(&input.0) {
-                        result.push((res.node_socket(&input.0), ty))
-                    }
-                }
-            } else {
-                for output in node.operator.outputs().iter() {
-                    if let Ok(OperatorType::Monomorphic(ty)) = node.monomorphic_type(&output.0) {
-                        result.push((res.node_socket(&output.0), ty))
-                    }
-                }
-            }
-        }
-
-        result
-    }
-
     /// Linearize this node graph into a vector of instructions that can be
     /// interpreted by the compute backend.
     ///
