@@ -259,6 +259,30 @@ impl NodeManager {
                         response.push(r);
                     }
                 }
+                UserNodeEvent::OutputSizeChange(res, size) => {
+                    let node = res.file().unwrap();
+                    let graph = res.directory().unwrap();
+                    if let Some(r) = self.graphs.get_mut(graph).unwrap().resize_node(
+                        node,
+                        Some(*size),
+                        None,
+                        self.parent_size,
+                    ) {
+                        response.push(r);
+                    };
+                }
+                UserNodeEvent::OutputSizeAbsolute(res, abs) => {
+                    let node = res.file().unwrap();
+                    let graph = res.directory().unwrap();
+                    if let Some(r) = self.graphs.get_mut(graph).unwrap().resize_node(
+                        node,
+                        None,
+                        Some(*abs),
+                        self.parent_size,
+                    ) {
+                        response.push(r);
+                    };
+                }
             },
             Lang::UserGraphEvent(event) => match event {
                 UserGraphEvent::AddGraph => {
@@ -378,30 +402,6 @@ impl NodeManager {
                         .get_mut(graph_res.path_str().unwrap())
                         .expect("Node Graph not found");
                     graph.refield_parameter(graph_field, new_field);
-                }
-                UserGraphEvent::OutputSizeChange(res, size) => {
-                    let node = res.file().unwrap();
-                    let graph = res.directory().unwrap();
-                    if let Some(r) = self.graphs.get_mut(graph).unwrap().resize_node(
-                        node,
-                        Some(*size),
-                        None,
-                        self.parent_size,
-                    ) {
-                        response.push(r);
-                    };
-                }
-                UserGraphEvent::OutputSizeAbsolute(res, abs) => {
-                    let node = res.file().unwrap();
-                    let graph = res.directory().unwrap();
-                    if let Some(r) = self.graphs.get_mut(graph).unwrap().resize_node(
-                        node,
-                        None,
-                        Some(*abs),
-                        self.parent_size,
-                    ) {
-                        response.push(r);
-                    };
                 }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,

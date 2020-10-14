@@ -219,12 +219,12 @@ impl MessageWriter for ResourceField {
                     res_new,
                 ))
             }
-            Self::Size => super::Lang::UserGraphEvent(super::UserGraphEvent::OutputSizeChange(
+            Self::Size => super::Lang::UserNodeEvent(super::UserNodeEvent::OutputSizeChange(
                 resource.clone(),
                 i32::from_data(data),
             )),
-            Self::AbsoluteSize => super::Lang::UserGraphEvent(
-                super::UserGraphEvent::OutputSizeAbsolute(resource.clone(), data != [0]),
+            Self::AbsoluteSize => super::Lang::UserNodeEvent(
+                super::UserNodeEvent::OutputSizeAbsolute(resource.clone(), data != [0]),
             ),
         }
     }
