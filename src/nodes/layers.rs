@@ -9,19 +9,32 @@ pub struct FillLayer {
     blend_options: LayerBlendOptions,
 }
 
+/// A type encoding a function from material channels to sockets.
+type ChannelMap = HashMap<MaterialChannel, String>;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Fill {
+    /// A fill layer using static images for each material channel
     Material(HashMap<MaterialChannel, Image>),
+
+    /// A fill layer using an operator, with its output sockets mapped to
+    /// material channels. The operator must not have any inputs! It can be
+    /// complex or atomic. The requirement to not have inputs means that most
+    /// atomic operators are not usable, outside of noises etc., and the
+    /// operator is most likely complex.
     Operator {
         operator: Operator,
-        output_socket: String,
+        output_sockets: ChannelMap,
     },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// An FX layer is a layer that uses the material underneath it as input.
+/// Therefore FX layers *cannot* be placed at the bottom of a layer stack.
 pub struct FxLayer {
     operator: Operator,
-    output_socket: String,
+    input_sockets: ChannelMap,
+    output_sockets: ChannelMap,
     blend_options: LayerBlendOptions,
 }
 
@@ -82,6 +95,10 @@ impl LayerStack {
         Resource::node(&format!("{}/{}", self.name, layer), None)
     }
 
+    fn blend_resource(&self, layer: &str) -> Resource<Node> {
+        Resource::node(&format!("{}/{}.blend", self.name, layer), None)
+    }
+
     /// Linearize this layer stack into a vector of instructions to be
     /// interpreted by the compute backend. Analogous to the similarly named
     /// function in the NodeGraph.
@@ -113,23 +130,25 @@ impl LayerStack {
                         ));
 
                         if let Some(background) = last_socket.get(channel) {
-                            let blend_res = self.layer_resource(&format!("{}.blend", name));
+                            let blend_res = self.blend_resource(name);
 
                             linearization.push(Instruction::Move(
                                 background.clone(),
-                                blend_res.node_socket("background")
+                                blend_res.node_socket("background"),
                             ));
                             linearization.push(Instruction::Move(
                                 resource.node_socket("data"),
-                                blend_res.node_socket("foreground")
+                                blend_res.node_socket("foreground"),
                             ));
                             linearization.push(Instruction::Execute(
-                                blend_res,
-                                AtomicOperator::Blend(blend_options.blend_operator()
-                            )));
-                        }
+                                blend_res.clone(),
+                                AtomicOperator::Blend(blend_options.blend_operator()),
+                            ));
 
-                        last_socket.insert(*channel, resource.node_socket("data"));
+                            last_socket.insert(*channel, blend_res.node_socket("color"));
+                        } else {
+                            last_socket.insert(*channel, resource.node_socket("data"));
+                        }
                     }
                 }
                 Layer::FillLayer(
@@ -139,11 +158,141 @@ impl LayerStack {
                         fill:
                             Fill::Operator {
                                 operator,
-                                output_socket,
+                                output_sockets,
                             },
                     },
-                ) => {}
-                Layer::FxLayer(name, layer) => {}
+                ) => {
+                    // Skip execution if no channels are blended.
+                    if blend_options.channels.is_empty() {
+                        continue;
+                    }
+
+                    let resource = self.layer_resource(name);
+                    match operator {
+                        Operator::AtomicOperator(aop) => {
+                            linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
+                        }
+                        Operator::ComplexOperator(cop) => {
+                            // Inputs can be skipped vs the nodegraph
+                            // linearization, since fill layers must not have
+                            // inputs.
+                            linearization.push(Instruction::Call(resource.clone(), cop.clone()));
+                            for (out_socket, (_, output)) in cop.outputs.iter() {
+                                linearization.push(Instruction::Copy(
+                                    output.node_socket("data"),
+                                    resource.node_socket(out_socket),
+                                ))
+                            }
+                        }
+                    }
+
+                    for (channel, socket) in output_sockets.iter() {
+                        // Skip blending if channel is not selected
+                        if !blend_options.channels.contains(*channel) {
+                            continue;
+                        }
+
+                        if let Some(background) = last_socket.get(channel) {
+                            let blend_res = self.blend_resource(name);
+
+                            linearization.push(Instruction::Move(
+                                background.clone(),
+                                blend_res.node_socket("background"),
+                            ));
+                            linearization.push(Instruction::Move(
+                                resource.node_socket(socket),
+                                blend_res.node_socket("foreground"),
+                            ));
+                            linearization.push(Instruction::Execute(
+                                blend_res.clone(),
+                                AtomicOperator::Blend(blend_options.blend_operator()),
+                            ));
+
+                            last_socket.insert(*channel, blend_res.node_socket("color"));
+                        } else {
+                            last_socket.insert(*channel, resource.node_socket(socket));
+                        }
+                    }
+                }
+                Layer::FxLayer(
+                    name,
+                    FxLayer {
+                        operator,
+                        input_sockets,
+                        output_sockets,
+                        blend_options,
+                    },
+                ) => {
+                    let resource = self.layer_resource(name);
+                    match operator {
+                        Operator::AtomicOperator(aop) => {
+                            // Move inputs
+                            for (channel, socket) in input_sockets.iter() {
+                                linearization.push(Instruction::Move(
+                                    last_socket
+                                        .get(channel)
+                                        .expect("Missing layer underneath FX")
+                                        .clone(),
+                                    resource.node_socket(socket),
+                                ));
+                            }
+
+                            linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
+                        }
+                        Operator::ComplexOperator(cop) => {
+                            // Copy inputs to internal sockets
+                            for (channel, socket) in input_sockets.iter() {
+                                let input =
+                                    cop.inputs.get(socket).expect("Missing internal socket");
+                                linearization.push(Instruction::Copy(
+                                    last_socket
+                                        .get(channel)
+                                        .expect("Missing layer underneath FX")
+                                        .clone(),
+                                    input.1.node_socket("data"),
+                                ));
+                            }
+
+                            // Call complex operator execution
+                            linearization.push(Instruction::Call(resource.clone(), cop.clone()));
+
+                            // Copy back outputs
+                            for (out_socket, (_, output)) in cop.outputs.iter() {
+                                linearization.push(Instruction::Copy(
+                                    output.node_socket("data"),
+                                    resource.node_socket(out_socket),
+                                ))
+                            }
+                        }
+                    }
+
+                    for (channel, socket) in output_sockets.iter() {
+                        // Skip blending if channel is not selected
+                        if !blend_options.channels.contains(*channel) {
+                            continue;
+                        }
+
+                        let blend_res = self.blend_resource(name);
+
+                        linearization.push(Instruction::Move(
+                            last_socket
+                                .get(channel)
+                                .expect("Missing layer underneath FX")
+                                .clone(),
+                            blend_res.node_socket("background"),
+                        ));
+                        linearization.push(Instruction::Move(
+                            resource.node_socket(socket),
+                            blend_res.node_socket("foreground"),
+                        ));
+                        linearization.push(Instruction::Execute(
+                            blend_res.clone(),
+                            AtomicOperator::Blend(blend_options.blend_operator()),
+                        ));
+
+                        last_socket.insert(*channel, blend_res.node_socket("color"));
+                    }
+                }
             }
         }
 
