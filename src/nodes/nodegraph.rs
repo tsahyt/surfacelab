@@ -1,6 +1,6 @@
+use super::{ExposedParameters, LinearizationMode, NodeCollection};
 use crate::lang::resource as r;
 use crate::lang::*;
-use super::{NodeCollection, ExposedParameters};
 
 use bimap::BiHashMap;
 use petgraph::graph;
@@ -16,12 +16,6 @@ type EdgeLabel = (String, String);
 
 /// A vector of resource tuples describing connections between sockets.
 pub type Connections = Vec<(Resource<r::Socket>, Resource<r::Socket>)>;
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum LinearizationMode {
-    TopoSort,
-    FullTraversal,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
@@ -107,28 +101,6 @@ impl NodeGraph {
             parameters: HashMap::new(),
         }
     }
-
-    /// Construct a ParamBoxDescription from the current graph for its exposed
-    /// parameters.
-    pub fn param_box_description(&self) -> ParamBoxDescription<Field> {
-        ParamBoxDescription {
-            box_title: self.name.clone(),
-            categories: vec![ParamCategory {
-                name: "Exposed Parameters",
-                parameters: self
-                    .parameters
-                    .iter()
-                    .map(|(k, v)| Parameter {
-                        name: v.title.clone(),
-                        transmitter: Field(k.clone()),
-                        control: v.control.clone(),
-                        expose_status: Some(ExposeStatus::Unexposed),
-                    })
-                    .collect(),
-            }],
-        }
-    }
-
 
     fn node_resource(&self, idx: &petgraph::graph::NodeIndex) -> Resource<r::Node> {
         Resource::node(
@@ -368,43 +340,6 @@ impl NodeGraph {
         self.indices.insert(last, node);
 
         Ok((output_type, es))
-    }
-
-    /// Change a parameter in a resource in this graph. Will return an error if
-    /// the resource does not exist in this graph. May return a message as a
-    /// side effect of changing the parameter.
-    pub fn parameter_change(
-        &mut self,
-        res: &str,
-        field: &str,
-        data: &[u8],
-    ) -> Result<Option<Lang>, String> {
-        let node = self
-            .indices
-            .get_by_left(&res.to_string())
-            .ok_or("Missing node for parameter change")?;
-        let node_res = self.node_resource(node);
-        let node_data = self.graph.node_weight_mut(*node).unwrap();
-        node_data.operator.set_parameter(field, data);
-
-        log::trace!("Parameter changed to {:?}", node_data.operator);
-
-        if let Operator::AtomicOperator(AtomicOperator::Image(Image { path, .. })) =
-            &node_data.operator
-        {
-            if let Ok((w, h)) = image::image_dimensions(path) {
-                let new_size = w.max(h) as i32;
-                if node_data.size != new_size {
-                    node_data.size = new_size;
-                    return Ok(Some(Lang::GraphEvent(GraphEvent::NodeResized(
-                        node_res,
-                        node_data.node_size(1),
-                    ))));
-                }
-            }
-        }
-
-        Ok(None)
     }
 
     /// Connect two sockets in the node graph. If there is already a connection
@@ -679,6 +614,68 @@ impl NodeGraph {
             .collect()
     }
 
+    fn all_node_inputs_connected(&self, idx: graph::NodeIndex) -> bool {
+        self.graph.node_weight(idx).unwrap().operator.inputs().len()
+            == self
+                .graph
+                .edges_directed(idx, petgraph::EdgeDirection::Incoming)
+                .count()
+    }
+}
+
+impl ExposedParameters for NodeGraph {
+    fn exposed_parameters(&self) -> &HashMap<String, GraphParameter> {
+        &self.parameters
+    }
+
+    fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter> {
+        &mut self.parameters
+    }
+}
+
+impl NodeCollection for NodeGraph {
+    fn inputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
+        HashMap::from_iter(self.graph.node_indices().filter_map(|idx| {
+            let node = self.graph.node_weight(idx).unwrap();
+            let res = self.node_resource(&idx);
+            match &node.operator {
+                Operator::AtomicOperator(AtomicOperator::Input(inp)) => Some((
+                    res.file().unwrap().to_string(),
+                    (*inp.outputs().get("data").unwrap(), res.clone()),
+                )),
+                _ => None,
+            }
+        }))
+    }
+
+    fn outputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
+        let mut result = HashMap::new();
+
+        for idx in self.outputs.iter() {
+            let res = self.node_resource(idx);
+            let name = res.file().unwrap().to_string();
+            let ty = *self
+                .graph
+                .node_weight(*idx)
+                .unwrap()
+                .operator
+                .inputs()
+                .get("data")
+                .unwrap();
+            result.insert(name, (ty, res));
+        }
+
+        result
+    }
+
+    fn graph_resource(&self) -> Resource<r::Graph> {
+        Resource::graph(self.name.clone(), None)
+    }
+
+    fn rename(&mut self, name: &str) {
+        self.name = name.to_string();
+    }
+
     /// Linearize this node graph into a vector of instructions that can be
     /// interpreted by the compute backend.
     ///
@@ -696,7 +693,7 @@ impl NodeGraph {
     ///
     /// Linearization may fail when a node is missing inputs, and will return
     /// None in this case.
-    pub fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, LastUses)> {
+    fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, LastUses)> {
         use petgraph::visit::EdgeRef;
 
         enum Action<'a> {
@@ -791,73 +788,42 @@ impl NodeGraph {
         Some((traversal, final_usage.drain().collect()))
     }
 
-    pub fn complex_operator_stub(&self) -> ComplexOperator {
-        let mut co = ComplexOperator::new(self.graph_resource());
-        co.outputs = self.outputs();
-        co.inputs = self.inputs();
-        co.parameters = self.default_substitutions();
-        co
-    }
+    /// Change a parameter in a resource in this graph. Will return an error if
+    /// the resource does not exist in this graph. May return a message as a
+    /// side effect of changing the parameter.
+    fn parameter_change(
+        &mut self,
+        resource: &Resource<Param>,
+        data: &[u8],
+    ) -> Result<Option<Lang>, String> {
+        let res = resource.file().unwrap();
+        let field = resource.fragment().unwrap();
 
-    fn all_node_inputs_connected(&self, idx: graph::NodeIndex) -> bool {
-        self.graph.node_weight(idx).unwrap().operator.inputs().len()
-            == self
-                .graph
-                .edges_directed(idx, petgraph::EdgeDirection::Incoming)
-                .count()
-    }
-}
+        let node = self
+            .indices
+            .get_by_left(&res.to_string())
+            .ok_or("Missing node for parameter change")?;
+        let node_res = self.node_resource(node);
+        let node_data = self.graph.node_weight_mut(*node).unwrap();
+        node_data.operator.set_parameter(field, data);
 
-impl ExposedParameters for NodeGraph {
-    fn exposed_parameters(&self) -> &HashMap<String, GraphParameter> {
-        &self.parameters
-    }
+        log::trace!("Parameter changed to {:?}", node_data.operator);
 
-    fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter> {
-        &mut self.parameters
-    }
-}
-
-impl NodeCollection for NodeGraph {
-    fn inputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
-        HashMap::from_iter(self.graph.node_indices().filter_map(|idx| {
-            let node = self.graph.node_weight(idx).unwrap();
-            let res = self.node_resource(&idx);
-            match &node.operator {
-                Operator::AtomicOperator(AtomicOperator::Input(inp)) => Some((
-                    res.file().unwrap().to_string(),
-                    (*inp.outputs().get("data").unwrap(), res.clone()),
-                )),
-                _ => None,
+        if let Operator::AtomicOperator(AtomicOperator::Image(Image { path, .. })) =
+            &node_data.operator
+        {
+            if let Ok((w, h)) = image::image_dimensions(path) {
+                let new_size = w.max(h) as i32;
+                if node_data.size != new_size {
+                    node_data.size = new_size;
+                    return Ok(Some(Lang::GraphEvent(GraphEvent::NodeResized(
+                        node_res,
+                        node_data.node_size(1),
+                    ))));
+                }
             }
-        }))
-    }
-
-    fn outputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
-        let mut result = HashMap::new();
-
-        for idx in self.outputs.iter() {
-            let res = self.node_resource(idx);
-            let name = res.file().unwrap().to_string();
-            let ty = *self
-                .graph
-                .node_weight(*idx)
-                .unwrap()
-                .operator
-                .inputs()
-                .get("data")
-                .unwrap();
-            result.insert(name, (ty, res));
         }
 
-        result
-    }
-
-    fn graph_resource(&self) -> Resource<r::Graph> {
-        Resource::graph(self.name.clone(), None)
-    }
-
-    fn rename(&mut self, name: &str) {
-        self.name = name.to_string();
+        Ok(None)
     }
 }

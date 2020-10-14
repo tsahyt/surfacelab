@@ -103,10 +103,73 @@ impl LayerStack {
         Resource::node(&format!("{}/{}.blend", self.name, layer), None)
     }
 
+    fn push(&mut self, layer: Layer, resource: Resource<Node>) {
+        self.layers.push(layer);
+        self.resources
+            .insert(resource.file().unwrap().to_owned(), self.layers.len() - 1);
+    }
+
+    pub fn push_fill(&mut self, layer: FillLayer, resource: Resource<Node>) {
+        let layer = Layer::FillLayer(resource.file().unwrap().to_owned(), layer);
+        self.push(layer, resource);
+    }
+
+    pub fn push_fx(&mut self, layer: FxLayer, resource: Resource<Node>) {
+        let layer = Layer::FxLayer(resource.file().unwrap().to_owned(), layer);
+        self.push(layer, resource);
+    }
+
+    pub fn remove(&mut self, resource: &Resource<Node>) {
+        if let Some(index) = self.resources.remove(resource.file().unwrap()) {
+            self.layers.remove(index);
+
+            for idx in self.resources.values_mut().filter(|i| **i >= index) {
+                *idx -= 1;
+            }
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.layers.clear();
+        self.resources.clear();
+    }
+}
+
+impl super::ExposedParameters for LayerStack {
+    fn exposed_parameters(&self) -> &HashMap<String, GraphParameter> {
+        &self.parameters
+    }
+
+    fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter> {
+        &mut self.parameters
+    }
+}
+
+impl super::NodeCollection for LayerStack {
+    /// Layer stacks do not have inputs, so this always returns an empty HashMap.
+    fn inputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)> {
+        HashMap::new()
+    }
+
+    /// Layer stacks always have the same set of outputs, one per possible material channel.
+    fn outputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)> {
+        todo!()
+    }
+
+    fn graph_resource(&self) -> Resource<Graph> {
+        Resource::graph(self.name.clone(), None)
+    }
+
+    fn rename(&mut self, name: &str) {
+        self.name = name.to_string();
+    }
+
     /// Linearize this layer stack into a vector of instructions to be
     /// interpreted by the compute backend. Analogous to the similarly named
     /// function in the NodeGraph.
-    pub fn linearize(&self) -> (Linearization, LastUses) {
+    ///
+    /// The linearization mode is ignored for layer stacks.
+    fn linearize(&self, _mode: super::LinearizationMode) -> Option<(Linearization, LastUses)> {
         let mut linearization = Vec::new();
         let mut last_use = Vec::new();
 
@@ -300,41 +363,14 @@ impl LayerStack {
             }
         }
 
-        (linearization, last_use)
+        Some((linearization, last_use))
     }
 
-    fn push(&mut self, layer: Layer, resource: Resource<Node>) {
-        self.layers.push(layer);
-        self.resources
-            .insert(resource.file().unwrap().to_owned(), self.layers.len() - 1);
-    }
-
-    pub fn push_fill(&mut self, layer: FillLayer, resource: Resource<Node>) {
-        let layer = Layer::FillLayer(resource.file().unwrap().to_owned(), layer);
-        self.push(layer, resource);
-    }
-
-    pub fn push_fx(&mut self, layer: FxLayer, resource: Resource<Node>) {
-        let layer = Layer::FxLayer(resource.file().unwrap().to_owned(), layer);
-        self.push(layer, resource);
-    }
-
-    pub fn remove(&mut self, resource: &Resource<Node>) {
-        if let Some(index) = self.resources.remove(resource.file().unwrap()) {
-            self.layers.remove(index);
-
-            for idx in self.resources.values_mut().filter(|i| **i >= index) {
-                *idx -= 1;
-            }
-        }
-    }
-
-    pub fn reset(&mut self) {
-        self.layers.clear();
-        self.resources.clear();
-    }
-
-    pub fn parameter_change(&mut self, resource: &Resource<Param>, data: &[u8]) {
+    fn parameter_change(
+        &mut self,
+        resource: &Resource<Param>,
+        data: &[u8],
+    ) -> Result<Option<Lang>, String> {
         let field = resource.fragment().unwrap();
 
         if let Some(idx) = self
@@ -384,35 +420,7 @@ impl LayerStack {
                 Layer::FxLayer(_, layer) => layer.operator.set_parameter(field, data),
             }
         }
-    }
-}
 
-impl super::ExposedParameters for LayerStack {
-    fn exposed_parameters(&self) -> &HashMap<String, GraphParameter> {
-        &self.parameters
-    }
-
-    fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter> {
-        &mut self.parameters
-    }
-}
-
-impl super::NodeCollection for LayerStack {
-    /// Layer stacks do not have inputs, so this always returns an empty HashMap.
-    fn inputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)> {
-        HashMap::new()
-    }
-
-    /// Layer stacks always have the same set of outputs, one per possible material channel.
-    fn outputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)> {
-        todo!()
-    }
-
-    fn graph_resource(&self) -> Resource<Graph> {
-        Resource::graph(self.name.clone(), None)
-    }
-
-    fn rename(&mut self, name: &str) {
-        self.name = name.to_string();
+        Ok(None)
     }
 }

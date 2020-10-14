@@ -1,28 +1,19 @@
 use crate::{broker, lang, lang::OperatorParamBox, lang::*};
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
 
+use enum_dispatch::*;
 use maplit::hashmap;
 
 pub mod io;
 pub mod layers;
 pub mod nodegraph;
 
-enum NodeGraph {
-    NodeGraph(nodegraph::NodeGraph),
-    LayerStack(layers::LayerStack),
-}
-
-struct NodeManager {
-    parent_size: u32,
-    export_specs: HashMap<String, lang::ExportSpec>,
-    graphs: HashMap<String, nodegraph::NodeGraph>,
-    active_graph: lang::Resource<lang::Graph>,
-}
-
 /// Trait describing functionality relating to exposed parameters on node
 /// graphs.
+#[enum_dispatch]
 trait ExposedParameters: NodeCollection {
     /// Get a mutable reference to the exposed parameters of the node graph.
     fn exposed_parameters_mut(&mut self) -> &mut HashMap<String, GraphParameter>;
@@ -110,7 +101,14 @@ trait ExposedParameters: NodeCollection {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum LinearizationMode {
+    TopoSort,
+    FullTraversal,
+}
+
 /// General functions of a node graph
+#[enum_dispatch]
 trait NodeCollection {
     /// Obtain the inputs, i.e. set of input nodes, in the node graph
     fn inputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)>;
@@ -120,6 +118,31 @@ trait NodeCollection {
 
     fn graph_resource(&self) -> Resource<Graph>;
     fn rename(&mut self, name: &str);
+
+    /// Linearize this node graph into a vector of instructions that can be
+    /// interpreted by the compute backend.
+    fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, LastUses)>;
+
+    /// Change a parameter in a resource in this node collection.
+    fn parameter_change(
+        &mut self,
+        resource: &Resource<Param>,
+        data: &[u8],
+    ) -> Result<Option<Lang>, String>;
+}
+
+#[enum_dispatch(ExposedParameters, NodeCollection)]
+#[derive(Debug, Clone)]
+enum NodeGraph {
+    NodeGraph(nodegraph::NodeGraph),
+    LayerStack(layers::LayerStack),
+}
+
+struct NodeManager {
+    parent_size: u32,
+    export_specs: HashMap<String, lang::ExportSpec>,
+    graphs: HashMap<String, NodeGraph>,
+    active_graph: lang::Resource<lang::Graph>,
 }
 
 // FIXME: Changing output socket type after connection has already been made does not propagate type changes into preceeding polymorphic nodes!
@@ -128,7 +151,7 @@ impl NodeManager {
         NodeManager {
             parent_size: 1024,
             export_specs: HashMap::new(),
-            graphs: hashmap! { "base".to_string() => nodegraph::NodeGraph::new("base") },
+            graphs: hashmap! { "base".to_string() => NodeGraph::NodeGraph(nodegraph::NodeGraph::new("base")) },
             active_graph: lang::Resource::graph("base", None),
         }
     }
@@ -141,7 +164,7 @@ impl NodeManager {
             lang::Operator::AtomicOperator(ao) => ao.param_box_description(),
             lang::Operator::ComplexOperator(co) => {
                 if let Some(g) = self.graphs.get(co.graph.path().to_str().unwrap()) {
-                    g.param_box_description()
+                    g.param_box_description(operator.title().to_owned())
                 } else {
                     lang::ParamBoxDescription::empty()
                 }
@@ -258,14 +281,12 @@ impl NodeManager {
                     }
                 }
                 UserNodeEvent::ParameterChange(res, data) => {
-                    let node = res.file().unwrap();
-                    let field = res.fragment().unwrap();
                     let graph = res.directory().unwrap();
                     if let Some(side_effect) = self
                         .graphs
                         .get_mut(graph)
                         .unwrap()
-                        .parameter_change(node, field, data)
+                        .parameter_change(res, data)
                         .unwrap()
                     {
                         response.push(side_effect);
@@ -330,8 +351,10 @@ impl NodeManager {
                         .map(|i| format!("unnamed.{}", i))
                         .find(|n| !self.graphs.contains_key(n))
                         .unwrap();
-                    self.graphs
-                        .insert(name.to_string(), nodegraph::NodeGraph::new(&name));
+                    self.graphs.insert(
+                        name.to_string(),
+                        NodeGraph::NodeGraph(nodegraph::NodeGraph::new(&name)),
+                    );
                     response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphAdded(
                         Resource::graph(name, None),
                     )));
@@ -356,7 +379,7 @@ impl NodeManager {
 
                         // Creating a new complex operator representing this graph
                         let operator = graph.complex_operator_stub();
-                        let instructions = graph.linearize(nodegraph::LinearizationMode::TopoSort);
+                        let instructions = graph.linearize(LinearizationMode::TopoSort);
 
                         self.graphs.insert(new_name.to_string(), graph);
                         response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphRenamed(
@@ -466,8 +489,10 @@ impl NodeManager {
             }
             Lang::UserIOEvent(UserIOEvent::NewSurface) => {
                 self.graphs.clear();
-                self.graphs
-                    .insert("base".to_string(), nodegraph::NodeGraph::new("base"));
+                self.graphs.insert(
+                    "base".to_string(),
+                    NodeGraph::NodeGraph(nodegraph::NodeGraph::new("base")),
+                );
                 response.push(Lang::GraphEvent(GraphEvent::Cleared));
                 response.push(Lang::GraphEvent(GraphEvent::GraphAdded(Resource::graph(
                     "base", None,
@@ -532,8 +557,7 @@ impl NodeManager {
             let updated = graph.update_complex_operators(&changed_graph, &op_stub);
 
             if !updated.is_empty() {
-                if let Some((instructions, last_use)) =
-                    graph.linearize(nodegraph::LinearizationMode::TopoSort)
+                if let Some((instructions, last_use)) = graph.linearize(LinearizationMode::TopoSort)
                 {
                     response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                         graph.graph_resource(),
@@ -566,7 +590,7 @@ impl NodeManager {
         self.graphs
             .get(graph.path_str().unwrap())
             .unwrap()
-            .linearize(nodegraph::LinearizationMode::TopoSort)
+            .linearize(LinearizationMode::TopoSort)
             .map(|(instructions, last_use)| {
                 lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
                     graph.clone(),
