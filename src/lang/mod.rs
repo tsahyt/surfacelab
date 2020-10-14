@@ -257,8 +257,6 @@ pub enum UserNodeEvent {
     ParameterChange(Resource<Param>, Vec<u8>),
     PositionNode(Resource<Node>, (f64, f64)),
     RenameNode(Resource<Node>, Resource<Node>),
-    OutputSizeChange(Resource<Node>, i32),
-    OutputSizeAbsolute(Resource<Node>, bool),
 }
 
 #[derive(Debug)]
@@ -270,6 +268,8 @@ pub enum UserGraphEvent {
     ConcealParameter(Resource<Graph>, String),
     RefieldParameter(Resource<Graph>, String, String),
     RetitleParameter(Resource<Graph>, String, String),
+    OutputSizeChange(Resource<Node>, i32),
+    OutputSizeAbsolute(Resource<Node>, bool),
 }
 
 #[derive(Debug)]
