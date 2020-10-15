@@ -423,4 +423,29 @@ impl super::NodeCollection for LayerStack {
 
         Ok(None)
     }
+
+    fn update_complex_operators(
+        &mut self,
+        graph: &Resource<Graph>,
+        new: &ComplexOperator,
+    ) -> Vec<(Resource<Node>, HashMap<String, ParamSubstitution>)> {
+        let mut updated = Vec::new();
+
+        for layer in &self.layers {
+            match layer {
+                Layer::FillLayer(_, _) => todo!(),
+                Layer::FxLayer(_, _) => todo!(),
+            }
+        }
+
+        updated
+    }
+
+    fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
+        todo!()
+    }
+
+    fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {
+        todo!()
+    }
 }

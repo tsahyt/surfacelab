@@ -111,100 +111,6 @@ impl NodeGraph {
         )
     }
 
-    /// Update all the complex operators matching a call to the old graph.
-    /// Returns a vector of all node resources that have been updated.
-    pub fn update_complex_operators(
-        &mut self,
-        graph: &Resource<r::Graph>,
-        new: &ComplexOperator,
-    ) -> Vec<(Resource<r::Node>, HashMap<String, ParamSubstitution>)> {
-        let mut updated = Vec::new();
-
-        for idx in self.graph.node_indices() {
-            let node = self.graph.node_weight_mut(idx).unwrap();
-            if let Operator::ComplexOperator(complex) = &mut node.operator {
-                if &complex.graph == graph {
-                    complex.graph = new.graph.clone();
-                    complex.title = new.title.clone();
-                    complex.inputs = new.inputs.clone();
-                    complex.outputs = new.outputs.clone();
-
-                    for (field, subs) in &new.parameters {
-                        if complex.parameters.get(field).is_none() {
-                            complex.parameters.insert(field.clone(), subs.clone());
-                        }
-                    }
-
-                    for (_, subs) in complex.parameters.iter_mut() {
-                        subs.resource_mut().set_graph(new.graph.path())
-                    }
-
-                    let params = complex.parameters.clone();
-                    updated.push((self.node_resource(&idx), params));
-                }
-            }
-        }
-
-        updated
-    }
-
-    /// Rebuild all events that create this graph. Note that parameter boxes
-    /// will be left empty, since not all information is available to build them
-    /// in the case of complex operators.
-    pub fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {
-        let mut events = Vec::new();
-
-        for idx in self.graph.node_indices() {
-            let node = self.graph.node_weight(idx).unwrap();
-            events.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-                self.node_resource(&idx),
-                node.operator.clone(),
-                ParamBoxDescription::empty(),
-                Some(node.position),
-                node.node_size(parent_size) as u32,
-            )));
-        }
-
-        for idx in self.graph.edge_indices() {
-            let conn = self.graph.edge_weight(idx).unwrap();
-            let (source_idx, sink_idx) = self.graph.edge_endpoints(idx).unwrap();
-            events.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                self.node_resource(&source_idx).node_socket(&conn.0),
-                self.node_resource(&sink_idx).node_socket(&conn.1),
-            )));
-        }
-
-        // Create monomorphization events for all known type variables
-        for idx in self.graph.node_indices() {
-            let node = self.graph.node_weight(idx).unwrap();
-            for tvar in node.type_variables.iter() {
-                for res in node
-                    .operator
-                    .inputs()
-                    .iter()
-                    .chain(node.operator.outputs().iter())
-                    .filter(|(_, t)| **t == OperatorType::Polymorphic(*tvar.0))
-                    .map(|x| self.node_resource(&idx).node_socket(x.0))
-                {
-                    events.push(Lang::GraphEvent(GraphEvent::SocketMonomorphized(
-                        res, *tvar.1,
-                    )));
-                }
-            }
-        }
-
-        // Create parameter exposure events for all exposed parameters
-        let graph = self.graph_resource();
-        for param in self.parameters.values() {
-            events.push(Lang::GraphEvent(GraphEvent::ParameterExposed(
-                graph.clone(),
-                param.clone(),
-            )))
-        }
-
-        events
-    }
-
     pub fn nodes(&self) -> Vec<(Resource<r::Node>, Operator, (f64, f64))> {
         self.graph
             .node_indices()
@@ -596,24 +502,6 @@ impl NodeGraph {
         )))
     }
 
-    pub fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
-        self.graph
-            .node_indices()
-            .filter_map(|idx| {
-                self.graph.node_weight(idx).and_then(|x| {
-                    if !x.absolute_size {
-                        Some(Lang::GraphEvent(GraphEvent::NodeResized(
-                            self.node_resource(&idx),
-                            x.node_size(parent_size),
-                        )))
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect()
-    }
-
     fn all_node_inputs_connected(&self, idx: graph::NodeIndex) -> bool {
         self.graph.node_weight(idx).unwrap().operator.inputs().len()
             == self
@@ -825,5 +713,114 @@ impl NodeCollection for NodeGraph {
         }
 
         Ok(None)
+    }
+
+    /// Update all the complex operators matching a call to the old graph.
+    /// Returns a vector of all node resources that have been updated.
+    fn update_complex_operators(
+        &mut self,
+        graph: &Resource<r::Graph>,
+        new: &ComplexOperator,
+    ) -> Vec<(Resource<r::Node>, HashMap<String, ParamSubstitution>)> {
+        let mut updated = Vec::new();
+
+        for idx in self.graph.node_indices() {
+            let node = self.graph.node_weight_mut(idx).unwrap();
+            if let Operator::ComplexOperator(complex) = &mut node.operator {
+                if &complex.graph == graph {
+                    complex.graph = new.graph.clone();
+                    complex.title = new.title.clone();
+                    complex.inputs = new.inputs.clone();
+                    complex.outputs = new.outputs.clone();
+
+                    for (field, subs) in &new.parameters {
+                        if complex.parameters.get(field).is_none() {
+                            complex.parameters.insert(field.clone(), subs.clone());
+                        }
+                    }
+
+                    for (_, subs) in complex.parameters.iter_mut() {
+                        subs.resource_mut().set_graph(new.graph.path())
+                    }
+
+                    let params = complex.parameters.clone();
+                    updated.push((self.node_resource(&idx), params));
+                }
+            }
+        }
+
+        updated
+    }
+
+    fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
+        self.graph
+            .node_indices()
+            .filter_map(|idx| {
+                self.graph.node_weight(idx).and_then(|x| {
+                    if !x.absolute_size {
+                        Some(Lang::GraphEvent(GraphEvent::NodeResized(
+                            self.node_resource(&idx),
+                            x.node_size(parent_size),
+                        )))
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect()
+    }
+
+    fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {
+        let mut events = Vec::new();
+
+        for idx in self.graph.node_indices() {
+            let node = self.graph.node_weight(idx).unwrap();
+            events.push(Lang::GraphEvent(GraphEvent::NodeAdded(
+                self.node_resource(&idx),
+                node.operator.clone(),
+                ParamBoxDescription::empty(),
+                Some(node.position),
+                node.node_size(parent_size) as u32,
+            )));
+        }
+
+        for idx in self.graph.edge_indices() {
+            let conn = self.graph.edge_weight(idx).unwrap();
+            let (source_idx, sink_idx) = self.graph.edge_endpoints(idx).unwrap();
+            events.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                self.node_resource(&source_idx).node_socket(&conn.0),
+                self.node_resource(&sink_idx).node_socket(&conn.1),
+            )));
+        }
+
+        // Create monomorphization events for all known type variables
+        for idx in self.graph.node_indices() {
+            let node = self.graph.node_weight(idx).unwrap();
+            for tvar in node.type_variables.iter() {
+                for res in node
+                    .operator
+                    .inputs()
+                    .iter()
+                    .chain(node.operator.outputs().iter())
+                    .filter(|(_, t)| **t == OperatorType::Polymorphic(*tvar.0))
+                    .map(|x| self.node_resource(&idx).node_socket(x.0))
+                {
+                    events.push(Lang::GraphEvent(GraphEvent::SocketMonomorphized(
+                        res, *tvar.1,
+                    )));
+                }
+            }
+        }
+
+        // Create parameter exposure events for all exposed parameters
+        let graph = self.graph_resource();
+        for param in self.parameters.values() {
+            events.push(Lang::GraphEvent(GraphEvent::ParameterExposed(
+                graph.clone(),
+                param.clone(),
+            )))
+        }
+
+        events
     }
 }

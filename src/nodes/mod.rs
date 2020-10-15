@@ -1,5 +1,6 @@
 use crate::{broker, lang, lang::OperatorParamBox, lang::*};
 
+use serde_derive::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
@@ -129,11 +130,27 @@ trait NodeCollection {
         resource: &Resource<Param>,
         data: &[u8],
     ) -> Result<Option<Lang>, String>;
+
+    /// Update all the complex operators matching a call to the old graph.
+    /// Returns a vector of all node resources that have been updated.
+    fn update_complex_operators(
+        &mut self,
+        graph: &Resource<Graph>,
+        new: &ComplexOperator,
+    ) -> Vec<(Resource<Node>, HashMap<String, ParamSubstitution>)>;
+
+    /// Resize all the nodes in the collection with the new parent size.
+    fn resize_all(&mut self, parent_size: u32) -> Vec<Lang>;
+
+    /// Rebuild all events that create this collection. Note that parameter boxes
+    /// will be left empty, since not all information is available to build them
+    /// in the case of complex operators.
+    fn rebuild_events(&self, parent_size: u32) -> Vec<Lang>;
 }
 
 #[enum_dispatch(ExposedParameters, NodeCollection)]
-#[derive(Debug, Clone)]
-enum NodeGraph {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum NodeGraph {
     NodeGraph(nodegraph::NodeGraph),
     LayerStack(layers::LayerStack),
 }
@@ -180,7 +197,6 @@ impl NodeManager {
             Lang::UserNodeEvent(event) => match event {
                 UserNodeEvent::NewNode(graph, op, pos) => {
                     let graph_name = graph.path().to_str().unwrap();
-
                     let op = match op {
                         lang::Operator::ComplexOperator(co) => {
                             let co = self
@@ -193,47 +209,49 @@ impl NodeManager {
                         lang::Operator::AtomicOperator(_) => op.clone(),
                     };
 
-                    let (node_id, size) = self
-                        .graphs
-                        .get_mut(graph_name)
-                        .unwrap()
-                        .new_node(&op, self.parent_size);
-                    response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-                        Resource::node(
-                            [graph_name, &node_id]
-                                .iter()
-                                .collect::<std::path::PathBuf>(),
-                            None,
-                        ),
-                        op.clone(),
-                        self.operator_param_box(&op),
-                        Some(*pos),
-                        size as u32,
-                    )))
+                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph_name) {
+                        let (node_id, size) = graph.new_node(&op, self.parent_size);
+                        response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
+                            Resource::node(
+                                [graph_name, &node_id]
+                                    .iter()
+                                    .collect::<std::path::PathBuf>(),
+                                None,
+                            ),
+                            op.clone(),
+                            self.operator_param_box(&op),
+                            Some(*pos),
+                            size as u32,
+                        )))
+                    }
                 }
                 UserNodeEvent::RemoveNode(res) => {
                     let node = res.file().unwrap();
                     let graph = res.directory().unwrap();
-                    match self.graphs.get_mut(graph).unwrap().remove_node(node) {
-                        Ok((ty, removed_conns)) => {
-                            response = removed_conns
-                                .iter()
-                                .map(|c| {
-                                    Lang::GraphEvent(GraphEvent::DisconnectedSockets(
-                                        c.0.clone(),
-                                        c.1.clone(),
-                                    ))
-                                })
-                                .collect();
-                            response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(res.clone())));
-                            if let Some(ty) = ty {
-                                response.push(Lang::GraphEvent(GraphEvent::OutputRemoved(
-                                    res.clone(),
-                                    ty,
-                                )))
+
+                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                        match graph.remove_node(node) {
+                            Ok((ty, removed_conns)) => {
+                                response = removed_conns
+                                    .iter()
+                                    .map(|c| {
+                                        Lang::GraphEvent(GraphEvent::DisconnectedSockets(
+                                            c.0.clone(),
+                                            c.1.clone(),
+                                        ))
+                                    })
+                                    .collect();
+                                response
+                                    .push(Lang::GraphEvent(GraphEvent::NodeRemoved(res.clone())));
+                                if let Some(ty) = ty {
+                                    response.push(Lang::GraphEvent(GraphEvent::OutputRemoved(
+                                        res.clone(),
+                                        ty,
+                                    )))
+                                }
                             }
+                            Err(e) => log::error!("{}", e),
                         }
-                        Err(e) => log::error!("{}", e),
                     }
                 }
                 UserNodeEvent::ConnectSockets(from, to) => {
@@ -242,107 +260,115 @@ impl NodeManager {
                     let to_node = to.file().unwrap();
                     let to_socket = to.fragment().unwrap();
                     let graph = from.directory().unwrap();
-                    debug_assert_eq!(graph, to.directory().unwrap());
-                    match self.graphs.get_mut(graph).unwrap().connect_sockets(
-                        from_node,
-                        from_socket,
-                        to_node,
-                        to_socket,
-                    ) {
-                        Ok(mut res) => {
-                            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                                from.clone(),
-                                to.clone(),
-                            )));
-                            response.append(&mut res);
 
-                            if let Some(instrs) = self.relinearize(&Resource::graph(graph, None)) {
-                                response.push(instrs);
+                    debug_assert_eq!(graph, to.directory().unwrap());
+
+                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                        match graph.connect_sockets(from_node, from_socket, to_node, to_socket) {
+                            Ok(mut res) => {
+                                response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                                    from.clone(),
+                                    to.clone(),
+                                )));
+                                response.append(&mut res);
+
+                                if let Some(instrs) = graph
+                                    .linearize(LinearizationMode::TopoSort)
+                                    .map(|(instructions, last_use)| {
+                                        lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
+                                            graph.graph_resource(),
+                                            instructions,
+                                            last_use,
+                                        ))
+                                    })
+                                {
+                                    response.push(instrs);
+                                }
                             }
-                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                                self.active_graph.clone(),
-                            )));
+                            Err(e) => log::error!("{}", e),
                         }
-                        Err(e) => log::error!("{}", e),
                     }
+
+                    response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                        self.active_graph.clone(),
+                    )));
                 }
                 UserNodeEvent::DisconnectSinkSocket(sink) => {
                     let node = sink.file().unwrap();
                     let socket = sink.fragment().unwrap();
                     let graph = sink.directory().unwrap();
-                    match self
-                        .graphs
-                        .get_mut(graph)
-                        .unwrap()
-                        .disconnect_sink_socket(node, socket)
-                    {
-                        Ok(mut r) => response.append(&mut r),
-                        Err(e) => log::error!("Error while disconnecting sink {}", e),
+
+                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                        match graph.disconnect_sink_socket(node, socket) {
+                            Ok(mut r) => response.append(&mut r),
+                            Err(e) => log::error!("Error while disconnecting sink {}", e),
+                        }
                     }
                 }
                 UserNodeEvent::ParameterChange(res, data) => {
                     let graph = res.directory().unwrap();
-                    if let Some(side_effect) = self
-                        .graphs
-                        .get_mut(graph)
-                        .unwrap()
-                        .parameter_change(res, data)
-                        .unwrap()
-                    {
-                        response.push(side_effect);
+                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                        if let Some(side_effect) = graph.parameter_change(res, data).unwrap() {
+                            response.push(side_effect);
+                        }
+                        if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
+                            |(instructions, last_use)| {
+                                lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
+                                    graph.graph_resource(),
+                                    instructions,
+                                    last_use,
+                                ))
+                            },
+                        ) {
+                            response.push(instrs);
+                        }
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                            self.active_graph.clone(),
+                        )));
                     }
-                    if let Some(instrs) = self.relinearize(&Resource::graph(graph, None)) {
-                        response.push(instrs);
-                    }
-                    response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                        self.active_graph.clone(),
-                    )));
                 }
                 UserNodeEvent::PositionNode(res, (x, y)) => {
                     let node = res.file().unwrap();
                     let graph = res.directory().unwrap();
-                    self.graphs
-                        .get_mut(graph)
-                        .unwrap()
-                        .position_node(node, *x, *y);
+                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                        graph.position_node(node, *x, *y);
+                    }
                 }
                 UserNodeEvent::RenameNode(from, to) => {
                     let from_node = from.file().unwrap();
                     let to_node = to.file().unwrap();
                     let graph = from.directory().unwrap();
+
                     debug_assert_eq!(graph, to.directory().unwrap());
-                    if let Some(r) = self
-                        .graphs
-                        .get_mut(graph)
-                        .unwrap()
-                        .rename_node(from_node, to_node)
-                    {
-                        response.push(r);
+
+                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                        if let Some(r) = graph.rename_node(from_node, to_node) {
+                            response.push(r);
+                        }
                     }
                 }
                 UserNodeEvent::OutputSizeChange(res, size) => {
                     let node = res.file().unwrap();
                     let graph = res.directory().unwrap();
-                    if let Some(r) = self.graphs.get_mut(graph).unwrap().resize_node(
-                        node,
-                        Some(*size),
-                        None,
-                        self.parent_size,
-                    ) {
-                        response.push(r);
-                    };
+
+                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                        if let Some(r) =
+                            graph.resize_node(node, Some(*size), None, self.parent_size)
+                        {
+                            response.push(r);
+                        };
+                    }
                 }
                 UserNodeEvent::OutputSizeAbsolute(res, abs) => {
                     let node = res.file().unwrap();
                     let graph = res.directory().unwrap();
-                    if let Some(r) = self.graphs.get_mut(graph).unwrap().resize_node(
-                        node,
-                        None,
-                        Some(*abs),
-                        self.parent_size,
-                    ) {
-                        response.push(r);
-                    };
+
+                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                        if let Some(r) = graph.resize_node(node, None, Some(*abs), self.parent_size)
+                        {
+                            response.push(r);
+                        };
+                    }
                 }
             },
             Lang::UserGraphEvent(event) => match event {
