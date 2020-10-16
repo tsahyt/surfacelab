@@ -211,18 +211,27 @@ impl NodeManager {
 
                     if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph_name) {
                         let (node_id, size) = graph.new_node(&op, self.parent_size);
+                        let resource = Resource::node(
+                            [graph_name, &node_id]
+                                .iter()
+                                .collect::<std::path::PathBuf>(),
+                            None,
+                        );
                         response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-                            Resource::node(
-                                [graph_name, &node_id]
-                                    .iter()
-                                    .collect::<std::path::PathBuf>(),
-                                None,
-                            ),
+                            resource.clone(),
                             op.clone(),
                             self.operator_param_box(&op),
                             Some(*pos),
                             size as u32,
-                        )))
+                        )));
+                        for (socket, imgtype) in op.outputs().iter() {
+                            response.push(Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                resource.node_socket(socket),
+                                *imgtype,
+                                op.external_data(),
+                                size as u32,
+                            )));
+                        }
                     }
                 }
                 UserNodeEvent::RemoveNode(res) => {

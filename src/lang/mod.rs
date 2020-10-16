@@ -283,6 +283,7 @@ pub enum GraphEvent {
         Option<(f64, f64)>,
         u32,
     ),
+    OutputSocketAdded(Resource<Socket>, OperatorType, bool, u32),
     NodeRemoved(Resource<Node>),
     NodeRenamed(Resource<Node>, Resource<Node>),
     NodeResized(Resource<Node>, u32),

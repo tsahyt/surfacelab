@@ -508,52 +508,43 @@ where
         let mut response = Vec::new();
         match &*event {
             Lang::GraphEvent(event) => match event {
-                GraphEvent::NodeAdded(res, op, _, _, size) => {
+                GraphEvent::NodeAdded(res, _, _, _, size) => {
                     // Ensure socket data exists
                     self.sockets.ensure_node_exists(res, *size);
-
-                    // Create (unallocated) compute images if possible for all outputs
-                    for (socket, imgtype) in op.outputs().iter() {
-                        let socket_res = res.node_socket(&socket);
-
-                        if let OperatorType::Monomorphic(ty) = imgtype {
+                }
+                GraphEvent::OutputSocketAdded(res, ty, external_data, size) => {
+                    match ty {
+                        OperatorType::Monomorphic(ty) => {
                             // If the type is monomorphic, we can create the image
                             // right away, otherwise creation needs to be delayed
                             // until the type is known.
                             log::trace!(
                                 "Adding monomorphic socket {}, {} external data",
-                                socket_res,
-                                if op.external_data() {
-                                    "with"
-                                } else {
-                                    "without"
-                                }
+                                res,
+                                if *external_data { "with" } else { "without" }
                             );
                             let img = self
                                 .gpu
                                 .create_compute_image(
-                                    self.sockets.get_image_size(res),
+                                    self.sockets.get_image_size(&res.socket_node()),
                                     *ty,
-                                    op.external_data(),
+                                    *external_data,
                                 )
                                 .unwrap();
                             self.sockets.add_output_socket(
-                                &socket_res,
+                                res,
                                 Some((img, *ty)),
                                 *size,
-                                op.external_data(),
+                                *external_data,
                             );
                             response.push(Lang::ComputeEvent(ComputeEvent::SocketCreated(
-                                socket_res.clone(),
+                                res.clone(),
                                 *ty,
                             )));
-                        } else {
-                            self.sockets.add_output_socket(
-                                &socket_res,
-                                None,
-                                *size,
-                                op.external_data(),
-                            );
+                        }
+                        OperatorType::Polymorphic(_) => {
+                            self.sockets
+                                .add_output_socket(res, None, *size, *external_data);
                         }
                     }
                 }
