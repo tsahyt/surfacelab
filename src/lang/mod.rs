@@ -481,13 +481,25 @@ pub enum RendererType {
     Renderer2D,
 }
 
-#[derive(EnumSetType, Debug, Hash, Serialize, Deserialize)]
+#[derive(EnumSetType, EnumIter, Debug, Hash, Serialize, Deserialize)]
 pub enum MaterialChannel {
     Displacement,
     Albedo,
     Normal,
     Roughness,
     Metallic,
+}
+
+impl MaterialChannel {
+    pub fn to_output_type(self) -> OutputType {
+        match self {
+            MaterialChannel::Displacement => OutputType::Displacement,
+            MaterialChannel::Albedo => OutputType::Albedo,
+            MaterialChannel::Normal => OutputType::Normal,
+            MaterialChannel::Roughness => OutputType::Roughness,
+            MaterialChannel::Metallic => OutputType::Metallic,
+        }
+    }
 }
 
 #[derive(Debug, Display, Clone, Copy, Serialize, Deserialize)]

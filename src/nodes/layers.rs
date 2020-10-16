@@ -3,6 +3,7 @@ use enumset::EnumSet;
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum::IntoEnumIterator;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FillLayer {
@@ -135,8 +136,21 @@ impl LayerStack {
         self.resources.clear();
     }
 
-    fn last_resource_for(&self, channel: MaterialChannel) -> Resource<Node> {
-        todo!()
+    fn output_resource(&self, channel: MaterialChannel) -> Resource<Node> {
+        Resource::node(
+            &format!(
+                "{}/output.{}",
+                self.name,
+                match channel {
+                    MaterialChannel::Albedo => "col",
+                    MaterialChannel::Roughness => "rgh",
+                    MaterialChannel::Metallic => "met",
+                    MaterialChannel::Normal => "nor",
+                    MaterialChannel::Displacement => "dsp",
+                }
+            ),
+            None,
+        )
     }
 }
 
@@ -161,19 +175,19 @@ impl super::NodeCollection for LayerStack {
         hashmap! {
             "albedo".to_string() =>
                 (OperatorType::Monomorphic(ImageType::Rgb),
-                 self.last_resource_for(MaterialChannel::Albedo)),
+                 self.output_resource(MaterialChannel::Albedo)),
             "roughness".to_string() =>
                 (OperatorType::Monomorphic(ImageType::Grayscale),
-                 self.last_resource_for(MaterialChannel::Roughness)),
+                 self.output_resource(MaterialChannel::Roughness)),
             "normal".to_string() =>
                 (OperatorType::Monomorphic(ImageType::Rgb),
-                 self.last_resource_for(MaterialChannel::Normal)),
+                 self.output_resource(MaterialChannel::Normal)),
             "displacement".to_string() =>
                 (OperatorType::Monomorphic(ImageType::Grayscale),
-                 self.last_resource_for(MaterialChannel::Displacement)),
+                 self.output_resource(MaterialChannel::Displacement)),
             "metallic".to_string() =>
                 (OperatorType::Monomorphic(ImageType::Grayscale),
-                 self.last_resource_for(MaterialChannel::Metallic)),
+                 self.output_resource(MaterialChannel::Metallic)),
         }
     }
 
@@ -382,6 +396,17 @@ impl super::NodeCollection for LayerStack {
                     }
                 }
             }
+        }
+
+        // Finally process the (virtual) output operators
+        for channel in MaterialChannel::iter() {
+            let output = self.output_resource(channel);
+            linearization.push(Instruction::Execute(
+                output,
+                AtomicOperator::Output(Output {
+                    output_type: channel.to_output_type(),
+                }),
+            ));
         }
 
         Some((linearization, last_use))
