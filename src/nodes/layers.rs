@@ -79,6 +79,15 @@ pub enum Layer {
     FxLayer(String, FxLayer),
 }
 
+impl Layer {
+    pub fn name(&self) -> &str {
+        match self {
+            Layer::FillLayer(s, _) => s,
+            Layer::FxLayer(s, _) => s
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LayerStack {
     name: String,
@@ -509,14 +518,49 @@ impl super::NodeCollection for LayerStack {
     ) -> Vec<(Resource<Node>, HashMap<String, ParamSubstitution>)> {
         let mut updated = Vec::new();
 
-        for layer in &self.layers {
-            match layer {
-                Layer::FillLayer(_, _) => todo!(),
-                Layer::FxLayer(_, _) => todo!(),
+        for layer in self.layers.iter_mut() {
+            let complex = match layer {
+                Layer::FillLayer(
+                    _,
+                    FillLayer {
+                        fill:
+                            Fill::Operator {
+                                operator: Operator::ComplexOperator(co),
+                                ..
+                            },
+                        ..
+                    },
+                ) if &co.graph == graph => co,
+                Layer::FxLayer(
+                    _,
+                    FxLayer {
+                        operator: Operator::ComplexOperator(co),
+                        ..
+                    },
+                ) if &co.graph == graph => co,
+                _ => {continue}
+            };
+
+            complex.graph = new.graph.clone();
+            complex.title = new.title.clone();
+            complex.inputs = new.inputs.clone();
+            complex.outputs = new.outputs.clone();
+
+            for (field, subs) in &new.parameters {
+                if complex.parameters.get(field).is_none() {
+                    complex.parameters.insert(field.clone(), subs.clone());
+                }
             }
+
+            for (_, subs) in complex.parameters.iter_mut() {
+                subs.resource_mut().set_graph(new.graph.path())
+            }
+
+            let params = complex.parameters.clone();
+            updated.push((layer.name().to_owned(), params));
         }
 
-        updated
+        updated.drain(0..).map(|(l,p)| (self.layer_resource(&l), p)).collect()
     }
 
     fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
