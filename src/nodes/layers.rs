@@ -206,7 +206,8 @@ impl super::NodeCollection for LayerStack {
     /// The linearization mode is ignored for layer stacks.
     fn linearize(&self, _mode: super::LinearizationMode) -> Option<(Linearization, LastUses)> {
         let mut linearization = Vec::new();
-        let mut last_use = Vec::new();
+        let mut last_use: HashMap<Resource<Node>, usize> = HashMap::new();
+        let mut step = 0;
 
         let mut last_socket: HashMap<MaterialChannel, Resource<Socket>> = HashMap::new();
 
@@ -225,6 +226,8 @@ impl super::NodeCollection for LayerStack {
                             continue;
                         }
 
+                        step += 1;
+
                         let resource = self.layer_resource(name);
                         linearization.push(Instruction::Execute(
                             resource.clone(),
@@ -232,6 +235,8 @@ impl super::NodeCollection for LayerStack {
                         ));
 
                         if let Some(background) = last_socket.get(channel) {
+                            step += 1;
+
                             let blend_res = self.blend_resource(name);
 
                             linearization.push(Instruction::Move(
@@ -242,11 +247,13 @@ impl super::NodeCollection for LayerStack {
                                 resource.node_socket("data"),
                                 blend_res.node_socket("foreground"),
                             ));
+
                             linearization.push(Instruction::Execute(
                                 blend_res.clone(),
                                 AtomicOperator::Blend(blend_options.blend_operator()),
                             ));
 
+                            last_use.insert(background.socket_node(), step);
                             last_socket.insert(*channel, blend_res.node_socket("color"));
                         } else {
                             last_socket.insert(*channel, resource.node_socket("data"));
@@ -268,6 +275,8 @@ impl super::NodeCollection for LayerStack {
                     if blend_options.channels.is_empty() {
                         continue;
                     }
+
+                    step += 1;
 
                     let resource = self.layer_resource(name);
                     match operator {
@@ -295,6 +304,8 @@ impl super::NodeCollection for LayerStack {
                         }
 
                         if let Some(background) = last_socket.get(channel) {
+                            step += 1;
+
                             let blend_res = self.blend_resource(name);
 
                             linearization.push(Instruction::Move(
@@ -310,6 +321,7 @@ impl super::NodeCollection for LayerStack {
                                 AtomicOperator::Blend(blend_options.blend_operator()),
                             ));
 
+                            last_use.insert(background.socket_node(), step);
                             last_socket.insert(*channel, blend_res.node_socket("color"));
                         } else {
                             last_socket.insert(*channel, resource.node_socket(socket));
@@ -325,20 +337,26 @@ impl super::NodeCollection for LayerStack {
                         blend_options,
                     },
                 ) => {
+                    step += 1;
+
                     let resource = self.layer_resource(name);
+
                     match operator {
                         Operator::AtomicOperator(aop) => {
                             // Move inputs
                             for (channel, socket) in input_sockets.iter() {
-                                linearization.push(Instruction::Move(
+                                let input_resource =
                                     last_socket
                                         .get(channel)
                                         .expect("Missing layer underneath FX")
-                                        .clone(),
+                                        .clone();
+                                last_use.insert(input_resource.socket_node(), step);
+
+                                linearization.push(Instruction::Move(
+                                    input_resource,
                                     resource.node_socket(socket),
                                 ));
                             }
-
                             linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
                         }
                         Operator::ComplexOperator(cop) => {
@@ -346,11 +364,15 @@ impl super::NodeCollection for LayerStack {
                             for (channel, socket) in input_sockets.iter() {
                                 let input =
                                     cop.inputs.get(socket).expect("Missing internal socket");
-                                linearization.push(Instruction::Copy(
+                                let input_resource =
                                     last_socket
                                         .get(channel)
                                         .expect("Missing layer underneath FX")
-                                        .clone(),
+                                        .clone();
+                                last_use.insert(input_resource.socket_node(), step);
+
+                                linearization.push(Instruction::Copy(
+                                    input_resource,
                                     input.1.node_socket("data"),
                                 ));
                             }
@@ -374,13 +396,19 @@ impl super::NodeCollection for LayerStack {
                             continue;
                         }
 
-                        let blend_res = self.blend_resource(name);
+                        step += 1;
 
-                        linearization.push(Instruction::Move(
+                        let blend_res = self.blend_resource(name);
+                        let background =
                             last_socket
                                 .get(channel)
                                 .expect("Missing layer underneath FX")
-                                .clone(),
+                                .clone();
+
+                        last_use.insert(background.socket_node(), step);
+
+                        linearization.push(Instruction::Move(
+                            background,
                             blend_res.node_socket("background"),
                         ));
                         linearization.push(Instruction::Move(
@@ -400,16 +428,26 @@ impl super::NodeCollection for LayerStack {
 
         // Finally process the (virtual) output operators
         for channel in MaterialChannel::iter() {
+            step += 1;
+
             let output = self.output_resource(channel);
-            linearization.push(Instruction::Execute(
-                output,
-                AtomicOperator::Output(Output {
-                    output_type: channel.to_output_type(),
-                }),
-            ));
+            if let Some(socket) = last_socket.get(&channel).cloned() {
+                last_use.insert(socket.socket_node(), step);
+
+                linearization.push(Instruction::Move(
+                    socket,
+                    output.node_socket("data")
+                ));
+                linearization.push(Instruction::Execute(
+                    output,
+                    AtomicOperator::Output(Output {
+                        output_type: channel.to_output_type(),
+                    }),
+                ));
+            }
         }
 
-        Some((linearization, last_use))
+        Some((linearization, last_use.drain().collect()))
     }
 
     fn parameter_change(
