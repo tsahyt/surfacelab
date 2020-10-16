@@ -345,11 +345,10 @@ impl super::NodeCollection for LayerStack {
                         Operator::AtomicOperator(aop) => {
                             // Move inputs
                             for (channel, socket) in input_sockets.iter() {
-                                let input_resource =
-                                    last_socket
-                                        .get(channel)
-                                        .expect("Missing layer underneath FX")
-                                        .clone();
+                                let input_resource = last_socket
+                                    .get(channel)
+                                    .expect("Missing layer underneath FX")
+                                    .clone();
                                 last_use.insert(input_resource.socket_node(), step);
 
                                 linearization.push(Instruction::Move(
@@ -364,11 +363,10 @@ impl super::NodeCollection for LayerStack {
                             for (channel, socket) in input_sockets.iter() {
                                 let input =
                                     cop.inputs.get(socket).expect("Missing internal socket");
-                                let input_resource =
-                                    last_socket
-                                        .get(channel)
-                                        .expect("Missing layer underneath FX")
-                                        .clone();
+                                let input_resource = last_socket
+                                    .get(channel)
+                                    .expect("Missing layer underneath FX")
+                                    .clone();
                                 last_use.insert(input_resource.socket_node(), step);
 
                                 linearization.push(Instruction::Copy(
@@ -399,11 +397,10 @@ impl super::NodeCollection for LayerStack {
                         step += 1;
 
                         let blend_res = self.blend_resource(name);
-                        let background =
-                            last_socket
-                                .get(channel)
-                                .expect("Missing layer underneath FX")
-                                .clone();
+                        let background = last_socket
+                            .get(channel)
+                            .expect("Missing layer underneath FX")
+                            .clone();
 
                         last_use.insert(background.socket_node(), step);
 
@@ -434,10 +431,7 @@ impl super::NodeCollection for LayerStack {
             if let Some(socket) = last_socket.get(&channel).cloned() {
                 last_use.insert(socket.socket_node(), step);
 
-                linearization.push(Instruction::Move(
-                    socket,
-                    output.node_socket("data")
-                ));
+                linearization.push(Instruction::Move(socket, output.node_socket("data")));
                 linearization.push(Instruction::Execute(
                     output,
                     AtomicOperator::Output(Output {
