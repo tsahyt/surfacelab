@@ -1,5 +1,6 @@
 use crate::lang::*;
 use enumset::EnumSet;
+use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -133,6 +134,10 @@ impl LayerStack {
         self.layers.clear();
         self.resources.clear();
     }
+
+    fn last_resource_for(&self, channel: MaterialChannel) -> Resource<Node> {
+        todo!()
+    }
 }
 
 impl super::ExposedParameters for LayerStack {
@@ -153,7 +158,23 @@ impl super::NodeCollection for LayerStack {
 
     /// Layer stacks always have the same set of outputs, one per possible material channel.
     fn outputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)> {
-        todo!()
+        hashmap! {
+            "albedo".to_string() =>
+                (OperatorType::Monomorphic(ImageType::Rgb),
+                 self.last_resource_for(MaterialChannel::Albedo)),
+            "roughness".to_string() =>
+                (OperatorType::Monomorphic(ImageType::Grayscale),
+                 self.last_resource_for(MaterialChannel::Roughness)),
+            "normal".to_string() =>
+                (OperatorType::Monomorphic(ImageType::Rgb),
+                 self.last_resource_for(MaterialChannel::Normal)),
+            "displacement".to_string() =>
+                (OperatorType::Monomorphic(ImageType::Grayscale),
+                 self.last_resource_for(MaterialChannel::Displacement)),
+            "metallic".to_string() =>
+                (OperatorType::Monomorphic(ImageType::Grayscale),
+                 self.last_resource_for(MaterialChannel::Metallic)),
+        }
     }
 
     fn graph_resource(&self) -> Resource<Graph> {
