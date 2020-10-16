@@ -782,6 +782,15 @@ impl NodeCollection for NodeGraph {
                 Some(node.position),
                 node.node_size(parent_size) as u32,
             )));
+
+            for (socket, imgtype) in node.operator.outputs().iter() {
+                events.push(Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                    self.node_resource(&idx).node_socket(socket),
+                    *imgtype,
+                    node.operator.external_data(),
+                    node.node_size(parent_size) as u32,
+                )));
+            }
         }
 
         for idx in self.graph.edge_indices() {
