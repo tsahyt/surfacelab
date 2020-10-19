@@ -500,6 +500,16 @@ impl MaterialChannel {
             MaterialChannel::Metallic => OutputType::Metallic,
         }
     }
+
+    pub fn short_name(&self) -> &str {
+        match self {
+            MaterialChannel::Albedo => "col",
+            MaterialChannel::Roughness => "rgh",
+            MaterialChannel::Metallic => "met",
+            MaterialChannel::Normal => "nor",
+            MaterialChannel::Displacement => "dsp",
+        }
+    }
 }
 
 #[derive(Debug, Display, Clone, Copy, Serialize, Deserialize)]

@@ -83,7 +83,7 @@ impl Layer {
     pub fn name(&self) -> &str {
         match self {
             Layer::FillLayer(s, _) => s,
-            Layer::FxLayer(s, _) => s
+            Layer::FxLayer(s, _) => s,
         }
     }
 }
@@ -106,12 +106,31 @@ impl LayerStack {
         }
     }
 
-    pub fn layer_resource(&self, layer: &str) -> Resource<Node> {
-        Resource::node(&format!("{}/{}", self.name, layer), None)
+    pub fn layer_resource(&self, layer: &Layer) -> Resource<Node> {
+        Resource::node(&format!("{}/{}", self.name, layer.name()), None)
     }
 
-    pub fn blend_resource(&self, layer: &str) -> Resource<Node> {
-        Resource::node(&format!("{}/{}.blend", self.name, layer), None)
+    pub fn material_layer_resource(
+        &self,
+        layer: &Layer,
+        channel: MaterialChannel,
+    ) -> Resource<Node> {
+        Resource::node(
+            &format!("{}/{}.{}", self.name, layer.name(), channel.short_name()),
+            None,
+        )
+    }
+
+    pub fn blend_resource(&self, layer: &Layer, channel: MaterialChannel) -> Resource<Node> {
+        Resource::node(
+            &format!(
+                "{}/{}.blend.{}",
+                self.name,
+                layer.name(),
+                channel.short_name()
+            ),
+            None,
+        )
     }
 
     fn push(&mut self, layer: Layer, resource: Resource<Node>) {
@@ -147,19 +166,53 @@ impl LayerStack {
 
     fn output_resource(&self, channel: MaterialChannel) -> Resource<Node> {
         Resource::node(
-            &format!(
-                "{}/output.{}",
-                self.name,
-                match channel {
-                    MaterialChannel::Albedo => "col",
-                    MaterialChannel::Roughness => "rgh",
-                    MaterialChannel::Metallic => "met",
-                    MaterialChannel::Normal => "nor",
-                    MaterialChannel::Displacement => "dsp",
-                }
-            ),
+            &format!("{}/output.{}", self.name, channel.short_name(),),
             None,
         )
+    }
+
+    pub fn all_resources(&self) -> Vec<Resource<Node>> {
+        self.layers
+            .iter()
+            .map(|layer| match layer {
+                Layer::FillLayer(
+                    _,
+                    FillLayer {
+                        fill: Fill::Material(_),
+                        blend_options,
+                        ..
+                    },
+                ) => blend_options
+                    .channels
+                    .iter()
+                    .map(|channel| self.blend_resource(layer, channel))
+                    .chain(
+                        MaterialChannel::iter()
+                            .map(|channel| self.material_layer_resource(layer, channel)),
+                    )
+                    .collect::<Vec<_>>(),
+                Layer::FillLayer(
+                    _,
+                    FillLayer {
+                        fill: Fill::Operator { .. },
+                        blend_options,
+                        ..
+                    },
+                ) => blend_options
+                    .channels
+                    .iter()
+                    .map(|channel| self.blend_resource(layer, channel))
+                    .chain(std::iter::once(self.layer_resource(layer)))
+                    .collect::<Vec<_>>(),
+                Layer::FxLayer(_, FxLayer { blend_options, .. }) => blend_options
+                    .channels
+                    .iter()
+                    .map(|channel| self.blend_resource(layer, channel))
+                    .chain(std::iter::once(self.layer_resource(layer)))
+                    .collect::<Vec<_>>(),
+            })
+            .flatten()
+            .collect()
     }
 }
 
@@ -223,7 +276,7 @@ impl super::NodeCollection for LayerStack {
         for layer in self.layers.iter() {
             match layer {
                 Layer::FillLayer(
-                    name,
+                    _,
                     FillLayer {
                         blend_options,
                         fill: Fill::Material(mat),
@@ -237,7 +290,7 @@ impl super::NodeCollection for LayerStack {
 
                         step += 1;
 
-                        let resource = self.layer_resource(name);
+                        let resource = self.material_layer_resource(layer, *channel);
                         linearization.push(Instruction::Execute(
                             resource.clone(),
                             AtomicOperator::Image(img.clone()),
@@ -246,7 +299,7 @@ impl super::NodeCollection for LayerStack {
                         if let Some(background) = last_socket.get(channel) {
                             step += 1;
 
-                            let blend_res = self.blend_resource(name);
+                            let blend_res = self.blend_resource(layer, *channel);
 
                             linearization.push(Instruction::Move(
                                 background.clone(),
@@ -270,7 +323,7 @@ impl super::NodeCollection for LayerStack {
                     }
                 }
                 Layer::FillLayer(
-                    name,
+                    _,
                     FillLayer {
                         blend_options,
                         fill:
@@ -287,7 +340,7 @@ impl super::NodeCollection for LayerStack {
 
                     step += 1;
 
-                    let resource = self.layer_resource(name);
+                    let resource = self.layer_resource(layer);
                     match operator {
                         Operator::AtomicOperator(aop) => {
                             linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
@@ -315,7 +368,7 @@ impl super::NodeCollection for LayerStack {
                         if let Some(background) = last_socket.get(channel) {
                             step += 1;
 
-                            let blend_res = self.blend_resource(name);
+                            let blend_res = self.blend_resource(layer, *channel);
 
                             linearization.push(Instruction::Move(
                                 background.clone(),
@@ -338,7 +391,7 @@ impl super::NodeCollection for LayerStack {
                     }
                 }
                 Layer::FxLayer(
-                    name,
+                    _,
                     FxLayer {
                         operator,
                         input_sockets,
@@ -348,7 +401,7 @@ impl super::NodeCollection for LayerStack {
                 ) => {
                     step += 1;
 
-                    let resource = self.layer_resource(name);
+                    let resource = self.layer_resource(layer);
 
                     match operator {
                         Operator::AtomicOperator(aop) => {
@@ -405,7 +458,7 @@ impl super::NodeCollection for LayerStack {
 
                         step += 1;
 
-                        let blend_res = self.blend_resource(name);
+                        let blend_res = self.blend_resource(layer, *channel);
                         let background = last_socket
                             .get(channel)
                             .expect("Missing layer underneath FX")
@@ -538,7 +591,7 @@ impl super::NodeCollection for LayerStack {
                         ..
                     },
                 ) if &co.graph == graph => co,
-                _ => {continue}
+                _ => continue,
             };
 
             complex.graph = new.graph.clone();
@@ -557,14 +610,21 @@ impl super::NodeCollection for LayerStack {
             }
 
             let params = complex.parameters.clone();
-            updated.push((layer.name().to_owned(), params));
+            updated.push((layer.to_owned(), params));
+            // TODO: find a way to avoid this clone
         }
 
-        updated.drain(0..).map(|(l,p)| (self.layer_resource(&l), p)).collect()
+        updated
+            .drain(0..)
+            .map(|(l, p)| (self.layer_resource(&l), p))
+            .collect()
     }
 
     fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
-        todo!()
+        self.all_resources()
+            .drain(0..)
+            .map(|res| Lang::GraphEvent(GraphEvent::NodeResized(res, parent_size)))
+            .collect()
     }
 
     fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {
