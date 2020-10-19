@@ -155,6 +155,12 @@ pub enum NodeGraph {
     LayerStack(layers::LayerStack),
 }
 
+impl Default for NodeGraph {
+    fn default() -> Self {
+        Self::NodeGraph(nodegraph::NodeGraph::new("base"))
+    }
+}
+
 struct NodeManager {
     parent_size: u32,
     export_specs: HashMap<String, lang::ExportSpec>,
@@ -168,7 +174,7 @@ impl NodeManager {
         NodeManager {
             parent_size: 1024,
             export_specs: HashMap::new(),
-            graphs: hashmap! { "base".to_string() => NodeGraph::NodeGraph(nodegraph::NodeGraph::new("base")) },
+            graphs: hashmap! { "base".to_string() => NodeGraph::default() },
             active_graph: lang::Resource::graph("base", None),
         }
     }
