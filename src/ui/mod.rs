@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub mod app;
+pub mod app_state;
 pub mod color_picker;
 pub mod color_ramp;
 pub mod export_row;
@@ -53,7 +54,7 @@ fn ui_loop<B: gpu::Backend>(
         .for_folder("assets")
         .unwrap();
 
-    let fonts = app::AppFonts {
+    let fonts = app_state::AppFonts {
         icon_font: ui
             .fonts
             .insert_from_file(assets.join("MaterialDesignIcons.ttf"))
