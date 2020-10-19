@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct Graph {
-    graph: super::graph::NodeGraph,
+    pub graph: super::graph::NodeGraph,
     resources: HashMap<Resource<r::Node>, petgraph::graph::NodeIndex>,
     exposed_parameters: Vec<(String, GraphParameter)>,
     param_box: ParamBoxDescription<GraphField>,
@@ -30,32 +30,32 @@ impl Default for Graph {
 }
 
 #[derive(Debug)]
-pub struct Graphs {
-    graphs: HashMap<Resource<r::Graph>, Graph>,
-    active_graph: Graph,
+pub struct NodeCollections {
+    collections: HashMap<Resource<r::Graph>, Graph>,
+    active_collection: Graph,
     active_resource: Resource<r::Graph>,
 }
 
-impl Default for Graphs {
+impl Default for NodeCollections {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Graphs {
+impl NodeCollections {
     pub fn new() -> Self {
-        Graphs {
-            graphs: HashMap::new(),
-            active_graph: Graph::default(),
+        Self {
+            collections: HashMap::new(),
+            active_collection: Graph::default(),
             active_resource: Resource::graph("base", None),
         }
     }
 
-    pub fn set_active(&mut self, graph: Resource<r::Graph>) {
-        self.graphs
-            .insert(self.active_resource.clone(), self.active_graph.clone());
-        self.active_resource = graph;
-        self.active_graph = self.graphs.remove(&self.active_resource).unwrap();
+    pub fn set_active(&mut self, collection: Resource<r::Graph>) {
+        self.collections
+            .insert(self.active_resource.clone(), self.active_collection.clone());
+        self.active_resource = collection;
+        self.active_collection = self.collections.remove(&self.active_resource).unwrap();
     }
 
     pub fn rename_graph(&mut self, from: &Resource<r::Graph>, to: &Resource<r::Graph>) {
@@ -75,10 +75,10 @@ impl Graphs {
 
         if &self.active_resource == from {
             self.active_resource = to.clone();
-            update(&mut self.active_graph, to);
-        } else if let Some(mut graph) = self.graphs.remove(from) {
+            update(&mut self.active_collection, to);
+        } else if let Some(mut graph) = self.collections.remove(from) {
             update(&mut graph, to);
-            self.graphs.insert(to.clone(), graph);
+            self.collections.insert(to.clone(), graph);
         }
     }
 
@@ -86,28 +86,36 @@ impl Graphs {
         &self.active_resource
     }
 
+    pub fn get_active_graph(&self) -> &Graph {
+        &self.active_collection
+    }
+
+    pub fn get_active_graph_mut(&mut self) -> &mut Graph {
+        &mut self.active_collection
+    }
+
     pub fn insert_index(&mut self, resource: Resource<r::Node>, index: petgraph::graph::NodeIndex) {
-        self.active_graph.resources.insert(resource, index);
+        self.active_collection.resources.insert(resource, index);
     }
 
     pub fn remove_index(&mut self, resource: &Resource<r::Node>) {
-        self.active_graph.resources.remove(resource);
+        self.active_collection.resources.remove(resource);
     }
 
     pub fn clear_all(&mut self) {
-        self.active_graph = Graph::default();
-        self.graphs.clear();
+        self.active_collection = Graph::default();
+        self.collections.clear();
     }
 
     pub fn add_graph(&mut self, graph: Resource<r::Graph>) {
-        self.graphs
+        self.collections
             .insert(graph.clone(), Graph::new(graph.file().unwrap()));
     }
 
     /// Get a list of graph names for displaying
     pub fn list_graph_names(&self) -> Vec<&str> {
         std::iter::once(self.active_resource.file().unwrap())
-            .chain(self.graphs.keys().map(|k| k.file().unwrap()))
+            .chain(self.collections.keys().map(|k| k.file().unwrap()))
             .collect()
     }
 
@@ -115,18 +123,18 @@ impl Graphs {
     /// index. This index refers to the ordering returned by `list_graph_names`.
     pub fn get_graph_resource(&self, index: usize) -> Option<&Resource<r::Graph>> {
         std::iter::once(&self.active_resource)
-            .chain(self.graphs.keys())
+            .chain(self.collections.keys())
             .nth(index)
     }
 
     /// Get a slice of the exposed graph parameters of the currently active
     /// graph.
     pub fn get_exposed_parameters_mut(&mut self) -> &mut [(String, GraphParameter)] {
-        &mut self.active_graph.exposed_parameters
+        &mut self.active_collection.exposed_parameters
     }
 
     pub fn get_graph_parameters_mut(&mut self) -> &mut ParamBoxDescription<GraphField> {
-        &mut self.active_graph.param_box
+        &mut self.active_collection.param_box
     }
 
     fn target_graph_from_node(&mut self, node: &Resource<r::Node>) -> Option<&mut Graph> {
@@ -134,17 +142,17 @@ impl Graphs {
         let graph_res = Resource::graph(graph_name, None);
 
         if self.active_resource == graph_res {
-            Some(&mut self.active_graph)
+            Some(&mut self.active_collection)
         } else {
-            self.graphs.get_mut(&graph_res)
+            self.collections.get_mut(&graph_res)
         }
     }
 
     fn target_graph_from_graph(&mut self, graph_res: &Resource<r::Graph>) -> Option<&mut Graph> {
         if &self.active_resource == graph_res {
-            Some(&mut self.active_graph)
+            Some(&mut self.active_collection)
         } else {
-            self.graphs.get_mut(&graph_res)
+            self.collections.get_mut(&graph_res)
         }
     }
 
@@ -311,22 +319,20 @@ impl Graphs {
     }
 }
 
-impl std::ops::Deref for Graphs {
-    type Target = super::graph::NodeGraph;
-
-    fn deref(&self) -> &Self::Target {
-        &self.active_graph.graph
-    }
+pub struct Layer {
+    resource: Resource<Node>,
+    title: String,
+    icon: super::util::IconName,
+    thumbnail: Option<image::Id>,
+    operator_pbox: ParamBoxDescription<Field>,
+    layer_pbox: ParamBoxDescription<Field>,
+    masks: Vec<Mask>,
 }
 
-impl std::ops::DerefMut for Graphs {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.active_graph.graph
-    }
-}
+pub struct Mask {}
 
 pub struct App {
-    pub graphs: Graphs,
+    pub graphs: NodeCollections,
     pub active_element: Option<petgraph::graph::NodeIndex>,
     pub render_image: Option<image::Id>,
     pub monitor_resolution: (u32, u32),
@@ -346,7 +352,7 @@ pub struct App {
 impl App {
     pub fn new(monitor_size: (u32, u32)) -> Self {
         Self {
-            graphs: Graphs::new(),
+            graphs: NodeCollections::new(),
             active_element: None,
             render_image: None,
             monitor_resolution: (monitor_size.0, monitor_size.1),
@@ -371,7 +377,7 @@ impl App {
         &mut self,
     ) -> Option<(&mut ParamBoxDescription<MessageWriters>, &Resource<r::Node>)> {
         let ae = self.active_element?;
-        let node = self.graphs.node_weight_mut(ae)?;
+        let node = self.graphs.active_collection.graph.node_weight_mut(ae)?;
         Some((&mut node.param_box, &node.resource))
     }
 

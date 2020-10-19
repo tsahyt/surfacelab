@@ -15,7 +15,7 @@ widget_ids!(
         window_canvas,
         top_bar_canvas,
         main_canvas,
-        node_graph_canvas,
+        edit_canvas,
         drawing_canvas,
         sidebar_canvas,
         parameter_canvas,
@@ -247,7 +247,7 @@ where
                         .color(PANEL_COLOR)
                         .flow_right(&[
                             (
-                                self.ids.node_graph_canvas,
+                                self.ids.edit_canvas,
                                 widget::Canvas::new()
                                     .scroll_kids()
                                     .color(PANEL_COLOR)
@@ -415,15 +415,21 @@ where
 
     fn node_graph(&mut self, ui: &mut UiCell) {
         use super::graph;
-        for event in graph::Graph::new(&self.app_state.graphs)
-            .parent(self.ids.node_graph_canvas)
-            .wh_of(self.ids.node_graph_canvas)
+        for event in graph::Graph::new(&self.app_state.graphs.get_active_graph().graph)
+            .parent(self.ids.edit_canvas)
+            .wh_of(self.ids.edit_canvas)
             .middle()
             .set(self.ids.node_graph, ui)
         {
             match event {
                 graph::Event::NodeDrag(idx, x, y) => {
-                    let mut node = self.app_state.graphs.node_weight_mut(idx).unwrap();
+                    let mut node = self
+                        .app_state
+                        .graphs
+                        .get_active_graph_mut()
+                        .graph
+                        .node_weight_mut(idx)
+                        .unwrap();
                     node.position[0] += x;
                     node.position[1] += y;
 
@@ -438,6 +444,8 @@ where
                     let from_res = self
                         .app_state
                         .graphs
+                        .get_active_graph()
+                        .graph
                         .node_weight(from)
                         .unwrap()
                         .resource
@@ -445,6 +453,8 @@ where
                     let to_res = self
                         .app_state
                         .graphs
+                        .get_active_graph()
+                        .graph
                         .node_weight(to)
                         .unwrap()
                         .resource
@@ -460,6 +470,8 @@ where
                         .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
                             self.app_state
                                 .graphs
+                                .get_active_graph()
+                                .graph
                                 .node_weight(idx)
                                 .unwrap()
                                 .resource
@@ -472,6 +484,8 @@ where
                         .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
                             self.app_state
                                 .graphs
+                                .get_active_graph()
+                                .graph
                                 .node_weight(idx)
                                 .unwrap()
                                 .resource
@@ -498,9 +512,9 @@ where
                     .item_size(50.0)
                     .scrollbar_on_top(),
             )
-            .wh_of(self.ids.node_graph_canvas)
-            .middle_of(self.ids.node_graph_canvas)
-            .graphics_for(self.ids.node_graph_canvas)
+            .wh_of(self.ids.edit_canvas)
+            .middle_of(self.ids.edit_canvas)
+            .graphics_for(self.ids.edit_canvas)
             .set(self.ids.add_modal, ui)
             {
                 modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
