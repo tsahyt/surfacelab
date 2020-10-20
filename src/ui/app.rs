@@ -374,7 +374,7 @@ where
         }
 
         if let Some(selection) =
-            widget::DropDownList::new(&self.app_state.graphs.list_graph_names(), Some(0))
+            widget::DropDownList::new(&self.app_state.graphs.list_collection_names(), Some(0))
                 .label_font_size(12)
                 .parent(self.ids.top_bar_canvas)
                 .mid_right_with_margin(8.0)

@@ -21,6 +21,14 @@ impl Graph {
             param_box: ParamBoxDescription::graph_parameters(name),
         }
     }
+
+    pub fn insert_index(&mut self, resource: Resource<r::Node>, index: petgraph::graph::NodeIndex) {
+        self.resources.insert(resource, index);
+    }
+
+    pub fn remove_index(&mut self, resource: &Resource<r::Node>) {
+        self.resources.remove(resource);
+    }
 }
 
 impl Default for Graph {
@@ -30,9 +38,42 @@ impl Default for Graph {
 }
 
 #[derive(Debug)]
+pub struct Layer {
+    resource: Resource<Node>,
+    title: String,
+    icon: super::util::IconName,
+    thumbnail: Option<image::Id>,
+    operator_pbox: ParamBoxDescription<Field>,
+    layer_pbox: ParamBoxDescription<Field>,
+    masks: Vec<Mask>,
+}
+
+#[derive(Debug)]
+pub struct Mask {}
+
+#[derive(Debug)]
+pub struct Layers {
+    layers: Vec<Layer>,
+    exposed_parameters: Vec<(String, GraphParameter)>,
+    param_box: ParamBoxDescription<GraphField>,
+}
+
+#[derive(Debug)]
+pub enum NodeCollection {
+    Graph(Graph),
+    Layers(Layers),
+}
+
+impl Default for NodeCollection {
+    fn default() -> Self {
+        Self::Graph(Graph::default())
+    }
+}
+
+#[derive(Debug)]
 pub struct NodeCollections {
-    collections: HashMap<Resource<r::Graph>, Graph>,
-    active_collection: Graph,
+    collections: HashMap<Resource<r::Graph>, NodeCollection>,
+    active_collection: NodeCollection,
     active_resource: Resource<r::Graph>,
 }
 
@@ -46,40 +87,41 @@ impl NodeCollections {
     pub fn new() -> Self {
         Self {
             collections: HashMap::new(),
-            active_collection: Graph::default(),
+            active_collection: NodeCollection::default(),
             active_resource: Resource::graph("base", None),
         }
     }
 
     pub fn set_active(&mut self, collection: Resource<r::Graph>) {
         self.collections
-            .insert(self.active_resource.clone(), self.active_collection.clone());
+            .insert(self.active_resource, self.active_collection);
         self.active_resource = collection;
         self.active_collection = self.collections.remove(&self.active_resource).unwrap();
     }
 
     pub fn rename_graph(&mut self, from: &Resource<r::Graph>, to: &Resource<r::Graph>) {
-        fn update(target: &mut Graph, to: &Resource<r::Graph>) {
-            target.param_box.categories[0].parameters[0].control = Control::Entry {
-                value: to.file().unwrap().to_string(),
-            };
-            for gp in target.exposed_parameters.iter_mut().map(|x| &mut x.1) {
-                gp.parameter.set_graph(to.path());
-            }
-            for (mut res, idx) in target.resources.drain().collect::<Vec<_>>() {
-                res.set_graph(to.path());
-                target.resources.insert(res.clone(), idx);
-                target.graph.node_weight_mut(idx).unwrap().resource = res;
-            }
-        }
+        // fn update(target: &mut NodeCollection, to: &Resource<r::Graph>) {
+        //     target.param_box.categories[0].parameters[0].control = Control::Entry {
+        //         value: to.file().unwrap().to_string(),
+        //     };
+        //     for gp in target.exposed_parameters.iter_mut().map(|x| &mut x.1) {
+        //         gp.parameter.set_graph(to.path());
+        //     }
+        //     for (mut res, idx) in target.resources.drain().collect::<Vec<_>>() {
+        //         res.set_graph(to.path());
+        //         target.resources.insert(res.clone(), idx);
+        //         target.graph.node_weight_mut(idx).unwrap().resource = res;
+        //     }
+        // }
 
-        if &self.active_resource == from {
-            self.active_resource = to.clone();
-            update(&mut self.active_collection, to);
-        } else if let Some(mut graph) = self.collections.remove(from) {
-            update(&mut graph, to);
-            self.collections.insert(to.clone(), graph);
-        }
+        // if &self.active_resource == from {
+        //     self.active_resource = to.clone();
+        //     update(&mut self.active_collection, to);
+        // } else if let Some(mut graph) = self.collections.remove(from) {
+        //     update(&mut graph, to);
+        //     self.collections.insert(to.clone(), graph);
+        // }
+        todo!()
     }
 
     pub fn get_active(&self) -> &Resource<r::Graph> {
@@ -87,33 +129,33 @@ impl NodeCollections {
     }
 
     pub fn get_active_graph(&self) -> &Graph {
-        &self.active_collection
+        // &self.active_collection
+        todo!()
     }
 
     pub fn get_active_graph_mut(&mut self) -> &mut Graph {
-        &mut self.active_collection
-    }
-
-    pub fn insert_index(&mut self, resource: Resource<r::Node>, index: petgraph::graph::NodeIndex) {
-        self.active_collection.resources.insert(resource, index);
-    }
-
-    pub fn remove_index(&mut self, resource: &Resource<r::Node>) {
-        self.active_collection.resources.remove(resource);
+        // &mut self.active_collection
+        todo!()
     }
 
     pub fn clear_all(&mut self) {
-        self.active_collection = Graph::default();
+        self.active_collection = NodeCollection::Graph(Graph::default());
         self.collections.clear();
     }
 
     pub fn add_graph(&mut self, graph: Resource<r::Graph>) {
         self.collections
-            .insert(graph.clone(), Graph::new(graph.file().unwrap()));
+            .insert(graph.clone(), NodeCollection::Graph(Graph::new(graph.file().unwrap())));
     }
 
-    /// Get a list of graph names for displaying
-    pub fn list_graph_names(&self) -> Vec<&str> {
+    pub fn add_layers(&mut self, graph: Resource<r::Graph>) {
+        todo!()
+        // self.collections
+        //     .insert(graph.clone(), Graph::new(graph.file().unwrap()));
+    }
+
+    /// Get a list of collection names for displaying
+    pub fn list_collection_names(&self) -> Vec<&str> {
         std::iter::once(self.active_resource.file().unwrap())
             .chain(self.collections.keys().map(|k| k.file().unwrap()))
             .collect()
@@ -130,92 +172,100 @@ impl NodeCollections {
     /// Get a slice of the exposed graph parameters of the currently active
     /// graph.
     pub fn get_exposed_parameters_mut(&mut self) -> &mut [(String, GraphParameter)] {
-        &mut self.active_collection.exposed_parameters
+        // &mut self.active_collection.exposed_parameters
+        todo!()
     }
 
     pub fn get_graph_parameters_mut(&mut self) -> &mut ParamBoxDescription<GraphField> {
-        &mut self.active_collection.param_box
+        // &mut self.active_collection.param_box
+        todo!()
     }
 
     fn target_graph_from_node(&mut self, node: &Resource<r::Node>) -> Option<&mut Graph> {
-        let graph_name = node.directory().unwrap();
-        let graph_res = Resource::graph(graph_name, None);
+        // let graph_name = node.directory().unwrap();
+        // let graph_res = Resource::graph(graph_name, None);
 
-        if self.active_resource == graph_res {
-            Some(&mut self.active_collection)
-        } else {
-            self.collections.get_mut(&graph_res)
-        }
+        // if self.active_resource == graph_res {
+        //     Some(&mut self.active_collection)
+        // } else {
+        //     self.collections.get_mut(&graph_res)
+        // }
+        todo!()
     }
 
     fn target_graph_from_graph(&mut self, graph_res: &Resource<r::Graph>) -> Option<&mut Graph> {
-        if &self.active_resource == graph_res {
-            Some(&mut self.active_collection)
-        } else {
-            self.collections.get_mut(&graph_res)
-        }
+        // if &self.active_resource == graph_res {
+        //     Some(&mut self.active_collection)
+        // } else {
+        //     self.collections.get_mut(&graph_res)
+        // }
+        todo!()
     }
 
     pub fn add_node(&mut self, node: super::graph::NodeData) {
-        let node_res = node.resource.clone();
+        // let node_res = node.resource.clone();
 
-        if let Some(target) = self.target_graph_from_node(&node_res) {
-            let idx = target.graph.add_node(node);
-            target.resources.insert(node_res, idx);
-        }
+        // if let Some(target) = self.target_graph_from_node(&node_res) {
+        //     let idx = target.graph.add_node(node);
+        //     target.resources.insert(node_res, idx);
+        // }
+        todo!()
     }
 
     pub fn connect_sockets(&mut self, from: &Resource<r::Socket>, to: &Resource<r::Socket>) {
-        let from_node = from.socket_node();
-        if let Some(target) = self.target_graph_from_node(&from_node) {
-            let from_idx = target.resources.get(&from_node).unwrap();
-            let to_idx = target.resources.get(&to.socket_node()).unwrap();
-            target.graph.add_edge(
-                *from_idx,
-                *to_idx,
-                (
-                    from.fragment().unwrap().to_string(),
-                    to.fragment().unwrap().to_string(),
-                ),
-            );
-        }
+        // let from_node = from.socket_node();
+        // if let Some(target) = self.target_graph_from_node(&from_node) {
+        //     let from_idx = target.resources.get(&from_node).unwrap();
+        //     let to_idx = target.resources.get(&to.socket_node()).unwrap();
+        //     target.graph.add_edge(
+        //         *from_idx,
+        //         *to_idx,
+        //         (
+        //             from.fragment().unwrap().to_string(),
+        //             to.fragment().unwrap().to_string(),
+        //         ),
+        //     );
+        // }
+        todo!()
     }
 
     pub fn disconnect_sockets(&mut self, from: &Resource<r::Socket>, to: &Resource<r::Socket>) {
-        let from_node = from.socket_node();
-        if let Some(target) = self.target_graph_from_node(&from_node) {
-            use petgraph::visit::EdgeRef;
+        // let from_node = from.socket_node();
+        // if let Some(target) = self.target_graph_from_node(&from_node) {
+        //     use petgraph::visit::EdgeRef;
 
-            let from_idx = target.resources.get(&from_node).unwrap();
-            let to_idx = target.resources.get(&to.socket_node()).unwrap();
+        //     let from_idx = target.resources.get(&from_node).unwrap();
+        //     let to_idx = target.resources.get(&to.socket_node()).unwrap();
 
-            // Assuming that there's only ever one edge connecting two sockets.
-            if let Some(e) = target
-                .graph
-                .edges_connecting(*from_idx, *to_idx)
-                .filter(|e| {
-                    (e.weight().0.as_str(), e.weight().1.as_str())
-                        == (from.fragment().unwrap(), to.fragment().unwrap())
-                })
-                .map(|e| e.id())
-                .next()
-            {
-                target.graph.remove_edge(e);
-            }
-        }
+        //     // Assuming that there's only ever one edge connecting two sockets.
+        //     if let Some(e) = target
+        //         .graph
+        //         .edges_connecting(*from_idx, *to_idx)
+        //         .filter(|e| {
+        //             (e.weight().0.as_str(), e.weight().1.as_str())
+        //                 == (from.fragment().unwrap(), to.fragment().unwrap())
+        //         })
+        //         .map(|e| e.id())
+        //         .next()
+        //     {
+        //         target.graph.remove_edge(e);
+        //     }
+        // }
+        todo!()
     }
 
     pub fn remove_node(&mut self, node: &Resource<r::Node>) {
-        if let Some(target) = self.target_graph_from_node(&node) {
-            if let Some(idx) = target.resources.remove(node) {
-                // Obtain last node before removal for reindexing
-                let last_idx = target.graph.node_indices().next_back().unwrap();
-                let last_res = target.graph.node_weight(last_idx).unwrap().resource.clone();
+        // if let Some(target) = self.target_graph_from_node(&node) {
+        //     if let Some(idx) = target.resources.remove(node) {
+        //         // Obtain last node before removal for reindexing
+        //         let last_idx = target.graph.node_indices().next_back().unwrap();
+        //         let last_res = target.graph.node_weight(last_idx).unwrap().resource.clone();
 
-                target.graph.remove_node(idx);
-                target.resources.insert(last_res, idx);
-            }
-        }
+        //         target.graph.remove_node(idx);
+        //         target.resources.insert(last_res, idx);
+        //     }
+        // }
+        todo!()
     }
 
     pub fn monomorphize_socket(&mut self, socket: &Resource<r::Socket>, ty: ImageType) {
@@ -319,18 +369,6 @@ impl NodeCollections {
     }
 }
 
-pub struct Layer {
-    resource: Resource<Node>,
-    title: String,
-    icon: super::util::IconName,
-    thumbnail: Option<image::Id>,
-    operator_pbox: ParamBoxDescription<Field>,
-    layer_pbox: ParamBoxDescription<Field>,
-    masks: Vec<Mask>,
-}
-
-pub struct Mask {}
-
 pub struct App {
     pub graphs: NodeCollections,
     pub active_element: Option<petgraph::graph::NodeIndex>,
@@ -376,9 +414,10 @@ impl App {
     pub fn active_parameters(
         &mut self,
     ) -> Option<(&mut ParamBoxDescription<MessageWriters>, &Resource<r::Node>)> {
-        let ae = self.active_element?;
-        let node = self.graphs.active_collection.graph.node_weight_mut(ae)?;
-        Some((&mut node.param_box, &node.resource))
+        // let ae = self.active_element?;
+        // let node = self.graphs.active_collection.graph.node_weight_mut(ae)?;
+        // Some((&mut node.param_box, &node.resource))
+        todo!()
     }
 
     pub fn add_export_entry(&mut self) {
