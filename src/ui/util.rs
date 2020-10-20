@@ -1,6 +1,6 @@
 use conrod_core::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IconName(&'static str);
 
 impl IconName {

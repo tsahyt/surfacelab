@@ -165,7 +165,7 @@ where
                     .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
             }
             GraphEvent::GraphRenamed(from, to) => {
-                self.app_state.graphs.rename_graph(from, to);
+                self.app_state.graphs.rename_collection(from, to);
                 let old_op = Operator::ComplexOperator(ComplexOperator::new(from.clone()));
                 self.app_state.registered_operators.remove(
                     self.app_state
@@ -415,7 +415,13 @@ where
 
     fn node_graph(&mut self, ui: &mut UiCell) {
         use super::graph;
-        for event in graph::Graph::new(&self.app_state.graphs.get_active_graph().graph)
+
+        let active = match self.app_state.graphs.get_active_collection_mut() {
+            NodeCollection::Graph(g) => &mut g.graph,
+            _ => panic!("Node Graph UI built for non-graph"),
+        };
+
+        for event in graph::Graph::new(&active)
             .parent(self.ids.edit_canvas)
             .wh_of(self.ids.edit_canvas)
             .middle()
@@ -423,13 +429,7 @@ where
         {
             match event {
                 graph::Event::NodeDrag(idx, x, y) => {
-                    let mut node = self
-                        .app_state
-                        .graphs
-                        .get_active_graph_mut()
-                        .graph
-                        .node_weight_mut(idx)
-                        .unwrap();
+                    let mut node = active.node_weight_mut(idx).unwrap();
                     node.position[0] += x;
                     node.position[1] += y;
 
@@ -441,20 +441,12 @@ where
                         .unwrap();
                 }
                 graph::Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
-                    let from_res = self
-                        .app_state
-                        .graphs
-                        .get_active_graph()
-                        .graph
+                    let from_res = active
                         .node_weight(from)
                         .unwrap()
                         .resource
                         .node_socket(&from_socket);
-                    let to_res = self
-                        .app_state
-                        .graphs
-                        .get_active_graph()
-                        .graph
+                    let to_res = active
                         .node_weight(to)
                         .unwrap()
                         .resource
@@ -468,24 +460,14 @@ where
                 graph::Event::NodeDelete(idx) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
-                            self.app_state
-                                .graphs
-                                .get_active_graph()
-                                .graph
-                                .node_weight(idx)
-                                .unwrap()
-                                .resource
-                                .clone(),
+                            active.node_weight(idx).unwrap().resource.clone(),
                         )))
                         .unwrap();
                 }
                 graph::Event::SocketClear(idx, socket) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
-                            self.app_state
-                                .graphs
-                                .get_active_graph()
-                                .graph
+                            active
                                 .node_weight(idx)
                                 .unwrap()
                                 .resource
