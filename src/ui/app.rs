@@ -381,7 +381,7 @@ where
                 .w(256.0)
                 .set(self.ids.graph_selector, ui)
         {
-            if let Some(graph) = self.app_state.graphs.get_graph_resource(selection).cloned() {
+            if let Some(graph) = self.app_state.graphs.get_collection_resource(selection).cloned() {
                 self.sender
                     .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
                         graph.clone(),
@@ -672,7 +672,7 @@ where
         let active_graph = self.app_state.graphs.get_active().clone();
 
         for ev in param_box::ParamBox::new(
-            self.app_state.graphs.get_graph_parameters_mut(),
+            self.app_state.graphs.get_collection_parameters_mut(),
             &active_graph,
         )
         .parent(self.ids.graph_settings_canvas)

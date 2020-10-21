@@ -9,7 +9,7 @@ use std::collections::HashMap;
 trait Collection {
     fn rename_collection(&mut self, to: &Resource<r::Graph>);
     fn exposed_parameters(&mut self) -> &mut Vec<(String, GraphParameter)>;
-    fn graph_parameters(&mut self) -> &mut ParamBoxDescription<GraphField>;
+    fn collection_parameters(&mut self) -> &mut ParamBoxDescription<GraphField>;
 }
 
 #[derive(Debug, Clone)]
@@ -58,7 +58,7 @@ impl Collection for Graph {
         &mut self.exposed_parameters
     }
 
-    fn graph_parameters(&mut self) -> &mut ParamBoxDescription<GraphField> {
+    fn collection_parameters(&mut self) -> &mut ParamBoxDescription<GraphField> {
         &mut self.param_box
     }
 }
@@ -109,7 +109,7 @@ impl Collection for Layers {
         &mut self.exposed_parameters
     }
 
-    fn graph_parameters(&mut self) -> &mut ParamBoxDescription<GraphField> {
+    fn collection_parameters(&mut self) -> &mut ParamBoxDescription<GraphField> {
         &mut self.param_box
     }
 }
@@ -126,6 +126,13 @@ impl NodeCollection {
         match self {
             NodeCollection::Graph(g) => Some(g),
             NodeCollection::Layers(_) => None,
+        }
+    }
+
+    pub fn as_layers_mut(&mut self) -> Option<&mut Layers> {
+        match self {
+            NodeCollection::Graph(_) => None,
+            NodeCollection::Layers(l) => Some(l)
         }
     }
 }
@@ -213,9 +220,9 @@ impl NodeCollections {
             .collect()
     }
 
-    /// Get a reference to the resource denominating the graph at the given
+    /// Get a reference to the resource denominating the collection at the given
     /// index. This index refers to the ordering returned by `list_graph_names`.
-    pub fn get_graph_resource(&self, index: usize) -> Option<&Resource<r::Graph>> {
+    pub fn get_collection_resource(&self, index: usize) -> Option<&Resource<r::Graph>> {
         std::iter::once(&self.active_resource)
             .chain(self.collections.keys())
             .nth(index)
@@ -227,8 +234,8 @@ impl NodeCollections {
         self.active_collection.exposed_parameters()
     }
 
-    pub fn get_graph_parameters_mut(&mut self) -> &mut ParamBoxDescription<GraphField> {
-        self.active_collection.graph_parameters()
+    pub fn get_collection_parameters_mut(&mut self) -> &mut ParamBoxDescription<GraphField> {
+        self.active_collection.collection_parameters()
     }
 
     fn target_graph_from_node(&mut self, node: &Resource<r::Node>) -> Option<&mut Graph> {
