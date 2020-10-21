@@ -10,6 +10,14 @@ trait Collection {
     fn rename_collection(&mut self, to: &Resource<r::Graph>);
     fn exposed_parameters(&mut self) -> &mut Vec<(String, GraphParameter)>;
     fn collection_parameters(&mut self) -> &mut ParamBoxDescription<GraphField>;
+    fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id);
+    fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id>;
+    fn update_complex_operator(
+        &mut self,
+        node: &Resource<r::Node>,
+        op: &ComplexOperator,
+        pbox: &ParamBoxDescription<Field>,
+    );
 }
 
 #[derive(Debug, Clone)]
@@ -60,6 +68,45 @@ impl Collection for Graph {
 
     fn collection_parameters(&mut self) -> &mut ParamBoxDescription<GraphField> {
         &mut self.param_box
+    }
+
+    fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
+        if let Some(node) = self
+            .resources
+            .get(node)
+            .copied()
+            .and_then(|idx| self.graph.node_weight_mut(idx))
+        {
+            node.thumbnail = Some(thumbnail);
+        }
+    }
+
+    fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id> {
+        let mut old_id = None;
+
+        if let Some(node) = self
+            .resources
+            .get(node)
+            .copied()
+            .and_then(|idx| self.graph.node_weight_mut(idx))
+        {
+            old_id = node.thumbnail;
+            node.thumbnail = None;
+        }
+
+        old_id
+    }
+
+    fn update_complex_operator(
+        &mut self,
+        node: &Resource<r::Node>,
+        op: &ComplexOperator,
+        pbox: &ParamBoxDescription<Field>,
+    ) {
+        if let Some(idx) = self.resources.get(node) {
+            let node_weight = self.graph.node_weight_mut(*idx).unwrap();
+            node_weight.update(Operator::ComplexOperator(op.clone()), pbox.clone());
+        }
     }
 }
 
@@ -112,6 +159,23 @@ impl Collection for Layers {
     fn collection_parameters(&mut self) -> &mut ParamBoxDescription<GraphField> {
         &mut self.param_box
     }
+
+    fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
+        todo!()
+    }
+
+    fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id> {
+        todo!()
+    }
+
+    fn update_complex_operator(
+        &mut self,
+        node: &Resource<r::Node>,
+        op: &ComplexOperator,
+        pbox: &ParamBoxDescription<Field>,
+    ) {
+        todo!()
+    }
 }
 
 #[enum_dispatch(Collection)]
@@ -132,7 +196,7 @@ impl NodeCollection {
     pub fn as_layers_mut(&mut self) -> Option<&mut Layers> {
         match self {
             NodeCollection::Graph(_) => None,
-            NodeCollection::Layers(l) => Some(l)
+            NodeCollection::Layers(l) => Some(l),
         }
     }
 }
@@ -239,6 +303,14 @@ impl NodeCollections {
     }
 
     fn target_graph_from_node(&mut self, node: &Resource<r::Node>) -> Option<&mut Graph> {
+        self.target_collection_from_node(node)
+            .and_then(|x| x.as_graph_mut())
+    }
+
+    fn target_collection_from_node(
+        &mut self,
+        node: &Resource<r::Node>,
+    ) -> Option<&mut NodeCollection> {
         let graph_name = node.directory().unwrap();
         let graph_res = Resource::graph(graph_name, None);
 
@@ -247,18 +319,21 @@ impl NodeCollections {
         } else {
             self.collections.get_mut(&graph_res)
         }
-        .and_then(|x| x.as_graph_mut())
     }
 
-    fn target_graph_from_graph(&mut self, graph_res: &Resource<r::Graph>) -> Option<&mut Graph> {
-        if &self.active_resource == graph_res {
+    fn target_collection_from_collection(
+        &mut self,
+        collection_res: &Resource<r::Graph>,
+    ) -> Option<&mut NodeCollection> {
+        if &self.active_resource == collection_res {
             Some(&mut self.active_collection)
         } else {
-            self.collections.get_mut(&graph_res)
+            self.collections.get_mut(&collection_res)
         }
-        .and_then(|x| x.as_graph_mut())
     }
 
+    /// Add a node to a graph, based on the resource data given. This is a NOP
+    /// if the parent graph is a layer.
     pub fn add_node(&mut self, node: super::graph::NodeData) {
         let node_res = node.resource.clone();
 
@@ -268,6 +343,7 @@ impl NodeCollections {
         }
     }
 
+    /// Connect two sockets in a graph. This is a NOP for layers.
     pub fn connect_sockets(&mut self, from: &Resource<r::Socket>, to: &Resource<r::Socket>) {
         let from_node = from.socket_node();
         if let Some(target) = self.target_graph_from_node(&from_node) {
@@ -284,6 +360,7 @@ impl NodeCollections {
         }
     }
 
+    /// Disconnect two sockets in a graph. This is a NOP for layers.
     pub fn disconnect_sockets(&mut self, from: &Resource<r::Socket>, to: &Resource<r::Socket>) {
         let from_node = from.socket_node();
         if let Some(target) = self.target_graph_from_node(&from_node) {
@@ -308,6 +385,7 @@ impl NodeCollections {
         }
     }
 
+    /// Remove a node from a graph. This is a NOP for layers.
     pub fn remove_node(&mut self, node: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&node) {
             if let Some(idx) = target.resources.remove(node) {
@@ -321,6 +399,7 @@ impl NodeCollections {
         }
     }
 
+    /// Monomorphize a socket in a graph. This is a NOP for layers.
     pub fn monomorphize_socket(&mut self, socket: &Resource<r::Socket>, ty: ImageType) {
         let node = socket.socket_node();
 
@@ -336,6 +415,7 @@ impl NodeCollections {
         }
     }
 
+    /// Demonomorphize a socket in a graph. This is a NOP for layers.
     pub fn demonomorphize_socket(&mut self, socket: &Resource<r::Socket>) {
         let node = socket.socket_node();
 
@@ -364,23 +444,26 @@ impl NodeCollections {
         }
     }
 
+    /// Expose a parameter from a collection, i.e. add it to the list of exposed
+    /// parameters to display.
     pub fn parameter_exposed(&mut self, graph: &Resource<r::Graph>, param: GraphParameter) {
-        if let Some(target) = self.target_graph_from_graph(graph) {
+        if let Some(target) = self.target_collection_from_collection(graph) {
             target
-                .exposed_parameters
+                .exposed_parameters()
                 .push((param.graph_field.clone(), param));
         }
     }
 
+    /// Conceal a parameter from a collection, i.e. remove it from the list of exposed
+    /// parameters to display.
     pub fn parameter_concealed(&mut self, graph: &Resource<r::Graph>, field: &str) {
-        if let Some(target) = self.target_graph_from_graph(graph) {
-            target.exposed_parameters.remove(
-                target
-                    .exposed_parameters
-                    .iter()
-                    .position(|x| x.0 == field)
-                    .expect("Tried to remove unknown parameter"),
-            );
+        if let Some(target) = self.target_collection_from_collection(graph) {
+            let idx = target
+                .exposed_parameters()
+                .iter()
+                .position(|x| x.0 == field)
+                .expect("Tried to remove unknown parameter");
+            target.exposed_parameters().remove(idx);
         }
     }
 
@@ -390,35 +473,29 @@ impl NodeCollections {
         op: &ComplexOperator,
         pbox: &ParamBoxDescription<Field>,
     ) {
-        if let Some(target) = self.target_graph_from_node(node) {
-            if let Some(idx) = target.resources.get(node) {
-                let node_weight = target.graph.node_weight_mut(*idx).unwrap();
-                node_weight.update(Operator::ComplexOperator(op.clone()), pbox.clone());
-            }
+        if let Some(target) = self.target_collection_from_node(node) {
+            target.update_complex_operator(node, op, pbox);
         }
     }
 
+    /// Register a thumbnail for a given "node". This works for both graphs and
+    /// layers. In the case of a layer, the node is a layer, according to the
+    /// resource scheme used for layers.
     pub fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
-        if let Some(node) = self.target_graph_from_node(node).and_then(|target| {
-            let idx = target.resources.get(node)?;
-            target.graph.node_weight_mut(*idx)
-        }) {
-            node.thumbnail = Some(thumbnail);
+        if let Some(target) = self.target_collection_from_node(node) {
+            target.register_thumbnail(node, thumbnail);
         }
     }
 
+    /// Unregister a thumbnail for a given "node". This works for both graphs and
+    /// layers. In the case of a layer, the node is a layer, according to the
+    /// resource scheme used for layers.
     pub fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id> {
-        let mut old_id = None;
-
-        if let Some(node) = self.target_graph_from_node(node).and_then(|target| {
-            let idx = target.resources.get(node)?;
-            target.graph.node_weight_mut(*idx)
-        }) {
-            old_id = node.thumbnail;
-            node.thumbnail = None;
+        if let Some(target) = self.target_collection_from_node(node) {
+            target.unregister_thumbnail(node)
+        } else {
+            None
         }
-
-        old_id
     }
 }
 

@@ -381,7 +381,12 @@ where
                 .w(256.0)
                 .set(self.ids.graph_selector, ui)
         {
-            if let Some(graph) = self.app_state.graphs.get_collection_resource(selection).cloned() {
+            if let Some(graph) = self
+                .app_state
+                .graphs
+                .get_collection_resource(selection)
+                .cloned()
+            {
                 self.sender
                     .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
                         graph.clone(),
