@@ -305,6 +305,16 @@ pub enum GraphEvent {
 }
 
 #[derive(Debug)]
+pub enum UserLayersEvent {
+    AddLayers,
+}
+
+#[derive(Debug)]
+pub enum LayersEvent {
+    LayersAdded(Resource<Graph>),
+}
+
+#[derive(Debug)]
 pub enum SurfaceEvent {
     ExportImage(ExportSpec, u32, PathBuf),
     ExportSpecLoaded(String, ExportSpec),
@@ -549,10 +559,12 @@ pub enum RenderEvent {
 pub enum Lang {
     UserNodeEvent(UserNodeEvent),
     UserGraphEvent(UserGraphEvent),
+    UserLayersEvent(UserLayersEvent),
     UserRenderEvent(UserRenderEvent),
     UserIOEvent(UserIOEvent),
     UIEvent(UIEvent),
     GraphEvent(GraphEvent),
+    LayersEvent(LayersEvent),
     SurfaceEvent(SurfaceEvent),
     ComputeEvent(ComputeEvent),
     RenderEvent(RenderEvent),

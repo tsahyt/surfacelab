@@ -148,6 +148,7 @@ where
                     .drain_filter(|x| x.resource() == res);
             }
             Lang::GraphEvent(ev) => self.handle_graph_event(ev),
+            Lang::LayersEvent(ev) => self.handle_layers_event(ev),
             Lang::SurfaceEvent(SurfaceEvent::ExportSpecLoaded(name, spec)) => {
                 self.app_state
                     .export_entries
@@ -226,6 +227,18 @@ where
             _ => {}
         }
     }
+
+    fn handle_layers_event(&mut self, event: &LayersEvent) {
+        match event {
+            LayersEvent::LayersAdded(res) => {
+                self.app_state.graphs.add_layers(res.clone());
+                self.app_state
+                    .registered_operators
+                    .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
+            }
+        }
+    }
+
 
     pub fn update_gui(&mut self, ui: &mut UiCell) {
         use super::tabs;
@@ -440,7 +453,7 @@ where
             .set(self.ids.layers_add, ui)
         {
             self.sender
-                .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph))
+                .send(Lang::UserLayersEvent(UserLayersEvent::AddLayers))
                 .unwrap()
         }
     }

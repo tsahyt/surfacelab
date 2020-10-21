@@ -508,6 +508,21 @@ impl NodeManager {
                     graph.refield_parameter(graph_field, new_field);
                 }
             },
+            Lang::UserLayersEvent(event) => match event {
+                UserLayersEvent::AddLayers => {
+                    let name = (0..)
+                        .map(|i| format!("unnamed.{}", i))
+                        .find(|n| !self.graphs.contains_key(n))
+                        .unwrap();
+                    self.graphs.insert(
+                        name.to_string(),
+                        NodeGraph::LayerStack(layers::LayerStack::new(&name)),
+                    );
+                    response.push(lang::Lang::LayersEvent(lang::LayersEvent::LayersAdded(
+                        Resource::graph(name, None),
+                    )));
+                }
+            }
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
                 match self.open_surface(path) {
