@@ -239,13 +239,12 @@ where
         }
     }
 
-
     pub fn update_gui(&mut self, ui: &mut UiCell) {
         use super::tabs;
 
         let [lw, mw, rw] = match self.app_state.graphs.get_active_collection() {
             NodeCollection::Graph(_) => [1., 1., 0.5],
-            NodeCollection::Layers(_) => [0.5, 1.5, 0.5]
+            NodeCollection::Layers(_) => [0.5, 1.5, 0.5],
         };
 
         widget::Canvas::new()

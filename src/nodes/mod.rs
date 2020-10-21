@@ -522,7 +522,7 @@ impl NodeManager {
                         Resource::graph(name, None),
                     )));
                 }
-            }
+            },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
                 match self.open_surface(path) {
