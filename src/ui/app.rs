@@ -32,6 +32,7 @@ widget_ids!(
         export_surface,
         graph_selector,
         graph_add,
+        layers_add,
 
         // Main Views
         node_graph,
@@ -229,6 +230,11 @@ where
     pub fn update_gui(&mut self, ui: &mut UiCell) {
         use super::tabs;
 
+        let [lw, mw, rw] = match self.app_state.graphs.get_active_collection() {
+            NodeCollection::Graph(_) => [1., 1., 0.5],
+            NodeCollection::Layers(_) => [0.5, 1.5, 0.5]
+        };
+
         widget::Canvas::new()
             .border(0.0)
             .color(PANEL_COLOR)
@@ -250,17 +256,21 @@ where
                                 self.ids.edit_canvas,
                                 widget::Canvas::new()
                                     .scroll_kids()
+                                    .length_weight(lw)
                                     .color(PANEL_COLOR)
                                     .border(PANEL_GAP),
                             ),
                             (
                                 self.ids.drawing_canvas,
-                                widget::Canvas::new().color(PANEL_COLOR).border(PANEL_GAP),
+                                widget::Canvas::new()
+                                    .length_weight(mw)
+                                    .color(PANEL_COLOR)
+                                    .border(PANEL_GAP),
                             ),
                             (
                                 self.ids.sidebar_canvas,
                                 widget::Canvas::new()
-                                    .length_weight(0.4)
+                                    .length_weight(rw)
                                     .color(PANEL_COLOR)
                                     .border(PANEL_GAP),
                             ),
@@ -283,7 +293,10 @@ where
         .set(self.ids.sidebar_tabs, ui);
 
         self.top_bar(ui);
-        self.node_graph(ui);
+        match self.app_state.graphs.get_active_collection() {
+            NodeCollection::Graph(_) => self.node_graph(ui),
+            NodeCollection::Layers(_) => {}
+        };
         self.render_view(ui);
         self.parameter_section(ui);
         self.graph_section(ui);
@@ -411,6 +424,20 @@ where
             .left(8.0)
             .parent(self.ids.top_bar_canvas)
             .set(self.ids.graph_add, ui)
+        {
+            self.sender
+                .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph))
+                .unwrap()
+        }
+
+        for _press in icon_button(IconName::LAYERS, self.fonts.icon_font)
+            .label_font_size(14)
+            .label_color(color::WHITE)
+            .color(color::DARK_CHARCOAL)
+            .wh([32., 32.0])
+            .left(8.0)
+            .parent(self.ids.top_bar_canvas)
+            .set(self.ids.layers_add, ui)
         {
             self.sender
                 .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph))
