@@ -261,7 +261,7 @@ where
                     widget::Canvas::new()
                         .length(48.0)
                         .border(PANEL_GAP)
-                        .color(color::CHARCOAL),
+                        .color(color::DARK_CHARCOAL),
                 ),
                 (
                     self.ids.main_canvas,
@@ -327,6 +327,7 @@ where
             .label_font_size(14)
             .label_color(color::WHITE)
             .color(color::DARK_CHARCOAL)
+            .border(0.0)
             .wh([32., 32.0])
             .mid_left_with_margin(8.0)
             .parent(self.ids.top_bar_canvas)
@@ -341,6 +342,7 @@ where
             .label_font_size(14)
             .label_color(color::WHITE)
             .color(color::DARK_CHARCOAL)
+            .border(0.0)
             .wh([32., 32.0])
             .right(8.0)
             .parent(self.ids.top_bar_canvas)
@@ -364,6 +366,7 @@ where
             .label_font_size(14)
             .label_color(color::WHITE)
             .color(color::DARK_CHARCOAL)
+            .border(0.0)
             .wh([32., 32.0])
             .right(8.0)
             .parent(self.ids.top_bar_canvas)
@@ -386,6 +389,7 @@ where
             .label_font_size(14)
             .label_color(color::WHITE)
             .color(color::DARK_CHARCOAL)
+            .border(0.0)
             .wh([32., 32.0])
             .right(8.0)
             .parent(self.ids.top_bar_canvas)
@@ -437,6 +441,7 @@ where
             .label_font_size(14)
             .label_color(color::WHITE)
             .color(color::DARK_CHARCOAL)
+            .border(0.0)
             .wh([32., 32.0])
             .left(8.0)
             .parent(self.ids.top_bar_canvas)
@@ -451,6 +456,7 @@ where
             .label_font_size(14)
             .label_color(color::WHITE)
             .color(color::DARK_CHARCOAL)
+            .border(0.0)
             .wh([32., 32.0])
             .left(8.0)
             .parent(self.ids.top_bar_canvas)
