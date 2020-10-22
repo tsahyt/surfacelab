@@ -13,8 +13,10 @@ pub struct RenderView {
     style: Style,
 }
 
-#[derive(Copy, Clone)]
-pub struct State {}
+pub struct State {
+    last_size: (f64, f64),
+    ids: Ids,
+}
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
 pub struct Style {}
@@ -48,12 +50,15 @@ impl RenderView {
 }
 
 impl Widget for RenderView {
-    type State = Ids;
+    type State = State;
     type Style = Style;
     type Event = Option<Event>;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
-        Ids::new(id_gen)
+        State {
+            last_size: (0.0, 0.0),
+            ids: Ids::new(id_gen)
+        }
     }
 
     fn style(&self) -> Self::Style {
@@ -80,13 +85,15 @@ impl Widget for RenderView {
             ))
             .parent(id)
             .graphics_for(id)
-            .set(state.image, ui);
+            .set(state.ids.image, ui);
+
+        if state.last_size != (w, h) {
+            state.update(|state| state.last_size = (w, h));
+            return Some(Event::Resized(w as u32, h as u32));
+        }
 
         for event in ui.widget_input(id).events() {
             match event {
-                event::Widget::WindowResized(_dims) => {
-                    return Some(Event::Resized(w as u32, h as u32));
-                }
                 event::Widget::Drag(event::Drag {
                     button: input::MouseButton::Left,
                     modifiers: input::ModifierKey::SHIFT,
