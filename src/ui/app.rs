@@ -631,6 +631,11 @@ where
         {
         }
 
+        let active_collection = match self.app_state.graphs.get_active_collection_mut() {
+            NodeCollection::Layers(l) => l,
+            _ => panic!("Layers UI built for graph"),
+        };
+
         widget::DropDownList::new(BlendMode::VARIANTS, Some(0))
             .label_font_size(10)
             .down_from(self.ids.layer_new_fill, 8.0)
@@ -639,21 +644,17 @@ where
             .parent(self.ids.edit_canvas)
             .set(self.ids.layer_blend_mode, ui);
 
-        widget::Slider::new(1.0, 0.0, 1.0)
+        if let Some(new_value) = widget::Slider::new(1.0, 0.0, 1.0)
             .label("Opacity")
             .label_font_size(10)
             .down(8.0)
             .padded_w_of(self.ids.edit_canvas, 8.0)
             .h(16.0)
             .parent(self.ids.edit_canvas)
-            .set(self.ids.layer_opacity, ui);
+            .set(self.ids.layer_opacity, ui) {
+            }
 
-        let active = match self.app_state.graphs.get_active_collection_mut() {
-            NodeCollection::Layers(l) => l,
-            _ => panic!("Layers UI built for graph"),
-        };
-
-        let (mut rows, scrollbar) = widget::List::flow_down(active.rows())
+        let (mut rows, scrollbar) = widget::List::flow_down(active_collection.rows())
             .parent(self.ids.edit_canvas)
             .item_size(32.0)
             .padded_w_of(self.ids.edit_canvas, 8.0)
@@ -662,7 +663,7 @@ where
             .set(self.ids.layer_list, ui);
 
         while let Some(row) = rows.next(ui) {
-            let widget = layer_row::LayerRow::new(&mut active.layers[row.i]);
+            let widget = layer_row::LayerRow::new(&mut active_collection.layers[row.i]);
 
             row.set(widget, ui);
         }

@@ -123,7 +123,8 @@ pub struct Layer {
     pub icon: super::util::IconName,
     pub thumbnail: Option<image::Id>,
     pub operator_pbox: ParamBoxDescription<Field>,
-    pub layer_pbox: ParamBoxDescription<Field>,
+    pub opacity: f32,
+    pub blend_mode: BlendMode,
     pub masks: Vec<Mask>,
 }
 
@@ -153,7 +154,12 @@ impl Layers {
 
 impl Collection for Layers {
     fn rename_collection(&mut self, to: &Resource<r::Graph>) {
-        todo!()
+        self.param_box.categories[0].parameters[0].control = Control::Entry {
+            value: to.file().unwrap().to_string(),
+        };
+        for gp in self.exposed_parameters.iter_mut().map(|x| &mut x.1) {
+            gp.parameter.set_graph(to.path());
+        }
     }
 
     fn exposed_parameters(&mut self) -> &mut Vec<(String, GraphParameter)> {
@@ -165,11 +171,20 @@ impl Collection for Layers {
     }
 
     fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
-        todo!()
+        if let Some(layer) = self.layers.iter_mut().find(|l| &l.resource == node) {
+            layer.thumbnail = Some(thumbnail);
+        }
     }
 
     fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id> {
-        todo!()
+        let mut old_thumbnail = None;
+
+        if let Some(layer) = self.layers.iter_mut().find(|l| &l.resource == node) {
+            old_thumbnail = layer.thumbnail;
+            layer.thumbnail = None
+        }
+
+        old_thumbnail
     }
 
     fn update_complex_operator(
