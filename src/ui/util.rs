@@ -14,6 +14,8 @@ impl IconName {
     pub const PLUS: IconName = IconName("\u{f0704}");
     pub const MINUS: IconName = IconName("\u{f06f2}");
     pub const EXPORT: IconName = IconName("\u{f0207}");
+    pub const SOLID: IconName = IconName("\u{f068d}");
+    pub const FX: IconName = IconName("\u{f0871}");
 }
 
 pub fn icon_button<'a>(

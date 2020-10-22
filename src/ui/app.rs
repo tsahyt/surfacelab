@@ -40,6 +40,11 @@ widget_ids!(
         add_modal,
         render_modal,
 
+        // Layers
+        layer_opacity,
+        layer_new_fill,
+        layer_new_fx,
+
         // Render Modal
         render_params,
 
@@ -307,7 +312,7 @@ where
         self.top_bar(ui);
         match self.app_state.graphs.get_active_collection() {
             NodeCollection::Graph(_) => self.node_graph(ui),
-            NodeCollection::Layers(_) => {}
+            NodeCollection::Layers(_) => self.layer_stack(ui),
         };
         self.render_view(ui);
         self.parameter_section(ui);
@@ -573,6 +578,34 @@ where
                     self.app_state.add_modal = None;
                 }
             }
+        }
+    }
+
+    fn layer_stack(&mut self, ui: &mut UiCell) {
+        use super::util::*;
+       
+        for _press in icon_button(IconName::SOLID, self.fonts.icon_font)
+            .label_font_size(14)
+            .label_color(color::WHITE)
+            .color(color::DARK_CHARCOAL)
+            .border(0.)
+            .wh([32., 32.0])
+            .top_left_with_margin(8.0)
+            .parent(self.ids.edit_canvas)
+            .set(self.ids.layer_new_fill, ui)
+        {
+        }
+
+        for _press in icon_button(IconName::FX, self.fonts.icon_font)
+            .label_font_size(14)
+            .label_color(color::WHITE)
+            .color(color::DARK_CHARCOAL)
+            .border(0.)
+            .wh([32., 32.0])
+            .right(8.0)
+            .parent(self.ids.edit_canvas)
+            .set(self.ids.layer_new_fx, ui)
+        {
         }
     }
 
