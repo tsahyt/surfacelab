@@ -16,6 +16,7 @@ impl IconName {
     pub const EXPORT: IconName = IconName("\u{f0207}");
     pub const SOLID: IconName = IconName("\u{f068d}");
     pub const FX: IconName = IconName("\u{f0871}");
+    pub const TRASH: IconName = IconName("\u{f0a7a}");
 }
 
 pub fn icon_button<'a>(

@@ -42,8 +42,11 @@ widget_ids!(
 
         // Layers
         layer_opacity,
+        layer_blend_mode,
         layer_new_fill,
         layer_new_fx,
+        layer_delete,
+        layer_list,
 
         // Render Modal
         render_params,
@@ -589,6 +592,8 @@ where
 
     fn layer_stack(&mut self, ui: &mut UiCell) {
         use super::util::*;
+        use super::layer_row;
+        use strum::VariantNames;
        
         for _press in icon_button(IconName::SOLID, self.fonts.icon_font)
             .label_font_size(14)
@@ -612,6 +617,58 @@ where
             .parent(self.ids.edit_canvas)
             .set(self.ids.layer_new_fx, ui)
         {
+        }
+
+        for _press in icon_button(IconName::TRASH, self.fonts.icon_font)
+            .label_font_size(14)
+            .label_color(color::WHITE)
+            .color(color::DARK_CHARCOAL)
+            .border(0.)
+            .wh([32., 32.0])
+            .top_right_with_margin(8.0)
+            .parent(self.ids.edit_canvas)
+            .set(self.ids.layer_delete, ui)
+        {
+        }
+
+        widget::DropDownList::new(BlendMode::VARIANTS, Some(0))
+            .label_font_size(10)
+            .down_from(self.ids.layer_new_fill, 8.0)
+            .padded_w_of(self.ids.edit_canvas, 8.0)
+            .h(16.0)
+            .parent(self.ids.edit_canvas)
+            .set(self.ids.layer_blend_mode, ui);
+
+        widget::Slider::new(1.0, 0.0, 1.0)
+            .label("Opacity")
+            .label_font_size(10)
+            .down(8.0)
+            .padded_w_of(self.ids.edit_canvas, 8.0)
+            .h(16.0)
+            .parent(self.ids.edit_canvas)
+            .set(self.ids.layer_opacity, ui);
+
+        let active = match self.app_state.graphs.get_active_collection_mut() {
+            NodeCollection::Layers(l) => l,
+            _ => panic!("Layers UI built for graph"),
+        };
+
+        let (mut rows, scrollbar) = widget::List::flow_down(active.rows())
+            .parent(self.ids.edit_canvas)
+            .item_size(32.0)
+            .padded_w_of(self.ids.edit_canvas, 8.0)
+            .down(8.0)
+            .scrollbar_on_top()
+            .set(self.ids.layer_list, ui);
+
+        while let Some(row) = rows.next(ui) {
+            let widget = layer_row::LayerRow::new("foo");
+
+            row.set(widget, ui);
+        }
+
+        if let Some(s) = scrollbar {
+            s.set(ui);
         }
     }
 

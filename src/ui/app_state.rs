@@ -145,6 +145,10 @@ impl Layers {
             param_box: ParamBoxDescription::graph_parameters(name),
         }
     }
+
+    pub fn rows(&self) -> usize {
+        self.layers.iter().map(|l| 1 + l.masks.len()).sum()
+    }
 }
 
 impl Collection for Layers {
