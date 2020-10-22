@@ -17,6 +17,7 @@ type ChannelMap = HashMap<MaterialChannel, String>;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Fill {
     /// A fill layer using static images for each material channel
+    // TODO: Consider replacing Material fill layer with a complex operator for materials and standard fill
     Material(HashMap<MaterialChannel, Image>),
 
     /// A fill layer using an operator, with its output sockets mapped to
