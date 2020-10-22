@@ -662,7 +662,7 @@ where
             .set(self.ids.layer_list, ui);
 
         while let Some(row) = rows.next(ui) {
-            let widget = layer_row::LayerRow::new("foo");
+            let widget = layer_row::LayerRow::new(&mut active.layers[row.i]);
 
             row.set(widget, ui);
         }

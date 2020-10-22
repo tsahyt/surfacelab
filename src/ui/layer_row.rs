@@ -1,18 +1,19 @@
 use conrod_core::*;
+use super::app_state::Layer;
 
 #[derive(WidgetCommon)]
 pub struct LayerRow<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    title: &'a str,
+    layer: &'a mut Layer,
     style: Style,
 }
 
 impl<'a> LayerRow<'a> {
-    pub fn new(title: &'a str) -> Self {
+    pub fn new(layer: &'a mut Layer) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
-            title,
+            layer,
             style: Style::default(),
         }
     }
@@ -23,6 +24,8 @@ pub struct Style {}
 
 widget_ids! {
     pub struct Ids {
+        thumbnail,
+        title,
     }
 }
 
@@ -46,5 +49,18 @@ impl<'a> Widget for LayerRow<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        if let Some(image_id) = self.layer.thumbnail {
+            widget::Image::new(image_id)
+                .w_h(24.0, 24.0)
+                .top_left_with_margin(8.0)
+                .parent(args.id)
+                .set(args.state.ids.thumbnail, args.ui);
+        }
+
+        widget::Text::new(&self.layer.title)
+            .font_size(12)
+            .top_left_with_margins(8.0, 40.0)
+            .parent(args.id)
+            .set(args.state.ids.title, args.ui);
     }
 }

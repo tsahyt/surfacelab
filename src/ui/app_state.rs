@@ -118,13 +118,13 @@ impl Default for Graph {
 
 #[derive(Debug, Clone)]
 pub struct Layer {
-    resource: Resource<Node>,
-    title: String,
-    icon: super::util::IconName,
-    thumbnail: Option<image::Id>,
-    operator_pbox: ParamBoxDescription<Field>,
-    layer_pbox: ParamBoxDescription<Field>,
-    masks: Vec<Mask>,
+    pub resource: Resource<Node>,
+    pub title: String,
+    pub icon: super::util::IconName,
+    pub thumbnail: Option<image::Id>,
+    pub operator_pbox: ParamBoxDescription<Field>,
+    pub layer_pbox: ParamBoxDescription<Field>,
+    pub masks: Vec<Mask>,
 }
 
 #[derive(Debug, Clone)]
@@ -132,7 +132,7 @@ pub struct Mask {}
 
 #[derive(Debug, Clone)]
 pub struct Layers {
-    layers: Vec<Layer>,
+    pub layers: Vec<Layer>,
     exposed_parameters: Vec<(String, GraphParameter)>,
     param_box: ParamBoxDescription<GraphField>,
 }
