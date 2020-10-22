@@ -565,7 +565,7 @@ where
                             .label(&label)
                             .label_color(conrod_core::color::WHITE)
                             .label_font_size(12)
-                            .color(conrod_core::color::LIGHT_CHARCOAL);
+                            .color(conrod_core::color::CHARCOAL);
                         for _press in item.set(button, ui) {
                             self.app_state.add_modal = None;
 
