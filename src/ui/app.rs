@@ -699,7 +699,8 @@ where
             {
                 modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
                     while let Some(item) = items.next(ui) {
-                        let label = operators.next().unwrap().title();
+                        let op = operators.next().unwrap();
+                        let label = op.title();
                         let button = widget::Button::new()
                             .label(&label)
                             .label_color(conrod_core::color::WHITE)
@@ -707,6 +708,23 @@ where
                             .color(conrod_core::color::CHARCOAL);
                         for _press in item.set(button, ui) {
                             self.app_state.add_layer_modal = None;
+
+                            match filter {
+                                LayerFilter::Fill => self
+                                    .sender
+                                    .send(Lang::UserLayersEvent(UserLayersEvent::PushFillLayer(
+                                        self.app_state.graphs.get_active().clone(),
+                                        op.clone(),
+                                    )))
+                                    .unwrap(),
+                                LayerFilter::Fx => self
+                                    .sender
+                                    .send(Lang::UserLayersEvent(UserLayersEvent::PushFxLayer(
+                                        self.app_state.graphs.get_active().clone(),
+                                        op.clone(),
+                                    )))
+                                    .unwrap(),
+                            }
                         }
                     }
 

@@ -307,6 +307,8 @@ pub enum GraphEvent {
 #[derive(Debug)]
 pub enum UserLayersEvent {
     AddLayers,
+    PushFillLayer(Resource<Graph>, Operator),
+    PushFxLayer(Resource<Graph>, Operator),
 }
 
 #[derive(Debug)]

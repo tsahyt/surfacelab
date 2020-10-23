@@ -522,6 +522,23 @@ impl NodeManager {
                         Resource::graph(name, None),
                     )));
                 }
+                UserLayersEvent::PushFillLayer(graph_res, op) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(graph_res.path_str().unwrap())
+                    {
+                        let res =
+                            ls.push_fill(layers::FillLayer::from_operator(op), op.default_name());
+                        log::debug!("Added Fill layer {}", res);
+                    }
+                }
+                UserLayersEvent::PushFxLayer(graph_res, op) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(graph_res.path_str().unwrap())
+                    {
+                        let res = ls.push_fx(layers::FxLayer::from_operator(op), op.default_name());
+                        log::debug!("Added Fx layer {}", res);
+                    }
+                }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {

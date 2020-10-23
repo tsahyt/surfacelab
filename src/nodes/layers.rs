@@ -11,6 +11,18 @@ pub struct FillLayer {
     blend_options: LayerBlendOptions,
 }
 
+impl FillLayer {
+    pub fn from_operator(op: &Operator) -> Self {
+        FillLayer {
+            fill: Fill::Operator {
+                operator: op.clone(),
+                output_sockets: HashMap::new(),
+            },
+            blend_options: LayerBlendOptions::default(),
+        }
+    }
+}
+
 /// A type encoding a function from material channels to sockets.
 type ChannelMap = HashMap<MaterialChannel, String>;
 
@@ -41,6 +53,17 @@ pub struct FxLayer {
     blend_options: LayerBlendOptions,
 }
 
+impl FxLayer {
+    pub fn from_operator(op: &Operator) -> Self {
+        FxLayer {
+            operator: op.clone(),
+            input_sockets: HashMap::new(),
+            output_sockets: HashMap::new(),
+            blend_options: LayerBlendOptions::default(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Mask {
     operator: Operator,
@@ -67,6 +90,17 @@ impl LayerBlendOptions {
             blend_mode: self.blend_mode,
             mix: self.factor,
             clamp_output: 1,
+        }
+    }
+}
+
+impl Default for LayerBlendOptions {
+    fn default() -> Self {
+        LayerBlendOptions {
+            mask: MaskStack(Vec::new()),
+            factor: 1.0,
+            channels: EnumSet::all(),
+            blend_mode: BlendMode::Mix,
         }
     }
 }
@@ -107,6 +141,21 @@ impl LayerStack {
         }
     }
 
+    fn next_free_name(&self, base_name: &str) -> String {
+        let mut resource = String::new();
+
+        for i in 1.. {
+            let name = format!("{}.{}", base_name, i);
+
+            if !self.resources.contains_key(&name) {
+                resource = name;
+                break;
+            }
+        }
+
+        resource
+    }
+
     pub fn layer_resource(&self, layer: &Layer) -> Resource<Node> {
         Resource::node(&format!("{}/{}", self.name, layer.name()), None)
     }
@@ -134,20 +183,24 @@ impl LayerStack {
         )
     }
 
-    fn push(&mut self, layer: Layer, resource: Resource<Node>) {
+    fn push(&mut self, layer: Layer, resource: &Resource<Node>) {
         self.layers.push(layer);
         self.resources
             .insert(resource.file().unwrap().to_owned(), self.layers.len() - 1);
     }
 
-    pub fn push_fill(&mut self, layer: FillLayer, resource: Resource<Node>) {
+    pub fn push_fill(&mut self, layer: FillLayer, base_name: &str) -> Resource<Node> {
+        let resource = Resource::node(self.next_free_name(base_name), None);
         let layer = Layer::FillLayer(resource.file().unwrap().to_owned(), layer);
-        self.push(layer, resource);
+        self.push(layer, &resource);
+        resource
     }
 
-    pub fn push_fx(&mut self, layer: FxLayer, resource: Resource<Node>) {
+    pub fn push_fx(&mut self, layer: FxLayer, base_name: &str) -> Resource<Node> {
+        let resource = Resource::node(self.next_free_name(base_name), None);
         let layer = Layer::FxLayer(resource.file().unwrap().to_owned(), layer);
-        self.push(layer, resource);
+        self.push(layer, &resource);
+        resource
     }
 
     pub fn remove(&mut self, resource: &Resource<Node>) {
