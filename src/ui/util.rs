@@ -1,7 +1,7 @@
 use conrod_core::*;
 
 #[derive(Debug, Clone)]
-pub struct IconName(&'static str);
+pub struct IconName(pub &'static str);
 
 impl IconName {
     pub const CONTENT_SAVE: IconName = IconName("\u{f0193}");

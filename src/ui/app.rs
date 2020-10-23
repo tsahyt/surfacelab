@@ -662,7 +662,7 @@ where
 
         let (mut rows, scrollbar) = widget::List::flow_down(active_collection.rows())
             .parent(self.ids.edit_canvas)
-            .item_size(32.0)
+            .item_size(48.0)
             .padded_w_of(self.ids.edit_canvas, 8.0)
             .h(512.0)
             .down(8.0)
@@ -670,7 +670,8 @@ where
             .set(self.ids.layer_list, ui);
 
         while let Some(row) = rows.next(ui) {
-            let widget = layer_row::LayerRow::new(&mut active_collection.layers[row.i]);
+            let widget = layer_row::LayerRow::new(&mut active_collection.layers[row.i])
+                .icon_font(self.fonts.icon_font);
 
             row.set(widget, ui);
         }

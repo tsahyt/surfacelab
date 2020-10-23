@@ -3,7 +3,7 @@ use crate::lang::*;
 
 use conrod_core::{image, text, Point};
 use enum_dispatch::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 #[enum_dispatch]
 trait Collection {
@@ -156,7 +156,7 @@ pub struct Mask {}
 
 #[derive(Debug, Clone)]
 pub struct Layers {
-    pub layers: Vec<Layer>,
+    pub layers: VecDeque<Layer>,
     exposed_parameters: Vec<(String, GraphParameter)>,
     param_box: ParamBoxDescription<GraphField>,
 }
@@ -164,7 +164,7 @@ pub struct Layers {
 impl Layers {
     pub fn new(name: &str) -> Self {
         Self {
-            layers: Vec::new(),
+            layers: VecDeque::new(),
             exposed_parameters: Vec::new(),
             param_box: ParamBoxDescription::graph_parameters(name),
         }
@@ -385,7 +385,7 @@ impl NodeCollections {
         let layer_res = layer.resource.clone();
 
         if let Some(target) = self.target_layers_from_node(&layer_res) {
-            target.layers.push(layer);
+            target.layers.push_front(layer);
             // let idx = target.graph.add_node(node);
             // target.resources.insert(node_res, idx);
         }

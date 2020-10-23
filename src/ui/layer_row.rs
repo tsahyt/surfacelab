@@ -17,14 +17,24 @@ impl<'a> LayerRow<'a> {
             style: Style::default(),
         }
     }
+
+    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
+        self.style.icon_font = Some(Some(font_id));
+        self
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
-pub struct Style {}
+pub struct Style {
+    #[conrod(default = "theme.font_id")]
+    icon_font: Option<Option<text::font::Id>>,
+}
 
 widget_ids! {
     pub struct Ids {
+        rectangle,
         thumbnail,
+        layer_type,
         title,
     }
 }
@@ -49,6 +59,13 @@ impl<'a> Widget for LayerRow<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        widget::BorderedRectangle::new([args.rect.w(), args.rect.h()])
+            .border(1.0)
+            .color(color::DARK_CHARCOAL)
+            .parent(args.id)
+            .middle_of(args.id)
+            .set(args.state.ids.rectangle, args.ui);
+
         if let Some(image_id) = self.layer.thumbnail {
             widget::Image::new(image_id)
                 .w_h(24.0, 24.0)
@@ -57,10 +74,18 @@ impl<'a> Widget for LayerRow<'a> {
                 .set(args.state.ids.thumbnail, args.ui);
         }
 
+        widget::Text::new(self.layer.icon.0)
+            .color(color::WHITE)
+            .font_size(12)
+            .font_id(self.style.icon_font.unwrap().unwrap())
+            .mid_left_with_margin(40.0)
+            .parent(args.id)
+            .set(args.state.ids.layer_type, args.ui);
+
         widget::Text::new(&self.layer.title)
             .color(color::WHITE)
             .font_size(12)
-            .top_left_with_margins(8.0, 40.0)
+            .mid_left_with_margin(60.0)
             .parent(args.id)
             .set(args.state.ids.title, args.ui);
     }
