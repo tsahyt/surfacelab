@@ -17,6 +17,8 @@ impl IconName {
     pub const SOLID: IconName = IconName("\u{f068d}");
     pub const FX: IconName = IconName("\u{f0871}");
     pub const TRASH: IconName = IconName("\u{f0a7a}");
+    pub const EYE: IconName = IconName("\u{f0208}");
+    pub const EYEOFF: IconName = IconName("\u{f0209}");
 }
 
 pub fn icon_button<'a>(

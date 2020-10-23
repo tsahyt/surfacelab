@@ -1,4 +1,5 @@
 use super::app_state::Layer;
+use super::util;
 use conrod_core::*;
 
 #[derive(WidgetCommon)]
@@ -32,7 +33,7 @@ pub struct Style {
 
 widget_ids! {
     pub struct Ids {
-        rectangle,
+        visibility_button,
         thumbnail,
         layer_type,
         title,
@@ -59,34 +60,44 @@ impl<'a> Widget for LayerRow<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        widget::BorderedRectangle::new([args.rect.w(), args.rect.h()])
-            .border(1.0)
-            .color(color::DARK_CHARCOAL)
-            .parent(args.id)
-            .middle_of(args.id)
-            .set(args.state.ids.rectangle, args.ui);
+        util::icon_button(
+            if self.layer.enabled {
+                util::IconName::EYE
+            } else {
+                util::IconName::EYEOFF
+            },
+            self.style.icon_font.unwrap().unwrap(),
+        )
+        .color(color::DARK_CHARCOAL)
+        .label_font_size(10)
+        .label_color(color::WHITE)
+        .border(0.0)
+        .w_h(32.0, 32.0)
+        .mid_left_with_margin(8.0)
+        .parent(args.id)
+        .set(args.state.ids.visibility_button, args.ui);
 
         if let Some(image_id) = self.layer.thumbnail {
             widget::Image::new(image_id)
-                .w_h(24.0, 24.0)
-                .top_left_with_margin(8.0)
+                .w_h(32.0, 32.0)
+                .top_left_with_margins(8.0, 40.0)
                 .parent(args.id)
                 .set(args.state.ids.thumbnail, args.ui);
         }
 
-        widget::Text::new(self.layer.icon.0)
-            .color(color::WHITE)
-            .font_size(12)
-            .font_id(self.style.icon_font.unwrap().unwrap())
-            .mid_left_with_margin(40.0)
-            .parent(args.id)
-            .set(args.state.ids.layer_type, args.ui);
-
         widget::Text::new(&self.layer.title)
             .color(color::WHITE)
             .font_size(12)
-            .mid_left_with_margin(60.0)
+            .mid_left_with_margin(80.0)
             .parent(args.id)
             .set(args.state.ids.title, args.ui);
+
+        widget::Text::new(self.layer.icon.0)
+            .color(color::WHITE)
+            .font_size(14)
+            .font_id(self.style.icon_font.unwrap().unwrap())
+            .mid_right_with_margin(8.0)
+            .parent(args.id)
+            .set(args.state.ids.layer_type, args.ui);
     }
 }

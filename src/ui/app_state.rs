@@ -126,6 +126,7 @@ pub struct Layer {
     pub opacity: f32,
     pub blend_mode: BlendMode,
     pub masks: Vec<Mask>,
+    pub enabled: bool,
 }
 
 impl Layer {
@@ -147,6 +148,7 @@ impl Layer {
             opacity: 1.0,
             blend_mode: BlendMode::Mix,
             masks: Vec::new(),
+            enabled: true,
         }
     }
 }
