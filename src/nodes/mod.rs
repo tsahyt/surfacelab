@@ -522,21 +522,33 @@ impl NodeManager {
                         Resource::graph(name, None),
                     )));
                 }
-                UserLayersEvent::PushFillLayer(graph_res, op) => {
+                UserLayersEvent::PushLayer(graph_res, LayerType::Fill, op) => {
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(graph_res.path_str().unwrap())
                     {
                         let res =
                             ls.push_fill(layers::FillLayer::from_operator(op), op.default_name());
                         log::debug!("Added Fill layer {}", res);
+                        response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
+                            res,
+                            LayerType::Fill,
+                            op.clone(),
+                            self.operator_param_box(op),
+                        )));
                     }
                 }
-                UserLayersEvent::PushFxLayer(graph_res, op) => {
+                UserLayersEvent::PushLayer(graph_res, LayerType::Fx, op) => {
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(graph_res.path_str().unwrap())
                     {
                         let res = ls.push_fx(layers::FxLayer::from_operator(op), op.default_name());
                         log::debug!("Added Fx layer {}", res);
+                        response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
+                            res,
+                            LayerType::Fx,
+                            op.clone(),
+                            self.operator_param_box(op),
+                        )));
                     }
                 }
             },

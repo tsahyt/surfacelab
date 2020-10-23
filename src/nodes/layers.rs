@@ -190,14 +190,20 @@ impl LayerStack {
     }
 
     pub fn push_fill(&mut self, layer: FillLayer, base_name: &str) -> Resource<Node> {
-        let resource = Resource::node(self.next_free_name(base_name), None);
+        let resource = Resource::node(
+            &format!("{}/{}", self.name, self.next_free_name(base_name)),
+            None,
+        );
         let layer = Layer::FillLayer(resource.file().unwrap().to_owned(), layer);
         self.push(layer, &resource);
         resource
     }
 
     pub fn push_fx(&mut self, layer: FxLayer, base_name: &str) -> Resource<Node> {
-        let resource = Resource::node(self.next_free_name(base_name), None);
+        let resource = Resource::node(
+            &format!("{}/{}", self.name, self.next_free_name(base_name)),
+            None,
+        );
         let layer = Layer::FxLayer(resource.file().unwrap().to_owned(), layer);
         self.push(layer, &resource);
         resource

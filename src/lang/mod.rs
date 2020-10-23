@@ -304,16 +304,27 @@ pub enum GraphEvent {
     Cleared,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum LayerType {
+    Fill,
+    Fx,
+}
+
 #[derive(Debug)]
 pub enum UserLayersEvent {
     AddLayers,
-    PushFillLayer(Resource<Graph>, Operator),
-    PushFxLayer(Resource<Graph>, Operator),
+    PushLayer(Resource<Graph>, LayerType, Operator),
 }
 
 #[derive(Debug)]
 pub enum LayersEvent {
     LayersAdded(Resource<Graph>),
+    LayerPushed(
+        Resource<Node>,
+        LayerType,
+        Operator,
+        ParamBoxDescription<Field>,
+    ),
 }
 
 #[derive(Debug)]

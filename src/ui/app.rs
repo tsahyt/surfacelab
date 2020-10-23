@@ -245,6 +245,10 @@ where
                     .registered_operators
                     .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
             }
+            LayersEvent::LayerPushed(res, ty, op, pbox) => {
+                let layer = Layer::new(res.clone(), *ty, op, pbox.clone());
+                self.app_state.graphs.push_layer(layer);
+            }
         }
     }
 
@@ -606,7 +610,7 @@ where
             .parent(self.ids.edit_canvas)
             .set(self.ids.layer_new_fill, ui)
         {
-            self.app_state.add_layer_modal = Some(LayerFilter::Fill);
+            self.app_state.add_layer_modal = Some(LayerType::Fill);
         }
 
         for _press in icon_button(IconName::FX, self.fonts.icon_font)
@@ -619,7 +623,7 @@ where
             .parent(self.ids.edit_canvas)
             .set(self.ids.layer_new_fx, ui)
         {
-            self.app_state.add_layer_modal = Some(LayerFilter::Fx);
+            self.app_state.add_layer_modal = Some(LayerType::Fx);
         }
 
         for _press in icon_button(IconName::TRASH, self.fonts.icon_font)
@@ -660,6 +664,7 @@ where
             .parent(self.ids.edit_canvas)
             .item_size(32.0)
             .padded_w_of(self.ids.edit_canvas, 8.0)
+            .h(512.0)
             .down(8.0)
             .scrollbar_on_top()
             .set(self.ids.layer_list, ui);
@@ -682,8 +687,8 @@ where
                 .addable_operators
                 .iter()
                 .filter(|o| match filter {
-                    LayerFilter::Fill => o.inputs().is_empty(),
-                    LayerFilter::Fx => !o.inputs().is_empty(),
+                    LayerType::Fill => o.inputs().is_empty(),
+                    LayerType::Fx => !o.inputs().is_empty(),
                 });
 
             match modal::Modal::new(
@@ -709,22 +714,13 @@ where
                         for _press in item.set(button, ui) {
                             self.app_state.add_layer_modal = None;
 
-                            match filter {
-                                LayerFilter::Fill => self
-                                    .sender
-                                    .send(Lang::UserLayersEvent(UserLayersEvent::PushFillLayer(
-                                        self.app_state.graphs.get_active().clone(),
-                                        op.clone(),
-                                    )))
-                                    .unwrap(),
-                                LayerFilter::Fx => self
-                                    .sender
-                                    .send(Lang::UserLayersEvent(UserLayersEvent::PushFxLayer(
-                                        self.app_state.graphs.get_active().clone(),
-                                        op.clone(),
-                                    )))
-                                    .unwrap(),
-                            }
+                            self.sender
+                                .send(Lang::UserLayersEvent(UserLayersEvent::PushLayer(
+                                    self.app_state.graphs.get_active().clone(),
+                                    filter,
+                                    op.clone(),
+                                )))
+                                .unwrap()
                         }
                     }
 

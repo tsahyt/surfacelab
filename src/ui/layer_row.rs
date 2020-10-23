@@ -58,6 +58,7 @@ impl<'a> Widget for LayerRow<'a> {
         }
 
         widget::Text::new(&self.layer.title)
+            .color(color::WHITE)
             .font_size(12)
             .top_left_with_margins(8.0, 40.0)
             .parent(args.id)

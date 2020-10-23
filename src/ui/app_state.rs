@@ -128,6 +128,29 @@ pub struct Layer {
     pub masks: Vec<Mask>,
 }
 
+impl Layer {
+    pub fn new(
+        resource: Resource<Node>,
+        ty: LayerType,
+        op: &Operator,
+        pbox: ParamBoxDescription<Field>,
+    ) -> Self {
+        Self {
+            resource,
+            title: op.title().to_owned(),
+            icon: match ty {
+                LayerType::Fill => super::util::IconName::SOLID,
+                LayerType::Fx => super::util::IconName::FX,
+            },
+            thumbnail: None,
+            operator_pbox: pbox,
+            opacity: 1.0,
+            blend_mode: BlendMode::Mix,
+            masks: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Mask {}
 
@@ -326,6 +349,11 @@ impl NodeCollections {
             .and_then(|x| x.as_graph_mut())
     }
 
+    fn target_layers_from_node(&mut self, node: &Resource<r::Node>) -> Option<&mut Layers> {
+        self.target_collection_from_node(node)
+            .and_then(|x| x.as_layers_mut())
+    }
+
     fn target_collection_from_node(
         &mut self,
         node: &Resource<r::Node>,
@@ -348,6 +376,18 @@ impl NodeCollections {
             Some(&mut self.active_collection)
         } else {
             self.collections.get_mut(&collection_res)
+        }
+    }
+
+    /// Push a layer onto the parent layer stack. This is a NOP if the parent
+    /// collection is a graph.
+    pub fn push_layer(&mut self, layer: Layer) {
+        let layer_res = layer.resource.clone();
+
+        if let Some(target) = self.target_layers_from_node(&layer_res) {
+            target.layers.push(layer);
+            // let idx = target.graph.add_node(node);
+            // target.resources.insert(node_res, idx);
         }
     }
 
@@ -518,12 +558,6 @@ impl NodeCollections {
     }
 }
 
-#[derive(Copy, Clone)]
-pub enum LayerFilter {
-    Fill,
-    Fx,
-}
-
 pub struct App {
     pub graphs: NodeCollections,
     pub active_element: Option<petgraph::graph::NodeIndex>,
@@ -531,7 +565,7 @@ pub struct App {
     pub monitor_resolution: (u32, u32),
 
     pub add_node_modal: Option<Point>,
-    pub add_layer_modal: Option<LayerFilter>,
+    pub add_layer_modal: Option<LayerType>,
     pub render_modal: bool,
 
     pub render_params: ParamBoxDescription<RenderField>,
