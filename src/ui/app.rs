@@ -37,7 +37,8 @@ widget_ids!(
         // Main Views
         node_graph,
         render_view,
-        add_modal,
+        add_node_modal,
+        add_layer_modal,
         render_modal,
 
         // Layers
@@ -537,12 +538,12 @@ where
                     self.app_state.active_element = Some(idx);
                 }
                 graph::Event::AddModal(pt) => {
-                    self.app_state.add_modal = Some(pt);
+                    self.app_state.add_node_modal = Some(pt);
                 }
             }
         }
 
-        if let Some(insertion_pt) = self.app_state.add_modal {
+        if let Some(insertion_pt) = self.app_state.add_node_modal {
             use super::modal;
 
             let operators = &self.app_state.addable_operators;
@@ -555,7 +556,7 @@ where
             .wh_of(self.ids.edit_canvas)
             .middle_of(self.ids.edit_canvas)
             .graphics_for(self.ids.edit_canvas)
-            .set(self.ids.add_modal, ui)
+            .set(self.ids.add_node_modal, ui)
             {
                 modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
                     while let Some(item) = items.next(ui) {
@@ -567,7 +568,7 @@ where
                             .label_font_size(12)
                             .color(conrod_core::color::CHARCOAL);
                         for _press in item.set(button, ui) {
-                            self.app_state.add_modal = None;
+                            self.app_state.add_node_modal = None;
 
                             self.sender
                                 .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
@@ -584,17 +585,17 @@ where
                     }
                 }
                 modal::Event::Hide => {
-                    self.app_state.add_modal = None;
+                    self.app_state.add_node_modal = None;
                 }
             }
         }
     }
 
     fn layer_stack(&mut self, ui: &mut UiCell) {
-        use super::util::*;
         use super::layer_row;
+        use super::util::*;
         use strum::VariantNames;
-       
+
         for _press in icon_button(IconName::SOLID, self.fonts.icon_font)
             .label_font_size(14)
             .label_color(color::WHITE)
@@ -605,6 +606,7 @@ where
             .parent(self.ids.edit_canvas)
             .set(self.ids.layer_new_fill, ui)
         {
+            self.app_state.add_layer_modal = Some(LayerFilter::Fill);
         }
 
         for _press in icon_button(IconName::FX, self.fonts.icon_font)
@@ -617,6 +619,7 @@ where
             .parent(self.ids.edit_canvas)
             .set(self.ids.layer_new_fx, ui)
         {
+            self.app_state.add_layer_modal = Some(LayerFilter::Fx);
         }
 
         for _press in icon_button(IconName::TRASH, self.fonts.icon_font)
@@ -628,8 +631,7 @@ where
             .top_right_with_margin(8.0)
             .parent(self.ids.edit_canvas)
             .set(self.ids.layer_delete, ui)
-        {
-        }
+        {}
 
         let active_collection = match self.app_state.graphs.get_active_collection_mut() {
             NodeCollection::Layers(l) => l,
@@ -651,8 +653,8 @@ where
             .padded_w_of(self.ids.edit_canvas, 8.0)
             .h(16.0)
             .parent(self.ids.edit_canvas)
-            .set(self.ids.layer_opacity, ui) {
-            }
+            .set(self.ids.layer_opacity, ui)
+        {}
 
         let (mut rows, scrollbar) = widget::List::flow_down(active_collection.rows())
             .parent(self.ids.edit_canvas)
@@ -670,6 +672,50 @@ where
 
         if let Some(s) = scrollbar {
             s.set(ui);
+        }
+
+        if let Some(filter) = self.app_state.add_layer_modal.as_ref().copied() {
+            use super::modal;
+
+            let mut operators = self
+                .app_state
+                .addable_operators
+                .iter()
+                .filter(|o| match filter {
+                    LayerFilter::Fill => o.inputs().is_empty(),
+                    LayerFilter::Fx => !o.inputs().is_empty(),
+                });
+
+            match modal::Modal::new(
+                widget::List::flow_down(operators.clone().count())
+                    .item_size(50.0)
+                    .scrollbar_on_top(),
+            )
+            .padding(32.0)
+            .wh_of(self.ids.edit_canvas)
+            .middle_of(self.ids.edit_canvas)
+            .graphics_for(self.ids.edit_canvas)
+            .set(self.ids.add_layer_modal, ui)
+            {
+                modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
+                    while let Some(item) = items.next(ui) {
+                        let label = operators.next().unwrap().title();
+                        let button = widget::Button::new()
+                            .label(&label)
+                            .label_color(conrod_core::color::WHITE)
+                            .label_font_size(12)
+                            .color(conrod_core::color::CHARCOAL);
+                        for _press in item.set(button, ui) {
+                            self.app_state.add_layer_modal = None;
+                        }
+                    }
+
+                    if let Some(s) = scrollbar {
+                        s.set(ui)
+                    }
+                }
+                modal::Event::Hide => self.app_state.add_layer_modal = None,
+            }
         }
     }
 

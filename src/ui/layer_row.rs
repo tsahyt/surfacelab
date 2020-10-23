@@ -1,5 +1,5 @@
-use conrod_core::*;
 use super::app_state::Layer;
+use conrod_core::*;
 
 #[derive(WidgetCommon)]
 pub struct LayerRow<'a> {

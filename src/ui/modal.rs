@@ -22,6 +22,11 @@ impl<W> Modal<W> {
             widget,
         }
     }
+
+    pub fn padding(mut self, padding: Scalar) -> Self {
+        self.style.padding = Some(padding);
+        self
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]

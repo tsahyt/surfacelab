@@ -518,13 +518,20 @@ impl NodeCollections {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum LayerFilter {
+    Fill,
+    Fx,
+}
+
 pub struct App {
     pub graphs: NodeCollections,
     pub active_element: Option<petgraph::graph::NodeIndex>,
     pub render_image: Option<image::Id>,
     pub monitor_resolution: (u32, u32),
 
-    pub add_modal: Option<Point>,
+    pub add_node_modal: Option<Point>,
+    pub add_layer_modal: Option<LayerFilter>,
     pub render_modal: bool,
 
     pub render_params: ParamBoxDescription<RenderField>,
@@ -543,7 +550,8 @@ impl App {
             active_element: None,
             render_image: None,
             monitor_resolution: (monitor_size.0, monitor_size.1),
-            add_modal: None,
+            add_node_modal: None,
+            add_layer_modal: None,
             render_modal: false,
             render_params: ParamBoxDescription::render_parameters(),
             surface_params: ParamBoxDescription::surface_parameters(),

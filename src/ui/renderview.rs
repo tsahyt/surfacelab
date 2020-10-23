@@ -57,7 +57,7 @@ impl Widget for RenderView {
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         State {
             last_size: (0.0, 0.0),
-            ids: Ids::new(id_gen)
+            ids: Ids::new(id_gen),
         }
     }
 
