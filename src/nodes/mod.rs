@@ -529,12 +529,20 @@ impl NodeManager {
                         let res =
                             ls.push_fill(layers::FillLayer::from_operator(op), op.default_name());
                         log::debug!("Added Fill layer {}", res);
+                        let lin = ls.linearize(LinearizationMode::FullTraversal);
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
                             LayerType::Fill,
                             op.clone(),
                             self.operator_param_box(op),
                         )));
+                        if let Some((linearization, last_use)) = lin {
+                            response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                                graph_res.to_owned(),
+                                linearization,
+                                last_use,
+                            )))
+                        }
                     }
                 }
                 UserLayersEvent::PushLayer(graph_res, LayerType::Fx, op) => {
@@ -543,12 +551,20 @@ impl NodeManager {
                     {
                         let res = ls.push_fx(layers::FxLayer::from_operator(op), op.default_name());
                         log::debug!("Added Fx layer {}", res);
+                        let lin = ls.linearize(LinearizationMode::FullTraversal);
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
                             LayerType::Fx,
                             op.clone(),
                             self.operator_param_box(op),
                         )));
+                        if let Some((linearization, last_use)) = lin {
+                            response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                                graph_res.to_owned(),
+                                linearization,
+                                last_use,
+                            )))
+                        }
                     }
                 }
             },

@@ -14,7 +14,7 @@ pub struct FillLayer {
 impl FillLayer {
     pub fn from_operator(op: &Operator) -> Self {
         FillLayer {
-            fill: Fill::Operator {
+            fill: Fill {
                 operator: op.clone(),
                 output_sockets: HashMap::new(),
             },
@@ -27,20 +27,14 @@ impl FillLayer {
 type ChannelMap = HashMap<MaterialChannel, String>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Fill {
-    /// A fill layer using static images for each material channel
-    // TODO: Consider replacing Material fill layer with a complex operator for materials and standard fill
-    Material(HashMap<MaterialChannel, Image>),
-
-    /// A fill layer using an operator, with its output sockets mapped to
-    /// material channels. The operator must not have any inputs! It can be
-    /// complex or atomic. The requirement to not have inputs means that most
-    /// atomic operators are not usable, outside of noises etc., and the
-    /// operator is most likely complex.
-    Operator {
-        operator: Operator,
-        output_sockets: ChannelMap,
-    },
+/// A fill layer using an operator, with its output sockets mapped to
+/// material channels. The operator must not have any inputs! It can be
+/// complex or atomic. The requirement to not have inputs means that most
+/// atomic operators are not usable, outside of noises etc., and the
+/// operator is most likely complex.
+pub struct Fill {
+    operator: Operator,
+    output_sockets: ChannelMap,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -240,23 +234,6 @@ impl LayerStack {
                 Layer::FillLayer(
                     _,
                     FillLayer {
-                        fill: Fill::Material(_),
-                        blend_options,
-                        ..
-                    },
-                ) => blend_options
-                    .channels
-                    .iter()
-                    .map(|channel| self.blend_resource(layer, channel))
-                    .chain(
-                        MaterialChannel::iter()
-                            .map(|channel| self.material_layer_resource(layer, channel)),
-                    )
-                    .collect::<Vec<_>>(),
-                Layer::FillLayer(
-                    _,
-                    FillLayer {
-                        fill: Fill::Operator { .. },
                         blend_options,
                         ..
                     },
@@ -341,60 +318,8 @@ impl super::NodeCollection for LayerStack {
                     _,
                     FillLayer {
                         blend_options,
-                        fill: Fill::Material(mat),
-                    },
-                ) => {
-                    // Skip if disabled
-                    if !blend_options.enabled {
-                        continue;
-                    }
-
-                    for (channel, img) in mat.iter() {
-                        // We can skip execution entirely if the material channel is disabled
-                        if !blend_options.channels.contains(*channel) {
-                            continue;
-                        }
-
-                        step += 1;
-
-                        let resource = self.material_layer_resource(layer, *channel);
-                        linearization.push(Instruction::Execute(
-                            resource.clone(),
-                            AtomicOperator::Image(img.clone()),
-                        ));
-
-                        if let Some(background) = last_socket.get(channel) {
-                            step += 1;
-
-                            let blend_res = self.blend_resource(layer, *channel);
-
-                            linearization.push(Instruction::Move(
-                                background.clone(),
-                                blend_res.node_socket("background"),
-                            ));
-                            linearization.push(Instruction::Move(
-                                resource.node_socket("data"),
-                                blend_res.node_socket("foreground"),
-                            ));
-
-                            linearization.push(Instruction::Execute(
-                                blend_res.clone(),
-                                AtomicOperator::Blend(blend_options.blend_operator()),
-                            ));
-
-                            last_use.insert(background.socket_node(), step);
-                            last_socket.insert(*channel, blend_res.node_socket("color"));
-                        } else {
-                            last_socket.insert(*channel, resource.node_socket("data"));
-                        }
-                    }
-                }
-                Layer::FillLayer(
-                    _,
-                    FillLayer {
-                        blend_options,
                         fill:
-                            Fill::Operator {
+                            Fill {
                                 operator,
                                 output_sockets,
                             },
@@ -593,42 +518,10 @@ impl super::NodeCollection for LayerStack {
                 Layer::FillLayer(
                     _,
                     FillLayer {
-                        fill: Fill::Operator { operator, .. },
+                        fill: Fill { operator, .. },
                         ..
                     },
                 ) => operator.set_parameter(field, data),
-                Layer::FillLayer(
-                    _,
-                    FillLayer {
-                        fill: Fill::Material(mat),
-                        ..
-                    },
-                ) => {
-                    let file = resource.file().unwrap();
-                    match &file[file.len() - 3..] {
-                        "col" => mat
-                            .get_mut(&MaterialChannel::Albedo)
-                            .unwrap()
-                            .set_parameter(field, data),
-                        "dsp" => mat
-                            .get_mut(&MaterialChannel::Displacement)
-                            .unwrap()
-                            .set_parameter(field, data),
-                        "nor" => mat
-                            .get_mut(&MaterialChannel::Normal)
-                            .unwrap()
-                            .set_parameter(field, data),
-                        "rgh" => mat
-                            .get_mut(&MaterialChannel::Roughness)
-                            .unwrap()
-                            .set_parameter(field, data),
-                        "met" => mat
-                            .get_mut(&MaterialChannel::Metallic)
-                            .unwrap()
-                            .set_parameter(field, data),
-                        _ => panic!("Invalid material resource"),
-                    }
-                }
                 Layer::FxLayer(_, layer) => layer.operator.set_parameter(field, data),
             }
         }
@@ -649,7 +542,7 @@ impl super::NodeCollection for LayerStack {
                     _,
                     FillLayer {
                         fill:
-                            Fill::Operator {
+                            Fill {
                                 operator: Operator::ComplexOperator(co),
                                 ..
                             },
