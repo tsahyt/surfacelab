@@ -154,5 +154,6 @@ fn control_name(control: &Control) -> &'static str {
         Control::Ramp { .. } => "ramp",
         Control::Toggle { .. } => "bool",
         Control::Entry { .. } => "text",
+        Control::ChannelMap { .. } => "chn",
     }
 }

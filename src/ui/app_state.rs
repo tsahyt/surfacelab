@@ -144,7 +144,12 @@ impl Layer {
                 LayerType::Fx => super::util::IconName::FX,
             },
             thumbnail: None,
-            operator_pbox: pbox.map_transmitters(|t| t.clone().into()),
+            operator_pbox: match ty {
+                LayerType::Fill => ParamBoxDescription::fill_layer_parameters(op),
+                LayerType::Fx => ParamBoxDescription::fx_layer_parameters(op),
+            }
+            .map_transmitters(|t| t.clone().into())
+            .merge(pbox.map_transmitters(|t| t.clone().into())),
             opacity: 1.0,
             blend_mode: BlendMode::Mix,
             masks: Vec::new(),

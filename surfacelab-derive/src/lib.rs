@@ -57,6 +57,10 @@ pub fn derive_parameter_field(input: proc_macro::TokenStream) -> proc_macro::Tok
             fn to_data(&self) -> Vec<u8> {
                 (*self as u32).to_data()
             }
+
+            fn data_length() -> usize {
+                std::mem::size_of::<#name>()
+            }
         }
     };
 

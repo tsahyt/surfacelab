@@ -471,6 +471,61 @@ where
                         }
                         control_idx.entries += 1;
                     }
+                    Control::ChannelMap {
+                        enabled,
+                        selected,
+                        sockets,
+                    } => {
+                        let toggle_id =
+                            state.controls.get(&TypeId::of::<widget::Toggle>()).unwrap()
+                                [control_idx.toggles];
+                        let enum_id = state
+                            .controls
+                            .get(&TypeId::of::<widget::DropDownList<String>>())
+                            .unwrap()[control_idx.enums];
+
+                        for _press in widget::Toggle::new(*enabled)
+                            .w(16.0)
+                            .h(16.0)
+                            .set(toggle_id, ui)
+                        {
+                            *enabled = !*enabled;
+                            ev.push(Event::ChangeParameter(
+                                parameter.transmitter.transmit(
+                                    self.resource,
+                                    &(
+                                        (if *enabled { 1 as u32 } else { 0 as u32 }),
+                                        (*selected as u32),
+                                    )
+                                        .to_data(),
+                                ),
+                            ));
+                        }
+
+                        if let Some(new_selection) =
+                            widget::DropDownList::new(sockets, Some(*selected))
+                                .label_font_size(10)
+                                .right(8.0)
+                                .padded_w_of(id, 32.0)
+                                .h(16.0)
+                                .set(enum_id, ui)
+                        {
+                            ev.push(Event::ChangeParameter(
+                                parameter.transmitter.transmit(
+                                    self.resource,
+                                    &(
+                                        (if *enabled { 1 as u32 } else { 0 as u32 }),
+                                        (*selected as u32),
+                                    )
+                                        .to_data(),
+                                ),
+                            ));
+                            *selected = new_selection;
+                        }
+
+                        control_idx.toggles += 1;
+                        control_idx.enums += 1;
+                    }
                 }
 
                 top_margin += 64.0;

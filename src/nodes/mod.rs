@@ -321,8 +321,7 @@ impl NodeManager {
                     }
                 }
                 UserNodeEvent::ParameterChange(res, data) => {
-                    let graph = res.directory().unwrap();
-                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    if let Some(graph) = self.graphs.get_mut(res.directory().unwrap()) {
                         if let Some(side_effect) = graph.parameter_change(res, data).unwrap() {
                             response.push(side_effect);
                         }
@@ -587,6 +586,7 @@ impl NodeManager {
                         }
                     }
                 }
+                UserLayersEvent::SetOutput(_, _, _, _) => {}
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {

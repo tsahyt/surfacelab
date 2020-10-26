@@ -13,6 +13,7 @@ pub type ParameterBool = u32;
 pub trait ParameterField {
     fn from_data(data: &[u8]) -> Self;
     fn to_data(&self) -> Vec<u8>;
+    fn data_length() -> usize;
 }
 
 impl ParameterField for f32 {
@@ -24,6 +25,10 @@ impl ParameterField for f32 {
 
     fn to_data(&self) -> Vec<u8> {
         self.to_be_bytes().to_vec()
+    }
+
+    fn data_length() -> usize {
+        4
     }
 }
 
@@ -37,6 +42,10 @@ impl ParameterField for u32 {
     fn to_data(&self) -> Vec<u8> {
         self.to_be_bytes().to_vec()
     }
+
+    fn data_length() -> usize {
+        4
+    }
 }
 
 impl ParameterField for i32 {
@@ -48,6 +57,10 @@ impl ParameterField for i32 {
 
     fn to_data(&self) -> Vec<u8> {
         self.to_be_bytes().to_vec()
+    }
+
+    fn data_length() -> usize {
+        4
     }
 }
 
@@ -72,6 +85,35 @@ impl ParameterField for [f32; 3] {
         buf.extend_from_slice(&(1.0 as f32).to_be_bytes());
         buf
     }
+
+    fn data_length() -> usize {
+        4 * 3
+    }
+}
+
+impl<T, Q> ParameterField for (T, Q)
+where
+    T: ParameterField,
+    Q: ParameterField,
+{
+    fn to_data(&self) -> Vec<u8> {
+        let mut v = Vec::new();
+        v.extend(self.0.to_data().iter());
+        v.extend(self.1.to_data().iter());
+        v
+    }
+
+    fn from_data(data: &[u8]) -> Self {
+        debug_assert!(T::data_length() != 0);
+
+        let t_data = &data[0..T::data_length()];
+        let q_data = &data[T::data_length()..];
+        (T::from_data(t_data), Q::from_data(q_data))
+    }
+
+    fn data_length() -> usize {
+        T::data_length() + Q::data_length()
+    }
 }
 
 impl ParameterField for PathBuf {
@@ -82,6 +124,10 @@ impl ParameterField for PathBuf {
 
     fn to_data(&self) -> Vec<u8> {
         self.to_str().unwrap().as_bytes().to_vec()
+    }
+
+    fn data_length() -> usize {
+        0
     }
 }
 
@@ -145,6 +191,7 @@ pub trait MessageWriter: Clone {
 pub enum MessageWriters {
     Field(Field),
     ResourceField(ResourceField),
+    LayerField(LayerField),
 }
 
 impl MessageWriter for MessageWriters {
@@ -154,6 +201,7 @@ impl MessageWriter for MessageWriters {
         match self {
             MessageWriters::Field(x) => x.transmit(resource, data),
             MessageWriters::ResourceField(x) => x.transmit(resource, data),
+            MessageWriters::LayerField(x) => x.transmit(resource, data),
         }
     }
 
@@ -161,6 +209,7 @@ impl MessageWriter for MessageWriters {
         match self {
             MessageWriters::Field(x) => Some(x),
             MessageWriters::ResourceField(_) => None,
+            MessageWriters::LayerField(_) => None,
         }
     }
 }
@@ -174,6 +223,12 @@ impl From<Field> for MessageWriters {
 impl From<ResourceField> for MessageWriters {
     fn from(x: ResourceField) -> Self {
         MessageWriters::ResourceField(x)
+    }
+}
+
+impl From<LayerField> for MessageWriters {
+    fn from(x: LayerField) -> Self {
+        MessageWriters::LayerField(x)
     }
 }
 
@@ -226,6 +281,32 @@ impl MessageWriter for ResourceField {
             Self::AbsoluteSize => super::Lang::UserNodeEvent(
                 super::UserNodeEvent::OutputSizeAbsolute(resource.clone(), data != [0]),
             ),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum LayerField {
+    ConnectOutput(super::MaterialChannel),
+}
+
+impl MessageWriter for LayerField {
+    type Resource = Resource<Node>;
+
+    fn transmit(&self, resource: &Self::Resource, data: &[u8]) -> super::Lang {
+        match self {
+            Self::ConnectOutput(channel) => {
+                let (n_enabled, n_selected) = <(u32, u32)>::from_data(data);
+                let enabled = n_enabled == 1;
+                let selected = n_selected as usize;
+
+                super::Lang::UserLayersEvent(super::UserLayersEvent::SetOutput(
+                    resource.clone(),
+                    *channel,
+                    selected,
+                    enabled,
+                ))
+            }
         }
     }
 }
@@ -371,6 +452,10 @@ where
                 }
                 Control::Entry { .. } => {
                     counts.entries += 1;
+                }
+                Control::ChannelMap { .. } => {
+                    counts.enums += 1;
+                    counts.toggles += 1;
                 }
             }
         }
@@ -555,6 +640,56 @@ impl ParamBoxDescription<GraphField> {
     }
 }
 
+impl ParamBoxDescription<LayerField> {
+    pub fn fill_layer_parameters<T: super::Socketed>(operator: &T) -> Self {
+        use itertools::Itertools;
+        use strum::IntoEnumIterator;
+
+        Self {
+            box_title: "Layer".to_string(),
+            categories: vec![ParamCategory {
+                name: "Output Channels",
+                parameters: super::MaterialChannel::iter()
+                    .map(|chan| Parameter {
+                        name: chan.to_string(),
+                        control: Control::ChannelMap {
+                            enabled: false,
+                            selected: 0,
+                            sockets: operator.outputs().keys().sorted().cloned().collect(),
+                        },
+                        transmitter: LayerField::ConnectOutput(chan),
+                        expose_status: None,
+                    })
+                    .collect(),
+            }],
+        }
+    }
+
+    pub fn fx_layer_parameters<T: super::Socketed>(operator: &T) -> Self {
+        use itertools::Itertools;
+        use strum::IntoEnumIterator;
+
+        Self {
+            box_title: "Layer".to_string(),
+            categories: vec![ParamCategory {
+                name: "Output Channels",
+                parameters: super::MaterialChannel::iter()
+                    .map(|chan| Parameter {
+                        name: chan.to_string(),
+                        control: Control::ChannelMap {
+                            enabled: false,
+                            selected: 0,
+                            sockets: operator.outputs().keys().sorted().cloned().collect(),
+                        },
+                        transmitter: LayerField::ConnectOutput(chan),
+                        expose_status: None,
+                    })
+                    .collect(),
+            }],
+        }
+    }
+}
+
 impl ParamBoxDescription<SurfaceField> {
     pub fn surface_parameters() -> Self {
         Self {
@@ -639,6 +774,11 @@ pub enum Control {
     Entry {
         value: String,
     },
+    ChannelMap {
+        enabled: bool,
+        selected: usize,
+        sockets: Vec<String>,
+    },
 }
 
 impl Control {
@@ -661,6 +801,13 @@ impl Control {
             }
             Self::Toggle { def } => (if *def { 1 as u32 } else { 0 as u32 }).to_data(),
             Self::Entry { value } => value.as_bytes().to_vec(),
+            Self::ChannelMap {
+                enabled, selected, ..
+            } => (
+                (if *enabled { 1 as u32 } else { 0 as u32 }),
+                (*selected as u32),
+            )
+                .to_data(),
         }
     }
 
@@ -690,6 +837,13 @@ impl Control {
             Control::Toggle { def } => *def = u32::from_data(data) == 1,
             Control::Entry { value } => {
                 *value = unsafe { std::str::from_utf8_unchecked(data) }.to_owned()
+            }
+            Control::ChannelMap {
+                enabled, selected, ..
+            } => {
+                let (n_enabled, n_selected) = <(u32, u32)>::from_data(data);
+                *enabled = n_enabled == 1;
+                *selected = n_selected as usize;
             }
         }
     }

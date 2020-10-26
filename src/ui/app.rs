@@ -681,7 +681,6 @@ where
                     layer_row::Event::ActiveElement => {
                         self.app_state.active_layer_element = Some(row.i);
                     }
-                    _ => {}
                 }
             }
         }

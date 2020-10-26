@@ -314,6 +314,7 @@ pub enum LayerType {
 pub enum UserLayersEvent {
     AddLayers,
     PushLayer(Resource<Graph>, LayerType, Operator),
+    SetOutput(Resource<Node>, MaterialChannel, usize, bool),
 }
 
 #[derive(Debug)]
@@ -505,7 +506,7 @@ pub enum RendererType {
     Renderer2D,
 }
 
-#[derive(EnumSetType, EnumIter, Debug, Hash, Serialize, Deserialize)]
+#[derive(EnumSetType, EnumIter, Debug, Hash, Serialize, Deserialize, Display)]
 pub enum MaterialChannel {
     Displacement,
     Albedo,
