@@ -507,6 +507,13 @@ where
     pub fn process_event(&mut self, event: Arc<Lang>) -> Option<Vec<Lang>> {
         let mut response = Vec::new();
         match &*event {
+            Lang::LayersEvent(event) => match event {
+                LayersEvent::LayerPushed(res, _, _, _, size) => {
+                    // Ensure socket data exists
+                    self.sockets.ensure_node_exists(res, *size);
+                }
+                _ => {}
+            }
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, _, _, _, size) => {
                     // Ensure socket data exists

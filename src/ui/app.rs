@@ -245,7 +245,7 @@ where
                     .registered_operators
                     .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
             }
-            LayersEvent::LayerPushed(res, ty, op, pbox) => {
+            LayersEvent::LayerPushed(res, ty, op, pbox, _) => {
                 let layer = Layer::new(res.clone(), *ty, op, pbox.clone());
                 self.app_state.graphs.push_layer(layer);
             }

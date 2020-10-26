@@ -231,13 +231,7 @@ impl LayerStack {
         self.layers
             .iter()
             .map(|layer| match layer {
-                Layer::FillLayer(
-                    _,
-                    FillLayer {
-                        blend_options,
-                        ..
-                    },
-                ) => blend_options
+                Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options
                     .channels
                     .iter()
                     .map(|channel| self.blend_resource(layer, channel))
@@ -252,6 +246,32 @@ impl LayerStack {
             })
             .flatten()
             .collect()
+    }
+
+    /// Return all output sockets of the given layer
+    pub fn layer_sockets(
+        &self,
+        layer: &Resource<Node>,
+    ) -> Vec<(Resource<Socket>, OperatorType, bool)> {
+        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            match &self.layers[*idx] {
+                Layer::FillLayer(_, fill) => fill
+                    .fill
+                    .operator
+                    .outputs()
+                    .iter()
+                    .map(|(s, t)| (layer.node_socket(s), *t, fill.fill.operator.external_data()))
+                    .collect(),
+                Layer::FxLayer(_, fx) => fx
+                    .operator
+                    .outputs()
+                    .iter()
+                    .map(|(s, t)| (layer.node_socket(s), *t, fx.operator.external_data()))
+                    .collect(),
+            }
+        } else {
+            Vec::new()
+        }
     }
 }
 

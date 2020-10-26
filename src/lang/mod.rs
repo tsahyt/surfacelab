@@ -324,6 +324,7 @@ pub enum LayersEvent {
         LayerType,
         Operator,
         ParamBoxDescription<Field>,
+        u32
     ),
 }
 

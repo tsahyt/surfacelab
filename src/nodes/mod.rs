@@ -530,12 +530,22 @@ impl NodeManager {
                             ls.push_fill(layers::FillLayer::from_operator(op), op.default_name());
                         log::debug!("Added Fill layer {}", res);
                         let lin = ls.linearize(LinearizationMode::FullTraversal);
+                        let mut sockets = ls.layer_sockets(&res);
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
                             LayerType::Fill,
                             op.clone(),
                             self.operator_param_box(op),
+                            self.parent_size,
                         )));
+                        response.extend(sockets.drain(0..).map(|(s, t, e)| {
+                            Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                s,
+                                t,
+                                e,
+                                self.parent_size,
+                            ))
+                        }));
                         if let Some((linearization, last_use)) = lin {
                             response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                                 graph_res.to_owned(),
@@ -552,12 +562,22 @@ impl NodeManager {
                         let res = ls.push_fx(layers::FxLayer::from_operator(op), op.default_name());
                         log::debug!("Added Fx layer {}", res);
                         let lin = ls.linearize(LinearizationMode::FullTraversal);
+                        let mut sockets = ls.layer_sockets(&res);
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
                             LayerType::Fx,
                             op.clone(),
                             self.operator_param_box(op),
+                            self.parent_size,
                         )));
+                        response.extend(sockets.drain(0..).map(|(s, t, e)| {
+                            Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                s,
+                                t,
+                                e,
+                                self.parent_size,
+                            ))
+                        }));
                         if let Some((linearization, last_use)) = lin {
                             response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                                 graph_res.to_owned(),
