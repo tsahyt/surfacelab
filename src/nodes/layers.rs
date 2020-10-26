@@ -80,6 +80,7 @@ pub struct LayerBlendOptions {
     factor: f32,
     channels: EnumSet<MaterialChannel>,
     blend_mode: BlendMode,
+    enabled: bool,
 }
 
 impl LayerBlendOptions {
@@ -101,6 +102,7 @@ impl Default for LayerBlendOptions {
             factor: 1.0,
             channels: EnumSet::all(),
             blend_mode: BlendMode::Mix,
+            enabled: true,
         }
     }
 }
@@ -342,6 +344,11 @@ impl super::NodeCollection for LayerStack {
                         fill: Fill::Material(mat),
                     },
                 ) => {
+                    // Skip if disabled
+                    if !blend_options.enabled {
+                        continue;
+                    }
+
                     for (channel, img) in mat.iter() {
                         // We can skip execution entirely if the material channel is disabled
                         if !blend_options.channels.contains(*channel) {
@@ -393,8 +400,8 @@ impl super::NodeCollection for LayerStack {
                             },
                     },
                 ) => {
-                    // Skip execution if no channels are blended.
-                    if blend_options.channels.is_empty() {
+                    // Skip execution if no channels are blended or the layer is disabled.
+                    if blend_options.channels.is_empty() || !blend_options.enabled {
                         continue;
                     }
 
@@ -459,6 +466,11 @@ impl super::NodeCollection for LayerStack {
                         blend_options,
                     },
                 ) => {
+                    // Skip if disabled
+                    if !blend_options.enabled {
+                        continue;
+                    }
+
                     step += 1;
 
                     let resource = self.layer_resource(layer);
