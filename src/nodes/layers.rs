@@ -273,6 +273,69 @@ impl LayerStack {
             Vec::new()
         }
     }
+
+    pub fn set_output(
+        &mut self,
+        layer: &Resource<Node>,
+        channel: MaterialChannel,
+        socket_index: usize,
+    ) {
+        use itertools::Itertools;
+
+        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            match &mut self.layers[*idx] {
+                Layer::FillLayer(_, fill) => {
+                    let socket = fill
+                        .fill
+                        .operator
+                        .outputs()
+                        .keys()
+                        .sorted()
+                        .nth(socket_index)
+                        .cloned()
+                        .unwrap();
+                    fill.fill.output_sockets.insert(channel, socket);
+                }
+                Layer::FxLayer(_, fx) => {
+                    let socket = fx
+                        .operator
+                        .outputs()
+                        .keys()
+                        .sorted()
+                        .nth(socket_index)
+                        .cloned()
+                        .unwrap();
+                    fx.output_sockets.insert(channel, socket);
+                }
+            }
+        }
+    }
+
+    pub fn set_output_channel(
+        &mut self,
+        layer: &Resource<Node>,
+        channel: MaterialChannel,
+        visibility: bool,
+    ) {
+        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            match &mut self.layers[*idx] {
+                Layer::FillLayer(_, fill) => {
+                    if visibility {
+                        fill.blend_options.channels.insert(channel);
+                    } else {
+                        fill.blend_options.channels.remove(channel);
+                    }
+                }
+                Layer::FxLayer(_, fx) => {
+                    if visibility {
+                        fx.blend_options.channels.insert(channel);
+                    } else {
+                        fx.blend_options.channels.remove(channel);
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl super::ExposedParameters for LayerStack {

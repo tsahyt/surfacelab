@@ -586,7 +586,22 @@ impl NodeManager {
                         }
                     }
                 }
-                UserLayersEvent::SetOutput(_, _, _, _) => {}
+                UserLayersEvent::SetOutput(layer_res, channel, selected, enabled) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(layer_res.directory().unwrap())
+                    {
+                        log::debug!(
+                            "Set {} output for {} to {}, and enabled {}",
+                            channel,
+                            layer_res,
+                            selected,
+                            enabled
+                        );
+
+                        ls.set_output(layer_res, *channel, *selected);
+                        ls.set_output_channel(layer_res, *channel, *enabled);
+                    }
+                }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
