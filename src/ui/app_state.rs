@@ -122,7 +122,7 @@ pub struct Layer {
     pub title: String,
     pub icon: super::util::IconName,
     pub thumbnail: Option<image::Id>,
-    pub operator_pbox: ParamBoxDescription<Field>,
+    pub operator_pbox: ParamBoxDescription<MessageWriters>,
     pub opacity: f32,
     pub blend_mode: BlendMode,
     pub masks: Vec<Mask>,
@@ -144,7 +144,7 @@ impl Layer {
                 LayerType::Fx => super::util::IconName::FX,
             },
             thumbnail: None,
-            operator_pbox: pbox,
+            operator_pbox: pbox.map_transmitters(|t| t.clone().into()),
             opacity: 1.0,
             blend_mode: BlendMode::Mix,
             masks: Vec::new(),
@@ -562,7 +562,9 @@ impl NodeCollections {
 
 pub struct App {
     pub graphs: NodeCollections,
-    pub active_element: Option<petgraph::graph::NodeIndex>,
+    pub active_node_element: Option<petgraph::graph::NodeIndex>,
+    pub active_layer_element: Option<usize>,
+
     pub render_image: Option<image::Id>,
     pub monitor_resolution: (u32, u32),
 
@@ -583,7 +585,8 @@ impl App {
     pub fn new(monitor_size: (u32, u32)) -> Self {
         Self {
             graphs: NodeCollections::new(),
-            active_element: None,
+            active_node_element: None,
+            active_layer_element: None,
             render_image: None,
             monitor_resolution: (monitor_size.0, monitor_size.1),
             add_node_modal: None,
@@ -607,14 +610,18 @@ impl App {
     pub fn active_parameters(
         &mut self,
     ) -> Option<(&mut ParamBoxDescription<MessageWriters>, &Resource<r::Node>)> {
-        let ae = self.active_element?;
-        let node = self
-            .graphs
-            .active_collection
-            .as_graph_mut()?
-            .graph
-            .node_weight_mut(ae)?;
-        Some((&mut node.param_box, &node.resource))
+        match &mut self.graphs.active_collection {
+            NodeCollection::Graph(g) => {
+                let ae = self.active_node_element?;
+                let node = g.graph.node_weight_mut(ae)?;
+                Some((&mut node.param_box, &node.resource))
+            }
+            NodeCollection::Layers(l) => {
+                let ae = self.active_layer_element?;
+                let layer = l.layers.get_mut(ae)?;
+                Some((&mut layer.operator_pbox, &layer.resource))
+            }
+        }
     }
 
     pub fn add_export_entry(&mut self) {

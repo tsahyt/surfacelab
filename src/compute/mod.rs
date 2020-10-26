@@ -513,7 +513,7 @@ where
                     self.sockets.ensure_node_exists(res, *size);
                 }
                 _ => {}
-            }
+            },
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, _, _, _, size) => {
                     // Ensure socket data exists

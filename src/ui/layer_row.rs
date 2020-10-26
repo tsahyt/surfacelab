@@ -7,14 +7,16 @@ pub struct LayerRow<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     layer: &'a mut Layer,
+    active: bool,
     style: Style,
 }
 
 impl<'a> LayerRow<'a> {
-    pub fn new(layer: &'a mut Layer) -> Self {
+    pub fn new(layer: &'a mut Layer, active: bool) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             layer,
+            active,
             style: Style::default(),
         }
     }
@@ -44,10 +46,14 @@ pub struct State {
     ids: Ids,
 }
 
+pub enum Event {
+    ActiveElement,
+}
+
 impl<'a> Widget for LayerRow<'a> {
     type State = State;
     type Style = Style;
-    type Event = ();
+    type Event = Option<Event>;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         Self::State {
@@ -60,6 +66,8 @@ impl<'a> Widget for LayerRow<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        let mut event = None;
+
         util::icon_button(
             if self.layer.enabled {
                 util::IconName::EYE
@@ -82,14 +90,20 @@ impl<'a> Widget for LayerRow<'a> {
                 .w_h(32.0, 32.0)
                 .top_left_with_margins(8.0, 40.0)
                 .parent(args.id)
+                .graphics_for(args.id)
                 .set(args.state.ids.thumbnail, args.ui);
         }
 
         widget::Text::new(&self.layer.title)
-            .color(color::WHITE)
+            .color(if self.active {
+                color::Color::Rgba(0.9, 0.4, 0.15, 1.0)
+            } else {
+                color::WHITE
+            })
             .font_size(12)
             .mid_left_with_margin(80.0)
             .parent(args.id)
+            .graphics_for(args.id)
             .set(args.state.ids.title, args.ui);
 
         widget::Text::new(self.layer.icon.0)
@@ -98,6 +112,13 @@ impl<'a> Widget for LayerRow<'a> {
             .font_id(self.style.icon_font.unwrap().unwrap())
             .mid_right_with_margin(8.0)
             .parent(args.id)
+            .graphics_for(args.id)
             .set(args.state.ids.layer_type, args.ui);
+
+        for _click in args.ui.widget_input(args.id).clicks() {
+            event = Some(Event::ActiveElement);
+        }
+
+        event
     }
 }

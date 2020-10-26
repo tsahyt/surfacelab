@@ -539,7 +539,7 @@ where
                         .unwrap();
                 }
                 graph::Event::ActiveElement(idx) => {
-                    self.app_state.active_element = Some(idx);
+                    self.app_state.active_node_element = Some(idx);
                 }
                 graph::Event::AddModal(pt) => {
                     self.app_state.add_node_modal = Some(pt);
@@ -670,10 +670,20 @@ where
             .set(self.ids.layer_list, ui);
 
         while let Some(row) = rows.next(ui) {
-            let widget = layer_row::LayerRow::new(&mut active_collection.layers[row.i])
-                .icon_font(self.fonts.icon_font);
+            let widget = layer_row::LayerRow::new(
+                &mut active_collection.layers[row.i],
+                Some(row.i) == self.app_state.active_layer_element,
+            )
+            .icon_font(self.fonts.icon_font);
 
-            row.set(widget, ui);
+            if let Some(event) = row.set(widget, ui) {
+                match event {
+                    layer_row::Event::ActiveElement => {
+                        self.app_state.active_layer_element = Some(row.i);
+                    }
+                    _ => {}
+                }
+            }
         }
 
         if let Some(s) = scrollbar {
