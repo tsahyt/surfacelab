@@ -642,23 +642,70 @@ where
             _ => panic!("Layers UI built for graph"),
         };
 
-        widget::DropDownList::new(BlendMode::VARIANTS, Some(0))
-            .label_font_size(10)
-            .down_from(self.ids.layer_new_fill, 8.0)
-            .padded_w_of(self.ids.edit_canvas, 8.0)
-            .h(16.0)
-            .parent(self.ids.edit_canvas)
-            .set(self.ids.layer_blend_mode, ui);
+        if let Some(active_layer) = self
+            .app_state
+            .active_layer_element
+            .map(|idx| &mut active_collection.layers[idx])
+        {
+            if let Some(new_selection) =
+                widget::DropDownList::new(BlendMode::VARIANTS, Some(active_layer.blend_mode))
+                    .label_font_size(10)
+                    .down_from(self.ids.layer_new_fill, 8.0)
+                    .padded_w_of(self.ids.edit_canvas, 8.0)
+                    .h(16.0)
+                    .parent(self.ids.edit_canvas)
+                    .set(self.ids.layer_blend_mode, ui)
+            {
+                use strum::IntoEnumIterator;
 
-        if let Some(new_value) = widget::Slider::new(1.0, 0.0, 1.0)
-            .label("Opacity")
-            .label_font_size(10)
-            .down(8.0)
-            .padded_w_of(self.ids.edit_canvas, 8.0)
-            .h(16.0)
-            .parent(self.ids.edit_canvas)
-            .set(self.ids.layer_opacity, ui)
-        {}
+                active_layer.blend_mode = new_selection;
+
+                self.sender
+                    .send(Lang::UserLayersEvent(UserLayersEvent::SetBlendMode(
+                        active_layer.resource.clone(),
+                        BlendMode::iter().nth(new_selection).unwrap()
+                    )))
+                    .unwrap();
+            }
+
+            if let Some(new_value) = widget::Slider::new(active_layer.opacity, 0.0, 1.0)
+                .label("Opacity")
+                .label_font_size(10)
+                .down(8.0)
+                .padded_w_of(self.ids.edit_canvas, 8.0)
+                .h(16.0)
+                .parent(self.ids.edit_canvas)
+                .set(self.ids.layer_opacity, ui)
+            {
+                active_layer.opacity = new_value;
+
+                self.sender
+                    .send(Lang::UserLayersEvent(UserLayersEvent::SetOpacity(
+                        active_layer.resource.clone(),
+                        new_value,
+                    )))
+                    .unwrap();
+            }
+        } else {
+            widget::DropDownList::new(BlendMode::VARIANTS, Some(0))
+                .enabled(false)
+                .label_font_size(10)
+                .down_from(self.ids.layer_new_fill, 8.0)
+                .padded_w_of(self.ids.edit_canvas, 8.0)
+                .h(16.0)
+                .parent(self.ids.edit_canvas)
+                .set(self.ids.layer_blend_mode, ui);
+
+            widget::Slider::new(1.0, 0.0, 1.0)
+                .enabled(false)
+                .label("Opacity")
+                .label_font_size(10)
+                .down(8.0)
+                .padded_w_of(self.ids.edit_canvas, 8.0)
+                .h(16.0)
+                .parent(self.ids.edit_canvas)
+                .set(self.ids.layer_opacity, ui);
+        }
 
         let (mut rows, scrollbar) = widget::List::flow_down(active_collection.rows())
             .parent(self.ids.edit_canvas)

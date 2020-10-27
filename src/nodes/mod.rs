@@ -533,60 +533,24 @@ impl NodeManager {
                         }
                     }
                 }
-                UserLayersEvent::PushLayer(graph_res, LayerType::Fill, op) => {
+                UserLayersEvent::PushLayer(graph_res, ty, op) => {
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(graph_res.path_str().unwrap())
                     {
-                        let res =
-                            ls.push_fill(layers::FillLayer::from_operator(op), op.default_name());
-                        log::debug!("Added Fill layer {}", res);
+                        let res = match ty {
+                            LayerType::Fill => ls
+                                .push_fill(layers::FillLayer::from_operator(op), op.default_name()),
+                            LayerType::Fx => {
+                                ls.push_fx(layers::FxLayer::from_operator(op), op.default_name())
+                            }
+                        };
+                        log::debug!("Added {:?} layer {}", ty, res);
                         let lin = ls.linearize(LinearizationMode::FullTraversal);
                         let mut sockets = ls.layer_sockets(&res);
                         let mut blend_sockets = ls.blend_sockets(&res);
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
                             LayerType::Fill,
-                            op.clone(),
-                            self.operator_param_box(op),
-                            self.parent_size,
-                        )));
-                        response.extend(sockets.drain(0..).map(|(s, t, e)| {
-                            Lang::GraphEvent(GraphEvent::OutputSocketAdded(
-                                s,
-                                t,
-                                e,
-                                self.parent_size,
-                            ))
-                        }));
-                        response.extend(blend_sockets.drain(0..).map(|(s, t)| {
-                            Lang::GraphEvent(GraphEvent::OutputSocketAdded(
-                                s,
-                                t,
-                                false,
-                                self.parent_size,
-                            ))
-                        }));
-                        if let Some((linearization, last_use)) = lin {
-                            response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                                graph_res.to_owned(),
-                                linearization,
-                                last_use,
-                            )))
-                        }
-                    }
-                }
-                UserLayersEvent::PushLayer(graph_res, LayerType::Fx, op) => {
-                    if let Some(NodeGraph::LayerStack(ls)) =
-                        self.graphs.get_mut(graph_res.path_str().unwrap())
-                    {
-                        let res = ls.push_fx(layers::FxLayer::from_operator(op), op.default_name());
-                        log::debug!("Added Fx layer {}", res);
-                        let lin = ls.linearize(LinearizationMode::FullTraversal);
-                        let mut sockets = ls.layer_sockets(&res);
-                        let mut blend_sockets = ls.blend_sockets(&res);
-                        response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
-                            res,
-                            LayerType::Fx,
                             op.clone(),
                             self.operator_param_box(op),
                             self.parent_size,
@@ -630,6 +594,45 @@ impl NodeManager {
 
                         ls.set_output(layer_res, *channel, *selected);
                         ls.set_output_channel(layer_res, *channel, *enabled);
+
+                        if let Some(linearize) = self.relinearize(&self.active_graph) {
+                            response.push(linearize);
+                        }
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                            self.active_graph.clone(),
+                        )));
+                    }
+                }
+                UserLayersEvent::SetOpacity(layer_res, opacity) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(layer_res.directory().unwrap())
+                    {
+                        log::debug!("Set layer opacity of {} to {}", layer_res, opacity);
+
+                        ls.set_layer_opacity(layer_res, *opacity);
+
+                        if let Some(linearize) = self.relinearize(&self.active_graph) {
+                            response.push(linearize);
+                        }
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                            self.active_graph.clone(),
+                        )));
+                    }
+                }
+                UserLayersEvent::SetBlendMode(layer_res, blend_mode) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(layer_res.directory().unwrap())
+                    {
+                        log::debug!("Set layer blend mode of {} to {:?}", layer_res, blend_mode);
+
+                        ls.set_layer_blend_mode(layer_res, *blend_mode);
+
+                        if let Some(linearize) = self.relinearize(&self.active_graph) {
+                            response.push(linearize);
+                        }
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                            self.active_graph.clone(),
+                        )));
                     }
                 }
             },

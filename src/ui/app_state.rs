@@ -124,7 +124,7 @@ pub struct Layer {
     pub thumbnail: Option<image::Id>,
     pub operator_pbox: ParamBoxDescription<MessageWriters>,
     pub opacity: f32,
-    pub blend_mode: BlendMode,
+    pub blend_mode: usize,
     pub masks: Vec<Mask>,
     pub enabled: bool,
 }
@@ -151,7 +151,7 @@ impl Layer {
             .map_transmitters(|t| t.clone().into())
             .merge(pbox.map_transmitters(|t| t.clone().into())),
             opacity: 1.0,
-            blend_mode: BlendMode::Mix,
+            blend_mode: 0,
             masks: Vec::new(),
             enabled: true,
         }

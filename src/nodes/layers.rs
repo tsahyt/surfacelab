@@ -71,7 +71,7 @@ pub struct MaskStack(Vec<Mask>);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LayerBlendOptions {
     mask: MaskStack,
-    factor: f32,
+    opacity: f32,
     channels: EnumSet<MaterialChannel>,
     blend_mode: BlendMode,
     enabled: bool,
@@ -83,7 +83,7 @@ impl LayerBlendOptions {
     pub fn blend_operator(&self) -> Blend {
         Blend {
             blend_mode: self.blend_mode,
-            mix: self.factor,
+            mix: self.opacity,
             clamp_output: 1,
         }
     }
@@ -93,7 +93,7 @@ impl Default for LayerBlendOptions {
     fn default() -> Self {
         LayerBlendOptions {
             mask: MaskStack(Vec::new()),
-            factor: 1.0,
+            opacity: 1.0,
             channels: EnumSet::all(),
             blend_mode: BlendMode::Mix,
             enabled: true,
@@ -115,6 +115,28 @@ impl Layer {
         match self {
             Layer::FillLayer(s, _) => s,
             Layer::FxLayer(s, _) => s,
+        }
+    }
+
+    pub fn set_opacity(&mut self, opacity: f32) {
+        match self {
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
+                blend_options.opacity = opacity;
+            }
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
+                blend_options.opacity = opacity;
+            }
+        }
+    }
+
+    pub fn set_blend_mode(&mut self, blend_mode: BlendMode) {
+        match self {
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
+                blend_options.blend_mode = blend_mode;
+            }
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
+                blend_options.blend_mode = blend_mode;
+            }
         }
     }
 }
@@ -351,6 +373,18 @@ impl LayerStack {
                     }
                 }
             }
+        }
+    }
+
+    pub fn set_layer_opacity(&mut self, layer: &Resource<Node>, opacity: f32) {
+        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            self.layers[*idx].set_opacity(opacity);
+        }
+    }
+
+    pub fn set_layer_blend_mode(&mut self, layer: &Resource<Node>, blend_mode: BlendMode) {
+        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            self.layers[*idx].set_blend_mode(blend_mode)
         }
     }
 }
