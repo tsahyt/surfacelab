@@ -1,5 +1,8 @@
 use crate::{broker, gpu, lang::*};
+
 use image::{imageops, ImageBuffer, Luma, Rgb, Rgba};
+use strum::IntoEnumIterator;
+
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
@@ -511,10 +514,20 @@ where
                 LayersEvent::LayerPushed(res, _, _, _, size) => {
                     // Ensure socket data exists
                     self.sockets.ensure_node_exists(res, *size);
+
+                    // Blend nodes
+                    for channel in MaterialChannel::iter() {
+                        let mut blend_node = res.clone();
+                        let new_name = format!(
+                            "{}.blend.{}",
+                            blend_node.file().unwrap(),
+                            channel.short_name()
+                        );
+                        blend_node.modify_path(|pb| pb.set_file_name(new_name));
+                        self.sockets.ensure_node_exists(&blend_node, *size);
+                    }
                 }
                 LayersEvent::LayersAdded(g, size) => {
-                    use strum::IntoEnumIterator;
-
                     for channel in MaterialChannel::iter() {
                         self.sockets.ensure_node_exists(
                             &g.graph_node(&format!("output.{}", channel.short_name())),

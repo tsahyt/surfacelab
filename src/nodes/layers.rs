@@ -274,6 +274,23 @@ impl LayerStack {
         }
     }
 
+    /// Return all blend sockets of the given layer
+    pub fn blend_sockets(&self, layer: &Resource<Node>) -> Vec<(Resource<Socket>, OperatorType)> {
+        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            let layer = &self.layers[*idx];
+            MaterialChannel::iter()
+                .map(|channel| {
+                    (
+                        self.blend_resource(layer, channel).node_socket("color"),
+                        OperatorType::Monomorphic(channel.to_image_type()),
+                    )
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+
     pub fn set_output(
         &mut self,
         layer: &Resource<Node>,

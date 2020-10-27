@@ -526,6 +526,16 @@ impl MaterialChannel {
         }
     }
 
+    pub fn to_image_type(self) -> ImageType {
+        match self {
+            MaterialChannel::Displacement => ImageType::Grayscale,
+            MaterialChannel::Albedo => ImageType::Rgb,
+            MaterialChannel::Normal => ImageType::Rgb,
+            MaterialChannel::Roughness => ImageType::Grayscale,
+            MaterialChannel::Metallic => ImageType::Grayscale,
+        }
+    }
+
     pub fn short_name(&self) -> &str {
         match self {
             MaterialChannel::Albedo => "col",

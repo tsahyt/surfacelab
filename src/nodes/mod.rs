@@ -529,7 +529,7 @@ impl NodeManager {
                                 ty,
                                 false,
                                 self.parent_size,
-                            )))
+                            )));
                         }
                     }
                 }
@@ -542,6 +542,7 @@ impl NodeManager {
                         log::debug!("Added Fill layer {}", res);
                         let lin = ls.linearize(LinearizationMode::FullTraversal);
                         let mut sockets = ls.layer_sockets(&res);
+                        let mut blend_sockets = ls.blend_sockets(&res);
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
                             LayerType::Fill,
@@ -554,6 +555,14 @@ impl NodeManager {
                                 s,
                                 t,
                                 e,
+                                self.parent_size,
+                            ))
+                        }));
+                        response.extend(blend_sockets.drain(0..).map(|(s, t)| {
+                            Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                s,
+                                t,
+                                false,
                                 self.parent_size,
                             ))
                         }));
@@ -574,6 +583,7 @@ impl NodeManager {
                         log::debug!("Added Fx layer {}", res);
                         let lin = ls.linearize(LinearizationMode::FullTraversal);
                         let mut sockets = ls.layer_sockets(&res);
+                        let mut blend_sockets = ls.blend_sockets(&res);
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
                             LayerType::Fx,
@@ -586,6 +596,14 @@ impl NodeManager {
                                 s,
                                 t,
                                 e,
+                                self.parent_size,
+                            ))
+                        }));
+                        response.extend(blend_sockets.drain(0..).map(|(s, t)| {
+                            Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                s,
+                                t,
+                                false,
                                 self.parent_size,
                             ))
                         }));
