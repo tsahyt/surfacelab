@@ -512,6 +512,16 @@ where
                     // Ensure socket data exists
                     self.sockets.ensure_node_exists(res, *size);
                 }
+                LayersEvent::LayersAdded(g, size) => {
+                    use strum::IntoEnumIterator;
+
+                    for channel in MaterialChannel::iter() {
+                        self.sockets.ensure_node_exists(
+                            &g.graph_node(&format!("output.{}", channel.short_name())),
+                            *size,
+                        );
+                    }
+                }
                 _ => {}
             },
             Lang::GraphEvent(event) => match event {

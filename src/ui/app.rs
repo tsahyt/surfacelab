@@ -239,7 +239,7 @@ where
 
     fn handle_layers_event(&mut self, event: &LayersEvent) {
         match event {
-            LayersEvent::LayersAdded(res) => {
+            LayersEvent::LayersAdded(res, _) => {
                 self.app_state.graphs.add_layers(res.clone());
                 self.app_state
                     .registered_operators

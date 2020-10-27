@@ -220,7 +220,7 @@ impl LayerStack {
         self.resources.clear();
     }
 
-    fn output_resource(&self, channel: MaterialChannel) -> Resource<Node> {
+    pub fn output_resource(&self, channel: MaterialChannel) -> Resource<Node> {
         Resource::node(
             &format!("{}/output.{}", self.name, channel.short_name(),),
             None,

@@ -128,6 +128,17 @@ impl Resource<Graph> {
             phantom_data: std::marker::PhantomData,
         }
     }
+
+    pub fn graph_node(&self, node: &str) -> Resource<Node> {
+        let mut path = self.resource_path.clone();
+        path.push(node);
+
+        Resource {
+            resource_path: path,
+            fragment: None,
+            phantom_data: std::marker::PhantomData,
+        }
+    }
 }
 
 impl Resource<Param> {

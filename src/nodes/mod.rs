@@ -518,8 +518,20 @@ impl NodeManager {
                         NodeGraph::LayerStack(layers::LayerStack::new(&name)),
                     );
                     response.push(lang::Lang::LayersEvent(lang::LayersEvent::LayersAdded(
-                        Resource::graph(name, None),
+                        Resource::graph(name.clone(), None),
+                        self.parent_size,
                     )));
+
+                    if let NodeGraph::LayerStack(ls) = self.graphs.get(&name).unwrap() {
+                        for (_, (ty, node)) in ls.outputs() {
+                            response.push(Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                node.node_socket("data"),
+                                ty,
+                                false,
+                                self.parent_size,
+                            )))
+                        }
+                    }
                 }
                 UserLayersEvent::PushLayer(graph_res, LayerType::Fill, op) => {
                     if let Some(NodeGraph::LayerStack(ls)) =

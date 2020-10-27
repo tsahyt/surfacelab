@@ -319,7 +319,7 @@ pub enum UserLayersEvent {
 
 #[derive(Debug)]
 pub enum LayersEvent {
-    LayersAdded(Resource<Graph>),
+    LayersAdded(Resource<Graph>, u32),
     LayerPushed(
         Resource<Node>,
         LayerType,
