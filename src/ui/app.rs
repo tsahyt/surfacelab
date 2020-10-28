@@ -663,7 +663,7 @@ where
                 self.sender
                     .send(Lang::UserLayersEvent(UserLayersEvent::SetBlendMode(
                         active_layer.resource.clone(),
-                        BlendMode::iter().nth(new_selection).unwrap()
+                        BlendMode::iter().nth(new_selection).unwrap(),
                     )))
                     .unwrap();
             }

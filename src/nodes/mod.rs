@@ -550,7 +550,7 @@ impl NodeManager {
                         let mut blend_sockets = ls.blend_sockets(&res);
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
-                            LayerType::Fill,
+                            *ty,
                             op.clone(),
                             self.operator_param_box(op),
                             self.parent_size,

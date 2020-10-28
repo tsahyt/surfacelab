@@ -671,21 +671,38 @@ impl ParamBoxDescription<LayerField> {
 
         Self {
             box_title: "Layer".to_string(),
-            categories: vec![ParamCategory {
-                name: "Output Channels",
-                parameters: super::MaterialChannel::iter()
-                    .map(|chan| Parameter {
-                        name: chan.to_string(),
-                        control: Control::ChannelMap {
-                            enabled: false,
-                            selected: 0,
-                            sockets: operator.outputs().keys().sorted().cloned().collect(),
-                        },
-                        transmitter: LayerField::ConnectOutput(chan),
-                        expose_status: None,
-                    })
-                    .collect(),
-            }],
+            categories: vec![
+                ParamCategory {
+                    name: "Input Channels",
+                    parameters: super::MaterialChannel::iter()
+                        .map(|chan| Parameter {
+                            name: chan.to_string(),
+                            control: Control::ChannelMap {
+                                enabled: false,
+                                selected: 0,
+                                sockets: operator.outputs().keys().sorted().cloned().collect(),
+                            },
+                            transmitter: LayerField::ConnectOutput(chan),
+                            expose_status: None,
+                        })
+                        .collect(),
+                },
+                ParamCategory {
+                    name: "Output Channels",
+                    parameters: super::MaterialChannel::iter()
+                        .map(|chan| Parameter {
+                            name: chan.to_string(),
+                            control: Control::ChannelMap {
+                                enabled: false,
+                                selected: 0,
+                                sockets: operator.outputs().keys().sorted().cloned().collect(),
+                            },
+                            transmitter: LayerField::ConnectOutput(chan),
+                            expose_status: None,
+                        })
+                        .collect(),
+                },
+            ],
         }
     }
 }
