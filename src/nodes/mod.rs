@@ -603,7 +603,26 @@ impl NodeManager {
                         )));
                     }
                 }
-                UserLayersEvent::SetInput(socket_res, channel) => {}
+                UserLayersEvent::SetInput(socket_res, channel) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(socket_res.directory().unwrap())
+                    {
+                        log::debug!(
+                            "Set {} input to {}",
+                            socket_res,
+                            channel,
+                        );
+
+                        ls.set_input(socket_res, *channel);
+
+                        if let Some(linearize) = self.relinearize(&self.active_graph) {
+                            response.push(linearize);
+                        }
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                            self.active_graph.clone(),
+                        )));
+                    }
+                }
                 UserLayersEvent::SetOpacity(layer_res, opacity) => {
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())

@@ -358,6 +358,15 @@ impl LayerStack {
         }
     }
 
+    pub fn set_input(&mut self, layer_socket: &Resource<Socket>, channel: MaterialChannel) {
+        if let Some(idx) = self.resources.get(layer_socket.file().unwrap()) {
+            if let Layer::FxLayer(_, fx) = &mut self.layers[*idx] {
+                fx.input_sockets
+                    .insert(layer_socket.fragment().unwrap().to_owned(), channel);
+            }
+        }
+    }
+
     pub fn set_output_channel(
         &mut self,
         layer: &Resource<Node>,
