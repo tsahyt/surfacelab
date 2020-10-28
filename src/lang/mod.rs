@@ -315,6 +315,7 @@ pub enum UserLayersEvent {
     AddLayers,
     PushLayer(Resource<Graph>, LayerType, Operator),
     SetOutput(Resource<Node>, MaterialChannel, usize, bool),
+    SetInput(Resource<Socket>, MaterialChannel),
     SetOpacity(Resource<Node>, f32),
     SetBlendMode(Resource<Node>, BlendMode),
 }

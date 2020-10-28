@@ -3,6 +3,7 @@ use enumset::EnumSet;
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::iter::FromIterator;
 use strum::IntoEnumIterator;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,6 +27,9 @@ impl FillLayer {
 /// A type encoding a function from material channels to sockets.
 type ChannelMap = HashMap<MaterialChannel, String>;
 
+/// A type encoding a function from sockets to material channels.
+type InputMap = HashMap<String, MaterialChannel>;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// A fill layer using an operator, with its output sockets mapped to
 /// material channels. The operator must not have any inputs! It can be
@@ -42,7 +46,7 @@ pub struct Fill {
 /// Therefore FX layers *cannot* be placed at the bottom of a layer stack.
 pub struct FxLayer {
     operator: Operator,
-    input_sockets: ChannelMap,
+    input_sockets: InputMap,
     output_sockets: ChannelMap,
     blend_options: LayerBlendOptions,
 }
@@ -51,7 +55,11 @@ impl FxLayer {
     pub fn from_operator(op: &Operator) -> Self {
         FxLayer {
             operator: op.clone(),
-            input_sockets: HashMap::new(),
+            input_sockets: HashMap::from_iter(
+                op.inputs()
+                    .drain()
+                    .map(|(k, _)| (k, MaterialChannel::Displacement)),
+            ),
             output_sockets: HashMap::new(),
             blend_options: LayerBlendOptions::default(),
         }
@@ -537,7 +545,7 @@ impl super::NodeCollection for LayerStack {
                     match operator {
                         Operator::AtomicOperator(aop) => {
                             // Move inputs
-                            for (channel, socket) in input_sockets.iter() {
+                            for (socket, channel) in input_sockets.iter() {
                                 let input_resource = last_socket
                                     .get(channel)
                                     .expect("Missing layer underneath FX")
@@ -553,7 +561,7 @@ impl super::NodeCollection for LayerStack {
                         }
                         Operator::ComplexOperator(cop) => {
                             // Copy inputs to internal sockets
-                            for (channel, socket) in input_sockets.iter() {
+                            for (socket, channel) in input_sockets.iter() {
                                 let input =
                                     cop.inputs.get(socket).expect("Missing internal socket");
                                 let input_resource = last_socket
@@ -590,27 +598,27 @@ impl super::NodeCollection for LayerStack {
                         step += 1;
 
                         let blend_res = self.blend_resource(layer, *channel);
-                        let background = last_socket
-                            .get(channel)
-                            .expect("Missing layer underneath FX")
-                            .clone();
 
-                        last_use.insert(background.socket_node(), step);
+                        if let Some(background) = last_socket.get(channel).cloned() {
+                            last_use.insert(background.socket_node(), step);
 
-                        linearization.push(Instruction::Move(
-                            background,
-                            blend_res.node_socket("background"),
-                        ));
-                        linearization.push(Instruction::Move(
-                            resource.node_socket(socket),
-                            blend_res.node_socket("foreground"),
-                        ));
-                        linearization.push(Instruction::Execute(
-                            blend_res.clone(),
-                            AtomicOperator::Blend(blend_options.blend_operator()),
-                        ));
+                            linearization.push(Instruction::Move(
+                                background,
+                                blend_res.node_socket("background"),
+                            ));
+                            linearization.push(Instruction::Move(
+                                resource.node_socket(socket),
+                                blend_res.node_socket("foreground"),
+                            ));
+                            linearization.push(Instruction::Execute(
+                                blend_res.clone(),
+                                AtomicOperator::Blend(blend_options.blend_operator()),
+                            ));
 
-                        last_socket.insert(*channel, blend_res.node_socket("color"));
+                            last_socket.insert(*channel, blend_res.node_socket("color"));
+                        } else {
+                            last_socket.insert(*channel, resource.node_socket(socket));
+                        }
                     }
                 }
             }

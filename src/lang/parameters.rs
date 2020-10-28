@@ -288,6 +288,7 @@ impl MessageWriter for ResourceField {
 #[derive(Clone, Debug, PartialEq)]
 pub enum LayerField {
     ConnectOutput(super::MaterialChannel),
+    ConnectInput(String),
 }
 
 impl MessageWriter for LayerField {
@@ -305,6 +306,15 @@ impl MessageWriter for LayerField {
                     *channel,
                     selected,
                     enabled,
+                ))
+            }
+            LayerField::ConnectInput(input) => {
+                use strum::IntoEnumIterator;
+                super::Lang::UserLayersEvent(super::UserLayersEvent::SetInput(
+                    resource.node_socket(&input),
+                    super::MaterialChannel::iter()
+                        .nth(u32::from_data(data) as usize)
+                        .unwrap(),
                 ))
             }
         }
@@ -674,15 +684,19 @@ impl ParamBoxDescription<LayerField> {
             categories: vec![
                 ParamCategory {
                     name: "Input Channels",
-                    parameters: super::MaterialChannel::iter()
-                        .map(|chan| Parameter {
-                            name: chan.to_string(),
-                            control: Control::ChannelMap {
-                                enabled: false,
+                    parameters: operator
+                        .inputs()
+                        .keys()
+                        .sorted()
+                        .map(|input| Parameter {
+                            name: input.to_owned(),
+                            control: Control::Enum {
                                 selected: 0,
-                                sockets: operator.outputs().keys().sorted().cloned().collect(),
+                                variants: super::MaterialChannel::iter()
+                                    .map(|c| c.to_string())
+                                    .collect(),
                             },
-                            transmitter: LayerField::ConnectOutput(chan),
+                            transmitter: LayerField::ConnectInput(input.to_owned()),
                             expose_status: None,
                         })
                         .collect(),

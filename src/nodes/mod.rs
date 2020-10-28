@@ -603,6 +603,7 @@ impl NodeManager {
                         )));
                     }
                 }
+                UserLayersEvent::SetInput(socket_res, channel) => {}
                 UserLayersEvent::SetOpacity(layer_res, opacity) => {
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
