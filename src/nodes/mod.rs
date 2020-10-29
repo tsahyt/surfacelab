@@ -551,6 +551,7 @@ impl NodeManager {
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
                             *ty,
+                            op.title().to_owned(),
                             op.clone(),
                             self.operator_param_box(op),
                             self.parent_size,
@@ -607,11 +608,7 @@ impl NodeManager {
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(socket_res.directory().unwrap())
                     {
-                        log::debug!(
-                            "Set {} input to {}",
-                            socket_res,
-                            channel,
-                        );
+                        log::debug!("Set {} input to {}", socket_res, channel,);
 
                         ls.set_input(socket_res, *channel);
 
@@ -653,6 +650,13 @@ impl NodeManager {
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
                         )));
+                    }
+                }
+                UserLayersEvent::SetTitle(layer_res, title) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(layer_res.directory().unwrap())
+                    {
+                        ls.set_title(layer_res, title);
                     }
                 }
             },

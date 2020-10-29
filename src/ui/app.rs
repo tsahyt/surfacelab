@@ -245,8 +245,8 @@ where
                     .registered_operators
                     .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
             }
-            LayersEvent::LayerPushed(res, ty, op, pbox, _) => {
-                let layer = Layer::new(res.clone(), *ty, op, pbox.clone());
+            LayersEvent::LayerPushed(res, ty, title, op, pbox, _) => {
+                let layer = Layer::new(res.clone(), *ty, title, op, pbox.clone());
                 self.app_state.graphs.push_layer(layer);
             }
         }
@@ -727,6 +727,14 @@ where
                 match event {
                     layer_row::Event::ActiveElement => {
                         self.app_state.active_layer_element = Some(row.i);
+                    }
+                    layer_row::Event::Retitled(new) => {
+                        self.sender
+                            .send(Lang::UserLayersEvent(UserLayersEvent::SetTitle(
+                                active_collection.layers[row.i].resource.to_owned(),
+                                new,
+                            )))
+                            .unwrap();
                     }
                 }
             }

@@ -39,15 +39,18 @@ widget_ids! {
         thumbnail,
         layer_type,
         title,
+        title_edit,
     }
 }
 
 pub struct State {
     ids: Ids,
+    editing_title: bool,
 }
 
 pub enum Event {
     ActiveElement,
+    Retitled(String),
 }
 
 impl<'a> Widget for LayerRow<'a> {
@@ -58,6 +61,7 @@ impl<'a> Widget for LayerRow<'a> {
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         Self::State {
             ids: Ids::new(id_gen),
+            editing_title: false,
         }
     }
 
@@ -94,17 +98,49 @@ impl<'a> Widget for LayerRow<'a> {
                 .set(args.state.ids.thumbnail, args.ui);
         }
 
-        widget::Text::new(&self.layer.title)
-            .color(if self.active {
-                color::Color::Rgba(0.9, 0.4, 0.15, 1.0)
-            } else {
-                color::WHITE
+        if args.state.editing_title {
+            for ev in widget::TextBox::new(&self.layer.title)
+                .font_size(10)
+                .mid_left_with_margin(80.0)
+                .parent(args.id)
+                .h(16.0)
+                .w(args.rect.w() - 128.0)
+                .set(args.state.ids.title_edit, args.ui)
+            {
+                match ev {
+                    widget::text_box::Event::Update(new) => {
+                        event = Some(Event::Retitled(new.clone()));
+                        self.layer.title = new
+                    }
+                    widget::text_box::Event::Enter => {
+                        args.state.update(|state| state.editing_title = false)
+                    }
+                }
+            }
+        } else {
+            widget::Text::new(&self.layer.title)
+                .color(if self.active {
+                    color::Color::Rgba(0.9, 0.4, 0.15, 1.0)
+                } else {
+                    color::WHITE
+                })
+                .font_size(12)
+                .mid_left_with_margin(80.0)
+                .parent(args.id)
+                .set(args.state.ids.title, args.ui);
+        }
+
+        for _dblclick in args
+            .ui
+            .widget_input(args.state.ids.title)
+            .events()
+            .filter(|ev| match ev {
+                event::Widget::DoubleClick(_) => true,
+                _ => false,
             })
-            .font_size(12)
-            .mid_left_with_margin(80.0)
-            .parent(args.id)
-            .graphics_for(args.id)
-            .set(args.state.ids.title, args.ui);
+        {
+            args.state.update(|state| state.editing_title = true)
+        }
 
         widget::Text::new(self.layer.icon.0)
             .color(color::WHITE)

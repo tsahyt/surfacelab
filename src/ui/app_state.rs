@@ -133,12 +133,13 @@ impl Layer {
     pub fn new(
         resource: Resource<Node>,
         ty: LayerType,
+        title: &str,
         op: &Operator,
         pbox: ParamBoxDescription<Field>,
     ) -> Self {
         Self {
             resource,
-            title: op.title().to_owned(),
+            title: title.to_owned(),
             icon: match ty {
                 LayerType::Fill => super::util::IconName::SOLID,
                 LayerType::Fx => super::util::IconName::FX,

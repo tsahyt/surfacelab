@@ -511,7 +511,7 @@ where
         let mut response = Vec::new();
         match &*event {
             Lang::LayersEvent(event) => match event {
-                LayersEvent::LayerPushed(res, _, _, _, size) => {
+                LayersEvent::LayerPushed(res, _, _, _, _, size) => {
                     // Ensure socket data exists
                     self.sockets.ensure_node_exists(res, *size);
 

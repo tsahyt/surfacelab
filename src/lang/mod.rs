@@ -318,6 +318,7 @@ pub enum UserLayersEvent {
     SetInput(Resource<Socket>, MaterialChannel),
     SetOpacity(Resource<Node>, f32),
     SetBlendMode(Resource<Node>, BlendMode),
+    SetTitle(Resource<Node>, String),
 }
 
 #[derive(Debug)]
@@ -326,6 +327,7 @@ pub enum LayersEvent {
     LayerPushed(
         Resource<Node>,
         LayerType,
+        String,
         Operator,
         ParamBoxDescription<Field>,
         u32,

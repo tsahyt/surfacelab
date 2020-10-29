@@ -8,6 +8,7 @@ use strum::IntoEnumIterator;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FillLayer {
+    title: String,
     fill: Fill,
     blend_options: LayerBlendOptions,
 }
@@ -15,6 +16,7 @@ pub struct FillLayer {
 impl FillLayer {
     pub fn from_operator(op: &Operator) -> Self {
         FillLayer {
+            title: op.title().to_owned(),
             fill: Fill {
                 operator: op.clone(),
                 output_sockets: HashMap::new(),
@@ -45,6 +47,7 @@ pub struct Fill {
 /// An FX layer is a layer that uses the material underneath it as input.
 /// Therefore FX layers *cannot* be placed at the bottom of a layer stack.
 pub struct FxLayer {
+    title: String,
     operator: Operator,
     input_sockets: InputMap,
     output_sockets: ChannelMap,
@@ -54,6 +57,7 @@ pub struct FxLayer {
 impl FxLayer {
     pub fn from_operator(op: &Operator) -> Self {
         FxLayer {
+            title: op.title().to_owned(),
             operator: op.clone(),
             input_sockets: HashMap::from_iter(
                 op.inputs()
@@ -144,6 +148,17 @@ impl Layer {
             }
             Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
                 blend_options.blend_mode = blend_mode;
+            }
+        }
+    }
+
+    pub fn set_title(&mut self, title: &str) {
+        match self {
+            Layer::FillLayer(_, l) => {
+                l.title = title.to_owned();
+            }
+            Layer::FxLayer(_, l) => {
+                l.title = title.to_owned();
             }
         }
     }
@@ -321,6 +336,12 @@ impl LayerStack {
         }
     }
 
+    pub fn set_title(&mut self, layer: &Resource<Node>, title: &str) {
+        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            self.layers[*idx].set_title(title);
+        }
+    }
+
     pub fn set_output(
         &mut self,
         layer: &Resource<Node>,
@@ -474,6 +495,7 @@ impl super::NodeCollection for LayerStack {
                                 operator,
                                 output_sockets,
                             },
+                        ..
                     },
                 ) => {
                     // Skip execution if no channels are blended or the layer is disabled.
@@ -540,6 +562,7 @@ impl super::NodeCollection for LayerStack {
                         input_sockets,
                         output_sockets,
                         blend_options,
+                        ..
                     },
                 ) => {
                     // Skip if disabled
