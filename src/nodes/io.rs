@@ -1,4 +1,4 @@
-use crate::lang::{ExportSpec, GraphEvent, Lang, Resource, UserGraphEvent};
+use crate::lang::{ExportSpec, GraphEvent, Lang, LayersEvent, Resource, UserGraphEvent};
 use crate::nodes::{LinearizationMode, NodeCollection, NodeGraph, NodeManager};
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -46,7 +46,12 @@ impl NodeManager {
         let mut events = Vec::new();
         for (name, graph) in self.graphs.iter() {
             let res = Resource::graph(&name, None);
-            events.push(Lang::GraphEvent(GraphEvent::GraphAdded(res.clone())));
+            events.push(match graph {
+                NodeGraph::NodeGraph(_) => Lang::GraphEvent(GraphEvent::GraphAdded(res.clone())),
+                NodeGraph::LayerStack(_) => {
+                    Lang::LayersEvent(LayersEvent::LayersAdded(res.clone(), self.parent_size))
+                }
+            });
             events.append(&mut graph.rebuild_events(self.parent_size));
             if let Some((instrs, last_use)) = graph.linearize(LinearizationMode::TopoSort) {
                 events.push(Lang::GraphEvent(GraphEvent::Relinearized(
@@ -57,8 +62,14 @@ impl NodeManager {
 
         // Rebuild parameter boxes for node added events
         for ev in events.iter_mut() {
-            if let Lang::GraphEvent(GraphEvent::NodeAdded(_, op, pbox, _, _)) = ev {
-                *pbox = self.operator_param_box(&op);
+            match ev {
+                Lang::GraphEvent(GraphEvent::NodeAdded(_, op, pbox, _, _)) => {
+                    *pbox = self.operator_param_box(&op)
+                }
+                Lang::LayersEvent(LayersEvent::LayerPushed(_, _, _, op, pbox, _)) => {
+                    *pbox = self.operator_param_box(&op)
+                }
+                _ => {}
             }
         }
 

@@ -130,6 +130,13 @@ impl Layer {
         }
     }
 
+    pub fn layer_type(&self) -> LayerType {
+        match self {
+            Layer::FillLayer(_, _) => LayerType::Fill,
+            Layer::FxLayer(_, _) => LayerType::Fx,
+        }
+    }
+
     pub fn set_opacity(&mut self, opacity: f32) {
         match self {
             Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
@@ -160,6 +167,13 @@ impl Layer {
             Layer::FxLayer(_, l) => {
                 l.title = title.to_owned();
             }
+        }
+    }
+
+    pub fn operator(&self) -> &Operator {
+        match self {
+            Layer::FillLayer(_, l) => &l.fill.operator,
+            Layer::FxLayer(_, l) => &l.operator,
         }
     }
 }
@@ -767,6 +781,35 @@ impl super::NodeCollection for LayerStack {
     }
 
     fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {
-        todo!()
+        self.layers
+            .iter()
+            .rev()
+            .map(|layer| {
+                let mut evs = Vec::new();
+
+                let res = self.layer_resource(layer);
+
+                let mut sockets = self.layer_sockets(&res);
+                let mut blend_sockets = self.blend_sockets(&res);
+
+                evs.push(Lang::LayersEvent(LayersEvent::LayerPushed(
+                    res,
+                    layer.layer_type(),
+                    layer.operator().title().to_owned(),
+                    layer.operator().clone(),
+                    ParamBoxDescription::empty(),
+                    parent_size,
+                )));
+                evs.extend(sockets.drain(0..).map(|(s, t, e)| {
+                    Lang::GraphEvent(GraphEvent::OutputSocketAdded(s, t, e, parent_size))
+                }));
+                evs.extend(blend_sockets.drain(0..).map(|(s, t)| {
+                    Lang::GraphEvent(GraphEvent::OutputSocketAdded(s, t, false, parent_size))
+                }));
+
+                evs
+            })
+            .flatten()
+            .collect()
     }
 }
