@@ -242,7 +242,7 @@ impl NodeManager {
                         response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
                             resource.clone(),
                             op.clone(),
-                            self.operator_param_box(&op),
+                            self.element_param_box(&op, &resource),
                             Some(*pos),
                             size as u32,
                         )));
@@ -781,16 +781,19 @@ impl NodeManager {
 
             for (node, params) in updated {
                 let mut pbox = pbox_prototype.clone();
+
                 for param in pbox.parameters_mut() {
                     if let Some(subs) = params.get(&param.transmitter.0) {
                         param.control.set_value(subs.get_value());
                     }
                 }
 
+                let elbox = graph.element_param_box(&node);
+
                 response.push(Lang::GraphEvent(GraphEvent::ComplexOperatorUpdated(
                     node.clone(),
                     op_stub.clone(),
-                    pbox,
+                    elbox.merge(pbox.map_transmitters(|t| t.clone().into())),
                 )))
             }
         }

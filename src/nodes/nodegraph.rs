@@ -833,7 +833,20 @@ impl NodeCollection for NodeGraph {
         events
     }
 
-    fn element_param_box(&self, _element: &Resource<r::Node>) -> ParamBoxDescription<MessageWriters> {
-        ParamBoxDescription::empty()
+    fn element_param_box(
+        &self,
+        element: &Resource<r::Node>,
+    ) -> ParamBoxDescription<MessageWriters> {
+        if let Some(idx) = self
+            .indices
+            .get_by_left(&element.file().unwrap().to_string())
+            .copied()
+        {
+            let node = self.graph.node_weight(idx).expect("Corrupted node graph");
+            ParamBoxDescription::node_parameters(element, !node.operator.external_data())
+                .map_transmitters(|t| t.clone().into())
+        } else {
+            ParamBoxDescription::empty()
+        }
     }
 }

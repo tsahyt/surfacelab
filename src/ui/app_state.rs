@@ -16,7 +16,7 @@ trait Collection {
         &mut self,
         node: &Resource<r::Node>,
         op: &ComplexOperator,
-        pbox: &ParamBoxDescription<Field>,
+        pbox: &ParamBoxDescription<MessageWriters>,
     );
 }
 
@@ -45,7 +45,7 @@ impl NodeData {
         resource: Resource<Node>,
         position: Option<Point>,
         operator: &Operator,
-        param_box: ParamBoxDescription<Field>,
+        param_box: ParamBoxDescription<MessageWriters>,
     ) -> Self {
         let mut inputs: Vec<_> = operator
             .inputs()
@@ -60,22 +60,19 @@ impl NodeData {
             .collect();
         outputs.sort();
         let title = operator.title().to_owned();
-        let pbox = node_attributes(&resource, !operator.external_data())
-            .map_transmitters(|t| t.clone().into())
-            .merge(param_box.map_transmitters(|t| t.clone().into()));
         Self {
             resource,
             title,
             inputs,
             outputs,
-            param_box: pbox,
+            param_box,
             thumbnail: None,
             position: position.unwrap_or([0., 0.]),
             type_variables: HashMap::new(),
         }
     }
 
-    pub fn update(&mut self, operator: Operator, param_box: ParamBoxDescription<Field>) {
+    pub fn update(&mut self, operator: Operator, param_box: ParamBoxDescription<MessageWriters>) {
         let mut inputs: Vec<_> = operator
             .inputs()
             .iter()
@@ -92,9 +89,7 @@ impl NodeData {
         self.outputs = outputs;
         self.title = operator.title().to_owned();
 
-        self.param_box = node_attributes(&self.resource, !operator.external_data())
-            .map_transmitters(|t| t.clone().into())
-            .merge(param_box.map_transmitters(|t| t.clone().into()));
+        self.param_box = param_box;
     }
 
     pub fn set_type_variable(&mut self, var: TypeVariable, ty: Option<ImageType>) {
@@ -106,48 +101,6 @@ impl NodeData {
 }
 
 pub type NodeGraph = petgraph::Graph<NodeData, (String, String)>;
-
-fn node_attributes(res: &Resource<Node>, scalable: bool) -> ParamBoxDescription<ResourceField> {
-    let mut parameters = vec![Parameter {
-        name: "Node Resource".to_string(),
-        transmitter: ResourceField::Name,
-        control: Control::Entry {
-            value: res
-                .path()
-                .file_name()
-                .and_then(|x| x.to_str())
-                .map(|x| x.to_string())
-                .unwrap(),
-        },
-        expose_status: None,
-    }];
-    if scalable {
-        parameters.push(Parameter {
-            name: "Size".to_string(),
-            transmitter: ResourceField::Size,
-            control: Control::DiscreteSlider {
-                value: 0,
-                min: -16,
-                max: 16,
-            },
-            expose_status: None,
-        });
-        parameters.push(Parameter {
-            name: "Absolute Size".to_string(),
-            transmitter: ResourceField::AbsoluteSize,
-            control: Control::Toggle { def: false },
-            expose_status: None,
-        });
-    }
-    ParamBoxDescription {
-        box_title: "Node Attributes".to_string(),
-        categories: vec![ParamCategory {
-            name: "Node",
-            parameters,
-        }],
-    }
-}
-
 
 impl Graph {
     pub fn new(name: &str) -> Self {
@@ -222,7 +175,7 @@ impl Collection for Graph {
         &mut self,
         node: &Resource<r::Node>,
         op: &ComplexOperator,
-        pbox: &ParamBoxDescription<Field>,
+        pbox: &ParamBoxDescription<MessageWriters>,
     ) {
         if let Some(idx) = self.resources.get(node) {
             let node_weight = self.graph.node_weight_mut(*idx).unwrap();
@@ -337,7 +290,7 @@ impl Collection for Layers {
         &mut self,
         node: &Resource<r::Node>,
         op: &ComplexOperator,
-        pbox: &ParamBoxDescription<Field>,
+        pbox: &ParamBoxDescription<MessageWriters>,
     ) {
         todo!()
     }
@@ -653,7 +606,7 @@ impl NodeCollections {
         &mut self,
         node: &Resource<r::Node>,
         op: &ComplexOperator,
-        pbox: &ParamBoxDescription<Field>,
+        pbox: &ParamBoxDescription<MessageWriters>,
     ) {
         if let Some(target) = self.target_collection_from_node(node) {
             target.update_complex_operator(node, op, pbox);

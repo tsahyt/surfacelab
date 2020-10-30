@@ -279,7 +279,7 @@ pub enum GraphEvent {
     NodeAdded(
         Resource<Node>,
         Operator,
-        ParamBoxDescription<Field>,
+        ParamBoxDescription<MessageWriters>,
         Option<(f64, f64)>,
         u32,
     ),
@@ -287,7 +287,11 @@ pub enum GraphEvent {
     NodeRemoved(Resource<Node>),
     NodeRenamed(Resource<Node>, Resource<Node>),
     NodeResized(Resource<Node>, u32),
-    ComplexOperatorUpdated(Resource<Node>, ComplexOperator, ParamBoxDescription<Field>),
+    ComplexOperatorUpdated(
+        Resource<Node>,
+        ComplexOperator,
+        ParamBoxDescription<MessageWriters>,
+    ),
     ConnectedSockets(Resource<Socket>, Resource<Socket>),
     DisconnectedSockets(Resource<Socket>, Resource<Socket>),
     Relinearized(

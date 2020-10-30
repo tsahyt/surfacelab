@@ -561,6 +561,49 @@ where
     }
 }
 
+impl ParamBoxDescription<ResourceField> {
+    pub fn node_parameters(res: &Resource<Node>, scalable: bool) -> Self {
+        let mut parameters = vec![Parameter {
+            name: "Node Resource".to_string(),
+            transmitter: ResourceField::Name,
+            control: Control::Entry {
+                value: res
+                    .path()
+                    .file_name()
+                    .and_then(|x| x.to_str())
+                    .map(|x| x.to_string())
+                    .unwrap(),
+            },
+            expose_status: None,
+        }];
+        if scalable {
+            parameters.push(Parameter {
+                name: "Size".to_string(),
+                transmitter: ResourceField::Size,
+                control: Control::DiscreteSlider {
+                    value: 0,
+                    min: -16,
+                    max: 16,
+                },
+                expose_status: None,
+            });
+            parameters.push(Parameter {
+                name: "Absolute Size".to_string(),
+                transmitter: ResourceField::AbsoluteSize,
+                control: Control::Toggle { def: false },
+                expose_status: None,
+            });
+        }
+        ParamBoxDescription {
+            box_title: "Node Attributes".to_string(),
+            categories: vec![ParamCategory {
+                name: "Node",
+                parameters,
+            }],
+        }
+    }
+}
+
 impl ParamBoxDescription<RenderField> {
     pub fn render_parameters() -> Self {
         Self {
