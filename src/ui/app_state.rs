@@ -22,11 +22,132 @@ trait Collection {
 
 #[derive(Debug, Clone)]
 pub struct Graph {
-    pub graph: super::graph::NodeGraph,
+    pub graph: NodeGraph,
     resources: HashMap<Resource<r::Node>, petgraph::graph::NodeIndex>,
     exposed_parameters: Vec<(String, GraphParameter)>,
     param_box: ParamBoxDescription<GraphField>,
 }
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NodeData {
+    pub resource: Resource<Node>,
+    pub thumbnail: Option<image::Id>,
+    pub position: Point,
+    pub title: String,
+    pub inputs: Vec<(String, OperatorType)>,
+    pub outputs: Vec<(String, OperatorType)>,
+    pub type_variables: HashMap<TypeVariable, ImageType>,
+    pub param_box: ParamBoxDescription<MessageWriters>,
+}
+
+impl NodeData {
+    pub fn new(
+        resource: Resource<Node>,
+        position: Option<Point>,
+        operator: &Operator,
+        param_box: ParamBoxDescription<Field>,
+    ) -> Self {
+        let mut inputs: Vec<_> = operator
+            .inputs()
+            .iter()
+            .map(|(a, b)| (a.clone(), *b))
+            .collect();
+        inputs.sort();
+        let mut outputs: Vec<_> = operator
+            .outputs()
+            .iter()
+            .map(|(a, b)| (a.clone(), *b))
+            .collect();
+        outputs.sort();
+        let title = operator.title().to_owned();
+        let pbox = node_attributes(&resource, !operator.external_data())
+            .map_transmitters(|t| t.clone().into())
+            .merge(param_box.map_transmitters(|t| t.clone().into()));
+        Self {
+            resource,
+            title,
+            inputs,
+            outputs,
+            param_box: pbox,
+            thumbnail: None,
+            position: position.unwrap_or([0., 0.]),
+            type_variables: HashMap::new(),
+        }
+    }
+
+    pub fn update(&mut self, operator: Operator, param_box: ParamBoxDescription<Field>) {
+        let mut inputs: Vec<_> = operator
+            .inputs()
+            .iter()
+            .map(|(a, b)| (a.clone(), *b))
+            .collect();
+        inputs.sort();
+        self.inputs = inputs;
+        let mut outputs: Vec<_> = operator
+            .outputs()
+            .iter()
+            .map(|(a, b)| (a.clone(), *b))
+            .collect();
+        outputs.sort();
+        self.outputs = outputs;
+        self.title = operator.title().to_owned();
+
+        self.param_box = node_attributes(&self.resource, !operator.external_data())
+            .map_transmitters(|t| t.clone().into())
+            .merge(param_box.map_transmitters(|t| t.clone().into()));
+    }
+
+    pub fn set_type_variable(&mut self, var: TypeVariable, ty: Option<ImageType>) {
+        match ty {
+            Some(ty) => self.type_variables.insert(var, ty),
+            None => self.type_variables.remove(&var),
+        };
+    }
+}
+
+pub type NodeGraph = petgraph::Graph<NodeData, (String, String)>;
+
+fn node_attributes(res: &Resource<Node>, scalable: bool) -> ParamBoxDescription<ResourceField> {
+    let mut parameters = vec![Parameter {
+        name: "Node Resource".to_string(),
+        transmitter: ResourceField::Name,
+        control: Control::Entry {
+            value: res
+                .path()
+                .file_name()
+                .and_then(|x| x.to_str())
+                .map(|x| x.to_string())
+                .unwrap(),
+        },
+        expose_status: None,
+    }];
+    if scalable {
+        parameters.push(Parameter {
+            name: "Size".to_string(),
+            transmitter: ResourceField::Size,
+            control: Control::DiscreteSlider {
+                value: 0,
+                min: -16,
+                max: 16,
+            },
+            expose_status: None,
+        });
+        parameters.push(Parameter {
+            name: "Absolute Size".to_string(),
+            transmitter: ResourceField::AbsoluteSize,
+            control: Control::Toggle { def: false },
+            expose_status: None,
+        });
+    }
+    ParamBoxDescription {
+        box_title: "Node Attributes".to_string(),
+        categories: vec![ParamCategory {
+            name: "Node",
+            parameters,
+        }],
+    }
+}
+
 
 impl Graph {
     pub fn new(name: &str) -> Self {
@@ -395,7 +516,7 @@ impl NodeCollections {
 
     /// Add a node to a graph, based on the resource data given. This is a NOP
     /// if the parent graph is a layer.
-    pub fn add_node(&mut self, node: super::graph::NodeData) {
+    pub fn add_node(&mut self, node: NodeData) {
         let node_res = node.resource.clone();
 
         if let Some(target) = self.target_graph_from_node(&node_res) {

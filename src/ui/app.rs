@@ -190,7 +190,7 @@ where
                     .push(Operator::ComplexOperator(ComplexOperator::new(to.clone())));
             }
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
-                self.app_state.graphs.add_node(super::graph::NodeData::new(
+                self.app_state.graphs.add_node(NodeData::new(
                     res.clone(),
                     position.map(|(x, y)| [x, y]),
                     &op,

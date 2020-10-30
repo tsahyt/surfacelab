@@ -205,7 +205,7 @@ impl NodeManager {
         let opbox = self.operator_param_box(operator);
         let elbox = self
             .graphs
-            .get(dbg!(element.directory().unwrap()))
+            .get(element.directory().unwrap())
             .expect("Unknown node collection")
             .element_param_box(element);
         elbox.merge(opbox.map_transmitters(|t| t.clone().into()))

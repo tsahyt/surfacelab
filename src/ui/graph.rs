@@ -1,5 +1,4 @@
 use super::node;
-use crate::lang::*;
 
 use conrod_core::*;
 use smallvec::SmallVec;
@@ -8,128 +7,6 @@ use std::iter::FromIterator;
 
 const STANDARD_NODE_SIZE: f64 = 128.0;
 const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct NodeData {
-    pub resource: Resource<Node>,
-    pub thumbnail: Option<image::Id>,
-    pub position: Point,
-    pub title: String,
-    pub inputs: Vec<(String, OperatorType)>,
-    pub outputs: Vec<(String, OperatorType)>,
-    pub type_variables: HashMap<TypeVariable, ImageType>,
-    pub param_box: ParamBoxDescription<MessageWriters>,
-}
-
-impl NodeData {
-    pub fn new(
-        resource: Resource<Node>,
-        position: Option<Point>,
-        operator: &Operator,
-        param_box: ParamBoxDescription<Field>,
-    ) -> Self {
-        let mut inputs: Vec<_> = operator
-            .inputs()
-            .iter()
-            .map(|(a, b)| (a.clone(), *b))
-            .collect();
-        inputs.sort();
-        let mut outputs: Vec<_> = operator
-            .outputs()
-            .iter()
-            .map(|(a, b)| (a.clone(), *b))
-            .collect();
-        outputs.sort();
-        let title = operator.title().to_owned();
-        let pbox = node_attributes(&resource, !operator.external_data())
-            .map_transmitters(|t| t.clone().into())
-            .merge(param_box.map_transmitters(|t| t.clone().into()));
-        Self {
-            resource,
-            title,
-            inputs,
-            outputs,
-            param_box: pbox,
-            thumbnail: None,
-            position: position.unwrap_or([0., 0.]),
-            type_variables: HashMap::new(),
-        }
-    }
-
-    pub fn update(&mut self, operator: Operator, param_box: ParamBoxDescription<Field>) {
-        let mut inputs: Vec<_> = operator
-            .inputs()
-            .iter()
-            .map(|(a, b)| (a.clone(), *b))
-            .collect();
-        inputs.sort();
-        self.inputs = inputs;
-        let mut outputs: Vec<_> = operator
-            .outputs()
-            .iter()
-            .map(|(a, b)| (a.clone(), *b))
-            .collect();
-        outputs.sort();
-        self.outputs = outputs;
-        self.title = operator.title().to_owned();
-
-        self.param_box = node_attributes(&self.resource, !operator.external_data())
-            .map_transmitters(|t| t.clone().into())
-            .merge(param_box.map_transmitters(|t| t.clone().into()));
-    }
-}
-
-fn node_attributes(res: &Resource<Node>, scalable: bool) -> ParamBoxDescription<ResourceField> {
-    let mut parameters = vec![Parameter {
-        name: "Node Resource".to_string(),
-        transmitter: ResourceField::Name,
-        control: Control::Entry {
-            value: res
-                .path()
-                .file_name()
-                .and_then(|x| x.to_str())
-                .map(|x| x.to_string())
-                .unwrap(),
-        },
-        expose_status: None,
-    }];
-    if scalable {
-        parameters.push(Parameter {
-            name: "Size".to_string(),
-            transmitter: ResourceField::Size,
-            control: Control::DiscreteSlider {
-                value: 0,
-                min: -16,
-                max: 16,
-            },
-            expose_status: None,
-        });
-        parameters.push(Parameter {
-            name: "Absolute Size".to_string(),
-            transmitter: ResourceField::AbsoluteSize,
-            control: Control::Toggle { def: false },
-            expose_status: None,
-        });
-    }
-    ParamBoxDescription {
-        box_title: "Node Attributes".to_string(),
-        categories: vec![ParamCategory {
-            name: "Node",
-            parameters,
-        }],
-    }
-}
-
-impl NodeData {
-    pub fn set_type_variable(&mut self, var: TypeVariable, ty: Option<ImageType>) {
-        match ty {
-            Some(ty) => self.type_variables.insert(var, ty),
-            None => self.type_variables.remove(&var),
-        };
-    }
-}
-
-pub type NodeGraph = petgraph::Graph<NodeData, (String, String)>;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Camera {
@@ -261,7 +138,7 @@ pub struct ConnectionDraw {
 pub struct Graph<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    graph: &'a NodeGraph,
+    graph: &'a super::app_state::NodeGraph,
     style: Style,
 }
 
@@ -302,7 +179,7 @@ pub enum Event {
 }
 
 impl<'a> Graph<'a> {
-    pub fn new(graph: &'a NodeGraph) -> Self {
+    pub fn new(graph: &'a super::app_state::NodeGraph) -> Self {
         Graph {
             common: widget::CommonBuilder::default(),
             graph,
