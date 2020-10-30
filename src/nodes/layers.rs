@@ -159,6 +159,17 @@ impl Layer {
         }
     }
 
+    pub fn title(&self) -> &str {
+        match self {
+            Layer::FillLayer(_, l) => {
+                &l.title
+            }
+            Layer::FxLayer(_, l) => {
+                &l.title
+            }
+        }
+    }
+
     pub fn set_title(&mut self, title: &str) {
         match self {
             Layer::FillLayer(_, l) => {
@@ -783,7 +794,6 @@ impl super::NodeCollection for LayerStack {
     fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {
         self.layers
             .iter()
-            .rev()
             .map(|layer| {
                 let mut evs = Vec::new();
 
@@ -795,7 +805,7 @@ impl super::NodeCollection for LayerStack {
                 evs.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                     res,
                     layer.layer_type(),
-                    layer.operator().title().to_owned(),
+                    layer.title().to_owned(),
                     layer.operator().clone(),
                     ParamBoxDescription::empty(),
                     parent_size,
