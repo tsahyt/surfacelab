@@ -329,7 +329,7 @@ pub enum LayersEvent {
         LayerType,
         String,
         Operator,
-        ParamBoxDescription<Field>,
+        ParamBoxDescription<MessageWriters>,
         u32,
     ),
 }

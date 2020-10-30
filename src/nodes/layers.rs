@@ -161,12 +161,8 @@ impl Layer {
 
     pub fn title(&self) -> &str {
         match self {
-            Layer::FillLayer(_, l) => {
-                &l.title
-            }
-            Layer::FxLayer(_, l) => {
-                &l.title
-            }
+            Layer::FillLayer(_, l) => &l.title,
+            Layer::FxLayer(_, l) => &l.title,
         }
     }
 
@@ -821,5 +817,21 @@ impl super::NodeCollection for LayerStack {
             })
             .flatten()
             .collect()
+    }
+
+    fn element_param_box(&self, element: &Resource<Node>) -> ParamBoxDescription<MessageWriters> {
+        if let Some(idx) = self.resources.get(element.file().unwrap()) {
+            match &self.layers[*idx] {
+                Layer::FillLayer(_, l) => ParamBoxDescription::fill_layer_parameters(
+                    &l.fill.operator,
+                    &l.fill.output_sockets,
+                )
+                .map_transmitters(|t| t.clone().into()),
+                Layer::FxLayer(_, l) => ParamBoxDescription::fx_layer_parameters(&l.operator)
+                    .map_transmitters(|t| t.clone().into()),
+            }
+        } else {
+            ParamBoxDescription::empty()
+        }
     }
 }

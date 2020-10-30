@@ -1,6 +1,7 @@
 use super::resource::*;
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[enum_dispatch]
@@ -651,7 +652,10 @@ impl ParamBoxDescription<GraphField> {
 }
 
 impl ParamBoxDescription<LayerField> {
-    pub fn fill_layer_parameters<T: super::Socketed>(operator: &T) -> Self {
+    pub fn fill_layer_parameters<T: super::Socketed>(
+        operator: &T,
+        output_sockets: &HashMap<super::MaterialChannel, String>,
+    ) -> Self {
         use itertools::Itertools;
         use strum::IntoEnumIterator;
 
@@ -663,8 +667,13 @@ impl ParamBoxDescription<LayerField> {
                     .map(|chan| Parameter {
                         name: chan.to_string(),
                         control: Control::ChannelMap {
-                            enabled: false,
-                            selected: 0,
+                            enabled: output_sockets.contains_key(&chan),
+                            selected: operator
+                                .outputs()
+                                .keys()
+                                .sorted()
+                                .position(|x| Some(x) == output_sockets.get(&chan))
+                                .unwrap_or(0),
                             sockets: operator.outputs().keys().sorted().cloned().collect(),
                         },
                         transmitter: LayerField::ConnectOutput(chan),

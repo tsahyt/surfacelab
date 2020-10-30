@@ -146,6 +146,8 @@ trait NodeCollection {
     /// will be left empty, since not all information is available to build them
     /// in the case of complex operators.
     fn rebuild_events(&self, parent_size: u32) -> Vec<Lang>;
+
+    fn element_param_box(&self, element: &Resource<Node>) -> ParamBoxDescription<MessageWriters>;
 }
 
 #[enum_dispatch(ExposedParameters, NodeCollection)]
@@ -193,6 +195,20 @@ impl NodeManager {
                 }
             }
         }
+    }
+
+    pub fn element_param_box(
+        &self,
+        operator: &lang::Operator,
+        element: &Resource<Node>,
+    ) -> lang::ParamBoxDescription<lang::MessageWriters> {
+        let opbox = self.operator_param_box(operator);
+        let elbox = self
+            .graphs
+            .get(dbg!(element.directory().unwrap()))
+            .expect("Unknown node collection")
+            .element_param_box(element);
+        elbox.merge(opbox.map_transmitters(|t| t.clone().into()))
     }
 
     pub fn process_event(&mut self, event: Arc<lang::Lang>) -> Option<Vec<lang::Lang>> {
@@ -545,15 +561,18 @@ impl NodeManager {
                             }
                         };
                         log::debug!("Added {:?} layer {}", ty, res);
+
                         let lin = ls.linearize(LinearizationMode::FullTraversal);
                         let mut sockets = ls.layer_sockets(&res);
                         let mut blend_sockets = ls.blend_sockets(&res);
+                        let pbox = self.element_param_box(op, &res);
+
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
                             *ty,
                             op.title().to_owned(),
                             op.clone(),
-                            self.operator_param_box(op),
+                            pbox,
                             self.parent_size,
                         )));
                         response.extend(sockets.drain(0..).map(|(s, t, e)| {

@@ -66,8 +66,8 @@ impl NodeManager {
                 Lang::GraphEvent(GraphEvent::NodeAdded(_, op, pbox, _, _)) => {
                     *pbox = self.operator_param_box(&op)
                 }
-                Lang::LayersEvent(LayersEvent::LayerPushed(_, _, _, op, pbox, _)) => {
-                    *pbox = self.operator_param_box(&op)
+                Lang::LayersEvent(LayersEvent::LayerPushed(res, _, _, op, pbox, _)) => {
+                    *pbox = self.element_param_box(&op, res)
                 }
                 _ => {}
             }

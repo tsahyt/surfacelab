@@ -832,4 +832,8 @@ impl NodeCollection for NodeGraph {
 
         events
     }
+
+    fn element_param_box(&self, _element: &Resource<r::Node>) -> ParamBoxDescription<MessageWriters> {
+        ParamBoxDescription::empty()
+    }
 }
