@@ -180,15 +180,22 @@ impl NodeGraph {
         (node_id, size)
     }
 
-    /// Remove a node with the given Resource if it exists.
+    /// Remove a node with the given Resource if it exists. Returns the type of
+    /// output if the node was an output, a list of connections that have been
+    /// removed, as well as a boolean determining whether the complex operators
+    /// associated with this graph require updatingtype of output if the node
+    /// was an output, a list of connections that have been removed, as well as
+    /// a boolean determining whether the complex operators associated with this
+    /// graph require updating
     ///
     /// **Errors** if the node does not exist.
     pub fn remove_node(
         &mut self,
         resource: &str,
-    ) -> Result<(Option<OutputType>, Connections), String> {
+    ) -> Result<(Option<OutputType>, Connections, bool), String> {
         use petgraph::visit::EdgeRef;
 
+        let mut co_change = false;
         let node = *self
             .indices
             .get_by_left(&resource.to_string())
@@ -205,11 +212,16 @@ impl NodeGraph {
         // Remove from output vector
         let operator = &self.graph.node_weight(node).unwrap().operator;
         let mut output_type = None;
-        if let Operator::AtomicOperator(AtomicOperator::Output(Output { output_type: ty })) =
-            operator
-        {
-            self.outputs.remove(&node);
-            output_type = Some(*ty)
+        match operator {
+            Operator::AtomicOperator(AtomicOperator::Output(Output { output_type: ty })) => {
+                self.outputs.remove(&node);
+                co_change = true;
+                output_type = Some(*ty)
+            }
+            Operator::AtomicOperator(AtomicOperator::Input(..)) => {
+                co_change = true;
+            }
+            _ => {}
         }
 
         // Get all connections
@@ -245,7 +257,7 @@ impl NodeGraph {
         // Reindex last node
         self.indices.insert(last, node);
 
-        Ok((output_type, es))
+        Ok((output_type, es, co_change))
     }
 
     /// Connect two sockets in the node graph. If there is already a connection

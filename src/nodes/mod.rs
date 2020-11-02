@@ -280,9 +280,11 @@ impl NodeManager {
                     let node = res.file().unwrap();
                     let graph = res.directory().unwrap();
 
+                    let mut update_co = None;
+
                     if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
                         match graph.remove_node(node) {
-                            Ok((ty, removed_conns)) => {
+                            Ok((ty, removed_conns, co_change)) => {
                                 response = removed_conns
                                     .iter()
                                     .map(|c| {
@@ -300,9 +302,18 @@ impl NodeManager {
                                         ty,
                                     )))
                                 }
+
+                                if co_change {
+                                    let co_stub = graph.complex_operator_stub();
+                                    update_co = Some((graph.graph_resource(), co_stub));
+                                }
                             }
                             Err(e) => log::error!("{}", e),
                         }
+                    }
+
+                    if let Some((res, stub)) = update_co {
+                        response.append(&mut self.update_complex_operators(&res, &stub));
                     }
                 }
                 UserNodeEvent::ConnectSockets(from, to) => {
