@@ -217,8 +217,8 @@ impl NodeManager {
 
         match &*event {
             Lang::UserNodeEvent(event) => match event {
-                UserNodeEvent::NewNode(graph, op, pos) => {
-                    let graph_name = graph.path().to_str().unwrap();
+                UserNodeEvent::NewNode(graph_res, op, pos) => {
+                    let graph_name = graph_res.path().to_str().unwrap();
                     let op = match op {
                         lang::Operator::ComplexOperator(co) => {
                             let co = self
@@ -231,7 +231,10 @@ impl NodeManager {
                         lang::Operator::AtomicOperator(_) => op.clone(),
                     };
 
+                    let mut update_co = None;
+
                     if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph_name) {
+                        // Add node to graph
                         let (node_id, size) = graph.new_node(&op, self.parent_size);
                         let resource = Resource::node(
                             [graph_name, &node_id]
@@ -239,6 +242,18 @@ impl NodeManager {
                                 .collect::<std::path::PathBuf>(),
                             None,
                         );
+
+                        // If the node is an input or output, construct update
+                        // events for complex operators
+                        match op {
+                            Operator::AtomicOperator(AtomicOperator::Output(..))
+                            | Operator::AtomicOperator(AtomicOperator::Input(..)) => {
+                                update_co = Some(graph.complex_operator_stub());
+                            }
+                            _ => {}
+                        }
+
+                        // Construct ordinary responses
                         response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
                             resource.clone(),
                             op.clone(),
@@ -254,6 +269,11 @@ impl NodeManager {
                                 size as u32,
                             )));
                         }
+                    }
+
+                    // Process update event if required. This is separate for borrowing reasons
+                    if let Some(co_stub) = update_co {
+                        response.append(&mut self.update_complex_operators(graph_res, &co_stub));
                     }
                 }
                 UserNodeEvent::RemoveNode(res) => {
