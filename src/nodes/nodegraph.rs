@@ -731,18 +731,38 @@ impl NodeCollection for NodeGraph {
     /// Returns a vector of all node resources that have been updated.
     fn update_complex_operators(
         &mut self,
+        parent_size: u32,
         graph: &Resource<r::Graph>,
         new: &ComplexOperator,
-    ) -> Vec<(Resource<r::Node>, HashMap<String, ParamSubstitution>)> {
+    ) -> (Vec<super::ComplexOperatorUpdate>, Vec<GraphEvent>) {
         let mut updated = Vec::new();
+        let mut evs = Vec::new();
 
         for idx in self.graph.node_indices() {
+            let node_res = self.node_resource(&idx);
             let node = self.graph.node_weight_mut(idx).unwrap();
+            let node_size = node.node_size(parent_size);
+
             if let Operator::ComplexOperator(complex) = &mut node.operator {
                 if &complex.graph == graph {
                     complex.graph = new.graph.clone();
                     complex.title = new.title.clone();
                     complex.inputs = new.inputs.clone();
+
+                    evs.extend(
+                        new.outputs
+                            .iter()
+                            .filter(|(k, _)| !complex.outputs.contains_key(*k))
+                            .map(|(socket, (ty, _))| {
+                                GraphEvent::OutputSocketAdded(
+                                    node_res.node_socket(socket),
+                                    *ty,
+                                    false,
+                                    node_size,
+                                )
+                            }),
+                    );
+
                     complex.outputs = new.outputs.clone();
 
                     for (field, subs) in &new.parameters {
@@ -761,7 +781,7 @@ impl NodeCollection for NodeGraph {
             }
         }
 
-        updated
+        (updated, evs)
     }
 
     fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {

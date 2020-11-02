@@ -108,6 +108,8 @@ pub enum LinearizationMode {
     FullTraversal,
 }
 
+pub type ComplexOperatorUpdate = (Resource<Node>, HashMap<String, ParamSubstitution>);
+
 /// General functions of a node graph
 #[enum_dispatch]
 trait NodeCollection {
@@ -135,9 +137,10 @@ trait NodeCollection {
     /// Returns a vector of all node resources that have been updated.
     fn update_complex_operators(
         &mut self,
+        parent_size: u32,
         graph: &Resource<Graph>,
         new: &ComplexOperator,
-    ) -> Vec<(Resource<Node>, HashMap<String, ParamSubstitution>)>;
+    ) -> (Vec<ComplexOperatorUpdate>, Vec<GraphEvent>);
 
     /// Resize all the nodes in the collection with the new parent size.
     fn resize_all(&mut self, parent_size: u32) -> Vec<Lang>;
@@ -797,7 +800,8 @@ impl NodeManager {
         let pbox_prototype = self.operator_param_box(&Operator::ComplexOperator(op_stub.clone()));
 
         for graph in self.graphs.values_mut() {
-            let updated = graph.update_complex_operators(&changed_graph, &op_stub);
+            let (updated, mut socket_updates) =
+                graph.update_complex_operators(self.parent_size, &changed_graph, &op_stub);
 
             if !updated.is_empty() {
                 if let Some((instructions, last_use)) = graph.linearize(LinearizationMode::TopoSort)
@@ -811,6 +815,7 @@ impl NodeManager {
             }
 
             for (node, params) in updated {
+                // Update param boxes
                 let mut pbox = pbox_prototype.clone();
 
                 for param in pbox.parameters_mut() {
@@ -825,7 +830,10 @@ impl NodeManager {
                     node.clone(),
                     op_stub.clone(),
                     elbox.merge(pbox.map_transmitters(|t| t.clone().into())),
-                )))
+                )));
+
+                // Update output images
+                response.extend(socket_updates.drain(0..).map(|l| Lang::GraphEvent(l)));
             }
         }
 

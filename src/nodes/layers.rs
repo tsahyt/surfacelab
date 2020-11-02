@@ -726,9 +726,10 @@ impl super::NodeCollection for LayerStack {
 
     fn update_complex_operators(
         &mut self,
+        parent_size: u32,
         graph: &Resource<Graph>,
         new: &ComplexOperator,
-    ) -> Vec<(Resource<Node>, HashMap<String, ParamSubstitution>)> {
+    ) -> (Vec<super::ComplexOperatorUpdate>, Vec<GraphEvent>) {
         let mut updated = Vec::new();
 
         for layer in self.layers.iter_mut() {
@@ -774,10 +775,13 @@ impl super::NodeCollection for LayerStack {
             // TODO: find a way to avoid this clone
         }
 
-        updated
-            .drain(0..)
-            .map(|(l, p)| (self.layer_resource(&l), p))
-            .collect()
+        (
+            updated
+                .drain(0..)
+                .map(|(l, p)| (self.layer_resource(&l), p))
+                .collect(),
+            vec![],
+        )
     }
 
     fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
