@@ -1,6 +1,5 @@
 use crate::lang::*;
 use enumset::EnumSet;
-use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -106,7 +105,7 @@ impl Default for LayerBlendOptions {
         LayerBlendOptions {
             mask: MaskStack(Vec::new()),
             opacity: 1.0,
-            channels: EnumSet::all(),
+            channels: EnumSet::empty(),
             blend_mode: BlendMode::Mix,
             enabled: true,
         }
@@ -156,6 +155,13 @@ impl Layer {
             Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
                 blend_options.blend_mode = blend_mode;
             }
+        }
+    }
+
+    pub fn get_output_channels(&self) -> EnumSet<MaterialChannel> {
+        match self {
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options.channels,
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => blend_options.channels,
         }
     }
 
@@ -466,23 +472,21 @@ impl super::NodeCollection for LayerStack {
 
     /// Layer stacks always have the same set of outputs, one per possible material channel.
     fn outputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)> {
-        hashmap! {
-            "albedo".to_string() =>
-                (OperatorType::Monomorphic(ImageType::Rgb),
-                 self.output_resource(MaterialChannel::Albedo)),
-            "roughness".to_string() =>
-                (OperatorType::Monomorphic(ImageType::Grayscale),
-                 self.output_resource(MaterialChannel::Roughness)),
-            "normal".to_string() =>
-                (OperatorType::Monomorphic(ImageType::Rgb),
-                 self.output_resource(MaterialChannel::Normal)),
-            "displacement".to_string() =>
-                (OperatorType::Monomorphic(ImageType::Grayscale),
-                 self.output_resource(MaterialChannel::Displacement)),
-            "metallic".to_string() =>
-                (OperatorType::Monomorphic(ImageType::Grayscale),
-                 self.output_resource(MaterialChannel::Metallic)),
-        }
+        let channels = self
+            .layers
+            .iter()
+            .map(|l| l.get_output_channels())
+            .fold(EnumSet::empty(), |z, c| z.union(c));
+      
+        HashMap::from_iter(channels.iter().map(|channel| {
+            (
+                channel.short_name().to_string(),
+                (
+                    OperatorType::Monomorphic(channel.to_image_type()),
+                    self.output_resource(channel),
+                ),
+            )
+        }))
     }
 
     fn graph_resource(&self) -> Resource<Graph> {
