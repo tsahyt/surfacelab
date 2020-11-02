@@ -477,7 +477,7 @@ impl super::NodeCollection for LayerStack {
             .iter()
             .map(|l| l.get_output_channels())
             .fold(EnumSet::empty(), |z, c| z.union(c));
-      
+
         HashMap::from_iter(channels.iter().map(|channel| {
             (
                 channel.short_name().to_string(),

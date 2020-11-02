@@ -635,6 +635,8 @@ impl NodeManager {
                     }
                 }
                 UserLayersEvent::SetOutput(layer_res, channel, selected, enabled) => {
+                    let mut update_co = None;
+
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
                     {
@@ -648,6 +650,7 @@ impl NodeManager {
 
                         ls.set_output(layer_res, *channel, *selected);
                         ls.set_output_channel(layer_res, *channel, *enabled);
+                        update_co = Some(ls.complex_operator_stub());
 
                         if let Some(linearize) = self.relinearize(&self.active_graph) {
                             response.push(linearize);
@@ -655,6 +658,12 @@ impl NodeManager {
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
                         )));
+                    }
+
+                    if let Some(stub) = update_co {
+                        response.append(
+                            &mut self.update_complex_operators(&layer_res.node_graph(), &stub),
+                        );
                     }
                 }
                 UserLayersEvent::SetInput(socket_res, channel) => {
