@@ -5,6 +5,7 @@ layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 0) uniform Params {
     uint mode;
     float mix_factor;
+    float sharpness;
     uint clamp_output;
 };
 
@@ -46,6 +47,29 @@ vec4 smax(vec4 a, vec4 b, float k)
     return log(exp(k*a)+exp(k*b))/k;
 }
 
+vec4 blend(vec4 col1, vec4 col2) {
+    if (mode == MODE_MIX)
+        return mix(col1, col2, mix_factor);
+    else if (mode == MODE_MULTIPLY)
+        return mix(col1, col1 * col2, mix_factor);
+    else if (mode == MODE_ADD)
+        return mix(col1, col1 + col2, mix_factor);
+    else if (mode == MODE_SUBTRACT)
+        return mix(col1, col1 - col2, mix_factor);
+    else if (mode == MODE_SCREEN)
+        return mix(col1, 1. - (1. - col1) * (1. - col2), mix_factor);
+    else if (mode == MODE_OVERLAY)
+        return mix(col1, overlay(col1, col2), mix_factor);
+    else if (mode == MODE_DARKEN)
+        return mix(col1, min(col1, col2), mix_factor);
+    else if (mode == MODE_LIGHTEN)
+        return mix(col1, max(col1, col2), mix_factor);
+    else if (mode == MODE_SMOOTH_DARKEN)
+        return mix(col1, smin(col1, col2, sharpness), mix_factor);
+    else if (mode == MODE_SMOOTH_LIGHTEN)
+        return mix(col1, smax(col1, col2, sharpness), mix_factor);
+}
+
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     ivec2 resolution = imageSize(t_Out);
@@ -53,28 +77,7 @@ void main() {
     vec4 col1 = texture(sampler2D(t_Color1, Sampler), uv);
     vec4 col2 = texture(sampler2D(t_Color2, Sampler), uv);
 
-    vec4 res;
-
-    if (mode == MODE_MIX)
-        res = mix(col1, col2, mix_factor);
-    else if (mode == MODE_MULTIPLY)
-        res = mix(col1, col1 * col2, mix_factor);
-    else if (mode == MODE_ADD)
-        res = mix(col1, col1 + col2, mix_factor);
-    else if (mode == MODE_SUBTRACT)
-        res = mix(col1, col1 - col2, mix_factor);
-    else if (mode == MODE_SCREEN)
-        res = mix(col1, 1. - (1. - col1) * (1. - col2), mix_factor);
-    else if (mode == MODE_OVERLAY)
-        res = mix(col1, overlay(col1, col2), mix_factor);
-    else if (mode == MODE_DARKEN)
-        res = mix(col1, min(col1, col2), mix_factor);
-    else if (mode == MODE_LIGHTEN)
-        res = mix(col1, max(col1, col2), mix_factor);
-    else if (mode == MODE_SMOOTH_DARKEN)
-        res = mix(col1, smin(col1, col2, 16), mix_factor);
-    else if (mode == MODE_SMOOTH_LIGHTEN)
-        res = mix(col1, smax(col1, col2, 16), mix_factor);
+    vec4 res = blend(col1, col2);
 
     if (clamp_output != 0) {
         res = clamp(res, 0., 1.);

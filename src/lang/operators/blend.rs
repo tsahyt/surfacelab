@@ -42,6 +42,7 @@ pub enum BlendMode {
 pub struct Blend {
     pub blend_mode: BlendMode,
     pub mix: f32,
+    pub sharpness: f32,
     pub clamp_output: ParameterBool,
 }
 
@@ -50,6 +51,7 @@ impl Default for Blend {
         Self {
             blend_mode: BlendMode::Mix,
             mix: 0.5,
+            sharpness: 16.0,
             clamp_output: 0,
         }
     }
@@ -139,6 +141,16 @@ impl OperatorParamBox for Blend {
                             value: self.mix,
                             min: 0.,
                             max: 1.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                    Parameter {
+                        name: "Sharpness".to_string(),
+                        transmitter: Field(Blend::SHARPNESS.to_string()),
+                        control: Control::Slider {
+                            value: self.sharpness,
+                            min: 1.,
+                            max: 64.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                     },

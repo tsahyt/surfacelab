@@ -95,6 +95,7 @@ impl LayerBlendOptions {
         Blend {
             blend_mode: self.blend_mode,
             mix: self.opacity,
+            sharpness: 16.0,
             clamp_output: 1,
         }
     }
