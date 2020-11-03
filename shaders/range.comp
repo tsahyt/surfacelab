@@ -1,0 +1,62 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    uint mode;
+    float from_min;
+    float from_max;
+    float to_min;
+    float to_max;
+};
+
+layout(set = 0, binding = 1) uniform texture2D t_Color1;
+layout(set = 0, binding = 2) uniform sampler Sampler;
+layout(set = 0, binding = 3, r32f) uniform image2D t_Out;
+
+#define MODE_LINEAR 0
+#define MODE_SMOOTHSTEP 1
+#define MODE_SMOOTHERSTEP 2
+
+float smootherstep(float start, float end, float t) {
+   t = max(0.0, min(1.0, (t - start) / (end - start)));
+   return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+float map_linear(float value) {
+    return (value - from_min) / (from_max - from_min);
+}
+
+float map_smoothstep(float value) {
+    return (from_min > from_max) ?
+        1. - smoothstep(from_max, from_min, value) :
+        smoothstep(from_min, from_max, value);
+}
+
+float map_smootherstep(float value) {
+    return (from_min > from_max) ?
+        1. - smootherstep(from_max, from_min, value) :
+        smootherstep(from_min, from_max, value);
+}
+
+float map_range(float value) {
+    if (mode == MODE_LINEAR)
+        return map_linear(value);
+    else if (mode == MODE_SMOOTHSTEP)
+        return map_smoothstep(value);
+    else if (mode == MODE_SMOOTHERSTEP)
+        return map_smootherstep(value);
+}
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_Out);
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+
+    float x = map_range(texture(sampler2D(t_Color1, Sampler), uv).r);
+    x = to_min + x * (to_max - to_min);
+
+    vec4 res = vec4(x, x, x, 1.);
+
+    imageStore(t_Out, idx, res);
+}
