@@ -20,7 +20,7 @@ pub mod renderview;
 pub mod tabs;
 pub mod util;
 
-conrod_winit::v021_conversion_fns!();
+conrod_winit::v023_conversion_fns!();
 
 const DIMS: gpu::Extent2D = gpu::Extent2D {
     width: 1920,
@@ -36,18 +36,15 @@ fn ui_loop<B: gpu::Backend>(
         winit::event_loop::EventLoop::new_any_thread();
 
     let window = winit::window::WindowBuilder::new()
-        .with_min_inner_size(winit::dpi::Size::Logical(winit::dpi::LogicalSize::new(
-            64.0, 64.0,
-        )))
         .with_inner_size(winit::dpi::Size::Physical(winit::dpi::PhysicalSize::new(
             DIMS.width,
             DIMS.height,
         )))
-        .with_title("quad".to_string())
+        .with_title("SurfaceLab".to_string())
         .build(&event_loop)
         .unwrap();
 
-    let monitor_size = window.primary_monitor().size();
+    let monitor_size = window.available_monitors().map(|m| m.size()).next().unwrap();
 
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();

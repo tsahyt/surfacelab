@@ -8,8 +8,8 @@ edition = "2018"
 
 [dependencies]
 bimap = { version = "0.4.0", features = ["serde"] }
-conrod_core = "0.70.0"
-conrod_winit = "0.70.0"
+conrod_core = "0.71.0"
+conrod_winit = "0.71.0"
 crossbeam-channel = "0.4.0"
 dialog = "0.3.0"
 enum_dispatch = "0.3.1"
@@ -37,7 +37,7 @@ smallvec = "1.4.2"
 strum = "0.18.0"
 strum_macros = "0.18.0"
 surfacelab-derive = { version = "0.1.0", path = "surfacelab-derive" }
-winit = "0.22.0"
+winit = "0.23.0"
 zerocopy = "0.3.0"
 
 [build-dependencies]
