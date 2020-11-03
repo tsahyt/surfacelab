@@ -44,7 +44,11 @@ fn ui_loop<B: gpu::Backend>(
         .build(&event_loop)
         .unwrap();
 
-    let monitor_size = window.available_monitors().map(|m| m.size()).next().unwrap();
+    let monitor_size = window
+        .available_monitors()
+        .map(|m| m.size())
+        .next()
+        .unwrap();
 
     let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
