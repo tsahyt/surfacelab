@@ -4,6 +4,7 @@ use image::{imageops, ImageBuffer, Luma, Rgb, Rgba};
 use strum::IntoEnumIterator;
 
 use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -352,7 +353,7 @@ where
             .map(|x| x.seq)
     }
 
-    pub fn get_output_image_updated(&mut self, node: &Resource<Node>) -> Option<u64> {
+    pub fn get_output_image_updated(&self, node: &Resource<Node>) -> Option<u64> {
         self.0
             .get(&node)
             .unwrap()
@@ -430,6 +431,10 @@ where
             self.0.insert(node, socket_data);
         }
     }
+
+    pub fn known_nodes(&self) -> impl Iterator<Item = &Resource<Node>> {
+        self.0.keys()
+    }
 }
 
 #[derive(Debug)]
@@ -467,6 +472,11 @@ struct Linearization {
     final_use: Vec<(Resource<Node>, usize)>,
 }
 
+struct StackFrame {
+    step: usize,
+    linearization: Rc<Linearization>,
+}
+
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
 
@@ -487,6 +497,8 @@ struct ComputeManager<B: gpu::Backend> {
     /// uniforms for each resource. On the next execution this is checked, and
     /// if no changes happen, execution can be skipped entirely.
     last_known: HashMap<Resource<Node>, u64>,
+
+    execution_stack: Vec<StackFrame>,
 }
 
 impl<B> ComputeManager<B>
@@ -504,6 +516,7 @@ where
             linearizations: HashMap::new(),
             seq: 0,
             last_known: HashMap::new(),
+            execution_stack: Vec::new(),
         }
     }
 
@@ -603,8 +616,13 @@ where
                     );
                 }
                 GraphEvent::Recompute(graph) => {
+                    debug_assert!(self.execution_stack.is_empty());
+
+                    self.seq += 1;
+
                     match self.interpret_linearization(graph, std::iter::empty()) {
                         Err(e) => {
+                            self.execution_stack.clear();
                             log::error!("Error during compute interpretation: {:?}", e);
                             log::error!("Aborting compute!");
                         }
@@ -695,7 +713,6 @@ where
     where
         I: Iterator<Item = &'a ParamSubstitution>,
     {
-        self.seq += 1;
         let linearization = self
             .linearizations
             .get(graph)
@@ -712,12 +729,19 @@ where
                 .or_insert_with(|| vec![s]);
         }
 
-        let mut step = 0;
+        let mut step: usize = 0;
+
         for i in linearization.instructions.iter() {
+            // Push current step and linearization as frame
+            self.execution_stack.push(StackFrame {
+                step,
+                linearization: linearization.clone(),
+            });
+
             match self.interpret(i, &substitutions_map) {
                 Ok(mut r) => response.append(&mut r),
                 Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
-                    self.cleanup(step, &linearization.final_use);
+                    self.cleanup();
                     match self.interpret(i, &substitutions_map) {
                         Ok(mut r) => response.append(&mut r),
                         e => return e,
@@ -725,6 +749,9 @@ where
                 }
                 e => return e,
             }
+
+            // Pop stack
+            self.execution_stack.pop();
 
             if i.is_execution_step() {
                 step += 1;
@@ -734,27 +761,39 @@ where
         Ok(response)
     }
 
-    fn cleanup(&mut self, step: usize, final_use: &[(Resource<Node>, usize)]) {
+    fn cleanup(&mut self) {
         log::debug!("Compute Image cleanup triggered");
 
-        if step == 0 {
-            log::debug!("Performing full cleanup");
-            self.sockets.free_all_images(&mut self.gpu);
-        } else {
-            log::debug!("Performing selective cleanup");
-            let cleanable_past =
-                final_use
+        let mut cleanable: HashSet<Resource<Node>> =
+            HashSet::from_iter(self.sockets.known_nodes().cloned());
+
+        let execution_stack = &self.execution_stack;
+        let sockets = &self.sockets;
+        let seq = self.seq;
+
+        // Remove all from cleanable that are still required for later steps
+        for n in execution_stack
+            .iter()
+            .map(|frame| {
+                frame
+                    .linearization
+                    .final_use
                     .iter()
-                    .filter_map(|(r, l)| if *l < step { Some(r) } else { None });
+                    .filter_map(move |(r, l)| {
+                        if frame.step < *l && sockets.get_output_image_updated(r) == Some(seq) {
+                            Some(r)
+                        } else {
+                            None
+                        }
+                    })
+            })
+            .flatten()
+        {
+            cleanable.remove(n);
+        }
 
-            // TODO: Clean up all future images that must be changed. Best done via dry run
-            let cleanable_future = std::iter::empty();
-
-            let cleanable = cleanable_past.chain(cleanable_future);
-
-            for node in cleanable {
-                self.sockets.free_images_for_node(node, &mut self.gpu);
-            }
+        for node in cleanable {
+            self.sockets.free_images_for_node(&node, &mut self.gpu);
         }
     }
 
@@ -865,6 +904,7 @@ where
         op: &ComplexOperator,
     ) -> Result<(), InterpretationError> {
         log::trace!("Calling complex operator of {}", res);
+
         self.interpret_linearization(&op.graph, op.parameters.values())?;
 
         for (socket, _) in op.outputs().iter() {
