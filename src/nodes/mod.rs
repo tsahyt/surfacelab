@@ -754,6 +754,7 @@ impl NodeManager {
                 ))));
             }
             Lang::UserIOEvent(UserIOEvent::SetParentSize(size)) => {
+                log::trace!("Surface parent size changed to {}", size);
                 self.parent_size = *size;
                 for g in self.graphs.values_mut() {
                     response.append(&mut g.resize_all(self.parent_size));
