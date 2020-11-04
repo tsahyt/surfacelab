@@ -8,6 +8,7 @@ layout(set = 0, binding = 0) uniform Params {
     float from_max;
     float to_min;
     float to_max;
+    uint clamp_output;
 };
 
 layout(set = 0, binding = 1) uniform texture2D t_Color1;
@@ -53,8 +54,12 @@ void main() {
     ivec2 resolution = imageSize(t_Out);
     vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
 
-    float x = map_range(texture(sampler2D(t_Color1, Sampler), uv).r);
-    x = to_min + x * (to_max - to_min);
+    float factor = map_range(texture(sampler2D(t_Color1, Sampler), uv).r);
+    float x = to_min + factor * (to_max - to_min);
+
+    if (clamp_output != 0) {
+        x = clamp(x, to_min, to_max);
+    }
 
     vec4 res = vec4(x, x, x, 1.);
 

@@ -38,6 +38,7 @@ pub struct Range {
     pub from_max: f32,
     pub to_min: f32,
     pub to_max: f32,
+    pub clamp_output: ParameterBool,
 }
 
 impl Default for Range {
@@ -48,6 +49,7 @@ impl Default for Range {
             from_max: 1.0,
             to_min: 0.0,
             to_max: 1.0,
+            clamp_output: 1,
         }
     }
 }
@@ -117,11 +119,19 @@ impl OperatorParamBox for Range {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
+                        name: "Clamp".to_string(),
+                        transmitter: Field(Range::CLAMP_OUTPUT.to_string()),
+                        control: Control::Toggle {
+                            def: self.clamp_output == 1,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                    Parameter {
                         name: "From Min".to_string(),
                         transmitter: Field(Range::FROM_MIN.to_string()),
                         control: Control::Slider {
                             value: self.from_min,
-                            min: 0.,
+                            min: -1.,
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
@@ -131,7 +141,7 @@ impl OperatorParamBox for Range {
                         transmitter: Field(Range::FROM_MAX.to_string()),
                         control: Control::Slider {
                             value: self.from_max,
-                            min: 0.,
+                            min: -1.,
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
@@ -141,7 +151,7 @@ impl OperatorParamBox for Range {
                         transmitter: Field(Range::TO_MIN.to_string()),
                         control: Control::Slider {
                             value: self.to_min,
-                            min: 0.,
+                            min: -1.,
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
@@ -151,7 +161,7 @@ impl OperatorParamBox for Range {
                         transmitter: Field(Range::TO_MAX.to_string()),
                         control: Control::Slider {
                             value: self.to_max,
-                            min: 0.,
+                            min: -1.,
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
