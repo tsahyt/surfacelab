@@ -6,9 +6,15 @@ use std::iter::FromIterator;
 use strum::IntoEnumIterator;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// A fill layer using an operator, with its output sockets mapped to
+/// material channels. The operator must not have any inputs! It can be
+/// complex or atomic. The requirement to not have inputs means that most
+/// atomic operators are not usable, outside of noises etc., and the
+/// operator is most likely complex.
 pub struct FillLayer {
     title: String,
-    fill: Fill,
+    operator: Operator,
+    output_sockets: ChannelMap,
     blend_options: LayerBlendOptions,
 }
 
@@ -16,10 +22,8 @@ impl FillLayer {
     pub fn from_operator(op: &Operator) -> Self {
         FillLayer {
             title: op.title().to_owned(),
-            fill: Fill {
-                operator: op.clone(),
-                output_sockets: HashMap::new(),
-            },
+            operator: op.clone(),
+            output_sockets: HashMap::new(),
             blend_options: LayerBlendOptions::default(),
         }
     }
@@ -30,17 +34,6 @@ type ChannelMap = HashMap<MaterialChannel, String>;
 
 /// A type encoding a function from sockets to material channels.
 type InputMap = HashMap<String, MaterialChannel>;
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-/// A fill layer using an operator, with its output sockets mapped to
-/// material channels. The operator must not have any inputs! It can be
-/// complex or atomic. The requirement to not have inputs means that most
-/// atomic operators are not usable, outside of noises etc., and the
-/// operator is most likely complex.
-pub struct Fill {
-    operator: Operator,
-    output_sockets: ChannelMap,
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// An FX layer is a layer that uses the material underneath it as input.
@@ -200,7 +193,7 @@ impl Layer {
 
     pub fn operator(&self) -> &Operator {
         match self {
-            Layer::FillLayer(_, l) => &l.fill.operator,
+            Layer::FillLayer(_, l) => &l.operator,
             Layer::FxLayer(_, l) => &l.operator,
         }
     }
@@ -343,11 +336,10 @@ impl LayerStack {
         if let Some(idx) = self.resources.get(layer.file().unwrap()) {
             match &self.layers[*idx] {
                 Layer::FillLayer(_, fill) => fill
-                    .fill
                     .operator
                     .outputs()
                     .iter()
-                    .map(|(s, t)| (layer.node_socket(s), *t, fill.fill.operator.external_data()))
+                    .map(|(s, t)| (layer.node_socket(s), *t, fill.operator.external_data()))
                     .collect(),
                 Layer::FxLayer(_, fx) => fx
                     .operator
@@ -396,7 +388,6 @@ impl LayerStack {
             match &mut self.layers[*idx] {
                 Layer::FillLayer(_, fill) => {
                     let socket = fill
-                        .fill
                         .operator
                         .outputs()
                         .keys()
@@ -404,7 +395,7 @@ impl LayerStack {
                         .nth(socket_index)
                         .cloned()
                         .unwrap();
-                    fill.fill.output_sockets.insert(channel, socket);
+                    fill.output_sockets.insert(channel, socket);
                 }
                 Layer::FxLayer(_, fx) => {
                     let socket = fx
@@ -530,11 +521,8 @@ impl super::NodeCollection for LayerStack {
                     _,
                     FillLayer {
                         blend_options,
-                        fill:
-                            Fill {
-                                operator,
-                                output_sockets,
-                            },
+                        operator,
+                        output_sockets,
                         ..
                     },
                 ) => {
@@ -809,7 +797,7 @@ impl super::NodeCollection for LayerStack {
                 Layer::FillLayer(
                     _,
                     FillLayer {
-                        fill: Fill { operator, .. },
+                        operator,
                         ..
                     },
                 ) => operator.set_parameter(field, data),
@@ -822,7 +810,7 @@ impl super::NodeCollection for LayerStack {
 
     fn update_complex_operators(
         &mut self,
-        parent_size: u32,
+        _parent_size: u32,
         graph: &Resource<Graph>,
         new: &ComplexOperator,
     ) -> (Vec<super::ComplexOperatorUpdate>, Vec<GraphEvent>) {
@@ -833,11 +821,7 @@ impl super::NodeCollection for LayerStack {
                 Layer::FillLayer(
                     _,
                     FillLayer {
-                        fill:
-                            Fill {
-                                operator: Operator::ComplexOperator(co),
-                                ..
-                            },
+                        operator: Operator::ComplexOperator(co),
                         ..
                     },
                 ) if &co.graph == graph => co,
@@ -925,8 +909,8 @@ impl super::NodeCollection for LayerStack {
         if let Some(idx) = self.resources.get(element.file().unwrap()) {
             match &self.layers[*idx] {
                 Layer::FillLayer(_, l) => ParamBoxDescription::fill_layer_parameters(
-                    &l.fill.operator,
-                    &l.fill.output_sockets,
+                    &l.operator,
+                    &l.output_sockets,
                 )
                 .map_transmitters(|t| t.clone().into()),
                 Layer::FxLayer(_, l) => ParamBoxDescription::fx_layer_parameters(&l.operator)
