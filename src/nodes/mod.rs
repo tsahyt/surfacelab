@@ -606,6 +606,8 @@ impl NodeManager {
                             *ty,
                             op.title().to_owned(),
                             op.clone(),
+                            BlendMode::Mix,
+                            1.0,
                             pbox,
                             self.parent_size,
                         )));

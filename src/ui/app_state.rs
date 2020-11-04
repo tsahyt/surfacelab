@@ -209,6 +209,8 @@ impl Layer {
         ty: LayerType,
         title: &str,
         pbox: ParamBoxDescription<MessageWriters>,
+        blend_mode: usize,
+        opacity: f32,
     ) -> Self {
         Self {
             resource,
@@ -219,8 +221,8 @@ impl Layer {
             },
             thumbnail: None,
             operator_pbox: pbox,
-            opacity: 1.0,
-            blend_mode: 0,
+            opacity,
+            blend_mode,
             masks: Vec::new(),
             enabled: true,
         }

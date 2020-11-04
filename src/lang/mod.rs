@@ -337,6 +337,8 @@ pub enum LayersEvent {
         LayerType,
         String,
         Operator,
+        BlendMode,
+        f32,
         ParamBoxDescription<MessageWriters>,
         u32,
     ),

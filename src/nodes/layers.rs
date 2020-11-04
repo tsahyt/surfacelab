@@ -148,6 +148,13 @@ impl Layer {
         }
     }
 
+    pub fn get_opacity(&self) -> f32 {
+        match self {
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options.opacity,
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => blend_options.opacity,
+        }
+    }
+
     pub fn set_blend_mode(&mut self, blend_mode: BlendMode) {
         match self {
             Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
@@ -156,6 +163,13 @@ impl Layer {
             Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
                 blend_options.blend_mode = blend_mode;
             }
+        }
+    }
+
+    pub fn get_blend_mode(&self) -> BlendMode {
+        match self {
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options.blend_mode,
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => blend_options.blend_mode,
         }
     }
 
@@ -889,6 +903,8 @@ impl super::NodeCollection for LayerStack {
                     layer.layer_type(),
                     layer.title().to_owned(),
                     layer.operator().clone(),
+                    layer.get_blend_mode(),
+                    layer.get_opacity(),
                     ParamBoxDescription::empty(),
                     parent_size,
                 )));
