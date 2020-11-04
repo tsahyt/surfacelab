@@ -23,6 +23,7 @@ pub use socketed::*;
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum AtomicOperator {
     Blend,
+    BlendMasked,
     PerlinNoise,
     Rgb,
     Range,
@@ -46,6 +47,7 @@ impl AtomicOperator {
     pub fn all_default() -> Vec<Self> {
         vec![
             Self::Blend(Blend::default()),
+            Self::BlendMasked(BlendMasked::default()),
             Self::PerlinNoise(PerlinNoise::default()),
             Self::Rgb(Rgb::default()),
             Self::Range(Range::default()),

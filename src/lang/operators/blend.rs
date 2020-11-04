@@ -159,3 +159,119 @@ impl OperatorParamBox for Blend {
         }
     }
 }
+
+#[repr(C)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
+pub struct BlendMasked {
+    pub blend_mode: BlendMode,
+    pub sharpness: f32,
+    pub clamp_output: ParameterBool,
+}
+
+impl Default for BlendMasked {
+    fn default() -> Self {
+        Self {
+            blend_mode: BlendMode::Mix,
+            sharpness: 16.0,
+            clamp_output: 0,
+        }
+    }
+}
+
+impl Socketed for BlendMasked {
+    fn inputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "mask".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
+            "background".to_string() => OperatorType::Polymorphic(0),
+            "foreground".to_string() => OperatorType::Polymorphic(0)
+        }
+    }
+
+    fn outputs(&self) -> HashMap<String, OperatorType> {
+        hashmap! {
+            "color".to_string() => OperatorType::Polymorphic(0),
+        }
+    }
+
+    fn default_name(&self) -> &str {
+        "blendmasked"
+    }
+
+    fn title(&self) -> &str {
+        "Blend Masked"
+    }
+}
+
+impl Shader for BlendMasked {
+    fn operator_shader(&self) -> Option<OperatorShader> {
+        Some(OperatorShader {
+            spirv: include_bytes!("../../../shaders/blend_masked.spv"),
+            descriptors: &[
+                OperatorDescriptor {
+                    binding: 0,
+                    descriptor: OperatorDescriptorUse::Uniforms,
+                },
+                OperatorDescriptor {
+                    binding: 1,
+                    descriptor: OperatorDescriptorUse::InputImage("mask"),
+                },
+                OperatorDescriptor {
+                    binding: 2,
+                    descriptor: OperatorDescriptorUse::InputImage("background"),
+                },
+                OperatorDescriptor {
+                    binding: 3,
+                    descriptor: OperatorDescriptorUse::InputImage("foreground"),
+                },
+                OperatorDescriptor {
+                    binding: 4,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 5,
+                    descriptor: OperatorDescriptorUse::OutputImage("color"),
+                },
+            ],
+        })
+    }
+}
+
+impl OperatorParamBox for BlendMasked {
+    fn param_box_description(&self) -> ParamBoxDescription<Field> {
+        ParamBoxDescription {
+            box_title: self.title().to_string(),
+            categories: vec![ParamCategory {
+                name: "Basic Parameters",
+                parameters: vec![
+                    Parameter {
+                        name: "Blend Mode".to_string(),
+                        transmitter: Field(BlendMasked::BLEND_MODE.to_string()),
+                        control: Control::Enum {
+                            selected: self.blend_mode as usize,
+                            variants: BlendMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                    Parameter {
+                        name: "Clamp".to_string(),
+                        transmitter: Field(BlendMasked::CLAMP_OUTPUT.to_string()),
+                        control: Control::Toggle {
+                            def: self.clamp_output == 1,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                    Parameter {
+                        name: "Sharpness".to_string(),
+                        transmitter: Field(BlendMasked::SHARPNESS.to_string()),
+                        control: Control::Slider {
+                            value: self.sharpness,
+                            min: 1.,
+                            max: 64.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                ],
+            }],
+        }
+    }
+}
