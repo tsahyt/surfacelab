@@ -474,9 +474,27 @@ struct Linearization {
     use_points: Vec<(Resource<Node>, UsePoint)>,
 }
 
+impl Linearization {
+    pub fn retention_set_at(&self, step: usize) -> impl Iterator<Item = &Resource<Node>> {
+        self.use_points.iter().filter_map(move |(r, up)| {
+            if up.last >= step && up.creation <= step {
+                Some(r)
+            } else {
+                None
+            }
+        })
+    }
+}
+
 struct StackFrame {
     step: usize,
     linearization: Rc<Linearization>,
+}
+
+impl StackFrame {
+    pub fn retention_set(&self) -> impl Iterator<Item = &Resource<Node>> {
+        self.linearization.retention_set_at(self.step)
+    }
 }
 
 struct ComputeManager<B: gpu::Backend> {
@@ -787,19 +805,7 @@ where
 
         for n in execution_stack
             .iter()
-            .map(|frame| {
-                frame
-                    .linearization
-                    .use_points
-                    .iter()
-                    .filter_map(move |(r, up)| {
-                        if up.last >= frame.step && up.creation <= frame.step {
-                            Some(r)
-                        } else {
-                            None
-                        }
-                    })
-            })
+            .map(|frame| frame.retention_set())
             .flatten()
         {
             cleanable.remove(n);
