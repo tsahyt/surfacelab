@@ -593,7 +593,7 @@ impl NodeCollection for NodeGraph {
     ///
     /// Linearization may fail when a node is missing inputs, and will return
     /// None in this case.
-    fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, LastUses)> {
+    fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, UsePoints)> {
         use petgraph::visit::EdgeRef;
 
         enum Action<'a> {
@@ -617,7 +617,7 @@ impl NodeCollection for NodeGraph {
             .map(|x| (*x, Action::Traverse(None)))
             .collect();
 
-        let mut final_usage: HashMap<Resource<r::Node>, usize> = HashMap::new();
+        let mut use_points: HashMap<Resource<r::Node>, UsePoint> = HashMap::new();
         let mut traversal = Vec::new();
         let mut step = 0;
 
@@ -641,7 +641,7 @@ impl NodeCollection for NodeGraph {
                     let node = self.graph.node_weight(nx).unwrap();
                     let res = self.node_resource(&nx);
 
-                    if !final_usage.contains_key(&res) || mode == LinearizationMode::FullTraversal {
+                    if !use_points.contains_key(&res) || mode == LinearizationMode::FullTraversal {
                         step += 1;
 
                         match &node.operator {
@@ -665,6 +665,14 @@ impl NodeCollection for NodeGraph {
                             }
                         }
 
+                        use_points
+                            .entry(res.clone())
+                            .and_modify(|e| e.creation = step)
+                            .or_insert(UsePoint {
+                                last: usize::MAX,
+                                creation: step,
+                            });
+
                         if let Some(thumbnail_output) = node.operator.outputs().keys().next() {
                             traversal
                                 .push(Instruction::Thumbnail(res.node_socket(thumbnail_output)));
@@ -679,13 +687,18 @@ impl NodeCollection for NodeGraph {
                     }
                 }
                 Action::Use(idx) => {
-                    let res = self.node_resource(&idx);
-                    final_usage.insert(res, step);
+                    use_points
+                        .entry(self.node_resource(&idx))
+                        .and_modify(|e| e.last = step)
+                        .or_insert(UsePoint {
+                            last: step,
+                            creation: usize::MIN,
+                        });
                 }
             }
         }
 
-        Some((traversal, final_usage.drain().collect()))
+        Some((traversal, use_points.drain().collect()))
     }
 
     /// Change a parameter in a resource in this graph. Will return an error if

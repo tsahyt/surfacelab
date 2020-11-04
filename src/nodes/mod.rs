@@ -124,7 +124,7 @@ trait NodeCollection {
 
     /// Linearize this node graph into a vector of instructions that can be
     /// interpreted by the compute backend.
-    fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, LastUses)>;
+    fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, UsePoints)>;
 
     /// Change a parameter in a resource in this node collection.
     fn parameter_change(

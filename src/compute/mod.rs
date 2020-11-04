@@ -469,7 +469,7 @@ impl From<gpu::PipelineError> for InterpretationError {
 
 struct Linearization {
     instructions: Vec<Instruction>,
-    final_use: Vec<(Resource<Node>, usize)>,
+    use_points: Vec<(Resource<Node>, UsePoint)>,
 }
 
 struct StackFrame {
@@ -606,12 +606,12 @@ where
                             .reinit_output_images(res, &self.gpu, *new_size as u32);
                     }
                 }
-                GraphEvent::Relinearized(graph, instrs, last_use) => {
+                GraphEvent::Relinearized(graph, instrs, use_points) => {
                     self.linearizations.insert(
                         graph.clone(),
                         Rc::new(Linearization {
                             instructions: instrs.clone(),
-                            final_use: last_use.clone(),
+                            use_points: use_points.clone(),
                         }),
                     );
                 }
@@ -761,6 +761,17 @@ where
         Ok(response)
     }
 
+    /// Clean up all image data, using the current execution stack to determine what can be cleaned up.
+    ///
+    /// We can safely clean up an image if
+    /// 1. It will no longer be used after this point in a linearization OR
+    /// 2. It has not yet been processed at this point in a linearization OR
+    /// 3. It is not part of the current execution stack.
+    ///
+    /// Conversely, we must keep all images that satisfy all three of the following
+    /// 1. Has a last use point >= current step AND
+    /// 2. Has been processed <= current step AND
+    /// 3. Is part of the current execution stack
     fn cleanup(&mut self) {
         log::debug!("Compute Image cleanup triggered");
 
@@ -768,19 +779,16 @@ where
             HashSet::from_iter(self.sockets.known_nodes().cloned());
 
         let execution_stack = &self.execution_stack;
-        let sockets = &self.sockets;
-        let seq = self.seq;
 
-        // Remove all from cleanable that are still required for later steps
         for n in execution_stack
             .iter()
             .map(|frame| {
                 frame
                     .linearization
-                    .final_use
+                    .use_points
                     .iter()
-                    .filter_map(move |(r, l)| {
-                        if frame.step < *l && sockets.get_output_image_updated(r) == Some(seq) {
+                    .filter_map(move |(r, up)| {
+                        if up.last >= frame.step && up.creation <= frame.step {
                             Some(r)
                         } else {
                             None

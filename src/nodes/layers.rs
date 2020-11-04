@@ -503,9 +503,9 @@ impl super::NodeCollection for LayerStack {
     /// function in the NodeGraph.
     ///
     /// The linearization mode is ignored for layer stacks.
-    fn linearize(&self, _mode: super::LinearizationMode) -> Option<(Linearization, LastUses)> {
+    fn linearize(&self, _mode: super::LinearizationMode) -> Option<(Linearization, UsePoints)> {
         let mut linearization = Vec::new();
-        let mut last_use: HashMap<Resource<Node>, usize> = HashMap::new();
+        let mut use_points: HashMap<Resource<Node>, UsePoint> = HashMap::new();
         let mut step = 0;
 
         let mut last_socket: HashMap<MaterialChannel, Resource<Socket>> = HashMap::new();
@@ -550,6 +550,14 @@ impl super::NodeCollection for LayerStack {
                         }
                     }
 
+                    use_points
+                        .entry(resource.clone())
+                        .and_modify(|e| e.creation = step)
+                        .or_insert(UsePoint {
+                            last: usize::MAX,
+                            creation: step,
+                        });
+
                     for (channel, socket) in output_sockets.iter() {
                         // Skip blending if channel is not selected
                         if !blend_options.channels.contains(*channel) {
@@ -574,7 +582,20 @@ impl super::NodeCollection for LayerStack {
                                 AtomicOperator::Blend(blend_options.blend_operator()),
                             ));
 
-                            last_use.insert(background.socket_node(), step);
+                            use_points
+                                .entry(resource.clone())
+                                .and_modify(|e| e.last = step)
+                                .or_insert(UsePoint {
+                                    last: step,
+                                    creation: usize::MIN,
+                                });
+                            use_points
+                                .entry(background.socket_node())
+                                .and_modify(|e| e.last = step)
+                                .or_insert(UsePoint {
+                                    last: step,
+                                    creation: usize::MIN,
+                                });
                             last_socket.insert(*channel, blend_res.node_socket("color"));
                         } else {
                             last_socket.insert(*channel, resource.node_socket(socket));
@@ -608,7 +629,13 @@ impl super::NodeCollection for LayerStack {
                                     .get(channel)
                                     .expect("Missing layer underneath FX")
                                     .clone();
-                                last_use.insert(input_resource.socket_node(), step);
+                                use_points
+                                    .entry(input_resource.socket_node())
+                                    .and_modify(|e| e.last = step)
+                                    .or_insert(UsePoint {
+                                        last: step,
+                                        creation: usize::MIN,
+                                    });
 
                                 linearization.push(Instruction::Move(
                                     input_resource,
@@ -626,7 +653,13 @@ impl super::NodeCollection for LayerStack {
                                     .get(channel)
                                     .expect("Missing layer underneath FX")
                                     .clone();
-                                last_use.insert(input_resource.socket_node(), step);
+                                use_points
+                                    .entry(input_resource.socket_node())
+                                    .and_modify(|e| e.last = step)
+                                    .or_insert(UsePoint {
+                                        last: step,
+                                        creation: usize::MIN,
+                                    });
 
                                 linearization.push(Instruction::Copy(
                                     input_resource,
@@ -647,6 +680,14 @@ impl super::NodeCollection for LayerStack {
                         }
                     }
 
+                    use_points
+                        .entry(resource.clone())
+                        .and_modify(|e| e.creation = step)
+                        .or_insert(UsePoint {
+                            last: usize::MAX,
+                            creation: step,
+                        });
+
                     for (channel, socket) in output_sockets.iter() {
                         // Skip blending if channel is not selected
                         if !blend_options.channels.contains(*channel) {
@@ -658,7 +699,13 @@ impl super::NodeCollection for LayerStack {
                         let blend_res = self.blend_resource(layer, *channel);
 
                         if let Some(background) = last_socket.get(channel).cloned() {
-                            last_use.insert(background.socket_node(), step);
+                            use_points
+                                .entry(background.socket_node())
+                                .and_modify(|e| e.last = step)
+                                .or_insert(UsePoint {
+                                    last: step,
+                                    creation: usize::MIN,
+                                });
 
                             linearization.push(Instruction::Move(
                                 background,
@@ -672,6 +719,21 @@ impl super::NodeCollection for LayerStack {
                                 blend_res.clone(),
                                 AtomicOperator::Blend(blend_options.blend_operator()),
                             ));
+
+                            use_points
+                                .entry(resource.clone())
+                                .and_modify(|e| e.creation = step)
+                                .or_insert(UsePoint {
+                                    last: usize::MAX,
+                                    creation: step,
+                                });
+                            use_points
+                                .entry(blend_res.clone())
+                                .and_modify(|e| e.creation = step)
+                                .or_insert(UsePoint {
+                                    last: usize::MAX,
+                                    creation: step,
+                                });
 
                             last_socket.insert(*channel, blend_res.node_socket("color"));
                         } else {
@@ -688,7 +750,13 @@ impl super::NodeCollection for LayerStack {
 
             let output = self.output_resource(channel);
             if let Some(socket) = last_socket.get(&channel).cloned() {
-                last_use.insert(socket.socket_node(), step);
+                use_points
+                    .entry(socket.socket_node())
+                    .and_modify(|e| e.last = step)
+                    .or_insert(UsePoint {
+                        last: step,
+                        creation: usize::MIN,
+                    });
 
                 linearization.push(Instruction::Move(socket, output.node_socket("data")));
                 linearization.push(Instruction::Execute(
@@ -700,7 +768,7 @@ impl super::NodeCollection for LayerStack {
             }
         }
 
-        Some((linearization, last_use.drain().collect()))
+        Some((linearization, use_points.drain().collect()))
     }
 
     fn parameter_change(

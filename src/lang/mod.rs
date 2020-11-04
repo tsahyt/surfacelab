@@ -147,7 +147,13 @@ impl Operator {
 
 pub type Linearization = Vec<Instruction>;
 
-pub type LastUses = Vec<(Resource<Node>, usize)>;
+#[derive(Debug, Clone)]
+pub struct UsePoint {
+    pub last: usize,
+    pub creation: usize,
+}
+
+pub type UsePoints = Vec<(Resource<Node>, UsePoint)>;
 
 #[derive(Clone, Debug)]
 pub enum Instruction {
@@ -296,11 +302,7 @@ pub enum GraphEvent {
     ),
     ConnectedSockets(Resource<Socket>, Resource<Socket>),
     DisconnectedSockets(Resource<Socket>, Resource<Socket>),
-    Relinearized(
-        Resource<Graph>,
-        Vec<Instruction>,
-        Vec<(Resource<Node>, usize)>,
-    ),
+    Relinearized(Resource<Graph>, Linearization, UsePoints),
     Recompute(Resource<Graph>),
     SocketMonomorphized(Resource<Socket>, ImageType),
     SocketDemonomorphized(Resource<Socket>),
