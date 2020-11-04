@@ -519,6 +519,7 @@ pub enum RendererType {
     Renderer2D,
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 #[derive(EnumSetType, EnumIter, Debug, Hash, Serialize, Deserialize, Display)]
 pub enum MaterialChannel {
     Displacement,

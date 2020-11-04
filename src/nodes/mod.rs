@@ -843,7 +843,7 @@ impl NodeManager {
                 )));
 
                 // Update output images
-                response.extend(socket_updates.drain(0..).map(|l| Lang::GraphEvent(l)));
+                response.extend(socket_updates.drain(0..).map(Lang::GraphEvent));
             }
         }
 
