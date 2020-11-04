@@ -447,6 +447,8 @@ pub enum InterpretationError {
     PipelineError(gpu::PipelineError),
     /// Failed to read external image
     ExternalImageRead,
+    /// Hard OOM, i.e. OOM after cleanup
+    HardOOM,
 }
 
 impl From<gpu::compute::ImageError> for InterpretationError {
@@ -744,6 +746,9 @@ where
                     self.cleanup();
                     match self.interpret(i, &substitutions_map) {
                         Ok(mut r) => response.append(&mut r),
+                        Err(InterpretationError::ImageError(
+                            gpu::compute::ImageError::OutOfMemory,
+                        )) => return Err(InterpretationError::HardOOM),
                         e => return e,
                     }
                 }
