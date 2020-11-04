@@ -492,6 +492,11 @@ struct StackFrame {
 }
 
 impl StackFrame {
+    /// Find the retention set for this stack frame, i.e. the set of images that
+    ///
+    /// 1. Has a last use point >= current step AND
+    /// 2. Has been processed <= current step
+    /// 3. Is part of this frame
     pub fn retention_set(&self) -> impl Iterator<Item = &Resource<Node>> {
         self.linearization.retention_set_at(self.step)
     }
@@ -795,6 +800,8 @@ where
     /// 1. Has a last use point >= current step AND
     /// 2. Has been processed <= current step AND
     /// 3. Is part of the current execution stack
+    ///
+    /// The set of images satisfying all these conditions is called the retention set.
     fn cleanup(&mut self) {
         log::debug!("Compute Image cleanup triggered");
 
