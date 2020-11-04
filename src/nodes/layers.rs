@@ -569,19 +569,6 @@ impl super::NodeCollection for LayerStack {
 
                             let blend_res = self.blend_resource(layer, *channel);
 
-                            linearization.push(Instruction::Move(
-                                background.clone(),
-                                blend_res.node_socket("background"),
-                            ));
-                            linearization.push(Instruction::Move(
-                                resource.node_socket(socket),
-                                blend_res.node_socket("foreground"),
-                            ));
-                            linearization.push(Instruction::Execute(
-                                blend_res.clone(),
-                                AtomicOperator::Blend(blend_options.blend_operator()),
-                            ));
-
                             use_points
                                 .entry(resource.clone())
                                 .and_modify(|e| e.last = step)
@@ -596,6 +583,28 @@ impl super::NodeCollection for LayerStack {
                                     last: step,
                                     creation: usize::MIN,
                                 });
+
+                            linearization.push(Instruction::Move(
+                                background.clone(),
+                                blend_res.node_socket("background"),
+                            ));
+                            linearization.push(Instruction::Move(
+                                resource.node_socket(socket),
+                                blend_res.node_socket("foreground"),
+                            ));
+                            linearization.push(Instruction::Execute(
+                                blend_res.clone(),
+                                AtomicOperator::Blend(blend_options.blend_operator()),
+                            ));
+
+                            use_points
+                                .entry(blend_res.clone())
+                                .and_modify(|e| e.creation = step)
+                                .or_insert(UsePoint {
+                                    last: usize::MAX,
+                                    creation: step,
+                                });
+
                             last_socket.insert(*channel, blend_res.node_socket("color"));
                         } else {
                             last_socket.insert(*channel, resource.node_socket(socket));
@@ -694,13 +703,20 @@ impl super::NodeCollection for LayerStack {
                             continue;
                         }
 
-                        step += 1;
-
                         let blend_res = self.blend_resource(layer, *channel);
 
                         if let Some(background) = last_socket.get(channel).cloned() {
+                            step += 1;
+
                             use_points
                                 .entry(background.socket_node())
+                                .and_modify(|e| e.last = step)
+                                .or_insert(UsePoint {
+                                    last: step,
+                                    creation: usize::MIN,
+                                });
+                            use_points
+                                .entry(resource.clone())
                                 .and_modify(|e| e.last = step)
                                 .or_insert(UsePoint {
                                     last: step,
@@ -720,13 +736,6 @@ impl super::NodeCollection for LayerStack {
                                 AtomicOperator::Blend(blend_options.blend_operator()),
                             ));
 
-                            use_points
-                                .entry(resource.clone())
-                                .and_modify(|e| e.creation = step)
-                                .or_insert(UsePoint {
-                                    last: usize::MAX,
-                                    creation: step,
-                                });
                             use_points
                                 .entry(blend_res.clone())
                                 .and_modify(|e| e.creation = step)

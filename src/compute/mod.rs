@@ -469,6 +469,7 @@ impl From<gpu::PipelineError> for InterpretationError {
     }
 }
 
+#[derive(Debug)]
 struct Linearization {
     instructions: Vec<Instruction>,
     use_points: Vec<(Resource<Node>, UsePoint)>,
@@ -486,6 +487,7 @@ impl Linearization {
     }
 }
 
+#[derive(Debug)]
 struct StackFrame {
     step: usize,
     linearization: Rc<Linearization>,
