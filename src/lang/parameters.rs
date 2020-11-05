@@ -350,6 +350,7 @@ pub enum RenderField {
     DisplacementAmount,
     LightType,
     LightStrength,
+    FogStrength,
     Shadow,
     AO,
 }
@@ -370,6 +371,9 @@ impl MessageWriter for RenderField {
             ),
             RenderField::LightStrength => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::LightStrength(*renderer, f32::from_data(data)),
+            ),
+            RenderField::FogStrength => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::FogStrength(*renderer, f32::from_data(data)),
             ),
             RenderField::Shadow => super::Lang::UserRenderEvent(super::UserRenderEvent::SetShadow(
                 *renderer,
@@ -666,6 +670,16 @@ impl ParamBoxDescription<RenderField> {
                             name: "Ambient Occlusion".to_string(),
                             control: Control::Toggle { def: false },
                             transmitter: RenderField::AO,
+                            expose_status: None,
+                        },
+                        Parameter {
+                            name: "Fog Strength".to_string(),
+                            control: Control::Slider {
+                                value: 0.2,
+                                min: 0.0,
+                                max: 1.0,
+                            },
+                            transmitter: RenderField::FogStrength,
                             expose_status: None,
                         },
                     ],

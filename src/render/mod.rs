@@ -114,6 +114,13 @@ pub fn start_render_thread<B: gpu::Backend>(
                             .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
                             .unwrap();
                     }
+                    Lang::UserRenderEvent(UserRenderEvent::FogStrength(id, strength)) => {
+                        render_manager.set_fog_strength(*id, *strength);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
+                    }
                     Lang::UserRenderEvent(UserRenderEvent::SetShadow(id, shadow)) => {
                         render_manager.set_shadow(*id, *shadow);
                         render_manager.redraw(*id);
@@ -336,6 +343,13 @@ where
     pub fn set_light_strength(&mut self, renderer_id: RendererID, strength: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_light_strength(strength);
+            r.render();
+        }
+    }
+
+    pub fn set_fog_strength(&mut self, renderer_id: RendererID, strength: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_fog_strength(strength);
             r.render();
         }
     }

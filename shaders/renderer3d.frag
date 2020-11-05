@@ -22,6 +22,7 @@ layout(set = 0, binding = 2) uniform Camera {
     float tex_scale;
     uint light_type;
     float light_strength;
+    float fog_strength;
     uint draw_shadow;
     uint draw_ao;
 };
@@ -345,7 +346,7 @@ void main() {
 
     // View Falloff
     col = mix(col, vec3(0.), step(MAX_DIST, d));
-    col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * 0.2;
+    col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
     col *= vec3(smoothstep(10., 2., length(p.xz)));
 
     // debugging views

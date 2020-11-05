@@ -46,6 +46,7 @@ struct RenderView3D {
     tex_scale: f32,
     light_type: LightType,
     light_strength: f32,
+    fog_strength: f32,
     shadow: ParameterBool,
     ao: ParameterBool,
 }
@@ -63,6 +64,7 @@ impl Default for RenderView3D {
             tex_scale: 8.,
             light_type: LightType::PointLight,
             light_strength: 100.0,
+            fog_strength: 0.2,
             shadow: 1,
             ao: 0,
         }
@@ -1152,6 +1154,12 @@ where
     pub fn set_light_strength(&mut self, strength: f32) {
         if let RenderView::RenderView3D(view) = &mut self.view {
             view.light_strength = strength;
+        }
+    }
+
+    pub fn set_fog_strength(&mut self, strength: f32) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.fog_strength = strength;
         }
     }
 

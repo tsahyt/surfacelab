@@ -372,6 +372,7 @@ pub enum UserRenderEvent {
     TextureScale(RendererID, f32),
     LightType(RendererID, LightType),
     LightStrength(RendererID, f32),
+    FogStrength(RendererID, f32),
     SetShadow(RendererID, ParameterBool),
     SetAO(RendererID, ParameterBool),
 }
