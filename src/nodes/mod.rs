@@ -348,15 +348,14 @@ impl NodeManager {
                                     })
                                 {
                                     response.push(instrs);
+                                    response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                        self.active_graph.clone(),
+                                    )));
                                 }
                             }
                             Err(e) => log::error!("{}", e),
                         }
                     }
-
-                    response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                        self.active_graph.clone(),
-                    )));
                 }
                 UserNodeEvent::DisconnectSinkSocket(sink) => {
                     let node = sink.file().unwrap();
@@ -385,10 +384,10 @@ impl NodeManager {
                             },
                         ) {
                             response.push(instrs);
+                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                self.active_graph.clone(),
+                            )));
                         }
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                        )));
                     }
                 }
                 UserNodeEvent::PositionNode(res, (x, y)) => {
@@ -656,10 +655,10 @@ impl NodeManager {
 
                         if let Some(linearize) = self.relinearize(&self.active_graph) {
                             response.push(linearize);
+                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                self.active_graph.clone(),
+                            )));
                         }
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                        )));
                     }
 
                     if let Some(stub) = update_co {
@@ -678,10 +677,10 @@ impl NodeManager {
 
                         if let Some(linearize) = self.relinearize(&self.active_graph) {
                             response.push(linearize);
+                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                self.active_graph.clone(),
+                            )));
                         }
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                        )));
                     }
                 }
                 UserLayersEvent::SetOpacity(layer_res, opacity) => {
@@ -694,10 +693,10 @@ impl NodeManager {
 
                         if let Some(linearize) = self.relinearize(&self.active_graph) {
                             response.push(linearize);
+                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                self.active_graph.clone(),
+                            )));
                         }
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                        )));
                     }
                 }
                 UserLayersEvent::SetBlendMode(layer_res, blend_mode) => {
@@ -710,10 +709,10 @@ impl NodeManager {
 
                         if let Some(linearize) = self.relinearize(&self.active_graph) {
                             response.push(linearize);
+                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                self.active_graph.clone(),
+                            )));
                         }
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                        )));
                     }
                 }
                 UserLayersEvent::SetTitle(layer_res, title) => {
