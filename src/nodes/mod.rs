@@ -722,6 +722,22 @@ impl NodeManager {
                         ls.set_title(layer_res, title);
                     }
                 }
+                UserLayersEvent::SetEnabled(layer_res, enabled) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(layer_res.directory().unwrap())
+                    {
+                        log::debug!("Set layer enabled of {} to {}", layer_res, enabled);
+
+                        ls.set_layer_enabled(layer_res, *enabled);
+
+                        if let Some(linearize) = self.relinearize(&self.active_graph) {
+                            response.push(linearize);
+                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                self.active_graph.clone(),
+                            )));
+                        }
+                    }
+                }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {

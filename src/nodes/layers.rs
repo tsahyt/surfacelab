@@ -320,6 +320,17 @@ impl Layer {
         }
     }
 
+    pub fn set_enabled(&mut self, enabled: bool) {
+        match self {
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
+                blend_options.enabled = enabled;
+            }
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
+                blend_options.enabled = enabled;
+            }
+        }
+    }
+
     pub fn get_blend_mode(&self) -> BlendMode {
         match self {
             Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options.blend_mode,
@@ -629,6 +640,12 @@ impl LayerStack {
     pub fn set_layer_blend_mode(&mut self, layer: &Resource<Node>, blend_mode: BlendMode) {
         if let Some(idx) = self.resources.get(layer.file().unwrap()) {
             self.layers[*idx].set_blend_mode(blend_mode)
+        }
+    }
+
+    pub fn set_layer_enabled(&mut self, layer: &Resource<Node>, enabled: bool) {
+        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            self.layers[*idx].set_enabled(enabled)
         }
     }
 }

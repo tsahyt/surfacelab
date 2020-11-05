@@ -329,6 +329,7 @@ pub enum UserLayersEvent {
     SetOpacity(Resource<Node>, f32),
     SetBlendMode(Resource<Node>, BlendMode),
     SetTitle(Resource<Node>, String),
+    SetEnabled(Resource<Node>, bool),
 }
 
 #[derive(Debug)]

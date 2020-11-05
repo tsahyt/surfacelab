@@ -714,7 +714,8 @@ where
                 .set(self.ids.layer_opacity, ui);
         }
 
-        let (mut rows, scrollbar) = widget::List::flow_down(active_collection.rows())
+        let nrows = active_collection.rows();
+        let (mut rows, scrollbar) = widget::List::flow_down(nrows)
             .parent(self.ids.edit_canvas)
             .item_size(48.0)
             .padded_w_of(self.ids.edit_canvas, 8.0)
@@ -728,6 +729,7 @@ where
                 &mut active_collection.layers[row.i],
                 Some(row.i) == self.app_state.active_layer_element,
             )
+            .toggleable(row.i != nrows - 1)
             .icon_font(self.fonts.icon_font);
 
             if let Some(event) = row.set(widget, ui) {
@@ -740,6 +742,16 @@ where
                             .send(Lang::UserLayersEvent(UserLayersEvent::SetTitle(
                                 active_collection.layers[row.i].resource.to_owned(),
                                 new,
+                            )))
+                            .unwrap();
+                    }
+                    layer_row::Event::ToggleEnabled => {
+                        active_collection.layers[row.i].enabled =
+                            !active_collection.layers[row.i].enabled;
+                        self.sender
+                            .send(Lang::UserLayersEvent(UserLayersEvent::SetEnabled(
+                                active_collection.layers[row.i].resource.to_owned(),
+                                active_collection.layers[row.i].enabled,
                             )))
                             .unwrap();
                     }

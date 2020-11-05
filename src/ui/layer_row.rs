@@ -9,6 +9,7 @@ pub struct LayerRow<'a> {
     layer: &'a mut Layer,
     active: bool,
     style: Style,
+    toggleable: bool,
 }
 
 impl<'a> LayerRow<'a> {
@@ -18,11 +19,17 @@ impl<'a> LayerRow<'a> {
             layer,
             active,
             style: Style::default(),
+            toggleable: true,
         }
     }
 
     pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
         self.style.icon_font = Some(Some(font_id));
+        self
+    }
+
+    pub fn toggleable(mut self, toggleable: bool) -> Self {
+        self.toggleable = toggleable;
         self
     }
 }
@@ -51,6 +58,7 @@ pub struct State {
 pub enum Event {
     ActiveElement,
     Retitled(String),
+    ToggleEnabled,
 }
 
 impl<'a> Widget for LayerRow<'a> {
@@ -72,27 +80,32 @@ impl<'a> Widget for LayerRow<'a> {
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let mut event = None;
 
-        util::icon_button(
-            if self.layer.enabled {
-                util::IconName::EYE
-            } else {
-                util::IconName::EYEOFF
-            },
-            self.style.icon_font.unwrap().unwrap(),
-        )
-        .color(color::DARK_CHARCOAL)
-        .label_font_size(10)
-        .label_color(color::WHITE)
-        .border(0.0)
-        .w_h(32.0, 32.0)
-        .mid_left_with_margin(8.0)
-        .parent(args.id)
-        .set(args.state.ids.visibility_button, args.ui);
+        if self.toggleable {
+            for _press in util::icon_button(
+                if self.layer.enabled {
+                    util::IconName::EYE
+                } else {
+                    util::IconName::EYEOFF
+                },
+                self.style.icon_font.unwrap().unwrap(),
+            )
+            .color(color::DARK_CHARCOAL)
+            .label_font_size(10)
+            .label_color(color::WHITE)
+            .border(0.0)
+            .w_h(32.0, 32.0)
+            .mid_left_with_margin(8.0)
+            .parent(args.id)
+            .set(args.state.ids.visibility_button, args.ui)
+            {
+                event = Some(Event::ToggleEnabled);
+            }
+        }
 
         if let Some(image_id) = self.layer.thumbnail {
             widget::Image::new(image_id)
                 .w_h(32.0, 32.0)
-                .top_left_with_margins(8.0, 40.0)
+                .top_left_with_margins(8.0, 48.0)
                 .parent(args.id)
                 .graphics_for(args.id)
                 .set(args.state.ids.thumbnail, args.ui);
@@ -101,7 +114,7 @@ impl<'a> Widget for LayerRow<'a> {
         if args.state.editing_title {
             for ev in widget::TextBox::new(&self.layer.title)
                 .font_size(10)
-                .mid_left_with_margin(80.0)
+                .mid_left_with_margin(88.0)
                 .parent(args.id)
                 .h(16.0)
                 .w(args.rect.w() - 128.0)
@@ -125,7 +138,7 @@ impl<'a> Widget for LayerRow<'a> {
                     color::WHITE
                 })
                 .font_size(12)
-                .mid_left_with_margin(80.0)
+                .mid_left_with_margin(88.0)
                 .parent(args.id)
                 .set(args.state.ids.title, args.ui);
         }
