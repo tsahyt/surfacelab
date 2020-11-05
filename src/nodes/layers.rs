@@ -72,6 +72,7 @@ impl FxLayer {
 /// Masks are thus single-channel layers. When blending mask layers, there is no
 /// way to apply a mask into the blend, i.e. masks cannot be "recursive".
 pub struct Mask {
+    name: String,
     operator: Operator,
     output_socket: String,
     blend_options: MaskBlendOptions,
@@ -217,12 +218,39 @@ pub struct LayerBlendOptions {
 impl LayerBlendOptions {
     /// Create a blend operator from the given blend options. The output will
     /// *always* be clamped!
-    pub fn blend_operator(&self) -> Blend {
-        Blend {
-            blend_mode: self.blend_mode,
-            mix: self.opacity,
-            sharpness: 16.0,
-            clamp_output: 1,
+    pub fn blend_operator(&self) -> AtomicOperator {
+        if self.has_masks() {
+            AtomicOperator::BlendMasked(BlendMasked {
+                blend_mode: self.blend_mode,
+                sharpness: 16.0,
+                clamp_output: 1,
+            })
+        } else {
+            AtomicOperator::Blend(Blend {
+                blend_mode: self.blend_mode,
+                mix: self.opacity,
+                sharpness: 16.0,
+                clamp_output: 1,
+            })
+        }
+    }
+
+    pub fn has_masks(&self) -> bool {
+        !self.mask.0.is_empty()
+    }
+
+    pub fn top_mask<F: Fn(&Mask) -> Resource<Node>, G: Fn(&Mask) -> Resource<Node>>(
+        &self,
+        mask_resource: F,
+        blend_resource: G,
+    ) -> Option<Resource<Socket>> {
+        match self.mask.0.len() {
+            0 => None,
+            1 => {
+                let mask = self.mask.0.iter().last().unwrap();
+                Some(mask_resource(mask).node_socket(&mask.output_socket))
+            }
+            _ => Some(blend_resource(self.mask.0.iter().last().unwrap()).node_socket("color")),
         }
     }
 }
@@ -367,6 +395,20 @@ impl LayerStack {
 
     pub fn layer_resource(&self, layer: &Layer) -> Resource<Node> {
         Resource::node(&format!("{}/{}", self.name, layer.name()), None)
+    }
+
+    pub fn mask_resource(&self, layer: &Layer, mask: &Mask) -> Resource<Node> {
+        Resource::node(
+            &format!("{}/{}.mask.{}", self.name, layer.name(), mask.name),
+            None,
+        )
+    }
+
+    pub fn mask_blend_resource(&self, layer: &Layer, mask: &Mask) -> Resource<Node> {
+        Resource::node(
+            &format!("{}/{}.mask.{}.blend", self.name, layer.name(), mask.name),
+            None,
+        )
     }
 
     pub fn material_layer_resource(
@@ -699,6 +741,16 @@ impl super::NodeCollection for LayerStack {
                             creation: step,
                         });
 
+                    if blend_options.has_masks() {
+                        blend_options.mask.linearize_into(
+                            |mask| self.mask_resource(layer, mask),
+                            |mask| self.mask_blend_resource(layer, mask),
+                            &mut linearization,
+                            &mut use_points,
+                            &mut step,
+                        );
+                    }
+
                     for (channel, socket) in output_sockets.iter() {
                         // Skip blending if channel is not selected
                         if !blend_options.channels.contains(*channel) {
@@ -733,9 +785,18 @@ impl super::NodeCollection for LayerStack {
                                 resource.node_socket(socket),
                                 blend_res.node_socket("foreground"),
                             ));
+                            if let Some(mask_res) = blend_options.top_mask(
+                                |mask| self.mask_resource(layer, mask),
+                                |mask| self.mask_blend_resource(layer, mask),
+                            ) {
+                                linearization.push(Instruction::Move(
+                                    mask_res,
+                                    blend_res.node_socket("mask"),
+                                ));
+                            }
                             linearization.push(Instruction::Execute(
                                 blend_res.clone(),
-                                AtomicOperator::Blend(blend_options.blend_operator()),
+                                blend_options.blend_operator(),
                             ));
 
                             use_points
@@ -848,6 +909,16 @@ impl super::NodeCollection for LayerStack {
                             creation: step,
                         });
 
+                    if blend_options.has_masks() {
+                        blend_options.mask.linearize_into(
+                            |mask| self.mask_resource(layer, mask),
+                            |mask| self.mask_blend_resource(layer, mask),
+                            &mut linearization,
+                            &mut use_points,
+                            &mut step,
+                        );
+                    }
+
                     for (channel, socket) in output_sockets.iter() {
                         // Skip blending if channel is not selected
                         if !blend_options.channels.contains(*channel) {
@@ -882,9 +953,18 @@ impl super::NodeCollection for LayerStack {
                                 resource.node_socket(socket),
                                 blend_res.node_socket("foreground"),
                             ));
+                            if let Some(mask_res) = blend_options.top_mask(
+                                |mask| self.mask_resource(layer, mask),
+                                |mask| self.mask_blend_resource(layer, mask),
+                            ) {
+                                linearization.push(Instruction::Move(
+                                    mask_res,
+                                    blend_res.node_socket("mask"),
+                                ));
+                            }
                             linearization.push(Instruction::Execute(
                                 blend_res.clone(),
-                                AtomicOperator::Blend(blend_options.blend_operator()),
+                                blend_options.blend_operator(),
                             ));
 
                             use_points
