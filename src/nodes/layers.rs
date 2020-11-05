@@ -4,6 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use strum::IntoEnumIterator;
+use itertools::Itertools;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// A fill layer using an operator, with its output sockets mapped to
@@ -382,8 +383,6 @@ impl LayerStack {
         channel: MaterialChannel,
         socket_index: usize,
     ) {
-        use itertools::Itertools;
-
         if let Some(idx) = self.resources.get(layer.file().unwrap()) {
             match &mut self.layers[*idx] {
                 Layer::FillLayer(_, fill) => {
@@ -537,6 +536,9 @@ impl super::NodeCollection for LayerStack {
                     match operator {
                         Operator::AtomicOperator(aop) => {
                             linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
+                            if let Some(thmbsocket) = aop.outputs().keys().sorted().next() {
+                                linearization.push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
+                            }
                         }
                         Operator::ComplexOperator(cop) => {
                             // Inputs can be skipped vs the nodegraph
@@ -548,6 +550,9 @@ impl super::NodeCollection for LayerStack {
                                     output.node_socket("data"),
                                     resource.node_socket(out_socket),
                                 ))
+                            }
+                            if let Some(thmbsocket) = cop.outputs().keys().sorted().next() {
+                                linearization.push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
                             }
                         }
                     }
@@ -654,6 +659,10 @@ impl super::NodeCollection for LayerStack {
                                 ));
                             }
                             linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
+
+                            if let Some(thmbsocket) = aop.outputs().keys().sorted().next() {
+                                linearization.push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
+                            }
                         }
                         Operator::ComplexOperator(cop) => {
                             // Copy inputs to internal sockets
@@ -687,6 +696,10 @@ impl super::NodeCollection for LayerStack {
                                     output.node_socket("data"),
                                     resource.node_socket(out_socket),
                                 ))
+                            }
+
+                            if let Some(thmbsocket) = cop.outputs().keys().sorted().next() {
+                                linearization.push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
                             }
                         }
                     }
