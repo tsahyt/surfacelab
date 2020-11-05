@@ -1,10 +1,10 @@
 use crate::lang::*;
 use enumset::EnumSet;
+use itertools::Itertools;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use strum::IntoEnumIterator;
-use itertools::Itertools;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// A fill layer using an operator, with its output sockets mapped to
@@ -64,14 +64,146 @@ impl FxLayer {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// A mask (layer) is any operator that has one input and some number of outputs
+/// greater than 0 that can be interpreted as grayscale images. To retain
+/// flexibility, color outputs may be allowed, but only the red channel will be
+/// used.
+///
+/// Masks are thus single-channel layers. When blending mask layers, there is no
+/// way to apply a mask into the blend, i.e. masks cannot be "recursive".
 pub struct Mask {
     operator: Operator,
-    factor: f32,
+    output_socket: String,
+    blend_options: MaskBlendOptions,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MaskBlendOptions {
+    opacity: f32,
     blend_mode: BlendMode,
+    enabled: bool,
+}
+
+impl MaskBlendOptions {
+    pub fn blend_operator(&self) -> Blend {
+        Blend {
+            blend_mode: self.blend_mode,
+            mix: self.opacity,
+            sharpness: 16.0,
+            clamp_output: 1,
+        }
+    }
+}
+
+impl Default for MaskBlendOptions {
+    fn default() -> Self {
+        MaskBlendOptions {
+            opacity: 1.0,
+            blend_mode: BlendMode::Mix,
+            enabled: true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MaskStack(Vec<Mask>);
+
+impl MaskStack {
+    pub fn linearize_into<F: Fn(&Mask) -> Resource<Node>, G: Fn(&Mask) -> Resource<Node>>(
+        &self,
+        mask_resource: F,
+        blend_resource: G,
+        linearization: &mut Linearization,
+        use_points: &mut HashMap<Resource<Node>, UsePoint>,
+        step: &mut usize,
+    ) {
+        let mut last_socket: Option<Resource<Socket>> = None;
+
+        for mask in self.0.iter().filter(|m| m.blend_options.enabled) {
+            *step += 1;
+
+            let resource: Resource<Node> = mask_resource(mask);
+
+            match &mask.operator {
+                Operator::AtomicOperator(aop) => {
+                    linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
+                }
+                Operator::ComplexOperator(cop) => {
+                    let (out_socket, (_, output)) = cop
+                        .outputs
+                        .iter()
+                        .next()
+                        .expect("Mask operator with missing output");
+                    linearization.push(Instruction::Call(resource.clone(), cop.clone()));
+                    linearization.push(Instruction::Copy(
+                        output.node_socket("data"),
+                        resource.node_socket(out_socket),
+                    ))
+                }
+            }
+
+            use_points
+                .entry(resource.clone())
+                .and_modify(|e| e.creation = *step)
+                .or_insert(UsePoint {
+                    last: usize::MAX,
+                    creation: *step,
+                });
+
+            let outputs = mask.operator.outputs();
+            let (socket, _) = outputs
+                .iter()
+                .next()
+                .expect("Mask operator with missing output");
+
+            if let Some(background) = last_socket {
+                *step += 1;
+
+                let blend_res: Resource<Node> = blend_resource(mask);
+
+                use_points
+                    .entry(resource.clone())
+                    .and_modify(|e| e.last = *step)
+                    .or_insert(UsePoint {
+                        last: *step,
+                        creation: usize::MIN,
+                    });
+                use_points
+                    .entry(background.socket_node())
+                    .and_modify(|e| e.last = *step)
+                    .or_insert(UsePoint {
+                        last: *step,
+                        creation: usize::MIN,
+                    });
+
+                linearization.push(Instruction::Move(
+                    background.clone(),
+                    blend_res.node_socket("background"),
+                ));
+                linearization.push(Instruction::Move(
+                    resource.node_socket(socket),
+                    blend_res.node_socket("foreground"),
+                ));
+                linearization.push(Instruction::Execute(
+                    blend_res.clone(),
+                    AtomicOperator::Blend(mask.blend_options.blend_operator()),
+                ));
+
+                use_points
+                    .entry(blend_res.clone())
+                    .and_modify(|e| e.creation = *step)
+                    .or_insert(UsePoint {
+                        last: usize::MAX,
+                        creation: *step,
+                    });
+
+                last_socket = Some(blend_res.node_socket("color"));
+            } else {
+                last_socket = Some(resource.node_socket(socket));
+            }
+        }
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LayerBlendOptions {
@@ -537,7 +669,8 @@ impl super::NodeCollection for LayerStack {
                         Operator::AtomicOperator(aop) => {
                             linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
                             if let Some(thmbsocket) = aop.outputs().keys().sorted().next() {
-                                linearization.push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
+                                linearization
+                                    .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
                             }
                         }
                         Operator::ComplexOperator(cop) => {
@@ -552,7 +685,8 @@ impl super::NodeCollection for LayerStack {
                                 ))
                             }
                             if let Some(thmbsocket) = cop.outputs().keys().sorted().next() {
-                                linearization.push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
+                                linearization
+                                    .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
                             }
                         }
                     }
@@ -661,7 +795,8 @@ impl super::NodeCollection for LayerStack {
                             linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
 
                             if let Some(thmbsocket) = aop.outputs().keys().sorted().next() {
-                                linearization.push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
+                                linearization
+                                    .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
                             }
                         }
                         Operator::ComplexOperator(cop) => {
@@ -699,7 +834,8 @@ impl super::NodeCollection for LayerStack {
                             }
 
                             if let Some(thmbsocket) = cop.outputs().keys().sorted().next() {
-                                linearization.push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
+                                linearization
+                                    .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
                             }
                         }
                     }
@@ -807,13 +943,9 @@ impl super::NodeCollection for LayerStack {
             .get(resource.parameter_node().file().unwrap())
         {
             match &mut self.layers[*idx] {
-                Layer::FillLayer(
-                    _,
-                    FillLayer {
-                        operator,
-                        ..
-                    },
-                ) => operator.set_parameter(field, data),
+                Layer::FillLayer(_, FillLayer { operator, .. }) => {
+                    operator.set_parameter(field, data)
+                }
                 Layer::FxLayer(_, layer) => layer.operator.set_parameter(field, data),
             }
         }
@@ -921,11 +1053,10 @@ impl super::NodeCollection for LayerStack {
     fn element_param_box(&self, element: &Resource<Node>) -> ParamBoxDescription<MessageWriters> {
         if let Some(idx) = self.resources.get(element.file().unwrap()) {
             match &self.layers[*idx] {
-                Layer::FillLayer(_, l) => ParamBoxDescription::fill_layer_parameters(
-                    &l.operator,
-                    &l.output_sockets,
-                )
-                .map_transmitters(|t| t.clone().into()),
+                Layer::FillLayer(_, l) => {
+                    ParamBoxDescription::fill_layer_parameters(&l.operator, &l.output_sockets)
+                        .map_transmitters(|t| t.clone().into())
+                }
                 Layer::FxLayer(_, l) => ParamBoxDescription::fx_layer_parameters(&l.operator)
                     .map_transmitters(|t| t.clone().into()),
             }
