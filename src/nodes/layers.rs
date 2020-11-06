@@ -473,13 +473,17 @@ impl LayerStack {
         resource
     }
 
-    pub fn remove(&mut self, resource: &Resource<Node>) {
+    pub fn remove(&mut self, resource: &Resource<Node>) -> Option<Layer> {
         if let Some(index) = self.resources.remove(resource.file().unwrap()) {
-            self.layers.remove(index);
+            let layer = self.layers.remove(index);
 
             for idx in self.resources.values_mut().filter(|i| **i >= index) {
                 *idx -= 1;
             }
+
+            Some(layer)
+        } else {
+            None
         }
     }
 

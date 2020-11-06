@@ -584,6 +584,33 @@ where
                         );
                     }
                 }
+                LayersEvent::LayerRemoved(res) => {
+                    for socket in self
+                        .sockets
+                        .remove_all_for_node(res, &mut self.gpu)
+                        .drain(0..)
+                    {
+                        response.push(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(socket)))
+                    }
+
+                    for channel in MaterialChannel::iter() {
+                        let mut blend_node = res.clone();
+                        let new_name = format!(
+                            "{}.blend.{}",
+                            blend_node.file().unwrap(),
+                            channel.short_name()
+                        );
+                        blend_node.modify_path(|pb| pb.set_file_name(new_name));
+
+                        for socket in self
+                            .sockets
+                            .remove_all_for_node(res, &mut self.gpu)
+                            .drain(0..)
+                        {
+                            response.push(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(socket)))
+                        }
+                    }
+                }
             },
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, _, _, _, size) => {

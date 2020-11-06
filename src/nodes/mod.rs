@@ -640,6 +640,24 @@ impl NodeManager {
                         }
                     }
                 }
+                UserLayersEvent::RemoveLayer(layer_res) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(layer_res.directory().unwrap())
+                    {
+                        if ls.remove(layer_res).is_some() {
+                            response.push(Lang::LayersEvent(LayersEvent::LayerRemoved(
+                                layer_res.clone(),
+                            )));
+                        }
+
+                        if let Some(linearize) = self.relinearize(&self.active_graph) {
+                            response.push(linearize);
+                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                self.active_graph.clone(),
+                            )));
+                        }
+                    }
+                }
                 UserLayersEvent::SetOutput(layer_res, channel, selected, enabled) => {
                     let mut update_co = None;
 

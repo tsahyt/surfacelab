@@ -469,6 +469,18 @@ impl NodeCollections {
         }
     }
 
+    pub fn remove_layer(&mut self, layer_res: &Resource<Node>) {
+        if let Some(target) = self.target_layers_from_node(&layer_res) {
+            target.layers.remove(
+                target
+                    .layers
+                    .iter()
+                    .position(|l| &l.resource == layer_res)
+                    .expect("Trying to remove unknown layer"),
+            );
+        }
+    }
+
     /// Add a node to a graph, based on the resource data given. This is a NOP
     /// if the parent graph is a layer.
     pub fn add_node(&mut self, node: NodeData) {

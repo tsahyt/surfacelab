@@ -256,6 +256,9 @@ where
                 );
                 self.app_state.graphs.push_layer(layer);
             }
+            LayersEvent::LayerRemoved(res) => {
+                self.app_state.graphs.remove_layer(res);
+            }
         }
     }
 
@@ -633,17 +636,6 @@ where
             self.app_state.add_layer_modal = Some(LayerType::Fx);
         }
 
-        for _press in icon_button(IconName::TRASH, self.fonts.icon_font)
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.)
-            .wh([32., 32.0])
-            .top_right_with_margin(8.0)
-            .parent(self.ids.edit_canvas)
-            .set(self.ids.layer_delete, ui)
-        {}
-
         let active_collection = match self.app_state.graphs.get_active_collection_mut() {
             NodeCollection::Layers(l) => l,
             _ => panic!("Layers UI built for graph"),
@@ -654,6 +646,24 @@ where
             .active_layer_element
             .map(|idx| &mut active_collection.layers[idx])
         {
+            for _press in icon_button(IconName::TRASH, self.fonts.icon_font)
+                .label_font_size(14)
+                .label_color(color::WHITE)
+                .color(color::DARK_CHARCOAL)
+                .border(0.)
+                .wh([32., 32.0])
+                .top_right_with_margin(8.0)
+                .parent(self.ids.edit_canvas)
+                .set(self.ids.layer_delete, ui)
+            {
+                self.sender
+                    .send(Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
+                        active_layer.resource.clone(),
+                    )))
+                    .unwrap();
+                self.app_state.active_layer_element = None;
+            }
+
             if let Some(new_selection) =
                 widget::DropDownList::new(BlendMode::VARIANTS, Some(active_layer.blend_mode))
                     .label_font_size(10)
