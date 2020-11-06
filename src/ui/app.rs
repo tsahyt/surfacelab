@@ -1053,6 +1053,7 @@ where
         for _ev in icon_button(IconName::PLUS, self.fonts.icon_font)
             .parent(self.ids.surface_settings_canvas)
             .top_right_with_margins(96.0, 16.0)
+            .border(0.)
             .color(color::DARK_CHARCOAL)
             .label_color(color::WHITE)
             .label_font_size(12)

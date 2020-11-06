@@ -222,6 +222,7 @@ where
                         self.style.icon_font.unwrap().unwrap(),
                     )
                     .parent(id)
+                    .border(0.)
                     .color(color::DARK_CHARCOAL)
                     .label_color(color::WHITE)
                     .top_right_with_margins(top_margin, 16.0)

@@ -67,6 +67,9 @@ impl<'a> Widget for ExposedParamRow<'a> {
 
         for _press in icon_button(IconName::UNEXPOSE, self.style.icon_font.unwrap().unwrap())
             .parent(args.id)
+            .border(0.)
+            .color(color::DARK_CHARCOAL)
+            .label_color(color::WHITE)
             .top_left()
             .wh([20.0, 16.0])
             .label_font_size(12)
