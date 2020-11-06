@@ -685,8 +685,6 @@ where
                 GraphEvent::Recompute(graph) => {
                     debug_assert!(self.execution_stack.is_empty());
 
-                    self.seq += 1;
-
                     match self.interpret_linearization(graph, std::iter::empty()) {
                         Err(e) => {
                             self.execution_stack.clear();
@@ -780,6 +778,8 @@ where
     where
         I: Iterator<Item = &'a ParamSubstitution>,
     {
+        self.seq += 1;
+
         let linearization = self
             .linearizations
             .get(graph)
@@ -972,6 +972,8 @@ where
         op: &ComplexOperator,
     ) -> Result<(), InterpretationError> {
         log::trace!("Calling complex operator of {}", res);
+
+        // TODO: cache call!
 
         self.interpret_linearization(&op.graph, op.parameters.values())?;
 
