@@ -53,9 +53,14 @@ impl NodeManager {
                 }
             });
             events.append(&mut graph.rebuild_events(self.parent_size));
-            if let Some((instrs, last_use)) = graph.linearize(LinearizationMode::TopoSort) {
+            if let Some((instrs, last_use, force_points)) =
+                graph.linearize(LinearizationMode::TopoSort)
+            {
                 events.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                    res, instrs, last_use,
+                    res,
+                    instrs,
+                    last_use,
+                    force_points,
                 )))
             }
         }

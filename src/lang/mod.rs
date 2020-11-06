@@ -157,6 +157,10 @@ pub struct UsePoint {
 
 pub type UsePoints = Vec<(Resource<Node>, UsePoint)>;
 
+/// A force point is a node that has to be explicitly recomputed on request,
+/// overriding any caching schemes.
+pub type ForcePoints = Vec<Resource<Node>>;
+
 #[derive(Clone, Debug)]
 pub enum Instruction {
     Execute(Resource<Node>, AtomicOperator),
@@ -304,7 +308,7 @@ pub enum GraphEvent {
     ),
     ConnectedSockets(Resource<Socket>, Resource<Socket>),
     DisconnectedSockets(Resource<Socket>, Resource<Socket>),
-    Relinearized(Resource<Graph>, Linearization, UsePoints),
+    Relinearized(Resource<Graph>, Linearization, UsePoints, ForcePoints),
     Recompute(Resource<Graph>),
     SocketMonomorphized(Resource<Socket>, ImageType),
     SocketDemonomorphized(Resource<Socket>),

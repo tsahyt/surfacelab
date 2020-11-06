@@ -156,6 +156,15 @@ where
         result
     }
 
+    /// Force all sockets on this node in the next run
+    pub fn force_all_for_node(&mut self, res: &Resource<Node>) {
+        if let Some(socket) = self.0.get_mut(res) {
+            for typed_output in socket.typed_outputs.values_mut() {
+                typed_output.force = true;
+            }
+        }
+    }
+
     /// Ensure the node is known
     pub fn ensure_node_exists(&mut self, res: &Resource<Node>, size: u32) -> &mut SocketData<B> {
         self.0.entry(res.clone()).or_insert(SocketData {
@@ -633,7 +642,11 @@ where
                             .reinit_output_images(res, &self.gpu, *new_size as u32);
                     }
                 }
-                GraphEvent::Relinearized(graph, instrs, use_points) => {
+                GraphEvent::Relinearized(graph, instrs, use_points, force_points) => {
+                    for fp in force_points {
+                        self.sockets.force_all_for_node(fp);
+                    }
+
                     self.linearizations.insert(
                         graph.clone(),
                         Rc::new(Linearization {

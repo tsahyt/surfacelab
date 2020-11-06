@@ -377,6 +377,7 @@ pub struct LayerStack {
     layers: Vec<Layer>,
     resources: HashMap<String, usize>,
     parameters: HashMap<String, GraphParameter>,
+    force_points: ForcePoints,
 }
 
 impl LayerStack {
@@ -386,6 +387,7 @@ impl LayerStack {
             layers: Vec::new(),
             resources: HashMap::new(),
             parameters: HashMap::new(),
+            force_points: Vec::new(),
         }
     }
 
@@ -645,8 +647,15 @@ impl LayerStack {
 
     pub fn set_layer_enabled(&mut self, layer: &Resource<Node>, enabled: bool) {
         if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            self.layers[*idx].set_enabled(enabled)
+            self.layers[*idx].set_enabled(enabled);
+            if let Some(successor) = self.layers.get(*idx + 1) {
+                self.force_points.push(self.layer_resource(successor));
+            }
         }
+    }
+
+    pub fn clear_force_points(&mut self) {
+        self.force_points.clear();
     }
 }
 
@@ -698,7 +707,10 @@ impl super::NodeCollection for LayerStack {
     /// function in the NodeGraph.
     ///
     /// The linearization mode is ignored for layer stacks.
-    fn linearize(&self, _mode: super::LinearizationMode) -> Option<(Linearization, UsePoints)> {
+    fn linearize(
+        &self,
+        _mode: super::LinearizationMode,
+    ) -> Option<(Linearization, UsePoints, ForcePoints)> {
         let mut linearization = Vec::new();
         let mut use_points: HashMap<Resource<Node>, UsePoint> = HashMap::new();
         let mut step = 0;
@@ -1025,7 +1037,11 @@ impl super::NodeCollection for LayerStack {
             }
         }
 
-        Some((linearization, use_points.drain().collect()))
+        Some((
+            linearization,
+            use_points.drain().collect(),
+            self.force_points.clone(),
+        ))
     }
 
     fn parameter_change(
