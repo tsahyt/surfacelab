@@ -381,6 +381,12 @@ where
             .any(|x| x.force)
     }
 
+    pub fn force(&mut self, node: &Resource<Node>) {
+        for typed_output in self.0.get_mut(&node).unwrap().typed_outputs.values_mut() {
+            typed_output.force = true;
+        }
+    }
+
     pub fn set_output_image_updated(&mut self, node: &Resource<Node>, updated: u64) {
         for img in self.0.get_mut(&node).unwrap().typed_outputs.values_mut() {
             img.seq = updated;
@@ -652,6 +658,9 @@ where
                                 .add_output_socket(res, None, *size, *external_data);
                         }
                     }
+                }
+                GraphEvent::ComplexOperatorUpdated(node, _, _) => {
+                    self.sockets.force(node);
                 }
                 GraphEvent::NodeRemoved(res) => {
                     for socket in self

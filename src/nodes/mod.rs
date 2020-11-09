@@ -603,8 +603,10 @@ impl NodeManager {
                         self.graphs.get_mut(graph_res.path_str().unwrap())
                     {
                         let res = match ty {
-                            LayerType::Fill => ls
-                                .push_fill(layers::FillLayer::from_operator(&op), op.default_name()),
+                            LayerType::Fill => ls.push_fill(
+                                layers::FillLayer::from_operator(&op),
+                                op.default_name(),
+                            ),
                             LayerType::Fx => {
                                 ls.push_fx(layers::FxLayer::from_operator(&op), op.default_name())
                             }
