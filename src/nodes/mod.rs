@@ -587,14 +587,26 @@ impl NodeManager {
                     }
                 }
                 UserLayersEvent::PushLayer(graph_res, ty, op) => {
+                    let op = match op {
+                        lang::Operator::ComplexOperator(co) => {
+                            let co = self
+                                .graphs
+                                .get(co.graph.file().unwrap())
+                                .unwrap()
+                                .complex_operator_stub();
+                            lang::Operator::ComplexOperator(co)
+                        }
+                        lang::Operator::AtomicOperator(_) => op.clone(),
+                    };
+
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(graph_res.path_str().unwrap())
                     {
                         let res = match ty {
                             LayerType::Fill => ls
-                                .push_fill(layers::FillLayer::from_operator(op), op.default_name()),
+                                .push_fill(layers::FillLayer::from_operator(&op), op.default_name()),
                             LayerType::Fx => {
-                                ls.push_fx(layers::FxLayer::from_operator(op), op.default_name())
+                                ls.push_fx(layers::FxLayer::from_operator(&op), op.default_name())
                             }
                         };
                         log::debug!("Added {:?} layer {}", ty, res);
@@ -602,7 +614,7 @@ impl NodeManager {
                         let lin = ls.linearize(LinearizationMode::FullTraversal);
                         let mut sockets = ls.layer_sockets(&res);
                         let mut blend_sockets = ls.blend_sockets(&res);
-                        let pbox = self.element_param_box(op, &res);
+                        let pbox = self.element_param_box(&op, &res);
 
                         response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                             res,
