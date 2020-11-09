@@ -149,7 +149,7 @@ impl GraphParameter {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
 pub struct ParamSubstitution {
     resource: Resource<Param>,
     value: Vec<u8>,

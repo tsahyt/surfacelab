@@ -973,7 +973,44 @@ where
     ) -> Result<(), InterpretationError> {
         log::trace!("Calling complex operator of {}", res);
 
-        // TODO: cache call!
+        let uniform_hash = op.parameter_hash();
+        let op_seq = self
+            .sockets
+            .get_output_image_updated(res)
+            .expect("Missing sequence for operator");
+        let inputs_updated = op.inputs().iter().any(|(socket, _)| {
+            let socket_res = res.node_socket(&socket);
+            self.sockets
+                .get_input_image_updated(&socket_res)
+                .expect("Missing input image")
+                > op_seq
+        });
+        match self.last_known.get(res) {
+            Some(hash)
+                if *hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) =>
+            {
+                log::trace!("Reusing cached images, skipping call");
+
+                let inner_seq = op
+                    .outputs
+                    .iter()
+                    .map(|(_, (_, x))| {
+                        self.sockets
+                            .get_input_image_updated(&x.node_socket("data"))
+                            .unwrap_or(0)
+                    })
+                    .max()
+                    .unwrap_or(0);
+
+                self.sockets
+                    .set_output_image_updated(res, self.seq.min(inner_seq));
+
+                return Ok(());
+            }
+            _ => {}
+        };
+
+        let start_time = Instant::now();
 
         self.interpret_linearization(&op.graph, op.parameters.values())?;
 
@@ -984,6 +1021,10 @@ where
                 .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
                 .ensure_alloc(&self.gpu)?;
         }
+
+        self.last_known.insert(res.clone(), uniform_hash);
+        self.sockets
+            .update_timing_data(res, start_time.elapsed().as_secs_f64());
 
         Ok(())
     }
@@ -998,27 +1039,37 @@ where
         from: &Resource<Socket>,
         to: &Resource<Socket>,
     ) -> Result<(), InterpretationError> {
-        log::trace!("Executing copy from {} to {}", from, to);
-
-        self.sockets
-            .get_output_image_mut(to)
-            .expect("Unable to find source image for copy")
-            .ensure_alloc(&self.gpu)?;
-
-        #[allow(clippy::or_fun_call)]
-        let from_image = self
+        let to_seq = self.sockets.get_output_image_updated(&to.socket_node());
+        let from_seq = self
             .sockets
-            .get_output_image(from)
-            .or(self.sockets.get_input_image(from))
-            .expect("Unable to find source image for copy");
-        let to_image = self
-            .sockets
-            .get_output_image(to)
-            .expect("Unable to find source image for copy");
+            .get_output_image_updated(&from.socket_node())
+            .or_else(|| self.sockets.get_input_image_updated(from));
 
-        self.gpu.copy_image(from_image, to_image);
-        self.sockets
-            .set_output_image_updated(&to.socket_node(), self.seq);
+        if to_seq >= from_seq && !self.sockets.get_force(&to.socket_node()) {
+            log::trace!("Skipping copy");
+        } else {
+            log::trace!("Executing copy from {} to {}", from, to);
+
+            self.sockets
+                .get_output_image_mut(to)
+                .expect("Unable to find source image for copy")
+                .ensure_alloc(&self.gpu)?;
+
+            #[allow(clippy::or_fun_call)]
+            let from_image = self
+                .sockets
+                .get_output_image(from)
+                .or(self.sockets.get_input_image(from))
+                .expect("Unable to find source image for copy");
+            let to_image = self
+                .sockets
+                .get_output_image(to)
+                .expect("Unable to find source image for copy");
+
+            self.gpu.copy_image(from_image, to_image);
+            self.sockets
+                .set_output_image_updated(&to.socket_node(), self.seq);
+        }
 
         Ok(())
     }

@@ -90,6 +90,17 @@ impl ComplexOperator {
             parameters: HashMap::new(),
         }
     }
+
+    pub fn parameter_hash(&self) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        for param in self.parameters.values() {
+            param.hash(&mut hasher)
+        }
+        hasher.finish()
+    }
 }
 
 impl Parameters for ComplexOperator {
