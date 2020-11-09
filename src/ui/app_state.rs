@@ -227,6 +227,10 @@ impl Layer {
             enabled: true,
         }
     }
+
+    pub fn update(&mut self, param_box: ParamBoxDescription<MessageWriters>) {
+        self.operator_pbox = param_box;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -291,10 +295,12 @@ impl Collection for Layers {
     fn update_complex_operator(
         &mut self,
         node: &Resource<r::Node>,
-        op: &ComplexOperator,
+        _op: &ComplexOperator,
         pbox: &ParamBoxDescription<MessageWriters>,
     ) {
-        todo!()
+        if let Some(layer) = self.layers.iter_mut().find(|l| &l.resource == node) {
+            layer.update(pbox.clone());
+        }
     }
 }
 
