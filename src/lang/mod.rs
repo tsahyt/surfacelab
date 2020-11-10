@@ -339,6 +339,7 @@ pub enum LayerType {
 pub enum UserLayersEvent {
     AddLayers,
     PushLayer(Resource<Graph>, LayerType, Operator),
+    PushMask(Resource<Node>, Operator),
     RemoveLayer(Resource<Node>),
     SetOutput(Resource<Node>, MaterialChannel, usize, bool),
     SetInput(Resource<Socket>, MaterialChannel),

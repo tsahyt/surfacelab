@@ -46,6 +46,7 @@ widget_ids!(
         layer_blend_mode,
         layer_new_fill,
         layer_new_fx,
+        layer_new_mask,
         layer_delete,
         layer_list,
 
@@ -641,11 +642,12 @@ where
             _ => panic!("Layers UI built for graph"),
         };
 
-        if let Some(active_layer) = self
-            .app_state
-            .active_layer_element
-            .map(|idx| &mut active_collection.layers[idx])
-        {
+        if let Some((is_base, active_layer)) = self.app_state.active_layer_element.map(|idx| {
+            (
+                active_collection.layers.len() - 1 == idx,
+                &mut active_collection.layers[idx],
+            )
+        }) {
             for _press in icon_button(IconName::TRASH, self.fonts.icon_font)
                 .label_font_size(14)
                 .label_color(color::WHITE)
@@ -662,6 +664,19 @@ where
                     )))
                     .unwrap();
                 self.app_state.active_layer_element = None;
+            }
+
+            if !is_base {
+                for _press in icon_button(IconName::MASK, self.fonts.icon_font)
+                    .label_font_size(14)
+                    .label_color(color::WHITE)
+                    .color(color::DARK_CHARCOAL)
+                    .border(0.)
+                    .wh([32., 32.0])
+                    .left(8.0)
+                    .parent(self.ids.edit_canvas)
+                    .set(self.ids.layer_new_mask, ui)
+                {}
             }
 
             if let Some(new_selection) =

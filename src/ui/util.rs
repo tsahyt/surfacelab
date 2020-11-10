@@ -19,6 +19,7 @@ impl IconName {
     pub const TRASH: IconName = IconName("\u{f0a7a}");
     pub const EYE: IconName = IconName("\u{f0208}");
     pub const EYEOFF: IconName = IconName("\u{f0209}");
+    pub const MASK: IconName = IconName("\u{f1023}");
 }
 
 pub fn icon_button<'a>(

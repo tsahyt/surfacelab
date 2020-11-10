@@ -654,6 +654,9 @@ impl NodeManager {
                         }
                     }
                 }
+                UserLayersEvent::PushMask(layer, op) => {
+
+                }
                 UserLayersEvent::RemoveLayer(layer_res) => {
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
