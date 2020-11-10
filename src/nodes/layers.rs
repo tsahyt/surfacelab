@@ -653,7 +653,11 @@ impl LayerStack {
         mask: &Resource<Node>,
     ) -> Vec<(Resource<Socket>, OperatorType)> {
         let mut blend_res = mask.clone();
-        blend_res.path_mut().set_extension(".blend");
+        let new_name = format!(
+            "{}.blend",
+            blend_res.file().unwrap(),
+        );
+        blend_res.modify_path(|pb| pb.set_file_name(new_name));
         vec![(
             blend_res.node_socket("color"),
             OperatorType::Monomorphic(ImageType::Grayscale),

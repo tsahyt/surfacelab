@@ -582,9 +582,17 @@ where
                         self.sockets.ensure_node_exists(&blend_node, *size);
                     }
                 }
-                LayersEvent::MaskPushed(res, _, _, _, _, _, _, size) => {
+                LayersEvent::MaskPushed(_, res, _, _, _, _, _, size) => {
                     // Ensure socket data exists
                     self.sockets.ensure_node_exists(res, *size);
+
+                    let mut blend_node = res.clone();
+                    let new_name = format!(
+                        "{}.blend",
+                        blend_node.file().unwrap(),
+                    );
+                    blend_node.modify_path(|pb| pb.set_file_name(new_name));
+                    self.sockets.ensure_node_exists(&blend_node, *size);
                 }
                 LayersEvent::LayersAdded(g, size) => {
                     for channel in MaterialChannel::iter() {
