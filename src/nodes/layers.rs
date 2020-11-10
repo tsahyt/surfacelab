@@ -267,6 +267,8 @@ impl Default for LayerBlendOptions {
     }
 }
 
+// TODO: See if backend layer representation can be unified to not differentiate between fill and fx
+
 /// A layer is either a fill layer or an FX layer. Each layer has a name, such
 /// that it can be referenced via a Resource. The resource type for a layer is
 /// `Resource<Node>`.
