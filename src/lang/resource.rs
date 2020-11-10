@@ -186,6 +186,10 @@ impl<S> Resource<S> {
         &self.resource_path
     }
 
+    pub fn path_mut(&mut self) -> &mut PathBuf {
+        &mut self.resource_path
+    }
+
     pub fn path_str(&self) -> Option<&str> {
         self.path().to_str()
     }

@@ -654,6 +654,12 @@ impl NodeCollections {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum LayerFilter {
+    Layer(LayerType),
+    Mask(Resource<Node>),
+}
+
 pub struct App {
     pub graphs: NodeCollections,
     pub active_node_element: Option<petgraph::graph::NodeIndex>,
@@ -663,7 +669,7 @@ pub struct App {
     pub monitor_resolution: (u32, u32),
 
     pub add_node_modal: Option<Point>,
-    pub add_layer_modal: Option<LayerType>,
+    pub add_layer_modal: Option<LayerFilter>,
     pub render_modal: bool,
 
     pub render_params: ParamBoxDescription<RenderField>,

@@ -156,6 +156,16 @@ impl Operator {
             Operator::ComplexOperator(o) => &o.graph == graph,
         }
     }
+
+    /// A mask is any operator that has one input or less, and some number of
+    /// outputs greater than 0 that can be interpreted as grayscale images.
+    pub fn is_mask(&self) -> bool {
+        self.inputs().len() <= 1
+            && self.outputs().values().any(|t| match t {
+                OperatorType::Monomorphic(ImageType::Grayscale) => true,
+                _ => false,
+            })
+    }
 }
 
 pub type Linearization = Vec<Instruction>;
@@ -363,6 +373,16 @@ pub enum LayersEvent {
         u32,
     ),
     LayerRemoved(Resource<Node>),
+    MaskPushed(
+        Resource<Node>,
+        Resource<Node>,
+        String,
+        Operator,
+        BlendMode,
+        f32,
+        ParamBoxDescription<MessageWriters>,
+        u32,
+    ),
 }
 
 #[derive(Debug)]

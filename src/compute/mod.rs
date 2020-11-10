@@ -582,6 +582,10 @@ where
                         self.sockets.ensure_node_exists(&blend_node, *size);
                     }
                 }
+                LayersEvent::MaskPushed(res, _, _, _, _, _, _, size) => {
+                    // Ensure socket data exists
+                    self.sockets.ensure_node_exists(res, *size);
+                }
                 LayersEvent::LayersAdded(g, size) => {
                     for channel in MaterialChannel::iter() {
                         self.sockets.ensure_node_exists(

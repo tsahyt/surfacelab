@@ -260,6 +260,7 @@ where
             LayersEvent::LayerRemoved(res) => {
                 self.app_state.graphs.remove_layer(res);
             }
+            LayersEvent::MaskPushed(res, _, _, _, _, _, _, size) => {}
         }
     }
 
@@ -621,7 +622,7 @@ where
             .parent(self.ids.edit_canvas)
             .set(self.ids.layer_new_fill, ui)
         {
-            self.app_state.add_layer_modal = Some(LayerType::Fill);
+            self.app_state.add_layer_modal = Some(LayerFilter::Layer(LayerType::Fill));
         }
 
         for _press in icon_button(IconName::FX, self.fonts.icon_font)
@@ -634,7 +635,7 @@ where
             .parent(self.ids.edit_canvas)
             .set(self.ids.layer_new_fx, ui)
         {
-            self.app_state.add_layer_modal = Some(LayerType::Fx);
+            self.app_state.add_layer_modal = Some(LayerFilter::Layer(LayerType::Fx));
         }
 
         let active_collection = match self.app_state.graphs.get_active_collection_mut() {
@@ -676,7 +677,10 @@ where
                     .left(8.0)
                     .parent(self.ids.edit_canvas)
                     .set(self.ids.layer_new_mask, ui)
-                {}
+                {
+                    self.app_state.add_layer_modal =
+                        Some(LayerFilter::Mask(active_layer.resource.clone()));
+                }
             }
 
             if let Some(new_selection) =
@@ -788,7 +792,7 @@ where
             s.set(ui);
         }
 
-        if let Some(filter) = self.app_state.add_layer_modal.as_ref().copied() {
+        if let Some(filter) = self.app_state.add_layer_modal.as_ref().cloned() {
             use super::modal;
 
             let mut operators = self
@@ -796,8 +800,9 @@ where
                 .addable_operators
                 .iter()
                 .filter(|o| match filter {
-                    LayerType::Fill => o.inputs().is_empty(),
-                    LayerType::Fx => !o.inputs().is_empty(),
+                    LayerFilter::Layer(LayerType::Fill) => o.inputs().is_empty(),
+                    LayerFilter::Layer(LayerType::Fx) => !o.inputs().is_empty(),
+                    LayerFilter::Mask(..) => o.is_mask(),
                 });
 
             match modal::Modal::new(
@@ -824,12 +829,19 @@ where
                             self.app_state.add_layer_modal = None;
 
                             self.sender
-                                .send(Lang::UserLayersEvent(UserLayersEvent::PushLayer(
-                                    self.app_state.graphs.get_active().clone(),
-                                    filter,
-                                    op.clone(),
-                                )))
-                                .unwrap()
+                                .send(match &filter {
+                                    LayerFilter::Layer(filter) => {
+                                        Lang::UserLayersEvent(UserLayersEvent::PushLayer(
+                                            self.app_state.graphs.get_active().clone(),
+                                            *filter,
+                                            op.clone(),
+                                        ))
+                                    }
+                                    LayerFilter::Mask(for_layer) => Lang::UserLayersEvent(
+                                        UserLayersEvent::PushMask(for_layer.clone(), op.clone()),
+                                    ),
+                                })
+                                .unwrap();
                         }
                     }
 

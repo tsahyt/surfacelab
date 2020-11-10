@@ -19,13 +19,13 @@ pub struct FillLayer {
     blend_options: LayerBlendOptions,
 }
 
-impl FillLayer {
-    pub fn from_operator(op: &Operator) -> Self {
-        FillLayer {
-            title: op.title().to_owned(),
-            operator: op.clone(),
+impl From<Operator> for FillLayer {
+    fn from(source: Operator) -> Self {
+        Self {
+            title: source.title().to_owned(),
             output_sockets: HashMap::new(),
             blend_options: LayerBlendOptions::default(),
+            operator: source,
         }
     }
 }
@@ -47,27 +47,28 @@ pub struct FxLayer {
     blend_options: LayerBlendOptions,
 }
 
-impl FxLayer {
-    pub fn from_operator(op: &Operator) -> Self {
-        FxLayer {
-            title: op.title().to_owned(),
-            operator: op.clone(),
+impl From<Operator> for FxLayer {
+    fn from(source: Operator) -> Self {
+        Self {
+            title: source.title().to_owned(),
             input_sockets: HashMap::from_iter(
-                op.inputs()
+                source
+                    .inputs()
                     .drain()
                     .map(|(k, _)| (k, MaterialChannel::Displacement)),
             ),
             output_sockets: HashMap::new(),
             blend_options: LayerBlendOptions::default(),
+            operator: source,
         }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-/// A mask (layer) is any operator that has one input and some number of outputs
-/// greater than 0 that can be interpreted as grayscale images. To retain
-/// flexibility, color outputs may be allowed, but only the red channel will be
-/// used.
+/// A mask (layer) is any operator that has one input or less, and some number
+/// of outputs greater than 0 that can be interpreted as grayscale images. To
+/// retain flexibility, color outputs may be allowed, but only the red channel
+/// will be used.
 ///
 /// Masks are thus single-channel layers. When blending mask layers, there is no
 /// way to apply a mask into the blend, i.e. masks cannot be "recursive".
@@ -76,6 +77,22 @@ pub struct Mask {
     operator: Operator,
     output_socket: String,
     blend_options: MaskBlendOptions,
+}
+
+impl From<Operator> for Mask {
+    fn from(source: Operator) -> Self {
+        Self {
+            name: source.default_name().to_string(),
+            output_socket: source
+                .outputs()
+                .keys()
+                .next()
+                .expect("Invalid operator for mask")
+                .to_string(),
+            operator: source,
+            blend_options: MaskBlendOptions::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -107,7 +124,19 @@ impl Default for MaskBlendOptions {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MaskStack(Vec<Mask>);
+pub struct MaskStack {
+    stack: Vec<Mask>,
+    resources: HashMap<String, usize>,
+}
+
+impl MaskStack {
+    pub fn new() -> Self {
+        Self {
+            stack: Vec::new(),
+            resources: HashMap::new(),
+        }
+    }
+}
 
 impl MaskStack {
     pub fn linearize_into<F: Fn(&Mask) -> Resource<Node>, G: Fn(&Mask) -> Resource<Node>>(
@@ -120,7 +149,7 @@ impl MaskStack {
     ) {
         let mut last_socket: Option<Resource<Socket>> = None;
 
-        for mask in self.0.iter().filter(|m| m.blend_options.enabled) {
+        for mask in self.stack.iter().filter(|m| m.blend_options.enabled) {
             *step += 1;
 
             let resource: Resource<Node> = mask_resource(mask);
@@ -204,6 +233,22 @@ impl MaskStack {
             }
         }
     }
+
+    pub fn push(&mut self, mask: Mask, resource: Resource<Node>) {
+        self.stack.push(mask);
+        self.resources
+            .insert(resource.file().unwrap().to_owned(), self.stack.len() - 1);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Mask> {
+        self.stack.iter()
+    }
+
+    pub fn get_operator(&self, mask: &Resource<Node>) -> Option<&Operator> {
+        self.resources
+            .get(mask.file().unwrap())
+            .map(|idx| &self.stack[*idx].operator)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -236,7 +281,7 @@ impl LayerBlendOptions {
     }
 
     pub fn has_masks(&self) -> bool {
-        !self.mask.0.is_empty()
+        !self.mask.stack.is_empty()
     }
 
     pub fn top_mask<F: Fn(&Mask) -> Resource<Node>, G: Fn(&Mask) -> Resource<Node>>(
@@ -244,13 +289,13 @@ impl LayerBlendOptions {
         mask_resource: F,
         blend_resource: G,
     ) -> Option<Resource<Socket>> {
-        match self.mask.0.len() {
+        match self.mask.stack.len() {
             0 => None,
             1 => {
-                let mask = self.mask.0.iter().last().unwrap();
+                let mask = self.mask.iter().last().unwrap();
                 Some(mask_resource(mask).node_socket(&mask.output_socket))
             }
-            _ => Some(blend_resource(self.mask.0.iter().last().unwrap()).node_socket("color")),
+            _ => Some(blend_resource(self.mask.iter().last().unwrap()).node_socket("color")),
         }
     }
 }
@@ -258,7 +303,7 @@ impl LayerBlendOptions {
 impl Default for LayerBlendOptions {
     fn default() -> Self {
         LayerBlendOptions {
-            mask: MaskStack(Vec::new()),
+            mask: MaskStack::new(),
             opacity: 1.0,
             channels: EnumSet::empty(),
             blend_mode: BlendMode::Mix,
@@ -371,6 +416,20 @@ impl Layer {
             Layer::FxLayer(_, l) => &l.operator,
         }
     }
+
+    pub fn get_masks(&self) -> &MaskStack {
+        match self {
+            Layer::FillLayer(_, l) => &l.blend_options.mask,
+            Layer::FxLayer(_, l) => &l.blend_options.mask,
+        }
+    }
+
+    pub fn push_mask(&mut self, mask: Mask, resource: Resource<Node>) {
+        match self {
+            Layer::FillLayer(_, l) => l.blend_options.mask.push(mask, resource),
+            Layer::FxLayer(_, l) => l.blend_options.mask.push(mask, resource),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -475,6 +534,27 @@ impl LayerStack {
         resource
     }
 
+    pub fn push_mask(
+        &mut self,
+        mask: Mask,
+        for_layer: &Resource<Node>,
+        base_name: &str,
+    ) -> Option<Resource<Node>> {
+        if let Some(idx) = self.resources.get(for_layer.file().unwrap()) {
+            let base_name = format!("{}.mask.{}", for_layer.file().unwrap(), base_name);
+            let resource = Resource::node(
+                &format!("{}/{}", self.name, self.next_free_name(&base_name)),
+                None,
+            );
+
+            self.layers[*idx].push_mask(mask, resource.clone());
+
+            Some(resource)
+        } else {
+            None
+        }
+    }
+
     pub fn remove(&mut self, resource: &Resource<Node>) -> Option<Layer> {
         if let Some(index) = self.resources.remove(resource.file().unwrap()) {
             let layer = self.layers.remove(index);
@@ -545,6 +625,39 @@ impl LayerStack {
         } else {
             Vec::new()
         }
+    }
+
+    /// Return all output sockets for the given mask
+    pub fn mask_sockets(
+        &self,
+        layer: &Resource<Node>,
+        mask: &Resource<Node>,
+    ) -> Vec<(Resource<Socket>, OperatorType, bool)> {
+        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            let op = self.layers[*idx]
+                .get_masks()
+                .get_operator(mask)
+                .expect("Unknown mask");
+            op.outputs()
+                .iter()
+                .map(|(s, t)| (mask.node_socket(s), *t, op.external_data()))
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Return all blend sockets for the given mask
+    pub fn mask_blend_sockets(
+        &self,
+        mask: &Resource<Node>,
+    ) -> Vec<(Resource<Socket>, OperatorType)> {
+        let mut blend_res = mask.clone();
+        blend_res.path_mut().set_extension(".blend");
+        vec![(
+            blend_res.node_socket("color"),
+            OperatorType::Monomorphic(ImageType::Grayscale),
+        )]
     }
 
     /// Return all blend sockets of the given layer

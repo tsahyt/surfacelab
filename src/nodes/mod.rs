@@ -223,18 +223,7 @@ impl NodeManager {
             Lang::UserNodeEvent(event) => match event {
                 UserNodeEvent::NewNode(graph_res, op, pos) => {
                     let graph_name = graph_res.path().to_str().unwrap();
-                    let op = match op {
-                        lang::Operator::ComplexOperator(co) => {
-                            let co = self
-                                .graphs
-                                .get(co.graph.file().unwrap())
-                                .unwrap()
-                                .complex_operator_stub();
-                            lang::Operator::ComplexOperator(co)
-                        }
-                        lang::Operator::AtomicOperator(_) => op.clone(),
-                    };
-
+                    let op = self.complete_operator(op);
                     let mut update_co = None;
 
                     if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph_name) {
@@ -587,28 +576,17 @@ impl NodeManager {
                     }
                 }
                 UserLayersEvent::PushLayer(graph_res, ty, op) => {
-                    let op = match op {
-                        lang::Operator::ComplexOperator(co) => {
-                            let co = self
-                                .graphs
-                                .get(co.graph.file().unwrap())
-                                .unwrap()
-                                .complex_operator_stub();
-                            lang::Operator::ComplexOperator(co)
-                        }
-                        lang::Operator::AtomicOperator(_) => op.clone(),
-                    };
+                    let op = self.complete_operator(op);
 
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(graph_res.path_str().unwrap())
                     {
                         let res = match ty {
-                            LayerType::Fill => ls.push_fill(
-                                layers::FillLayer::from_operator(&op),
-                                op.default_name(),
-                            ),
+                            LayerType::Fill => {
+                                ls.push_fill(layers::FillLayer::from(op.clone()), op.default_name())
+                            }
                             LayerType::Fx => {
-                                ls.push_fx(layers::FxLayer::from_operator(&op), op.default_name())
+                                ls.push_fx(layers::FxLayer::from(op.clone()), op.default_name())
                             }
                         };
                         log::debug!("Added {:?} layer {}", ty, res);
@@ -622,7 +600,7 @@ impl NodeManager {
                             res,
                             *ty,
                             op.title().to_owned(),
-                            op.clone(),
+                            op,
                             BlendMode::Mix,
                             1.0,
                             pbox,
@@ -654,8 +632,57 @@ impl NodeManager {
                         }
                     }
                 }
-                UserLayersEvent::PushMask(layer, op) => {
+                UserLayersEvent::PushMask(for_layer, op) => {
+                    let op = self.complete_operator(op);
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(for_layer.directory().unwrap())
+                    {
+                        let mask = layers::Mask::from(op.clone());
+                        let res = ls
+                            .push_mask(mask, for_layer, op.default_name())
+                            .expect("Error pushing mask");
+                        log::debug!("Added mask {}", res);
 
+                        let lin = ls.linearize(LinearizationMode::FullTraversal);
+                        let mut sockets = ls.mask_sockets(for_layer, &res);
+                        let mut blend_sockets = ls.mask_blend_sockets(&res);
+                        let pbox = self.element_param_box(&op, &res);
+
+                        response.push(Lang::LayersEvent(LayersEvent::MaskPushed(
+                            for_layer.to_owned(),
+                            res,
+                            op.title().to_owned(),
+                            op,
+                            BlendMode::Mix,
+                            1.0,
+                            pbox,
+                            self.parent_size,
+                        )));
+                        response.extend(sockets.drain(0..).map(|(s, t, e)| {
+                            Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                s,
+                                t,
+                                e,
+                                self.parent_size,
+                            ))
+                        }));
+                        response.extend(blend_sockets.drain(0..).map(|(s, t)| {
+                            Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                s,
+                                t,
+                                false,
+                                self.parent_size,
+                            ))
+                        }));
+                        if let Some((linearization, last_use, force_points)) = lin {
+                            response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                                for_layer.node_graph(),
+                                linearization,
+                                last_use,
+                                force_points,
+                            )))
+                        }
+                    }
                 }
                 UserLayersEvent::RemoveLayer(layer_res) => {
                     if let Some(NodeGraph::LayerStack(ls)) =
@@ -929,6 +956,20 @@ impl NodeManager {
                     force_points,
                 ))
             })
+    }
+
+    fn complete_operator(&self, op: &Operator) -> Operator {
+        match op {
+            lang::Operator::ComplexOperator(co) => {
+                let co = self
+                    .graphs
+                    .get(co.graph.file().unwrap())
+                    .unwrap()
+                    .complex_operator_stub();
+                lang::Operator::ComplexOperator(co)
+            }
+            lang::Operator::AtomicOperator(_) => op.clone(),
+        }
     }
 }
 
