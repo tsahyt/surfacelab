@@ -1451,7 +1451,7 @@ impl super::NodeCollection for LayerStack {
                 let mut blend_sockets = self.blend_sockets(&res);
 
                 evs.push(Lang::LayersEvent(LayersEvent::LayerPushed(
-                    res,
+                    res.clone(),
                     layer.layer_type(),
                     layer.title().to_owned(),
                     layer.operator().clone(),
@@ -1466,6 +1466,30 @@ impl super::NodeCollection for LayerStack {
                 evs.extend(blend_sockets.drain(0..).map(|(s, t)| {
                     Lang::GraphEvent(GraphEvent::OutputSocketAdded(s, t, false, parent_size))
                 }));
+
+                for mask in layer.get_masks().iter() {
+                    let mask_res = self.mask_resource(layer, mask);
+
+                    let mut sockets = self.mask_sockets(&res, &mask_res);
+                    let mut blend_sockets = self.mask_blend_sockets(&mask_res);
+
+                    evs.push(Lang::LayersEvent(LayersEvent::MaskPushed(
+                        res.clone(),
+                        mask_res,
+                        mask.operator.title().to_owned(),
+                        mask.operator.clone(),
+                        mask.blend_options.blend_mode,
+                        ParamBoxDescription::empty(),
+                        parent_size,
+                    )));
+
+                    evs.extend(sockets.drain(0..).map(|(s, t, e)| {
+                        Lang::GraphEvent(GraphEvent::OutputSocketAdded(s, t, e, parent_size))
+                    }));
+                    evs.extend(blend_sockets.drain(0..).map(|(s, t)| {
+                        Lang::GraphEvent(GraphEvent::OutputSocketAdded(s, t, false, parent_size))
+                    }));
+                }
 
                 evs
             })
