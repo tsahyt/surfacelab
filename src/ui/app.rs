@@ -670,7 +670,7 @@ where
                 self.app_state.active_layer_element = None;
             }
 
-            if !is_base {
+            if !is_base && !active_layer.is_mask {
                 for _press in icon_button(IconName::MASK, self.fonts.icon_font)
                     .label_font_size(14)
                     .label_color(color::WHITE)
