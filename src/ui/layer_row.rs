@@ -47,6 +47,7 @@ widget_ids! {
         layer_type,
         title,
         title_edit,
+        background,
     }
 }
 
@@ -80,6 +81,18 @@ impl<'a> Widget for LayerRow<'a> {
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let mut event = None;
 
+        widget::Rectangle::fill([args.rect.w(), args.rect.h()])
+            .color(color::rgba(
+                0.,
+                0.,
+                0.,
+                if self.layer.is_mask { 0.25 } else { 0.0 },
+            ))
+            .middle()
+            .parent(args.id)
+            .graphics_for(args.id)
+            .set(args.state.ids.background, args.ui);
+
         if self.toggleable {
             for _press in util::icon_button(
                 if self.layer.enabled {
@@ -89,7 +102,7 @@ impl<'a> Widget for LayerRow<'a> {
                 },
                 self.style.icon_font.unwrap().unwrap(),
             )
-            .color(color::DARK_CHARCOAL)
+            .color(color::TRANSPARENT)
             .label_font_size(10)
             .label_color(color::WHITE)
             .border(0.0)

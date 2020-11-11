@@ -582,7 +582,7 @@ where
                         self.sockets.ensure_node_exists(&blend_node, *size);
                     }
                 }
-                LayersEvent::MaskPushed(_, res, _, _, _, _, _, size) => {
+                LayersEvent::MaskPushed(_, res, _, _, _, _, size) => {
                     // Ensure socket data exists
                     self.sockets.ensure_node_exists(res, *size);
 

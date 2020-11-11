@@ -199,12 +199,12 @@ pub struct Layer {
     pub operator_pbox: ParamBoxDescription<MessageWriters>,
     pub opacity: f32,
     pub blend_mode: usize,
-    pub masks: Vec<Mask>,
     pub enabled: bool,
+    pub is_mask: bool,
 }
 
 impl Layer {
-    pub fn new(
+    pub fn layer(
         resource: Resource<Node>,
         ty: LayerType,
         title: &str,
@@ -223,8 +223,27 @@ impl Layer {
             operator_pbox: pbox,
             opacity,
             blend_mode,
-            masks: Vec::new(),
             enabled: true,
+            is_mask: false,
+        }
+    }
+
+    pub fn mask(
+        resource: Resource<Node>,
+        title: &str,
+        pbox: ParamBoxDescription<MessageWriters>,
+        blend_mode: usize,
+    ) -> Self {
+        Self {
+            resource,
+            title: title.to_owned(),
+            icon: super::util::IconName::MASK,
+            thumbnail: None,
+            operator_pbox: pbox,
+            opacity: 1.0,
+            blend_mode,
+            enabled: true,
+            is_mask: true,
         }
     }
 
@@ -232,9 +251,6 @@ impl Layer {
         self.operator_pbox = param_box;
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct Mask {}
 
 #[derive(Debug, Clone)]
 pub struct Layers {
@@ -253,7 +269,7 @@ impl Layers {
     }
 
     pub fn rows(&self) -> usize {
-        self.layers.iter().map(|l| 1 + l.masks.len()).sum()
+        self.layers.iter().len()
     }
 }
 
@@ -470,8 +486,19 @@ impl NodeCollections {
 
         if let Some(target) = self.target_layers_from_node(&layer_res) {
             target.layers.push_front(layer);
-            // let idx = target.graph.add_node(node);
-            // target.resources.insert(node_res, idx);
+        }
+    }
+
+    pub fn push_layer_under(&mut self, layer: Layer, under: &Resource<Node>) {
+        let layer_res = layer.resource.clone();
+
+        if let Some(target) = self.target_layers_from_node(&layer_res) {
+            let pos = target
+                .layers
+                .iter()
+                .position(|l| &l.resource == under)
+                .unwrap();
+            target.layers.insert(pos + 1, layer);
         }
     }
 
