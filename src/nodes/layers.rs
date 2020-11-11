@@ -156,9 +156,46 @@ impl MaskStack {
 
             match &mask.operator {
                 Operator::AtomicOperator(aop) => {
+                    // Move inputs
+                    for socket in aop.inputs().keys() {
+                        let input_resource =
+                            last_socket.clone().expect("Missing layer underneath FX");
+                        use_points
+                            .entry(input_resource.socket_node())
+                            .and_modify(|e| e.last = *step)
+                            .or_insert(UsePoint {
+                                last: *step,
+                                creation: usize::MIN,
+                            });
+
+                        linearization.push(Instruction::Move(
+                            input_resource,
+                            resource.node_socket(socket),
+                        ));
+                    }
+
                     linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
                 }
                 Operator::ComplexOperator(cop) => {
+                    // Copy inputs to internal sockets
+                    for socket in cop.inputs().keys() {
+                        let input = cop.inputs.get(socket).expect("Missing internal socket");
+                        let input_resource =
+                            last_socket.clone().expect("Missing layer underneath FX");
+                        use_points
+                            .entry(input_resource.socket_node())
+                            .and_modify(|e| e.last = *step)
+                            .or_insert(UsePoint {
+                                last: *step,
+                                creation: usize::MIN,
+                            });
+
+                        linearization.push(Instruction::Copy(
+                            input_resource,
+                            input.1.node_socket("data"),
+                        ));
+                    }
+
                     let (out_socket, (_, output)) = cop
                         .outputs
                         .iter()
