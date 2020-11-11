@@ -536,16 +536,17 @@ impl LayerStack {
 
     pub fn push_mask(
         &mut self,
-        mask: Mask,
+        mut mask: Mask,
         for_layer: &Resource<Node>,
         base_name: &str,
     ) -> Option<Resource<Node>> {
         if let Some(idx) = self.resources.get(for_layer.file().unwrap()) {
             let base_name = format!("{}.mask.{}", for_layer.file().unwrap(), base_name);
-            let resource = Resource::node(
-                &format!("{}/{}", self.name, self.next_free_name(&base_name)),
-                None,
-            );
+            let name = self.next_free_name(&base_name);
+            let resource = Resource::node(&format!("{}/{}", self.name, name), None);
+
+            let prefix_length = for_layer.file().unwrap().len() + 6;
+            mask.name = name[prefix_length..].to_owned();
 
             self.layers[*idx].push_mask(mask, resource.clone());
 
@@ -653,10 +654,7 @@ impl LayerStack {
         mask: &Resource<Node>,
     ) -> Vec<(Resource<Socket>, OperatorType)> {
         let mut blend_res = mask.clone();
-        let new_name = format!(
-            "{}.blend",
-            blend_res.file().unwrap(),
-        );
+        let new_name = format!("{}.blend", blend_res.file().unwrap(),);
         blend_res.modify_path(|pb| pb.set_file_name(new_name));
         vec![(
             blend_res.node_socket("color"),

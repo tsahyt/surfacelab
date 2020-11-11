@@ -587,10 +587,7 @@ where
                     self.sockets.ensure_node_exists(res, *size);
 
                     let mut blend_node = res.clone();
-                    let new_name = format!(
-                        "{}.blend",
-                        blend_node.file().unwrap(),
-                    );
+                    let new_name = format!("{}.blend", blend_node.file().unwrap(),);
                     blend_node.modify_path(|pb| pb.set_file_name(new_name));
                     self.sockets.ensure_node_exists(&blend_node, *size);
                 }
