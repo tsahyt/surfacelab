@@ -249,6 +249,18 @@ impl MaskStack {
             .get(mask.file().unwrap())
             .map(|idx| &self.stack[*idx].operator)
     }
+
+    pub fn set_mask_parameter(&mut self, param: &Resource<Param>, data: &[u8]) {
+        if let Some(mask) = self
+            .resources
+            .get(param.file().unwrap())
+            .copied()
+            .and_then(|idx| self.stack.get_mut(idx))
+        {
+            let field = param.fragment().unwrap();
+            mask.operator.set_parameter(field, data);
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -374,6 +386,17 @@ impl Layer {
             }
             Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
                 blend_options.enabled = enabled;
+            }
+        }
+    }
+
+    pub fn set_mask_parameter(&mut self, mask: &Resource<Param>, data: &[u8]) {
+        match self {
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
+                blend_options.mask.set_mask_parameter(mask, data);
+            }
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
+                blend_options.mask.set_mask_parameter(mask, data);
             }
         }
     }
@@ -1170,17 +1193,32 @@ impl super::NodeCollection for LayerStack {
         resource: &Resource<Param>,
         data: &[u8],
     ) -> Result<Option<Lang>, String> {
-        let field = resource.fragment().unwrap();
+        if resource.path_str().unwrap().contains("mask") {
+            let res_file = resource.file().unwrap();
+            let pos = res_file.find(".mask").unwrap();
 
-        if let Some(idx) = self
-            .resources
-            .get(resource.parameter_node().file().unwrap())
-        {
-            match &mut self.layers[*idx] {
-                Layer::FillLayer(_, FillLayer { operator, .. }) => {
-                    operator.set_parameter(field, data)
+            let mut parent_resource = resource.clone();
+            parent_resource.modify_path(|pb| pb.set_file_name(&res_file[..pos]));
+
+            if let Some(idx) = self
+                .resources
+                .get(parent_resource.parameter_node().file().unwrap())
+            {
+                self.layers[*idx].set_mask_parameter(resource, data);
+            }
+        } else {
+            let field = resource.fragment().unwrap();
+
+            if let Some(idx) = self
+                .resources
+                .get(resource.parameter_node().file().unwrap())
+            {
+                match &mut self.layers[*idx] {
+                    Layer::FillLayer(_, FillLayer { operator, .. }) => {
+                        operator.set_parameter(field, data)
+                    }
+                    Layer::FxLayer(_, layer) => layer.operator.set_parameter(field, data),
                 }
-                Layer::FxLayer(_, layer) => layer.operator.set_parameter(field, data),
             }
         }
 
