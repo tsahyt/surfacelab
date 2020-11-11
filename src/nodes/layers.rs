@@ -1479,6 +1479,7 @@ impl super::NodeCollection for LayerStack {
                         mask.operator.title().to_owned(),
                         mask.operator.clone(),
                         mask.blend_options.blend_mode,
+                        mask.blend_options.opacity,
                         ParamBoxDescription::empty(),
                         parent_size,
                     )));

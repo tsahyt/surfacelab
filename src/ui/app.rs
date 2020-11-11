@@ -260,8 +260,9 @@ where
             LayersEvent::LayerRemoved(res) => {
                 self.app_state.graphs.remove_layer(res);
             }
-            LayersEvent::MaskPushed(for_layer, res, title, _, bmode, pbox, _) => {
-                let layer = Layer::mask(res.clone(), title, pbox.clone(), *bmode as usize);
+            LayersEvent::MaskPushed(for_layer, res, title, _, bmode, opacity, pbox, _) => {
+                let layer =
+                    Layer::mask(res.clone(), title, pbox.clone(), *bmode as usize, *opacity);
                 self.app_state.graphs.push_layer_under(layer, for_layer);
             }
         }

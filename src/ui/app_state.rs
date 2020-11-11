@@ -233,6 +233,7 @@ impl Layer {
         title: &str,
         pbox: ParamBoxDescription<MessageWriters>,
         blend_mode: usize,
+        opacity: f32,
     ) -> Self {
         Self {
             resource,
@@ -240,7 +241,7 @@ impl Layer {
             icon: super::util::IconName::MASK,
             thumbnail: None,
             operator_pbox: pbox,
-            opacity: 1.0,
+            opacity,
             blend_mode,
             enabled: true,
             is_mask: true,

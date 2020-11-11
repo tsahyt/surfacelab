@@ -74,7 +74,7 @@ impl NodeManager {
                 Lang::LayersEvent(LayersEvent::LayerPushed(res, _, _, op, _, _, pbox, _)) => {
                     *pbox = self.element_param_box(&op, res)
                 }
-                Lang::LayersEvent(LayersEvent::MaskPushed(_, res, _, op, _, pbox, _)) => {
+                Lang::LayersEvent(LayersEvent::MaskPushed(_, res, _, op, _, _, pbox, _)) => {
                     *pbox = self.element_param_box(&op, res)
                 }
                 _ => {}
