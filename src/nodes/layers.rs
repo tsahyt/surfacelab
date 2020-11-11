@@ -298,6 +298,39 @@ impl MaskStack {
             mask.operator.set_parameter(field, data);
         }
     }
+
+    pub fn set_mask_opacity(&mut self, mask: &Resource<Node>, opacity: f32) {
+        if let Some(mask) = self
+            .resources
+            .get(mask.file().unwrap())
+            .copied()
+            .and_then(|idx| self.stack.get_mut(idx))
+        {
+            mask.blend_options.opacity = opacity;
+        }
+    }
+
+    pub fn set_mask_blend_mode(&mut self, mask: &Resource<Node>, blend_mode: BlendMode) {
+        if let Some(mask) = self
+            .resources
+            .get(mask.file().unwrap())
+            .copied()
+            .and_then(|idx| self.stack.get_mut(idx))
+        {
+            mask.blend_options.blend_mode = blend_mode;
+        }
+    }
+
+    pub fn set_mask_enabled(&mut self, mask: &Resource<Node>, enabled: bool) {
+        if let Some(mask) = self
+            .resources
+            .get(mask.file().unwrap())
+            .copied()
+            .and_then(|idx| self.stack.get_mut(idx))
+        {
+            mask.blend_options.enabled = enabled;
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -434,6 +467,39 @@ impl Layer {
             }
             Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
                 blend_options.mask.set_mask_parameter(mask, data);
+            }
+        }
+    }
+
+    pub fn set_mask_opacity(&mut self, mask: &Resource<Node>, opacity: f32) {
+        match self {
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
+                blend_options.mask.set_mask_opacity(mask, opacity);
+            }
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
+                blend_options.mask.set_mask_opacity(mask, opacity);
+            }
+        }
+    }
+
+    pub fn set_mask_blend_mode(&mut self, mask: &Resource<Node>, blend_mode: BlendMode) {
+        match self {
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
+                blend_options.mask.set_mask_blend_mode(mask, blend_mode);
+            }
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
+                blend_options.mask.set_mask_blend_mode(mask, blend_mode);
+            }
+        }
+    }
+
+    pub fn set_mask_enabled(&mut self, mask: &Resource<Node>, enabled: bool) {
+        match self {
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
+                blend_options.mask.set_mask_enabled(mask, enabled);
+            }
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
+                blend_options.mask.set_mask_enabled(mask, enabled);
             }
         }
     }
@@ -815,23 +881,71 @@ impl LayerStack {
     }
 
     pub fn set_layer_opacity(&mut self, layer: &Resource<Node>, opacity: f32) {
-        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            self.layers[*idx].set_opacity(opacity);
+        if layer.path_str().unwrap().contains("mask") {
+            self.set_mask_opacity(layer, opacity);
+        } else {
+            if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+                self.layers[*idx].set_opacity(opacity);
+            }
+        }
+    }
+
+    fn set_mask_opacity(&mut self, mask: &Resource<Node>, opacity: f32) {
+        let res_file = mask.file().unwrap();
+        let pos = res_file.find(".mask").unwrap();
+
+        let mut parent_resource = mask.clone();
+        parent_resource.modify_path(|pb| pb.set_file_name(&res_file[..pos]));
+
+        if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
+            self.layers[*idx].set_mask_opacity(mask, opacity);
         }
     }
 
     pub fn set_layer_blend_mode(&mut self, layer: &Resource<Node>, blend_mode: BlendMode) {
-        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            self.layers[*idx].set_blend_mode(blend_mode)
+        if layer.path_str().unwrap().contains("mask") {
+            self.set_mask_blend_mode(layer, blend_mode);
+        } else {
+            if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+                self.layers[*idx].set_blend_mode(blend_mode)
+            }
+        }
+    }
+
+    fn set_mask_blend_mode(&mut self, mask: &Resource<Node>, blend_mode: BlendMode) {
+        let res_file = mask.file().unwrap();
+        let pos = res_file.find(".mask").unwrap();
+
+        let mut parent_resource = mask.clone();
+        parent_resource.modify_path(|pb| pb.set_file_name(&res_file[..pos]));
+
+        if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
+            self.layers[*idx].set_mask_blend_mode(mask, blend_mode);
         }
     }
 
     pub fn set_layer_enabled(&mut self, layer: &Resource<Node>, enabled: bool) {
-        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            self.layers[*idx].set_enabled(enabled);
-            if let Some(successor) = self.layers.get(*idx + 1) {
-                self.force_points.push(self.layer_resource(successor));
+        if layer.path_str().unwrap().contains("mask") {
+            self.set_mask_enabled(layer, enabled);
+        } else {
+            if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+                self.layers[*idx].set_enabled(enabled);
+                if let Some(successor) = self.layers.get(*idx + 1) {
+                    self.force_points.push(self.layer_resource(successor));
+                }
             }
+        }
+    }
+
+    fn set_mask_enabled(&mut self, mask: &Resource<Node>, enabled: bool) {
+        let res_file = mask.file().unwrap();
+        let pos = res_file.find(".mask").unwrap();
+
+        let mut parent_resource = mask.clone();
+        parent_resource.modify_path(|pb| pb.set_file_name(&res_file[..pos]));
+
+        if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
+            self.layers[*idx].set_mask_enabled(mask, enabled);
         }
     }
 
