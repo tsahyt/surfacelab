@@ -638,49 +638,48 @@ impl NodeManager {
                         self.graphs.get_mut(for_layer.directory().unwrap())
                     {
                         let mask = layers::Mask::from(op.clone());
-                        let res = ls
-                            .push_mask(mask, for_layer, op.default_name())
-                            .expect("Error pushing mask");
-                        log::debug!("Added mask {}", res);
+                        if let Some(res) = ls.push_mask(mask, for_layer, op.default_name()) {
+                            log::debug!("Added mask {}", res);
 
-                        let lin = ls.linearize(LinearizationMode::FullTraversal);
-                        let mut sockets = ls.mask_sockets(for_layer, &res);
-                        let mut blend_sockets = ls.mask_blend_sockets(&res);
-                        let pbox = self.element_param_box(&op, &res);
+                            let lin = ls.linearize(LinearizationMode::FullTraversal);
+                            let mut sockets = ls.mask_sockets(for_layer, &res);
+                            let mut blend_sockets = ls.mask_blend_sockets(&res);
+                            let pbox = self.element_param_box(&op, &res);
 
-                        response.push(Lang::LayersEvent(LayersEvent::MaskPushed(
-                            for_layer.to_owned(),
-                            res,
-                            op.title().to_owned(),
-                            op,
-                            BlendMode::Mix,
-                            1.0,
-                            pbox,
-                            self.parent_size,
-                        )));
-                        response.extend(sockets.drain(0..).map(|(s, t, e)| {
-                            Lang::GraphEvent(GraphEvent::OutputSocketAdded(
-                                s,
-                                t,
-                                e,
+                            response.push(Lang::LayersEvent(LayersEvent::MaskPushed(
+                                for_layer.to_owned(),
+                                res,
+                                op.title().to_owned(),
+                                op,
+                                BlendMode::Mix,
+                                1.0,
+                                pbox,
                                 self.parent_size,
-                            ))
-                        }));
-                        response.extend(blend_sockets.drain(0..).map(|(s, t)| {
-                            Lang::GraphEvent(GraphEvent::OutputSocketAdded(
-                                s,
-                                t,
-                                false,
-                                self.parent_size,
-                            ))
-                        }));
-                        if let Some((linearization, last_use, force_points)) = lin {
-                            response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                                for_layer.node_graph(),
-                                linearization,
-                                last_use,
-                                force_points,
-                            )))
+                            )));
+                            response.extend(sockets.drain(0..).map(|(s, t, e)| {
+                                Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                    s,
+                                    t,
+                                    e,
+                                    self.parent_size,
+                                ))
+                            }));
+                            response.extend(blend_sockets.drain(0..).map(|(s, t)| {
+                                Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                    s,
+                                    t,
+                                    false,
+                                    self.parent_size,
+                                ))
+                            }));
+                            if let Some((linearization, last_use, force_points)) = lin {
+                                response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                                    for_layer.node_graph(),
+                                    linearization,
+                                    last_use,
+                                    force_points,
+                                )))
+                            }
                         }
                     }
                 }

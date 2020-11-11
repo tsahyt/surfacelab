@@ -279,10 +279,16 @@ impl MaskStack {
         }
     }
 
-    pub fn push(&mut self, mask: Mask, resource: Resource<Node>) {
+    pub fn push(&mut self, mask: Mask, resource: Resource<Node>) -> Option<()> {
+        if mask.operator.inputs().len() != 0 && self.stack.len() == 0 {
+            return None;
+        }
+
         self.stack.push(mask);
         self.resources
             .insert(resource.file().unwrap().to_owned(), self.stack.len() - 1);
+
+        Some(())
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Mask> {
@@ -558,7 +564,7 @@ impl Layer {
         }
     }
 
-    pub fn push_mask(&mut self, mask: Mask, resource: Resource<Node>) {
+    pub fn push_mask(&mut self, mask: Mask, resource: Resource<Node>) -> Option<()> {
         match self {
             Layer::FillLayer(_, l) => l.blend_options.mask.push(mask, resource),
             Layer::FxLayer(_, l) => l.blend_options.mask.push(mask, resource),
@@ -682,7 +688,7 @@ impl LayerStack {
             let prefix_length = for_layer.file().unwrap().len() + 6;
             mask.name = name[prefix_length..].to_owned();
 
-            self.layers[*idx].push_mask(mask, resource.clone());
+            self.layers[*idx].push_mask(mask, resource.clone())?;
 
             Some(resource)
         } else {
