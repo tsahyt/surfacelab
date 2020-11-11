@@ -78,7 +78,7 @@ void main() {
     vec4 col1 = texture(sampler2D(t_Color1, Sampler), uv);
     vec4 col2 = texture(sampler2D(t_Color2, Sampler), uv);
 
-    vec4 res = blend(col1, col2, mask);
+    vec4 res = blend(col1, col2, clamp(mask, 0., 1.));
 
     if (clamp_output != 0) {
         res = clamp(res, 0., 1.);
