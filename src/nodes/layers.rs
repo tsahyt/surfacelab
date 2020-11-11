@@ -175,6 +175,10 @@ impl MaskStack {
                     }
 
                     linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
+                    if let Some(thmbsocket) = aop.outputs().keys().sorted().next() {
+                        linearization
+                            .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
+                    }
                 }
                 Operator::ComplexOperator(cop) => {
                     // Copy inputs to internal sockets
@@ -205,7 +209,11 @@ impl MaskStack {
                     linearization.push(Instruction::Copy(
                         output.node_socket("data"),
                         resource.node_socket(out_socket),
-                    ))
+                    ));
+                    if let Some(thmbsocket) = cop.outputs().keys().sorted().next() {
+                        linearization
+                            .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
+                    }
                 }
             }
 
