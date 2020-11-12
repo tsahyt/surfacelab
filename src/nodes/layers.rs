@@ -136,9 +136,23 @@ impl MaskStack {
             resources: HashMap::new(),
         }
     }
-}
 
-impl MaskStack {
+    pub fn move_up(&mut self, mask: &Resource<Node>) -> bool {
+        if let Some(idx) = self.resources.get(mask.file().unwrap()).copied() {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn move_down(&mut self, mask: &Resource<Node>) -> bool {
+        if let Some(idx) = self.resources.get(mask.file().unwrap()).copied() {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn linearize_into<F: Fn(&Mask) -> Resource<Node>, G: Fn(&Mask) -> Resource<Node>>(
         &self,
         mask_resource: F,
@@ -570,6 +584,20 @@ impl Layer {
             Layer::FxLayer(_, l) => l.blend_options.mask.push(mask, resource),
         }
     }
+
+    pub fn move_mask_up(&mut self, mask: &Resource<Node>) -> bool {
+        match self {
+            Layer::FillLayer(_, l) => l.blend_options.mask.move_up(mask),
+            Layer::FxLayer(_, l) => l.blend_options.mask.move_up(mask),
+        }
+    }
+
+    pub fn move_mask_down(&mut self, mask: &Resource<Node>) -> bool {
+        match self {
+            Layer::FillLayer(_, l) => l.blend_options.mask.move_down(mask),
+            Layer::FxLayer(_, l) => l.blend_options.mask.move_down(mask),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -905,11 +933,7 @@ impl LayerStack {
     }
 
     fn set_mask_opacity(&mut self, mask: &Resource<Node>, opacity: f32) {
-        let res_file = mask.file().unwrap();
-        let pos = res_file.find(".mask").unwrap();
-
-        let mut parent_resource = mask.clone();
-        parent_resource.modify_path(|pb| pb.set_file_name(&res_file[..pos]));
+        let parent_resource = layer_resource_from_mask_resource(mask);
 
         if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
             self.layers[*idx].set_mask_opacity(mask, opacity);
@@ -927,11 +951,7 @@ impl LayerStack {
     }
 
     fn set_mask_blend_mode(&mut self, mask: &Resource<Node>, blend_mode: BlendMode) {
-        let res_file = mask.file().unwrap();
-        let pos = res_file.find(".mask").unwrap();
-
-        let mut parent_resource = mask.clone();
-        parent_resource.modify_path(|pb| pb.set_file_name(&res_file[..pos]));
+        let parent_resource = layer_resource_from_mask_resource(mask);
 
         if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
             self.layers[*idx].set_mask_blend_mode(mask, blend_mode);
@@ -952,11 +972,7 @@ impl LayerStack {
     }
 
     fn set_mask_enabled(&mut self, mask: &Resource<Node>, enabled: bool) {
-        let res_file = mask.file().unwrap();
-        let pos = res_file.find(".mask").unwrap();
-
-        let mut parent_resource = mask.clone();
-        parent_resource.modify_path(|pb| pb.set_file_name(&res_file[..pos]));
+        let parent_resource = layer_resource_from_mask_resource(mask);
 
         if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
             self.layers[*idx].set_mask_enabled(mask, enabled);
@@ -965,6 +981,56 @@ impl LayerStack {
 
     pub fn clear_force_points(&mut self) {
         self.force_points.clear();
+    }
+
+    /// Move a layer up one position in the stack. Returns moved resources in a
+    /// linear depiction of the whole stack including masks.
+    pub fn move_up(&mut self, layer: &Resource<Node>) -> impl Iterator<Item = &Resource<Node>> {
+        if layer.path_str().unwrap().contains("mask") {
+            self.move_mask_up(layer);
+            std::iter::empty()
+        } else {
+            if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+                std::iter::empty()
+            } else {
+                std::iter::empty()
+            }
+        }
+    }
+
+    fn move_mask_up(&mut self, mask: &Resource<Node>) -> bool {
+        let parent_resource = layer_resource_from_mask_resource(mask);
+
+        if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
+            self.layers[*idx].move_mask_up(mask)
+        } else {
+            false
+        }
+    }
+
+    /// Move a layer down one position in the stack. Returns moved resources in
+    /// a linear depiction of the whole stack including masks.
+    pub fn move_down(&mut self, layer: &Resource<Node>) -> impl Iterator<Item = &Resource<Node>> {
+        if layer.path_str().unwrap().contains("mask") {
+            self.move_mask_down(layer);
+            std::iter::empty()
+        } else {
+            if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+                std::iter::empty()
+            } else {
+                std::iter::empty()
+            }
+        }
+    }
+
+    fn move_mask_down(&mut self, mask: &Resource<Node>) -> bool {
+        let parent_resource = layer_resource_from_mask_resource(mask);
+
+        if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
+            self.layers[*idx].move_mask_down(mask)
+        } else {
+            false
+        }
     }
 }
 
@@ -1526,4 +1592,14 @@ impl super::NodeCollection for LayerStack {
             ParamBoxDescription::empty()
         }
     }
+}
+
+fn layer_resource_from_mask_resource(mask: &Resource<Node>) -> Resource<Node> {
+    let res_file = mask.file().unwrap();
+    let pos = res_file.find(".mask").unwrap();
+
+    let mut parent_resource = mask.clone();
+    parent_resource.modify_path(|pb| pb.set_file_name(&res_file[..pos]));
+
+    parent_resource
 }

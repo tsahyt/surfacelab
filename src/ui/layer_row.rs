@@ -48,6 +48,8 @@ widget_ids! {
         title,
         title_edit,
         background,
+        move_up,
+        move_down,
     }
 }
 
@@ -60,6 +62,8 @@ pub enum Event {
     ActiveElement,
     Retitled(String),
     ToggleEnabled,
+    MoveUp,
+    MoveDown,
 }
 
 impl<'a> Widget for LayerRow<'a> {
@@ -168,13 +172,39 @@ impl<'a> Widget for LayerRow<'a> {
             args.state.update(|state| state.editing_title = true)
         }
 
+        for _click in util::icon_button(util::IconName::UP, self.style.icon_font.unwrap().unwrap())
+            .color(color::TRANSPARENT)
+            .label_font_size(10)
+            .label_color(color::WHITE)
+            .border(0.0)
+            .w_h(16.0, 16.0)
+            .top_right_with_margin(8.0)
+            .parent(args.id)
+            .set(args.state.ids.move_up, args.ui)
+        {
+            event = Some(Event::MoveUp);
+        }
+
+        for _click in
+            util::icon_button(util::IconName::DOWN, self.style.icon_font.unwrap().unwrap())
+                .color(color::TRANSPARENT)
+                .label_font_size(10)
+                .label_color(color::WHITE)
+                .border(0.0)
+                .w_h(16.0, 16.0)
+                .bottom_right_with_margin(8.0)
+                .parent(args.id)
+                .set(args.state.ids.move_down, args.ui)
+        {
+            event = Some(Event::MoveDown);
+        }
+
         widget::Text::new(self.layer.icon.0)
             .color(color::WHITE)
             .font_size(14)
             .font_id(self.style.icon_font.unwrap().unwrap())
-            .mid_right_with_margin(8.0)
+            .mid_right_with_margin(32.0)
             .parent(args.id)
-            .graphics_for(args.id)
             .set(args.state.ids.layer_type, args.ui);
 
         for _click in args.ui.widget_input(args.id).clicks() {

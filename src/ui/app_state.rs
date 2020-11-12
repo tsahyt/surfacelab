@@ -272,6 +272,25 @@ impl Layers {
     pub fn rows(&self) -> usize {
         self.layers.iter().len()
     }
+
+    pub fn move_up(&mut self, layer: &Resource<r::Node>) {
+        let idx = self
+            .layers
+            .iter()
+            .position(|l| &l.resource == layer)
+            .expect("Trying to move unknown layer");
+        self.layers.swap(idx, idx.saturating_sub(1));
+    }
+
+    pub fn move_down(&mut self, layer: &Resource<r::Node>) {
+        let idx = self
+            .layers
+            .iter()
+            .position(|l| &l.resource == layer)
+            .expect("Trying to move unknown layer");
+        debug_assert!(idx + 1 < self.layers.len());
+        self.layers.swap(idx, idx + 1);
+    }
 }
 
 impl Collection for Layers {
@@ -678,6 +697,18 @@ impl NodeCollections {
             target.unregister_thumbnail(node)
         } else {
             None
+        }
+    }
+
+    pub fn move_layer_up(&mut self, layer: &Resource<r::Node>) {
+        if let Some(target) = self.target_layers_from_node(&layer) {
+            target.move_up(layer);
+        }
+    }
+
+    pub fn move_layer_down(&mut self, layer: &Resource<r::Node>) {
+        if let Some(target) = self.target_layers_from_node(&layer) {
+            target.move_down(layer);
         }
     }
 }

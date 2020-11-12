@@ -351,6 +351,8 @@ pub enum UserLayersEvent {
     PushLayer(Resource<Graph>, LayerType, Operator),
     PushMask(Resource<Node>, Operator),
     RemoveLayer(Resource<Node>),
+    MoveUp(Resource<Node>),
+    MoveDown(Resource<Node>),
     SetOutput(Resource<Node>, MaterialChannel, usize, bool),
     SetInput(Resource<Socket>, MaterialChannel),
     SetOpacity(Resource<Node>, f32),
@@ -383,6 +385,8 @@ pub enum LayersEvent {
         ParamBoxDescription<MessageWriters>,
         u32,
     ),
+    MovedUp(Resource<Node>),
+    MovedDown(Resource<Node>),
 }
 
 #[derive(Debug)]

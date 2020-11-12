@@ -265,6 +265,12 @@ where
                     Layer::mask(res.clone(), title, pbox.clone(), *bmode as usize, *opacity);
                 self.app_state.graphs.push_layer_under(layer, for_layer);
             }
+            LayersEvent::MovedUp(res) => {
+                self.app_state.graphs.move_layer_up(res);
+            }
+            LayersEvent::MovedDown(res) => {
+                self.app_state.graphs.move_layer_down(res);
+            }
         }
     }
 
@@ -785,6 +791,20 @@ where
                             .send(Lang::UserLayersEvent(UserLayersEvent::SetEnabled(
                                 active_collection.layers[row.i].resource.to_owned(),
                                 active_collection.layers[row.i].enabled,
+                            )))
+                            .unwrap();
+                    }
+                    layer_row::Event::MoveUp => {
+                        self.sender
+                            .send(Lang::UserLayersEvent(UserLayersEvent::MoveUp(
+                                active_collection.layers[row.i].resource.clone(),
+                            )))
+                            .unwrap();
+                    }
+                    layer_row::Event::MoveDown => {
+                        self.sender
+                            .send(Lang::UserLayersEvent(UserLayersEvent::MoveDown(
+                                active_collection.layers[row.i].resource.clone(),
                             )))
                             .unwrap();
                     }

@@ -811,6 +811,26 @@ impl NodeManager {
                         ls.clear_force_points();
                     }
                 }
+                UserLayersEvent::MoveUp(layer_res) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(layer_res.directory().unwrap())
+                    {
+                        response.extend(
+                            ls.move_up(layer_res)
+                                .map(|res| Lang::LayersEvent(LayersEvent::MovedUp(res.clone()))),
+                        );
+                    }
+                }
+                UserLayersEvent::MoveDown(layer_res) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get_mut(layer_res.directory().unwrap())
+                    {
+                        response.extend(
+                            ls.move_down(layer_res)
+                                .map(|res| Lang::LayersEvent(LayersEvent::MovedDown(res.clone()))),
+                        );
+                    }
+                }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {

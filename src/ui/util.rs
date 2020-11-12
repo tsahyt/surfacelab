@@ -20,6 +20,8 @@ impl IconName {
     pub const EYE: IconName = IconName("\u{f0208}");
     pub const EYEOFF: IconName = IconName("\u{f0209}");
     pub const MASK: IconName = IconName("\u{f1023}");
+    pub const UP: IconName = IconName("\u{f0360}");
+    pub const DOWN: IconName = IconName("\u{f035d}");
 }
 
 pub fn icon_button<'a>(

@@ -626,6 +626,7 @@ where
                         }
                     }
                 }
+                _ => {}
             },
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, _, _, _, size) => {
