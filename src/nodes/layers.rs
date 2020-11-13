@@ -1241,8 +1241,7 @@ impl super::NodeCollection for LayerStack {
                             // Move inputs
                             for (socket, channel) in input_sockets.iter() {
                                 let input_resource = last_socket
-                                    .get(channel)
-                                    .expect("Missing layer underneath FX")
+                                    .get(channel)?
                                     .clone();
                                 use_points
                                     .entry(input_resource.socket_node())
@@ -1270,8 +1269,7 @@ impl super::NodeCollection for LayerStack {
                                 let input =
                                     cop.inputs.get(socket).expect("Missing internal socket");
                                 let input_resource = last_socket
-                                    .get(channel)
-                                    .expect("Missing layer underneath FX")
+                                    .get(channel)?
                                     .clone();
                                 use_points
                                     .entry(input_resource.socket_node())
