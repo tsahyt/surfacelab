@@ -674,18 +674,12 @@ impl LayerStack {
         Resource::node(&format!("{}/{}", self.name, layer.name()), None)
     }
 
-    pub fn mask_resource(&self, layer: &Layer, mask: &Mask) -> Resource<Node> {
-        Resource::node(
-            &format!("{}/{}.mask.{}", self.name, layer.name(), mask.name),
-            None,
-        )
+    pub fn mask_resource(&self, mask: &Mask) -> Resource<Node> {
+        Resource::node(&format!("{}/{}", self.name, mask.name), None)
     }
 
-    pub fn mask_blend_resource(&self, layer: &Layer, mask: &Mask) -> Resource<Node> {
-        Resource::node(
-            &format!("{}/{}.mask.{}.blend", self.name, layer.name(), mask.name),
-            None,
-        )
+    pub fn mask_blend_resource(&self, mask: &Mask) -> Resource<Node> {
+        Resource::node(&format!("{}/{}.blend", self.name, mask.name), None)
     }
 
     pub fn material_layer_resource(
@@ -746,10 +740,9 @@ impl LayerStack {
         if let Some(idx) = self.resources.get(for_layer.file().unwrap()) {
             let base_name = format!("{}.mask.{}", for_layer.file().unwrap(), base_name);
             let name = self.next_free_name(&base_name);
-            let resource = Resource::node(&format!("{}/{}", self.name, name), None);
+            mask.name = name.to_owned();
 
-            let prefix_length = for_layer.file().unwrap().len() + 6;
-            mask.name = name[prefix_length..].to_owned();
+            let resource = Resource::node(&format!("{}/{}", self.name, name), None);
 
             self.layers[*idx].push_mask(mask, resource.clone())?;
 
@@ -1066,8 +1059,9 @@ impl LayerStack {
             self.move_mask_down(layer)
         } else {
             if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
-                if idx == 0 { false }
-                else {
+                if idx == 0 {
+                    false
+                } else {
                     use super::NodeCollection;
 
                     self.layers.swap(idx, idx - 1);
@@ -1221,8 +1215,8 @@ impl super::NodeCollection for LayerStack {
 
                     if blend_options.has_masks() {
                         blend_options.mask.linearize_into(
-                            |mask| self.mask_resource(layer, mask),
-                            |mask| self.mask_blend_resource(layer, mask),
+                            |mask| self.mask_resource(mask),
+                            |mask| self.mask_blend_resource(mask),
                             &mut linearization,
                             &mut use_points,
                             &mut step,
@@ -1264,8 +1258,8 @@ impl super::NodeCollection for LayerStack {
                                 blend_res.node_socket("foreground"),
                             ));
                             if let Some(mask_res) = blend_options.top_mask(
-                                |mask| self.mask_resource(layer, mask),
-                                |mask| self.mask_blend_resource(layer, mask),
+                                |mask| self.mask_resource(mask),
+                                |mask| self.mask_blend_resource(mask),
                             ) {
                                 linearization.push(Instruction::Move(
                                     mask_res,
@@ -1383,8 +1377,8 @@ impl super::NodeCollection for LayerStack {
 
                     if blend_options.has_masks() {
                         blend_options.mask.linearize_into(
-                            |mask| self.mask_resource(layer, mask),
-                            |mask| self.mask_blend_resource(layer, mask),
+                            |mask| self.mask_resource(mask),
+                            |mask| self.mask_blend_resource(mask),
                             &mut linearization,
                             &mut use_points,
                             &mut step,
@@ -1426,8 +1420,8 @@ impl super::NodeCollection for LayerStack {
                                 blend_res.node_socket("foreground"),
                             ));
                             if let Some(mask_res) = blend_options.top_mask(
-                                |mask| self.mask_resource(layer, mask),
-                                |mask| self.mask_blend_resource(layer, mask),
+                                |mask| self.mask_resource(mask),
+                                |mask| self.mask_blend_resource(mask),
                             ) {
                                 linearization.push(Instruction::Move(
                                     mask_res,
@@ -1616,7 +1610,7 @@ impl super::NodeCollection for LayerStack {
                 }));
 
                 for mask in layer.get_masks().iter() {
-                    let mask_res = self.mask_resource(layer, mask);
+                    let mask_res = self.mask_resource(mask);
 
                     let mut sockets = self.mask_sockets(&res, &mask_res);
                     let mut blend_sockets = self.mask_blend_sockets(&mask_res);
