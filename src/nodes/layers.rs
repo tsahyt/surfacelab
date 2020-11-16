@@ -327,6 +327,10 @@ impl MaskStack {
         self.stack.iter()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.stack.is_empty()
+    }
+
     pub fn get_operator(&self, mask: &Resource<Node>) -> Option<&Operator> {
         self.resources
             .get(mask.file().unwrap())
@@ -603,6 +607,10 @@ impl Layer {
             Layer::FillLayer(_, l) => &l.blend_options.mask,
             Layer::FxLayer(_, l) => &l.blend_options.mask,
         }
+    }
+
+    pub fn has_masks(&self) -> bool {
+        !self.get_masks().is_empty()
     }
 
     pub fn push_mask(&mut self, mask: Mask, resource: Resource<Node>) -> Option<()> {
@@ -1020,13 +1028,21 @@ impl LayerStack {
             if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
                 if idx == self.layers.len() - 1 {
                     return false;
+                } else {
+                    use super::NodeCollection;
+
+                    self.layers.swap(idx, idx + 1);
+                    if self.linearize(super::LinearizationMode::TopoSort).is_some() {
+                        self.swap_resources(
+                            layer.file().unwrap(),
+                            &self.layers[idx].name().to_owned(),
+                        );
+                        true
+                    } else {
+                        self.layers.swap(idx, idx + 1);
+                        false
+                    }
                 }
-                self.swap_resources(
-                    layer.file().unwrap(),
-                    &self.layers[idx + 1].name().to_owned(),
-                );
-                self.layers.swap(idx, idx + 1);
-                true
             } else {
                 false
             }
@@ -1050,15 +1066,22 @@ impl LayerStack {
             self.move_mask_down(layer)
         } else {
             if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
-                if idx == 0 || (idx == 1 && self.layers[idx].layer_type() == LayerType::Fx) {
-                    return false;
+                if idx == 0 { false }
+                else {
+                    use super::NodeCollection;
+
+                    self.layers.swap(idx, idx - 1);
+                    if self.linearize(super::LinearizationMode::TopoSort).is_some() {
+                        self.swap_resources(
+                            layer.file().unwrap(),
+                            &self.layers[idx].name().to_owned(),
+                        );
+                        true
+                    } else {
+                        self.layers.swap(idx, idx - 1);
+                        false
+                    }
                 }
-                self.swap_resources(
-                    layer.file().unwrap(),
-                    &self.layers[idx - 1].name().to_owned(),
-                );
-                self.layers.swap(idx, idx - 1);
-                true
             } else {
                 false
             }
