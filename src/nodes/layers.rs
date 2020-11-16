@@ -144,10 +144,16 @@ impl MaskStack {
             if idx == n - 1 {
                 return false;
             } else {
-                let other_name = self.stack[idx + 1].name.clone();
-                self.swap_resources(mask.file().unwrap(), &other_name);
                 self.stack.swap(idx, idx + 1);
-                true
+
+                if self.can_linearize() {
+                    let other_name = self.stack[idx].name.clone();
+                    self.swap_resources(mask.file().unwrap(), &other_name);
+                    true
+                } else {
+                    self.stack.swap(idx, idx + 1);
+                    false
+                }
             }
         } else {
             false
@@ -157,18 +163,34 @@ impl MaskStack {
     /// Move a mask down, i.e. closer to the front of the vector if possible.
     pub fn move_down(&mut self, mask: &Resource<Node>) -> bool {
         if let Some(idx) = self.resources.get(mask.file().unwrap()).copied() {
-            let input_free = self.stack[idx].operator.inputs().len() == 0;
-            if idx == 0 || (idx == 1 && !input_free) {
+            if idx == 0 {
                 return false;
             } else {
-                let other_name = self.stack[idx - 1].name.clone();
-                self.swap_resources(mask.file().unwrap(), &other_name);
                 self.stack.swap(idx, idx - 1);
-                true
+
+                if self.can_linearize() {
+                    let other_name = self.stack[idx].name.clone();
+                    self.swap_resources(mask.file().unwrap(), &other_name);
+                    true
+                } else {
+                    self.stack.swap(idx, idx - 1);
+                    false
+                }
             }
         } else {
             false
         }
+    }
+
+    pub fn can_linearize(&self) -> bool {
+        self.linearize_into(
+            |_| Resource::node("", None),
+            |_| Resource::node("", None),
+            &mut Vec::new(),
+            &mut HashMap::new(),
+            &mut 0,
+        )
+        .is_some()
     }
 
     pub fn linearize_into<F: Fn(&Mask) -> Resource<Node>, G: Fn(&Mask) -> Resource<Node>>(
@@ -178,7 +200,7 @@ impl MaskStack {
         linearization: &mut Linearization,
         use_points: &mut HashMap<Resource<Node>, UsePoint>,
         step: &mut usize,
-    ) {
+    ) -> Option<()> {
         let mut last_socket: Option<Resource<Socket>> = None;
 
         for mask in self.stack.iter().filter(|m| m.blend_options.enabled) {
@@ -190,8 +212,7 @@ impl MaskStack {
                 Operator::AtomicOperator(aop) => {
                     // Move inputs
                     for socket in aop.inputs().keys() {
-                        let input_resource =
-                            last_socket.clone().expect("Missing layer underneath FX");
+                        let input_resource = last_socket.clone()?;
                         use_points
                             .entry(input_resource.socket_node())
                             .and_modify(|e| e.last = *step)
@@ -216,8 +237,7 @@ impl MaskStack {
                     // Copy inputs to internal sockets
                     for socket in cop.inputs().keys() {
                         let input = cop.inputs.get(socket).expect("Missing internal socket");
-                        let input_resource =
-                            last_socket.clone().expect("Missing layer underneath FX");
+                        let input_resource = last_socket.clone()?;
                         use_points
                             .entry(input_resource.socket_node())
                             .and_modify(|e| e.last = *step)
@@ -309,6 +329,8 @@ impl MaskStack {
                 last_socket = Some(resource.node_socket(socket));
             }
         }
+
+        Some(())
     }
 
     pub fn push(&mut self, mask: Mask, resource: Resource<Node>) -> Option<()> {
@@ -1011,6 +1033,12 @@ impl LayerStack {
         self.force_points.clear();
     }
 
+    pub fn can_linearize(&self) -> bool {
+        use super::NodeCollection;
+
+        self.linearize(super::LinearizationMode::TopoSort).is_some()
+    }
+
     /// Move a layer up one position in the stack, i.e. closer to the back of
     /// the vector. Returns moved resources in a linear depiction of the whole
     /// stack including masks.
@@ -1022,10 +1050,8 @@ impl LayerStack {
                 if idx == self.layers.len() - 1 {
                     return false;
                 } else {
-                    use super::NodeCollection;
-
                     self.layers.swap(idx, idx + 1);
-                    if self.linearize(super::LinearizationMode::TopoSort).is_some() {
+                    if self.can_linearize() {
                         self.swap_resources(
                             layer.file().unwrap(),
                             &self.layers[idx].name().to_owned(),
@@ -1062,10 +1088,8 @@ impl LayerStack {
                 if idx == 0 {
                     false
                 } else {
-                    use super::NodeCollection;
-
                     self.layers.swap(idx, idx - 1);
-                    if self.linearize(super::LinearizationMode::TopoSort).is_some() {
+                    if self.can_linearize() {
                         self.swap_resources(
                             layer.file().unwrap(),
                             &self.layers[idx].name().to_owned(),
