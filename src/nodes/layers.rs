@@ -137,17 +137,35 @@ impl MaskStack {
         }
     }
 
+    /// Move a mask up, i.e. closer to the back of the vector if possible.
     pub fn move_up(&mut self, mask: &Resource<Node>) -> bool {
         if let Some(idx) = self.resources.get(mask.file().unwrap()).copied() {
-            true
+            let n = self.stack.len();
+            if idx == n - 1 {
+                return false;
+            } else {
+                let other_name = self.stack[idx + 1].name.clone();
+                self.swap_resources(mask.file().unwrap(), &other_name);
+                self.stack.swap(idx, idx + 1);
+                true
+            }
         } else {
             false
         }
     }
 
+    /// Move a mask down, i.e. closer to the front of the vector if possible.
     pub fn move_down(&mut self, mask: &Resource<Node>) -> bool {
         if let Some(idx) = self.resources.get(mask.file().unwrap()).copied() {
-            true
+            let input_free = self.stack[idx].operator.inputs().len() == 0;
+            if idx == 0 || (idx == 1 && !input_free) {
+                return false;
+            } else {
+                let other_name = self.stack[idx - 1].name.clone();
+                self.swap_resources(mask.file().unwrap(), &other_name);
+                self.stack.swap(idx, idx - 1);
+                true
+            }
         } else {
             false
         }
@@ -313,6 +331,15 @@ impl MaskStack {
         self.resources
             .get(mask.file().unwrap())
             .map(|idx| &self.stack[*idx].operator)
+    }
+
+    fn swap_resources(&mut self, a: &str, b: &str) {
+        debug_assert!(a != b);
+        let idx_a = self.resources.get_mut(a).expect("Unknown resource") as *mut usize;
+        let idx_b = self.resources.get_mut(b).expect("Unknown resource") as *mut usize;
+        unsafe {
+            std::ptr::swap(idx_a, idx_b);
+        }
     }
 
     pub fn set_mask_parameter(&mut self, param: &Resource<Param>, data: &[u8]) {
@@ -983,17 +1010,25 @@ impl LayerStack {
         self.force_points.clear();
     }
 
-    /// Move a layer up one position in the stack. Returns moved resources in a
-    /// linear depiction of the whole stack including masks.
-    pub fn move_up(&mut self, layer: &Resource<Node>) -> impl Iterator<Item = &Resource<Node>> {
+    /// Move a layer up one position in the stack, i.e. closer to the back of
+    /// the vector. Returns moved resources in a linear depiction of the whole
+    /// stack including masks.
+    pub fn move_up(&mut self, layer: &Resource<Node>) -> bool {
         if layer.path_str().unwrap().contains("mask") {
-            self.move_mask_up(layer);
-            std::iter::empty()
+            self.move_mask_up(layer)
         } else {
-            if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-                std::iter::empty()
+            if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
+                if idx == self.layers.len() - 1 {
+                    return false;
+                }
+                self.swap_resources(
+                    layer.file().unwrap(),
+                    &self.layers[idx + 1].name().to_owned(),
+                );
+                self.layers.swap(idx, idx + 1);
+                true
             } else {
-                std::iter::empty()
+                false
             }
         }
     }
@@ -1010,15 +1045,22 @@ impl LayerStack {
 
     /// Move a layer down one position in the stack. Returns moved resources in
     /// a linear depiction of the whole stack including masks.
-    pub fn move_down(&mut self, layer: &Resource<Node>) -> impl Iterator<Item = &Resource<Node>> {
+    pub fn move_down(&mut self, layer: &Resource<Node>) -> bool {
         if layer.path_str().unwrap().contains("mask") {
-            self.move_mask_down(layer);
-            std::iter::empty()
+            self.move_mask_down(layer)
         } else {
-            if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-                std::iter::empty()
+            if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
+                if idx == 0 || (idx == 1 && self.layers[idx].layer_type() == LayerType::Fx) {
+                    return false;
+                }
+                self.swap_resources(
+                    layer.file().unwrap(),
+                    &self.layers[idx - 1].name().to_owned(),
+                );
+                self.layers.swap(idx, idx - 1);
+                true
             } else {
-                std::iter::empty()
+                false
             }
         }
     }
@@ -1030,6 +1072,15 @@ impl LayerStack {
             self.layers[*idx].move_mask_down(mask)
         } else {
             false
+        }
+    }
+
+    fn swap_resources(&mut self, a: &str, b: &str) {
+        debug_assert!(a != b);
+        let idx_a = self.resources.get_mut(a).expect("Unknown resource") as *mut usize;
+        let idx_b = self.resources.get_mut(b).expect("Unknown resource") as *mut usize;
+        unsafe {
+            std::ptr::swap(idx_a, idx_b);
         }
     }
 }
@@ -1240,9 +1291,7 @@ impl super::NodeCollection for LayerStack {
                         Operator::AtomicOperator(aop) => {
                             // Move inputs
                             for (socket, channel) in input_sockets.iter() {
-                                let input_resource = last_socket
-                                    .get(channel)?
-                                    .clone();
+                                let input_resource = last_socket.get(channel)?.clone();
                                 use_points
                                     .entry(input_resource.socket_node())
                                     .and_modify(|e| e.last = step)
@@ -1268,9 +1317,7 @@ impl super::NodeCollection for LayerStack {
                             for (socket, channel) in input_sockets.iter() {
                                 let input =
                                     cop.inputs.get(socket).expect("Missing internal socket");
-                                let input_resource = last_socket
-                                    .get(channel)?
-                                    .clone();
+                                let input_resource = last_socket.get(channel)?.clone();
                                 use_points
                                     .entry(input_resource.socket_node())
                                     .and_modify(|e| e.last = step)

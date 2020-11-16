@@ -274,22 +274,82 @@ impl Layers {
     }
 
     pub fn move_up(&mut self, layer: &Resource<r::Node>) {
-        let idx = self
-            .layers
-            .iter()
-            .position(|l| &l.resource == layer)
-            .expect("Trying to move unknown layer");
-        self.layers.swap(idx, idx.saturating_sub(1));
+        let idx_range = self.indices_for(layer);
+        let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();
+
+        let insertion_point = if self.layers[idx_range.start].is_mask {
+            idx_range.start - 1
+        } else {
+            self.layers
+                .iter()
+                .take(idx_range.start)
+                .enumerate()
+                .rev()
+                .skip_while(|(_, l)| l.is_mask)
+                .map(|x| x.0)
+                .next()
+                .unwrap()
+        };
+
+        for l in to_move {
+            self.layers.insert(insertion_point, l);
+        }
     }
 
     pub fn move_down(&mut self, layer: &Resource<r::Node>) {
-        let idx = self
+        let idx_range = self.indices_for(layer);
+        let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();
+
+        let insertion_point = if self.layers[idx_range.start].is_mask {
+            idx_range.start + 1
+        } else {
+            self.layers
+                .iter()
+                .enumerate()
+                .skip(idx_range.start + 1)
+                .skip_while(|(_, l)| l.is_mask)
+                .map(|x| x.0)
+                .next()
+                .unwrap()
+        };
+
+        for l in to_move {
+            dbg!(&l.resource, insertion_point);
+            self.layers.insert(insertion_point, l);
+        }
+    }
+
+    /// Return all indices belonging to a layer including its masks. If given a
+    /// mask, it will only return the index for this mask.
+    fn indices_for(&self, layer: &Resource<r::Node>) -> std::ops::Range<usize> {
+        let start = self
             .layers
             .iter()
             .position(|l| &l.resource == layer)
-            .expect("Trying to move unknown layer");
-        debug_assert!(idx + 1 < self.layers.len());
-        self.layers.swap(idx, idx + 1);
+            .expect("Unknown layer");
+        if self.layers[start].is_mask {
+            return std::ops::Range {
+                start,
+                end: start + 1,
+            };
+        }
+
+        let end = self
+            .layers
+            .iter()
+            .enumerate()
+            .skip(start + 1)
+            .take_while(|(_, l)| l.is_mask)
+            .last()
+            .map(|x| x.0 + 1);
+
+        match end {
+            Some(end) => std::ops::Range { start, end },
+            None => std::ops::Range {
+                start,
+                end: start + 1,
+            },
+        }
     }
 }
 
