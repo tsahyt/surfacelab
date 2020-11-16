@@ -277,8 +277,13 @@ impl Layers {
         let idx_range = self.indices_for(layer);
         let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();
 
-        let insertion_point = if self.layers[idx_range.start].is_mask {
-            idx_range.start - 1
+        let insertion_point = if self
+            .layers
+            .get(idx_range.start)
+            .map(|l| l.is_mask)
+            .unwrap_or(false)
+        {
+            idx_range.start.saturating_sub(1)
         } else {
             self.layers
                 .iter()
@@ -288,7 +293,7 @@ impl Layers {
                 .skip_while(|(_, l)| l.is_mask)
                 .map(|x| x.0)
                 .next()
-                .unwrap()
+                .unwrap_or(0)
         };
 
         for l in to_move {
@@ -300,8 +305,13 @@ impl Layers {
         let idx_range = self.indices_for(layer);
         let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();
 
-        let insertion_point = if self.layers[idx_range.start].is_mask {
-            idx_range.start + 1
+        let insertion_point = if self
+            .layers
+            .get(idx_range.start)
+            .map(|l| l.is_mask)
+            .unwrap_or(false)
+        {
+            (idx_range.start + 1).min(self.layers.len())
         } else {
             self.layers
                 .iter()
@@ -310,11 +320,10 @@ impl Layers {
                 .skip_while(|(_, l)| l.is_mask)
                 .map(|x| x.0)
                 .next()
-                .unwrap()
+                .unwrap_or(self.layers.len())
         };
 
         for l in to_move {
-            dbg!(&l.resource, insertion_point);
             self.layers.insert(insertion_point, l);
         }
     }
