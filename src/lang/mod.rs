@@ -359,6 +359,7 @@ pub enum UserLayersEvent {
     SetBlendMode(Resource<Node>, BlendMode),
     SetTitle(Resource<Node>, String),
     SetEnabled(Resource<Node>, bool),
+    Convert(Resource<Graph>),
 }
 
 #[derive(Debug)]

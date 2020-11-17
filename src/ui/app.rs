@@ -49,6 +49,7 @@ widget_ids!(
         layer_new_mask,
         layer_delete,
         layer_list,
+        layer_convert,
 
         // Render Modal
         render_params,
@@ -1016,6 +1017,30 @@ where
         use super::param_box;
 
         let active_graph = self.app_state.graphs.get_active().clone();
+
+        if self
+            .app_state
+            .graphs
+            .get_active_collection_mut()
+            .as_layers_mut()
+            .is_some()
+        {
+            for _click in widget::Button::new()
+                .label("Convert To Graph")
+                .label_font_size(10)
+                .parent(self.ids.graph_settings_canvas)
+                .padded_w_of(self.ids.graph_settings_canvas, 16.0)
+                .h(16.0)
+                .mid_bottom()
+                .set(self.ids.layer_convert, ui)
+            {
+                self.sender
+                    .send(Lang::UserLayersEvent(UserLayersEvent::Convert(
+                        active_graph.clone(),
+                    )))
+                    .unwrap();
+            }
+        }
 
         for ev in param_box::ParamBox::new(
             self.app_state.graphs.get_collection_parameters_mut(),

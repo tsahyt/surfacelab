@@ -845,6 +845,44 @@ impl NodeManager {
                         }
                     }
                 }
+                UserLayersEvent::Convert(graph_res) => {
+                    if let Some(NodeGraph::LayerStack(ls)) =
+                        self.graphs.get(graph_res.path_str().unwrap())
+                    {
+                        if let Some(graph) = ls.to_graph(self.parent_size) {
+                            let mut evs = graph.rebuild_events(self.parent_size);
+                            let new_graph_res = graph.graph_resource();
+
+                            let name = new_graph_res.file().unwrap().to_owned();
+                            self.graphs.insert(
+                                name.clone(),
+                                NodeGraph::NodeGraph(nodegraph::NodeGraph::new(&name)),
+                            );
+
+                            response.push(Lang::GraphEvent(GraphEvent::GraphAdded(
+                                new_graph_res.clone(),
+                            )));
+                            response.extend(evs.drain(0..).map(|ev| match ev {
+                                Lang::GraphEvent(GraphEvent::NodeAdded(res, op, _, x, y)) => {
+                                    let pbox = self.element_param_box(&op, &res);
+                                    Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pbox, x, y))
+                                }
+                                _ => ev,
+                            }));
+
+                            if let Some((instrs, last_use, force_points)) =
+                                graph.linearize(LinearizationMode::TopoSort)
+                            {
+                                response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                                    new_graph_res,
+                                    instrs,
+                                    last_use,
+                                    force_points,
+                                )))
+                            }
+                        }
+                    }
+                }
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
