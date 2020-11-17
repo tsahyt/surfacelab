@@ -851,27 +851,29 @@ impl NodeManager {
                     {
                         if let Some(graph) = ls.to_graph(self.parent_size) {
                             let mut evs = graph.rebuild_events(self.parent_size);
+                            let linearization = graph.linearize(LinearizationMode::TopoSort);
                             let new_graph_res = graph.graph_resource();
 
-                            let name = new_graph_res.file().unwrap().to_owned();
                             self.graphs.insert(
-                                name.clone(),
-                                NodeGraph::NodeGraph(nodegraph::NodeGraph::new(&name)),
+                                new_graph_res.file().unwrap().to_owned(),
+                                NodeGraph::NodeGraph(graph),
                             );
+
+                            for ev in evs.iter_mut() {
+                                match ev {
+                                    Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pbox, _, _)) => {
+                                        *pbox = self.element_param_box(&op, res)
+                                    }
+                                    _ => {}
+                                }
+                            }
 
                             response.push(Lang::GraphEvent(GraphEvent::GraphAdded(
                                 new_graph_res.clone(),
                             )));
-                            response.extend(evs.drain(0..).map(|ev| match ev {
-                                Lang::GraphEvent(GraphEvent::NodeAdded(res, op, _, x, y)) => {
-                                    let pbox = self.element_param_box(&op, &res);
-                                    Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pbox, x, y))
-                                }
-                                _ => ev,
-                            }));
+                            response.extend(evs.drain(0..));
 
-                            if let Some((instrs, last_use, force_points)) =
-                                graph.linearize(LinearizationMode::TopoSort)
+                            if let Some((instrs, last_use, force_points)) = linearization
                             {
                                 response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                                     new_graph_res,
