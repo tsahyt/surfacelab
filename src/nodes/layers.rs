@@ -333,6 +333,50 @@ impl MaskStack {
         Some(())
     }
 
+    pub fn insert_into_graph(
+        &self,
+        graph: &mut super::nodegraph::NodeGraph,
+        parent_size: u32,
+    ) -> Option<(String, String)> {
+        let mut last_socket: Option<(String, String)> = None;
+
+        for mask in self.stack.iter().filter(|m| m.blend_options.enabled) {
+            let mask_node = graph.new_node(&mask.operator, parent_size).0;
+
+            // Since this is a mask, there is always 0 or 1 input
+            for input_socket in mask.operator.inputs().keys() {
+                let (node, socket) = last_socket.as_ref()?;
+                graph
+                    .connect_sockets(&node, &socket, &mask_node, input_socket)
+                    .ok()?;
+            }
+
+            if let Some((background_node, background_socket)) = &last_socket {
+                let blend_op =
+                    Operator::from(AtomicOperator::from(mask.blend_options.blend_operator()));
+                let blend_node = graph.new_node(&blend_op, parent_size).0;
+
+                graph
+                    .connect_sockets(
+                        background_node,
+                        background_socket,
+                        &blend_node,
+                        "background",
+                    )
+                    .ok()?;
+                graph
+                    .connect_sockets(&mask_node, &mask.output_socket, &blend_node, "foreground")
+                    .ok()?;
+
+                last_socket = Some((blend_node, "color".to_owned()));
+            } else {
+                last_socket = Some((mask_node, mask.output_socket.to_owned()));
+            }
+        }
+
+        last_socket
+    }
+
     pub fn push(&mut self, mask: Mask, resource: Resource<Node>) -> Option<()> {
         if mask.operator.inputs().len() != 0 && self.stack.len() == 0 {
             return None;
@@ -494,6 +538,20 @@ impl Layer {
         }
     }
 
+    pub fn outputs(&self) -> &ChannelMap {
+        match self {
+            Layer::FillLayer(_, l) => &l.output_sockets,
+            Layer::FxLayer(_, l) => &l.output_sockets,
+        }
+    }
+
+    pub fn inputs(&self) -> Option<&InputMap> {
+        match self {
+            Layer::FillLayer(_, _) => None,
+            Layer::FxLayer(_, l) => Some(&l.input_sockets),
+        }
+    }
+
     pub fn layer_type(&self) -> LayerType {
         match self {
             Layer::FillLayer(_, _) => LayerType::Fill,
@@ -586,9 +644,13 @@ impl Layer {
     }
 
     pub fn get_blend_mode(&self) -> BlendMode {
+        self.get_blend_options().blend_mode
+    }
+
+    pub fn get_blend_options(&self) -> &LayerBlendOptions {
         match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options.blend_mode,
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => blend_options.blend_mode,
+            Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options,
+            Layer::FxLayer(_, FxLayer { blend_options, .. }) => blend_options,
         }
     }
 
@@ -625,10 +687,7 @@ impl Layer {
     }
 
     pub fn get_masks(&self) -> &MaskStack {
-        match self {
-            Layer::FillLayer(_, l) => &l.blend_options.mask,
-            Layer::FxLayer(_, l) => &l.blend_options.mask,
-        }
+        &self.get_blend_options().mask
     }
 
     pub fn has_masks(&self) -> bool {
@@ -1123,6 +1182,80 @@ impl LayerStack {
         unsafe {
             std::ptr::swap(idx_a, idx_b);
         }
+    }
+
+    /// Convert this layer stack into a node graph, if it is valid.
+    pub fn to_graph(&self, parent_size: u32) -> Option<super::nodegraph::NodeGraph> {
+        use super::nodegraph::*;
+
+        let mut last_socket: HashMap<MaterialChannel, (String, String)> = HashMap::new();
+        let mut graph = NodeGraph::new(&format!("{}_graph", self.name));
+
+        for layer in self.layers.iter() {
+            let op = layer.operator();
+
+            let layer_node = graph.new_node(op, parent_size).0;
+
+            if let Some(inputs) = layer.inputs() {
+                for (input, channel) in inputs.iter() {
+                    let (input_node, input_socket) = last_socket.get(channel)?;
+                    graph
+                        .connect_sockets(input_node, input_socket, &layer_node, input)
+                        .ok()?;
+                }
+            }
+
+            let output_channels = layer.get_output_channels();
+            for (channel, socket) in layer
+                .outputs()
+                .iter()
+                .filter(|(c, _)| output_channels.contains(**c))
+            {
+                if let Some((background_node, background_socket)) = last_socket.get(channel) {
+                    let blend_op = Operator::from(layer.get_blend_options().blend_operator());
+                    let blend_node = graph.new_node(&blend_op, parent_size).0;
+
+                    graph
+                        .connect_sockets(
+                            background_node,
+                            background_socket,
+                            &blend_node,
+                            "background",
+                        )
+                        .ok()?;
+                    graph
+                        .connect_sockets(&layer_node, socket, &blend_node, "foreground")
+                        .ok()?;
+
+                    if layer.has_masks() {
+                        let masks = layer.get_masks();
+                        let (mask_node, mask_socket) =
+                            masks.insert_into_graph(&mut graph, parent_size)?;
+                        graph
+                            .connect_sockets(&mask_node, &mask_socket, &blend_node, "mask")
+                            .ok()?;
+                    }
+
+                    last_socket.insert(*channel, (blend_node, "color".to_owned()));
+                } else {
+                    last_socket.insert(*channel, (layer_node.to_owned(), socket.to_owned()));
+                }
+            }
+        }
+
+        for channel in MaterialChannel::iter().filter(|channel| last_socket.contains_key(channel)) {
+            let output_op = Operator::from(AtomicOperator::Output(Output {
+                output_type: channel.to_output_type(),
+            }));
+            let output_node = graph.new_node(&output_op, parent_size).0;
+
+            let (node, socket) = last_socket.get(&channel)?;
+            graph
+                .connect_sockets(node, socket, &output_node, "data")
+                .ok()?;
+        }
+
+        Some(graph)
     }
 }
 
