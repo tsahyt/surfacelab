@@ -344,13 +344,9 @@ impl MaskStack {
     ) -> Option<(String, String)> {
         let mut last_socket: Option<(String, String)> = None;
 
-        let y = SLICE_WIDTH * 2.0;
-
-        x -= SLICE_WIDTH * self.stack.len() as f64;
-
         for mask in self.stack.iter().filter(|m| m.blend_options.enabled) {
             let mask_node = graph.new_node(&mask.operator, parent_size).0;
-            graph.position_node(&mask_node, x, y);
+            graph.position_node(&mask_node, x, -SLICE_WIDTH);
             x += SLICE_WIDTH;
 
             // Since this is a mask, there is always 0 or 1 input
@@ -365,7 +361,7 @@ impl MaskStack {
                 let blend_op =
                     Operator::from(AtomicOperator::from(mask.blend_options.blend_operator()));
                 let blend_node = graph.new_node(&blend_op, parent_size).0;
-                graph.position_node(&blend_node, x, y);
+                graph.position_node(&blend_node, x, 0.0);
                 x += SLICE_WIDTH;
 
                 graph
@@ -1222,7 +1218,7 @@ impl LayerStack {
             let op = layer.operator();
 
             let layer_node = graph.new_node(op, parent_size).0;
-            graph.position_node(&layer_node, x, SLICE_WIDTH);
+            graph.position_node(&layer_node, x, 0.0);
             x += SLICE_WIDTH;
 
             if let Some(inputs) = layer.inputs() {
@@ -1236,8 +1232,10 @@ impl LayerStack {
 
             if layer.has_masks() {
                 let masks = layer.get_masks();
-                let (mask_node, mask_socket) = masks.insert_into_graph(&mut graph, x, parent_size)?;
+                let (mask_node, mask_socket) =
+                    masks.insert_into_graph(&mut graph, x - SLICE_WIDTH, parent_size)?;
                 last_mask = Some((mask_node, mask_socket));
+                x += masks.len() as f64 * SLICE_WIDTH;
             } else {
                 last_mask = None
             }
@@ -1252,7 +1250,7 @@ impl LayerStack {
                 if let Some((background_node, background_socket)) = last_socket.get(channel) {
                     let blend_op = Operator::from(layer.get_blend_options().blend_operator());
                     let blend_node = graph.new_node(&blend_op, parent_size).0;
-                    graph.position_node(&blend_node, x, i as f64 * SLICE_WIDTH);
+                    graph.position_node(&blend_node, x, (i + 1) as f64 * SLICE_WIDTH);
 
                     graph
                         .connect_sockets(
