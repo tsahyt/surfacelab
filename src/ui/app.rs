@@ -1018,6 +1018,8 @@ where
 
         let active_graph = self.app_state.graphs.get_active().clone();
 
+        let mut offset = 0.0;
+
         if self
             .app_state
             .graphs
@@ -1025,13 +1027,15 @@ where
             .as_layers_mut()
             .is_some()
         {
+            offset = 32.0;
+
             for _click in widget::Button::new()
                 .label("Convert To Graph")
                 .label_font_size(10)
                 .parent(self.ids.graph_settings_canvas)
                 .padded_w_of(self.ids.graph_settings_canvas, 16.0)
                 .h(16.0)
-                .mid_bottom()
+                .mid_top_with_margin(16.0)
                 .set(self.ids.layer_convert, ui)
             {
                 self.sender
@@ -1048,7 +1052,7 @@ where
         )
         .parent(self.ids.graph_settings_canvas)
         .w_of(self.ids.graph_settings_canvas)
-        .mid_top()
+        .mid_top_with_margin(32.0)
         .set(self.ids.graph_param_box, ui)
         {
             if let param_box::Event::ChangeParameter(event) = ev {
@@ -1060,7 +1064,7 @@ where
             .parent(self.ids.graph_settings_canvas)
             .color(color::WHITE)
             .font_size(12)
-            .mid_top_with_margin(96.0)
+            .mid_top_with_margin(96.0 + offset)
             .set(self.ids.exposed_param_title, ui);
 
         let exposed_params = self.app_state.graphs.get_exposed_parameters_mut();
@@ -1070,7 +1074,7 @@ where
             .item_size(160.0)
             .padded_w_of(self.ids.graph_settings_canvas, 8.0)
             .h(320.0)
-            .mid_top_with_margin(112.0)
+            .mid_top_with_margin(112.0 + offset)
             .scrollbar_on_top()
             .set(self.ids.exposed_param_list, ui);
 
