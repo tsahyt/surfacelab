@@ -6,6 +6,9 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 use strum::IntoEnumIterator;
 
+/// Slice width for graph layouting on conversion
+const SLICE_WIDTH: f64 = 256.0;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// A fill layer using an operator, with its output sockets mapped to
 /// material channels. The operator must not have any inputs! It can be
@@ -336,12 +339,19 @@ impl MaskStack {
     pub fn insert_into_graph(
         &self,
         graph: &mut super::nodegraph::NodeGraph,
+        mut x: f64,
         parent_size: u32,
     ) -> Option<(String, String)> {
         let mut last_socket: Option<(String, String)> = None;
 
+        let y = SLICE_WIDTH * 2.0;
+
+        x -= SLICE_WIDTH * self.stack.len() as f64;
+
         for mask in self.stack.iter().filter(|m| m.blend_options.enabled) {
             let mask_node = graph.new_node(&mask.operator, parent_size).0;
+            graph.position_node(&mask_node, x, y);
+            x += SLICE_WIDTH;
 
             // Since this is a mask, there is always 0 or 1 input
             for input_socket in mask.operator.inputs().keys() {
@@ -355,6 +365,8 @@ impl MaskStack {
                 let blend_op =
                     Operator::from(AtomicOperator::from(mask.blend_options.blend_operator()));
                 let blend_node = graph.new_node(&blend_op, parent_size).0;
+                graph.position_node(&blend_node, x, y);
+                x += SLICE_WIDTH;
 
                 graph
                     .connect_sockets(
@@ -391,6 +403,10 @@ impl MaskStack {
 
     pub fn iter(&self) -> impl Iterator<Item = &Mask> {
         self.stack.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.stack.len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -713,6 +729,13 @@ impl Layer {
             Layer::FillLayer(_, l) => l.blend_options.mask.move_down(mask),
             Layer::FxLayer(_, l) => l.blend_options.mask.move_down(mask),
         }
+    }
+
+    /// Determine the number of graph "layers" taken up by this layer, for use
+    /// in converting the layer stack to a graph. This is not the total count of
+    /// nodes, since channels can be stacked vertically and don't affect the width.
+    pub fn graph_width(&self) -> usize {
+        2 + 2 * self.get_masks().len()
     }
 }
 
@@ -1188,13 +1211,19 @@ impl LayerStack {
     pub fn to_graph(&self, parent_size: u32) -> Option<super::nodegraph::NodeGraph> {
         use super::nodegraph::*;
 
+        let mut x = -(self.layers.iter().map(|l| l.graph_width()).sum::<usize>() as f64 / 2.0)
+            * SLICE_WIDTH;
+
         let mut last_socket: HashMap<MaterialChannel, (String, String)> = HashMap::new();
+        let mut last_mask: Option<(String, String)>;
         let mut graph = NodeGraph::new(&format!("{}_graph", self.name));
 
         for layer in self.layers.iter() {
             let op = layer.operator();
 
             let layer_node = graph.new_node(op, parent_size).0;
+            graph.position_node(&layer_node, x, SLICE_WIDTH);
+            x += SLICE_WIDTH;
 
             if let Some(inputs) = layer.inputs() {
                 for (input, channel) in inputs.iter() {
@@ -1205,15 +1234,25 @@ impl LayerStack {
                 }
             }
 
+            if layer.has_masks() {
+                let masks = layer.get_masks();
+                let (mask_node, mask_socket) = masks.insert_into_graph(&mut graph, x, parent_size)?;
+                last_mask = Some((mask_node, mask_socket));
+            } else {
+                last_mask = None
+            }
+
             let output_channels = layer.get_output_channels();
-            for (channel, socket) in layer
+            for (i, (channel, socket)) in layer
                 .outputs()
                 .iter()
-                .filter(|(c, _)| output_channels.contains(**c))
+                .enumerate()
+                .filter(|(_, (c, _))| output_channels.contains(**c))
             {
                 if let Some((background_node, background_socket)) = last_socket.get(channel) {
                     let blend_op = Operator::from(layer.get_blend_options().blend_operator());
                     let blend_node = graph.new_node(&blend_op, parent_size).0;
+                    graph.position_node(&blend_node, x, i as f64 * SLICE_WIDTH);
 
                     graph
                         .connect_sockets(
@@ -1226,11 +1265,7 @@ impl LayerStack {
                     graph
                         .connect_sockets(&layer_node, socket, &blend_node, "foreground")
                         .ok()?;
-
-                    if layer.has_masks() {
-                        let masks = layer.get_masks();
-                        let (mask_node, mask_socket) =
-                            masks.insert_into_graph(&mut graph, parent_size)?;
+                    if let Some((mask_node, mask_socket)) = last_mask.as_ref() {
                         graph
                             .connect_sockets(&mask_node, &mask_socket, &blend_node, "mask")
                             .ok()?;
@@ -1243,11 +1278,13 @@ impl LayerStack {
             }
         }
 
+        x += SLICE_WIDTH;
         for channel in MaterialChannel::iter().filter(|channel| last_socket.contains_key(channel)) {
             let output_op = Operator::from(AtomicOperator::Output(Output {
                 output_type: channel.to_output_type(),
             }));
             let output_node = graph.new_node(&output_op, parent_size).0;
+            graph.position_node(&output_node, x, 0.0);
 
             let (node, socket) = last_socket.get(&channel)?;
             graph

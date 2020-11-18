@@ -861,9 +861,13 @@ impl NodeManager {
 
                             for ev in evs.iter_mut() {
                                 match ev {
-                                    Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pbox, _, _)) => {
-                                        *pbox = self.element_param_box(&op, res)
-                                    }
+                                    Lang::GraphEvent(GraphEvent::NodeAdded(
+                                        res,
+                                        op,
+                                        pbox,
+                                        _,
+                                        _,
+                                    )) => *pbox = self.element_param_box(&op, res),
                                     _ => {}
                                 }
                             }
@@ -873,8 +877,7 @@ impl NodeManager {
                             )));
                             response.extend(evs.drain(0..));
 
-                            if let Some((instrs, last_use, force_points)) = linearization
-                            {
+                            if let Some((instrs, last_use, force_points)) = linearization {
                                 response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                                     new_graph_res,
                                     instrs,
