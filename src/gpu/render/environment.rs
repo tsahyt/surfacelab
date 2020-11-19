@@ -102,16 +102,182 @@ where
             .read_image_hdr()
             .map_err(|_| "Failed to read from HDRi file")?;
 
-        // Prepare compute pipeline
-        let lock = env_maps.gpu.lock().unwrap();
+        // Upload raw HDRi to staging buffer
+        let mut lock = env_maps.gpu.lock().unwrap();
 
-        let command_pool = unsafe {
+        let (staging_buffer, staging_memory) = {
+            let bytes = (metadata.width * metadata.height * 4 * 3) as u64;
+            let mut staging_buffer = unsafe {
+                lock.device.create_buffer(bytes, hal::buffer::Usage::TRANSFER_SRC)
+            }
+            .map_err(|_| "Failed to create staging buffer")?;
+
+            let buffer_requirements = unsafe { lock.device.get_buffer_requirements(&staging_buffer) };
+            let staging_memory_type = lock
+                .memory_properties
+                .memory_types
+                .iter()
+                .enumerate()
+                .position(|(id, mem_type)| {
+                    buffer_requirements.type_mask & (1 << id) != 0
+                        && mem_type
+                            .properties
+                            .contains(hal::memory::Properties::CPU_VISIBLE)
+                })
+                .unwrap()
+                .into();
+            let staging_mem = unsafe { lock.device.allocate_memory(staging_memory_type, bytes) }
+                .map_err(|_| "Failed to allocate memory for staging buffer")?;
+
+            unsafe {
+                lock.device
+                    .bind_buffer_memory(&staging_mem, 0, &mut staging_buffer)
+                    .map_err(|_| "Failed to bind staging buffer")?
+            };
+
+            unsafe {
+                let mapping = lock
+                    .device
+                    .map_memory(
+                        &staging_mem,
+                        hal::memory::Segment {
+                            offset: 0,
+                            size: Some(bytes),
+                        },
+                    )
+                    .unwrap();
+                let u8s: &[u8] =
+                    std::slice::from_raw_parts(raw_hdri.as_ptr() as *const u8, raw_hdri.len() * 4);
+                std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, bytes as usize);
+                lock.device.unmap_memory(&staging_mem);
+            }
+
+            (staging_buffer, staging_mem)
+        };
+
+        // Move to HDRi device only memory
+        let (equirect_image, equirect_view, equirect_memory) = {
+            let mut equirect_image = unsafe {
+                lock.device.create_image(
+                    hal::image::Kind::D2(metadata.width, metadata.height, 1, 1),
+                    1,
+                    Self::FORMAT,
+                    hal::image::Tiling::Linear,
+                    hal::image::Usage::SAMPLED,
+                    hal::image::ViewCapabilities::empty(),
+                )
+            }.map_err(|_| "Failed to acquire equirectangular image")?;
+
+            let requirements = unsafe { lock.device.get_image_requirements(&equirect_image) };
+            let memory_type = lock
+                .memory_properties
+                .memory_types
+                .iter()
+                .position(|mem_type| {
+                    mem_type
+                        .properties
+                        .contains(hal::memory::Properties::DEVICE_LOCAL)
+                })
+                .unwrap()
+                .into();
+
+            let equirect_memory =
+                unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
+                    .map_err(|_| "Failed to allocate memory for equirectangular")?;
+            unsafe {
+                lock.device
+                    .bind_image_memory(&equirect_memory, 0, &mut equirect_image)
+            }
+            .unwrap();
+
+            let equirect_view = unsafe {
+                lock.device.create_image_view(
+                    &equirect_image,
+                    hal::image::ViewKind::D2,
+                    Self::FORMAT,
+                    hal::format::Swizzle::NO,
+                    super::super::COLOR_RANGE.clone(),
+                )
+            }
+            .map_err(|_| "Failed to create equirectangular view")?;
+
+            (equirect_image, equirect_view, equirect_memory)
+        };
+
+        let mut command_pool = unsafe {
             lock.device.create_command_pool(
                 lock.queue_group.family,
                 hal::pool::CommandPoolCreateFlags::empty(),
             )
         }
-        .map_err(|_| "")?;
+        .map_err(|_| "Failed to create command pool for HDRi processing")?;
+
+        let fence = lock.device.create_fence(false).unwrap();
+
+        unsafe {
+            let mut command_buffer = command_pool.allocate_one(hal::command::Level::Primary);
+            command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            command_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::TRANSFER,
+                hal::memory::Dependencies::empty(),
+                &[
+                    hal::memory::Barrier::Image {
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                            ..(hal::image::Access::TRANSFER_WRITE, hal::image::Layout::TransferDstOptimal),
+                        target: &equirect_image,
+                        families: None,
+                        range: super::super::COLOR_RANGE
+                    }
+                ],
+            );
+            command_buffer.copy_buffer_to_image(
+                &staging_buffer,
+                &equirect_image,
+                hal::image::Layout::TransferDstOptimal,
+                Some(hal::command::BufferImageCopy {
+                    buffer_offset: 0,
+                    buffer_width: metadata.width,
+                    buffer_height: metadata.height,
+                    image_offset: hal::image::Offset { x: 0, y: 0, z: 0 },
+                    image_extent: hal::image::Extent {
+                        width: metadata.width,
+                        height: metadata.height,
+                        depth: 1,
+                    },
+                    image_layers: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 0,
+                        layers: 0..1,
+                    },
+                }),
+            );
+            command_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::memory::Dependencies::empty(),
+                &[
+                    hal::memory::Barrier::Image {
+                        states: (hal::image::Access::TRANSFER_WRITE, hal::image::Layout::TransferDstOptimal)
+                            ..(hal::image::Access::SHADER_READ, hal::image::Layout::ShaderReadOnlyOptimal),
+                        target: &equirect_image,
+                        families: None,
+                        range: super::super::COLOR_RANGE
+                    }
+                ],
+            );
+            command_buffer.finish();
+
+            lock.queue_group.queues[0]
+                .submit_without_semaphores(Some(&command_buffer), Some(&fence));
+            lock.device.wait_for_fence(&fence, !0).unwrap();
+            command_pool.free(Some(command_buffer));
+        }
+
+        unsafe {
+            lock.device.destroy_buffer(staging_buffer);
+            lock.device.free_memory(staging_memory);
+        }
+
+        // Prepare compute pipeline
         let descriptor_pool = unsafe {
             use hal::pso::*;
             lock.device
@@ -178,7 +344,6 @@ where
         }
         .map_err(|_| "Failed to create compute pipeline")?;
 
-        let fence = lock.device.create_fence(false).unwrap();
         let sampler = unsafe {
             lock.device.create_sampler(&hal::image::SamplerDesc::new(
                 hal::image::Filter::Linear,
@@ -203,6 +368,10 @@ where
             lock.device.destroy_compute_pipeline(pipeline);
         }
         todo!()
+    }
+
+    pub fn irradiance_view(&self) -> &B::ImageView {
+        &*self.irradiance_view
     }
 }
 
