@@ -7,14 +7,17 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
 
-static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../shaders/quad.spv");
-static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../shaders/renderer2d.spv");
-static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../shaders/renderer3d.spv");
+static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../../shaders/quad.spv");
+static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../../shaders/renderer2d.spv");
+static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/renderer3d.spv");
 
 use super::{Backend, InitializationError, PipelineError, GPU};
 
+pub mod environment;
+
 #[derive(AsBytes, Debug)]
 #[repr(C)]
+/// Uniforms for a 2D Renderer
 struct RenderView2D {
     resolution: [f32; 2],
     pan: [f32; 2],
@@ -35,6 +38,7 @@ impl Default for RenderView2D {
 
 #[derive(AsBytes, Debug)]
 #[repr(C)]
+/// Uniforms for a 3D Renderer
 struct RenderView3D {
     center: [f32; 4],
     light_pos: [f32; 4],
