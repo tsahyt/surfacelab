@@ -108,11 +108,13 @@ where
         let (staging_buffer, staging_memory) = {
             let bytes = (metadata.width * metadata.height * 4 * 3) as u64;
             let mut staging_buffer = unsafe {
-                lock.device.create_buffer(bytes, hal::buffer::Usage::TRANSFER_SRC)
+                lock.device
+                    .create_buffer(bytes, hal::buffer::Usage::TRANSFER_SRC)
             }
             .map_err(|_| "Failed to create staging buffer")?;
 
-            let buffer_requirements = unsafe { lock.device.get_buffer_requirements(&staging_buffer) };
+            let buffer_requirements =
+                unsafe { lock.device.get_buffer_requirements(&staging_buffer) };
             let staging_memory_type = lock
                 .memory_properties
                 .memory_types
@@ -166,7 +168,8 @@ where
                     hal::image::Usage::SAMPLED,
                     hal::image::ViewCapabilities::empty(),
                 )
-            }.map_err(|_| "Failed to acquire equirectangular image")?;
+            }
+            .map_err(|_| "Failed to acquire equirectangular image")?;
 
             let requirements = unsafe { lock.device.get_image_requirements(&equirect_image) };
             let memory_type = lock
@@ -220,15 +223,16 @@ where
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::TRANSFER,
                 hal::memory::Dependencies::empty(),
-                &[
-                    hal::memory::Barrier::Image {
-                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-                            ..(hal::image::Access::TRANSFER_WRITE, hal::image::Layout::TransferDstOptimal),
-                        target: &equirect_image,
-                        families: None,
-                        range: super::super::COLOR_RANGE
-                    }
-                ],
+                &[hal::memory::Barrier::Image {
+                    states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                        ..(
+                            hal::image::Access::TRANSFER_WRITE,
+                            hal::image::Layout::TransferDstOptimal,
+                        ),
+                    target: &equirect_image,
+                    families: None,
+                    range: super::super::COLOR_RANGE,
+                }],
             );
             command_buffer.copy_buffer_to_image(
                 &staging_buffer,
@@ -254,15 +258,19 @@ where
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
-                &[
-                    hal::memory::Barrier::Image {
-                        states: (hal::image::Access::TRANSFER_WRITE, hal::image::Layout::TransferDstOptimal)
-                            ..(hal::image::Access::SHADER_READ, hal::image::Layout::ShaderReadOnlyOptimal),
-                        target: &equirect_image,
-                        families: None,
-                        range: super::super::COLOR_RANGE
-                    }
-                ],
+                &[hal::memory::Barrier::Image {
+                    states: (
+                        hal::image::Access::TRANSFER_WRITE,
+                        hal::image::Layout::TransferDstOptimal,
+                    )
+                        ..(
+                            hal::image::Access::SHADER_READ,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        ),
+                    target: &equirect_image,
+                    families: None,
+                    range: super::super::COLOR_RANGE,
+                }],
             );
             command_buffer.finish();
 
@@ -275,10 +283,11 @@ where
         unsafe {
             lock.device.destroy_buffer(staging_buffer);
             lock.device.free_memory(staging_memory);
+            lock.device.reset_fence(&fence).unwrap();
         }
 
         // Prepare compute pipeline
-        let descriptor_pool = unsafe {
+        let mut descriptor_pool = unsafe {
             use hal::pso::*;
             lock.device
                 .create_descriptor_pool(4, &[], DescriptorPoolCreateFlags::empty())
@@ -353,10 +362,92 @@ where
         .map_err(|_| "Failed to create sampler")?;
 
         // Convolve irradiance map
+        let descriptors = unsafe { descriptor_pool.allocate_set(&set_layout) }
+            .map_err(|_| "Failed to get descriptors from pool")?;
+
+        unsafe {
+            lock.device.write_descriptor_sets(vec![
+                hal::pso::DescriptorSetWrite {
+                    set: &descriptors,
+                    binding: 0,
+                    array_offset: 0,
+                    descriptors: Some(hal::pso::Descriptor::Image(
+                        &equirect_view,
+                        hal::image::Layout::ShaderReadOnlyOptimal,
+                    )),
+                },
+                hal::pso::DescriptorSetWrite {
+                    set: &descriptors,
+                    binding: 1,
+                    array_offset: 0,
+                    descriptors: Some(hal::pso::Descriptor::Sampler(&sampler)),
+                },
+                hal::pso::DescriptorSetWrite {
+                    set: &descriptors,
+                    binding: 1,
+                    array_offset: 0,
+                    descriptors: Some(hal::pso::Descriptor::Image(
+                        &*env_maps.irradiance_view,
+                        hal::image::Layout::General,
+                    )),
+                },
+            ]);
+        }
+
+        unsafe {
+            let mut command_buffer = command_pool.allocate_one(hal::command::Level::Primary);
+            command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            command_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::memory::Dependencies::empty(),
+                &[hal::memory::Barrier::Image {
+                    states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                        ..(
+                            hal::image::Access::SHADER_WRITE,
+                            hal::image::Layout::General,
+                        ),
+                    target: &*env_maps.irradiance_image,
+                    families: None,
+                    range: super::super::COLOR_RANGE,
+                }],
+            );
+            command_buffer.bind_compute_pipeline(&pipeline);
+            command_buffer.bind_compute_descriptor_sets(
+                &pipeline_layout,
+                0,
+                Some(&descriptors),
+                &[],
+            );
+            command_buffer.dispatch([cubemap_size as u32 / 8, cubemap_size as u32 / 8, 6]);
+            command_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
+                hal::memory::Dependencies::empty(),
+                &[hal::memory::Barrier::Image {
+                    states: (
+                        hal::image::Access::SHADER_WRITE,
+                        hal::image::Layout::General,
+                    )
+                        ..(
+                            hal::image::Access::SHADER_READ,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        ),
+                    target: &*env_maps.irradiance_image,
+                    families: None,
+                    range: super::super::COLOR_RANGE,
+                }],
+            );
+            command_buffer.finish();
+
+            lock.queue_group.queues[0]
+                .submit_without_semaphores(Some(&command_buffer), Some(&fence));
+
+            lock.device.wait_for_fence(&fence, !0).unwrap();
+            command_pool.free(Some(command_buffer));
+        };
 
         // TODO: Pre-filter environment map
 
-        // Clean up compute pipeline
+        // Clean up compute pipeline and equirectangular image
         unsafe {
             lock.device.destroy_command_pool(command_pool);
             lock.device.destroy_sampler(sampler);
@@ -366,8 +457,14 @@ where
             lock.device.destroy_fence(fence);
             lock.device.destroy_pipeline_layout(pipeline_layout);
             lock.device.destroy_compute_pipeline(pipeline);
+            lock.device.destroy_image(equirect_image);
+            lock.device.destroy_image_view(equirect_view);
+            lock.device.free_memory(equirect_memory);
         }
-        todo!()
+
+        drop(lock);
+
+        Ok(env_maps)
     }
 
     pub fn irradiance_view(&self) -> &B::ImageView {
