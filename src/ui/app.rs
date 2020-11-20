@@ -115,7 +115,7 @@ where
                         self.app_state.monitor_resolution.1,
                     ) {
                         let id = self.image_map.insert(img);
-                        self.app_state.render_image = Some(id);
+                        self.app_state.render_image = RenderImage::Image(id);
                     }
                 }
             }
@@ -886,7 +886,7 @@ where
 
         // If there is a known render image, create a render view for it
         match self.app_state.render_image {
-            Some(render_image) => {
+            RenderImage::Image(render_image) => {
                 let rv = RenderView::new(render_image, self.app_state.monitor_resolution)
                     .parent(self.ids.drawing_canvas)
                     .wh_of(self.ids.drawing_canvas)
@@ -937,7 +937,7 @@ where
                     _ => {}
                 }
             }
-            None => {
+            RenderImage::None => {
                 // Otherwise create one by notifying the render component
                 let [w, h] = ui.wh_of(self.ids.drawing_canvas).unwrap();
                 self.sender
@@ -951,7 +951,9 @@ where
                         RendererType::Renderer3D,
                     )))
                     .expect("Error contacting renderer backend");
+                self.app_state.render_image = RenderImage::Requested;
             }
+            RenderImage::Requested => {}
         }
 
         if self.app_state.render_modal {

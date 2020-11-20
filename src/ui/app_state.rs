@@ -788,12 +788,18 @@ pub enum LayerFilter {
     Mask(Resource<Node>),
 }
 
+pub enum RenderImage {
+    None,
+    Requested,
+    Image(image::Id),
+}
+
 pub struct App {
     pub graphs: NodeCollections,
     pub active_node_element: Option<petgraph::graph::NodeIndex>,
     pub active_layer_element: Option<usize>,
 
-    pub render_image: Option<image::Id>,
+    pub render_image: RenderImage,
     pub monitor_resolution: (u32, u32),
 
     pub add_node_modal: Option<Point>,
@@ -815,7 +821,7 @@ impl App {
             graphs: NodeCollections::new(),
             active_node_element: None,
             active_layer_element: None,
-            render_image: None,
+            render_image: RenderImage::None,
             monitor_resolution: (monitor_size.0, monitor_size.1),
             add_node_modal: None,
             add_layer_modal: None,
