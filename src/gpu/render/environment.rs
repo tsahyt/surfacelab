@@ -441,7 +441,7 @@ where
                         ),
                     target: &*env_maps.irradiance_image,
                     families: None,
-                    range: super::super::COLOR_RANGE,
+                    range: CUBE_COLOR_RANGE,
                 }],
             );
             command_buffer.bind_compute_pipeline(&pipeline);
@@ -466,7 +466,7 @@ where
                         ),
                     target: &*env_maps.irradiance_image,
                     families: None,
-                    range: super::super::COLOR_RANGE,
+                    range: CUBE_COLOR_RANGE,
                 }],
             );
             command_buffer.finish();
