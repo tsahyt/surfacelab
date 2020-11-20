@@ -243,7 +243,7 @@ where
         let render_target = RenderTarget::new(gpu.clone(), format, 1, monitor_dimensions)?;
         let environment_maps = EnvironmentMaps::from_file(
             gpu.clone(),
-            1024,
+            256,
             find_folder::Search::KidsThenParents(3, 5)
                 .for_folder("assets")
                 .unwrap()

@@ -5,6 +5,7 @@ use image::hdr;
 use std::mem::ManuallyDrop;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 static IRRADIANCE_SHADER: &[u8] = include_bytes!("../../../shaders/irradiance.spv");
 
@@ -101,6 +102,8 @@ where
         let env_maps = Self::init(gpu, cubemap_size)?;
 
         // Read data from file
+        let start_io = Instant::now();
+
         let reader = BufReader::new(File::open(path).map_err(|_| "Failed to open HDRi file")?);
         let decoder = hdr::HdrDecoder::new(reader).map_err(|_| "Failed to decode HDRi file")?;
         let metadata = decoder.metadata();
@@ -110,6 +113,8 @@ where
             .iter()
             .map(|rgb| image::Rgba([rgb[0], rgb[1], rgb[2], 1.0]))
             .collect();
+
+        log::debug!("Read HDRi from disk in {}ms", start_io.elapsed().as_millis());
 
         // Upload raw HDRi to staging buffer
         let mut lock = env_maps.gpu.lock().unwrap();
@@ -395,6 +400,9 @@ where
         .map_err(|_| "Failed to create sampler")?;
 
         // Convolve irradiance map
+        log::debug!("Starting convolution of HDRi");
+        let start_conv = Instant::now();
+
         let descriptors = unsafe { descriptor_pool.allocate_set(&set_layout) }
             .map_err(|_| "Failed to get descriptors from pool")?;
 
@@ -477,6 +485,8 @@ where
             lock.device.wait_for_fence(&fence, !0).unwrap();
             command_pool.free(Some(command_buffer));
         };
+
+        log::debug!("Convoluted HDRi data in {}ms", start_conv.elapsed().as_millis());
 
         // TODO: Pre-filter environment map
 
