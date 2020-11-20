@@ -35,6 +35,7 @@ layout(set = 0, binding = 4) uniform texture2D t_Albedo;
 layout(set = 0, binding = 5) uniform texture2D t_Normal;
 layout(set = 0, binding = 6) uniform texture2D t_Roughness;
 layout(set = 0, binding = 7) uniform texture2D t_Metallic;
+layout(set = 0, binding = 8) uniform textureCube irradiance_map;
 
 const float PI = 3.141592654;
 

@@ -28,9 +28,9 @@ vec3 convert_cube_uv_to_xyz(int index, vec2 uv)
       case 1:
           return vec3(- 1.0, uvc.y, uvc.x);
       case 2:
-          return vec3(uvc.x, 1.0, -uvc.y);
-      case 3:
           return vec3(uvc.x, - 1.0, uvc.y);
+      case 3:
+          return vec3(uvc.x, 1.0, -uvc.y);
       case 4:
           return vec3(uvc.x, uvc.y, 1.0);
       case 5:
