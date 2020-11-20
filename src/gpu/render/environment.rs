@@ -417,7 +417,7 @@ where
                 },
                 hal::pso::DescriptorSetWrite {
                     set: &descriptors,
-                    binding: 1,
+                    binding: 2,
                     array_offset: 0,
                     descriptors: Some(hal::pso::Descriptor::Image(
                         &*env_maps.irradiance_view,
