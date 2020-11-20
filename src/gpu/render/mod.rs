@@ -14,6 +14,7 @@ static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/rendere
 use super::{Backend, InitializationError, PipelineError, GPU};
 
 pub mod environment;
+use environment::EnvironmentMaps;
 
 #[derive(AsBytes, Debug)]
 #[repr(C)]
@@ -106,6 +107,7 @@ pub struct GPURender<B: Backend> {
     uniform_memory: ManuallyDrop<B::Memory>,
     sampler: ManuallyDrop<B::Sampler>,
     image_slots: ImageSlots<B>,
+    environment_maps: EnvironmentMaps<B>,
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
@@ -239,6 +241,15 @@ where
         log::info!("Obtaining GPU Render Resources");
         let format = hal::format::Format::Rgba8Srgb;
         let render_target = RenderTarget::new(gpu.clone(), format, 1, monitor_dimensions)?;
+        let environment_maps = EnvironmentMaps::from_file(
+            gpu.clone(),
+            1024,
+            find_folder::Search::KidsThenParents(3, 5)
+                .for_folder("assets")
+                .unwrap()
+                .join("urban_alley_01_2k.hdr")
+        )
+        .unwrap();
 
         let lock = gpu.lock().unwrap();
         log::debug!("Using render format {:?}", format);
@@ -461,6 +472,8 @@ where
             main_descriptor_set,
             main_descriptor_set_layout: ManuallyDrop::new(main_set_layout),
             image_slots,
+            environment_maps,
+
             occupancy_buffer: ManuallyDrop::new(occupancy_buf),
             occupancy_memory: ManuallyDrop::new(occupancy_mem),
             uniform_buffer: ManuallyDrop::new(uniform_buf),
