@@ -340,14 +340,14 @@ void main() {
         ao = 1.;
     }
 
-    vec3 kS = fresnelSchlickRoughness(max(dot(-n, -rd), 0.0), f0, roughness);
+    vec3 kS = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
     vec3 kD = 1.0 - kS;
     kD *= 1.0 - metallic;
-    vec3 irradiance = texture(samplerCube(irradiance_map, s_Texture), -n).rgb;
+    vec3 irradiance = texture(samplerCube(irradiance_map, s_Texture), n).rgb;
     vec3 diffuse = irradiance * albedo;
     vec3 ambient = (kD * diffuse) * ao;
 
-    col += ambient * albedo;
+    col += ambient;
 
     // Light Transform
     col /= (col + vec3(1.));
@@ -358,9 +358,9 @@ void main() {
     #endif
 
     // View Falloff
-    col = mix(col, irradiance, step(MAX_DIST, d));
+    vec3 world = texture(samplerCube(irradiance_map, s_Texture), rd).rgb;
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
-    col *= vec3(smoothstep(10., 2., length(p.xz)));
+    col = mix(world, col, smoothstep(10., 9., length(p.xz)));
 
     // debugging views
     #ifdef DBG_ITERCNT
