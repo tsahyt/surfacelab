@@ -1,4 +1,4 @@
-use super::{Backend, InitializationError, PipelineError, GPU};
+use super::{Backend, GPU};
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use image::hdr;
@@ -14,6 +14,12 @@ pub struct EnvironmentMaps<B: Backend> {
     irradiance_view: ManuallyDrop<B::ImageView>,
     irradiance_memory: ManuallyDrop<B::Memory>,
 }
+
+pub const CUBE_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
+    aspects: hal::format::Aspects::COLOR,
+    levels: 0..1,
+    layers: 0..6,
+};
 
 impl<B> EnvironmentMaps<B>
 where
@@ -66,7 +72,7 @@ where
                 hal::image::ViewKind::Cube,
                 Self::FORMAT,
                 hal::format::Swizzle::NO,
-                super::super::COLOR_RANGE.clone(),
+                CUBE_COLOR_RANGE.clone(),
             )
         }
         .map_err(|_| "Failed to create cube map view")?;
@@ -98,15 +104,18 @@ where
         let reader = BufReader::new(File::open(path).map_err(|_| "Failed to open HDRi file")?);
         let decoder = hdr::HdrDecoder::new(reader).map_err(|_| "Failed to decode HDRi file")?;
         let metadata = decoder.metadata();
-        let raw_hdri = decoder
+        let raw_hdri: Vec<image::Rgba<f32>> = decoder
             .read_image_hdr()
-            .map_err(|_| "Failed to read from HDRi file")?;
+            .map_err(|_| "Failed to read from HDRi file")?
+            .iter()
+            .map(|rgb| image::Rgba([rgb[0], rgb[1], rgb[2], 1.0]))
+            .collect();
 
         // Upload raw HDRi to staging buffer
         let mut lock = env_maps.gpu.lock().unwrap();
 
         let (staging_buffer, staging_memory) = {
-            let bytes = (metadata.width * metadata.height * 4 * 3) as u64;
+            let bytes = (metadata.width * metadata.height * 4 * 4) as u64;
             let mut staging_buffer = unsafe {
                 lock.device
                     .create_buffer(bytes, hal::buffer::Usage::TRANSFER_SRC)
@@ -148,8 +157,10 @@ where
                         },
                     )
                     .unwrap();
-                let u8s: &[u8] =
-                    std::slice::from_raw_parts(raw_hdri.as_ptr() as *const u8, raw_hdri.len() * 4);
+                let u8s: &[u8] = std::slice::from_raw_parts(
+                    raw_hdri.as_ptr() as *const u8,
+                    raw_hdri.len() * std::mem::size_of::<image::Rgba<f32>>(),
+                );
                 std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, bytes as usize);
                 lock.device.unmap_memory(&staging_mem);
             }
@@ -165,7 +176,7 @@ where
                     1,
                     Self::FORMAT,
                     hal::image::Tiling::Linear,
-                    hal::image::Usage::SAMPLED,
+                    hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
                     hal::image::ViewCapabilities::empty(),
                 )
             }
@@ -289,8 +300,30 @@ where
         // Prepare compute pipeline
         let mut descriptor_pool = unsafe {
             use hal::pso::*;
-            lock.device
-                .create_descriptor_pool(4, &[], DescriptorPoolCreateFlags::empty())
+            lock.device.create_descriptor_pool(
+                3,
+                &[
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::Image {
+                            ty: ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
+                        count: 1,
+                    },
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::Image {
+                            ty: ImageDescriptorType::Storage { read_only: false },
+                        },
+                        count: 1,
+                    },
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::Sampler,
+                        count: 1,
+                    },
+                ],
+                DescriptorPoolCreateFlags::empty(),
+            )
         }
         .map_err(|_| "Failed to create descriptor pool")?;
 
