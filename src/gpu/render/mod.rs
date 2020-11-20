@@ -243,11 +243,12 @@ where
         let render_target = RenderTarget::new(gpu.clone(), format, 1, monitor_dimensions)?;
         let environment_maps = EnvironmentMaps::from_file(
             gpu.clone(),
-            256,
+            32,
+            32,
             find_folder::Search::KidsThenParents(3, 5)
                 .for_folder("assets")
                 .unwrap()
-                .join("urban_alley_01_2k.hdr"),
+                .join("artist_workshop_2k.hdr"),
         )
         .unwrap();
 

@@ -9,6 +9,12 @@ layout(set = 0, binding = 2, rgba32f) uniform imageCube cube;
 const float PI = 3.14159265359;
 const vec2 invAtan = vec2(0.1591, 0.3183);
 
+// Hammersley Sequence Method
+const uint samples = 8192;
+
+// Regular Sampling Method
+const float sample_delta = 0.005;
+
 vec2 sample_spherical_map(vec3 v)
 {
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
@@ -38,28 +44,60 @@ vec3 convert_cube_uv_to_xyz(int index, vec2 uv)
   }
 }
 
-void main() {
-    ivec2 resolution = imageSize(cube);
-    ivec3 idx = ivec3(gl_GlobalInvocationID);
+float radical_inverse_vdc(uint bits)
+{
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
 
-    vec2 face_uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
-    vec3 direction = normalize(convert_cube_uv_to_xyz(int(gl_GlobalInvocationID.z), face_uv));
+vec2 hammersley(uint i, uint N)
+{
+    return vec2(float(i)/float(N), radical_inverse_vdc(i));
+}
 
+vec3 hemisphere_sample_uniform(float u, float v) {
+    float phi = v * 2.0 * PI;
+    float cosTheta = 1.0 - u;
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+    return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
+vec3 irradiance_hammersley(vec3 direction) {
     vec3 irradiance = vec3(0.);
 
-    // Convolution
     vec3 up = vec3(0.0, 1.0, 0.0);
     vec3 right = cross(up, direction);
     up = cross(direction, right);
 
-    float sample_delta = 0.025;
-    float nr_samples = 0.0;
+    for(int i = 0; i < samples; i++) {
+        vec2 hammersley = hammersley(i, samples);
+        vec3 hemisphere = hemisphere_sample_uniform(hammersley.x, hammersley.y);
+        vec3 sample_vector = hemisphere.x * right + hemisphere.y * up + hemisphere.z * direction;
+        vec2 equirect_uv = sample_spherical_map(sample_vector);
+        irradiance += texture(sampler2D(equirect, Sampler), equirect_uv).rgb * dot(direction, sample_vector);
+    }
+
+    irradiance = PI * irradiance * (1.0 / float(samples));
+
+    return irradiance;
+}
+
+vec3 irradiance_uniform(vec3 direction) {
+    vec3 irradiance = vec3(0.);
+
+    vec3 up = vec3(0.0, 1.0, 0.0);
+    vec3 right = cross(up, direction);
+    up = cross(direction, right);
+
+    float nr_samples = 0.;
 
     for(float phi = 0.0; phi < 2.0 * PI; phi += sample_delta) {
         for(float theta = 0.0; theta < 0.5 * PI; theta += sample_delta) {
-            // spherical to cartesian (in tangent space)
             vec3 tangent_sample = vec3(sin(theta) * cos(phi),  sin(theta) * sin(phi), cos(theta));
-            // tangent space to world
             vec3 sample_vec = tangent_sample.x * right + tangent_sample.y * up + tangent_sample.z * direction;
             vec2 equirect_uv = sample_spherical_map(sample_vec);
 
@@ -69,6 +107,18 @@ void main() {
     }
 
     irradiance = PI * irradiance * (1.0 / float(nr_samples));
+
+    return irradiance;
+}
+
+void main() {
+    ivec2 resolution = imageSize(cube);
+    ivec3 idx = ivec3(gl_GlobalInvocationID);
+
+    vec2 face_uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+    vec3 direction = normalize(convert_cube_uv_to_xyz(int(gl_GlobalInvocationID.z), face_uv));
+
+    vec3 irradiance = irradiance_hammersley(direction);
 
     imageStore(cube, idx, vec4(irradiance, 1.));
 }

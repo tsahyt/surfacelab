@@ -30,13 +30,13 @@ where
 
     /// Initialize GPU side structures for environment map without data, given a
     /// cubemap size.
-    fn init(gpu: Arc<Mutex<GPU<B>>>, size: usize) -> Result<Self, &'static str> {
+    fn init(gpu: Arc<Mutex<GPU<B>>>, irradiance_size: usize, spec_size: usize) -> Result<Self, &'static str> {
         let lock = gpu.lock().unwrap();
 
         // Irradiance cube map
         let mut irradiance_image = unsafe {
             lock.device.create_image(
-                hal::image::Kind::D2(size as u32, size as u32, 6, 1),
+                hal::image::Kind::D2(irradiance_size as u32, irradiance_size as u32, 6, 1),
                 1,
                 Self::FORMAT,
                 hal::image::Tiling::Linear,
@@ -92,14 +92,15 @@ where
     /// equirectangular mapping!
     pub fn from_file<P: AsRef<Path>>(
         gpu: Arc<Mutex<GPU<B>>>,
-        cubemap_size: usize,
+        irradiance_size: usize,
+        spec_size: usize,
         path: P,
     ) -> Result<Self, &'static str> {
         use std::fs::File;
         use std::io::BufReader;
 
         // Initialize
-        let env_maps = Self::init(gpu, cubemap_size)?;
+        let env_maps = Self::init(gpu, irradiance_size, spec_size)?;
 
         // Read data from file
         let start_io = Instant::now();
@@ -459,7 +460,7 @@ where
                 Some(&descriptors),
                 &[],
             );
-            command_buffer.dispatch([cubemap_size as u32 / 8, cubemap_size as u32 / 8, 6]);
+            command_buffer.dispatch([irradiance_size as u32 / 8, irradiance_size as u32 / 8, 6]);
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
                 hal::memory::Dependencies::empty(),
