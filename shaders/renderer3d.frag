@@ -198,6 +198,11 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
 float distributionGGX(vec3 N, vec3 H, float roughness)
 {
     float a      = roughness*roughness;
@@ -243,15 +248,8 @@ float sun_light(vec3 p, vec3 lightPos, out vec3 direction) {
     return 2.0;
 }
 
-vec3 light(vec3 p, vec3 n, vec3 rd, float d, vec3 lightColor, vec3 lightPos, float w, out float sitr) {
+vec3 light(vec3 p, vec3 n, vec3 rd, vec3 f0, float d, vec3 albedo, float metallic, float roughness, vec3 lightColor, vec3 lightPos, float w, out float sitr) {
     rd *= -1;
-
-    vec3 albedo = albedo(p.xz, lod_by_distance(d));
-    float metallic = metallic(p.xz, lod_by_distance(d));
-    float roughness = roughness(p.xz, lod_by_distance(d));
-
-    vec3 F0 = vec3(0.04);
-    F0 = mix(F0, albedo, metallic);
 
     // Radiance
     vec3 l;
@@ -271,7 +269,7 @@ vec3 light(vec3 p, vec3 n, vec3 rd, float d, vec3 lightColor, vec3 lightPos, flo
     // Cook-Torrance BRDF
     float ndf = distributionGGX(n, h, roughness);
     float g = geometrySmith(n, rd, l, roughness);
-    vec3 f = fresnelSchlick(max(dot(h, rd), 0.), F0);
+    vec3 f = fresnelSchlick(max(dot(h, rd), 0.), f0);
 
     // Specular/Diffuse coefficients
     vec3 kS = f;
@@ -325,7 +323,14 @@ void main() {
     vec3 p = ro + rd * d;
     vec3 n = normal(p, lod_by_distance(d));
 
-    col += light(p, n, rd, d, vec3(1.), light_pos.xyz, 1., sitrc);
+    vec3 albedo = albedo(p.xz, lod_by_distance(d));
+    float metallic = metallic(p.xz, lod_by_distance(d));
+    float roughness = roughness(p.xz, lod_by_distance(d));
+
+    vec3 f0 = vec3(0.04);
+    f0 = mix(f0, albedo, metallic);
+
+    col += light(p, n, rd, f0, d, albedo, metallic, roughness, vec3(1.), light_pos.xyz, 1., sitrc);
 
     // Ambient Light
     float ao;
@@ -335,7 +340,14 @@ void main() {
         ao = 1.;
     }
 
-    col += vec3(0.06) * ao * albedo(p.xz, lod_by_distance(d));
+    vec3 kS = fresnelSchlickRoughness(max(dot(-n, -rd), 0.0), f0, roughness);
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - metallic;
+    vec3 irradiance = texture(samplerCube(irradiance_map, s_Texture), -n).rgb;
+    vec3 diffuse = irradiance * albedo;
+    vec3 ambient = (kD * diffuse) * ao;
+
+    col += ambient * albedo;
 
     // Light Transform
     col /= (col + vec3(1.));
@@ -346,7 +358,7 @@ void main() {
     #endif
 
     // View Falloff
-    col = mix(col, vec3(0.), step(MAX_DIST, d));
+    col = mix(col, irradiance, step(MAX_DIST, d));
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
     col *= vec3(smoothstep(10., 2., length(p.xz)));
 
