@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 static IRRADIANCE_SHADER: &[u8] = include_bytes!("../../../shaders/irradiance.spv");
+static PREFILTER_SHADER: &[u8] = include_bytes!("../../../shaders/filter_env.spv");
 
 pub struct EnvironmentMaps<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
@@ -18,6 +19,7 @@ pub struct EnvironmentMaps<B: Backend> {
 
     spec_image: ManuallyDrop<B::Image>,
     spec_view: ManuallyDrop<B::ImageView>,
+    spec_mip_views: Vec<B::ImageView>,
     spec_memory: ManuallyDrop<B::Memory>,
 }
 
@@ -32,6 +34,7 @@ where
     B: Backend,
 {
     const FORMAT: hal::format::Format = hal::format::Format::Rgba32Sfloat;
+    const MIP_LEVELS: u8 = 6;
 
     /// Initialize GPU side structures for environment map without data, given a
     /// cubemap size.
@@ -92,13 +95,11 @@ where
         };
 
         // Pre-filtered environment map
-        let mip_levels = 6;
-
-        let (spec_image, spec_memory, spec_view) = {
+        let (spec_image, spec_memory, spec_view, spec_mip_views) = {
             let mut spec_image = unsafe {
                 lock.device.create_image(
                     hal::image::Kind::D2(spec_size as u32, spec_size as u32, 6, 1),
-                    mip_levels,
+                    Self::MIP_LEVELS,
                     Self::FORMAT,
                     hal::image::Tiling::Linear,
                     hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
@@ -139,7 +140,27 @@ where
             }
             .map_err(|_| "Failed to create cube map view")?;
 
-            (spec_image, spec_memory, spec_view)
+            let mut spec_mip_views = Vec::with_capacity(Self::MIP_LEVELS as usize);
+
+            for level in 0..Self::MIP_LEVELS {
+                let view = unsafe {
+                    lock.device.create_image_view(
+                        &spec_image,
+                        hal::image::ViewKind::Cube,
+                        Self::FORMAT,
+                        hal::format::Swizzle::NO,
+                        hal::image::SubresourceRange {
+                            aspects: hal::format::Aspects::COLOR,
+                            levels: level..level + 1,
+                            layers: 0..6,
+                        },
+                    )
+                }
+                .map_err(|_| "Failed to create cube map MIP view")?;
+                spec_mip_views.push(view);
+            }
+
+            (spec_image, spec_memory, spec_view, spec_mip_views)
         };
 
         drop(lock);
@@ -152,6 +173,7 @@ where
             spec_image: ManuallyDrop::new(spec_image),
             spec_memory: ManuallyDrop::new(spec_memory),
             spec_view: ManuallyDrop::new(spec_view),
+            spec_mip_views,
         })
     }
 
@@ -448,19 +470,41 @@ where
             unsafe { lock.device.create_shader_module(&loaded_spirv) }.map_err(|_| "")?
         };
 
-        let entry_point = hal::pso::EntryPoint {
-            entry: "main",
-            module: &irradiance_module,
-            specialization: hal::pso::Specialization::default(),
+        let prefilter_module = {
+            let loaded_spirv =
+                hal::pso::read_spirv(std::io::Cursor::new(PREFILTER_SHADER)).map_err(|_| "")?;
+            unsafe { lock.device.create_shader_module(&loaded_spirv) }.map_err(|_| "")?
         };
 
-        let pipeline = unsafe {
+        let irradiance_pipeline = unsafe {
             lock.device.create_compute_pipeline(
-                &hal::pso::ComputePipelineDesc::new(entry_point, &pipeline_layout),
+                &hal::pso::ComputePipelineDesc::new(
+                    hal::pso::EntryPoint {
+                        entry: "main",
+                        module: &irradiance_module,
+                        specialization: hal::pso::Specialization::default(),
+                    },
+                    &pipeline_layout,
+                ),
                 None,
             )
         }
-        .map_err(|_| "Failed to create compute pipeline")?;
+        .map_err(|_| "Failed to create irradiance compute pipeline")?;
+
+        let prefilter_pipeline = unsafe {
+            lock.device.create_compute_pipeline(
+                &hal::pso::ComputePipelineDesc::new(
+                    hal::pso::EntryPoint {
+                        entry: "main",
+                        module: &prefilter_module,
+                        specialization: hal::pso::Specialization::default(),
+                    },
+                    &pipeline_layout,
+                ),
+                None,
+            )
+        }
+        .map_err(|_| "Failed to create irradiance compute pipeline")?;
 
         let sampler = unsafe {
             lock.device.create_sampler(&hal::image::SamplerDesc::new(
@@ -523,7 +567,7 @@ where
                     range: CUBE_COLOR_RANGE,
                 }],
             );
-            command_buffer.bind_compute_pipeline(&pipeline);
+            command_buffer.bind_compute_pipeline(&irradiance_pipeline);
             command_buffer.bind_compute_descriptor_sets(
                 &pipeline_layout,
                 0,
@@ -573,7 +617,8 @@ where
             lock.device.destroy_shader_module(irradiance_module);
             lock.device.destroy_fence(fence);
             lock.device.destroy_pipeline_layout(pipeline_layout);
-            lock.device.destroy_compute_pipeline(pipeline);
+            lock.device.destroy_compute_pipeline(irradiance_pipeline);
+            lock.device.destroy_compute_pipeline(prefilter_pipeline);
             lock.device.destroy_image(equirect_image);
             lock.device.destroy_image_view(equirect_view);
             lock.device.free_memory(equirect_memory);
@@ -609,6 +654,9 @@ where
                 .destroy_image(ManuallyDrop::take(&mut self.spec_image));
             lock.device
                 .destroy_image_view(ManuallyDrop::take(&mut self.spec_view));
+            for view in self.spec_mip_views.drain(0..) {
+                lock.device.destroy_image_view(view);
+            }
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.spec_memory));
         }
