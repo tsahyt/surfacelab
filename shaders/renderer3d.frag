@@ -297,6 +297,24 @@ vec3 light(vec3 p, vec3 n, vec3 rd, vec3 f0, float d, vec3 albedo, float metalli
     return (kD * albedo / PI + specular) * radiance * ndotl * shadow;
 }
 
+vec3 environment(vec3 n, vec3 rd, vec3 f0, vec3 albedo, float roughness, float metallic, float ao) {
+    // Diffuse
+    vec3 kS = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - metallic;
+    vec3 irradiance = texture(samplerCube(irradiance_map, s_Texture), n).rgb;
+    vec3 diffuse = irradiance * albedo;
+
+    // Specular
+    vec3 r = reflect(rd, n);
+    vec3 refl_color = textureLod(samplerCube(environment_map, s_Texture), r, roughness * MAX_REFLECTION_LOD).rgb;
+    vec3 f = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
+    vec2 env_brdf = texture(sampler2D(brdf_lut, s_Texture), vec2(max(dot(n, -rd), 0.0), roughness)).rg;
+    vec3 specular = refl_color * (f * env_brdf.x + env_brdf.y);
+
+    return (kD * diffuse + specular) * ao;
+}
+
 vec3 camera(vec3 ro, vec3 lookAt, vec2 uv, float zoom) {
     vec3 forward = normalize(lookAt - ro);
     vec3 right = normalize(cross(vec3(0,1,0), forward));
@@ -346,22 +364,7 @@ void main() {
         ao = 1.;
     }
 
-    vec3 kS = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
-    vec3 kD = 1.0 - kS;
-    kD *= 1.0 - metallic;
-    vec3 irradiance = texture(samplerCube(irradiance_map, s_Texture), n).rgb;
-    vec3 diffuse = irradiance * albedo;
-
-    // Environment Reflections
-    vec3 r = reflect(rd, n);
-    vec3 refl_color = textureLod(samplerCube(environment_map, s_Texture), r, roughness * MAX_REFLECTION_LOD).rgb;
-    vec3 f = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
-    vec2 env_brdf = texture(sampler2D(brdf_lut, s_Texture), vec2(max(dot(n, -rd), 0.0), roughness)).rg;
-    vec3 specular = refl_color * (f * env_brdf.x + env_brdf.y);
-
-    vec3 ambient = (kD * diffuse + specular) * ao;
-
-    col += ambient;
+    col += environment(n, rd, f0, albedo, roughness, metallic, ao);
 
     // Light Transform
     col /= (col + vec3(1.));
