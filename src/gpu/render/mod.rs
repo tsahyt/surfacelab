@@ -162,6 +162,14 @@ pub struct ImageSlot<B: Backend> {
     occupied: bool,
 }
 
+pub const MIP_LEVELS: u8 = 8;
+
+pub const IMG_SLOT_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
+    aspects: hal::format::Aspects::COLOR,
+    levels: 0..MIP_LEVELS,
+    layers: 0..1,
+};
+
 impl<B> ImageSlot<B>
 where
     B: Backend,
@@ -173,13 +181,11 @@ where
         memory_properties: &hal::adapter::MemoryProperties,
         image_size: u32,
     ) -> Result<Self, InitializationError> {
-        let mip_levels = 8;
-
         // Create Image
         let mut image = unsafe {
             device.create_image(
                 hal::image::Kind::D2(image_size, image_size, 1, 1),
-                mip_levels,
+                MIP_LEVELS,
                 Self::FORMAT,
                 hal::image::Tiling::Optimal,
                 hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
@@ -210,11 +216,7 @@ where
                 hal::image::ViewKind::D2,
                 Self::FORMAT,
                 hal::format::Swizzle::NO,
-                hal::image::SubresourceRange {
-                    aspects: hal::format::Aspects::COLOR,
-                    levels: 0..mip_levels,
-                    layers: 0..1,
-                }
+                IMG_SLOT_RANGE.clone(),
             )
         }
         .map_err(|_| InitializationError::ResourceAcquisition("Render Image View"))?;
@@ -917,7 +919,7 @@ where
                                 ),
                             target: &*self.image_slots.displacement.image,
                             families: None,
-                            range: super::COLOR_RANGE.clone(),
+                            range: IMG_SLOT_RANGE.clone(),
                         },
                         hal::memory::Barrier::Image {
                             states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
@@ -927,7 +929,7 @@ where
                                 ),
                             target: &*self.image_slots.albedo.image,
                             families: None,
-                            range: super::COLOR_RANGE.clone(),
+                            range: IMG_SLOT_RANGE.clone(),
                         },
                         hal::memory::Barrier::Image {
                             states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
@@ -937,7 +939,7 @@ where
                                 ),
                             target: &*self.image_slots.normal.image,
                             families: None,
-                            range: super::COLOR_RANGE.clone(),
+                            range: IMG_SLOT_RANGE.clone(),
                         },
                         hal::memory::Barrier::Image {
                             states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
@@ -947,7 +949,7 @@ where
                                 ),
                             target: &*self.image_slots.roughness.image,
                             families: None,
-                            range: super::COLOR_RANGE.clone(),
+                            range: IMG_SLOT_RANGE.clone(),
                         },
                         hal::memory::Barrier::Image {
                             states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
@@ -957,7 +959,7 @@ where
                                 ),
                             target: &*self.image_slots.metallic.image,
                             families: None,
-                            range: super::COLOR_RANGE.clone(),
+                            range: IMG_SLOT_RANGE.clone(),
                         },
                     ],
                 );
@@ -1131,7 +1133,7 @@ where
                             ),
                         target: &*image_slot.image,
                         families: None,
-                        range: super::COLOR_RANGE.clone(),
+                        range: IMG_SLOT_RANGE.clone(),
                     },
                 ],
             );
