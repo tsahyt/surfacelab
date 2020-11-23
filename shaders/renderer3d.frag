@@ -47,6 +47,8 @@ const float MAX_DIST = 24.0;
 const float SURF_DIST = .0002;
 const float TEX_MIDLEVEL = .5;
 
+const float MAX_REFLECTION_LOD = 5.0;
+
 // DEBUG FLAGS
 // #define DBG_ITERCNT 100
 // #define DBG_TEXGRID 0.01
@@ -325,10 +327,12 @@ void main() {
     vec3 p = ro + rd * d;
     vec3 n = normal(p, lod_by_distance(d));
 
+    // Texture fetching
     vec3 albedo = albedo(p.xz, lod_by_distance(d));
     float metallic = metallic(p.xz, lod_by_distance(d));
     float roughness = roughness(p.xz, lod_by_distance(d));
 
+    // Lights
     vec3 f0 = vec3(0.04);
     f0 = mix(f0, albedo, metallic);
 
@@ -347,7 +351,15 @@ void main() {
     kD *= 1.0 - metallic;
     vec3 irradiance = texture(samplerCube(irradiance_map, s_Texture), n).rgb;
     vec3 diffuse = irradiance * albedo;
-    vec3 ambient = (kD * diffuse) * ao;
+
+    // Environment Reflections
+    vec3 r = reflect(rd, n);
+    vec3 refl_color = textureLod(samplerCube(environment_map, s_Texture), r, roughness * MAX_REFLECTION_LOD).rgb;
+    vec3 f = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
+    vec2 env_brdf = texture(sampler2D(brdf_lut, s_Texture), vec2(max(dot(n, -rd), 0.0), roughness)).rg;
+    vec3 specular = refl_color * (f * env_brdf.x + env_brdf.y);
+
+    vec3 ambient = (kD * diffuse + specular) * ao;
 
     col += ambient;
 
