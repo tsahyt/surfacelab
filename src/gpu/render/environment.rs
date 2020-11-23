@@ -178,7 +178,7 @@ where
                     1,
                     Self::BRDF_FORMAT,
                     hal::image::Tiling::Linear,
-                    hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
+                    hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
                     hal::image::ViewCapabilities::empty(),
                 )
             }
