@@ -397,6 +397,28 @@ where
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 9,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 10,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
                 ],
                 &[],
             )
@@ -849,6 +871,24 @@ where
                         array_offset: 0,
                         descriptors: Some(Descriptor::Image(
                             self.environment_maps.irradiance_view(),
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
+                    DescriptorSetWrite {
+                        set: &self.main_descriptor_set,
+                        binding: 9,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Image(
+                            self.environment_maps.spec_view(),
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
+                    DescriptorSetWrite {
+                        set: &self.main_descriptor_set,
+                        binding: 10,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Image(
+                            self.environment_maps.brdf_lut_view(),
                             hal::image::Layout::ShaderReadOnlyOptimal,
                         )),
                     },

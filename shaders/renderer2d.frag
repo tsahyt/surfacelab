@@ -22,6 +22,9 @@ layout(set = 0, binding = 4) uniform texture2D t_Albedo;
 layout(set = 0, binding = 5) uniform texture2D t_Normal;
 layout(set = 0, binding = 6) uniform texture2D t_Roughness;
 layout(set = 0, binding = 7) uniform texture2D t_Metallic;
+layout(set = 0, binding = 8) uniform textureCube irradiance_map;
+layout(set = 0, binding = 9) uniform textureCube environment_map;
+layout(set = 0, binding = 10) uniform texture2D brdf_lut;
 
 #define CHANNEL_DISPLACEMENT 0
 #define CHANNEL_ALBEDO 1
