@@ -114,7 +114,15 @@ void main() {
 
     vec2 face_uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
     vec3 direction = normalize(convert_cube_uv_to_xyz(int(gl_GlobalInvocationID.z), face_uv));
-    vec3 col = filter_environment(direction);
+
+    vec3 col = vec3(0.);
+
+    if (constants.roughness == 0.0) {
+        vec2 equirect_uv = sample_spherical_map(direction);
+        col = texture(sampler2D(equirect, Sampler), equirect_uv).rgb;
+    } else {
+        col = filter_environment(direction);
+    }
 
     imageStore(cube, idx, vec4(col, 1.));
 }
