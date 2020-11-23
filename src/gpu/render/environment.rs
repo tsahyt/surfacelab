@@ -739,16 +739,28 @@ where
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
-                &[hal::memory::Barrier::Image {
-                    states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
-                        ..(
-                            hal::image::Access::SHADER_WRITE,
-                            hal::image::Layout::General,
-                        ),
-                    target: &*env_maps.irradiance_image,
-                    families: None,
-                    range: CUBE_COLOR_RANGE,
-                }],
+                &[
+                    hal::memory::Barrier::Image {
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                            ..(
+                                hal::image::Access::SHADER_WRITE,
+                                hal::image::Layout::General,
+                            ),
+                        target: &*env_maps.irradiance_image,
+                        families: None,
+                        range: CUBE_COLOR_RANGE,
+                    },
+                    hal::memory::Barrier::Image {
+                        states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                            ..(
+                                hal::image::Access::SHADER_WRITE,
+                                hal::image::Layout::General,
+                            ),
+                        target: &*env_maps.spec_image,
+                        families: None,
+                        range: CUBE_COLOR_RANGE,
+                    },
+                ],
             );
 
             // Convolve irradiance map
@@ -781,19 +793,34 @@ where
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
                 hal::memory::Dependencies::empty(),
-                &[hal::memory::Barrier::Image {
-                    states: (
-                        hal::image::Access::SHADER_WRITE,
-                        hal::image::Layout::General,
-                    )
-                        ..(
-                            hal::image::Access::SHADER_READ,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        ),
-                    target: &*env_maps.irradiance_image,
-                    families: None,
-                    range: CUBE_COLOR_RANGE,
-                }],
+                &[
+                    hal::memory::Barrier::Image {
+                        states: (
+                            hal::image::Access::SHADER_WRITE,
+                            hal::image::Layout::General,
+                        )
+                            ..(
+                                hal::image::Access::SHADER_READ,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            ),
+                        target: &*env_maps.irradiance_image,
+                        families: None,
+                        range: CUBE_COLOR_RANGE,
+                    },
+                    hal::memory::Barrier::Image {
+                        states: (
+                            hal::image::Access::SHADER_WRITE,
+                            hal::image::Layout::General,
+                        )
+                            ..(
+                                hal::image::Access::SHADER_READ,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            ),
+                        target: &*env_maps.spec_image,
+                        families: None,
+                        range: CUBE_COLOR_RANGE,
+                    },
+                ],
             );
             command_buffer.finish();
 
