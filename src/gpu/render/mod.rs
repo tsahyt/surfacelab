@@ -244,7 +244,7 @@ where
         let environment_maps = EnvironmentMaps::from_file(
             gpu.clone(),
             32,
-            32,
+            512,
             find_folder::Search::KidsThenParents(3, 5)
                 .for_folder("assets")
                 .unwrap()
@@ -390,12 +390,12 @@ where
                         ty: hal::pso::DescriptorType::Image {
                             ty: hal::pso::ImageDescriptorType::Sampled {
                                 with_sampler: false,
-                            }
+                            },
                         },
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
-                    }
+                    },
                 ],
                 &[],
             )

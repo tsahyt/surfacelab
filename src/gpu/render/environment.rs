@@ -11,9 +11,14 @@ static IRRADIANCE_SHADER: &[u8] = include_bytes!("../../../shaders/irradiance.sp
 
 pub struct EnvironmentMaps<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
+
     irradiance_image: ManuallyDrop<B::Image>,
     irradiance_view: ManuallyDrop<B::ImageView>,
     irradiance_memory: ManuallyDrop<B::Memory>,
+
+    spec_image: ManuallyDrop<B::Image>,
+    spec_view: ManuallyDrop<B::ImageView>,
+    spec_memory: ManuallyDrop<B::Memory>,
 }
 
 pub const CUBE_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
@@ -30,53 +35,112 @@ where
 
     /// Initialize GPU side structures for environment map without data, given a
     /// cubemap size.
-    fn init(gpu: Arc<Mutex<GPU<B>>>, irradiance_size: usize, spec_size: usize) -> Result<Self, &'static str> {
+    fn init(
+        gpu: Arc<Mutex<GPU<B>>>,
+        irradiance_size: usize,
+        spec_size: usize,
+    ) -> Result<Self, &'static str> {
         let lock = gpu.lock().unwrap();
 
         // Irradiance cube map
-        let mut irradiance_image = unsafe {
-            lock.device.create_image(
-                hal::image::Kind::D2(irradiance_size as u32, irradiance_size as u32, 6, 1),
-                1,
-                Self::FORMAT,
-                hal::image::Tiling::Linear,
-                hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
-                hal::image::ViewCapabilities::KIND_CUBE,
-            )
-        }
-        .map_err(|_| "Failed to acquire cube map image")?;
+        let (irradiance_image, irradiance_memory, irradiance_view) = {
+            let mut irradiance_image = unsafe {
+                lock.device.create_image(
+                    hal::image::Kind::D2(irradiance_size as u32, irradiance_size as u32, 6, 1),
+                    1,
+                    Self::FORMAT,
+                    hal::image::Tiling::Linear,
+                    hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
+                    hal::image::ViewCapabilities::KIND_CUBE,
+                )
+            }
+            .map_err(|_| "Failed to acquire cube map image")?;
 
-        let requirements = unsafe { lock.device.get_image_requirements(&irradiance_image) };
-        let memory_type = lock
-            .memory_properties
-            .memory_types
-            .iter()
-            .position(|mem_type| {
-                mem_type
-                    .properties
-                    .contains(hal::memory::Properties::DEVICE_LOCAL)
-            })
-            .unwrap()
-            .into();
-        let irradiance_memory =
-            unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
-                .map_err(|_| "Failed to allocate memory for cube map")?;
-        unsafe {
-            lock.device
-                .bind_image_memory(&irradiance_memory, 0, &mut irradiance_image)
-        }
-        .unwrap();
+            let requirements = unsafe { lock.device.get_image_requirements(&irradiance_image) };
+            let memory_type = lock
+                .memory_properties
+                .memory_types
+                .iter()
+                .position(|mem_type| {
+                    mem_type
+                        .properties
+                        .contains(hal::memory::Properties::DEVICE_LOCAL)
+                })
+                .unwrap()
+                .into();
+            let irradiance_memory =
+                unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
+                    .map_err(|_| "Failed to allocate memory for cube map")?;
+            unsafe {
+                lock.device
+                    .bind_image_memory(&irradiance_memory, 0, &mut irradiance_image)
+            }
+            .unwrap();
 
-        let irradiance_view = unsafe {
-            lock.device.create_image_view(
-                &irradiance_image,
-                hal::image::ViewKind::Cube,
-                Self::FORMAT,
-                hal::format::Swizzle::NO,
-                CUBE_COLOR_RANGE.clone(),
-            )
-        }
-        .map_err(|_| "Failed to create cube map view")?;
+            let irradiance_view = unsafe {
+                lock.device.create_image_view(
+                    &irradiance_image,
+                    hal::image::ViewKind::Cube,
+                    Self::FORMAT,
+                    hal::format::Swizzle::NO,
+                    CUBE_COLOR_RANGE.clone(),
+                )
+            }
+            .map_err(|_| "Failed to create cube map view")?;
+
+            (irradiance_image, irradiance_memory, irradiance_view)
+        };
+
+        // Pre-filtered environment map
+        let mip_levels = 6;
+
+        let (spec_image, spec_memory, spec_view) = {
+            let mut spec_image = unsafe {
+                lock.device.create_image(
+                    hal::image::Kind::D2(spec_size as u32, spec_size as u32, 6, 1),
+                    mip_levels,
+                    Self::FORMAT,
+                    hal::image::Tiling::Linear,
+                    hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
+                    hal::image::ViewCapabilities::KIND_CUBE,
+                )
+            }
+            .map_err(|_| "Failed to acquire cube map image")?;
+
+            let requirements = unsafe { lock.device.get_image_requirements(&spec_image) };
+            let memory_type = lock
+                .memory_properties
+                .memory_types
+                .iter()
+                .position(|mem_type| {
+                    mem_type
+                        .properties
+                        .contains(hal::memory::Properties::DEVICE_LOCAL)
+                })
+                .unwrap()
+                .into();
+            let spec_memory =
+                unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
+                    .map_err(|_| "Failed to allocate memory for cube map")?;
+            unsafe {
+                lock.device
+                    .bind_image_memory(&spec_memory, 0, &mut spec_image)
+            }
+            .unwrap();
+
+            let spec_view = unsafe {
+                lock.device.create_image_view(
+                    &spec_image,
+                    hal::image::ViewKind::Cube,
+                    Self::FORMAT,
+                    hal::format::Swizzle::NO,
+                    CUBE_COLOR_RANGE.clone(),
+                )
+            }
+            .map_err(|_| "Failed to create cube map view")?;
+
+            (spec_image, spec_memory, spec_view)
+        };
 
         drop(lock);
 
@@ -85,6 +149,9 @@ where
             irradiance_image: ManuallyDrop::new(irradiance_image),
             irradiance_memory: ManuallyDrop::new(irradiance_memory),
             irradiance_view: ManuallyDrop::new(irradiance_view),
+            spec_image: ManuallyDrop::new(spec_image),
+            spec_memory: ManuallyDrop::new(spec_memory),
+            spec_view: ManuallyDrop::new(spec_view),
         })
     }
 
@@ -115,7 +182,10 @@ where
             .map(|rgb| image::Rgba([rgb[0], rgb[1], rgb[2], 1.0]))
             .collect();
 
-        log::debug!("Read HDRi from disk in {}ms", start_io.elapsed().as_millis());
+        log::debug!(
+            "Read HDRi from disk in {}ms",
+            start_io.elapsed().as_millis()
+        );
 
         // Upload raw HDRi to staging buffer
         let mut lock = env_maps.gpu.lock().unwrap();
@@ -487,7 +557,10 @@ where
             command_pool.free(Some(command_buffer));
         };
 
-        log::debug!("Convoluted HDRi data in {}ms", start_conv.elapsed().as_millis());
+        log::debug!(
+            "Convoluted HDRi data in {}ms",
+            start_conv.elapsed().as_millis()
+        );
 
         // TODO: Pre-filter environment map
 
@@ -532,6 +605,12 @@ where
                 .destroy_image_view(ManuallyDrop::take(&mut self.irradiance_view));
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.irradiance_memory));
+            lock.device
+                .destroy_image(ManuallyDrop::take(&mut self.spec_image));
+            lock.device
+                .destroy_image_view(ManuallyDrop::take(&mut self.spec_view));
+            lock.device
+                .free_memory(ManuallyDrop::take(&mut self.spec_memory));
         }
     }
 }
