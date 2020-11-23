@@ -274,8 +274,10 @@ where
         let (staging_buffer, staging_memory) = {
             let bytes = (metadata.width * metadata.height * 4 * 4) as u64;
             let mut staging_buffer = unsafe {
-                lock.device
-                    .create_buffer(bytes.max(BRDF_LUT_BYTES as u64), hal::buffer::Usage::TRANSFER_SRC)
+                lock.device.create_buffer(
+                    bytes.max(BRDF_LUT_BYTES as u64),
+                    hal::buffer::Usage::TRANSFER_SRC,
+                )
             }
             .map_err(|_| "Failed to create staging buffer")?;
 
@@ -464,10 +466,8 @@ where
                     },
                 )
                 .unwrap();
-            let u8s: &[u8] = std::slice::from_raw_parts(
-                BRDF_LUT.as_ptr() as *const u8,
-                BRDF_LUT_BYTES,
-            );
+            let u8s: &[u8] =
+                std::slice::from_raw_parts(BRDF_LUT.as_ptr() as *const u8, BRDF_LUT_BYTES);
             std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, BRDF_LUT_BYTES);
             lock.device.unmap_memory(&staging_memory);
         }
@@ -545,7 +545,7 @@ where
         let mut descriptor_pool = unsafe {
             use hal::pso::*;
             lock.device.create_descriptor_pool(
-                3,
+                Self::MIP_LEVELS as usize + 1,
                 &[
                     DescriptorRangeDesc {
                         ty: DescriptorType::Image {
@@ -553,17 +553,17 @@ where
                                 with_sampler: false,
                             },
                         },
-                        count: 1,
+                        count: Self::MIP_LEVELS as usize + 1,
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::Image {
                             ty: ImageDescriptorType::Storage { read_only: false },
                         },
-                        count: 1,
+                        count: Self::MIP_LEVELS as usize + 1,
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::Sampler,
-                        count: 1,
+                        count: Self::MIP_LEVELS as usize + 1,
                     },
                 ],
                 DescriptorPoolCreateFlags::empty(),
@@ -660,17 +660,16 @@ where
         }
         .map_err(|_| "Failed to create sampler")?;
 
-        // Convolve irradiance map
         log::debug!("Starting convolution of HDRi");
         let start_conv = Instant::now();
 
-        let descriptors = unsafe { descriptor_pool.allocate_set(&set_layout) }
+        let irradiance_descriptors = unsafe { descriptor_pool.allocate_set(&set_layout) }
             .map_err(|_| "Failed to get descriptors from pool")?;
 
         unsafe {
             lock.device.write_descriptor_sets(vec![
                 hal::pso::DescriptorSetWrite {
-                    set: &descriptors,
+                    set: &irradiance_descriptors,
                     binding: 0,
                     array_offset: 0,
                     descriptors: Some(hal::pso::Descriptor::Image(
@@ -679,13 +678,13 @@ where
                     )),
                 },
                 hal::pso::DescriptorSetWrite {
-                    set: &descriptors,
+                    set: &irradiance_descriptors,
                     binding: 1,
                     array_offset: 0,
                     descriptors: Some(hal::pso::Descriptor::Sampler(&sampler)),
                 },
                 hal::pso::DescriptorSetWrite {
-                    set: &descriptors,
+                    set: &irradiance_descriptors,
                     binding: 2,
                     array_offset: 0,
                     descriptors: Some(hal::pso::Descriptor::Image(
@@ -694,6 +693,44 @@ where
                     )),
                 },
             ]);
+        }
+
+        let mut prefilter_descriptors = Vec::with_capacity(Self::MIP_LEVELS as usize);
+
+        for level in 0..Self::MIP_LEVELS {
+            let descr = unsafe { descriptor_pool.allocate_set(&set_layout) }
+                .map_err(|_| "Failed to get descriptors from pool")?;
+
+            unsafe {
+                lock.device.write_descriptor_sets(vec![
+                    hal::pso::DescriptorSetWrite {
+                        set: &descr,
+                        binding: 0,
+                        array_offset: 0,
+                        descriptors: Some(hal::pso::Descriptor::Image(
+                            &equirect_view,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
+                    hal::pso::DescriptorSetWrite {
+                        set: &descr,
+                        binding: 1,
+                        array_offset: 0,
+                        descriptors: Some(hal::pso::Descriptor::Sampler(&sampler)),
+                    },
+                    hal::pso::DescriptorSetWrite {
+                        set: &descr,
+                        binding: 2,
+                        array_offset: 0,
+                        descriptors: Some(hal::pso::Descriptor::Image(
+                            &env_maps.spec_mip_views[level as usize],
+                            hal::image::Layout::General,
+                        )),
+                    },
+                ]);
+            }
+
+            prefilter_descriptors.push(descr);
         }
 
         unsafe {
@@ -713,14 +750,34 @@ where
                     range: CUBE_COLOR_RANGE,
                 }],
             );
+
+            // Convolve irradiance map
             command_buffer.bind_compute_pipeline(&irradiance_pipeline);
             command_buffer.bind_compute_descriptor_sets(
                 &pipeline_layout,
                 0,
-                Some(&descriptors),
+                Some(&irradiance_descriptors),
                 &[],
             );
             command_buffer.dispatch([irradiance_size as u32 / 8, irradiance_size as u32 / 8, 6]);
+
+            // Pre-filter environment map
+            command_buffer.bind_compute_pipeline(&prefilter_pipeline);
+            for level in 0..Self::MIP_LEVELS as usize {
+                let descriptors = &prefilter_descriptors[level];
+                command_buffer.bind_compute_descriptor_sets(
+                    &pipeline_layout,
+                    0,
+                    Some(descriptors),
+                    &[],
+                );
+                command_buffer.dispatch([
+                    (spec_size as u32 >> level) / 8,
+                    (spec_size as u32 >> level) / 8,
+                    6,
+                ]);
+            }
+
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
                 hal::memory::Dependencies::empty(),
@@ -751,8 +808,6 @@ where
             "Convoluted HDRi data in {}ms",
             start_conv.elapsed().as_millis()
         );
-
-        // TODO: Pre-filter environment map
 
         // Clean up compute pipeline and equirectangular image
         unsafe {
