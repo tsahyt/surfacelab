@@ -7,6 +7,8 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use super::brdf_lut::*;
+
 static IRRADIANCE_SHADER: &[u8] = include_bytes!("../../../shaders/irradiance.spv");
 static PREFILTER_SHADER: &[u8] = include_bytes!("../../../shaders/filter_env.spv");
 
@@ -21,6 +23,10 @@ pub struct EnvironmentMaps<B: Backend> {
     spec_view: ManuallyDrop<B::ImageView>,
     spec_mip_views: Vec<B::ImageView>,
     spec_memory: ManuallyDrop<B::Memory>,
+
+    brdf_lut_image: ManuallyDrop<B::Image>,
+    brdf_lut_view: ManuallyDrop<B::ImageView>,
+    brdf_lut_memory: ManuallyDrop<B::Memory>,
 }
 
 pub const CUBE_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
@@ -34,6 +40,7 @@ where
     B: Backend,
 {
     const FORMAT: hal::format::Format = hal::format::Format::Rgba32Sfloat;
+    const BRDF_FORMAT: hal::format::Format = hal::format::Format::Rg32Sfloat;
     const MIP_LEVELS: u8 = 6;
 
     /// Initialize GPU side structures for environment map without data, given a
@@ -163,6 +170,55 @@ where
             (spec_image, spec_memory, spec_view, spec_mip_views)
         };
 
+        // Lookup table
+        let (brdf_lut_image, brdf_lut_memory, brdf_lut_view) = {
+            let mut brdf_image = unsafe {
+                lock.device.create_image(
+                    hal::image::Kind::D2(64, 64, 1, 1),
+                    1,
+                    Self::BRDF_FORMAT,
+                    hal::image::Tiling::Linear,
+                    hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
+                    hal::image::ViewCapabilities::empty(),
+                )
+            }
+            .map_err(|_| "Failed to acquire BRDF LUT image")?;
+
+            let requirements = unsafe { lock.device.get_image_requirements(&brdf_image) };
+            let memory_type = lock
+                .memory_properties
+                .memory_types
+                .iter()
+                .position(|mem_type| {
+                    mem_type
+                        .properties
+                        .contains(hal::memory::Properties::DEVICE_LOCAL)
+                })
+                .unwrap()
+                .into();
+            let brdf_memory =
+                unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
+                    .map_err(|_| "Failed to allocate memory for BRDF LUT")?;
+            unsafe {
+                lock.device
+                    .bind_image_memory(&brdf_memory, 0, &mut brdf_image)
+            }
+            .unwrap();
+
+            let brdf_view = unsafe {
+                lock.device.create_image_view(
+                    &brdf_image,
+                    hal::image::ViewKind::D2,
+                    Self::BRDF_FORMAT,
+                    hal::format::Swizzle::NO,
+                    super::super::COLOR_RANGE.clone(),
+                )
+            }
+            .map_err(|_| "Failed to create BRDF LUT view")?;
+
+            (brdf_image, brdf_memory, brdf_view)
+        };
+
         drop(lock);
 
         Ok(Self {
@@ -174,6 +230,9 @@ where
             spec_memory: ManuallyDrop::new(spec_memory),
             spec_view: ManuallyDrop::new(spec_view),
             spec_mip_views,
+            brdf_lut_image: ManuallyDrop::new(brdf_lut_image),
+            brdf_lut_memory: ManuallyDrop::new(brdf_lut_memory),
+            brdf_lut_view: ManuallyDrop::new(brdf_lut_view),
         })
     }
 
@@ -216,7 +275,7 @@ where
             let bytes = (metadata.width * metadata.height * 4 * 4) as u64;
             let mut staging_buffer = unsafe {
                 lock.device
-                    .create_buffer(bytes, hal::buffer::Usage::TRANSFER_SRC)
+                    .create_buffer(bytes.max(BRDF_LUT_BYTES as u64), hal::buffer::Usage::TRANSFER_SRC)
             }
             .map_err(|_| "Failed to create staging buffer")?;
 
@@ -390,9 +449,96 @@ where
         }
 
         unsafe {
+            lock.device.reset_fence(&fence).unwrap();
+        }
+
+        // Upload BRDF LUT using same staging buffer
+        unsafe {
+            let mapping = lock
+                .device
+                .map_memory(
+                    &staging_memory,
+                    hal::memory::Segment {
+                        offset: 0,
+                        size: Some(BRDF_LUT_BYTES as u64),
+                    },
+                )
+                .unwrap();
+            let u8s: &[u8] = std::slice::from_raw_parts(
+                BRDF_LUT.as_ptr() as *const u8,
+                BRDF_LUT_BYTES,
+            );
+            std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, BRDF_LUT_BYTES);
+            lock.device.unmap_memory(&staging_memory);
+        }
+
+        unsafe {
+            let mut command_buffer = command_pool.allocate_one(hal::command::Level::Primary);
+            command_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
+            command_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::TRANSFER,
+                hal::memory::Dependencies::empty(),
+                &[hal::memory::Barrier::Image {
+                    states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                        ..(
+                            hal::image::Access::TRANSFER_WRITE,
+                            hal::image::Layout::TransferDstOptimal,
+                        ),
+                    target: &*env_maps.brdf_lut_image,
+                    families: None,
+                    range: super::super::COLOR_RANGE,
+                }],
+            );
+            command_buffer.copy_buffer_to_image(
+                &staging_buffer,
+                &*env_maps.brdf_lut_image,
+                hal::image::Layout::TransferDstOptimal,
+                Some(hal::command::BufferImageCopy {
+                    buffer_offset: 0,
+                    buffer_width: 64,
+                    buffer_height: 64,
+                    image_offset: hal::image::Offset { x: 0, y: 0, z: 0 },
+                    image_extent: hal::image::Extent {
+                        width: 64,
+                        height: 64,
+                        depth: 1,
+                    },
+                    image_layers: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 0,
+                        layers: 0..1,
+                    },
+                }),
+            );
+            command_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
+                hal::memory::Dependencies::empty(),
+                &[hal::memory::Barrier::Image {
+                    states: (
+                        hal::image::Access::TRANSFER_WRITE,
+                        hal::image::Layout::TransferDstOptimal,
+                    )
+                        ..(
+                            hal::image::Access::SHADER_READ,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        ),
+                    target: &*env_maps.brdf_lut_image,
+                    families: None,
+                    range: super::super::COLOR_RANGE,
+                }],
+            );
+            command_buffer.finish();
+
+            lock.queue_group.queues[0]
+                .submit_without_semaphores(Some(&command_buffer), Some(&fence));
+            lock.device.wait_for_fence(&fence, !0).unwrap();
+            command_pool.free(Some(command_buffer));
+        }
+
+        unsafe {
+            lock.device.reset_fence(&fence).unwrap();
             lock.device.destroy_buffer(staging_buffer);
             lock.device.free_memory(staging_memory);
-            lock.device.reset_fence(&fence).unwrap();
         }
 
         // Prepare compute pipeline
@@ -632,6 +778,14 @@ where
     pub fn irradiance_view(&self) -> &B::ImageView {
         &*self.irradiance_view
     }
+
+    pub fn brdf_lut_view(&self) -> &B::ImageView {
+        &*self.brdf_lut_view
+    }
+
+    pub fn spec_view(&self) -> &B::ImageView {
+        &*self.spec_view
+    }
 }
 
 impl<B> Drop for EnvironmentMaps<B>
@@ -659,6 +813,12 @@ where
             }
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.spec_memory));
+            lock.device
+                .destroy_image(ManuallyDrop::take(&mut self.brdf_lut_image));
+            lock.device
+                .destroy_image_view(ManuallyDrop::take(&mut self.brdf_lut_view));
+            lock.device
+                .free_memory(ManuallyDrop::take(&mut self.brdf_lut_memory));
         }
     }
 }

@@ -13,6 +13,7 @@ static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/rendere
 
 use super::{Backend, InitializationError, PipelineError, GPU};
 
+pub mod brdf_lut;
 pub mod environment;
 use environment::EnvironmentMaps;
 
