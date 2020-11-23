@@ -13,7 +13,7 @@ const vec2 invAtan = vec2(0.1591, 0.3183);
 const uint samples = 8192;
 
 // Regular Sampling Method
-const float sample_delta = 0.005;
+const float sample_delta = 0.020;
 
 vec2 sample_spherical_map(vec3 v)
 {
@@ -71,7 +71,11 @@ vec3 irradiance_hammersley(vec3 direction) {
 
     vec3 up = vec3(0.0, 1.0, 0.0);
     vec3 right = cross(up, direction);
-    up = cross(direction, right);
+    if (length(right) < 0.003) {
+        right = vec3(1.0, 0.0, 0.0);
+    }
+    up = normalize(cross(direction, right));
+    right = normalize(right);
 
     for(int i = 0; i < samples; i++) {
         vec2 hammersley = hammersley(i, samples);
@@ -91,7 +95,11 @@ vec3 irradiance_uniform(vec3 direction) {
 
     vec3 up = vec3(0.0, 1.0, 0.0);
     vec3 right = cross(up, direction);
-    up = cross(direction, right);
+    if (length(right) < 0.003) {
+        right = vec3(1.0, 0.0, 0.0);
+    }
+    up = normalize(cross(direction, right));
+    right = normalize(right);
 
     float nr_samples = 0.;
 
