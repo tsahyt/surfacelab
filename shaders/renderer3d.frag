@@ -360,7 +360,7 @@ void main() {
     #endif
 
     // View Falloff
-    vec3 world = texture(samplerCube(irradiance_map, s_Texture), rd).rgb;
+    vec3 world = texture(samplerCube(environment_map, s_Texture), rd).rgb;
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
     col = mix(world, col, smoothstep(10., 9., length(p.xz)));
 
