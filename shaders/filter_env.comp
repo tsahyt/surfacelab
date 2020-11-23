@@ -14,7 +14,7 @@ const float PI = 3.14159265359;
 const vec2 invAtan = vec2(0.1591, 0.3183);
 
 // Hammersley Sequence Method
-const uint samples = 4096;
+const uint samples = 1024;
 
 vec2 sample_spherical_map(vec3 v)
 {
@@ -60,14 +60,61 @@ vec2 hammersley(uint i, uint N)
     return vec2(float(i)/float(N), radical_inverse_vdc(i));
 }
 
+vec3 importance_sample_ggx(vec2 xi, vec3 n, float roughness)
+{
+    float a = roughness * roughness;
+
+    float phi = 2.0 * PI * xi.x;
+    float cos_theta = sqrt((1.0 - xi.y) / (1.0 + (a*a - 1.0) * xi.y));
+    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+
+    // spherical coordinates to cartesian coordinates
+    vec3 h;
+    h.x = cos(phi) * sin_theta;
+    h.y = sin(phi) * sin_theta;
+    h.z = cos_theta;
+
+    // tangent-space vector to world-space sample vector
+    vec3 up = abs(n.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, n));
+    vec3 bitangent = cross(n, tangent);
+
+    vec3 vec = tangent * h.x + bitangent * h.y + n * h.z;
+
+    return normalize(vec);
+}
+
+vec3 filter_environment(vec3 n) {
+    vec3 r = n;
+    vec3 v = r;
+
+    float total_weight = 0.0;
+    vec3 prefiltered_color = vec3(0.0);
+
+    for(uint i = 0; i < samples; ++i) {
+        vec2 xi = hammersley(i, samples);
+        vec3 h  = importance_sample_ggx(xi, n, constants.roughness);
+        vec3 l  = normalize(2.0 * dot(v, h) * h - v);
+
+        float ndotl = max(dot(n, l), 0.0);
+        if(ndotl > 0.0)
+        {
+            vec2 equirect_uv = sample_spherical_map(l);
+            prefiltered_color += texture(sampler2D(equirect, Sampler), equirect_uv).rgb * ndotl;
+            total_weight += ndotl;
+        }
+    }
+
+    return prefiltered_color / total_weight;
+}
+
 void main() {
     ivec2 resolution = imageSize(cube);
     ivec3 idx = ivec3(gl_GlobalInvocationID);
 
     vec2 face_uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
     vec3 direction = normalize(convert_cube_uv_to_xyz(int(gl_GlobalInvocationID.z), face_uv));
-    vec2 equirect_uv = sample_spherical_map(direction);
+    vec3 col = filter_environment(direction);
 
-    vec3 col = texture(sampler2D(equirect, Sampler), equirect_uv).rgb * constants.roughness;
     imageStore(cube, idx, vec4(col, 1.));
 }

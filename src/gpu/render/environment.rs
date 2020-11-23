@@ -35,13 +35,20 @@ pub const CUBE_COLOR_RANGE: hal::image::SubresourceRange = hal::image::Subresour
     layers: 0..6,
 };
 
+const MIP_LEVELS: u8 = 6;
+
+pub const CUBE_MIP_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
+    aspects: hal::format::Aspects::COLOR,
+    levels: 0..MIP_LEVELS,
+    layers: 0..6,
+};
+
 impl<B> EnvironmentMaps<B>
 where
     B: Backend,
 {
     const FORMAT: hal::format::Format = hal::format::Format::Rgba32Sfloat;
     const BRDF_FORMAT: hal::format::Format = hal::format::Format::Rg32Sfloat;
-    const MIP_LEVELS: u8 = 6;
 
     /// Initialize GPU side structures for environment map without data, given a
     /// cubemap size.
@@ -106,7 +113,7 @@ where
             let mut spec_image = unsafe {
                 lock.device.create_image(
                     hal::image::Kind::D2(spec_size as u32, spec_size as u32, 6, 1),
-                    Self::MIP_LEVELS,
+                    MIP_LEVELS,
                     Self::FORMAT,
                     hal::image::Tiling::Linear,
                     hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
@@ -147,9 +154,9 @@ where
             }
             .map_err(|_| "Failed to create cube map view")?;
 
-            let mut spec_mip_views = Vec::with_capacity(Self::MIP_LEVELS as usize);
+            let mut spec_mip_views = Vec::with_capacity(MIP_LEVELS as usize);
 
-            for level in 0..Self::MIP_LEVELS {
+            for level in 0..MIP_LEVELS {
                 let view = unsafe {
                     lock.device.create_image_view(
                         &spec_image,
@@ -545,7 +552,7 @@ where
         let mut descriptor_pool = unsafe {
             use hal::pso::*;
             lock.device.create_descriptor_pool(
-                Self::MIP_LEVELS as usize + 1,
+                MIP_LEVELS as usize + 1,
                 &[
                     DescriptorRangeDesc {
                         ty: DescriptorType::Image {
@@ -553,17 +560,17 @@ where
                                 with_sampler: false,
                             },
                         },
-                        count: Self::MIP_LEVELS as usize + 1,
+                        count: MIP_LEVELS as usize + 1,
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::Image {
                             ty: ImageDescriptorType::Storage { read_only: false },
                         },
-                        count: Self::MIP_LEVELS as usize + 1,
+                        count: MIP_LEVELS as usize + 1,
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::Sampler,
-                        count: Self::MIP_LEVELS as usize + 1,
+                        count: MIP_LEVELS as usize + 1,
                     },
                 ],
                 DescriptorPoolCreateFlags::empty(),
@@ -700,9 +707,9 @@ where
             ]);
         }
 
-        let mut prefilter_descriptors = Vec::with_capacity(Self::MIP_LEVELS as usize);
+        let mut prefilter_descriptors = Vec::with_capacity(MIP_LEVELS as usize);
 
-        for level in 0..Self::MIP_LEVELS {
+        for level in 0..MIP_LEVELS {
             let descr = unsafe { descriptor_pool.allocate_set(&set_layout) }
                 .map_err(|_| "Failed to get descriptors from pool")?;
 
@@ -763,7 +770,7 @@ where
                             ),
                         target: &*env_maps.spec_image,
                         families: None,
-                        range: CUBE_COLOR_RANGE,
+                        range: CUBE_MIP_COLOR_RANGE,
                     },
                 ],
             );
@@ -780,8 +787,9 @@ where
 
             // Pre-filter environment map
             command_buffer.bind_compute_pipeline(&prefilter_pipeline);
-            for level in 0..Self::MIP_LEVELS as usize {
+            for level in 0..MIP_LEVELS as usize {
                 let descriptors = &prefilter_descriptors[level];
+                let roughness = level as f32 / MIP_LEVELS as f32;
                 command_buffer.bind_compute_descriptor_sets(
                     &pipeline_layout,
                     0,
@@ -791,7 +799,7 @@ where
                 command_buffer.push_compute_constants(
                     &pipeline_layout,
                     0,
-                    &[u32::from_ne_bytes((0.1 as f32).to_ne_bytes())],
+                    &[u32::from_ne_bytes(roughness.to_ne_bytes())],
                 );
                 command_buffer.dispatch([
                     (spec_size as u32 >> level) / 8,
@@ -828,7 +836,7 @@ where
                             ),
                         target: &*env_maps.spec_image,
                         families: None,
-                        range: CUBE_COLOR_RANGE,
+                        range: CUBE_MIP_COLOR_RANGE,
                     },
                 ],
             );
