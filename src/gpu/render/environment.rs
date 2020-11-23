@@ -607,8 +607,13 @@ where
         }
         .map_err(|_| "Failed to create descriptor set layout")?;
 
-        let pipeline_layout = unsafe { lock.device.create_pipeline_layout(Some(&set_layout), &[]) }
-            .map_err(|_| "Failed to create compute pipeline")?;
+        let pipeline_layout = unsafe {
+            lock.device.create_pipeline_layout(
+                Some(&set_layout),
+                &[(hal::pso::ShaderStageFlags::COMPUTE, 0..4)],
+            )
+        }
+        .map_err(|_| "Failed to create compute pipeline")?;
 
         let irradiance_module = {
             let loaded_spirv =
@@ -782,6 +787,11 @@ where
                     0,
                     Some(descriptors),
                     &[],
+                );
+                command_buffer.push_compute_constants(
+                    &pipeline_layout,
+                    0,
+                    &[u32::from_ne_bytes((0.1 as f32).to_ne_bytes())],
                 );
                 command_buffer.dispatch([
                     (spec_size as u32 >> level) / 8,

@@ -6,11 +6,15 @@ layout(set = 0, binding = 0) uniform texture2D equirect;
 layout(set = 0, binding = 1) uniform sampler Sampler;
 layout(set = 0, binding = 2, rgba32f) uniform imageCube cube;
 
+layout(push_constant) uniform constants_t {
+    float roughness;
+} constants;
+
 const float PI = 3.14159265359;
 const vec2 invAtan = vec2(0.1591, 0.3183);
 
 // Hammersley Sequence Method
-const uint samples = 8192;
+const uint samples = 4096;
 
 vec2 sample_spherical_map(vec3 v)
 {
@@ -64,6 +68,6 @@ void main() {
     vec3 direction = normalize(convert_cube_uv_to_xyz(int(gl_GlobalInvocationID.z), face_uv));
     vec2 equirect_uv = sample_spherical_map(direction);
 
-    vec3 col = texture(sampler2D(equirect, Sampler), equirect_uv).rgb;
+    vec3 col = texture(sampler2D(equirect, Sampler), equirect_uv).rgb * constants.roughness;
     imageStore(cube, idx, vec4(col, 1.));
 }
