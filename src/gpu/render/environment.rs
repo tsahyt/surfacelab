@@ -149,7 +149,7 @@ where
                     hal::image::ViewKind::Cube,
                     Self::FORMAT,
                     hal::format::Swizzle::NO,
-                    CUBE_COLOR_RANGE.clone(),
+                    CUBE_MIP_COLOR_RANGE.clone(),
                 )
             }
             .map_err(|_| "Failed to create cube map view")?;

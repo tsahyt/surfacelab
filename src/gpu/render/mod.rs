@@ -210,7 +210,11 @@ where
                 hal::image::ViewKind::D2,
                 Self::FORMAT,
                 hal::format::Swizzle::NO,
-                super::COLOR_RANGE.clone(),
+                hal::image::SubresourceRange {
+                    aspects: hal::format::Aspects::COLOR,
+                    levels: 0..mip_levels,
+                    layers: 0..1,
+                }
             )
         }
         .map_err(|_| InitializationError::ResourceAcquisition("Render Image View"))?;
