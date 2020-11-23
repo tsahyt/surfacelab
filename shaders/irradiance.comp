@@ -126,7 +126,7 @@ void main() {
     vec2 face_uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
     vec3 direction = normalize(convert_cube_uv_to_xyz(int(gl_GlobalInvocationID.z), face_uv));
 
-    vec3 irradiance = irradiance_hammersley(direction);
+    vec3 irradiance = irradiance_uniform(direction);
 
     imageStore(cube, idx, vec4(irradiance, 1.));
 }
