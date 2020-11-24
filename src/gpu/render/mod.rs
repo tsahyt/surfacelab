@@ -121,12 +121,53 @@ pub struct GPURender<B: Backend> {
     transfer_fence: ManuallyDrop<B::Fence>,
 }
 
-struct ImageSlots<B: Backend> {
+pub struct ImageSlots<B: Backend> {
     albedo: ImageSlot<B>,
     roughness: ImageSlot<B>,
     normal: ImageSlot<B>,
     displacement: ImageSlot<B>,
     metallic: ImageSlot<B>,
+}
+
+impl<B: Backend> ImageSlots<B> {
+    pub fn new(
+        device: &B::Device,
+        memory_properties: &hal::adapter::MemoryProperties,
+        image_size: u32,
+    ) -> Result<Self, InitializationError> {
+        Ok(Self {
+            albedo: ImageSlot::new(
+                device,
+                memory_properties,
+                hal::format::Format::Rgba16Sfloat,
+                image_size,
+            )?,
+            roughness: ImageSlot::new(
+                device,
+                memory_properties,
+                hal::format::Format::R16Sfloat,
+                image_size,
+            )?,
+            normal: ImageSlot::new(
+                device,
+                memory_properties,
+                hal::format::Format::Rgba16Sfloat,
+                image_size,
+            )?,
+            displacement: ImageSlot::new(
+                device,
+                memory_properties,
+                hal::format::Format::R32Sfloat,
+                image_size,
+            )?,
+            metallic: ImageSlot::new(
+                device,
+                memory_properties,
+                hal::format::Format::R16Sfloat,
+                image_size,
+            )?,
+        })
+    }
 }
 
 /// Uniform struct to pass to the shader to make decisions on what to render and
@@ -180,12 +221,10 @@ impl<B> ImageSlot<B>
 where
     B: Backend,
 {
-    // TODO: use appropriate image format per channel
-    pub const FORMAT: hal::format::Format = hal::format::Format::Rgba32Sfloat;
-
     pub fn new(
         device: &B::Device,
         memory_properties: &hal::adapter::MemoryProperties,
+        format: hal::format::Format,
         image_size: u32,
     ) -> Result<Self, InitializationError> {
         // Create Image
@@ -193,7 +232,7 @@ where
             device.create_image(
                 hal::image::Kind::D2(image_size, image_size, 1, 1),
                 MIP_LEVELS,
-                Self::FORMAT,
+                format,
                 hal::image::Tiling::Optimal,
                 hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
                 hal::image::ViewCapabilities::empty(),
@@ -221,7 +260,7 @@ where
             device.create_image_view(
                 &image,
                 hal::image::ViewKind::D2,
-                Self::FORMAT,
+                format,
                 hal::format::Swizzle::NO,
                 IMG_SLOT_RANGE.clone(),
             )
@@ -483,13 +522,7 @@ where
         let tfence = lock.device.create_fence(false).unwrap();
 
         // Image slots
-        let image_slots = ImageSlots {
-            albedo: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
-            roughness: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
-            normal: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
-            displacement: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
-            metallic: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
-        };
+        let image_slots = ImageSlots::new(&lock.device, &lock.memory_properties, image_size)?;
 
         Ok(GPURender {
             gpu: gpu.clone(),
@@ -679,14 +712,7 @@ where
     pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), InitializationError> {
         let lock = self.gpu.lock().unwrap();
         self.image_size = image_size;
-
-        self.image_slots = ImageSlots {
-            albedo: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
-            roughness: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
-            normal: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
-            displacement: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
-            metallic: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
-        };
+        self.image_slots = ImageSlots::new(&lock.device, &lock.memory_properties, image_size)?;
 
         Ok(())
     }
