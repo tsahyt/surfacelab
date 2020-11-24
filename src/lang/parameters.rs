@@ -353,6 +353,7 @@ pub enum RenderField {
     FogStrength,
     Shadow,
     AO,
+    EnvironmentStrength,
     HDRI,
 }
 
@@ -375,6 +376,9 @@ impl MessageWriter for RenderField {
             ),
             RenderField::FogStrength => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::FogStrength(*renderer, f32::from_data(data)),
+            ),
+            RenderField::EnvironmentStrength => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::EnvironmentStrength(*renderer, f32::from_data(data)),
             ),
             RenderField::Shadow => super::Lang::UserRenderEvent(super::UserRenderEvent::SetShadow(
                 *renderer,
@@ -645,12 +649,24 @@ impl ParamBoxDescription<RenderField> {
                 },
                 ParamCategory {
                     name: "Environment",
-                    parameters: vec![Parameter {
-                        name: "HDRI File".to_string(),
-                        control: Control::File { selected: None },
-                        transmitter: RenderField::HDRI,
-                        expose_status: None,
-                    }],
+                    parameters: vec![
+                        Parameter {
+                            name: "HDRI File".to_string(),
+                            control: Control::File { selected: None },
+                            transmitter: RenderField::HDRI,
+                            expose_status: None,
+                        },
+                        Parameter {
+                            name: "Strength".to_string(),
+                            control: Control::Slider {
+                                value: 1.0,
+                                min: 0.0,
+                                max: 4.0,
+                            },
+                            transmitter: RenderField::EnvironmentStrength,
+                            expose_status: None,
+                        },
+                    ],
                 },
                 ParamCategory {
                     name: "Light",

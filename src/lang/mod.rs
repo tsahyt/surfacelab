@@ -414,6 +414,7 @@ pub enum UserRenderEvent {
     ChannelChange2D(RendererID, MaterialChannel),
     DisplacementAmount(RendererID, f32),
     TextureScale(RendererID, f32),
+    EnvironmentStrength(RendererID, f32),
     LightType(RendererID, LightType),
     LightStrength(RendererID, f32),
     FogStrength(RendererID, f32),

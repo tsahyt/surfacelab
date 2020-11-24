@@ -100,6 +100,13 @@ pub fn start_render_thread<B: gpu::Backend>(
                             .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
                             .unwrap();
                     }
+                    Lang::UserRenderEvent(UserRenderEvent::EnvironmentStrength(id, strength)) => {
+                        render_manager.set_environment_strength(*id, *strength);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
+                    }
                     Lang::UserRenderEvent(UserRenderEvent::LightType(id, light_type)) => {
                         render_manager.set_light_type(*id, *light_type);
                         render_manager.redraw(*id);
@@ -357,6 +364,13 @@ where
     pub fn set_fog_strength(&mut self, renderer_id: RendererID, strength: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_fog_strength(strength);
+            r.render();
+        }
+    }
+
+    pub fn set_environment_strength(&mut self, renderer_id: RendererID, strength: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_environment_strength(strength);
             r.render();
         }
     }

@@ -15,15 +15,21 @@ layout(set = 0, binding = 2) uniform Camera {
     vec4 center;
     vec4 light_pos;
     vec2 resolution;
+
     float phi;
     float theta;
     float radius;
+
     float displacement_amount;
     float tex_scale;
     float texel_size;
+
+    float environment_strength;
+
     uint light_type;
     float light_strength;
     float fog_strength;
+
     uint draw_shadow;
     uint draw_ao;
 };
@@ -313,7 +319,7 @@ vec3 environment(vec3 n, vec3 rd, vec3 f0, vec3 albedo, float roughness, float m
     vec2 env_brdf = texture(sampler2D(brdf_lut, s_Texture), vec2(max(dot(n, -rd), 0.0), roughness)).rg;
     vec3 specular = refl_color * (f * env_brdf.x + env_brdf.y);
 
-    return (kD * diffuse + specular) * ao;
+    return (kD * diffuse + specular) * ao * environment_strength;
 }
 
 vec3 camera(vec3 ro, vec3 lookAt, vec2 uv, float zoom) {
@@ -371,7 +377,7 @@ vec3 render(vec3 ro, vec3 rd) {
     #endif
 
     // View Falloff
-    vec3 world = textureLod(samplerCube(environment_map, s_Texture), rd, 0.5).rgb;
+    vec3 world = textureLod(samplerCube(environment_map, s_Texture), rd, 0.5).rgb * environment_strength;
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
     col = mix(world, col, smoothstep(10., 9., length(p.xz)));
 
