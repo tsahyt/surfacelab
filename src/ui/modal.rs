@@ -10,7 +10,11 @@ pub struct Modal<W> {
 
 impl Modal<widget::Canvas<'_>> {
     pub fn canvas() -> Self {
-        Self::new(widget::Canvas::new().color(color::DARK_CHARCOAL))
+        Self::new(
+            widget::Canvas::new()
+                .color(color::DARK_CHARCOAL)
+                .scroll_kids_vertically(),
+        )
     }
 }
 
