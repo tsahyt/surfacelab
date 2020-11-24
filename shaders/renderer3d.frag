@@ -332,21 +332,11 @@ float world_space_sample_size(float d) {
     return z * d;
 }
 
-void main() {
-    vec2 uv = (v_TexCoord - 0.5) * vec2(resolution.x / resolution.y, 1);
-
-    // Spherical Coordinate Input (phi, theta)
-    vec3 ro = center.xyz + (radius * vec3(
-                   sin(phi) * cos(theta),
-                   cos(phi),
-                   sin(phi) * sin(theta)));
-
-    // Camera
+vec3 render(vec3 ro, vec3 rd) {
     float itrc = 0.;
     float sitrc = 0.;
     vec3 col = vec3(0.);
 
-    vec3 rd = camera(ro, center.xyz, uv, 1.);
     float d = rayMarch(ro, rd, itrc);
     vec3 p = ro + rd * d;
     vec3 n = normal(p, max(texel_size, world_space_sample_size(d)), lod_by_distance(d));
@@ -394,6 +384,42 @@ void main() {
     #ifdef DBG_AO
     col.r += 1 - ao;
     #endif
+
+    return col;
+}
+
+float radical_inverse_vdc(uint bits)
+{
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
+vec2 hammersley(uint i, uint N)
+{
+    return vec2(float(i)/float(N), radical_inverse_vdc(i));
+}
+
+void main() {
+    vec2 uv = (v_TexCoord - 0.5) * vec2(resolution.x / resolution.y, 1);
+
+    // Spherical Coordinate Input (phi, theta)
+    vec3 ro = center.xyz + (radius * vec3(
+                   sin(phi) * cos(theta),
+                   cos(phi),
+                   sin(phi) * sin(theta)));
+
+    vec3 col = vec3(0.);
+
+    for (int i = 0; i < 4; ++i) {
+        vec2 subpixel_offset = hammersley(i, 4) * (1.0 / resolution);
+        vec3 rd = camera(ro, center.xyz, uv + subpixel_offset, 1.);
+        col += render(ro, rd);
+    }
+    col /= 4.0;
 
     outColor = vec4(col, 1.0);
 }
