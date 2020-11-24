@@ -53,6 +53,7 @@ struct RenderView3D {
     rad: f32,
     displacement: f32,
     tex_scale: f32,
+    texel_size: f32,
     light_type: LightType,
     light_strength: f32,
     fog_strength: f32,
@@ -71,6 +72,7 @@ impl Default for RenderView3D {
             rad: 6.,
             displacement: 0.5,
             tex_scale: 8.,
+            texel_size: 8. / 1024.,
             light_type: LightType::PointLight,
             light_strength: 100.0,
             fog_strength: 0.2,
@@ -112,6 +114,7 @@ pub struct GPURender<B: Backend> {
     sampler: ManuallyDrop<B::Sampler>,
     image_slots: ImageSlots<B>,
     environment_maps: EnvironmentMaps<B>,
+    image_size: u32,
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
@@ -517,6 +520,7 @@ where
             main_descriptor_set_layout: ManuallyDrop::new(main_set_layout),
             image_slots,
             environment_maps,
+            image_size: 1024,
 
             occupancy_buffer: ManuallyDrop::new(occupancy_buf),
             occupancy_memory: ManuallyDrop::new(occupancy_mem),
@@ -673,6 +677,7 @@ where
 
     pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), InitializationError> {
         let lock = self.gpu.lock().unwrap();
+        self.image_size = image_size;
 
         self.image_slots = ImageSlots {
             albedo: ImageSlot::new(&lock.device, &lock.memory_properties, image_size)?,
@@ -1230,6 +1235,7 @@ where
     pub fn set_texture_scale(&mut self, scale: f32) {
         if let RenderView::RenderView3D(view) = &mut self.view {
             view.tex_scale = scale;
+            view.texel_size = scale / self.image_size as f32;
         }
     }
 

@@ -20,6 +20,7 @@ layout(set = 0, binding = 2) uniform Camera {
     float radius;
     float displacement_amount;
     float tex_scale;
+    float texel_size;
     uint light_type;
     float light_strength;
     float fog_strength;
@@ -110,22 +111,22 @@ float sdf(vec3 p, float lod) {
 }
 
 // Compute the normal from the SDF numerically
-vec3 sdf_normal(vec3 p, float lod) {
-    float d = sdf(p, lod);
-    vec2 e = vec2(0.01, 0);
+vec3 sdf_normal(vec3 p, float s) {
+    float d = sdf(p, 3.);
+    vec2 e = vec2(s, 0);
     return normalize(d -
-                     vec3(sdf(p - e.xyy, lod),
-                          sdf(p - e.yxy, lod),
-                          sdf(p - e.yyx, lod)));
+                     vec3(sdf(p - e.xyy, 3.),
+                          sdf(p - e.yxy, 3.),
+                          sdf(p - e.yyx, 3.)));
 }
 
 //  Get normals from normal map
-vec3 normal(vec3 p, float lod) {
+vec3 normal(vec3 p, float s, float lod) {
     if(has_normal != 0) {
         vec3 n = textureLod(sampler2D(t_Normal, s_Texture), p.xz / tex_scale, lod).xzy;
         return normalize(n * 2. - 1);
     } else {
-        return sdf_normal(p, lod);
+        return sdf_normal(p, s);
     }
 }
 
@@ -326,6 +327,11 @@ vec3 camera(vec3 ro, vec3 lookAt, vec2 uv, float zoom) {
     return normalize(i - ro);
 }
 
+float world_space_sample_size(float d) {
+    float z = 1.0 / min(resolution.x, resolution.y);
+    return z * d;
+}
+
 void main() {
     vec2 uv = (v_TexCoord - 0.5) * vec2(resolution.x / resolution.y, 1);
 
@@ -343,7 +349,7 @@ void main() {
     vec3 rd = camera(ro, center.xyz, uv, 1.);
     float d = rayMarch(ro, rd, itrc);
     vec3 p = ro + rd * d;
-    vec3 n = normal(p, lod_by_distance(d));
+    vec3 n = normal(p, 0.02, lod_by_distance(d));
 
     // Texture fetching
     vec3 albedo = albedo(p.xz, lod_by_distance(d));
