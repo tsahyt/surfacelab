@@ -110,7 +110,11 @@ impl<B: gpu::Backend> SocketData<B> {
 
     pub fn update_time_ema(&mut self, seconds: f64) {
         self.time_ema = self.time_ema + Self::TIMING_DECAY * (seconds - self.time_ema);
-        log::trace!("Average execution time {0:.1} µs", self.time_ema * 1e6);
+        log::trace!(
+            "Average execution time {0:.1} µs, last {1:.1} µs",
+            self.time_ema * 1e6,
+            seconds * 1e6
+        );
     }
 }
 
