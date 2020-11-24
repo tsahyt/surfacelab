@@ -135,6 +135,13 @@ pub fn start_render_thread<B: gpu::Backend>(
                             .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
                             .unwrap();
                     }
+                    Lang::UserRenderEvent(UserRenderEvent::LoadHDRI(id, path)) => {
+                        render_manager.load_hdri(*id, path);
+                        render_manager.redraw(*id);
+                        sender
+                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
+                            .unwrap();
+                    }
                     _ => {}
                 }
             }
@@ -364,6 +371,13 @@ where
     pub fn set_ao(&mut self, renderer_id: RendererID, ao: ParameterBool) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_ao(ao);
+            r.render();
+        }
+    }
+
+    pub fn load_hdri<P: AsRef<std::path::Path>>(&mut self, renderer_id: RendererID, path: P) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.load_environment(path);
             r.render();
         }
     }

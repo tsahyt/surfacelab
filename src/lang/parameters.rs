@@ -353,6 +353,7 @@ pub enum RenderField {
     FogStrength,
     Shadow,
     AO,
+    HDRI,
 }
 
 impl MessageWriter for RenderField {
@@ -382,6 +383,10 @@ impl MessageWriter for RenderField {
             RenderField::AO => super::Lang::UserRenderEvent(super::UserRenderEvent::SetAO(
                 *renderer,
                 ParameterBool::from_data(data),
+            )),
+            RenderField::HDRI => super::Lang::UserRenderEvent(super::UserRenderEvent::LoadHDRI(
+                *renderer,
+                PathBuf::from_data(data),
             )),
         }
     }
@@ -639,7 +644,16 @@ impl ParamBoxDescription<RenderField> {
                     ],
                 },
                 ParamCategory {
-                    name: "Lighting",
+                    name: "Environment",
+                    parameters: vec![Parameter {
+                        name: "HDRI File".to_string(),
+                        control: Control::File { selected: None },
+                        transmitter: RenderField::HDRI,
+                        expose_status: None,
+                    }],
+                },
+                ParamCategory {
+                    name: "Light",
                     parameters: vec![
                         Parameter {
                             name: "Light Type".to_string(),

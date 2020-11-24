@@ -7,15 +7,18 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
 
-static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../../shaders/quad.spv");
-static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../../shaders/renderer2d.spv");
-static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/renderer3d.spv");
-
 use super::{Backend, InitializationError, PipelineError, GPU};
 
 pub mod brdf_lut;
 pub mod environment;
 use environment::EnvironmentMaps;
+
+static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../../shaders/quad.spv");
+static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../../shaders/renderer2d.spv");
+static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/renderer3d.spv");
+
+const IRRADIANCE_SIZE: usize = 32;
+const SPECMAP_SIZE: usize = 512;
 
 #[derive(AsBytes, Debug)]
 #[repr(C)]
@@ -250,12 +253,12 @@ where
         let render_target = RenderTarget::new(gpu.clone(), format, 1, monitor_dimensions)?;
         let environment_maps = EnvironmentMaps::from_file(
             gpu.clone(),
-            32,
-            512,
+            IRRADIANCE_SIZE,
+            SPECMAP_SIZE,
             find_folder::Search::KidsThenParents(3, 5)
                 .for_folder("assets")
                 .unwrap()
-                .join("artist_workshop_2k.hdr"),
+                .join("urban_alley_01_2k.hdr"),
         )
         .unwrap();
 
@@ -1258,6 +1261,13 @@ where
         if let RenderView::RenderView3D(view) = &mut self.view {
             view.ao = ao;
         }
+    }
+
+    pub fn load_environment<P: AsRef<std::path::Path>>(&mut self, path: P) {
+        let new_env =
+            EnvironmentMaps::from_file(self.gpu.clone(), IRRADIANCE_SIZE, SPECMAP_SIZE, path)
+                .unwrap();
+        self.environment_maps = new_env;
     }
 }
 

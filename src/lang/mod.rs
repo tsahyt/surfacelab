@@ -419,6 +419,7 @@ pub enum UserRenderEvent {
     FogStrength(RendererID, f32),
     SetShadow(RendererID, ParameterBool),
     SetAO(RendererID, ParameterBool),
+    LoadHDRI(RendererID, PathBuf),
 }
 
 #[repr(u32)]
