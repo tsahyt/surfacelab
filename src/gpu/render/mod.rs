@@ -180,7 +180,8 @@ impl<B> ImageSlot<B>
 where
     B: Backend,
 {
-    pub const FORMAT: hal::format::Format = hal::format::Format::Rgba16Sfloat;
+    // TODO: use appropriate image format per channel
+    pub const FORMAT: hal::format::Format = hal::format::Format::Rgba32Sfloat;
 
     pub fn new(
         device: &B::Device,

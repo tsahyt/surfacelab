@@ -120,26 +120,26 @@ vec3 sdf_normal(vec3 p, float s) {
                           sdf(p - e.yyx, 3.)));
 }
 
+// Approximate normal numerically from heightfield
+vec3 heightfield_normal(vec2 p, float s) {
+    vec2 e = vec2(s, 0);
+    float height_p = displacement_amount * heightfield(p, 0.);
+    float height_x = displacement_amount * heightfield(p + e.xy, 0.);
+    float height_z = displacement_amount * heightfield(p + e.yx, 0.);
+
+    vec3 dx = vec3(e.x, height_x - height_p, e.y);
+    vec3 dy = vec3(e.y, height_z - height_p, e.x);
+    return normalize(cross(dy, dx));
+}
+
 //  Get normals from normal map
 vec3 normal(vec3 p, float s, float lod) {
     if(has_normal != 0) {
         vec3 n = textureLod(sampler2D(t_Normal, s_Texture), p.xz / tex_scale, lod).xzy;
         return normalize(n * 2. - 1);
     } else {
-        return sdf_normal(p, s);
+        return heightfield_normal(p.xz, s);
     }
-}
-
-// Approximate normal numerically from heightfield
-vec3 heightfield_normal(vec2 p) {
-    vec2 e = vec2(0.01, 0);
-    float height_p = heightfield(p, 0.);
-    float height_x = heightfield(p + e.xy, 0.);
-    float height_z = heightfield(p + e.yx, 0.);
-
-    vec3 dx = normalize(vec3(e.x, height_x - height_p, e.y));
-    vec3 dy = normalize(vec3(e.y, height_z - height_p, e.x));
-    return cross(dy, dx);
 }
 
 // --- Ray Marching
@@ -349,7 +349,7 @@ void main() {
     vec3 rd = camera(ro, center.xyz, uv, 1.);
     float d = rayMarch(ro, rd, itrc);
     vec3 p = ro + rd * d;
-    vec3 n = normal(p, 0.02, lod_by_distance(d));
+    vec3 n = normal(p, max(texel_size, world_space_sample_size(d)), lod_by_distance(d));
 
     // Texture fetching
     vec3 albedo = albedo(p.xz, lod_by_distance(d));
