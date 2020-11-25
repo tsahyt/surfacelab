@@ -13,9 +13,7 @@ layout(push_constant) uniform constants_t {
 void main() {
     ivec2 resolution = imageSize(out_image);
     ivec2 idx = ivec2(gl_GlobalInvocationID.xy);
-    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
-
-    vec3 col = texture(sampler2D(rendered, Sampler), uv).rgb;
+    vec3 col = texelFetch(sampler2D(rendered, Sampler), idx, 0).rgb;
 
     col /= constants.current_sample;
 
