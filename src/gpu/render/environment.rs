@@ -809,7 +809,7 @@ where
             }
 
             command_buffer.pipeline_barrier(
-                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
+                hal::pso::PipelineStage::COMPUTE_SHADER..hal::pso::PipelineStage::FRAGMENT_SHADER,
                 hal::memory::Dependencies::empty(),
                 &[
                     hal::memory::Barrier::Image {
