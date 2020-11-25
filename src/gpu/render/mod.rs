@@ -350,7 +350,7 @@ where
     B: Backend,
 {
     const UNIFORM_BUFFER_SIZE: u64 = 512;
-    const FINAL_FORMAT: hal::format::Format = hal::format::Format::Rgba8Snorm;
+    const FINAL_FORMAT: hal::format::Format = hal::format::Format::Rgba16Sfloat;
 
     pub fn new(
         gpu: &Arc<Mutex<GPU<B>>>,
