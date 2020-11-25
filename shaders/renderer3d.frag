@@ -4,6 +4,7 @@ layout(location = 0) in vec2 v_TexCoord;
 layout(location = 0) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform sampler s_Texture;
+
 layout(set = 0, binding = 1) uniform Occupancy {
     uint has_albedo;
     uint has_roughness;
@@ -11,6 +12,7 @@ layout(set = 0, binding = 1) uniform Occupancy {
     uint has_displacement;
     uint has_metallic;
 };
+
 layout(set = 0, binding = 2) uniform Camera {
     vec4 center;
     vec4 light_pos;
@@ -33,6 +35,10 @@ layout(set = 0, binding = 2) uniform Camera {
     uint draw_shadow;
     uint draw_ao;
 };
+
+layout(push_constant) uniform constants_t {
+    vec2 sample_offset;
+} constants;
 
 const uint LIGHT_TYPE_POINT = 0;
 const uint LIGHT_TYPE_SUN = 1;

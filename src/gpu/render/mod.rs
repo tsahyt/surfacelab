@@ -11,11 +11,13 @@ use super::{Backend, InitializationError, PipelineError, GPU};
 
 pub mod brdf_lut;
 pub mod environment;
+
 use environment::EnvironmentMaps;
 
 static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../../shaders/quad.spv");
 static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../../shaders/renderer2d.spv");
 static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/renderer3d.spv");
+static ACCUM_SHADER: &[u8] = include_bytes!("../../../shaders/accum.spv");
 
 const IRRADIANCE_SIZE: usize = 32;
 const SPECMAP_SIZE: usize = 512;
@@ -95,6 +97,53 @@ enum RenderView {
     RenderView3D(RenderView3D),
 }
 
+/// An iterator over a 2D (2,3)-Halton sequence for QMC
+pub struct HaltonSequence2D {
+    idx: usize,
+    base1: f32,
+    base2: f32,
+}
+
+impl Default for HaltonSequence2D {
+    fn default() -> Self {
+        Self::new(2, 3)
+    }
+}
+
+impl HaltonSequence2D {
+    pub fn new(base1: usize, base2: usize) -> Self {
+        Self {
+            idx: 0,
+            base1: base1 as f32,
+            base2: base2 as f32,
+        }
+    }
+
+    fn halton_1d(mut idx: f32, base: f32) -> f32 {
+        let mut fraction = 1.0;
+        let mut result = 0.0;
+
+        while idx > 0.0 {
+            fraction /= base;
+            result += fraction * (idx % base);
+            idx = (idx / base).floor();
+        }
+
+        return result;
+    }
+}
+
+impl Iterator for HaltonSequence2D {
+    type Item = (f32, f32);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let x = Self::halton_1d(self.idx as f32, self.base1);
+        let y = Self::halton_1d(self.idx as f32, self.base2);
+        self.idx += 1;
+        Some((x, y))
+    }
+}
+
 pub struct GPURender<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: ManuallyDrop<B::CommandPool>,
@@ -103,22 +152,32 @@ pub struct GPURender<B: Backend> {
     viewport: hal::pso::Viewport,
     dimensions: hal::window::Extent2D,
     render_target: RenderTarget<B>,
+    accum_target: RenderTarget<B>,
 
     // View
     view: RenderView,
 
     // Rendering Data
+    halton_sampler: HaltonSequence2D,
     descriptor_pool: ManuallyDrop<B::DescriptorPool>,
     main_render_pass: ManuallyDrop<B::RenderPass>,
     main_pipeline: ManuallyDrop<B::GraphicsPipeline>,
     main_pipeline_layout: ManuallyDrop<B::PipelineLayout>,
     main_descriptor_set: B::DescriptorSet,
     main_descriptor_set_layout: ManuallyDrop<B::DescriptorSetLayout>,
+
+    accum_pipeline: ManuallyDrop<B::ComputePipeline>,
+    accum_pipeline_layout: ManuallyDrop<B::PipelineLayout>,
+    accum_descriptor_set: B::DescriptorSet,
+    accum_descriptor_set_layout: ManuallyDrop<B::DescriptorSetLayout>,
+
+    sampler: ManuallyDrop<B::Sampler>,
+
+    // Buffers
     occupancy_buffer: ManuallyDrop<B::Buffer>,
     occupancy_memory: ManuallyDrop<B::Memory>,
     uniform_buffer: ManuallyDrop<B::Buffer>,
     uniform_memory: ManuallyDrop<B::Memory>,
-    sampler: ManuallyDrop<B::Sampler>,
     image_slots: ImageSlots<B>,
     environment_maps: EnvironmentMaps<B>,
     image_size: u32,
@@ -290,6 +349,7 @@ where
     B: Backend,
 {
     const UNIFORM_BUFFER_SIZE: u64 = 512;
+    const FINAL_FORMAT: hal::format::Format = hal::format::Format::Rgba8Srgb;
 
     pub fn new(
         gpu: &Arc<Mutex<GPU<B>>>,
@@ -299,8 +359,14 @@ where
         ty: crate::lang::RendererType,
     ) -> Result<Self, InitializationError> {
         log::info!("Obtaining GPU Render Resources");
-        let format = hal::format::Format::Rgba8Srgb;
-        let render_target = RenderTarget::new(gpu.clone(), format, 1, monitor_dimensions)?;
+        let render_target = RenderTarget::new(
+            gpu.clone(),
+            hal::format::Format::Rgba32Sfloat,
+            1,
+            monitor_dimensions,
+        )?;
+        let accum_target =
+            RenderTarget::new(gpu.clone(), Self::FINAL_FORMAT, 1, monitor_dimensions)?;
         let environment_maps = EnvironmentMaps::from_file(
             gpu.clone(),
             IRRADIANCE_SIZE,
@@ -313,7 +379,7 @@ where
         .unwrap();
 
         let lock = gpu.lock().unwrap();
-        log::debug!("Using render format {:?}", format);
+        log::debug!("Using render format {:?}", Self::FINAL_FORMAT);
 
         let command_pool = unsafe {
             lock.device.create_command_pool(
@@ -349,6 +415,14 @@ where
                         },
                         count: 16,
                     },
+                    DescriptorRangeDesc {
+                        ty: DescriptorType::Image {
+                            ty: ImageDescriptorType::Storage {
+                                read_only: false
+                            },
+                        },
+                        count: 1,
+                    }
                 ],
                 DescriptorPoolCreateFlags::empty(),
             )
@@ -482,14 +556,14 @@ where
                 &[],
             )
         }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Main Descriptor Set"))?;
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Main Descriptor Set Layout"))?;
 
         let main_descriptor_set = unsafe { descriptor_pool.allocate_set(&main_set_layout) }
-            .map_err(|_| InitializationError::ResourceAcquisition("Render Descriptor Pool"))?;
+            .map_err(|_| InitializationError::ResourceAcquisition("Render Descriptor Set"))?;
 
-        let (main_render_pass, main_pipeline, main_pipeline_layout) = Self::new_pipeline(
+        let (main_render_pass, main_pipeline, main_pipeline_layout) = Self::make_render_pipeline(
             &lock.device,
-            format,
+            hal::format::Format::Rgba32Sfloat,
             &main_set_layout,
             MAIN_VERTEX_SHADER,
             match ty {
@@ -497,6 +571,52 @@ where
                 crate::lang::RendererType::Renderer3D => MAIN_FRAGMENT_SHADER_3D,
             },
         )?;
+
+        // Accumulation Buffer Data
+        let accum_set_layout = unsafe {
+            lock.device.create_descriptor_set_layout(
+                &[
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 0,
+                        ty: hal::pso::DescriptorType::Sampler,
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::COMPUTE,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 1,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::COMPUTE,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 2,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Storage {
+                                read_only: false,
+                            },
+                        },
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::COMPUTE,
+                        immutable_samplers: false,
+                    },
+                ], &[])
+        }
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Accumulation Descriptor Set Layout"))?;
+
+        let accum_descriptor_set = unsafe { descriptor_pool.allocate_set(&accum_set_layout) }
+            .map_err(|_| InitializationError::ResourceAcquisition("Render Accumulation Descriptor Set"))?;
+
+        let (accum_pipeline, accum_pipeline_layout) = Self::make_accum_pipeline(
+            &lock.device,
+            &accum_set_layout,
+            ACCUM_SHADER,
+            )?;
 
         // Rendering setup
         let viewport = hal::pso::Viewport {
@@ -541,6 +661,7 @@ where
                 height: monitor_dimensions.1,
             },
             render_target,
+            accum_target,
 
             view: match ty {
                 crate::lang::RendererType::Renderer2D => RenderView::RenderView2D(RenderView2D {
@@ -553,12 +674,21 @@ where
                 }),
             },
 
+            halton_sampler: HaltonSequence2D::default(),
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
             main_render_pass: ManuallyDrop::new(main_render_pass),
             main_pipeline: ManuallyDrop::new(main_pipeline),
             main_pipeline_layout: ManuallyDrop::new(main_pipeline_layout),
             main_descriptor_set,
             main_descriptor_set_layout: ManuallyDrop::new(main_set_layout),
+
+            accum_pipeline: ManuallyDrop::new(accum_pipeline),
+            accum_pipeline_layout: ManuallyDrop::new(accum_pipeline_layout),
+            accum_descriptor_set,
+            accum_descriptor_set_layout: ManuallyDrop::new(accum_set_layout),
+
+            sampler: ManuallyDrop::new(sampler),
+
             image_slots,
             environment_maps,
             image_size: 1024,
@@ -567,7 +697,6 @@ where
             occupancy_memory: ManuallyDrop::new(occupancy_mem),
             uniform_buffer: ManuallyDrop::new(uniform_buf),
             uniform_memory: ManuallyDrop::new(uniform_mem),
-            sampler: ManuallyDrop::new(sampler),
 
             complete_fence: ManuallyDrop::new(fence),
             transfer_fence: ManuallyDrop::new(tfence),
@@ -611,7 +740,7 @@ where
     }
 
     #[allow(clippy::type_complexity)]
-    fn new_pipeline(
+    fn make_render_pipeline(
         device: &B::Device,
         format: hal::format::Format,
         set_layout: &B::DescriptorSetLayout,
@@ -624,7 +753,7 @@ where
                 format: Some(format),
                 samples: 1,
                 ops: hal::pass::AttachmentOps::new(
-                    hal::pass::AttachmentLoadOp::DontCare,
+                    hal::pass::AttachmentLoadOp::Clear,
                     hal::pass::AttachmentStoreOp::Store,
                 ),
                 stencil_ops: hal::pass::AttachmentOps::DONT_CARE,
@@ -645,9 +774,13 @@ where
         .map_err(|_| InitializationError::ResourceAcquisition("Render Pass"))?;
 
         // Pipeline
-        let pipeline_layout =
-            unsafe { device.create_pipeline_layout(std::iter::once(set_layout), &[]) }
-                .map_err(|_| InitializationError::ResourceAcquisition("Render Pipeline Layout"))?;
+        let pipeline_layout = unsafe {
+            device.create_pipeline_layout(
+                std::iter::once(set_layout),
+                &[(hal::pso::ShaderStageFlags::FRAGMENT, 0..8)],
+            )
+        }
+        .map_err(|_| InitializationError::ResourceAcquisition("Render Pipeline Layout"))?;
 
         let pipeline = {
             let vs_module = {
@@ -697,7 +830,7 @@ where
                     .targets
                     .push(hal::pso::ColorBlendDesc {
                         mask: hal::pso::ColorMask::ALL,
-                        blend: Some(hal::pso::BlendState::ALPHA),
+                        blend: Some(hal::pso::BlendState::ADD),
                     });
 
                 unsafe { device.create_graphics_pipeline(&pipeline_desc, None) }
@@ -714,6 +847,47 @@ where
         };
 
         Ok((render_pass, pipeline, pipeline_layout))
+    }
+
+    fn make_accum_pipeline(
+        device: &B::Device,
+        set_layout: &B::DescriptorSetLayout,
+        accum_shader: &[u8],
+    ) -> Result<(B::ComputePipeline, B::PipelineLayout), InitializationError> {
+        let pipeline_layout = unsafe {
+            device.create_pipeline_layout(
+                std::iter::once(set_layout),
+                &[(hal::pso::ShaderStageFlags::COMPUTE, 0..4)],
+            )
+        }
+        .map_err(|_| InitializationError::ResourceAcquisition("Accum Pipeline Layout"))?;
+
+        let shader_module = {
+            let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(accum_shader))
+                .map_err(|_| InitializationError::ShaderSPIRV)?;
+            unsafe { device.create_shader_module(&loaded_spirv) }
+                .map_err(|_| InitializationError::ShaderModule)?
+        };
+
+        let pipeline = unsafe {
+            device.create_compute_pipeline(
+                &hal::pso::ComputePipelineDesc::new(
+                    hal::pso::EntryPoint {
+                        entry: "main",
+                        module: &shader_module,
+                        specialization: hal::pso::Specialization::default(),
+                    },
+                    &pipeline_layout,
+                ),
+                None,
+            ).unwrap()
+        };
+
+        unsafe {
+            device.destroy_shader_module(shader_module);
+        }
+
+        Ok((pipeline, pipeline_layout))
     }
 
     pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), InitializationError> {
@@ -1019,13 +1193,24 @@ where
                     &[],
                 );
                 cmd_buffer.bind_graphics_pipeline(&self.main_pipeline);
+
+                let sample_offset = self.halton_sampler.next().unwrap();
+                cmd_buffer.push_graphics_constants(
+                    &self.main_pipeline_layout,
+                    hal::pso::ShaderStageFlags::FRAGMENT,
+                    0,
+                    &[
+                        u32::from_ne_bytes(sample_offset.0.to_ne_bytes()),
+                        u32::from_ne_bytes(sample_offset.1.to_ne_bytes()),
+                    ],
+                );
                 cmd_buffer.begin_render_pass(
                     &self.main_render_pass,
                     &framebuffer,
                     self.viewport.rect,
                     &[hal::command::ClearValue {
                         color: hal::command::ClearColor {
-                            float32: [0.8, 0.8, 0.8, 1.0],
+                            float32: [0.0, 0.0, 0.0, 0.0],
                         },
                     }],
                     hal::command::SubpassContents::Inline,
@@ -1362,11 +1547,19 @@ where
                     &mut self.main_descriptor_set_layout,
                 ));
             lock.device
+                .destroy_descriptor_set_layout(ManuallyDrop::take(
+                    &mut self.accum_descriptor_set_layout,
+                ));
+            lock.device
                 .destroy_render_pass(ManuallyDrop::take(&mut self.main_render_pass));
             lock.device
                 .destroy_graphics_pipeline(ManuallyDrop::take(&mut self.main_pipeline));
             lock.device
                 .destroy_pipeline_layout(ManuallyDrop::take(&mut self.main_pipeline_layout));
+            lock.device
+                .destroy_compute_pipeline(ManuallyDrop::take(&mut self.accum_pipeline));
+            lock.device
+                .destroy_pipeline_layout(ManuallyDrop::take(&mut self.accum_pipeline_layout));
             lock.device
                 .destroy_sampler(ManuallyDrop::take(&mut self.sampler));
             lock.device
