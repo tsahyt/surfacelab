@@ -405,11 +405,9 @@ void main() {
                    cos(phi),
                    sin(phi) * sin(theta)));
 
-    vec3 col = vec3(0.);
-
     vec2 subpixel_offset = (constants.sample_offset - vec2(1.0)) * (1.0 / resolution);
     vec3 rd = camera(ro, center.xyz, uv + subpixel_offset, 1.);
-    col += render(ro, rd);
+    vec3 col = render(ro, rd);
 
     outColor = vec4(col, 1.0);
 }
