@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use strum::IntoEnumIterator;
+use smallvec::SmallVec;
 
 pub fn start_render_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
@@ -16,140 +17,19 @@ pub fn start_render_thread<B: gpu::Backend>(
 
             let mut render_manager = RenderManager::new(gpu);
 
-            for event in receiver {
-                match &*event {
-                    Lang::UserIOEvent(UserIOEvent::Quit) => break,
-                    Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => render_manager.reset_all(),
-                    Lang::UserIOEvent(UserIOEvent::NewSurface) => render_manager.reset_all(),
-                    Lang::UserIOEvent(UserIOEvent::SetParentSize(new_size)) => {
-                        render_manager.resize_images(*new_size)
+            loop {
+                let message = if render_manager.must_step() {
+                    receiver.try_recv().ok()
+                } else {
+                    receiver.recv().ok()
+                };
+
+                if let Some(res) = render_manager.step(message) {
+                    for r in res {
+                        sender.send(r).unwrap();
                     }
-                    Lang::UIEvent(UIEvent::RendererRequested(id, monitor_size, view_size, ty)) => {
-                        let view = render_manager
-                            .new_renderer(*id, *monitor_size, *view_size, *ty)
-                            .unwrap();
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererAdded(*id, view)))
-                            .unwrap();
-                    }
-                    Lang::UIEvent(UIEvent::RendererRedraw(id)) => render_manager.redraw(*id),
-                    Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
-                        render_manager.resize(*id, *width, *height);
-                        render_manager.redraw(*id);
-                    }
-                    Lang::UIEvent(UIEvent::RendererRemoved(id)) => render_manager.remove(*id),
-                    Lang::ComputeEvent(ComputeEvent::OutputReady(
-                        _res,
-                        img,
-                        layout,
-                        access,
-                        size,
-                        out_ty,
-                    )) => {
-                        render_manager.transfer_output(img, *layout, *access, *size as i32, *out_ty)
-                    }
-                    Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
-                        render_manager.disconnect_output(*out_ty);
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::Rotate(id, theta, phi)) => {
-                        render_manager.rotate_camera(*id, *theta, *phi);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::Pan(id, x, y)) => {
-                        render_manager.pan_camera(*id, *x, *y);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::Zoom(id, z)) => {
-                        render_manager.zoom_camera(*id, *z);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::LightMove(id, x, y)) => {
-                        render_manager.move_light(*id, *x, *y);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(id, channel)) => {
-                        render_manager.set_channel(*id, *channel);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::DisplacementAmount(id, displ)) => {
-                        render_manager.set_displacement_amount(*id, *displ);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::TextureScale(id, scale)) => {
-                        render_manager.set_texture_scale(*id, *scale);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::EnvironmentStrength(id, strength)) => {
-                        render_manager.set_environment_strength(*id, *strength);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::LightType(id, light_type)) => {
-                        render_manager.set_light_type(*id, *light_type);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::LightStrength(id, strength)) => {
-                        render_manager.set_light_strength(*id, *strength);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::FogStrength(id, strength)) => {
-                        render_manager.set_fog_strength(*id, *strength);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::SetShadow(id, shadow)) => {
-                        render_manager.set_shadow(*id, *shadow);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::SetAO(id, ao)) => {
-                        render_manager.set_ao(*id, *ao);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    Lang::UserRenderEvent(UserRenderEvent::LoadHDRI(id, path)) => {
-                        render_manager.load_hdri(*id, path);
-                        render_manager.redraw(*id);
-                        sender
-                            .send(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)))
-                            .unwrap();
-                    }
-                    _ => {}
+                } else {
+                    break;
                 }
             }
 
@@ -161,11 +41,22 @@ pub fn start_render_thread<B: gpu::Backend>(
 
 struct Renderer<B: gpu::Backend> {
     gpu: gpu::render::GPURender<B>,
+    samples_to_go: usize,
+    max_samples: usize,
 }
 
 impl<B: gpu::Backend> Renderer<B> {
     pub fn new(gpu: gpu::render::GPURender<B>) -> Self {
-        Self { gpu }
+        Self {
+            gpu,
+            samples_to_go: 0,
+            max_samples: 32,
+        }
+    }
+
+    pub fn reset_sampling(&mut self) {
+        self.samples_to_go = self.max_samples;
+        self.gpu.reset_sampling();
     }
 }
 
@@ -205,6 +96,141 @@ where
         }
     }
 
+    pub fn must_step(&self) -> bool {
+        self.renderers.values().any(|r| r.samples_to_go > 0)
+    }
+
+    pub fn step(&mut self, event: Option<Arc<Lang>>) -> Option<Vec<Lang>> {
+        let mut response = Vec::new();
+
+        if let Some(ev) = event {
+            response.append(&mut self.handle_event(&ev)?);
+        }
+
+        for id in self
+            .renderers
+            .iter()
+            .filter(|(_, renderer)| renderer.samples_to_go > 0)
+            .map(|x| x.0)
+            .copied()
+            .collect::<SmallVec<[_;4]>>()
+        {
+            self.redraw(id);
+            response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(id)));
+        }
+
+        Some(response)
+    }
+
+    fn handle_event(&mut self, event: &Lang) -> Option<Vec<Lang>> {
+        let mut response = Vec::new();
+
+        match event {
+            Lang::UserIOEvent(UserIOEvent::Quit) => return None,
+            Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset_all(),
+            Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset_all(),
+            Lang::UserIOEvent(UserIOEvent::SetParentSize(new_size)) => {
+                self.resize_images(*new_size)
+            }
+            Lang::UIEvent(UIEvent::RendererRequested(id, monitor_size, view_size, ty)) => {
+                let view = self
+                    .new_renderer(*id, *monitor_size, *view_size, *ty)
+                    .unwrap();
+                response.push(Lang::RenderEvent(RenderEvent::RendererAdded(*id, view)))
+            }
+            Lang::UIEvent(UIEvent::RendererRedraw(id)) => self.redraw(*id),
+            Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
+                self.resize(*id, *width, *height);
+                self.redraw(*id);
+            }
+            Lang::UIEvent(UIEvent::RendererRemoved(id)) => self.remove(*id),
+            Lang::ComputeEvent(ComputeEvent::OutputReady(
+                _res,
+                img,
+                layout,
+                access,
+                size,
+                out_ty,
+            )) => self.transfer_output(img, *layout, *access, *size as i32, *out_ty),
+            Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
+                self.disconnect_output(*out_ty);
+            }
+            Lang::UserRenderEvent(UserRenderEvent::Rotate(id, theta, phi)) => {
+                self.rotate_camera(*id, *theta, *phi);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::Pan(id, x, y)) => {
+                self.pan_camera(*id, *x, *y);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::Zoom(id, z)) => {
+                self.zoom_camera(*id, *z);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::LightMove(id, x, y)) => {
+                self.move_light(*id, *x, *y);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(id, channel)) => {
+                self.set_channel(*id, *channel);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::DisplacementAmount(id, displ)) => {
+                self.set_displacement_amount(*id, *displ);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::TextureScale(id, scale)) => {
+                self.set_texture_scale(*id, *scale);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::EnvironmentStrength(id, strength)) => {
+                self.set_environment_strength(*id, *strength);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::LightType(id, light_type)) => {
+                self.set_light_type(*id, *light_type);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::LightStrength(id, strength)) => {
+                self.set_light_strength(*id, *strength);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::FogStrength(id, strength)) => {
+                self.set_fog_strength(*id, *strength);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::SetShadow(id, shadow)) => {
+                self.set_shadow(*id, *shadow);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::SetAO(id, ao)) => {
+                self.set_ao(*id, *ao);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::LoadHDRI(id, path)) => {
+                self.load_hdri(*id, path);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            _ => {}
+        }
+
+        Some(response)
+    }
+
     pub fn new_renderer(
         &mut self,
         id: RendererID,
@@ -235,7 +261,8 @@ where
 
     pub fn redraw_all(&mut self) {
         for r in self.renderers.values_mut() {
-            r.render()
+            r.render();
+            r.samples_to_go = r.samples_to_go.saturating_sub(1);
         }
     }
 
@@ -248,7 +275,8 @@ where
 
     pub fn redraw(&mut self, renderer_id: RendererID) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
-            r.render()
+            r.render();
+            r.samples_to_go = r.samples_to_go.saturating_sub(1);
         } else {
             log::error!("Trying to redraw on non-existent renderer!");
         }

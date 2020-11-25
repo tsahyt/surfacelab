@@ -1277,11 +1277,7 @@ where
                         ((self.current_sample + 1) as f32).to_ne_bytes(),
                     )],
                 );
-                cmd_buffer.dispatch([
-                    self.viewport.rect.w as u32,
-                    self.viewport.rect.h as u32,
-                    1,
-                ]);
+                cmd_buffer.dispatch([self.viewport.rect.w as u32, self.viewport.rect.h as u32, 1]);
                 cmd_buffer.pipeline_barrier(
                     hal::pso::PipelineStage::COMPUTE_SHADER
                         ..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
