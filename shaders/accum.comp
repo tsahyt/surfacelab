@@ -1,17 +1,27 @@
 #version 460
 
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(set = 0, binding = 0) uniform sampler Sampler;
 layout(set = 0, binding = 1) uniform texture2D rendered;
-layout(set = 0, binding = 2, rgba8) uniform image2D out_image;
+layout(set = 0, binding = 2, rgba32f) uniform image2D out_image;
+
+layout(push_constant) uniform constants_t {
+    float current_sample;
+} constants;
 
 void main() {
     ivec2 resolution = imageSize(out_image);
     ivec2 idx = ivec2(gl_GlobalInvocationID.xy);
     vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
 
-    vec4 col = vec4(texture(sampler2D(rendered, Sampler), uv).rgb, 1.0);
+    vec3 col = texture(sampler2D(rendered, Sampler), uv).rgb;
 
-    imageStore(out_image, idx, col);
+    col /= constants.current_sample;
+
+    // Light Transform
+    col /= (col + vec3(1.));
+    col = pow(col, vec3(1. / 1.2));
+
+    imageStore(out_image, idx, vec4(col, 1.));
 }

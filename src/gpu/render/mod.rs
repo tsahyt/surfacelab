@@ -153,6 +153,7 @@ pub struct GPURender<B: Backend> {
     dimensions: hal::window::Extent2D,
     render_target: RenderTarget<B>,
     accum_target: RenderTarget<B>,
+    current_sample: usize,
 
     // View
     view: RenderView,
@@ -349,7 +350,7 @@ where
     B: Backend,
 {
     const UNIFORM_BUFFER_SIZE: u64 = 512;
-    const FINAL_FORMAT: hal::format::Format = hal::format::Format::Rgba8Srgb;
+    const FINAL_FORMAT: hal::format::Format = hal::format::Format::Rgba8Snorm;
 
     pub fn new(
         gpu: &Arc<Mutex<GPU<B>>>,
@@ -363,10 +364,11 @@ where
             gpu.clone(),
             hal::format::Format::Rgba32Sfloat,
             1,
+            false,
             monitor_dimensions,
         )?;
         let accum_target =
-            RenderTarget::new(gpu.clone(), Self::FINAL_FORMAT, 1, monitor_dimensions)?;
+            RenderTarget::new(gpu.clone(), Self::FINAL_FORMAT, 1, true, monitor_dimensions)?;
         let environment_maps = EnvironmentMaps::from_file(
             gpu.clone(),
             IRRADIANCE_SIZE,
@@ -417,12 +419,10 @@ where
                     },
                     DescriptorRangeDesc {
                         ty: DescriptorType::Image {
-                            ty: ImageDescriptorType::Storage {
-                                read_only: false
-                            },
+                            ty: ImageDescriptorType::Storage { read_only: false },
                         },
                         count: 1,
-                    }
+                    },
                 ],
                 DescriptorPoolCreateFlags::empty(),
             )
@@ -556,7 +556,9 @@ where
                 &[],
             )
         }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Main Descriptor Set Layout"))?;
+        .map_err(|_| {
+            InitializationError::ResourceAcquisition("Render Main Descriptor Set Layout")
+        })?;
 
         let main_descriptor_set = unsafe { descriptor_pool.allocate_set(&main_set_layout) }
             .map_err(|_| InitializationError::ResourceAcquisition("Render Descriptor Set"))?;
@@ -597,26 +599,27 @@ where
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 2,
                         ty: hal::pso::DescriptorType::Image {
-                            ty: hal::pso::ImageDescriptorType::Storage {
-                                read_only: false,
-                            },
+                            ty: hal::pso::ImageDescriptorType::Storage { read_only: false },
                         },
                         count: 1,
                         stage_flags: hal::pso::ShaderStageFlags::COMPUTE,
                         immutable_samplers: false,
                     },
-                ], &[])
+                ],
+                &[],
+            )
         }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Accumulation Descriptor Set Layout"))?;
+        .map_err(|_| {
+            InitializationError::ResourceAcquisition("Render Accumulation Descriptor Set Layout")
+        })?;
 
         let accum_descriptor_set = unsafe { descriptor_pool.allocate_set(&accum_set_layout) }
-            .map_err(|_| InitializationError::ResourceAcquisition("Render Accumulation Descriptor Set"))?;
+            .map_err(|_| {
+                InitializationError::ResourceAcquisition("Render Accumulation Descriptor Set")
+            })?;
 
-        let (accum_pipeline, accum_pipeline_layout) = Self::make_accum_pipeline(
-            &lock.device,
-            &accum_set_layout,
-            ACCUM_SHADER,
-            )?;
+        let (accum_pipeline, accum_pipeline_layout) =
+            Self::make_accum_pipeline(&lock.device, &accum_set_layout, ACCUM_SHADER)?;
 
         // Rendering setup
         let viewport = hal::pso::Viewport {
@@ -662,6 +665,7 @@ where
             },
             render_target,
             accum_target,
+            current_sample: 0,
 
             view: match ty {
                 crate::lang::RendererType::Renderer2D => RenderView::RenderView2D(RenderView2D {
@@ -753,7 +757,7 @@ where
                 format: Some(format),
                 samples: 1,
                 ops: hal::pass::AttachmentOps::new(
-                    hal::pass::AttachmentLoadOp::Clear,
+                    hal::pass::AttachmentLoadOp::Load,
                     hal::pass::AttachmentStoreOp::Store,
                 ),
                 stencil_ops: hal::pass::AttachmentOps::DONT_CARE,
@@ -870,17 +874,19 @@ where
         };
 
         let pipeline = unsafe {
-            device.create_compute_pipeline(
-                &hal::pso::ComputePipelineDesc::new(
-                    hal::pso::EntryPoint {
-                        entry: "main",
-                        module: &shader_module,
-                        specialization: hal::pso::Specialization::default(),
-                    },
-                    &pipeline_layout,
-                ),
-                None,
-            ).unwrap()
+            device
+                .create_compute_pipeline(
+                    &hal::pso::ComputePipelineDesc::new(
+                        hal::pso::EntryPoint {
+                            entry: "main",
+                            module: &shader_module,
+                            specialization: hal::pso::Specialization::default(),
+                        },
+                        &pipeline_layout,
+                    ),
+                    None,
+                )
+                .unwrap()
         };
 
         unsafe {
@@ -982,6 +988,11 @@ where
             device.unmap_memory(&*self.occupancy_memory);
         }
         Ok(())
+    }
+
+    pub fn reset_sampling(&mut self) {
+        self.current_sample = 0;
+        self.halton_sampler = HaltonSequence2D::default();
     }
 
     pub fn render(&mut self) {
@@ -1114,7 +1125,31 @@ where
                             hal::image::Layout::ShaderReadOnlyOptimal,
                         )),
                     },
-                ])
+                    DescriptorSetWrite {
+                        set: &self.accum_descriptor_set,
+                        binding: 0,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Sampler(&*self.sampler)),
+                    },
+                    DescriptorSetWrite {
+                        set: &self.accum_descriptor_set,
+                        binding: 1,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Image(
+                            &*self.render_target.image_view().lock().unwrap(),
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
+                    DescriptorSetWrite {
+                        set: &self.accum_descriptor_set,
+                        binding: 2,
+                        array_offset: 0,
+                        descriptors: Some(Descriptor::Image(
+                            &*self.accum_target.image_view().lock().unwrap(),
+                            hal::image::Layout::General,
+                        )),
+                    },
+                ]);
             }
 
             let cmd_buffer = unsafe {
@@ -1177,6 +1212,7 @@ where
                             families: None,
                             range: IMG_SLOT_RANGE.clone(),
                         },
+                        self.accum_target.barrier_to(hal::image::Layout::General),
                     ],
                 );
                 cmd_buffer.pipeline_barrier(
@@ -1208,15 +1244,52 @@ where
                     &self.main_render_pass,
                     &framebuffer,
                     self.viewport.rect,
-                    &[hal::command::ClearValue {
-                        color: hal::command::ClearColor {
-                            float32: [0.0, 0.0, 0.0, 0.0],
-                        },
-                    }],
+                    &[],
                     hal::command::SubpassContents::Inline,
                 );
+                if self.current_sample == 0 {
+                    cmd_buffer.clear_attachments(
+                        &[hal::command::AttachmentClear::Color {
+                            index: 0,
+                            value: hal::command::ClearColor {
+                                float32: [0.0, 0.0, 0.0, 0.0],
+                            },
+                        }],
+                        &[hal::pso::ClearRect {
+                            rect: self.viewport.rect,
+                            layers: 0..1,
+                        }],
+                    );
+                }
                 cmd_buffer.draw(0..6, 0..1);
                 cmd_buffer.end_render_pass();
+                cmd_buffer.bind_compute_descriptor_sets(
+                    &self.accum_pipeline_layout,
+                    0,
+                    std::iter::once(&self.accum_descriptor_set),
+                    &[],
+                );
+                cmd_buffer.bind_compute_pipeline(&self.accum_pipeline);
+                cmd_buffer.push_compute_constants(
+                    &self.accum_pipeline_layout,
+                    0,
+                    &[u32::from_ne_bytes(
+                        ((self.current_sample + 1) as f32).to_ne_bytes(),
+                    )],
+                );
+                cmd_buffer.dispatch([
+                    self.viewport.rect.w as u32,
+                    self.viewport.rect.h as u32,
+                    1,
+                ]);
+                cmd_buffer.pipeline_barrier(
+                    hal::pso::PipelineStage::COMPUTE_SHADER
+                        ..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
+                    hal::memory::Dependencies::empty(),
+                    &[self
+                        .accum_target
+                        .barrier_to(hal::image::Layout::ShaderReadOnlyOptimal)],
+                );
                 cmd_buffer.finish();
 
                 cmd_buffer
@@ -1235,10 +1308,12 @@ where
 
             unsafe { lock.device.destroy_framebuffer(framebuffer) };
         }
+
+        self.current_sample += 1;
     }
 
     pub fn target_view(&self) -> &Arc<Mutex<B::ImageView>> {
-        self.render_target.image_view()
+        self.accum_target.image_view()
     }
 
     /// Transfer an external (usually compute) image to an image slot.

@@ -547,6 +547,7 @@ where
             gpu.clone(),
             TARGET_FORMAT,
             MSAA_SAMPLES,
+            false,
             (dimensions.width, dimensions.height),
         )
         .expect("Failed to initialize render target");
@@ -935,6 +936,7 @@ where
             self.gpu.clone(),
             self.render_target.format(),
             self.render_target.samples(),
+            false,
             (self.dimensions.width, self.dimensions.height),
         )
         .expect("Failed to rebuild render target");

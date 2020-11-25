@@ -258,12 +258,14 @@ where
         for r in self.renderers.values_mut() {
             r.recreate_image_slots(new_size)
                 .expect("Failed to resize images in renderer");
+            r.reset_sampling();
         }
     }
 
     pub fn resize(&mut self, renderer_id: RendererID, width: u32, height: u32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_viewport_dimensions(width, height);
+            r.reset_sampling();
         }
     }
 
@@ -281,7 +283,7 @@ where
                     let lock = img.lock().unwrap();
                     r.transfer_image(&lock, layout, access, image_size, output_type);
                 }
-                r.render();
+                r.reset_sampling();
             }
         }
     }
@@ -295,28 +297,28 @@ where
     pub fn rotate_camera(&mut self, renderer_id: RendererID, phi: f32, theta: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.rotate_camera(phi, theta);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn zoom_camera(&mut self, renderer_id: RendererID, z: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.zoom_camera(z);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn move_light(&mut self, renderer_id: RendererID, x: f32, y: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.move_light(x, y);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn pan_camera(&mut self, renderer_id: RendererID, x: f32, y: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.pan_camera(x, y);
-            r.render();
+            r.reset_sampling();
         }
     }
 
@@ -329,70 +331,70 @@ where
                 MaterialChannel::Roughness => 3,
                 MaterialChannel::Metallic => 4,
             });
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn set_displacement_amount(&mut self, renderer_id: RendererID, displacement: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_displacement_amount(displacement);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn set_texture_scale(&mut self, renderer_id: RendererID, scale: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_texture_scale(scale);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn set_light_type(&mut self, renderer_id: RendererID, light_type: LightType) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_light_type(light_type);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn set_light_strength(&mut self, renderer_id: RendererID, strength: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_light_strength(strength);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn set_fog_strength(&mut self, renderer_id: RendererID, strength: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_fog_strength(strength);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn set_environment_strength(&mut self, renderer_id: RendererID, strength: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_environment_strength(strength);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn set_shadow(&mut self, renderer_id: RendererID, shadow: ParameterBool) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_shadow(shadow);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn set_ao(&mut self, renderer_id: RendererID, ao: ParameterBool) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_ao(ao);
-            r.render();
+            r.reset_sampling();
         }
     }
 
     pub fn load_hdri<P: AsRef<std::path::Path>>(&mut self, renderer_id: RendererID, path: P) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.load_environment(path);
-            r.render();
+            r.reset_sampling();
         }
     }
 }

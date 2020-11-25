@@ -219,6 +219,7 @@ where
         gpu: Arc<Mutex<GPU<B>>>,
         format: hal::format::Format,
         samples: hal::image::NumSamples,
+        compute_target: bool,
         dimensions: (u32, u32),
     ) -> Result<Self, InitializationError> {
         let lock = gpu.lock().unwrap();
@@ -230,7 +231,11 @@ where
                 1,
                 format,
                 hal::image::Tiling::Optimal,
-                hal::image::Usage::COLOR_ATTACHMENT | hal::image::Usage::SAMPLED,
+                if compute_target {
+                    hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE
+                } else {
+                    hal::image::Usage::COLOR_ATTACHMENT | hal::image::Usage::SAMPLED
+                },
                 hal::image::ViewCapabilities::empty(),
             )
         }
@@ -280,13 +285,10 @@ where
         &self.view
     }
 
-    pub fn barrier(&mut self) -> hal::memory::Barrier<B> {
+    pub fn barrier_to(&mut self, layout: hal::image::Layout) -> hal::memory::Barrier<B> {
         let barrier = hal::memory::Barrier::Image {
             states: (hal::image::Access::empty(), self.image_layout)
-                ..(
-                    hal::image::Access::COLOR_ATTACHMENT_WRITE,
-                    hal::image::Layout::ColorAttachmentOptimal,
-                ),
+                ..(hal::image::Access::COLOR_ATTACHMENT_WRITE, layout),
             target: &*self.image,
             families: None,
             range: COLOR_RANGE.clone(),
@@ -294,6 +296,10 @@ where
 
         self.image_layout = hal::image::Layout::ShaderReadOnlyOptimal;
         barrier
+    }
+
+    pub fn barrier(&mut self) -> hal::memory::Barrier<B> {
+        self.barrier_to(hal::image::Layout::ColorAttachmentOptimal)
     }
 
     pub fn samples(&self) -> hal::image::NumSamples {

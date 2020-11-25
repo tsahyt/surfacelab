@@ -374,10 +374,6 @@ vec3 render(vec3 ro, vec3 rd) {
 
     col += environment(n, rd, f0, albedo, roughness, metallic, ao);
 
-    // Light Transform
-    col /= (col + vec3(1.));
-    col = pow(col, vec3(1. / 1.2));
-
     #ifdef DBG_TEXGRID
     if (fract(p.x / tex_scale) < DBG_TEXGRID / tex_scale || fract(p.z / tex_scale) < DBG_TEXGRID / tex_scale) { col += vec3(0.3, 0.8, 0.); }
     #endif
@@ -426,12 +422,9 @@ void main() {
 
     vec3 col = vec3(0.);
 
-    for (int i = 0; i < 4; ++i) {
-        vec2 subpixel_offset = hammersley(i, 4) * (1.0 / resolution);
-        vec3 rd = camera(ro, center.xyz, uv + subpixel_offset, 1.);
-        col += render(ro, rd);
-    }
-    col /= 4.0;
+    vec2 subpixel_offset = (constants.sample_offset - vec2(1.0)) * (1.0 / resolution);
+    vec3 rd = camera(ro, center.xyz, uv + subpixel_offset, 1.);
+    col += render(ro, rd);
 
     outColor = vec4(col, 1.0);
 }
