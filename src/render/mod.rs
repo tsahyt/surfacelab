@@ -1,9 +1,9 @@
 use crate::{broker, gpu, lang::*};
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use strum::IntoEnumIterator;
-use smallvec::SmallVec;
 
 pub fn start_render_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
@@ -18,18 +18,24 @@ pub fn start_render_thread<B: gpu::Backend>(
             let mut render_manager = RenderManager::new(gpu);
 
             loop {
-                let message = if render_manager.must_step() {
-                    receiver.try_recv().ok()
+                let res = if let Some(message) = receiver.try_recv().ok() {
+                    render_manager.step(Some(message))
                 } else {
-                    receiver.recv().ok()
+                    if render_manager.must_step() {
+                        thread::sleep(std::time::Duration::from_millis(3));
+                        render_manager.step(None)
+                    } else {
+                        render_manager.step(receiver.recv().ok())
+                    }
                 };
 
-                if let Some(res) = render_manager.step(message) {
-                    for r in res {
-                        sender.send(r).unwrap();
+                match res {
+                    None => break,
+                    Some(res) => {
+                        for r in res {
+                            sender.send(r).unwrap();
+                        }
                     }
-                } else {
-                    break;
                 }
             }
 
@@ -105,18 +111,18 @@ where
 
         if let Some(ev) = event {
             response.append(&mut self.handle_event(&ev)?);
-        }
-
-        for id in self
-            .renderers
-            .iter()
-            .filter(|(_, renderer)| renderer.samples_to_go > 0)
-            .map(|x| x.0)
-            .copied()
-            .collect::<SmallVec<[_;4]>>()
-        {
-            self.redraw(id);
-            response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(id)));
+        } else {
+            for id in self
+                .renderers
+                .iter()
+                .filter(|(_, renderer)| renderer.samples_to_go > 0)
+                .map(|x| x.0)
+                .copied()
+                .collect::<SmallVec<[_; 4]>>()
+            {
+                self.redraw(id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(id)));
+            }
         }
 
         Some(response)
