@@ -5,6 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use strum::IntoEnumIterator;
 
+const MAX_SAMPLES: usize = 16;
+
 pub fn start_render_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,
@@ -48,7 +50,6 @@ pub fn start_render_thread<B: gpu::Backend>(
 struct Renderer<B: gpu::Backend> {
     gpu: gpu::render::GPURender<B>,
     samples_to_go: usize,
-    max_samples: usize,
 }
 
 impl<B: gpu::Backend> Renderer<B> {
@@ -56,12 +57,11 @@ impl<B: gpu::Backend> Renderer<B> {
         Self {
             gpu,
             samples_to_go: 0,
-            max_samples: 32,
         }
     }
 
     pub fn reset_sampling(&mut self) {
-        self.samples_to_go = self.max_samples;
+        self.samples_to_go = MAX_SAMPLES;
         self.gpu.reset_sampling();
     }
 }

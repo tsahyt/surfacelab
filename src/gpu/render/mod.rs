@@ -1212,16 +1212,14 @@ where
                             families: None,
                             range: IMG_SLOT_RANGE.clone(),
                         },
-                        self.accum_target.barrier_to(hal::image::Layout::General),
                     ],
                 );
                 cmd_buffer.pipeline_barrier(
                     hal::pso::PipelineStage::TOP_OF_PIPE
                         ..hal::pso::PipelineStage::COLOR_ATTACHMENT_OUTPUT,
                     hal::memory::Dependencies::empty(),
-                    std::iter::once(self.render_target.barrier()),
+                    std::iter::once(self.render_target.barrier_before()),
                 );
-
                 cmd_buffer.bind_graphics_descriptor_sets(
                     &self.main_pipeline_layout,
                     0,
@@ -1263,6 +1261,12 @@ where
                 }
                 cmd_buffer.draw(0..6, 0..1);
                 cmd_buffer.end_render_pass();
+                cmd_buffer.pipeline_barrier(
+                    hal::pso::PipelineStage::TOP_OF_PIPE
+                        ..hal::pso::PipelineStage::COMPUTE_SHADER,
+                    hal::memory::Dependencies::empty(),
+                    std::iter::once(self.accum_target.barrier_before()),
+                );
                 cmd_buffer.bind_compute_descriptor_sets(
                     &self.accum_pipeline_layout,
                     0,
@@ -1280,11 +1284,11 @@ where
                 cmd_buffer.dispatch([self.viewport.rect.w as u32, self.viewport.rect.h as u32, 1]);
                 cmd_buffer.pipeline_barrier(
                     hal::pso::PipelineStage::COMPUTE_SHADER
-                        ..hal::pso::PipelineStage::BOTTOM_OF_PIPE,
+                        ..hal::pso::PipelineStage::FRAGMENT_SHADER,
                     hal::memory::Dependencies::empty(),
                     &[self
                         .accum_target
-                        .barrier_to(hal::image::Layout::ShaderReadOnlyOptimal)],
+                        .barrier_after()],
                 );
                 cmd_buffer.finish();
 
