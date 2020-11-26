@@ -97,7 +97,8 @@ enum RenderView {
     RenderView3D(RenderView3D),
 }
 
-/// An iterator over a 2D (2,3)-Halton sequence for QMC
+/// An iterator over a 2D (2,3)-Halton sequence for QMC, except index 0 is added
+/// as (0.5, 0.5) to get a clean center sample first.
 pub struct HaltonSequence2D {
     idx: usize,
     base1: f32,
@@ -137,10 +138,15 @@ impl Iterator for HaltonSequence2D {
     type Item = (f32, f32);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let x = Self::halton_1d(self.idx as f32, self.base1);
-        let y = Self::halton_1d(self.idx as f32, self.base2);
-        self.idx += 1;
-        Some((x, y))
+        if self.idx == 0 {
+            self.idx += 1;
+            Some((0.5, 0.5))
+        } else {
+            let x = Self::halton_1d((self.idx - 1) as f32, self.base1);
+            let y = Self::halton_1d((self.idx - 1) as f32, self.base2);
+            self.idx += 1;
+            Some((x, y))
+        }
     }
 }
 
