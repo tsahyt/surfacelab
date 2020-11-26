@@ -666,6 +666,22 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::EnvironmentStrength,
                             expose_status: None,
                         },
+                        Parameter {
+                            name: "Ambient Occlusion".to_string(),
+                            control: Control::Toggle { def: false },
+                            transmitter: RenderField::AO,
+                            expose_status: None,
+                        },
+                        Parameter {
+                            name: "Fog Strength".to_string(),
+                            control: Control::Slider {
+                                value: 0.2,
+                                min: 0.0,
+                                max: 1.0,
+                            },
+                            transmitter: RenderField::FogStrength,
+                            expose_status: None,
+                        },
                     ],
                 },
                 ParamCategory {
@@ -694,22 +710,6 @@ impl ParamBoxDescription<RenderField> {
                             name: "Shadow".to_string(),
                             control: Control::Toggle { def: true },
                             transmitter: RenderField::Shadow,
-                            expose_status: None,
-                        },
-                        Parameter {
-                            name: "Ambient Occlusion".to_string(),
-                            control: Control::Toggle { def: false },
-                            transmitter: RenderField::AO,
-                            expose_status: None,
-                        },
-                        Parameter {
-                            name: "Fog Strength".to_string(),
-                            control: Control::Slider {
-                                value: 0.2,
-                                min: 0.0,
-                                max: 1.0,
-                            },
-                            transmitter: RenderField::FogStrength,
                             expose_status: None,
                         },
                     ],

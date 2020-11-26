@@ -55,7 +55,7 @@ layout(set = 0, binding = 10) uniform texture2D brdf_lut;
 const float PI = 3.141592654;
 
 const int MAX_STEPS = 300;
-const int MAX_STEPS_AO = 6;
+const int MAX_STEPS_AO = 48;
 const float MAX_DIST = 24.0;
 const float SURF_DIST = .0002;
 const float TEX_MIDLEVEL = .5;
@@ -119,7 +119,7 @@ float sdf(vec3 p, float lod) {
     float height = heightfield(p.xz, lod);
     float planeDist = p.y  - (height * displacement_amount);
 
-    return planeDist / 2.;
+    return planeDist;
 }
 
 // Compute the normal from the SDF numerically
@@ -167,7 +167,7 @@ float rayMarch(vec3 ro, vec3 rd, out float itrc) {
             // when inside the surface make sure to step back out again
             dO -= SURF_DIST;
         } else {
-            dO += dS / 1.;
+            dO += dS / 2.0;
         }
         itrc += 1;
     }
@@ -193,19 +193,46 @@ float rayShadowSoft(vec3 ro, vec3 rd, float w, out float itrc) {
     return smoothstep(0.5, 0.6, s);
 }
 
-// TODO: better AO
-float ambientOcclusion(vec3 p, vec3 n) {
-    float dO = SURF_DIST;
-    float ao = 1.;
-    float increment = 1. / MAX_STEPS_AO;
+float ambientOcclusionCone(vec3 p, vec3 n, vec3 cd, float lod) {
+    float max_dist = 2.0;
+    float cone_arc_width = PI / 16;
+    float occlusion = 0.0;
+    float t = SURF_DIST;
+    p.y += sdf(p, lod) * 2.0;
 
     for(int i = 0; i < MAX_STEPS_AO; i++) {
-        float d = max(sdf(p + n * dO, 5.), SURF_DIST);
-        ao = min(d / dO, ao);
-        dO += increment;
+        float dS = sdf(p + cd * t, lod);
+        float w = abs(t * cone_arc_width);
+
+        float local_occlusion = clamp(0, 1, ((w / 2) - dS) / w);
+        occlusion = max(occlusion, local_occlusion);
+
+        t += displacement_amount / MAX_STEPS_AO;
     }
 
-    return ao;
+    return 1.0 - occlusion;
+}
+
+float ambientOcclusion(vec3 p, vec3 n, float lod) {
+    // Halton sequence sample to cosine weighted hemisphere
+    float phi = constants.sample_offset.x * 2.0 * PI;
+    float cosTheta = sqrt(1.0 - constants.sample_offset.y);
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+
+    // tangent space sample
+    vec3 h = vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+
+    // orient at n, convert to world coordinates
+    vec3 up = abs(n.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, n));
+    vec3 bitangent = cross(n, tangent);
+
+    float ao = ambientOcclusionCone(p, n, tangent * h.x + bitangent * h.y + n * h.z, lod);
+    ao += ambientOcclusionCone(p, n, tangent * -h.x + bitangent * h.y + n * h.z, lod);
+    ao += ambientOcclusionCone(p, n, tangent * h.x + bitangent * -h.y + n * h.z, lod);
+    ao += ambientOcclusionCone(p, n, tangent * -h.x + bitangent * -h.y + n * h.z, lod);
+
+    return ao / 4.0;
 }
 
 // --- Shading
@@ -367,7 +394,7 @@ vec3 render(vec3 ro, vec3 rd) {
     // Ambient Light
     float ao;
     if (draw_ao == 1) {
-        ao = ambientOcclusion(p, n);
+        ao = ambientOcclusion(p, n, lod_by_distance(d));
     } else {
         ao = 1.;
     }
