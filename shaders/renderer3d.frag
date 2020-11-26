@@ -194,7 +194,6 @@ float rayShadowSoft(vec3 ro, vec3 rd, float w, out float itrc) {
 }
 
 float ambientOcclusionCone(vec3 p, vec3 n, vec3 cd, float lod) {
-    float max_dist = 2.0;
     float cone_arc_width = PI / 16;
     float occlusion = 0.0;
     float t = SURF_DIST;
