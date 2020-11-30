@@ -167,7 +167,9 @@ float rayMarch(vec3 ro, vec3 rd) {
     if (ro.y < displacement_amount) {
         t = 0;
     }
-    if (t < 0) { return INFINITY; }
+    if (t < 0 || length(ro + t * rd) > MAX_DIST) { return INFINITY; }
+
+    float bias = max(1, 2 * displacement_amount);
 
     for(int i = 0; i < MAX_STEPS; i++) {
         vec3 p = ro + t * rd;
@@ -177,7 +179,7 @@ float rayMarch(vec3 ro, vec3 rd) {
             // when inside the surface make sure to step back out again
             t -= SURF_DIST;
         } else {
-            t += d / 2.0;
+            t += d / bias;
         }
     }
 
@@ -381,6 +383,11 @@ vec3 render(vec3 ro, vec3 rd) {
     vec3 col = vec3(0.);
 
     float d = rayMarch(ro, rd);
+
+    // Early termination for non-surface pixels
+    vec3 world = textureLod(samplerCube(environment_map, s_Texture), rd, 0.5).rgb * environment_strength;
+    if (d == INFINITY) { return world; }
+
     vec3 p = ro + rd * d;
     vec3 n = normal(p, max(texel_size, world_space_sample_size(d)), lod_by_distance(d));
 
@@ -410,7 +417,6 @@ vec3 render(vec3 ro, vec3 rd) {
     #endif
 
     // View Falloff
-    vec3 world = textureLod(samplerCube(environment_map, s_Texture), rd, 0.5).rgb * environment_strength;
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
     col = mix(world, col, smoothstep(10., 9., length(p.xz)));
 
