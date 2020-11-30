@@ -169,7 +169,7 @@ float rayMarch(vec3 ro, vec3 rd) {
     }
     if (t < 0 || length(ro + t * rd) > MAX_DIST) { return INFINITY; }
 
-    float bias = max(1, 2 * displacement_amount);
+    float bias = max(1, 4 * displacement_amount);
 
     for(int i = 0; i < MAX_STEPS; i++) {
         vec3 p = ro + t * rd;
