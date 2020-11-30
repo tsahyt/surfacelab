@@ -630,7 +630,7 @@ impl ParamBoxDescription<RenderField> {
                             control: Control::Slider {
                                 value: 0.5,
                                 min: 0.0,
-                                max: 3.0,
+                                max: 2.0,
                             },
                             transmitter: RenderField::DisplacementAmount,
                             expose_status: None,
