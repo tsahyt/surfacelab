@@ -56,7 +56,7 @@ const float PI = 3.141592654;
 
 const float INFINITY = 1.0 / 0.0;
 const int MAX_STEPS = 300;
-const int MAX_STEPS_AO = 48;
+const int MAX_STEPS_AO = 32;
 const float MAX_DIST = 24.0;
 const float SURF_DIST = .0002;
 const float TEX_MIDLEVEL = .5;
@@ -188,7 +188,7 @@ float rayMarch(vec3 ro, vec3 rd) {
 
 float rayShadowSoft(vec3 ro, vec3 rd, float w) {
     float s = 1.0;
-    float t = 256 * SURF_DIST;
+    float t = 128 * SURF_DIST;
 
     for(int i = 0; i < MAX_STEPS_AO; i++) {
         float d = sdf(ro + rd * t, lod_by_distance(t) + SHADOW_LOD_OFFSET);
@@ -205,8 +205,7 @@ float rayShadowSoft(vec3 ro, vec3 rd, float w) {
 float ambientOcclusionCone(vec3 p, vec3 n, vec3 cd, float lod) {
     float cone_arc_width = PI / 16;
     float occlusion = 0.0;
-    float t = SURF_DIST;
-    p.y += sdf(p, lod) * 2.0;
+    float t = 128 * SURF_DIST;
 
     for(int i = 0; i < MAX_STEPS_AO; i++) {
         float d = sdf(p + cd * t, lod);
