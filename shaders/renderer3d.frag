@@ -189,12 +189,14 @@ float rayMarch(vec3 ro, vec3 rd) {
 float rayShadowSoft(vec3 ro, vec3 rd, float w) {
     float s = 1.0;
     float t = 128 * SURF_DIST;
+    float max_dist = outer_bound(ro, rd, displacement_amount);
 
     for(int i = 0; i < MAX_STEPS_AO; i++) {
-        float d = sdf(ro + rd * t, lod_by_distance(t) + SHADOW_LOD_OFFSET);
+        vec3 p = ro + rd * t;
+        float d = sdf(p, lod_by_distance(t) + SHADOW_LOD_OFFSET);
         s = min(s, 0.5 + 0.5 * d / (w * t));
-        if (s < 0) break;
-        t += displacement_amount / MAX_STEPS_AO;
+        if (s < 0 || t > max_dist) break;
+        t += max_dist / MAX_STEPS_AO;
     }
 
     s = max(s, 0.0);
@@ -206,6 +208,7 @@ float ambientOcclusionCone(vec3 p, vec3 n, vec3 cd, float lod) {
     float cone_arc_width = PI / 16;
     float occlusion = 0.0;
     float t = 128 * SURF_DIST;
+    float max_dist = outer_bound(p, cd, displacement_amount);
 
     for(int i = 0; i < MAX_STEPS_AO; i++) {
         float d = sdf(p + cd * t, lod);
@@ -214,7 +217,8 @@ float ambientOcclusionCone(vec3 p, vec3 n, vec3 cd, float lod) {
         float local_occlusion = clamp(0, 1, ((w / 2) - d) / w);
         occlusion = max(occlusion, local_occlusion);
 
-        t += displacement_amount / MAX_STEPS_AO;
+        if (t > max_dist) break;
+        t += max_dist / MAX_STEPS_AO;
     }
 
     return 1.0 - occlusion;
