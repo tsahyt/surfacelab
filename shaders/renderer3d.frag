@@ -184,17 +184,15 @@ float rayMarch(vec3 ro, vec3 rd) {
     return t;
 }
 
-float rayShadowSoft(vec3 ro, vec3 rd, float w, out float itrc) {
+float rayShadowSoft(vec3 ro, vec3 rd, float w) {
     float s = 1.0;
-    float dO = 256 * SURF_DIST;
+    float t = 256 * SURF_DIST;
 
-    for(int i = 0; i < MAX_STEPS / 4; i++) {
-        // get distance and correct for cases where we are already inside because of faulty starting points
-        float dS = max(sdf(ro + rd * dO, lod_by_distance(dO) + SHADOW_LOD_OFFSET), SURF_DIST);
-        s = min(s, 0.5 + 0.5 * dS / (w * dO));
-        if (s < 0 || dO > MAX_DIST) break;
-        dO += 2 * tex_scale * dS;
-        itrc += 1;
+    for(int i = 0; i < MAX_STEPS_AO; i++) {
+        float d = sdf(ro + rd * t, lod_by_distance(t) + SHADOW_LOD_OFFSET);
+        s = min(s, 0.5 + 0.5 * d / (w * t));
+        if (s < 0) break;
+        t += displacement_amount / MAX_STEPS_AO;
     }
 
     s = max(s, 0.0);
@@ -209,10 +207,10 @@ float ambientOcclusionCone(vec3 p, vec3 n, vec3 cd, float lod) {
     p.y += sdf(p, lod) * 2.0;
 
     for(int i = 0; i < MAX_STEPS_AO; i++) {
-        float dS = sdf(p + cd * t, lod);
+        float d = sdf(p + cd * t, lod);
         float w = abs(t * cone_arc_width);
 
-        float local_occlusion = clamp(0, 1, ((w / 2) - dS) / w);
+        float local_occlusion = clamp(0, 1, ((w / 2) - d) / w);
         occlusion = max(occlusion, local_occlusion);
 
         t += displacement_amount / MAX_STEPS_AO;
@@ -300,7 +298,7 @@ float sun_light(vec3 p, vec3 lightPos, out vec3 direction) {
     return 2.0;
 }
 
-vec3 light(vec3 p, vec3 n, vec3 rd, vec3 f0, float d, vec3 albedo, float metallic, float roughness, vec3 lightColor, vec3 lightPos, float w, out float sitr) {
+vec3 light(vec3 p, vec3 n, vec3 rd, vec3 f0, float d, vec3 albedo, float metallic, float roughness, vec3 lightColor, vec3 lightPos, float w) {
     rd *= -1;
 
     // Radiance
@@ -337,7 +335,7 @@ vec3 light(vec3 p, vec3 n, vec3 rd, vec3 f0, float d, vec3 albedo, float metalli
     // Shadow
     float shadow;
     if (draw_shadow == 1) {
-        shadow = rayShadowSoft(p, l, w, sitr);
+        shadow = rayShadowSoft(p, l, w);
     } else {
         shadow = 1.;
     }
@@ -380,7 +378,6 @@ float world_space_sample_size(float d) {
 }
 
 vec3 render(vec3 ro, vec3 rd) {
-    float sitrc = 0.;
     vec3 col = vec3(0.);
 
     float d = rayMarch(ro, rd);
@@ -396,7 +393,7 @@ vec3 render(vec3 ro, vec3 rd) {
     vec3 f0 = vec3(0.04);
     f0 = mix(f0, albedo, metallic);
 
-    col += light(p, n, rd, f0, d, albedo, metallic, roughness, vec3(1.), light_pos.xyz, 1., sitrc);
+    col += light(p, n, rd, f0, d, albedo, metallic, roughness, vec3(1.), light_pos.xyz, 1.);
 
     // Ambient Light
     float ao;
