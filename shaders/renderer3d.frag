@@ -54,6 +54,7 @@ layout(set = 0, binding = 10) uniform texture2D brdf_lut;
 
 const float PI = 3.141592654;
 
+const float INFINITY = 1.0 / 0.0;
 const int MAX_STEPS = 300;
 const int MAX_STEPS_AO = 48;
 const float MAX_DIST = 24.0;
@@ -122,6 +123,10 @@ float sdf(vec3 p, float lod) {
     return planeDist;
 }
 
+float outer_bound(vec3 ro, vec3 rd, float d) {
+    return - (ro.y - d) / rd.y;
+}
+
 // Compute the normal from the SDF numerically
 vec3 sdf_normal(vec3 p, float s) {
     float d = sdf(p, 3.);
@@ -156,23 +161,27 @@ vec3 normal(vec3 p, float s, float lod) {
 
 // --- Ray Marching
 
-float rayMarch(vec3 ro, vec3 rd, out float itrc) {
-    float dO = 0.;
+float rayMarch(vec3 ro, vec3 rd) {
+    float t = outer_bound(ro, rd, displacement_amount);
+
+    if (ro.y < displacement_amount) {
+        t = 0;
+    }
+    if (t < 0) { return INFINITY; }
 
     for(int i = 0; i < MAX_STEPS; i++) {
-        vec3 p = ro + rd * dO;
-        float dS = sdf(p, lod_by_distance(dO));
-        if (dO > MAX_DIST || abs(dS) < (SURF_DIST * dO)) { break; }
-        if (dS < 0.) {
+        vec3 p = ro + t * rd;
+        float d = sdf(p, lod_by_distance(t));
+        if (length(p) > MAX_DIST || abs(d) < (SURF_DIST * t)) { break; }
+        if (d < 0.) {
             // when inside the surface make sure to step back out again
-            dO -= SURF_DIST;
+            t -= SURF_DIST;
         } else {
-            dO += dS / 2.0;
+            t += d / 2.0;
         }
-        itrc += 1;
     }
 
-    return dO;
+    return t;
 }
 
 float rayShadowSoft(vec3 ro, vec3 rd, float w, out float itrc) {
@@ -371,11 +380,10 @@ float world_space_sample_size(float d) {
 }
 
 vec3 render(vec3 ro, vec3 rd) {
-    float itrc = 0.;
     float sitrc = 0.;
     vec3 col = vec3(0.);
 
-    float d = rayMarch(ro, rd, itrc);
+    float d = rayMarch(ro, rd);
     vec3 p = ro + rd * d;
     vec3 n = normal(p, max(texel_size, world_space_sample_size(d)), lod_by_distance(d));
 
@@ -408,16 +416,6 @@ vec3 render(vec3 ro, vec3 rd) {
     vec3 world = textureLod(samplerCube(environment_map, s_Texture), rd, 0.5).rgb * environment_strength;
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
     col = mix(world, col, smoothstep(10., 9., length(p.xz)));
-
-    // debugging views
-    #ifdef DBG_ITERCNT
-    col.r += step(DBG_ITERCNT, itrc);
-    col.g += step(DBG_ITERCNT, sitrc);
-    #endif
-
-    #ifdef DBG_AO
-    col.r += 1 - ao;
-    #endif
 
     return col;
 }
