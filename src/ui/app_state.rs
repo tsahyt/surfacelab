@@ -5,8 +5,6 @@ use conrod_core::{image, text, Point};
 use enum_dispatch::*;
 use std::collections::{HashMap, VecDeque};
 
-use super::i18n;
-
 #[enum_dispatch]
 trait Collection {
     fn rename_collection(&mut self, to: &Resource<r::Graph>);
@@ -816,7 +814,6 @@ pub enum RenderImage {
 }
 
 pub struct App {
-    pub language: i18n::Language,
     pub graphs: NodeCollections,
     pub active_node_element: Option<petgraph::graph::NodeIndex>,
     pub active_layer_element: Option<usize>,
@@ -840,7 +837,6 @@ pub struct App {
 impl App {
     pub fn new(monitor_size: (u32, u32)) -> Self {
         Self {
-            language: i18n::Language::default(),
             graphs: NodeCollections::new(),
             active_node_element: None,
             active_layer_element: None,

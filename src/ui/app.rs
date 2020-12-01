@@ -3,6 +3,7 @@ use conrod_core::*;
 use dialog::{DialogBox, FileSelection, FileSelectionMode};
 
 use super::app_state::*;
+use super::i18n::*;
 
 const PANEL_COLOR: Color = color::DARK_CHARCOAL;
 const PANEL_GAP: Scalar = 0.5;
@@ -74,6 +75,7 @@ pub struct Gui<B: crate::gpu::Backend> {
     app_state: App,
     sender: BrokerSender<Lang>,
     image_map: image::Map<crate::gpu::ui::Image<B>>,
+    language: Language,
 }
 
 impl<B> Gui<B>
@@ -93,11 +95,12 @@ where
             app_state: App::new(monitor_size),
             sender,
             image_map,
+            language: Language::default(),
         }
     }
 
     pub fn label_text(&self, id: &'static str) -> std::borrow::Cow<str> {
-        self.app_state.language.get_message(id)
+        self.language.get_message(id)
     }
 
     pub fn image_map(&self) -> &image::Map<crate::gpu::ui::Image<B>> {
@@ -637,7 +640,7 @@ where
         use strum::VariantNames;
 
         let graphs = &mut self.app_state.graphs;
-        let lang = &self.app_state.language;
+        let lang = &self.language;
 
         for _press in icon_button(IconName::SOLID, self.fonts.icon_font)
             .label_font_size(14)
@@ -986,7 +989,7 @@ where
                     for ev in param_box::ParamBox::new(
                         &mut self.app_state.render_params,
                         &renderer_id,
-                        &self.app_state.language,
+                        &self.language,
                     )
                     .parent(id)
                     .w_of(id)
@@ -1009,7 +1012,7 @@ where
     fn parameter_section(&mut self, ui: &mut UiCell) {
         use super::param_box::*;
 
-        let lang = &self.app_state.language;
+        let lang = &self.language;
         let graphs = &mut self.app_state.graphs;
 
         if let Some((description, resource)) = graphs.active_parameters(
@@ -1076,7 +1079,7 @@ where
         for ev in param_box::ParamBox::new(
             self.app_state.graphs.get_collection_parameters_mut(),
             &active_graph,
-            &self.app_state.language,
+            &self.language,
         )
         .parent(self.ids.graph_settings_canvas)
         .w_of(self.ids.graph_settings_canvas)
@@ -1109,7 +1112,7 @@ where
         while let Some(row) = rows.next(ui) {
             let widget = exposed_param_row::ExposedParamRow::new(
                 &mut exposed_params[row.i].1,
-                &self.app_state.language,
+                &self.language,
             )
             .icon_font(self.fonts.icon_font);
 
@@ -1156,7 +1159,7 @@ where
         for ev in param_box::ParamBox::new(
             &mut self.app_state.surface_params,
             &(),
-            &self.app_state.language,
+            &self.language,
         )
         .parent(self.ids.surface_settings_canvas)
         .w_of(self.ids.surface_settings_canvas)
@@ -1200,7 +1203,7 @@ where
             let widget = export_row::ExportRow::new(
                 &self.app_state.export_entries[row.i],
                 &self.app_state.registered_sockets,
-                &self.app_state.language,
+                &self.language,
             );
             let mut updated_spec = false;
             match row.set(widget, ui) {
