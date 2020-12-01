@@ -354,6 +354,7 @@ pub enum RenderField {
     Shadow,
     AO,
     EnvironmentStrength,
+    EnvironmentBlur,
     HDRI,
 }
 
@@ -379,6 +380,9 @@ impl MessageWriter for RenderField {
             ),
             RenderField::EnvironmentStrength => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::EnvironmentStrength(*renderer, f32::from_data(data)),
+            ),
+            RenderField::EnvironmentBlur => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::EnvironmentBlur(*renderer, f32::from_data(data)),
             ),
             RenderField::Shadow => super::Lang::UserRenderEvent(super::UserRenderEvent::SetShadow(
                 *renderer,
@@ -664,6 +668,16 @@ impl ParamBoxDescription<RenderField> {
                                 max: 4.0,
                             },
                             transmitter: RenderField::EnvironmentStrength,
+                            expose_status: None,
+                        },
+                        Parameter {
+                            name: "hdri-blur".to_string(),
+                            control: Control::Slider {
+                                value: 0.5,
+                                min: 0.0,
+                                max: 6.0,
+                            },
+                            transmitter: RenderField::EnvironmentBlur,
                             expose_status: None,
                         },
                         Parameter {

@@ -201,6 +201,11 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
+            Lang::UserRenderEvent(UserRenderEvent::EnvironmentBlur(id, blur)) => {
+                self.set_environment_blur(*id, *blur);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
             Lang::UserRenderEvent(UserRenderEvent::LightType(id, light_type)) => {
                 self.set_light_type(*id, *light_type);
                 self.redraw(*id);
@@ -407,6 +412,13 @@ where
     pub fn set_environment_strength(&mut self, renderer_id: RendererID, strength: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_environment_strength(strength);
+            r.reset_sampling();
+        }
+    }
+
+    pub fn set_environment_blur(&mut self, renderer_id: RendererID, blur: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_environment_blur(blur);
             r.reset_sampling();
         }
     }

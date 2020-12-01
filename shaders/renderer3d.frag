@@ -27,6 +27,7 @@ layout(set = 0, binding = 2) uniform Camera {
     float texel_size;
 
     float environment_strength;
+    float environment_blur;
 
     uint light_type;
     float light_strength;
@@ -399,7 +400,7 @@ vec3 render(vec3 ro, vec3 rd) {
     float d = rayMarch(ro, rd);
 
     // Early termination for non-surface pixels
-    vec3 world = textureLod(samplerCube(environment_map, s_Texture), rd, 0.5).rgb * environment_strength;
+    vec3 world = textureLod(samplerCube(environment_map, s_Texture), rd, environment_blur).rgb * environment_strength;
     if (d == INFINITY) { return world; }
 
     vec3 p = ro + rd * d;

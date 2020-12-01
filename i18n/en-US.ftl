@@ -30,6 +30,7 @@ tex-scale = Texture Scale
 environment = Environment
 hdri-file = HDRi File
 hdri-strength = Strength
+hdri-blur = Blur
 ao = Ambient Occlusion
 fog-strength = Fog Strength
 light = Light

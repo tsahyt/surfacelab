@@ -1156,15 +1156,11 @@ where
     fn surface_section(&mut self, ui: &mut UiCell) {
         use super::{export_row, param_box, util::*};
 
-        for ev in param_box::ParamBox::new(
-            &mut self.app_state.surface_params,
-            &(),
-            &self.language,
-        )
-        .parent(self.ids.surface_settings_canvas)
-        .w_of(self.ids.surface_settings_canvas)
-        .mid_top()
-        .set(self.ids.surface_param_box, ui)
+        for ev in param_box::ParamBox::new(&mut self.app_state.surface_params, &(), &self.language)
+            .parent(self.ids.surface_settings_canvas)
+            .w_of(self.ids.surface_settings_canvas)
+            .mid_top()
+            .set(self.ids.surface_param_box, ui)
         {
             if let param_box::Event::ChangeParameter(event) = ev {
                 self.sender.send(event).unwrap()
