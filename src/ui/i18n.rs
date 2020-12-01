@@ -47,6 +47,6 @@ impl Language {
 
 impl Default for Language {
     fn default() -> Self {
-        Self::from_langid(langid!("de-DE"))
+        Self::from_langid(langid!("en-US"))
     }
 }
