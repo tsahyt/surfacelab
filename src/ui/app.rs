@@ -332,9 +332,18 @@ where
             .set(self.ids.window_canvas, ui);
 
         tabs::Tabs::new(&[
-            (self.ids.parameter_canvas, &self.label_text("parameters")),
-            (self.ids.graph_settings_canvas, &self.label_text("graph")),
-            (self.ids.surface_settings_canvas, &self.label_text("surface")),
+            (
+                self.ids.parameter_canvas,
+                &self.label_text("parameters-tab"),
+            ),
+            (
+                self.ids.graph_settings_canvas,
+                &self.label_text("graph-tab"),
+            ),
+            (
+                self.ids.surface_settings_canvas,
+                &self.label_text("surface-tab"),
+            ),
         ])
         .color(PANEL_COLOR)
         .label_color(color::WHITE)
@@ -383,8 +392,8 @@ where
             .parent(self.ids.top_bar_canvas)
             .set(self.ids.open_surface, ui)
         {
-            if let Ok(Some(path)) = FileSelection::new("Select a surface file")
-                .title("Open Surface")
+            if let Ok(Some(path)) = FileSelection::new(self.label_text("surface-file-select"))
+                .title(self.label_text("surface-open-title"))
                 .mode(FileSelectionMode::Open)
                 .show()
             {
@@ -407,8 +416,8 @@ where
             .parent(self.ids.top_bar_canvas)
             .set(self.ids.save_surface, ui)
         {
-            if let Ok(Some(path)) = FileSelection::new("Select a surface file")
-                .title("Save Surface")
+            if let Ok(Some(path)) = FileSelection::new(self.label_text("surface-file-select"))
+                .title(self.label_text("surface-save-title"))
                 .mode(FileSelectionMode::Save)
                 .show()
             {
@@ -430,8 +439,8 @@ where
             .parent(self.ids.top_bar_canvas)
             .set(self.ids.export_surface, ui)
         {
-            if let Ok(Some(path)) = FileSelection::new("Select a base name")
-                .title("Export Surface")
+            if let Ok(Some(path)) = FileSelection::new(self.label_text("base-name-select"))
+                .title(self.label_text("surface-export-title"))
                 .mode(FileSelectionMode::Save)
                 .show()
             {
@@ -1036,7 +1045,7 @@ where
             offset = 32.0;
 
             for _click in widget::Button::new()
-                .label("Convert To Graph")
+                .label(&self.label_text("convert-to-graph"))
                 .label_font_size(10)
                 .parent(self.ids.graph_settings_canvas)
                 .padded_w_of(self.ids.graph_settings_canvas, 16.0)
@@ -1066,7 +1075,7 @@ where
             }
         }
 
-        widget::Text::new("Exposed Parameters")
+        widget::Text::new(&self.label_text("exposed-parameters"))
             .parent(self.ids.graph_settings_canvas)
             .color(color::WHITE)
             .font_size(12)
@@ -1139,7 +1148,7 @@ where
             }
         }
 
-        widget::Text::new("Export Specification")
+        widget::Text::new(&self.label_text("export-spec"))
             .parent(self.ids.surface_settings_canvas)
             .mid_top_with_margin(96.0)
             .color(color::WHITE)

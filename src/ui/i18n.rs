@@ -1,10 +1,10 @@
 use fluent::*;
 use maplit::*;
-use unic_langid::{langid, LanguageIdentifier};
 use std::borrow::Cow;
+use unic_langid::{langid, LanguageIdentifier};
 
 pub struct Language {
-    bundle: FluentBundle<FluentResource>
+    bundle: FluentBundle<FluentResource>,
 }
 
 impl Language {
@@ -12,16 +12,17 @@ impl Language {
         let res = FluentResource::try_new(ftl.to_owned()).expect("Failed to parse FTL");
         let mut bundle = FluentBundle::new(&[lang]);
 
-        bundle.add_resource(res).expect("Failed to add FTL resources");
+        bundle
+            .add_resource(res)
+            .expect("Failed to add FTL resources");
 
-        Self {
-            bundle
-        }
+        Self { bundle }
     }
 
     pub fn from_langid(lang: LanguageIdentifier) -> Self {
         let langs = hashmap! {
-            langid!("en-US") => include_str!("../../i18n/en-US.ftl")
+            langid!("en-US") => include_str!("../../i18n/en-US.ftl"),
+            langid!("de-DE") => include_str!("../../i18n/de-DE.ftl")
         };
 
         Self::new(
