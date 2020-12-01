@@ -96,6 +96,10 @@ where
         }
     }
 
+    pub fn label_text(&self, id: &'static str) -> std::borrow::Cow<str> {
+        self.app_state.language.get_message(id)
+    }
+
     pub fn image_map(&self) -> &image::Map<crate::gpu::ui::Image<B>> {
         &self.image_map
     }
@@ -328,9 +332,9 @@ where
             .set(self.ids.window_canvas, ui);
 
         tabs::Tabs::new(&[
-            (self.ids.parameter_canvas, "Parameters"),
-            (self.ids.graph_settings_canvas, "Graph"),
-            (self.ids.surface_settings_canvas, "Surface"),
+            (self.ids.parameter_canvas, &self.label_text("parameters")),
+            (self.ids.graph_settings_canvas, &self.label_text("graph")),
+            (self.ids.surface_settings_canvas, &self.label_text("surface")),
         ])
         .color(PANEL_COLOR)
         .label_color(color::WHITE)
