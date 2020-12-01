@@ -1,11 +1,14 @@
-use crate::{broker, gpu, lang::*};
+use crate::{broker, gpu, lang::*, util::*};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Instant;
 use strum::IntoEnumIterator;
 
 const MAX_SAMPLES: usize = 16;
+
+const TIMING_DECAY: f64 = 0.15;
 
 pub fn start_render_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
@@ -50,6 +53,7 @@ pub fn start_render_thread<B: gpu::Backend>(
 struct Renderer<B: gpu::Backend> {
     gpu: gpu::render::GPURender<B>,
     samples_to_go: usize,
+    frametime_ema: EMA<f64>
 }
 
 impl<B: gpu::Backend> Renderer<B> {
@@ -57,6 +61,7 @@ impl<B: gpu::Backend> Renderer<B> {
         Self {
             gpu,
             samples_to_go: 0,
+            frametime_ema: EMA::new(0., TIMING_DECAY)
         }
     }
 
@@ -259,7 +264,9 @@ where
             )
             .map_err(|e| format!("{:?}", e))?,
         );
+        let now = Instant::now();
         renderer.render();
+        renderer.frametime_ema.update(now.elapsed().as_micros() as f64);
         let view = gpu::BrokerImageView::from::<B>(renderer.target_view());
         self.renderers.insert(id, renderer);
 
@@ -272,7 +279,9 @@ where
 
     pub fn redraw_all(&mut self) {
         for r in self.renderers.values_mut() {
+            let now = Instant::now();
             r.render();
+            r.frametime_ema.update(now.elapsed().as_micros() as f64);
             r.samples_to_go = r.samples_to_go.saturating_sub(1);
         }
     }
@@ -286,7 +295,9 @@ where
 
     pub fn redraw(&mut self, renderer_id: RendererID) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            let now = Instant::now();
             r.render();
+            r.frametime_ema.update(now.elapsed().as_micros() as f64);
             r.samples_to_go = r.samples_to_go.saturating_sub(1);
         } else {
             log::error!("Trying to redraw on non-existent renderer!");

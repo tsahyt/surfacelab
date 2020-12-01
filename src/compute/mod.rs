@@ -1,4 +1,4 @@
-use crate::{broker, gpu, lang::*};
+use crate::{broker, gpu, lang::*, util::*};
 
 use image::{imageops, ImageBuffer, Luma, Rgb, Rgba};
 use strum::IntoEnumIterator;
@@ -12,6 +12,8 @@ use std::thread;
 use std::time::Instant;
 
 pub mod shaders;
+
+const TIMING_DECAY: f64 = 0.15;
 
 pub fn start_compute_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
@@ -100,19 +102,17 @@ struct SocketData<B: gpu::Backend> {
     /// Exponential Moving Average over computation time for this set of
     /// sockets, to get some estimate of how long computation may take in the
     /// future. Measured in seconds, for easy conversion from Durations.
-    time_ema: f64,
+    time_ema: EMA<f64>,
 
     thumbnail: Option<gpu::compute::ThumbnailIndex>,
 }
 
 impl<B: gpu::Backend> SocketData<B> {
-    const TIMING_DECAY: f64 = 0.15;
-
     pub fn update_time_ema(&mut self, seconds: f64) {
-        self.time_ema = self.time_ema + Self::TIMING_DECAY * (seconds - self.time_ema);
+        self.time_ema.update(seconds);
         log::trace!(
             "Average execution time {0:.1} µs, last {1:.1} µs",
-            self.time_ema * 1e6,
+            self.time_ema.get() * 1e6,
             seconds * 1e6
         );
     }
@@ -176,7 +176,7 @@ where
             known_outputs: HashSet::new(),
             output_size: size,
             inputs: HashMap::new(),
-            time_ema: 0.0,
+            time_ema: EMA::new(0.0, TIMING_DECAY),
             thumbnail: None,
         })
     }
