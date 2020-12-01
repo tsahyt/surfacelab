@@ -287,10 +287,13 @@ where
         &self.view
     }
 
-    fn barrier_to(&mut self, access: hal::image::Access, layout: hal::image::Layout) -> hal::memory::Barrier<B> {
+    fn barrier_to(
+        &mut self,
+        access: hal::image::Access,
+        layout: hal::image::Layout,
+    ) -> hal::memory::Barrier<B> {
         let barrier = hal::memory::Barrier::Image {
-            states: (hal::image::Access::empty(), self.image_layout)
-                ..(access, layout),
+            states: (hal::image::Access::empty(), self.image_layout)..(access, layout),
             target: &*self.image,
             families: None,
             range: COLOR_RANGE.clone(),
@@ -307,14 +310,23 @@ where
 
     pub fn barrier_before(&mut self) -> hal::memory::Barrier<B> {
         if self.compute_target {
-            self.barrier_to(hal::image::Access::SHADER_WRITE, hal::image::Layout::General)
+            self.barrier_to(
+                hal::image::Access::SHADER_WRITE,
+                hal::image::Layout::General,
+            )
         } else {
-            self.barrier_to(hal::image::Access::COLOR_ATTACHMENT_WRITE, hal::image::Layout::ColorAttachmentOptimal)
+            self.barrier_to(
+                hal::image::Access::COLOR_ATTACHMENT_WRITE,
+                hal::image::Layout::ColorAttachmentOptimal,
+            )
         }
     }
 
     pub fn barrier_after(&mut self) -> hal::memory::Barrier<B> {
-        self.barrier_to(hal::image::Access::SHADER_READ, hal::image::Layout::ShaderReadOnlyOptimal)
+        self.barrier_to(
+            hal::image::Access::SHADER_READ,
+            hal::image::Layout::ShaderReadOnlyOptimal,
+        )
     }
 
     pub fn samples(&self) -> hal::image::NumSamples {

@@ -1268,8 +1268,7 @@ where
                 cmd_buffer.draw(0..6, 0..1);
                 cmd_buffer.end_render_pass();
                 cmd_buffer.pipeline_barrier(
-                    hal::pso::PipelineStage::TOP_OF_PIPE
-                        ..hal::pso::PipelineStage::COMPUTE_SHADER,
+                    hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::COMPUTE_SHADER,
                     hal::memory::Dependencies::empty(),
                     std::iter::once(self.accum_target.barrier_before()),
                 );
@@ -1292,9 +1291,7 @@ where
                     hal::pso::PipelineStage::COMPUTE_SHADER
                         ..hal::pso::PipelineStage::FRAGMENT_SHADER,
                     hal::memory::Dependencies::empty(),
-                    &[self
-                        .accum_target
-                        .barrier_after()],
+                    &[self.accum_target.barrier_after()],
                 );
                 cmd_buffer.finish();
 
