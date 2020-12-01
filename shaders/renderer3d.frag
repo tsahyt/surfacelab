@@ -57,6 +57,7 @@ const float PI = 3.141592654;
 const float INFINITY = 1.0 / 0.0;
 const int MAX_STEPS = 300;
 const int MAX_STEPS_AO = 32;
+const int MAX_STEPS_SHD = 64;
 const float MAX_DIST = 24.0;
 const float SURF_DIST = .0002;
 const float TEX_MIDLEVEL = .5;
@@ -76,6 +77,13 @@ const float MAX_REFLECTION_LOD = 5.0;
 
 #define LOD_BIAS .5
 #define SHADOW_LOD_OFFSET 2.
+
+float hash13(vec3 p3)
+{
+    p3 = fract(p3 * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
 
 float lod_by_distance(float d) {
     return log(d * LOD_BIAS);
@@ -190,13 +198,16 @@ float rayShadowSoft(vec3 ro, vec3 rd, float w) {
     float s = 1.0;
     float t = 128 * SURF_DIST;
     float max_dist = outer_bound(ro, rd, displacement_amount);
+    float step_size = max_dist / MAX_STEPS_SHD;
 
-    for(int i = 0; i < MAX_STEPS_AO; i++) {
+    t += hash13(rd + vec3(constants.sample_offset, 0.)) * step_size;
+
+    for(int i = 0; i < MAX_STEPS_SHD; i++) {
         vec3 p = ro + rd * t;
         float d = sdf(p, lod_by_distance(t) + SHADOW_LOD_OFFSET);
         s = min(s, 0.5 + 0.5 * d / (w * t));
         if (s < 0 || t > max_dist) break;
-        t += max_dist / MAX_STEPS_AO;
+        t += (step_size + (d / 2.)) / 2.;
     }
 
     s = max(s, 0.0);
