@@ -636,6 +636,9 @@ where
         use super::util::*;
         use strum::VariantNames;
 
+        let graphs = &mut self.app_state.graphs;
+        let lang = &self.app_state.language;
+
         for _press in icon_button(IconName::SOLID, self.fonts.icon_font)
             .label_font_size(14)
             .label_color(color::WHITE)
@@ -662,7 +665,7 @@ where
             self.app_state.add_layer_modal = Some(LayerFilter::Layer(LayerType::Fx));
         }
 
-        let active_collection = match self.app_state.graphs.get_active_collection_mut() {
+        let active_collection = match graphs.get_active_collection_mut() {
             NodeCollection::Layers(l) => l,
             _ => panic!("Layers UI built for graph"),
         };
@@ -729,7 +732,7 @@ where
             }
 
             if let Some(new_value) = widget::Slider::new(active_layer.opacity, 0.0, 1.0)
-                .label("Opacity")
+                .label(&lang.get_message("opacity"))
                 .label_font_size(10)
                 .down(8.0)
                 .padded_w_of(self.ids.edit_canvas, 8.0)
@@ -758,7 +761,7 @@ where
 
             widget::Slider::new(1.0, 0.0, 1.0)
                 .enabled(false)
-                .label("Opacity")
+                .label(&lang.get_message("opacity"))
                 .label_font_size(10)
                 .down(8.0)
                 .padded_w_of(self.ids.edit_canvas, 8.0)
@@ -980,13 +983,16 @@ where
                 .set(self.ids.render_modal, ui)
             {
                 modal::Event::ChildEvent((_, id)) => {
-                    for ev in
-                        param_box::ParamBox::new(&mut self.app_state.render_params, &renderer_id)
-                            .parent(id)
-                            .w_of(id)
-                            .mid_top()
-                            .icon_font(self.fonts.icon_font)
-                            .set(self.ids.render_params, ui)
+                    for ev in param_box::ParamBox::new(
+                        &mut self.app_state.render_params,
+                        &renderer_id,
+                        &self.app_state.language,
+                    )
+                    .parent(id)
+                    .w_of(id)
+                    .mid_top()
+                    .icon_font(self.fonts.icon_font)
+                    .set(self.ids.render_params, ui)
                     {
                         if let param_box::Event::ChangeParameter(lang) = ev {
                             self.sender.send(lang).unwrap()
@@ -1003,8 +1009,14 @@ where
     fn parameter_section(&mut self, ui: &mut UiCell) {
         use super::param_box::*;
 
-        if let Some((description, resource)) = self.app_state.active_parameters() {
-            for ev in ParamBox::new(description, resource)
+        let lang = &self.app_state.language;
+        let graphs = &mut self.app_state.graphs;
+
+        if let Some((description, resource)) = graphs.active_parameters(
+            self.app_state.active_node_element,
+            self.app_state.active_layer_element,
+        ) {
+            for ev in ParamBox::new(description, resource, lang)
                 .parent(self.ids.parameter_canvas)
                 .w_of(self.ids.parameter_canvas)
                 .mid_top()
@@ -1064,6 +1076,7 @@ where
         for ev in param_box::ParamBox::new(
             self.app_state.graphs.get_collection_parameters_mut(),
             &active_graph,
+            &self.app_state.language,
         )
         .parent(self.ids.graph_settings_canvas)
         .w_of(self.ids.graph_settings_canvas)
@@ -1137,11 +1150,15 @@ where
     fn surface_section(&mut self, ui: &mut UiCell) {
         use super::{export_row, param_box, util::*};
 
-        for ev in param_box::ParamBox::new(&mut self.app_state.surface_params, &())
-            .parent(self.ids.surface_settings_canvas)
-            .w_of(self.ids.surface_settings_canvas)
-            .mid_top()
-            .set(self.ids.surface_param_box, ui)
+        for ev in param_box::ParamBox::new(
+            &mut self.app_state.surface_params,
+            &(),
+            &self.app_state.language,
+        )
+        .parent(self.ids.surface_settings_canvas)
+        .w_of(self.ids.surface_settings_canvas)
+        .mid_top()
+        .set(self.ids.surface_param_box, ui)
         {
             if let param_box::Event::ChangeParameter(event) = ev {
                 self.sender.send(event).unwrap()

@@ -73,9 +73,9 @@ impl OperatorParamBox for NormalMap {
         ParamBoxDescription {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
-                name: "Basic Parameters",
+                name: "basic-parameters",
                 parameters: vec![Parameter {
-                    name: "Strength".to_string(),
+                    name: "strength".to_string(),
                     transmitter: Field(NormalMap::STRENGTH.to_string()),
                     control: Control::Slider {
                         value: self.strength,

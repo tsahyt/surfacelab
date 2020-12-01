@@ -74,10 +74,10 @@ impl OperatorParamBox for Image {
         ParamBoxDescription {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
-                name: "Basic Parameters",
+                name: "basic-parameters",
                 parameters: vec![
                     Parameter {
-                        name: "Image Path".to_string(),
+                        name: "image-path".to_string(),
                         transmitter: Field(Self::PATH.to_string()),
                         control: Control::File {
                             selected: if self.path.file_name().is_none() {
@@ -89,7 +89,7 @@ impl OperatorParamBox for Image {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "Color Space".to_string(),
+                        name: "color-space".to_string(),
                         transmitter: Field(Self::COLOR_SPACE.to_string()),
                         control: Control::Enum {
                             selected: self.color_space as usize,
@@ -163,9 +163,9 @@ impl OperatorParamBox for Output {
         ParamBoxDescription {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
-                name: "Basic Parameters",
+                name: "basic-parameters",
                 parameters: vec![Parameter {
-                    name: "Output Type".to_string(),
+                    name: "output-type".to_string(),
                     transmitter: Field(Self::OUTPUT_TYPE.to_string()),
                     control: Control::Enum {
                         selected: self.output_type as usize,
@@ -235,9 +235,9 @@ impl OperatorParamBox for Input {
         ParamBoxDescription {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
-                name: "Basic Parameters",
+                name: "basic-parameters",
                 parameters: vec![Parameter {
-                    name: "Input Type".to_string(),
+                    name: "input-type".to_string(),
                     transmitter: Field(Self::INPUT_TYPE.to_string()),
                     control: Control::Enum {
                         selected: self.input_type as usize,

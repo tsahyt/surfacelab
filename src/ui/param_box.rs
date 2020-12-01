@@ -2,6 +2,7 @@ use super::color_picker::ColorPicker;
 use super::color_ramp::ColorRamp;
 use super::util::*;
 use crate::lang::*;
+use crate::ui::i18n::Language;
 
 use conrod_core::*;
 use dialog::{DialogBox, FileSelection, FileSelectionMode};
@@ -10,22 +11,28 @@ use palette::{Hsv, LinSrgb};
 use std::any::TypeId;
 use std::collections::HashMap;
 
-#[derive(Debug, WidgetCommon)]
+#[derive(WidgetCommon)]
 pub struct ParamBox<'a, T: MessageWriter> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     resource: &'a T::Resource,
     style: Style,
     description: &'a mut ParamBoxDescription<T>,
+    language: &'a Language,
 }
 
 impl<'a, T: MessageWriter> ParamBox<'a, T> {
-    pub fn new(description: &'a mut ParamBoxDescription<T>, resource: &'a T::Resource) -> Self {
+    pub fn new(
+        description: &'a mut ParamBoxDescription<T>,
+        resource: &'a T::Resource,
+        language: &'a Language,
+    ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             description,
             resource,
+            language,
         }
     }
 
@@ -199,7 +206,7 @@ where
         let mut label_count = 0;
         let mut control_idx = ControlCounts::default();
         for (j, category) in self.description.categories.iter_mut().enumerate() {
-            widget::Text::new(&category.name)
+            widget::Text::new(&self.language.get_message(category.name))
                 .parent(id)
                 .color(color::WHITE)
                 .font_size(12)
@@ -240,7 +247,7 @@ where
                     }
                 }
 
-                widget::Text::new(&parameter.name)
+                widget::Text::new(&self.language.get_message(&parameter.name))
                     .parent(id)
                     .color(color::WHITE)
                     .font_size(10)

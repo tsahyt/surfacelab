@@ -34,19 +34,19 @@ impl Language {
         )
     }
 
-    pub fn get_message(&self, id: &'static str) -> Cow<str> {
+    pub fn get_message(&self, id: &str) -> Cow<str> {
         if let Some(msg) = self.bundle.get_message(id) {
             let pattern = msg.value.expect("Message without value");
             let mut errors = vec![];
             self.bundle.format_pattern(pattern, None, &mut errors)
         } else {
-            Cow::Borrowed(id)
+            Cow::Owned(id.to_owned())
         }
     }
 }
 
 impl Default for Language {
     fn default() -> Self {
-        Self::from_langid(langid!("en-US"))
+        Self::from_langid(langid!("de-DE"))
     }
 }

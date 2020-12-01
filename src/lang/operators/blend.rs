@@ -115,10 +115,10 @@ impl OperatorParamBox for Blend {
         ParamBoxDescription {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
-                name: "Basic Parameters",
+                name: "basic-parameters",
                 parameters: vec![
                     Parameter {
-                        name: "Blend Mode".to_string(),
+                        name: "blend-mode".to_string(),
                         transmitter: Field(Blend::BLEND_MODE.to_string()),
                         control: Control::Enum {
                             selected: self.blend_mode as usize,
@@ -127,7 +127,7 @@ impl OperatorParamBox for Blend {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "Clamp".to_string(),
+                        name: "clamp".to_string(),
                         transmitter: Field(Blend::CLAMP_OUTPUT.to_string()),
                         control: Control::Toggle {
                             def: self.clamp_output == 1,
@@ -135,7 +135,7 @@ impl OperatorParamBox for Blend {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "Mix".to_string(),
+                        name: "mix".to_string(),
                         transmitter: Field(Blend::MIX.to_string()),
                         control: Control::Slider {
                             value: self.mix,
@@ -145,7 +145,7 @@ impl OperatorParamBox for Blend {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "Sharpness".to_string(),
+                        name: "sharpness".to_string(),
                         transmitter: Field(Blend::SHARPNESS.to_string()),
                         control: Control::Slider {
                             value: self.sharpness,
@@ -241,10 +241,10 @@ impl OperatorParamBox for BlendMasked {
         ParamBoxDescription {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
-                name: "Basic Parameters",
+                name: "basic-parameters",
                 parameters: vec![
                     Parameter {
-                        name: "Blend Mode".to_string(),
+                        name: "blend-mode".to_string(),
                         transmitter: Field(BlendMasked::BLEND_MODE.to_string()),
                         control: Control::Enum {
                             selected: self.blend_mode as usize,
@@ -253,7 +253,7 @@ impl OperatorParamBox for BlendMasked {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "Clamp".to_string(),
+                        name: "clamp".to_string(),
                         transmitter: Field(BlendMasked::CLAMP_OUTPUT.to_string()),
                         control: Control::Toggle {
                             def: self.clamp_output == 1,
@@ -261,7 +261,7 @@ impl OperatorParamBox for BlendMasked {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "Sharpness".to_string(),
+                        name: "sharpness".to_string(),
                         transmitter: Field(BlendMasked::SHARPNESS.to_string()),
                         control: Control::Slider {
                             value: self.sharpness,

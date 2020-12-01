@@ -462,6 +462,25 @@ impl NodeCollections {
         }
     }
 
+    pub fn active_parameters(
+        &mut self,
+        active_node_element: Option<petgraph::graph::NodeIndex>,
+        active_layer_element: Option<usize>,
+    ) -> Option<(&mut ParamBoxDescription<MessageWriters>, &Resource<r::Node>)> {
+        match &mut self.active_collection {
+            NodeCollection::Graph(g) => {
+                let ae = active_node_element?;
+                let node = g.graph.node_weight_mut(ae)?;
+                Some((&mut node.param_box, &node.resource))
+            }
+            NodeCollection::Layers(l) => {
+                let ae = active_layer_element?;
+                let layer = l.layers.get_mut(ae)?;
+                Some((&mut layer.operator_pbox, &layer.resource))
+            }
+        }
+    }
+
     pub fn set_active(&mut self, collection: Resource<r::Graph>) {
         self.collections
             .insert(self.active_resource.clone(), self.active_collection.clone());
@@ -842,23 +861,6 @@ impl App {
                 .collect(),
             registered_sockets: Vec::new(),
             export_entries: Vec::new(),
-        }
-    }
-
-    pub fn active_parameters(
-        &mut self,
-    ) -> Option<(&mut ParamBoxDescription<MessageWriters>, &Resource<r::Node>)> {
-        match &mut self.graphs.active_collection {
-            NodeCollection::Graph(g) => {
-                let ae = self.active_node_element?;
-                let node = g.graph.node_weight_mut(ae)?;
-                Some((&mut node.param_box, &node.resource))
-            }
-            NodeCollection::Layers(l) => {
-                let ae = self.active_layer_element?;
-                let layer = l.layers.get_mut(ae)?;
-                Some((&mut layer.operator_pbox, &layer.resource))
-            }
         }
     }
 

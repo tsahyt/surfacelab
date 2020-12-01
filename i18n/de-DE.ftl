@@ -14,3 +14,63 @@ exposed-parameters = Sichtbare Parameter
 export-spec = Exportspezifikation
 
 opacity = Deckkraft
+
+renderer = Renderer
+geometry = Geometrie
+displacement-amount = Displacementstärke
+tex-scale = Textureskalierung
+environment = Umgebungslicht
+hdri-file = HDRi Datei
+hdri-strength = HDRi Lichtstärke
+ao = Ambient Occlusion
+fog-strength = Nebelstärke
+light = Licht
+light-type = Lichttyp
+light-strength = Lichtstärke
+shadow = Schatten
+
+node = Knoten
+node-attributes = Knotenattribute
+node-resource = Knotenresource
+node-size = Dimensionen
+node-abs-size = Absolute Dimensionierung
+
+graph-attributes = Graphattribute
+graph-name = Graphname
+
+layer = Layer
+output-channels = Outputkanäle
+input-channels = Inputkanäle
+
+surface-attributes = Oberflächenattribute
+parent-size = Oberflächendimensionen
+
+basic-parameters = Basisparameter
+
+image-path = Pfad
+color-space = Farbraum
+
+output-type = Outputtyp
+input-type = Inputtyp
+strength = Stärke
+
+blend-mode = Blendmodus
+clamp = Festhalten
+sharpness = Schärfe
+mix = Mischverhältnis
+
+grayscale-conversion-mode = Graustufenmodus
+
+scale = Skalierung
+octaves = Oktaven
+attenuation = Abschwächung
+
+gradient = Gradient
+
+range-mode = Rangemodus
+from-min = Von Min
+from-max = Von Max
+to-min = Zu Min
+to-max = Zu Max
+
+color = Farbe

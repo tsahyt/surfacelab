@@ -107,10 +107,10 @@ impl OperatorParamBox for Range {
         ParamBoxDescription {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
-                name: "Basic Parameters",
+                name: "basic-parameteres",
                 parameters: vec![
                     Parameter {
-                        name: "Range Mode".to_string(),
+                        name: "range-mode".to_string(),
                         transmitter: Field(Range::RANGE_MODE.to_string()),
                         control: Control::Enum {
                             selected: self.range_mode as usize,
@@ -119,7 +119,7 @@ impl OperatorParamBox for Range {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "Clamp".to_string(),
+                        name: "clamp".to_string(),
                         transmitter: Field(Range::CLAMP_OUTPUT.to_string()),
                         control: Control::Toggle {
                             def: self.clamp_output == 1,
@@ -127,7 +127,7 @@ impl OperatorParamBox for Range {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "From Min".to_string(),
+                        name: "from-min".to_string(),
                         transmitter: Field(Range::FROM_MIN.to_string()),
                         control: Control::Slider {
                             value: self.from_min,
@@ -137,7 +137,7 @@ impl OperatorParamBox for Range {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "From Max".to_string(),
+                        name: "from-max".to_string(),
                         transmitter: Field(Range::FROM_MAX.to_string()),
                         control: Control::Slider {
                             value: self.from_max,
@@ -147,7 +147,7 @@ impl OperatorParamBox for Range {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "To Min".to_string(),
+                        name: "to-min".to_string(),
                         transmitter: Field(Range::TO_MIN.to_string()),
                         control: Control::Slider {
                             value: self.to_min,
@@ -157,7 +157,7 @@ impl OperatorParamBox for Range {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "To Max".to_string(),
+                        name: "to-max".to_string(),
                         transmitter: Field(Range::TO_MAX.to_string()),
                         control: Control::Slider {
                             value: self.to_max,

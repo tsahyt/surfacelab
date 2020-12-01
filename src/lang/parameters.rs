@@ -577,7 +577,7 @@ where
 impl ParamBoxDescription<ResourceField> {
     pub fn node_parameters(res: &Resource<Node>, scalable: bool) -> Self {
         let mut parameters = vec![Parameter {
-            name: "Node Resource".to_string(),
+            name: "node-resource".to_string(),
             transmitter: ResourceField::Name,
             control: Control::Entry {
                 value: res
@@ -591,7 +591,7 @@ impl ParamBoxDescription<ResourceField> {
         }];
         if scalable {
             parameters.push(Parameter {
-                name: "Size".to_string(),
+                name: "node-size".to_string(),
                 transmitter: ResourceField::Size,
                 control: Control::DiscreteSlider {
                     value: 0,
@@ -601,16 +601,16 @@ impl ParamBoxDescription<ResourceField> {
                 expose_status: None,
             });
             parameters.push(Parameter {
-                name: "Absolute Size".to_string(),
+                name: "node-abs-size".to_string(),
                 transmitter: ResourceField::AbsoluteSize,
                 control: Control::Toggle { def: false },
                 expose_status: None,
             });
         }
         ParamBoxDescription {
-            box_title: "Node Attributes".to_string(),
+            box_title: "node-attributes".to_string(),
             categories: vec![ParamCategory {
-                name: "Node",
+                name: "node",
                 parameters,
             }],
         }
@@ -620,13 +620,13 @@ impl ParamBoxDescription<ResourceField> {
 impl ParamBoxDescription<RenderField> {
     pub fn render_parameters() -> Self {
         Self {
-            box_title: "Renderer".to_string(),
+            box_title: "renderer".to_string(),
             categories: vec![
                 ParamCategory {
-                    name: "Geometry",
+                    name: "geometry",
                     parameters: vec![
                         Parameter {
-                            name: "Displacement Amount".to_string(),
+                            name: "displacement-amount".to_string(),
                             control: Control::Slider {
                                 value: 0.5,
                                 min: 0.0,
@@ -636,7 +636,7 @@ impl ParamBoxDescription<RenderField> {
                             expose_status: None,
                         },
                         Parameter {
-                            name: "Texture Scale".to_string(),
+                            name: "tex-scale".to_string(),
                             control: Control::Slider {
                                 value: 8.0,
                                 min: 0.0,
@@ -648,16 +648,16 @@ impl ParamBoxDescription<RenderField> {
                     ],
                 },
                 ParamCategory {
-                    name: "Environment",
+                    name: "environment",
                     parameters: vec![
                         Parameter {
-                            name: "HDRI File".to_string(),
+                            name: "hdri-file".to_string(),
                             control: Control::File { selected: None },
                             transmitter: RenderField::HDRI,
                             expose_status: None,
                         },
                         Parameter {
-                            name: "Strength".to_string(),
+                            name: "hdri-strength".to_string(),
                             control: Control::Slider {
                                 value: 1.0,
                                 min: 0.0,
@@ -667,13 +667,13 @@ impl ParamBoxDescription<RenderField> {
                             expose_status: None,
                         },
                         Parameter {
-                            name: "Ambient Occlusion".to_string(),
+                            name: "ao".to_string(),
                             control: Control::Toggle { def: false },
                             transmitter: RenderField::AO,
                             expose_status: None,
                         },
                         Parameter {
-                            name: "Fog Strength".to_string(),
+                            name: "fog-strength".to_string(),
                             control: Control::Slider {
                                 value: 0.2,
                                 min: 0.0,
@@ -685,10 +685,10 @@ impl ParamBoxDescription<RenderField> {
                     ],
                 },
                 ParamCategory {
-                    name: "Light",
+                    name: "light",
                     parameters: vec![
                         Parameter {
-                            name: "Light Type".to_string(),
+                            name: "light-type".to_string(),
                             control: Control::Enum {
                                 selected: 0,
                                 variants: vec!["Point Light".to_string(), "Sun Light".to_string()],
@@ -697,7 +697,7 @@ impl ParamBoxDescription<RenderField> {
                             expose_status: None,
                         },
                         Parameter {
-                            name: "Strength".to_string(),
+                            name: "light-strength".to_string(),
                             control: Control::Slider {
                                 value: 100.0,
                                 min: 0.0,
@@ -707,7 +707,7 @@ impl ParamBoxDescription<RenderField> {
                             expose_status: None,
                         },
                         Parameter {
-                            name: "Shadow".to_string(),
+                            name: "shadow".to_string(),
                             control: Control::Toggle { def: true },
                             transmitter: RenderField::Shadow,
                             expose_status: None,
@@ -722,11 +722,11 @@ impl ParamBoxDescription<RenderField> {
 impl ParamBoxDescription<GraphField> {
     pub fn graph_parameters(name: &str) -> Self {
         Self {
-            box_title: "Graph".to_string(),
+            box_title: "graph-tab".to_string(),
             categories: vec![ParamCategory {
-                name: "Graph Attributes",
+                name: "graph-attributes",
                 parameters: vec![Parameter {
-                    name: "Graph Name".to_string(),
+                    name: "graph-name".to_string(),
                     control: Control::Entry {
                         value: name.to_owned(),
                     },
@@ -747,9 +747,9 @@ impl ParamBoxDescription<LayerField> {
         use strum::IntoEnumIterator;
 
         Self {
-            box_title: "Layer".to_string(),
+            box_title: "layer".to_string(),
             categories: vec![ParamCategory {
-                name: "Output Channels",
+                name: "output-channels",
                 parameters: super::MaterialChannel::iter()
                     .map(|chan| Parameter {
                         name: chan.to_string(),
@@ -776,10 +776,10 @@ impl ParamBoxDescription<LayerField> {
         use strum::IntoEnumIterator;
 
         Self {
-            box_title: "Layer".to_string(),
+            box_title: "layer".to_string(),
             categories: vec![
                 ParamCategory {
-                    name: "Input Channels",
+                    name: "input-channels",
                     parameters: operator
                         .inputs()
                         .keys()
@@ -798,7 +798,7 @@ impl ParamBoxDescription<LayerField> {
                         .collect(),
                 },
                 ParamCategory {
-                    name: "Output Channels",
+                    name: "output-channels",
                     parameters: super::MaterialChannel::iter()
                         .map(|chan| Parameter {
                             name: chan.to_string(),
@@ -820,11 +820,11 @@ impl ParamBoxDescription<LayerField> {
 impl ParamBoxDescription<SurfaceField> {
     pub fn surface_parameters() -> Self {
         Self {
-            box_title: "Surface".to_string(),
+            box_title: "surface-tab".to_string(),
             categories: vec![ParamCategory {
-                name: "Surface Attributes",
+                name: "surface-attributes",
                 parameters: vec![Parameter {
-                    name: "Parent Size".to_string(),
+                    name: "parent-size".to_string(),
                     control: Control::DiscreteSlider {
                         value: 1,
                         min: 1,
