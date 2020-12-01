@@ -1107,8 +1107,11 @@ where
             .set(self.ids.exposed_param_list, ui);
 
         while let Some(row) = rows.next(ui) {
-            let widget = exposed_param_row::ExposedParamRow::new(&mut exposed_params[row.i].1)
-                .icon_font(self.fonts.icon_font);
+            let widget = exposed_param_row::ExposedParamRow::new(
+                &mut exposed_params[row.i].1,
+                &self.app_state.language,
+            )
+            .icon_font(self.fonts.icon_font);
 
             if let Some(ev) = row.set(widget, ui) {
                 match ev {
@@ -1197,6 +1200,7 @@ where
             let widget = export_row::ExportRow::new(
                 &self.app_state.export_entries[row.i],
                 &self.app_state.registered_sockets,
+                &self.app_state.language,
             );
             let mut updated_spec = false;
             match row.set(widget, ui) {

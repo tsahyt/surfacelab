@@ -10,8 +10,16 @@ surface-export-title = Surface exportieren
 
 convert-to-graph = Zu Graph konvertieren
 exposed-parameters = Sichtbare Parameter
+exposed-field = Feld
+exposed-title = Titel
 
 export-spec = Exportspezifikation
+file-prefix = Dateiprefix
+export-type = Typ
+export-channel-r = Kanal R
+export-channel-g = Kanal G
+export-channel-b = Kanal B
+export-channel-a = Kanal A
 
 opacity = Deckkraft
 

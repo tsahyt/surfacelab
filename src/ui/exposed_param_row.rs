@@ -1,5 +1,6 @@
 use super::util::*;
 use crate::lang::*;
+use crate::ui::i18n::Language;
 use conrod_core::*;
 
 #[derive(WidgetCommon)]
@@ -8,14 +9,16 @@ pub struct ExposedParamRow<'a> {
     common: widget::CommonBuilder,
     param: &'a mut GraphParameter,
     style: Style,
+    language: &'a Language,
 }
 
 impl<'a> ExposedParamRow<'a> {
-    pub fn new(param: &'a mut GraphParameter) -> Self {
+    pub fn new(param: &'a mut GraphParameter, language: &'a Language) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             param,
+            language,
         }
     }
 
@@ -92,7 +95,7 @@ impl<'a> Widget for ExposedParamRow<'a> {
             .color(color::GRAY)
             .set(args.state.control, args.ui);
 
-        widget::Text::new("Field")
+        widget::Text::new(&self.language.get_message("exposed-field"))
             .parent(args.id)
             .top_left_with_margin(32.0)
             .font_size(10)
@@ -118,7 +121,7 @@ impl<'a> Widget for ExposedParamRow<'a> {
             }
         }
 
-        widget::Text::new("Title")
+        widget::Text::new(&self.language.get_message("exposed-title"))
             .parent(args.id)
             .font_size(10)
             .down(16.0)

@@ -1,4 +1,5 @@
 use crate::lang::{ChannelSpec, ExportSpec, ImageChannel, Resource, Socket};
+use crate::ui::i18n::Language;
 use conrod_core::*;
 
 pub struct RegisteredSocket {
@@ -42,16 +43,22 @@ pub struct ExportRow<'a> {
     spec: &'a ExportSpec,
     sockets: &'a [RegisteredSocket],
     style: Style,
+    language: &'a Language,
 }
 
 impl<'a> ExportRow<'a> {
-    pub fn new(spec: &'a (String, ExportSpec), sockets: &'a [RegisteredSocket]) -> Self {
+    pub fn new(
+        spec: &'a (String, ExportSpec),
+        sockets: &'a [RegisteredSocket],
+        language: &'a Language,
+    ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             name: &spec.0,
             spec: &spec.1,
             sockets,
+            language,
         }
     }
 }
@@ -117,7 +124,7 @@ impl<'a> Widget for ExportRow<'a> {
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let mut res = None;
 
-        widget::Text::new("File Prefix")
+        widget::Text::new(&self.language.get_message("file-prefix"))
             .parent(args.id)
             .color(color::WHITE)
             .font_size(10)
@@ -137,7 +144,7 @@ impl<'a> Widget for ExportRow<'a> {
             }
         }
 
-        widget::Text::new("Type")
+        widget::Text::new(&self.language.get_message("export-type"))
             .parent(args.id)
             .color(color::WHITE)
             .font_size(10)
@@ -173,7 +180,7 @@ impl<'a> Widget for ExportRow<'a> {
 
         if let Some(idx) = channel_widgets(
             args.id,
-            "Channel R",
+            &self.language.get_message("export-channel-r"),
             args.state.ids.channel_r_label,
             args.state.ids.channel_r_selector,
             &self.sockets,
@@ -188,7 +195,7 @@ impl<'a> Widget for ExportRow<'a> {
         if gb {
             if let Some(idx) = channel_widgets(
                 args.id,
-                "Channel G",
+                &self.language.get_message("export-channel-g"),
                 args.state.ids.channel_g_label,
                 args.state.ids.channel_g_selector,
                 &self.sockets,
@@ -202,7 +209,7 @@ impl<'a> Widget for ExportRow<'a> {
             }
             if let Some(idx) = channel_widgets(
                 args.id,
-                "Channel B",
+                &self.language.get_message("export-channel-b"),
                 args.state.ids.channel_b_label,
                 args.state.ids.channel_b_selector,
                 &self.sockets,
@@ -219,7 +226,7 @@ impl<'a> Widget for ExportRow<'a> {
         if a {
             if let Some(idx) = channel_widgets(
                 args.id,
-                "Channel A",
+                &self.language.get_message("export-channel-a"),
                 args.state.ids.channel_a_label,
                 args.state.ids.channel_a_selector,
                 &self.sockets,
