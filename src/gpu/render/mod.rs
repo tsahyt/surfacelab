@@ -1,5 +1,5 @@
 use super::RenderTarget;
-use crate::lang::{LightType, ObjectType, ParameterBool};
+use crate::lang::{LightType, ParameterBool};
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
@@ -67,8 +67,6 @@ struct RenderView3D {
 
     shadow: ParameterBool,
     ao: ParameterBool,
-
-    object_type: ObjectType,
 }
 
 impl Default for RenderView3D {
@@ -77,25 +75,18 @@ impl Default for RenderView3D {
             resolution: [1024.0, 1024.0],
             center: [0., 0., 0., 0.],
             light_pos: [0., 3., 0., 0.],
-
             phi: 1.,
             theta: 1.,
             rad: 6.,
-
             displacement: 0.5,
             tex_scale: 8.,
             texel_size: 8. / 1024.,
-
             environment_strength: 1.0,
-
             light_type: LightType::PointLight,
             light_strength: 100.0,
             fog_strength: 0.2,
-
             shadow: 1,
             ao: 0,
-
-            object_type: ObjectType::Plane,
         }
     }
 }

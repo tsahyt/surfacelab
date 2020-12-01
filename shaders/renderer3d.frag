@@ -34,8 +34,6 @@ layout(set = 0, binding = 2) uniform Camera {
 
     uint draw_shadow;
     uint draw_ao;
-
-    uint object_type;
 };
 
 layout(push_constant) uniform constants_t {
@@ -44,10 +42,6 @@ layout(push_constant) uniform constants_t {
 
 const uint LIGHT_TYPE_POINT = 0;
 const uint LIGHT_TYPE_SUN = 1;
-
-const uint OBJECT_TYPE_PLANE = 0;
-const uint OBJECT_TYPE_CYLINDER = 1;
-const uint OBJECT_TYPE_BOX = 2;
 
 layout(set = 0, binding = 3) uniform texture2D t_Displ;
 layout(set = 0, binding = 4) uniform texture2D t_Albedo;
@@ -122,52 +116,15 @@ float metallic(vec2 p, float lod) {
     }
 }
 
-float sdCappedCylinder( vec3 p, float h, float r )
-{
-    vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(h,r);
-    return min(max(d.x,d.y),0.0) + length(max(d,0.0));
-}
-
-float sdRoundBox( vec3 p, vec3 b, float r )
-{
-  vec3 q = abs(p) - b;
-  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
-}
-
 float sdf(vec3 p, float lod) {
-    float primitive;
+    float height = heightfield(p.xz, lod);
+    float planeDist = p.y  - (height * displacement_amount);
 
-    switch (object_type) {
-        case OBJECT_TYPE_PLANE: { primitive = p.y; break; }
-        case OBJECT_TYPE_CYLINDER: { primitive = sdCappedCylinder(p, 0.5, 1); break; }
-        case OBJECT_TYPE_BOX: { primitive = sdRoundBox(p, vec3(0.9), 0.1); break; }
-    }
-
-    float displacement = heightfield(p.xz, lod) * displacement_amount;
-
-    return primitive - displacement;;
-}
-
-// axis aligned box centered at the origin, with size boxSize
-vec2 boxIntersection(vec3 ro, vec3 rd, vec3 boxSize)
-{
-    vec3 m = 1.0 / rd; // can precompute if traversing a set of aligned boxes
-    vec3 n = m * ro;   // can precompute if traversing a set of aligned boxes
-    vec3 k = abs(m) * boxSize;
-    vec3 t1 = -n - k;
-    vec3 t2 = -n + k;
-    float tN = max(max(t1.x, t1.y), t1.z);
-    float tF = min(min(t2.x, t2.y), t2.z);
-    if(tN>tF || tF < 0.0) return vec2(- 1.0); // no intersection
-    return vec2(tN, tF);
+    return planeDist;
 }
 
 float outer_bound(vec3 ro, vec3 rd, float d) {
-    switch (object_type) {
-        case OBJECT_TYPE_PLANE: return - (ro.y - d) / rd.y;
-        case OBJECT_TYPE_CYLINDER: return boxIntersection(ro, rd, vec3(2., 2., 1.)).x;
-        case OBJECT_TYPE_BOX: return boxIntersection(ro, rd, vec3(1. + d)).x;
-    }
+    return - (ro.y - d) / rd.y;
 }
 
 // Compute the normal from the SDF numerically
