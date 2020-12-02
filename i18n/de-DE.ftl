@@ -37,6 +37,10 @@ light = Licht
 light-type = Lichttyp
 light-strength = Lichtstärke
 shadow = Schatten
+camera = Kamera
+focal-length = Brennweite
+aperture-size = Blendenöffnung
+focal-distance = Scharfstellung
 
 node = Knoten
 node-attributes = Knotenattribute

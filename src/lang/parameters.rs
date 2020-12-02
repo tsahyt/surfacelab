@@ -356,6 +356,9 @@ pub enum RenderField {
     EnvironmentStrength,
     EnvironmentBlur,
     HDRI,
+    FocalLength,
+    ApertureSize,
+    FocalDistance,
 }
 
 impl MessageWriter for RenderField {
@@ -396,6 +399,15 @@ impl MessageWriter for RenderField {
                 *renderer,
                 PathBuf::from_data(data),
             )),
+            RenderField::FocalLength => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::FocalLength(*renderer, f32::from_data(data)),
+            ),
+            RenderField::ApertureSize => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::ApertureSize(*renderer, f32::from_data(data)),
+            ),
+            RenderField::FocalDistance => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::FocalDistance(*renderer, f32::from_data(data)),
+            ),
         }
     }
 }
@@ -728,6 +740,41 @@ impl ParamBoxDescription<RenderField> {
                         },
                     ],
                 },
+                ParamCategory {
+                    name: "camera",
+                    parameters: vec![
+                        Parameter {
+                            name: "focal-length".to_string(),
+                            control: Control::Slider {
+                                value: 1.0,
+                                min: 0.2,
+                                max: 10.0,
+                            },
+                            transmitter: RenderField::FocalLength,
+                            expose_status: None,
+                        },
+                        Parameter {
+                            name: "aperture-size".to_string(),
+                            control: Control::Slider {
+                                value: 0.0,
+                                min: 0.0,
+                                max: 0.1,
+                            },
+                            transmitter: RenderField::ApertureSize,
+                            expose_status: None,
+                        },
+                        Parameter {
+                            name: "focal-distance".to_string(),
+                            control: Control::Slider {
+                                value: 5.0,
+                                min: 1.0,
+                                max: 40.0,
+                            },
+                            transmitter: RenderField::FocalDistance,
+                            expose_status: None,
+                        },
+                    ]
+                }
             ],
         }
     }

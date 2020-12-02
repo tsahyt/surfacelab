@@ -17,6 +17,9 @@ layout(set = 0, binding = 2) uniform Camera {
     vec4 center;
     vec4 light_pos;
     vec2 resolution;
+    float focal_length;
+    float aperture_size;
+    float focal_distance;
 
     float phi;
     float theta;
@@ -472,7 +475,7 @@ void main() {
     vec2 subpixel_offset = (constants.sample_offset - vec2(1.0)) * (1.0 / resolution);
 
     vec3 ro;
-    vec3 rd = camera(camera_pos, center.xyz, uv + subpixel_offset, 1., 4., 0.02, ro);
+    vec3 rd = camera(camera_pos, center.xyz, uv + subpixel_offset, focal_length, focal_distance, aperture_size, ro);
 
     vec3 col = render(ro, rd);
 

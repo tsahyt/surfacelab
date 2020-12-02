@@ -50,6 +50,9 @@ struct RenderView3D {
     center: [f32; 4],
     light_pos: [f32; 4],
     resolution: [f32; 2],
+    focal_length: f32,
+    aperture_size: f32,
+    focal_distance: f32,
 
     phi: f32,
     theta: f32,
@@ -76,6 +79,9 @@ impl Default for RenderView3D {
             resolution: [1024.0, 1024.0],
             center: [0., 0., 0., 0.],
             light_pos: [0., 3., 0., 0.],
+            focal_length: 1.0,
+            aperture_size: 0.0,
+            focal_distance: 5.0,
             phi: 1.,
             theta: 1.,
             rad: 6.,
@@ -1577,6 +1583,24 @@ where
     pub fn set_ao(&mut self, ao: ParameterBool) {
         if let RenderView::RenderView3D(view) = &mut self.view {
             view.ao = ao;
+        }
+    }
+
+    pub fn set_focal_length(&mut self, focal_length: f32) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.focal_length = focal_length;
+        }
+    }
+
+    pub fn set_aperture_size(&mut self, aperture_size: f32) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.aperture_size = aperture_size;
+        }
+    }
+
+    pub fn set_focal_distance(&mut self, focal_distance: f32) {
+        if let RenderView::RenderView3D(view) = &mut self.view {
+            view.focal_distance = focal_distance;
         }
     }
 

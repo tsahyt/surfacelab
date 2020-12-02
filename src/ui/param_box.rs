@@ -261,7 +261,7 @@ where
                             .get(&TypeId::of::<widget::Slider<f32>>())
                             .unwrap()[control_idx.sliders + control_idx.discrete_sliders];
                         if let Some(new) = widget::Slider::new(*value, *min, *max)
-                            .label(&format!("{:.1}", *value))
+                            .label(&format!("{:.2}", *value))
                             .label_font_size(10)
                             .padded_w_of(id, 16.0)
                             .h(16.0)

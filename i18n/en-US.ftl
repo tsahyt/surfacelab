@@ -37,6 +37,10 @@ light = Light
 light-type = Light Type
 light-strength = Strength
 shadow = Shadow
+camera = Camera
+focal-length = Focal Length
+aperture-size = Aperture Size
+focal-distance = Focal Distance
 
 node = Node
 node-attributes = Node Attributes

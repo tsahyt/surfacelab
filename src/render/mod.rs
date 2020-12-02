@@ -240,6 +240,21 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
+            Lang::UserRenderEvent(UserRenderEvent::FocalLength(id, focal_length)) => {
+                self.set_focal_length(*id, *focal_length);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::FocalDistance(id, focal_distance)) => {
+                self.set_focal_distance(*id, *focal_distance);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::ApertureSize(id, aperture)) => {
+                self.set_aperture_size(*id, *aperture);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
             _ => {}
         }
 
@@ -443,6 +458,27 @@ where
     pub fn set_ao(&mut self, renderer_id: RendererID, ao: ParameterBool) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_ao(ao);
+            r.reset_sampling();
+        }
+    }
+
+    pub fn set_focal_length(&mut self, renderer_id: RendererID, focal_length: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_focal_length(focal_length);
+            r.reset_sampling();
+        }
+    }
+
+    pub fn set_focal_distance(&mut self, renderer_id: RendererID, focal_distance: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_focal_distance(focal_distance);
+            r.reset_sampling();
+        }
+    }
+
+    pub fn set_aperture_size(&mut self, renderer_id: RendererID, aperture_size: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.set_aperture_size(aperture_size);
             r.reset_sampling();
         }
     }
