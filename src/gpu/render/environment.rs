@@ -787,8 +787,11 @@ where
 
             // Pre-filter environment map
             command_buffer.bind_compute_pipeline(&prefilter_pipeline);
-            for level in 0..MIP_LEVELS as usize {
-                let descriptors = &prefilter_descriptors[level];
+            for (level, descriptors) in prefilter_descriptors
+                .iter()
+                .enumerate()
+                .take(MIP_LEVELS as usize)
+            {
                 let roughness = level as f32 / MIP_LEVELS as f32;
                 command_buffer.bind_compute_descriptor_sets(
                     &pipeline_layout,

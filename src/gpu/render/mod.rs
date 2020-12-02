@@ -138,7 +138,7 @@ impl HaltonSequence2D {
             idx = (idx / base).floor();
         }
 
-        return result;
+        result
     }
 }
 

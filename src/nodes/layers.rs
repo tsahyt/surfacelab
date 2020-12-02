@@ -126,7 +126,7 @@ impl Default for MaskBlendOptions {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct MaskStack {
     stack: Vec<Mask>,
     resources: HashMap<String, usize>,
@@ -145,7 +145,7 @@ impl MaskStack {
         if let Some(idx) = self.resources.get(mask.file().unwrap()).copied() {
             let n = self.stack.len();
             if idx == n - 1 {
-                return false;
+                false
             } else {
                 self.stack.swap(idx, idx + 1);
 
@@ -167,7 +167,7 @@ impl MaskStack {
     pub fn move_down(&mut self, mask: &Resource<Node>) -> bool {
         if let Some(idx) = self.resources.get(mask.file().unwrap()).copied() {
             if idx == 0 {
-                return false;
+                false
             } else {
                 self.stack.swap(idx, idx - 1);
 
@@ -386,7 +386,7 @@ impl MaskStack {
     }
 
     pub fn push(&mut self, mask: Mask, resource: Resource<Node>) -> Option<()> {
-        if mask.operator.inputs().len() != 0 && self.stack.len() == 0 {
+        if !mask.operator.inputs().is_empty() && self.stack.is_empty() {
             return None;
         }
 
@@ -1053,10 +1053,8 @@ impl LayerStack {
     pub fn set_layer_opacity(&mut self, layer: &Resource<Node>, opacity: f32) {
         if layer.path_str().unwrap().contains("mask") {
             self.set_mask_opacity(layer, opacity);
-        } else {
-            if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-                self.layers[*idx].set_opacity(opacity);
-            }
+        } else if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            self.layers[*idx].set_opacity(opacity);
         }
     }
 
@@ -1071,10 +1069,8 @@ impl LayerStack {
     pub fn set_layer_blend_mode(&mut self, layer: &Resource<Node>, blend_mode: BlendMode) {
         if layer.path_str().unwrap().contains("mask") {
             self.set_mask_blend_mode(layer, blend_mode);
-        } else {
-            if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-                self.layers[*idx].set_blend_mode(blend_mode)
-            }
+        } else if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            self.layers[*idx].set_blend_mode(blend_mode)
         }
     }
 
@@ -1089,12 +1085,10 @@ impl LayerStack {
     pub fn set_layer_enabled(&mut self, layer: &Resource<Node>, enabled: bool) {
         if layer.path_str().unwrap().contains("mask") {
             self.set_mask_enabled(layer, enabled);
-        } else {
-            if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-                self.layers[*idx].set_enabled(enabled);
-                if let Some(successor) = self.layers.get(*idx + 1) {
-                    self.force_points.push(self.layer_resource(successor));
-                }
+        } else if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            self.layers[*idx].set_enabled(enabled);
+            if let Some(successor) = self.layers.get(*idx + 1) {
+                self.force_points.push(self.layer_resource(successor));
             }
         }
     }
@@ -1123,26 +1117,21 @@ impl LayerStack {
     pub fn move_up(&mut self, layer: &Resource<Node>) -> bool {
         if layer.path_str().unwrap().contains("mask") {
             self.move_mask_up(layer)
-        } else {
-            if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
-                if idx == self.layers.len() - 1 {
-                    return false;
+        } else if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
+            if idx == self.layers.len() - 1 {
+                false
+            } else {
+                self.layers.swap(idx, idx + 1);
+                if self.can_linearize() {
+                    self.swap_resources(layer.file().unwrap(), &self.layers[idx].name().to_owned());
+                    true
                 } else {
                     self.layers.swap(idx, idx + 1);
-                    if self.can_linearize() {
-                        self.swap_resources(
-                            layer.file().unwrap(),
-                            &self.layers[idx].name().to_owned(),
-                        );
-                        true
-                    } else {
-                        self.layers.swap(idx, idx + 1);
-                        false
-                    }
+                    false
                 }
-            } else {
-                false
             }
+        } else {
+            false
         }
     }
 
@@ -1161,26 +1150,21 @@ impl LayerStack {
     pub fn move_down(&mut self, layer: &Resource<Node>) -> bool {
         if layer.path_str().unwrap().contains("mask") {
             self.move_mask_down(layer)
-        } else {
-            if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
-                if idx == 0 {
-                    false
+        } else if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
+            if idx == 0 {
+                false
+            } else {
+                self.layers.swap(idx, idx - 1);
+                if self.can_linearize() {
+                    self.swap_resources(layer.file().unwrap(), &self.layers[idx].name().to_owned());
+                    true
                 } else {
                     self.layers.swap(idx, idx - 1);
-                    if self.can_linearize() {
-                        self.swap_resources(
-                            layer.file().unwrap(),
-                            &self.layers[idx].name().to_owned(),
-                        );
-                        true
-                    } else {
-                        self.layers.swap(idx, idx - 1);
-                        false
-                    }
+                    false
                 }
-            } else {
-                false
             }
+        } else {
+            false
         }
     }
 

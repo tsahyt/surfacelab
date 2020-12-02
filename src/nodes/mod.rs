@@ -860,15 +860,15 @@ impl NodeManager {
                             );
 
                             for ev in evs.iter_mut() {
-                                match ev {
-                                    Lang::GraphEvent(GraphEvent::NodeAdded(
-                                        res,
-                                        op,
-                                        pbox,
-                                        _,
-                                        _,
-                                    )) => *pbox = self.element_param_box(&op, res),
-                                    _ => {}
+                                if let Lang::GraphEvent(GraphEvent::NodeAdded(
+                                    res,
+                                    op,
+                                    pbox,
+                                    _,
+                                    _,
+                                )) = ev
+                                {
+                                    *pbox = self.element_param_box(&op, res);
                                 }
                             }
 

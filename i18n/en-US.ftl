@@ -39,7 +39,7 @@ light-strength = Strength
 shadow = Shadow
 camera = Camera
 focal-length = Focal Length
-aperture-size = Aperture Size
+aperture-size = Aperture
 focal-distance = Focal Distance
 
 node = Node

@@ -773,8 +773,8 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::FocalDistance,
                             expose_status: None,
                         },
-                    ]
-                }
+                    ],
+                },
             ],
         }
     }

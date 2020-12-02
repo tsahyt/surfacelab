@@ -22,15 +22,13 @@ pub fn start_render_thread<B: gpu::Backend>(
             let mut render_manager = RenderManager::new(gpu);
 
             loop {
-                let res = if let Some(message) = receiver.try_recv().ok() {
+                let res = if let Ok(message) = receiver.try_recv() {
                     render_manager.step(Some(message))
+                } else if render_manager.must_step() {
+                    thread::sleep(std::time::Duration::from_millis(5));
+                    render_manager.step(None)
                 } else {
-                    if render_manager.must_step() {
-                        thread::sleep(std::time::Duration::from_millis(5));
-                        render_manager.step(None)
-                    } else {
-                        render_manager.step(receiver.recv().ok())
-                    }
+                    render_manager.step(receiver.recv().ok())
                 };
 
                 match res {
@@ -52,7 +50,7 @@ pub fn start_render_thread<B: gpu::Backend>(
 struct Renderer<B: gpu::Backend> {
     gpu: gpu::render::GPURender<B>,
     samples_to_go: usize,
-    frametime_ema: EMA<f64>
+    frametime_ema: EMA<f64>,
 }
 
 impl<B: gpu::Backend> Renderer<B> {
@@ -60,7 +58,7 @@ impl<B: gpu::Backend> Renderer<B> {
         Self {
             gpu,
             samples_to_go: 0,
-            frametime_ema: EMA::new(0., TIMING_DECAY)
+            frametime_ema: EMA::new(0., TIMING_DECAY),
         }
     }
 
@@ -280,7 +278,9 @@ where
         );
         let now = Instant::now();
         renderer.render();
-        renderer.frametime_ema.update(now.elapsed().as_micros() as f64);
+        renderer
+            .frametime_ema
+            .update(now.elapsed().as_micros() as f64);
         let view = gpu::BrokerImageView::from::<B>(renderer.target_view());
         self.renderers.insert(id, renderer);
 
