@@ -7,7 +7,6 @@ use std::time::Instant;
 use strum::IntoEnumIterator;
 
 const MAX_SAMPLES: usize = 16;
-
 const TIMING_DECAY: f64 = 0.15;
 
 pub fn start_render_thread<B: gpu::Backend>(
@@ -27,7 +26,7 @@ pub fn start_render_thread<B: gpu::Backend>(
                     render_manager.step(Some(message))
                 } else {
                     if render_manager.must_step() {
-                        thread::sleep(std::time::Duration::from_millis(3));
+                        thread::sleep(std::time::Duration::from_millis(5));
                         render_manager.step(None)
                     } else {
                         render_manager.step(receiver.recv().ok())

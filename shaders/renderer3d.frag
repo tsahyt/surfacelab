@@ -378,15 +378,37 @@ vec3 environment(vec3 n, vec3 rd, vec3 f0, vec3 albedo, float roughness, float m
     return (kD * diffuse + specular) * ao * environment_strength;
 }
 
-vec3 camera(vec3 ro, vec3 lookAt, vec2 uv, float zoom) {
-    vec3 forward = normalize(lookAt - ro);
+vec2 concentric_sample_disk(vec2 uv) {
+    float r = sqrt(uv.x);
+    float theta = 2.0 * PI * uv.y;
+    return vec2(r * cos(theta), r * sin(theta));
+}
+
+vec3 camera(vec3 p, vec3 look_at, vec2 uv, float focal_length, float focal_dist, float lens_radius, out vec3 ro) {
+    // Basis of camera space in world space coordinates
+    vec3 forward = normalize(look_at - p);
     vec3 right = normalize(cross(vec3(0,1,0), forward));
     vec3 up = cross(forward, right);
 
-    vec3 c = ro + forward * zoom;
-    vec3 i = c + uv.x * right + uv.y * up;
+    // Ray direction in camera space
+    vec3 cro = vec3(0.);
+    vec3 crd = vec3(uv.x, uv.y, focal_length);
 
-    return normalize(i - ro);
+    if (lens_radius > 0.) {
+        vec2 lens_uv = concentric_sample_disk(constants.sample_offset) * lens_radius;
+        float ft = focal_dist / crd.z;
+        vec3 pf = crd * ft;
+
+        cro = vec3(lens_uv, 0.);
+        crd = normalize(pf - cro);
+    }
+
+    // Transform to world space
+    vec3 rd = right * crd.x + up * crd.y + forward * crd.z;
+    ro = right * cro.x + up * cro.y + forward * cro.z;
+    ro += p;
+
+    return normalize(rd);
 }
 
 float world_space_sample_size(float d) {
@@ -442,13 +464,16 @@ void main() {
     vec2 uv = (v_TexCoord - 0.5) * vec2(resolution.x / resolution.y, 1);
 
     // Spherical Coordinate Input (phi, theta)
-    vec3 ro = center.xyz + (radius * vec3(
-                   sin(phi) * cos(theta),
-                   cos(phi),
-                   sin(phi) * sin(theta)));
+    vec3 camera_pos = center.xyz + (radius * vec3(
+                                        sin(phi) * cos(theta),
+                                        cos(phi),
+                                        sin(phi) * sin(theta)));
 
     vec2 subpixel_offset = (constants.sample_offset - vec2(1.0)) * (1.0 / resolution);
-    vec3 rd = camera(ro, center.xyz, uv + subpixel_offset, 1.);
+
+    vec3 ro;
+    vec3 rd = camera(camera_pos, center.xyz, uv + subpixel_offset, 1., 4., 0.02, ro);
+
     vec3 col = render(ro, rd);
 
     outColor = vec4(col, 1.0);
