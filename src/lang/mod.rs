@@ -405,6 +405,15 @@ pub enum LightType {
     SunLight = 1,
 }
 
+#[derive(AsBytes, Copy, Clone, Debug, ParameterField)]
+#[repr(u32)]
+pub enum ObjectType {
+    Plane = 0,
+    Cube = 1,
+    Sphere = 2,
+    Cylinder = 3,
+}
+
 #[derive(Debug)]
 pub enum UserRenderEvent {
     Rotate(RendererID, f32, f32),

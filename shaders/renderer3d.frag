@@ -3,6 +3,13 @@
 layout(location = 0) in vec2 v_TexCoord;
 layout(location = 0) out vec4 outColor;
 
+layout(constant_id = 0) const uint OBJECT_TYPE = 0;
+
+const uint OBJECT_TYPE_PLANE = 0;
+const uint OBJECT_TYPE_CUBE = 1;
+const uint OBJECT_TYPE_SPHERE = 2;
+const uint OBJECT_TYPE_CYLINDER = 3;
+
 layout(set = 0, binding = 0) uniform sampler s_Texture;
 
 layout(set = 0, binding = 1) uniform Occupancy {
@@ -68,15 +75,6 @@ const float TEX_MIDLEVEL = .5;
 
 const float MAX_REFLECTION_LOD = 5.0;
 
-// DEBUG FLAGS
-// #define DBG_ITERCNT 100
-// #define DBG_TEXGRID 0.01
-// #define DBG_AO
-
-// - performance tuning (see ITERCNT)
-// - stepping size has to adjust with displacement amount/slope
-// - check validity of ambient occlusion approximation
-//
 // TODO: Include texture scale in mip mapping considerations for performance gain
 
 #define LOD_BIAS .5
@@ -128,15 +126,75 @@ float metallic(vec2 p, float lod) {
     }
 }
 
-float sdf(vec3 p, float lod) {
-    float height = heightfield(p.xz, lod);
-    float planeDist = p.y  - (height * displacement_amount);
+float sdBox(vec3 p, vec3 b)
+{
+    vec3 q = abs(p) - b;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
 
-    return planeDist;
+float sdCappedCylinder(vec3 p, float h, float r)
+{
+    vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(h,r);
+    return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+
+float sdf(vec3 p, float lod) {
+    float height = heightfield(p.xz, lod) * displacement_amount;
+
+    switch (OBJECT_TYPE) {
+        case OBJECT_TYPE_PLANE:
+            float planeDist = p.y;
+            return planeDist - height;
+        case OBJECT_TYPE_CUBE:
+            float boxDist = sdBox(p, vec3(0.9)) - 0.1;
+            return boxDist - height;
+        case OBJECT_TYPE_SPHERE:
+            float sphereDist = length(p) - 1.;
+            return sphereDist - height;
+        case OBJECT_TYPE_CYLINDER:
+            float cylinderDist = sdCappedCylinder(p, 1.0, 1.0) - 0.1;
+            return cylinderDist - height;
+    }
+
+    return 0.;
+}
+
+vec2 intsSphere(vec3 ro, vec3 rd, float ra)
+{
+    float b = dot(ro, rd);
+    float c = dot(ro, ro) - ra * ra;
+    float h = b*b - c;
+    if(h < 0.0) return vec2(- 1.0); // no intersection
+    h = sqrt(h);
+    return vec2(-b-h, -b+h);
+}
+
+vec2 intsBox(vec3 ro, vec3 rd, vec3 boxSize)
+{
+    vec3 m = 1.0 / rd; // can precompute if traversing a set of aligned boxes
+    vec3 n = m * ro;   // can precompute if traversing a set of aligned boxes
+    vec3 k = abs(m) * boxSize;
+    vec3 t1 = -n - k;
+    vec3 t2 = -n + k;
+    float tN = max(max(t1.x, t1.y), t1.z);
+    float tF = min(min(t2.x, t2.y), t2.z);
+    if(tN > tF || tF < 0.0) return vec2(- 1.0); // no intersection
+    return vec2(tN, tF);
 }
 
 float outer_bound(vec3 ro, vec3 rd, float d) {
-    return - (ro.y - d) / rd.y;
+    switch (OBJECT_TYPE) {
+        case OBJECT_TYPE_PLANE:
+            return - (ro.y - d) / rd.y;
+        case OBJECT_TYPE_CUBE:
+            return intsBox(ro, rd, vec3(1. + d)).x;
+        case OBJECT_TYPE_SPHERE:
+            return intsSphere(ro, rd, 1. + d).x;
+        case OBJECT_TYPE_CYLINDER:
+            return intsBox(ro, rd, vec3(1. + d)).x;
+    }
+
+    return 0.;
 }
 
 // Compute the normal from the SDF numerically
@@ -451,10 +509,6 @@ vec3 render(vec3 ro, vec3 rd) {
     }
 
     col += environment(n, rd, f0, albedo, roughness, metallic, ao);
-
-    #ifdef DBG_TEXGRID
-    if (fract(p.x / tex_scale) < DBG_TEXGRID / tex_scale || fract(p.z / tex_scale) < DBG_TEXGRID / tex_scale) { col += vec3(0.3, 0.8, 0.); }
-    #endif
 
     // View Falloff
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
