@@ -104,22 +104,13 @@ vec2 sphere_mapping(vec3 p) {
 
 vec2 cylinder_mapping(vec3 p) {
     float u = - atan(p.x, p.z) / (2 * PI);
-    return vec2(u, p.y);
-}
-
-vec2 default_tex_scale() {
-    switch (OBJECT_TYPE) {
-        case OBJECT_TYPE_PLANE:
-            return vec2(1. / 8.);
-        case OBJECT_TYPE_CYLINDER:
-            return vec2(3, 1 / 4.);
-    }
+    return vec2(3 * u, p.y / 4.);
 }
 
 // Read the heightfield at a given texture coordinate
 float heightfield(vec2 p, float lod) {
     if(has_displacement != 0) {
-        float h = textureLod(sampler2D(t_Displ, s_Texture), (p * default_tex_scale()) / tex_scale, lod).r;
+        float h = textureLod(sampler2D(t_Displ, s_Texture), p / tex_scale, lod).r;
         return h - TEX_MIDLEVEL;
     } else {
         return 0.;
@@ -129,7 +120,7 @@ float heightfield(vec2 p, float lod) {
 // Read the albedo at a given texture coordinate
 vec3 albedo(vec2 p, float lod) {
     if(has_albedo != 0) {
-        return textureLod(sampler2D(t_Albedo, s_Texture), (p * default_tex_scale()) / tex_scale, lod).rgb;
+        return textureLod(sampler2D(t_Albedo, s_Texture), p / tex_scale, lod).rgb;
     } else {
         return vec3(0.75);
     }
@@ -138,7 +129,7 @@ vec3 albedo(vec2 p, float lod) {
 // Read the roughness at a given texture coordinate
 float roughness(vec2 p, float lod) {
     if(has_roughness != 0) {
-        float r = textureLod(sampler2D(t_Roughness, s_Texture), (p * default_tex_scale()) / tex_scale, lod).x;
+        float r = textureLod(sampler2D(t_Roughness, s_Texture), p / tex_scale, lod).x;
         return r;
     } else {
         return 0.5;
@@ -148,7 +139,7 @@ float roughness(vec2 p, float lod) {
 // Read the metallic map at a given texture coordinate
 float metallic(vec2 p, float lod) {
     if(has_metallic != 0) {
-        float r = textureLod(sampler2D(t_Metallic, s_Texture), (p * default_tex_scale()) / tex_scale, lod).x;
+        float r = textureLod(sampler2D(t_Metallic, s_Texture), p / tex_scale, lod).x;
         return r;
     } else {
         return 0.;
@@ -165,19 +156,6 @@ float sdCappedCylinder(vec3 p, float h, float dia)
 {
     vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(dia, h);
     return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
-}
-
-float clean_sdf(vec3 p) {
-    switch (OBJECT_TYPE) {
-        case OBJECT_TYPE_PLANE:
-            return p.y;
-        case OBJECT_TYPE_CUBE:
-            return sdBox(p, vec3(0.9)) - 0.1;
-        case OBJECT_TYPE_SPHERE:
-            return length(p) - 1.;
-        case OBJECT_TYPE_CYLINDER:
-            return sdCappedCylinder(p, 2 * PI / 3 - 0.1, 1.9) - 0.1;
-    }
 }
 
 float sdf(vec3 p, float lod) {
@@ -243,50 +221,14 @@ float outer_bound(vec3 ro, vec3 rd, float d) {
     return 0.;
 }
 
-// Compute the normal from the clean SDF numerically
-vec3 clean_sdf_normal(vec3 p, float s) {
-    float d = clean_sdf(p);
-    vec2 e = vec2(s, 0);
-    return normalize(d -
-                     vec3(clean_sdf(p - e.xyy),
-                          clean_sdf(p - e.yxy),
-                          clean_sdf(p - e.yyx)));
-}
-
-// Approximate normal numerically from heightfield at a given texture
-// coordinate, in tangent space.
-vec3 heightfield_normal(vec2 p, float s) {
-    vec2 e = vec2(s, 0);
-    float height_p = displacement_amount * heightfield(p, 0.);
-    float height_x = displacement_amount * heightfield(p + e.xy, 0.);
-    float height_z = displacement_amount * heightfield(p + e.yx, 0.);
-
-    vec3 dx = vec3(e.x, height_x - height_p, e.y);
-    vec3 dy = vec3(e.y, height_z - height_p, e.x);
-    return normalize(cross(dy, dx));
-}
-
 //  Get normals from normal map
 vec3 normal(vec3 p, float s, float lod) {
-    vec3 nh;
-    vec3 normal;
-    vec3 tangent;
-    vec3 bitangent;
-
-    switch (OBJECT_TYPE) {
-        case OBJECT_TYPE_PLANE:
-            nh = heightfield_normal(plane_mapping(p), s);
-            return nh;
-        case OBJECT_TYPE_CYLINDER:
-            normal = clean_sdf_normal(p, s);
-            nh = heightfield_normal(cylinder_mapping(p), s);
-
-            tangent = normal.zyx / 3.;
-            bitangent = vec3(0., 1., 0.) * 4.;
-            nh = normalize(nh.x * tangent + nh.y * normal + nh.z * bitangent);
-
-            return mix(nh, normal, smoothstep(2 * PI / 3 - 0.1, 2 * PI / 3, abs(p.y)));
-    }
+    float d = sdf(p, lod);
+    vec2 e = vec2(s, 0);
+    return normalize(d -
+                     vec3(sdf(p - e.xyy, lod),
+                          sdf(p - e.yxy, lod),
+                          sdf(p - e.yyx, lod)));
 }
 
 // --- Ray Marching
