@@ -91,6 +91,10 @@ float lod_by_distance(float d) {
     return log(d * LOD_BIAS);
 }
 
+vec2 plane_mapping(vec3 p) {
+    return p.xz;
+}
+
 vec2 sphere_mapping(vec3 p) {
     p = normalize(p);
     float u = 0.5 + atan(p.x, p.z) / (2 * PI);
@@ -100,13 +104,22 @@ vec2 sphere_mapping(vec3 p) {
 
 vec2 cylinder_mapping(vec3 p) {
     float u = - atan(p.x, p.z) / (2 * PI);
-    return vec2(3 * u, - p.y / 4.);
+    return vec2(u, p.y);
+}
+
+vec2 default_tex_scale() {
+    switch (OBJECT_TYPE) {
+        case OBJECT_TYPE_PLANE:
+            return vec2(1. / 8.);
+        case OBJECT_TYPE_CYLINDER:
+            return vec2(3, 1 / 4.);
+    }
 }
 
 // Read the heightfield at a given texture coordinate
 float heightfield(vec2 p, float lod) {
     if(has_displacement != 0) {
-        float h = textureLod(sampler2D(t_Displ, s_Texture), p, lod).r;
+        float h = textureLod(sampler2D(t_Displ, s_Texture), (p * default_tex_scale()) / tex_scale, lod).r;
         return h - TEX_MIDLEVEL;
     } else {
         return 0.;
@@ -116,7 +129,7 @@ float heightfield(vec2 p, float lod) {
 // Read the albedo at a given texture coordinate
 vec3 albedo(vec2 p, float lod) {
     if(has_albedo != 0) {
-        return textureLod(sampler2D(t_Albedo, s_Texture), p, lod).rgb;
+        return textureLod(sampler2D(t_Albedo, s_Texture), (p * default_tex_scale()) / tex_scale, lod).rgb;
     } else {
         return vec3(0.75);
     }
@@ -125,7 +138,7 @@ vec3 albedo(vec2 p, float lod) {
 // Read the roughness at a given texture coordinate
 float roughness(vec2 p, float lod) {
     if(has_roughness != 0) {
-        float r = textureLod(sampler2D(t_Roughness, s_Texture), p, lod).x;
+        float r = textureLod(sampler2D(t_Roughness, s_Texture), (p * default_tex_scale()) / tex_scale, lod).x;
         return r;
     } else {
         return 0.5;
@@ -135,7 +148,7 @@ float roughness(vec2 p, float lod) {
 // Read the metallic map at a given texture coordinate
 float metallic(vec2 p, float lod) {
     if(has_metallic != 0) {
-        float r = textureLod(sampler2D(t_Metallic, s_Texture), p, lod).x;
+        float r = textureLod(sampler2D(t_Metallic, s_Texture), (p * default_tex_scale()) / tex_scale, lod).x;
         return r;
     } else {
         return 0.;
@@ -171,7 +184,7 @@ float sdf(vec3 p, float lod) {
     float height = 0.;
     switch (OBJECT_TYPE) {
         case OBJECT_TYPE_PLANE:
-            height = heightfield(p.xz, lod) * displacement_amount;
+            height = heightfield(plane_mapping(p), lod) * displacement_amount;
             float planeDist = p.y;
             return planeDist - height;
         case OBJECT_TYPE_CUBE:
@@ -240,7 +253,8 @@ vec3 clean_sdf_normal(vec3 p, float s) {
                           clean_sdf(p - e.yyx)));
 }
 
-// Approximate normal numerically from heightfield at a given texture coordinate
+// Approximate normal numerically from heightfield at a given texture
+// coordinate, in tangent space.
 vec3 heightfield_normal(vec2 p, float s) {
     vec2 e = vec2(s, 0);
     float height_p = displacement_amount * heightfield(p, 0.);
@@ -255,20 +269,24 @@ vec3 heightfield_normal(vec2 p, float s) {
 //  Get normals from normal map
 vec3 normal(vec3 p, float s, float lod) {
     vec3 nh;
+    vec3 normal;
+    vec3 tangent;
+    vec3 bitangent;
 
     switch (OBJECT_TYPE) {
         case OBJECT_TYPE_PLANE:
-            nh = heightfield_normal(p.xz, s);
-            break;
-        case OBJECT_TYPE_SPHERE:
-            nh = heightfield_normal(sphere_mapping(p), s);
-            break;
+            nh = heightfield_normal(plane_mapping(p), s);
+            return nh;
         case OBJECT_TYPE_CYLINDER:
-            nh = abs(p.y) > 2 * PI / 3 - 0.1 ? vec3(0., 1., 0.) : heightfield_normal(cylinder_mapping(p), s);
-            break;
-    }
+            normal = clean_sdf_normal(p, s);
+            nh = heightfield_normal(cylinder_mapping(p), s);
 
-    return nh;
+            tangent = normal.zyx / 3.;
+            bitangent = vec3(0., 1., 0.) * 4.;
+            nh = normalize(nh.x * tangent + nh.y * normal + nh.z * bitangent);
+
+            return mix(nh, normal, smoothstep(2 * PI / 3 - 0.1, 2 * PI / 3, abs(p.y)));
+    }
 }
 
 // --- Ray Marching
@@ -531,6 +549,8 @@ vec3 render(vec3 ro, vec3 rd) {
     vec3 p = ro + rd * d;
     vec3 n = normal(p, max(texel_size, world_space_sample_size(d)), lod_by_distance(d));
 
+    // return n;
+
     // Texture fetching
     vec3 albedo_;
     float metallic_;
@@ -538,9 +558,9 @@ vec3 render(vec3 ro, vec3 rd) {
 
     switch (OBJECT_TYPE) {
         case OBJECT_TYPE_PLANE:
-            albedo_ = albedo(p.xz, lod_by_distance(d));
-            metallic_ = metallic(p.xz, lod_by_distance(d));
-            roughness_ = roughness(p.xz, lod_by_distance(d));
+            albedo_ = albedo(plane_mapping(p), lod_by_distance(d));
+            metallic_ = metallic(plane_mapping(p), lod_by_distance(d));
+            roughness_ = roughness(plane_mapping(p), lod_by_distance(d));
             break;
         case OBJECT_TYPE_SPHERE:
             albedo_ = albedo(sphere_mapping(p), lod_by_distance(d));
@@ -572,7 +592,7 @@ vec3 render(vec3 ro, vec3 rd) {
 
     // View Falloff
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
-    col = mix(world, col, smoothstep(10., 9., length(p.xz)));
+    col = mix(world, col, smoothstep(10., 9., length(p)));
 
     return col;
 }
