@@ -654,9 +654,9 @@ impl ParamBoxDescription<RenderField> {
                         Parameter {
                             name: "tex-scale".to_string(),
                             control: Control::Slider {
-                                value: 8.0,
+                                value: 1.0,
                                 min: 0.0,
-                                max: 64.0,
+                                max: 16.0,
                             },
                             transmitter: RenderField::TextureScale,
                             expose_status: None,
