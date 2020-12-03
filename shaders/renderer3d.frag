@@ -3,7 +3,7 @@
 layout(location = 0) in vec2 v_TexCoord;
 layout(location = 0) out vec4 outColor;
 
-layout(constant_id = 0) const uint OBJECT_TYPE = 3;
+layout(constant_id = 0) const uint OBJECT_TYPE = 1;
 
 const uint OBJECT_TYPE_PLANE = 0;
 const uint OBJECT_TYPE_CUBE = 1;
@@ -92,7 +92,7 @@ float lod_by_distance(float d) {
 }
 
 vec2 plane_mapping(vec3 p) {
-    return p.xz;
+    return p.xz / 4.;
 }
 
 vec2 sphere_mapping(vec3 p) {
@@ -126,6 +126,21 @@ vec3 albedo(vec2 p, float lod) {
     }
 }
 
+vec3 triplanar_albedo(vec3 p, vec3 n, float lod) {
+    n = pow(abs(n), vec3(4.0));
+    n = n / (n.x + n.y + n.z);
+
+    vec3 col_front = albedo(p.xy, lod);
+    vec3 col_side = albedo(p.zy, lod);
+    vec3 col_top = albedo(p.xz, lod);
+
+    col_front *= n.b;
+    col_side *= n.r;
+    col_top *= n.g;
+
+    return col_front + col_side + col_top;
+}
+
 // Read the roughness at a given texture coordinate
 float roughness(vec2 p, float lod) {
     if(has_roughness != 0) {
@@ -136,6 +151,21 @@ float roughness(vec2 p, float lod) {
     }
 }
 
+float triplanar_roughness(vec3 p, vec3 n, float lod) {
+    n = pow(abs(n), vec3(4.0));
+    n = n / (n.x + n.y + n.z);
+
+    float col_front = roughness(p.xy, lod);
+    float col_side = roughness(p.zy, lod);
+    float col_top = roughness(p.xz, lod);
+
+    col_front *= n.b;
+    col_side *= n.r;
+    col_top *= n.g;
+
+    return col_front + col_side + col_top;
+}
+
 // Read the metallic map at a given texture coordinate
 float metallic(vec2 p, float lod) {
     if(has_metallic != 0) {
@@ -144,6 +174,21 @@ float metallic(vec2 p, float lod) {
     } else {
         return 0.;
     }
+}
+
+float triplanar_metallic(vec3 p, vec3 n, float lod) {
+    n = pow(abs(n), vec3(4.0));
+    n = n / (n.x + n.y + n.z);
+
+    float col_front = metallic(p.xy, lod);
+    float col_side = metallic(p.zy, lod);
+    float col_top = metallic(p.xz, lod);
+
+    col_front *= n.b;
+    col_side *= n.r;
+    col_top *= n.g;
+
+    return col_front + col_side + col_top;
 }
 
 float sdBox(vec3 p, vec3 b)
@@ -166,8 +211,23 @@ float sdf(vec3 p, float lod) {
             float planeDist = p.y;
             return planeDist - height;
         case OBJECT_TYPE_CUBE:
-            height = heightfield(p.xz, lod) * displacement_amount;
             float boxDist = sdBox(p, vec3(0.9)) - 0.1;
+            vec2 e = vec2(0.01, 0);
+            vec3 n = normalize(boxDist -
+                        vec3(sdBox(p - e.xyy, vec3(0.9)) - 0.1,
+                        sdBox(p - e.yxy, vec3(0.9)) - 0.1,
+                        sdBox(p - e.yyx, vec3(0.9)) - 0.1)
+                        );
+            n = pow(abs(n), vec3(4.0));
+            n = n / (n.x + n.y + n.z);
+
+            p /= 2.;
+            float height_front = heightfield(p.xy, lod) * displacement_amount * n.b;
+            float height_side = heightfield(p.zy, lod) * displacement_amount * n.r;
+            float height_top = heightfield(p.xz, lod) * displacement_amount * n.g;
+
+            height = height_front + height_side + height_top;
+
             return boxDist - height;
         case OBJECT_TYPE_SPHERE:
             height = heightfield(sphere_mapping(p), lod) * displacement_amount;
@@ -503,6 +563,11 @@ vec3 render(vec3 ro, vec3 rd) {
             albedo_ = albedo(plane_mapping(p), lod_by_distance(d));
             metallic_ = metallic(plane_mapping(p), lod_by_distance(d));
             roughness_ = roughness(plane_mapping(p), lod_by_distance(d));
+            break;
+        case OBJECT_TYPE_CUBE:
+            albedo_ = triplanar_albedo(p / 2., n, lod_by_distance(d));
+            metallic_ = triplanar_metallic(p / 2., n, lod_by_distance(d));
+            roughness_ = triplanar_roughness(p / 2., n, lod_by_distance(d));
             break;
         case OBJECT_TYPE_SPHERE:
             albedo_ = albedo(sphere_mapping(p), lod_by_distance(d));
