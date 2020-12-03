@@ -644,9 +644,9 @@ impl ParamBoxDescription<RenderField> {
                         Parameter {
                             name: "displacement-amount".to_string(),
                             control: Control::Slider {
-                                value: 0.5,
+                                value: 0.1,
                                 min: 0.0,
-                                max: 2.0,
+                                max: 1.0,
                             },
                             transmitter: RenderField::DisplacementAmount,
                             expose_status: None,
@@ -656,7 +656,7 @@ impl ParamBoxDescription<RenderField> {
                             control: Control::Slider {
                                 value: 1.0,
                                 min: 0.0,
-                                max: 16.0,
+                                max: 4.0,
                             },
                             transmitter: RenderField::TextureScale,
                             expose_status: None,

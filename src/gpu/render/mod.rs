@@ -85,7 +85,7 @@ impl Default for RenderView3D {
             phi: 1.,
             theta: 1.,
             rad: 6.,
-            displacement: 0.5,
+            displacement: 0.1,
             tex_scale: 1.,
             texel_size: 1. / 1024.,
             environment_strength: 1.0,
