@@ -350,7 +350,7 @@ where
                         let control_id = state
                             .controls
                             .get(&TypeId::of::<widget::Button<widget::button::Flat>>())
-                            .unwrap()[control_idx.enums];
+                            .unwrap()[control_idx.files];
                         let btn_text = match selected {
                             Some(file) => file.file_name().unwrap().to_str().unwrap(),
                             None => "None",
