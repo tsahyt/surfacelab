@@ -582,7 +582,7 @@ where
             &lock.device,
             hal::format::Format::Rgba32Sfloat,
             &main_set_layout,
-            ObjectType::Cylinder,
+            ObjectType::Cube,
             MAIN_VERTEX_SHADER,
             match ty {
                 crate::lang::RendererType::Renderer2D => MAIN_FRAGMENT_SHADER_2D,

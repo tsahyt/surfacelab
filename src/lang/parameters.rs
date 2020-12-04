@@ -648,7 +648,7 @@ impl ParamBoxDescription<RenderField> {
                         Parameter {
                             name: "object-type".to_string(),
                             control: Control::Enum {
-                                selected: 0,
+                                selected: 1,
                                 variants: vec![
                                     "Plane".to_string(),
                                     "Cube".to_string(),
