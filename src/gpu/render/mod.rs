@@ -1,10 +1,11 @@
 use super::RenderTarget;
-use crate::lang::{LightType, ParameterBool};
+use crate::lang::{LightType, ObjectType, ParameterBool};
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
+use std::borrow::Cow;
 use zerocopy::AsBytes;
 
 use super::{Backend, InitializationError, PipelineError, GPU};
@@ -581,6 +582,7 @@ where
             &lock.device,
             hal::format::Format::Rgba32Sfloat,
             &main_set_layout,
+            ObjectType::Cylinder,
             MAIN_VERTEX_SHADER,
             match ty {
                 crate::lang::RendererType::Renderer2D => MAIN_FRAGMENT_SHADER_2D,
@@ -762,6 +764,7 @@ where
         device: &B::Device,
         format: hal::format::Format,
         set_layout: &B::DescriptorSetLayout,
+        object_type: ObjectType,
         vertex_shader: &[u8],
         fragment_shader: &[u8],
     ) -> Result<(B::RenderPass, B::GraphicsPipeline, B::PipelineLayout), InitializationError> {
@@ -800,6 +803,14 @@ where
         }
         .map_err(|_| InitializationError::ResourceAcquisition("Render Pipeline Layout"))?;
 
+        let object_specialization = hal::pso::Specialization {
+            constants: Cow::Borrowed(&[hal::pso::SpecializationConstant {
+                id: 0,
+                range: 0 .. 4,
+            }]),
+            data: Cow::Owned((object_type as u32).to_ne_bytes().to_vec()),
+        };
+
         let pipeline = {
             let vs_module = {
                 let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(vertex_shader))
@@ -827,7 +838,7 @@ where
                     fragment: Some(hal::pso::EntryPoint {
                         entry: "main",
                         module: &fs_module,
-                        specialization: hal::pso::Specialization::default(),
+                        specialization: object_specialization,
                     }),
                 };
 
