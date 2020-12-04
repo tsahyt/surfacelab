@@ -48,13 +48,13 @@ pub fn start_render_thread<B: gpu::Backend>(
 }
 
 struct Renderer<B: gpu::Backend> {
-    gpu: gpu::render::GPURender<B>,
+    gpu: gpu::render::GPURender<B, gpu::render::sdf3d::Uniforms>,
     samples_to_go: usize,
     frametime_ema: EMA<f64>,
 }
 
 impl<B: gpu::Backend> Renderer<B> {
-    pub fn new(gpu: gpu::render::GPURender<B>) -> Self {
+    pub fn new(gpu: gpu::render::GPURender<B, gpu::render::sdf3d::Uniforms>) -> Self {
         Self {
             gpu,
             samples_to_go: 0,
@@ -72,7 +72,7 @@ impl<B> std::ops::Deref for Renderer<B>
 where
     B: gpu::Backend,
 {
-    type Target = gpu::render::GPURender<B>;
+    type Target = gpu::render::GPURender<B, gpu::render::sdf3d::Uniforms>;
 
     fn deref(&self) -> &Self::Target {
         &self.gpu
@@ -183,11 +183,11 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
-            Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(id, channel)) => {
-                self.set_channel(*id, *channel);
-                self.redraw(*id);
-                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
-            }
+            // Lang::UserRenderEvent(UserRenderEvent::ChannelChange2D(id, channel)) => {
+            //     self.set_channel(*id, *channel);
+            //     self.redraw(*id);
+            //     response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            // }
             Lang::UserRenderEvent(UserRenderEvent::ObjectType(id, object_type)) => {
                 self.switch_object_type(*id, *object_type);
                 self.redraw(*id);
@@ -277,7 +277,7 @@ where
                 monitor_dimensions,
                 viewport_dimensions,
                 1024,
-                ty,
+                gpu::render::sdf3d::Uniforms::default(),
             )
             .map_err(|e| format!("{:?}", e))?,
         );
@@ -391,18 +391,18 @@ where
         }
     }
 
-    pub fn set_channel(&mut self, renderer_id: RendererID, channel: MaterialChannel) {
-        if let Some(r) = self.renderers.get_mut(&renderer_id) {
-            r.set_channel(match channel {
-                MaterialChannel::Displacement => 0,
-                MaterialChannel::Albedo => 1,
-                MaterialChannel::Normal => 2,
-                MaterialChannel::Roughness => 3,
-                MaterialChannel::Metallic => 4,
-            });
-            r.reset_sampling();
-        }
-    }
+    // pub fn set_channel(&mut self, renderer_id: RendererID, channel: MaterialChannel) {
+    //     if let Some(r) = self.renderers.get_mut(&renderer_id) {
+    //         r.set_channel(match channel {
+    //             MaterialChannel::Displacement => 0,
+    //             MaterialChannel::Albedo => 1,
+    //             MaterialChannel::Normal => 2,
+    //             MaterialChannel::Roughness => 3,
+    //             MaterialChannel::Metallic => 4,
+    //         });
+    //         r.reset_sampling();
+    //     }
+    // }
 
     pub fn switch_object_type(&mut self, renderer_id: RendererID, object_type: ObjectType) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {

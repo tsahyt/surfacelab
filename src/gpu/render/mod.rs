@@ -1,5 +1,5 @@
 use super::RenderTarget;
-use crate::lang::{LightType, ObjectType, ParameterBool};
+use crate::lang::ObjectType;
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
@@ -12,98 +12,20 @@ use super::{Backend, InitializationError, PipelineError, GPU};
 
 pub mod brdf_lut;
 pub mod environment;
+pub mod renderer2d;
+pub mod sdf3d;
 
 use environment::EnvironmentMaps;
 
 static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../../shaders/quad.spv");
-static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../../shaders/renderer2d.spv");
-static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/renderer3d.spv");
 static ACCUM_SHADER: &[u8] = include_bytes!("../../../shaders/accum.spv");
 
 const IRRADIANCE_SIZE: usize = 32;
 const SPECMAP_SIZE: usize = 512;
 
-#[derive(AsBytes, Debug)]
-#[repr(C)]
-/// Uniforms for a 2D Renderer
-struct RenderView2D {
-    resolution: [f32; 2],
-    pan: [f32; 2],
-    zoom: f32,
-    channel: u32,
-}
-
-impl Default for RenderView2D {
-    fn default() -> Self {
-        Self {
-            resolution: [1024.0, 1024.0],
-            pan: [0., 0.],
-            zoom: 1.,
-            channel: 0,
-        }
-    }
-}
-
-#[derive(AsBytes, Debug)]
-#[repr(C)]
-/// Uniforms for a 3D Renderer
-struct RenderView3D {
-    center: [f32; 4],
-    light_pos: [f32; 4],
-    resolution: [f32; 2],
-    focal_length: f32,
-    aperture_size: f32,
-    focal_distance: f32,
-
-    phi: f32,
-    theta: f32,
-    rad: f32,
-
-    displacement: f32,
-    tex_scale: f32,
-    texel_size: f32,
-
-    environment_strength: f32,
-    environment_blur: f32,
-
-    light_type: LightType,
-    light_strength: f32,
-    fog_strength: f32,
-
-    shadow: ParameterBool,
-    ao: ParameterBool,
-}
-
-impl Default for RenderView3D {
-    fn default() -> Self {
-        Self {
-            resolution: [1024.0, 1024.0],
-            center: [0., 0., 0., 0.],
-            light_pos: [0., 3., 0., 0.],
-            focal_length: 1.0,
-            aperture_size: 0.0,
-            focal_distance: 5.0,
-            phi: 1.,
-            theta: 1.,
-            rad: 6.,
-            displacement: 0.1,
-            tex_scale: 1.,
-            texel_size: 1. / 1024.,
-            environment_strength: 1.0,
-            environment_blur: 0.5,
-            light_type: LightType::PointLight,
-            light_strength: 100.0,
-            fog_strength: 0.2,
-            shadow: 1,
-            ao: 0,
-        }
-    }
-}
-
-#[derive(Debug)]
-enum RenderView {
-    RenderView2D(RenderView2D),
-    RenderView3D(RenderView3D),
+pub trait Renderer {
+    fn fragment_shader() -> &'static [u8];
+    fn set_resolution(&mut self, w: f32, h: f32);
 }
 
 /// An iterator over a 2D (2,3)-Halton sequence for QMC, except index 0 is added
@@ -159,7 +81,7 @@ impl Iterator for HaltonSequence2D {
     }
 }
 
-pub struct GPURender<B: Backend> {
+pub struct GPURender<B: Backend, U: Renderer + AsBytes> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: ManuallyDrop<B::CommandPool>,
 
@@ -170,8 +92,8 @@ pub struct GPURender<B: Backend> {
     accum_target: RenderTarget<B>,
     current_sample: usize,
 
-    // View
-    view: RenderView,
+    // Uniforms
+    view: U,
 
     // Rendering Data
     halton_sampler: HaltonSequence2D,
@@ -360,9 +282,10 @@ where
     }
 }
 
-impl<B> GPURender<B>
+impl<B, U> GPURender<B, U>
 where
     B: Backend,
+    U: Renderer + AsBytes,
 {
     const UNIFORM_BUFFER_SIZE: u64 = 512;
     const FINAL_FORMAT: hal::format::Format = hal::format::Format::Rgba16Sfloat;
@@ -372,7 +295,7 @@ where
         monitor_dimensions: (u32, u32),
         viewport_dimensions: (u32, u32),
         image_size: u32,
-        ty: crate::lang::RendererType,
+        view: U,
     ) -> Result<Self, InitializationError> {
         log::info!("Obtaining GPU Render Resources");
         let render_target = RenderTarget::new(
@@ -584,10 +507,7 @@ where
             &main_set_layout,
             ObjectType::Cube,
             MAIN_VERTEX_SHADER,
-            match ty {
-                crate::lang::RendererType::Renderer2D => MAIN_FRAGMENT_SHADER_2D,
-                crate::lang::RendererType::Renderer3D => MAIN_FRAGMENT_SHADER_3D,
-            },
+            U::fragment_shader(),
         )?;
 
         // Accumulation Buffer Data
@@ -683,16 +603,7 @@ where
             accum_target,
             current_sample: 0,
 
-            view: match ty {
-                crate::lang::RendererType::Renderer2D => RenderView::RenderView2D(RenderView2D {
-                    resolution: [viewport_dimensions.0 as _, viewport_dimensions.1 as _],
-                    ..RenderView2D::default()
-                }),
-                crate::lang::RendererType::Renderer3D => RenderView::RenderView3D(RenderView3D {
-                    resolution: [viewport_dimensions.0 as _, viewport_dimensions.1 as _],
-                    ..RenderView3D::default()
-                }),
-            },
+            view,
 
             halton_sampler: HaltonSequence2D::default(),
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
@@ -937,10 +848,7 @@ where
             depth: 0.0..1.0,
         };
 
-        match &mut self.view {
-            RenderView::RenderView2D(view) => view.resolution = [width as _, height as _],
-            RenderView::RenderView3D(view) => view.resolution = [width as _, height as _],
-        }
+        self.view.set_resolution(width as _, height as _);
     }
 
     fn synchronize_at_fence(&self) {
@@ -1025,10 +933,7 @@ where
             let mut lock = self.gpu.lock().unwrap();
 
             let occupancy = self.build_occupancy();
-            let uniforms = match &self.view {
-                RenderView::RenderView2D(v) => v.as_bytes(),
-                RenderView::RenderView3D(v) => v.as_bytes(),
-            };
+            let uniforms = self.view.as_bytes();
             self.fill_uniforms(&lock.device, occupancy.as_bytes(), uniforms)
                 .expect("Error filling uniforms during render");
 
@@ -1490,161 +1395,6 @@ where
         image_slot.occupied = false;
     }
 
-    pub fn rotate_camera(&mut self, theta: f32, phi: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.phi += phi;
-            view.theta += theta;
-        }
-    }
-
-    pub fn pan_camera(&mut self, x: f32, y: f32) {
-        match &mut self.view {
-            RenderView::RenderView2D(view) => {
-                view.pan[0] += x;
-                view.pan[1] += y;
-            }
-            RenderView::RenderView3D(view) => {
-                let point = (view.theta.cos(), view.theta.sin());
-                let normal = (point.1, -point.0);
-
-                let delta = (point.0 * y + normal.0 * x, point.1 * y + normal.1 * x);
-
-                view.center[0] += delta.0;
-                view.center[2] += delta.1;
-            }
-        }
-    }
-
-    pub fn zoom_camera(&mut self, z: f32) {
-        match &mut self.view {
-            RenderView::RenderView2D(view) => {
-                view.zoom += z;
-            }
-            RenderView::RenderView3D(view) => {
-                view.rad += z;
-            }
-        }
-    }
-
-    pub fn move_light(&mut self, x: f32, y: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.light_pos[0] += x;
-            view.light_pos[2] += y;
-        }
-    }
-
-    pub fn set_channel(&mut self, channel: u32) {
-        if let RenderView::RenderView2D(view) = &mut self.view {
-            view.channel = channel;
-        }
-    }
-
-    pub fn switch_object_type(
-        &mut self,
-        object_type: ObjectType,
-    ) -> Result<(), InitializationError> {
-        if let RenderView::RenderView3D(_) = &mut self.view {
-            let lock = self.gpu.lock().unwrap();
-            let (main_render_pass, main_pipeline, main_pipeline_layout) =
-                Self::make_render_pipeline(
-                    &lock.device,
-                    hal::format::Format::Rgba32Sfloat,
-                    &*self.main_descriptor_set_layout,
-                    object_type,
-                    MAIN_VERTEX_SHADER,
-                    MAIN_FRAGMENT_SHADER_3D,
-                )?;
-
-            unsafe {
-                lock.device
-                    .destroy_render_pass(ManuallyDrop::take(&mut self.main_render_pass));
-                lock.device
-                    .destroy_graphics_pipeline(ManuallyDrop::take(&mut self.main_pipeline));
-                lock.device
-                    .destroy_pipeline_layout(ManuallyDrop::take(&mut self.main_pipeline_layout));
-            }
-
-            self.main_render_pass = ManuallyDrop::new(main_render_pass);
-            self.main_pipeline = ManuallyDrop::new(main_pipeline);
-            self.main_pipeline_layout = ManuallyDrop::new(main_pipeline_layout);
-        }
-
-        Ok(())
-    }
-
-    pub fn set_displacement_amount(&mut self, displacement: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.displacement = displacement;
-        }
-    }
-
-    pub fn set_texture_scale(&mut self, scale: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.tex_scale = scale;
-            view.texel_size = scale / self.image_size as f32;
-        }
-    }
-
-    pub fn set_light_type(&mut self, light_type: LightType) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.light_type = light_type;
-        }
-    }
-
-    pub fn set_light_strength(&mut self, strength: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.light_strength = strength;
-        }
-    }
-
-    pub fn set_fog_strength(&mut self, strength: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.fog_strength = strength;
-        }
-    }
-
-    pub fn set_environment_strength(&mut self, strength: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.environment_strength = strength;
-        }
-    }
-
-    pub fn set_environment_blur(&mut self, blur: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.environment_blur = blur;
-        }
-    }
-
-    pub fn set_shadow(&mut self, shadow: ParameterBool) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.shadow = shadow;
-        }
-    }
-
-    pub fn set_ao(&mut self, ao: ParameterBool) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.ao = ao;
-        }
-    }
-
-    pub fn set_focal_length(&mut self, focal_length: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.focal_length = focal_length;
-        }
-    }
-
-    pub fn set_aperture_size(&mut self, aperture_size: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.aperture_size = aperture_size;
-        }
-    }
-
-    pub fn set_focal_distance(&mut self, focal_distance: f32) {
-        if let RenderView::RenderView3D(view) = &mut self.view {
-            view.focal_distance = focal_distance;
-        }
-    }
-
     pub fn load_environment<P: AsRef<std::path::Path>>(&mut self, path: P) {
         let new_env =
             EnvironmentMaps::from_file(self.gpu.clone(), IRRADIANCE_SIZE, SPECMAP_SIZE, path)
@@ -1653,9 +1403,10 @@ where
     }
 }
 
-impl<B> Drop for GPURender<B>
+impl<B, U> Drop for GPURender<B, U>
 where
     B: Backend,
+    U: Renderer + AsBytes
 {
     fn drop(&mut self) {
         // Finish all rendering before destruction of resources
