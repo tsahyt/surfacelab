@@ -359,6 +359,7 @@ pub enum RenderField {
     FocalLength,
     ApertureSize,
     FocalDistance,
+    ObjectType,
 }
 
 impl MessageWriter for RenderField {
@@ -407,6 +408,9 @@ impl MessageWriter for RenderField {
             ),
             RenderField::FocalDistance => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::FocalDistance(*renderer, f32::from_data(data)),
+            ),
+            RenderField::ObjectType => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::ObjectType(*renderer, super::ObjectType::from_data(data)),
             ),
         }
     }
@@ -641,6 +645,20 @@ impl ParamBoxDescription<RenderField> {
                 ParamCategory {
                     name: "geometry",
                     parameters: vec![
+                        Parameter {
+                            name: "object-type".to_string(),
+                            control: Control::Enum {
+                                selected: 0,
+                                variants: vec![
+                                    "Plane".to_string(),
+                                    "Cube".to_string(),
+                                    "Sphere".to_string(),
+                                    "Cylinder".to_string(),
+                                ],
+                            },
+                            transmitter: RenderField::ObjectType,
+                            expose_status: None,
+                        },
                         Parameter {
                             name: "displacement-amount".to_string(),
                             control: Control::Slider {

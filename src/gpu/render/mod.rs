@@ -3,9 +3,9 @@ use crate::lang::{LightType, ObjectType, ParameterBool};
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
+use std::borrow::Cow;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
-use std::borrow::Cow;
 use zerocopy::AsBytes;
 
 use super::{Backend, InitializationError, PipelineError, GPU};
@@ -804,10 +804,7 @@ where
         .map_err(|_| InitializationError::ResourceAcquisition("Render Pipeline Layout"))?;
 
         let object_specialization = hal::pso::Specialization {
-            constants: Cow::Borrowed(&[hal::pso::SpecializationConstant {
-                id: 0,
-                range: 0 .. 4,
-            }]),
+            constants: Cow::Borrowed(&[hal::pso::SpecializationConstant { id: 0, range: 0..4 }]),
             data: Cow::Owned((object_type as u32).to_ne_bytes().to_vec()),
         };
 

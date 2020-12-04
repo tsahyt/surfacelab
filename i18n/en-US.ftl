@@ -25,6 +25,7 @@ opacity = Opacity
 
 renderer = Renderer
 geometry = Geometry
+object-type = Object Type
 displacement-amount = Displacement Amount
 tex-scale = Texture Scale
 environment = Environment

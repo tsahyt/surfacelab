@@ -25,6 +25,7 @@ opacity = Deckkraft
 
 renderer = Renderer
 geometry = Geometrie
+object-type = Objekttyp
 displacement-amount = Displacementstärke
 tex-scale = Textureskalierung
 environment = Umgebungslicht
