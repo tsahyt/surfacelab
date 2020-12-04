@@ -1539,6 +1539,39 @@ where
         }
     }
 
+    pub fn switch_object_type(
+        &mut self,
+        object_type: ObjectType,
+    ) -> Result<(), InitializationError> {
+        if let RenderView::RenderView3D(_) = &mut self.view {
+            let lock = self.gpu.lock().unwrap();
+            let (main_render_pass, main_pipeline, main_pipeline_layout) =
+                Self::make_render_pipeline(
+                    &lock.device,
+                    hal::format::Format::Rgba32Sfloat,
+                    &*self.main_descriptor_set_layout,
+                    object_type,
+                    MAIN_VERTEX_SHADER,
+                    MAIN_FRAGMENT_SHADER_3D,
+                )?;
+
+            unsafe {
+                lock.device
+                    .destroy_render_pass(ManuallyDrop::take(&mut self.main_render_pass));
+                lock.device
+                    .destroy_graphics_pipeline(ManuallyDrop::take(&mut self.main_pipeline));
+                lock.device
+                    .destroy_pipeline_layout(ManuallyDrop::take(&mut self.main_pipeline_layout));
+            }
+
+            self.main_render_pass = ManuallyDrop::new(main_render_pass);
+            self.main_pipeline = ManuallyDrop::new(main_pipeline);
+            self.main_pipeline_layout = ManuallyDrop::new(main_pipeline_layout);
+        }
+
+        Ok(())
+    }
+
     pub fn set_displacement_amount(&mut self, displacement: f32) {
         if let RenderView::RenderView3D(view) = &mut self.view {
             view.displacement = displacement;

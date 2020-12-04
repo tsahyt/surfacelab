@@ -188,6 +188,11 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
+            Lang::UserRenderEvent(UserRenderEvent::ObjectType(id, object_type)) => {
+                self.switch_object_type(*id, *object_type);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
             Lang::UserRenderEvent(UserRenderEvent::DisplacementAmount(id, displ)) => {
                 self.set_displacement_amount(*id, *displ);
                 self.redraw(*id);
@@ -395,6 +400,14 @@ where
                 MaterialChannel::Roughness => 3,
                 MaterialChannel::Metallic => 4,
             });
+            r.reset_sampling();
+        }
+    }
+
+    pub fn switch_object_type(&mut self, renderer_id: RendererID, object_type: ObjectType) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.switch_object_type(object_type)
+                .expect("Failed to switch object type");
             r.reset_sampling();
         }
     }
