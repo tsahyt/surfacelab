@@ -15,6 +15,9 @@ pub mod environment;
 pub mod renderer2d;
 pub mod sdf3d;
 
+pub use renderer2d::Renderer2D;
+pub use sdf3d::RendererSDF3D;
+
 use environment::EnvironmentMaps;
 
 static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../../shaders/quad.spv");
