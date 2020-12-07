@@ -1,19 +1,23 @@
-use super::{Backend, GPURender, Renderer};
+use super::{GPURender, Renderer};
+use crate::gpu::{Backend, InitializationError, GPU};
+use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
 
 static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../../shaders/renderer2d.spv");
 
+pub type Renderer2D<B> = GPURender<B, Uniforms>;
+
 #[derive(AsBytes, Debug)]
 #[repr(C)]
 /// Uniforms for a 2D Renderer
-struct Uniforms2D {
+pub struct Uniforms {
     resolution: [f32; 2],
     pan: [f32; 2],
     zoom: f32,
     channel: u32,
 }
 
-impl Default for Uniforms2D {
+impl Default for Uniforms {
     fn default() -> Self {
         Self {
             resolution: [1024.0, 1024.0],
@@ -24,7 +28,7 @@ impl Default for Uniforms2D {
     }
 }
 
-impl Renderer for Uniforms2D {
+impl Renderer for Uniforms {
     fn fragment_shader() -> &'static [u8] {
         MAIN_FRAGMENT_SHADER_2D
     }
@@ -34,10 +38,25 @@ impl Renderer for Uniforms2D {
     }
 }
 
-impl<B> GPURender<B, Uniforms2D>
+impl<B> GPURender<B, Uniforms>
 where
     B: Backend,
 {
+    pub fn new_2d(
+        gpu: &Arc<Mutex<GPU<B>>>,
+        monitor_dimensions: (u32, u32),
+        viewport_dimensions: (u32, u32),
+        image_size: u32,
+    ) -> Result<Self, InitializationError> {
+        Self::new(
+            gpu,
+            monitor_dimensions,
+            viewport_dimensions,
+            image_size,
+            Uniforms::default(),
+        )
+    }
+
     pub fn pan_camera(&mut self, x: f32, y: f32) {
         self.view.pan[0] += x;
         self.view.pan[1] += y;

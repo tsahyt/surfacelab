@@ -1406,7 +1406,7 @@ where
 impl<B, U> Drop for GPURender<B, U>
 where
     B: Backend,
-    U: Renderer + AsBytes
+    U: Renderer + AsBytes,
 {
     fn drop(&mut self) {
         // Finish all rendering before destruction of resources

@@ -48,13 +48,13 @@ pub fn start_render_thread<B: gpu::Backend>(
 }
 
 struct Renderer<B: gpu::Backend> {
-    gpu: gpu::render::GPURender<B, gpu::render::sdf3d::Uniforms>,
+    gpu: gpu::render::sdf3d::RendererSDF3D<B>,
     samples_to_go: usize,
     frametime_ema: EMA<f64>,
 }
 
 impl<B: gpu::Backend> Renderer<B> {
-    pub fn new(gpu: gpu::render::GPURender<B, gpu::render::sdf3d::Uniforms>) -> Self {
+    pub fn new(gpu: gpu::render::sdf3d::RendererSDF3D<B>) -> Self {
         Self {
             gpu,
             samples_to_go: 0,
@@ -72,7 +72,7 @@ impl<B> std::ops::Deref for Renderer<B>
 where
     B: gpu::Backend,
 {
-    type Target = gpu::render::GPURender<B, gpu::render::sdf3d::Uniforms>;
+    type Target = gpu::render::sdf3d::RendererSDF3D<B>;
 
     fn deref(&self) -> &Self::Target {
         &self.gpu
@@ -272,12 +272,11 @@ where
         ty: RendererType,
     ) -> Result<gpu::BrokerImageView, String> {
         let mut renderer = Renderer::new(
-            gpu::render::GPURender::new(
+            gpu::render::GPURender::new_sdf3d(
                 &self.gpu,
                 monitor_dimensions,
                 viewport_dimensions,
                 1024,
-                gpu::render::sdf3d::Uniforms::default(),
             )
             .map_err(|e| format!("{:?}", e))?,
         );

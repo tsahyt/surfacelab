@@ -1,12 +1,15 @@
 use super::{GPURender, Renderer};
-use crate::lang::{LightType, ParameterBool, ObjectType};
-use crate::gpu::{Backend, InitializationError};
-use zerocopy::AsBytes;
-use std::mem::ManuallyDrop;
+use crate::gpu::{Backend, InitializationError, GPU};
+use crate::lang::{LightType, ObjectType, ParameterBool};
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
+use std::mem::ManuallyDrop;
+use std::sync::{Arc, Mutex};
+use zerocopy::AsBytes;
 
 static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/renderer3d.spv");
+
+pub type RendererSDF3D<B> = GPURender<B, Uniforms>;
 
 #[derive(AsBytes, Debug)]
 #[repr(C)]
@@ -78,20 +81,34 @@ impl<B> GPURender<B, Uniforms>
 where
     B: Backend,
 {
+    pub fn new_sdf3d(
+        gpu: &Arc<Mutex<GPU<B>>>,
+        monitor_dimensions: (u32, u32),
+        viewport_dimensions: (u32, u32),
+        image_size: u32,
+    ) -> Result<Self, InitializationError> {
+        Self::new(
+            gpu,
+            monitor_dimensions,
+            viewport_dimensions,
+            image_size,
+            Uniforms::default(),
+        )
+    }
+
     pub fn switch_object_type(
         &mut self,
         object_type: ObjectType,
     ) -> Result<(), InitializationError> {
         let lock = self.gpu.lock().unwrap();
-        let (main_render_pass, main_pipeline, main_pipeline_layout) =
-            Self::make_render_pipeline(
-                &lock.device,
-                hal::format::Format::Rgba32Sfloat,
-                &*self.main_descriptor_set_layout,
-                object_type,
-                super::MAIN_VERTEX_SHADER,
-                MAIN_FRAGMENT_SHADER_3D,
-            )?;
+        let (main_render_pass, main_pipeline, main_pipeline_layout) = Self::make_render_pipeline(
+            &lock.device,
+            hal::format::Format::Rgba32Sfloat,
+            &*self.main_descriptor_set_layout,
+            object_type,
+            super::MAIN_VERTEX_SHADER,
+            MAIN_FRAGMENT_SHADER_3D,
+        )?;
 
         unsafe {
             lock.device
