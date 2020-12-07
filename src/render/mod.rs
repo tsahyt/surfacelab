@@ -135,20 +135,22 @@ where
 struct Renderer<B: gpu::Backend> {
     gpu: ManagedRenderer<B>,
     samples_to_go: usize,
+    max_samples: usize,
     frametime_ema: EMA<f64>,
 }
 
 impl<B: gpu::Backend> Renderer<B> {
-    pub fn new(gpu: ManagedRenderer<B>) -> Self {
+    pub fn new(gpu: ManagedRenderer<B>, max_samples: usize) -> Self {
         Self {
             gpu,
             samples_to_go: 0,
+            max_samples,
             frametime_ema: EMA::new(0., TIMING_DECAY),
         }
     }
 
     pub fn reset_sampling(&mut self) {
-        self.samples_to_go = MAX_SAMPLES;
+        self.samples_to_go = self.max_samples;
         self.gpu.reset_sampling();
     }
 }
@@ -357,24 +359,30 @@ where
         ty: RendererType,
     ) -> Result<gpu::BrokerImageView, String> {
         let mut renderer = match ty {
-            RendererType::Renderer3D => Renderer::new(ManagedRenderer::RendererSDF3D(
-                gpu::render::GPURender::new_sdf3d(
-                    &self.gpu,
-                    monitor_dimensions,
-                    viewport_dimensions,
-                    1024,
-                )
-                .map_err(|e| format!("{:?}", e))?,
-            )),
-            RendererType::Renderer2D => Renderer::new(ManagedRenderer::Renderer2D(
-                gpu::render::GPURender::new_2d(
-                    &self.gpu,
-                    monitor_dimensions,
-                    viewport_dimensions,
-                    1024,
-                )
-                .map_err(|e| format!("{:?}", e))?,
-            )),
+            RendererType::Renderer3D => Renderer::new(
+                ManagedRenderer::RendererSDF3D(
+                    gpu::render::GPURender::new_sdf3d(
+                        &self.gpu,
+                        monitor_dimensions,
+                        viewport_dimensions,
+                        1024,
+                    )
+                    .map_err(|e| format!("{:?}", e))?,
+                ),
+                MAX_SAMPLES,
+            ),
+            RendererType::Renderer2D => Renderer::new(
+                ManagedRenderer::Renderer2D(
+                    gpu::render::GPURender::new_2d(
+                        &self.gpu,
+                        monitor_dimensions,
+                        viewport_dimensions,
+                        1024,
+                    )
+                    .map_err(|e| format!("{:?}", e))?,
+                ),
+                1,
+            ),
         };
 
         let now = Instant::now();
