@@ -360,6 +360,7 @@ pub enum RenderField {
     ApertureSize,
     FocalDistance,
     ObjectType,
+    SampleCount,
 }
 
 impl MessageWriter for RenderField {
@@ -411,6 +412,9 @@ impl MessageWriter for RenderField {
             ),
             RenderField::ObjectType => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::ObjectType(*renderer, super::ObjectType::from_data(data)),
+            ),
+            RenderField::SampleCount => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::SampleCount(*renderer, u32::from_data(data)),
             ),
         }
     }
@@ -642,6 +646,21 @@ impl ParamBoxDescription<RenderField> {
         Self {
             box_title: "renderer".to_string(),
             categories: vec![
+                ParamCategory {
+                    name: "renderer",
+                    parameters: vec![
+                        Parameter {
+                            name: "sample-count".to_string(),
+                            control: Control::DiscreteSlider {
+                                value: 24,
+                                min: 1,
+                                max: 256
+                            },
+                            transmitter: RenderField::SampleCount,
+                            expose_status: None,
+                        }
+                    ]
+                },
                 ParamCategory {
                     name: "geometry",
                     parameters: vec![

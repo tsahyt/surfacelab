@@ -24,6 +24,7 @@ export-channel-a = Kanal A
 opacity = Deckkraft
 
 renderer = Renderer
+sample-count = Sampleanzahl
 geometry = Geometrie
 object-type = Objekttyp
 displacement-amount = Displacementstärke

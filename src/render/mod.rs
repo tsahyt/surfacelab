@@ -6,7 +6,7 @@ use std::thread;
 use std::time::Instant;
 use strum::IntoEnumIterator;
 
-const MAX_SAMPLES: usize = 16;
+const DEFAULT_SAMPLES: usize = 24;
 const TIMING_DECAY: f64 = 0.15;
 
 pub fn start_render_thread<B: gpu::Backend>(
@@ -345,6 +345,9 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
+            Lang::UserRenderEvent(UserRenderEvent::SampleCount(id, samples)) => {
+                self.set_sample_count(*id, *samples as usize);
+            }
             _ => {}
         }
 
@@ -369,7 +372,7 @@ where
                     )
                     .map_err(|e| format!("{:?}", e))?,
                 ),
-                MAX_SAMPLES,
+                DEFAULT_SAMPLES,
             ),
             RendererType::Renderer2D => Renderer::new(
                 ManagedRenderer::Renderer2D(
@@ -438,6 +441,14 @@ where
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.set_viewport_dimensions(width, height);
             r.reset_sampling();
+        }
+    }
+
+    pub fn set_sample_count(&mut self, renderer_id: RendererID, samples: usize) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            let previous = r.max_samples;
+            r.max_samples = samples;
+            r.samples_to_go = samples.saturating_sub(previous);
         }
     }
 

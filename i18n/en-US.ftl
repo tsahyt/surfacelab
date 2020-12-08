@@ -24,6 +24,7 @@ export-channel-a = Channel A
 opacity = Opacity
 
 renderer = Renderer
+sample-count = Sample Count
 geometry = Geometry
 object-type = Object Type
 displacement-amount = Displacement Amount

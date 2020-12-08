@@ -435,6 +435,7 @@ pub enum UserRenderEvent {
     SetAO(RendererID, ParameterBool),
     LoadHDRI(RendererID, PathBuf),
     ObjectType(RendererID, ObjectType),
+    SampleCount(RendererID, u32),
 }
 
 #[repr(u32)]
