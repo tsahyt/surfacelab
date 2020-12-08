@@ -585,7 +585,9 @@ vec3 render(vec3 ro, vec3 rd) {
     vec3 f0 = vec3(0.04);
     f0 = mix(f0, albedo_, metallic_);
 
-    col += light(p, n, rd, f0, d, albedo_, metallic_, roughness_, vec3(1.), light_pos.xyz, 1.);
+    if (light_strength > 0.) {
+        col += light(p, n, rd, f0, d, albedo_, metallic_, roughness_, vec3(1.), light_pos.xyz, 1.);
+    }
 
     // Ambient Light
     float ao;
