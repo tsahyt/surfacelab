@@ -266,19 +266,19 @@ vec2 intsBox(vec3 ro, vec3 rd, vec3 boxSize)
     return vec2(tN, tF);
 }
 
-float outer_bound(vec3 ro, vec3 rd, float d) {
+vec2 outer_bound(vec3 ro, vec3 rd, float d) {
     switch (OBJECT_TYPE) {
         case OBJECT_TYPE_PLANE:
-            return - (ro.y - d) / rd.y;
+            return vec2(- (ro.y - d) / rd.y);
         case OBJECT_TYPE_CUBE:
-            return intsBox(ro, rd, vec3(1. + d)).x;
+            return intsBox(ro, rd, vec3(1. + d));
         case OBJECT_TYPE_SPHERE:
-            return intsSphere(ro, rd, 2. + d).x;
+            return intsSphere(ro, rd, 2. + d);
         case OBJECT_TYPE_CYLINDER:
-            return intsBox(ro, rd, vec3(2., 2. * PI / 3., 2.) + vec3(d)).x;
+            return intsBox(ro, rd, vec3(2., 2. * PI / 3., 2.) + vec3(d));
     }
 
-    return 0.;
+    return vec2(0.);
 }
 
 //  Get normals from normal map
@@ -294,7 +294,7 @@ vec3 normal(vec3 p, float s, float lod) {
 // --- Ray Marching
 
 float rayMarch(vec3 ro, vec3 rd) {
-    float t = outer_bound(ro, rd, displacement_amount);
+    float t = outer_bound(ro, rd, displacement_amount).x;
 
     if (ro.y < displacement_amount) {
         t = 0;
@@ -321,7 +321,7 @@ float rayMarch(vec3 ro, vec3 rd) {
 float rayShadowSoft(vec3 ro, vec3 rd, float w) {
     float s = 1.0;
     float t = 128 * SURF_DIST;
-    float max_dist = outer_bound(ro, rd, displacement_amount);
+    float max_dist = outer_bound(ro, rd, displacement_amount).y;
     float step_size = max_dist / MAX_STEPS_SHD;
 
     t += hash13(rd + vec3(constants.sample_offset, 0.)) * step_size;
@@ -343,7 +343,7 @@ float ambientOcclusionCone(vec3 p, vec3 n, vec3 cd, float lod) {
     float cone_arc_width = PI / 16;
     float occlusion = 0.0;
     float t = 128 * SURF_DIST;
-    float max_dist = outer_bound(p, cd, displacement_amount);
+    float max_dist = outer_bound(p, cd, displacement_amount).y;
 
     for(int i = 0; i < MAX_STEPS_AO; i++) {
         float d = sdf(p + cd * t, lod);
