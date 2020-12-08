@@ -107,7 +107,7 @@ impl OperatorParamBox for Range {
         ParamBoxDescription {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
-                name: "basic-parameteres",
+                name: "basic-parameters",
                 parameters: vec![
                     Parameter {
                         name: "range-mode".to_string(),
