@@ -56,17 +56,17 @@ impl<B> ManagedRenderer<B>
 where
     B: gpu::Backend,
 {
-    pub fn as_sdf3d(&mut self) -> Option<&mut gpu::render::RendererSDF3D<B>> {
+    pub fn update_sdf3d<F: Fn(&mut gpu::render::RendererSDF3D<B>) -> ()>(&mut self, f: F) {
         match self {
-            ManagedRenderer::RendererSDF3D(r) => Some(r),
-            ManagedRenderer::Renderer2D(_) => None,
+            ManagedRenderer::RendererSDF3D(r) => f(r),
+            ManagedRenderer::Renderer2D(_) => {}
         }
     }
 
-    pub fn as_2d(&mut self) -> Option<&mut gpu::render::Renderer2D<B>> {
+    pub fn update_2d<F: Fn(&mut gpu::render::Renderer2D<B>) -> ()>(&mut self, f: F) {
         match self {
-            ManagedRenderer::RendererSDF3D(_) => None,
-            ManagedRenderer::Renderer2D(r) => Some(r),
+            ManagedRenderer::RendererSDF3D(_) => {}
+            ManagedRenderer::Renderer2D(r) => f(r),
         }
     }
 
@@ -467,12 +467,8 @@ where
     }
 
     pub fn rotate_camera(&mut self, renderer_id: RendererID, phi: f32, theta: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.rotate_camera(phi, theta);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.rotate_camera(phi, theta));
             r.reset_sampling();
         }
     }
@@ -488,12 +484,8 @@ where
     }
 
     pub fn move_light(&mut self, renderer_id: RendererID, x: f32, y: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.move_light(x, y);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.move_light(x, y));
             r.reset_sampling();
         }
     }
@@ -509,169 +501,119 @@ where
     }
 
     pub fn set_channel(&mut self, renderer_id: RendererID, channel: MaterialChannel) {
-        if let Some(r) = self.renderers.get_mut(&renderer_id).and_then(|r| r.as_2d()) {
-            r.set_channel(match channel {
-                MaterialChannel::Displacement => 0,
-                MaterialChannel::Albedo => 1,
-                MaterialChannel::Normal => 2,
-                MaterialChannel::Roughness => 3,
-                MaterialChannel::Metallic => 4,
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_2d(|r| {
+                r.set_channel(match channel {
+                    MaterialChannel::Displacement => 0,
+                    MaterialChannel::Albedo => 1,
+                    MaterialChannel::Normal => 2,
+                    MaterialChannel::Roughness => 3,
+                    MaterialChannel::Metallic => 4,
+                })
             });
             r.reset_sampling();
         }
     }
 
     pub fn switch_object_type(&mut self, renderer_id: RendererID, object_type: ObjectType) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.switch_object_type(object_type)
-                .expect("Failed to switch object type");
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| {
+                r.switch_object_type(object_type)
+                    .expect("Failed to switch object type")
+            });
             r.reset_sampling();
         }
     }
 
     pub fn set_displacement_amount(&mut self, renderer_id: RendererID, displacement: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_displacement_amount(displacement);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_displacement_amount(displacement));
             r.reset_sampling();
         }
     }
 
     pub fn set_texture_scale(&mut self, renderer_id: RendererID, scale: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_texture_scale(scale);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_texture_scale(scale));
             r.reset_sampling();
         }
     }
 
     pub fn set_light_type(&mut self, renderer_id: RendererID, light_type: LightType) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_light_type(light_type);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_light_type(light_type));
             r.reset_sampling();
         }
     }
 
     pub fn set_light_strength(&mut self, renderer_id: RendererID, strength: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_light_strength(strength);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_light_strength(strength));
             r.reset_sampling();
         }
     }
 
     pub fn set_fog_strength(&mut self, renderer_id: RendererID, strength: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_fog_strength(strength);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_fog_strength(strength));
             r.reset_sampling();
         }
     }
 
     pub fn set_environment_strength(&mut self, renderer_id: RendererID, strength: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_environment_strength(strength);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_environment_strength(strength));
             r.reset_sampling();
         }
     }
 
     pub fn set_environment_blur(&mut self, renderer_id: RendererID, blur: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_environment_blur(blur);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_environment_blur(blur));
             r.reset_sampling();
         }
     }
 
     pub fn set_shadow(&mut self, renderer_id: RendererID, shadow: ParameterBool) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_shadow(shadow);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_shadow(shadow));
             r.reset_sampling();
         }
     }
 
     pub fn set_ao(&mut self, renderer_id: RendererID, ao: ParameterBool) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_ao(ao);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_ao(ao));
             r.reset_sampling();
         }
     }
 
     pub fn set_focal_length(&mut self, renderer_id: RendererID, focal_length: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_focal_length(focal_length);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_focal_length(focal_length));
             r.reset_sampling();
         }
     }
 
     pub fn set_focal_distance(&mut self, renderer_id: RendererID, focal_distance: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_focal_distance(focal_distance);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_focal_distance(focal_distance));
             r.reset_sampling();
         }
     }
 
     pub fn set_aperture_size(&mut self, renderer_id: RendererID, aperture_size: f32) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.set_aperture_size(aperture_size);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_aperture_size(aperture_size));
             r.reset_sampling();
         }
     }
 
     pub fn load_hdri<P: AsRef<std::path::Path>>(&mut self, renderer_id: RendererID, path: P) {
-        if let Some(r) = self
-            .renderers
-            .get_mut(&renderer_id)
-            .and_then(|r| r.as_sdf3d())
-        {
-            r.load_environment(path);
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            if let ManagedRenderer::RendererSDF3D(r) = &mut r.gpu {
+                r.load_environment(path);
+            }
             r.reset_sampling();
         }
     }
