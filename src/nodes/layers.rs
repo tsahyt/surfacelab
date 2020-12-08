@@ -1112,8 +1112,7 @@ impl LayerStack {
     }
 
     /// Move a layer up one position in the stack, i.e. closer to the back of
-    /// the vector. Returns moved resources in a linear depiction of the whole
-    /// stack including masks.
+    /// the vector. Returns true if successful.
     pub fn move_up(&mut self, layer: &Resource<Node>) -> bool {
         if layer.path_str().unwrap().contains("mask") {
             self.move_mask_up(layer)
@@ -1145,8 +1144,7 @@ impl LayerStack {
         }
     }
 
-    /// Move a layer down one position in the stack. Returns moved resources in
-    /// a linear depiction of the whole stack including masks.
+    /// Move a layer down one position in the stack. Returns true if successful.
     pub fn move_down(&mut self, layer: &Resource<Node>) -> bool {
         if layer.path_str().unwrap().contains("mask") {
             self.move_mask_down(layer)
