@@ -9,30 +9,6 @@ use strum::IntoEnumIterator;
 /// Slice width for graph layouting on conversion
 const SLICE_WIDTH: f64 = 256.0;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-/// A fill layer using an operator, with its output sockets mapped to
-/// material channels. The operator must not have any inputs! It can be
-/// complex or atomic. The requirement to not have inputs means that most
-/// atomic operators are not usable, outside of noises etc., and the
-/// operator is most likely complex.
-pub struct FillLayer {
-    title: String,
-    operator: Operator,
-    output_sockets: ChannelMap,
-    blend_options: LayerBlendOptions,
-}
-
-impl From<Operator> for FillLayer {
-    fn from(source: Operator) -> Self {
-        Self {
-            title: source.title().to_owned(),
-            output_sockets: HashMap::new(),
-            blend_options: LayerBlendOptions::default(),
-            operator: source,
-        }
-    }
-}
-
 /// A type encoding a function from material channels to sockets.
 type ChannelMap = HashMap<MaterialChannel, String>;
 
@@ -48,23 +24,6 @@ pub struct FxLayer {
     input_sockets: InputMap,
     output_sockets: ChannelMap,
     blend_options: LayerBlendOptions,
-}
-
-impl From<Operator> for FxLayer {
-    fn from(source: Operator) -> Self {
-        Self {
-            title: source.title().to_owned(),
-            input_sockets: HashMap::from_iter(
-                source
-                    .inputs()
-                    .drain()
-                    .map(|(k, _)| (k, MaterialChannel::Displacement)),
-            ),
-            output_sockets: HashMap::new(),
-            blend_options: LayerBlendOptions::default(),
-            operator: source,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -536,170 +495,128 @@ impl Default for LayerBlendOptions {
 /// A layer is either a fill layer or an FX layer. Each layer has a name, such
 /// that it can be referenced via a Resource. The resource type for a layer is
 /// `Resource<Node>`.
+///
+/// A fill layer using an operator, with its output sockets mapped to
+/// material channels. The operator must not have any inputs! It can be
+/// complex or atomic. The requirement to not have inputs means that most
+/// atomic operators are not usable, outside of noises etc., and the
+/// operator is most likely complex.
+///
+/// An FX layer is a layer that uses the material underneath it as input.
+/// Therefore FX layers *cannot* be placed at the bottom of a layer stack.
+///
+/// Internally there is little difference between Fill and FX layers. Fill
+/// layers are simply layers with no input sockets.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Layer {
-    FillLayer(String, FillLayer),
-    FxLayer(String, FxLayer),
+pub struct Layer {
+    name: String,
+    title: String,
+    operator: Operator,
+    input_sockets: InputMap,
+    output_sockets: ChannelMap,
+    blend_options: LayerBlendOptions,
+    layer_type: LayerType,
+}
+
+impl From<Operator> for Layer {
+    fn from(source: Operator) -> Self {
+        Self {
+            name: "new.layer".to_owned(),
+            title: source.title().to_owned(),
+            input_sockets: HashMap::from_iter(
+                source
+                    .inputs()
+                    .drain()
+                    .map(|(k, _)| (k, MaterialChannel::Displacement)),
+            ),
+            output_sockets: HashMap::new(),
+            blend_options: LayerBlendOptions::default(),
+            operator: source,
+            layer_type: LayerType::Fx,
+        }
+    }
 }
 
 impl Layer {
     pub fn name(&self) -> &str {
-        match self {
-            Layer::FillLayer(s, _) => s,
-            Layer::FxLayer(s, _) => s,
-        }
+        &self.name
     }
 
     pub fn outputs(&self) -> &ChannelMap {
-        match self {
-            Layer::FillLayer(_, l) => &l.output_sockets,
-            Layer::FxLayer(_, l) => &l.output_sockets,
-        }
+        &self.output_sockets
     }
 
     pub fn inputs(&self) -> Option<&InputMap> {
-        match self {
-            Layer::FillLayer(_, _) => None,
-            Layer::FxLayer(_, l) => Some(&l.input_sockets),
+        match self.layer_type {
+            LayerType::Fill => None,
+            LayerType::Fx => Some(&self.input_sockets),
         }
     }
 
     pub fn layer_type(&self) -> LayerType {
-        match self {
-            Layer::FillLayer(_, _) => LayerType::Fill,
-            Layer::FxLayer(_, _) => LayerType::Fx,
-        }
+        self.layer_type
     }
 
     pub fn set_opacity(&mut self, opacity: f32) {
-        match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
-                blend_options.opacity = opacity;
-            }
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
-                blend_options.opacity = opacity;
-            }
-        }
+        self.blend_options.opacity = opacity;
     }
 
     pub fn get_opacity(&self) -> f32 {
-        match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options.opacity,
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => blend_options.opacity,
-        }
+        self.blend_options.opacity
     }
 
     pub fn set_blend_mode(&mut self, blend_mode: BlendMode) {
-        match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
-                blend_options.blend_mode = blend_mode;
-            }
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
-                blend_options.blend_mode = blend_mode;
-            }
-        }
+        self.blend_options.blend_mode = blend_mode;
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {
-        match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
-                blend_options.enabled = enabled;
-            }
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
-                blend_options.enabled = enabled;
-            }
-        }
+        self.blend_options.enabled = enabled;
     }
 
     pub fn set_mask_parameter(&mut self, mask: &Resource<Param>, data: &[u8]) {
-        match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
-                blend_options.mask.set_mask_parameter(mask, data);
-            }
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
-                blend_options.mask.set_mask_parameter(mask, data);
-            }
-        }
+        self.blend_options.mask.set_mask_parameter(mask, data);
     }
 
     pub fn set_mask_opacity(&mut self, mask: &Resource<Node>, opacity: f32) {
-        match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
-                blend_options.mask.set_mask_opacity(mask, opacity);
-            }
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
-                blend_options.mask.set_mask_opacity(mask, opacity);
-            }
-        }
+        self.blend_options.mask.set_mask_opacity(mask, opacity);
     }
 
     pub fn set_mask_blend_mode(&mut self, mask: &Resource<Node>, blend_mode: BlendMode) {
-        match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
-                blend_options.mask.set_mask_blend_mode(mask, blend_mode);
-            }
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
-                blend_options.mask.set_mask_blend_mode(mask, blend_mode);
-            }
-        }
+        self.blend_options
+            .mask
+            .set_mask_blend_mode(mask, blend_mode);
     }
 
     pub fn set_mask_enabled(&mut self, mask: &Resource<Node>, enabled: bool) {
-        match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => {
-                blend_options.mask.set_mask_enabled(mask, enabled);
-            }
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => {
-                blend_options.mask.set_mask_enabled(mask, enabled);
-            }
-        }
+        self.blend_options.mask.set_mask_enabled(mask, enabled);
     }
 
     pub fn get_blend_mode(&self) -> BlendMode {
-        self.get_blend_options().blend_mode
+        self.blend_options.blend_mode
     }
 
     pub fn get_blend_options(&self) -> &LayerBlendOptions {
-        match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options,
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => blend_options,
-        }
+        &self.blend_options
     }
 
     pub fn get_output_channels(&self) -> EnumSet<MaterialChannel> {
-        match self {
-            Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options.channels,
-            Layer::FxLayer(_, FxLayer { blend_options, .. }) => blend_options.channels,
-        }
+        self.blend_options.channels
     }
 
     pub fn title(&self) -> &str {
-        match self {
-            Layer::FillLayer(_, l) => &l.title,
-            Layer::FxLayer(_, l) => &l.title,
-        }
+        &self.title
     }
 
     pub fn set_title(&mut self, title: &str) {
-        match self {
-            Layer::FillLayer(_, l) => {
-                l.title = title.to_owned();
-            }
-            Layer::FxLayer(_, l) => {
-                l.title = title.to_owned();
-            }
-        }
+        self.title = title.to_owned();
     }
 
     pub fn operator(&self) -> &Operator {
-        match self {
-            Layer::FillLayer(_, l) => &l.operator,
-            Layer::FxLayer(_, l) => &l.operator,
-        }
+        &self.operator
     }
 
     pub fn get_masks(&self) -> &MaskStack {
-        &self.get_blend_options().mask
+        &self.blend_options.mask
     }
 
     pub fn has_masks(&self) -> bool {
@@ -707,24 +624,15 @@ impl Layer {
     }
 
     pub fn push_mask(&mut self, mask: Mask, resource: Resource<Node>) -> Option<()> {
-        match self {
-            Layer::FillLayer(_, l) => l.blend_options.mask.push(mask, resource),
-            Layer::FxLayer(_, l) => l.blend_options.mask.push(mask, resource),
-        }
+        self.blend_options.mask.push(mask, resource)
     }
 
     pub fn move_mask_up(&mut self, mask: &Resource<Node>) -> bool {
-        match self {
-            Layer::FillLayer(_, l) => l.blend_options.mask.move_up(mask),
-            Layer::FxLayer(_, l) => l.blend_options.mask.move_up(mask),
-        }
+        self.blend_options.mask.move_up(mask)
     }
 
     pub fn move_mask_down(&mut self, mask: &Resource<Node>) -> bool {
-        match self {
-            Layer::FillLayer(_, l) => l.blend_options.mask.move_down(mask),
-            Layer::FxLayer(_, l) => l.blend_options.mask.move_down(mask),
-        }
+        self.blend_options.mask.move_down(mask)
     }
 
     /// Determine the number of graph "layers" taken up by this layer, for use
@@ -811,22 +719,12 @@ impl LayerStack {
             .insert(resource.file().unwrap().to_owned(), self.layers.len() - 1);
     }
 
-    pub fn push_fill(&mut self, layer: FillLayer, base_name: &str) -> Resource<Node> {
+    pub fn push_layer(&mut self, mut layer: Layer, base_name: &str) -> Resource<Node> {
         let resource = Resource::node(
             &format!("{}/{}", self.name, self.next_free_name(base_name)),
             None,
         );
-        let layer = Layer::FillLayer(resource.file().unwrap().to_owned(), layer);
-        self.push(layer, &resource);
-        resource
-    }
-
-    pub fn push_fx(&mut self, layer: FxLayer, base_name: &str) -> Resource<Node> {
-        let resource = Resource::node(
-            &format!("{}/{}", self.name, self.next_free_name(base_name)),
-            None,
-        );
-        let layer = Layer::FxLayer(resource.file().unwrap().to_owned(), layer);
+        layer.name = resource.file().unwrap().to_owned();
         self.push(layer, &resource);
         resource
     }
@@ -881,19 +779,14 @@ impl LayerStack {
     pub fn all_resources(&self) -> Vec<Resource<Node>> {
         self.layers
             .iter()
-            .map(|layer| match layer {
-                Layer::FillLayer(_, FillLayer { blend_options, .. }) => blend_options
+            .map(|layer| {
+                layer
+                    .get_blend_options()
                     .channels
                     .iter()
                     .map(|channel| self.blend_resource(layer, channel))
                     .chain(std::iter::once(self.layer_resource(layer)))
-                    .collect::<Vec<_>>(),
-                Layer::FxLayer(_, FxLayer { blend_options, .. }) => blend_options
-                    .channels
-                    .iter()
-                    .map(|channel| self.blend_resource(layer, channel))
-                    .chain(std::iter::once(self.layer_resource(layer)))
-                    .collect::<Vec<_>>(),
+                    .collect::<Vec<_>>()
             })
             .flatten()
             .collect()
@@ -905,20 +798,12 @@ impl LayerStack {
         layer: &Resource<Node>,
     ) -> Vec<(Resource<Socket>, OperatorType, bool)> {
         if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            match &self.layers[*idx] {
-                Layer::FillLayer(_, fill) => fill
-                    .operator
-                    .outputs()
-                    .iter()
-                    .map(|(s, t)| (layer.node_socket(s), *t, fill.operator.external_data()))
-                    .collect(),
-                Layer::FxLayer(_, fx) => fx
-                    .operator
-                    .outputs()
-                    .iter()
-                    .map(|(s, t)| (layer.node_socket(s), *t, fx.operator.external_data()))
-                    .collect(),
-            }
+            let l = &self.layers[*idx];
+            l.operator
+                .outputs()
+                .iter()
+                .map(|(s, t)| (layer.node_socket(s), *t, l.operator.external_data()))
+                .collect()
         } else {
             Vec::new()
         }
@@ -988,37 +873,24 @@ impl LayerStack {
         socket_index: usize,
     ) {
         if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            match &mut self.layers[*idx] {
-                Layer::FillLayer(_, fill) => {
-                    let socket = fill
-                        .operator
-                        .outputs()
-                        .keys()
-                        .sorted()
-                        .nth(socket_index)
-                        .cloned()
-                        .unwrap();
-                    fill.output_sockets.insert(channel, socket);
-                }
-                Layer::FxLayer(_, fx) => {
-                    let socket = fx
-                        .operator
-                        .outputs()
-                        .keys()
-                        .sorted()
-                        .nth(socket_index)
-                        .cloned()
-                        .unwrap();
-                    fx.output_sockets.insert(channel, socket);
-                }
-            }
+            let l = &mut self.layers[*idx];
+            let socket = l
+                .operator
+                .outputs()
+                .keys()
+                .sorted()
+                .nth(socket_index)
+                .cloned()
+                .unwrap();
+            l.output_sockets.insert(channel, socket);
         }
     }
 
     pub fn set_input(&mut self, layer_socket: &Resource<Socket>, channel: MaterialChannel) {
         if let Some(idx) = self.resources.get(layer_socket.file().unwrap()) {
-            if let Layer::FxLayer(_, fx) = &mut self.layers[*idx] {
-                fx.input_sockets
+            let l = &mut self.layers[*idx];
+            if let LayerType::Fx = l.layer_type {
+                l.input_sockets
                     .insert(layer_socket.fragment().unwrap().to_owned(), channel);
             }
         }
@@ -1031,21 +903,11 @@ impl LayerStack {
         visibility: bool,
     ) {
         if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            match &mut self.layers[*idx] {
-                Layer::FillLayer(_, fill) => {
-                    if visibility {
-                        fill.blend_options.channels.insert(channel);
-                    } else {
-                        fill.blend_options.channels.remove(channel);
-                    }
-                }
-                Layer::FxLayer(_, fx) => {
-                    if visibility {
-                        fx.blend_options.channels.insert(channel);
-                    } else {
-                        fx.blend_options.channels.remove(channel);
-                    }
-                }
+            let l = &mut self.layers[*idx];
+            if visibility {
+                l.blend_options.channels.insert(channel);
+            } else {
+                l.blend_options.channels.remove(channel);
             }
         }
     }
