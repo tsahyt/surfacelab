@@ -648,18 +648,16 @@ impl ParamBoxDescription<RenderField> {
             categories: vec![
                 ParamCategory {
                     name: "renderer",
-                    parameters: vec![
-                        Parameter {
-                            name: "sample-count".to_string(),
-                            control: Control::DiscreteSlider {
-                                value: 24,
-                                min: 1,
-                                max: 256
-                            },
-                            transmitter: RenderField::SampleCount,
-                            expose_status: None,
-                        }
-                    ]
+                    parameters: vec![Parameter {
+                        name: "sample-count".to_string(),
+                        control: Control::DiscreteSlider {
+                            value: 24,
+                            min: 1,
+                            max: 256,
+                        },
+                        transmitter: RenderField::SampleCount,
+                        expose_status: None,
+                    }],
                 },
                 ParamCategory {
                     name: "geometry",
