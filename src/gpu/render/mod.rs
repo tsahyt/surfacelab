@@ -1233,7 +1233,10 @@ where
                     .expect("Failed to wait for fence after render");
             }
 
-            unsafe { lock.device.destroy_framebuffer(framebuffer) };
+            unsafe {
+                lock.device.destroy_framebuffer(framebuffer);
+                self.command_pool.free(Some(cmd_buffer));
+            };
         }
 
         self.current_sample += 1;
