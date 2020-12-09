@@ -16,17 +16,6 @@ type ChannelMap = HashMap<MaterialChannel, String>;
 type InputMap = HashMap<String, MaterialChannel>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-/// An FX layer is a layer that uses the material underneath it as input.
-/// Therefore FX layers *cannot* be placed at the bottom of a layer stack.
-pub struct FxLayer {
-    title: String,
-    operator: Operator,
-    input_sockets: InputMap,
-    output_sockets: ChannelMap,
-    blend_options: LayerBlendOptions,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 /// A mask (layer) is any operator that has one input or less, and some number
 /// of outputs greater than 0 that can be interpreted as grayscale images. To
 /// retain flexibility, color outputs may be allowed, but only the red channel
@@ -490,8 +479,6 @@ impl Default for LayerBlendOptions {
     }
 }
 
-// TODO: See if backend layer representation can be unified to not differentiate between fill and fx
-
 /// A layer is either a fill layer or an FX layer. Each layer has a name, such
 /// that it can be referenced via a Resource. The resource type for a layer is
 /// `Resource<Node>`.
@@ -719,12 +706,13 @@ impl LayerStack {
             .insert(resource.file().unwrap().to_owned(), self.layers.len() - 1);
     }
 
-    pub fn push_layer(&mut self, mut layer: Layer, base_name: &str) -> Resource<Node> {
+    pub fn push_layer(&mut self, mut layer: Layer, layer_type: LayerType, base_name: &str) -> Resource<Node> {
         let resource = Resource::node(
             &format!("{}/{}", self.name, self.next_free_name(base_name)),
             None,
         );
         layer.name = resource.file().unwrap().to_owned();
+        layer.layer_type = layer_type;
         self.push(layer, &resource);
         resource
     }
@@ -1197,291 +1185,154 @@ impl super::NodeCollection for LayerStack {
         let mut last_socket: HashMap<MaterialChannel, Resource<Socket>> = HashMap::new();
 
         for layer in self.layers.iter() {
-            match layer {
-                Layer::FillLayer(
-                    _,
-                    FillLayer {
-                        blend_options,
-                        operator,
-                        output_sockets,
-                        ..
-                    },
-                ) => {
-                    // Skip execution if no channels are blended or the layer is disabled.
-                    if blend_options.channels.is_empty() || !blend_options.enabled {
-                        continue;
+            // Skip if disabled
+            if !layer.blend_options.enabled || layer.blend_options.channels.is_empty() {
+                continue;
+            }
+
+            step += 1;
+
+            let resource = self.layer_resource(layer);
+
+            match &layer.operator {
+                Operator::AtomicOperator(aop) => {
+                    // Move inputs. Nop for fill layers
+                    for (socket, channel) in layer.input_sockets.iter() {
+                        debug_assert!(layer.layer_type != LayerType::Fill);
+                        let input_resource = last_socket.get(channel)?.clone();
+                        use_points
+                            .entry(input_resource.socket_node())
+                            .and_modify(|e| e.last = step)
+                            .or_insert(UsePoint {
+                                last: step,
+                                creation: usize::MIN,
+                            });
+
+                        linearization.push(Instruction::Move(
+                            input_resource,
+                            resource.node_socket(socket),
+                        ));
                     }
+                    linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
 
-                    step += 1;
-
-                    let resource = self.layer_resource(layer);
-                    match operator {
-                        Operator::AtomicOperator(aop) => {
-                            linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
-                            if let Some(thmbsocket) = aop.outputs().keys().sorted().next() {
-                                linearization
-                                    .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
-                            }
-                        }
-                        Operator::ComplexOperator(cop) => {
-                            // Inputs can be skipped vs the nodegraph
-                            // linearization, since fill layers must not have
-                            // inputs.
-                            linearization.push(Instruction::Call(resource.clone(), cop.clone()));
-                            for (out_socket, (_, output)) in cop.outputs.iter() {
-                                linearization.push(Instruction::Copy(
-                                    output.node_socket("data"),
-                                    resource.node_socket(out_socket),
-                                ))
-                            }
-                            if let Some(thmbsocket) = cop.outputs().keys().sorted().next() {
-                                linearization
-                                    .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
-                            }
-                        }
-                    }
-
-                    use_points
-                        .entry(resource.clone())
-                        .and_modify(|e| e.creation = step)
-                        .or_insert(UsePoint {
-                            last: usize::MAX,
-                            creation: step,
-                        });
-
-                    if blend_options.has_masks() {
-                        blend_options.mask.linearize_into(
-                            |mask| self.mask_resource(mask),
-                            |mask| self.mask_blend_resource(mask),
-                            &mut linearization,
-                            &mut use_points,
-                            &mut step,
-                        );
-                    }
-
-                    for (channel, socket) in output_sockets.iter() {
-                        // Skip blending if channel is not selected
-                        if !blend_options.channels.contains(*channel) {
-                            continue;
-                        }
-
-                        if let Some(background) = last_socket.get(channel) {
-                            step += 1;
-
-                            let blend_res = self.blend_resource(layer, *channel);
-
-                            use_points
-                                .entry(resource.clone())
-                                .and_modify(|e| e.last = step)
-                                .or_insert(UsePoint {
-                                    last: step,
-                                    creation: usize::MIN,
-                                });
-                            use_points
-                                .entry(background.socket_node())
-                                .and_modify(|e| e.last = step)
-                                .or_insert(UsePoint {
-                                    last: step,
-                                    creation: usize::MIN,
-                                });
-
-                            linearization.push(Instruction::Move(
-                                background.clone(),
-                                blend_res.node_socket("background"),
-                            ));
-                            linearization.push(Instruction::Move(
-                                resource.node_socket(socket),
-                                blend_res.node_socket("foreground"),
-                            ));
-                            if let Some(mask_res) = blend_options.top_mask(
-                                |mask| self.mask_resource(mask),
-                                |mask| self.mask_blend_resource(mask),
-                            ) {
-                                linearization.push(Instruction::Move(
-                                    mask_res,
-                                    blend_res.node_socket("mask"),
-                                ));
-                            }
-                            linearization.push(Instruction::Execute(
-                                blend_res.clone(),
-                                blend_options.blend_operator(),
-                            ));
-
-                            use_points
-                                .entry(blend_res.clone())
-                                .and_modify(|e| e.creation = step)
-                                .or_insert(UsePoint {
-                                    last: usize::MAX,
-                                    creation: step,
-                                });
-
-                            last_socket.insert(*channel, blend_res.node_socket("color"));
-                        } else {
-                            last_socket.insert(*channel, resource.node_socket(socket));
-                        }
+                    if let Some(thmbsocket) = aop.outputs().keys().sorted().next() {
+                        linearization
+                            .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
                     }
                 }
-                Layer::FxLayer(
-                    _,
-                    FxLayer {
-                        operator,
-                        input_sockets,
-                        output_sockets,
-                        blend_options,
-                        ..
-                    },
-                ) => {
-                    // Skip if disabled
-                    if !blend_options.enabled {
-                        continue;
+                Operator::ComplexOperator(cop) => {
+                    // Copy inputs to internal sockets. Nop for fill layers
+                    for (socket, channel) in layer.input_sockets.iter() {
+                        debug_assert!(layer.layer_type != LayerType::Fill);
+                        let input = cop.inputs.get(socket).expect("Missing internal socket");
+                        let input_resource = last_socket.get(channel)?.clone();
+                        use_points
+                            .entry(input_resource.socket_node())
+                            .and_modify(|e| e.last = step)
+                            .or_insert(UsePoint {
+                                last: step,
+                                creation: usize::MIN,
+                            });
+
+                        linearization.push(Instruction::Copy(
+                            input_resource,
+                            input.1.node_socket("data"),
+                        ));
                     }
 
+                    // Call complex operator execution
+                    linearization.push(Instruction::Call(resource.clone(), cop.clone()));
+
+                    // Copy back outputs
+                    for (out_socket, (_, output)) in cop.outputs.iter() {
+                        linearization.push(Instruction::Copy(
+                            output.node_socket("data"),
+                            resource.node_socket(out_socket),
+                        ))
+                    }
+
+                    if let Some(thmbsocket) = cop.outputs().keys().sorted().next() {
+                        linearization
+                            .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
+                    }
+                }
+            }
+
+            use_points
+                .entry(resource.clone())
+                .and_modify(|e| e.creation = step)
+                .or_insert(UsePoint {
+                    last: usize::MAX,
+                    creation: step,
+                });
+
+            if layer.blend_options.has_masks() {
+                layer.blend_options.mask.linearize_into(
+                    |mask| self.mask_resource(mask),
+                    |mask| self.mask_blend_resource(mask),
+                    &mut linearization,
+                    &mut use_points,
+                    &mut step,
+                );
+            }
+
+            for (channel, socket) in layer.output_sockets.iter() {
+                // Skip blending if channel is not selected
+                if !layer.blend_options.channels.contains(*channel) {
+                    continue;
+                }
+
+                if let Some(background) = last_socket.get(channel).cloned() {
                     step += 1;
 
-                    let resource = self.layer_resource(layer);
-
-                    match operator {
-                        Operator::AtomicOperator(aop) => {
-                            // Move inputs
-                            for (socket, channel) in input_sockets.iter() {
-                                let input_resource = last_socket.get(channel)?.clone();
-                                use_points
-                                    .entry(input_resource.socket_node())
-                                    .and_modify(|e| e.last = step)
-                                    .or_insert(UsePoint {
-                                        last: step,
-                                        creation: usize::MIN,
-                                    });
-
-                                linearization.push(Instruction::Move(
-                                    input_resource,
-                                    resource.node_socket(socket),
-                                ));
-                            }
-                            linearization.push(Instruction::Execute(resource.clone(), aop.clone()));
-
-                            if let Some(thmbsocket) = aop.outputs().keys().sorted().next() {
-                                linearization
-                                    .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
-                            }
-                        }
-                        Operator::ComplexOperator(cop) => {
-                            // Copy inputs to internal sockets
-                            for (socket, channel) in input_sockets.iter() {
-                                let input =
-                                    cop.inputs.get(socket).expect("Missing internal socket");
-                                let input_resource = last_socket.get(channel)?.clone();
-                                use_points
-                                    .entry(input_resource.socket_node())
-                                    .and_modify(|e| e.last = step)
-                                    .or_insert(UsePoint {
-                                        last: step,
-                                        creation: usize::MIN,
-                                    });
-
-                                linearization.push(Instruction::Copy(
-                                    input_resource,
-                                    input.1.node_socket("data"),
-                                ));
-                            }
-
-                            // Call complex operator execution
-                            linearization.push(Instruction::Call(resource.clone(), cop.clone()));
-
-                            // Copy back outputs
-                            for (out_socket, (_, output)) in cop.outputs.iter() {
-                                linearization.push(Instruction::Copy(
-                                    output.node_socket("data"),
-                                    resource.node_socket(out_socket),
-                                ))
-                            }
-
-                            if let Some(thmbsocket) = cop.outputs().keys().sorted().next() {
-                                linearization
-                                    .push(Instruction::Thumbnail(resource.node_socket(thmbsocket)));
-                            }
-                        }
-                    }
+                    let blend_res = self.blend_resource(layer, *channel);
 
                     use_points
+                        .entry(background.socket_node())
+                        .and_modify(|e| e.last = step)
+                        .or_insert(UsePoint {
+                            last: step,
+                            creation: usize::MIN,
+                        });
+                    use_points
                         .entry(resource.clone())
+                        .and_modify(|e| e.last = step)
+                        .or_insert(UsePoint {
+                            last: step,
+                            creation: usize::MIN,
+                        });
+
+                    linearization.push(Instruction::Move(
+                        background,
+                        blend_res.node_socket("background"),
+                    ));
+                    linearization.push(Instruction::Move(
+                        resource.node_socket(socket),
+                        blend_res.node_socket("foreground"),
+                    ));
+                    if let Some(mask_res) = layer.blend_options.top_mask(
+                        |mask| self.mask_resource(mask),
+                        |mask| self.mask_blend_resource(mask),
+                    ) {
+                        linearization
+                            .push(Instruction::Move(mask_res, blend_res.node_socket("mask")));
+                    }
+                    linearization.push(Instruction::Execute(
+                        blend_res.clone(),
+                        layer.blend_options.blend_operator(),
+                    ));
+
+                    use_points
+                        .entry(blend_res.clone())
                         .and_modify(|e| e.creation = step)
                         .or_insert(UsePoint {
                             last: usize::MAX,
                             creation: step,
                         });
 
-                    if blend_options.has_masks() {
-                        blend_options.mask.linearize_into(
-                            |mask| self.mask_resource(mask),
-                            |mask| self.mask_blend_resource(mask),
-                            &mut linearization,
-                            &mut use_points,
-                            &mut step,
-                        );
-                    }
-
-                    for (channel, socket) in output_sockets.iter() {
-                        // Skip blending if channel is not selected
-                        if !blend_options.channels.contains(*channel) {
-                            continue;
-                        }
-
-                        let blend_res = self.blend_resource(layer, *channel);
-
-                        if let Some(background) = last_socket.get(channel).cloned() {
-                            step += 1;
-
-                            use_points
-                                .entry(background.socket_node())
-                                .and_modify(|e| e.last = step)
-                                .or_insert(UsePoint {
-                                    last: step,
-                                    creation: usize::MIN,
-                                });
-                            use_points
-                                .entry(resource.clone())
-                                .and_modify(|e| e.last = step)
-                                .or_insert(UsePoint {
-                                    last: step,
-                                    creation: usize::MIN,
-                                });
-
-                            linearization.push(Instruction::Move(
-                                background,
-                                blend_res.node_socket("background"),
-                            ));
-                            linearization.push(Instruction::Move(
-                                resource.node_socket(socket),
-                                blend_res.node_socket("foreground"),
-                            ));
-                            if let Some(mask_res) = blend_options.top_mask(
-                                |mask| self.mask_resource(mask),
-                                |mask| self.mask_blend_resource(mask),
-                            ) {
-                                linearization.push(Instruction::Move(
-                                    mask_res,
-                                    blend_res.node_socket("mask"),
-                                ));
-                            }
-                            linearization.push(Instruction::Execute(
-                                blend_res.clone(),
-                                blend_options.blend_operator(),
-                            ));
-
-                            use_points
-                                .entry(blend_res.clone())
-                                .and_modify(|e| e.creation = step)
-                                .or_insert(UsePoint {
-                                    last: usize::MAX,
-                                    creation: step,
-                                });
-
-                            last_socket.insert(*channel, blend_res.node_socket("color"));
-                        } else {
-                            last_socket.insert(*channel, resource.node_socket(socket));
-                        }
-                    }
+                    last_socket.insert(*channel, blend_res.node_socket("color"));
+                } else {
+                    last_socket.insert(*channel, resource.node_socket(socket));
                 }
             }
         }
@@ -1542,12 +1393,7 @@ impl super::NodeCollection for LayerStack {
                 .resources
                 .get(resource.parameter_node().file().unwrap())
             {
-                match &mut self.layers[*idx] {
-                    Layer::FillLayer(_, FillLayer { operator, .. }) => {
-                        operator.set_parameter(field, data)
-                    }
-                    Layer::FxLayer(_, layer) => layer.operator.set_parameter(field, data),
-                }
+                self.layers[*idx].operator.set_parameter(field, data);
             }
         }
 
@@ -1563,21 +1409,8 @@ impl super::NodeCollection for LayerStack {
         let mut updated = Vec::new();
 
         for layer in self.layers.iter_mut() {
-            let complex = match layer {
-                Layer::FillLayer(
-                    _,
-                    FillLayer {
-                        operator: Operator::ComplexOperator(co),
-                        ..
-                    },
-                ) if &co.graph == graph => co,
-                Layer::FxLayer(
-                    _,
-                    FxLayer {
-                        operator: Operator::ComplexOperator(co),
-                        ..
-                    },
-                ) if &co.graph == graph => co,
+            let complex = match &mut layer.operator {
+                Operator::ComplexOperator(co) if &co.graph == graph => co,
                 _ => continue,
             };
 
@@ -1678,12 +1511,13 @@ impl super::NodeCollection for LayerStack {
 
     fn element_param_box(&self, element: &Resource<Node>) -> ParamBoxDescription<MessageWriters> {
         if let Some(idx) = self.resources.get(element.file().unwrap()) {
-            match &self.layers[*idx] {
-                Layer::FillLayer(_, l) => {
+            let l = &self.layers[*idx];
+            match l.layer_type {
+                LayerType::Fill => {
                     ParamBoxDescription::fill_layer_parameters(&l.operator, &l.output_sockets)
                         .map_transmitters(|t| t.clone().into())
                 }
-                Layer::FxLayer(_, l) => ParamBoxDescription::fx_layer_parameters(&l.operator)
+                LayerType::Fx => ParamBoxDescription::fx_layer_parameters(&l.operator)
                     .map_transmitters(|t| t.clone().into()),
             }
         } else {

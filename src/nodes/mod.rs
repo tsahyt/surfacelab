@@ -581,14 +581,7 @@ impl NodeManager {
                     if let Some(NodeGraph::LayerStack(ls)) =
                         self.graphs.get_mut(graph_res.path_str().unwrap())
                     {
-                        let res = match ty {
-                            LayerType::Fill => {
-                                ls.push_fill(layers::FillLayer::from(op.clone()), op.default_name())
-                            }
-                            LayerType::Fx => {
-                                ls.push_fx(layers::FxLayer::from(op.clone()), op.default_name())
-                            }
-                        };
+                        let res = ls.push_layer(layers::Layer::from(op.clone()), *ty, op.default_name());
                         log::debug!("Added {:?} layer {}", ty, res);
 
                         let lin = ls.linearize(LinearizationMode::FullTraversal);
