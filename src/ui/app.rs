@@ -16,6 +16,7 @@ widget_ids!(
         window_canvas,
         top_bar_canvas,
         main_canvas,
+        main_inner_canvas,
         edit_canvas,
         drawing_canvas,
         sidebar_canvas,
@@ -293,43 +294,45 @@ where
         widget::Canvas::new()
             .border(0.0)
             .color(PANEL_COLOR)
-            .flow_down(&[
-                (
-                    self.ids.top_bar_canvas,
-                    widget::Canvas::new()
-                        .length(48.0)
-                        .border(PANEL_GAP)
-                        .color(color::DARK_CHARCOAL),
-                ),
+            .flow_right(&[
                 (
                     self.ids.main_canvas,
                     widget::Canvas::new()
                         .border(PANEL_GAP)
-                        .color(PANEL_COLOR)
-                        .flow_right(&[
+                        .color(color::DARK_CHARCOAL)
+                        .length_weight(lw + mw)
+                        .flow_down(&[
                             (
-                                self.ids.edit_canvas,
-                                widget::Canvas::new()
-                                    .scroll_kids()
-                                    .length_weight(lw)
-                                    .color(PANEL_COLOR)
-                                    .border(PANEL_GAP),
+                                self.ids.top_bar_canvas,
+                                widget::Canvas::new().color(PANEL_COLOR).border(PANEL_GAP).length(48.0),
                             ),
                             (
-                                self.ids.drawing_canvas,
+                                self.ids.main_inner_canvas,
                                 widget::Canvas::new()
-                                    .length_weight(mw)
                                     .color(PANEL_COLOR)
-                                    .border(PANEL_GAP),
-                            ),
-                            (
-                                self.ids.sidebar_canvas,
-                                widget::Canvas::new()
-                                    .length_weight(rw)
-                                    .color(PANEL_COLOR)
-                                    .border(PANEL_GAP),
+                                    .border(PANEL_GAP)
+                                    .flow_right(&[
+                                        (
+                                            self.ids.edit_canvas,
+                                            widget::Canvas::new()
+                                                .length_weight(lw)
+                                                .color(PANEL_COLOR)
+                                                .border(PANEL_GAP),
+                                        ),
+                                        (
+                                            self.ids.drawing_canvas,
+                                            widget::Canvas::new()
+                                                .length_weight(mw)
+                                                .color(PANEL_COLOR)
+                                                .border(PANEL_GAP),
+                                        ),
+                                    ]),
                             ),
                         ]),
+                ),
+                (
+                    self.ids.sidebar_canvas,
+                    widget::Canvas::new().border(PANEL_GAP).color(PANEL_COLOR).length_weight(rw),
                 ),
             ])
             .set(self.ids.window_canvas, ui);

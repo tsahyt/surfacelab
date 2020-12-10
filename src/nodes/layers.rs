@@ -706,7 +706,12 @@ impl LayerStack {
             .insert(resource.file().unwrap().to_owned(), self.layers.len() - 1);
     }
 
-    pub fn push_layer(&mut self, mut layer: Layer, layer_type: LayerType, base_name: &str) -> Resource<Node> {
+    pub fn push_layer(
+        &mut self,
+        mut layer: Layer,
+        layer_type: LayerType,
+        base_name: &str,
+    ) -> Resource<Node> {
         let resource = Resource::node(
             &format!("{}/{}", self.name, self.next_free_name(base_name)),
             None,
