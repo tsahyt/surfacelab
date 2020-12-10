@@ -39,7 +39,6 @@ pub struct Tree<'a, T: Expandable> {
     /// Unique styling for the `Tree`.
     pub style: Style,
     tree: &'a mut id_tree::Tree<T>,
-    item_size: Scalar,
 }
 
 /// If the `List` is scrollable, this describes how th `Scrollbar` should be positioned.
@@ -80,12 +79,11 @@ impl<'a, T> Tree<'a, T>
 where
     T: Expandable,
 {
-    pub fn new(tree: &'a mut id_tree::Tree<T>, item_size: Scalar) -> Self {
+    pub fn new(tree: &'a mut id_tree::Tree<T>) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             tree,
-            item_size,
         }
     }
 
@@ -117,7 +115,7 @@ where
 }
 
 pub struct Items<'a, T: Expandable> {
-    stack: Vec<&'a id_tree::NodeId>,
+    stack: Vec<(&'a id_tree::NodeId, usize)>,
     tree: &'a id_tree::Tree<T>,
     items: widget::list::Items<widget::list::Down, widget::list::Dynamic>,
 }
@@ -127,17 +125,15 @@ where
     T: Expandable,
 {
     pub fn next(&mut self, ui: &Ui) -> Option<Item<'a, T>> {
-        let level = self.stack.len();
-        if let Some(current) = self.stack.pop() {
+        if let Some((current, level)) = self.stack.pop() {
             let node = self.tree.get(current).unwrap();
 
             if node.data().expanded() {
                 let list_item = self.items.next(ui).unwrap();
-                self.stack.extend(self.tree.children_ids(current).unwrap());
+                self.stack.extend(self.tree.children_ids(current).unwrap().map(|x| (x, level + 1)));
                 Some(Item {
                     data: node.data(),
-                    widget_id: list_item.widget_id,
-                    last_id: list_item.last_id,
+                    item: list_item,
                     level,
                 })
             } else {
@@ -151,8 +147,7 @@ where
 
 pub struct Item<'a, T: Expandable> {
     pub data: &'a T,
-    pub widget_id: widget::Id,
-    pub last_id: Option<widget::Id>,
+    pub item: widget::list::Item<widget::list::Down, widget::list::Dynamic>,
     pub level: usize,
 }
 
@@ -178,7 +173,10 @@ where
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let mut list = widget::list::List::flow_down(visible_tree_items(self.tree));
+        let mut list = widget::list::List::flow_down(visible_tree_items(self.tree))
+            .parent(args.id)
+            .middle_of(args.id)
+            .wh_of(args.id);
 
         match self.style.scrollbar_position {
             Some(Some(ScrollbarPosition::NextTo)) => list = list.scrollbar_next_to(),
@@ -199,7 +197,7 @@ where
         // Prepare iterator
         let mut stack = Vec::new();
         if let Some(root) = self.tree.root_node_id() {
-            stack.push(root);
+            stack.push((root, 0));
         }
 
         let items = Items {

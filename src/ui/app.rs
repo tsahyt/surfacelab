@@ -69,6 +69,9 @@ widget_ids!(
         export_label,
         export_add,
         export_list,
+
+        // Resources
+        resource_tree,
     }
 );
 
@@ -394,6 +397,7 @@ where
         self.parameter_section(ui);
         self.graph_section(ui);
         self.surface_section(ui);
+        self.resource_browser(ui);
     }
 
     fn top_bar(&mut self, ui: &mut UiCell) {
@@ -1297,5 +1301,53 @@ where
         if let Some(s) = scrollbar {
             s.set(ui);
         }
+    }
+
+    fn resource_browser(&mut self, ui: &mut UiCell) {
+        use super::tree;
+        use id_tree::{*, InsertBehavior::*};
+
+        let mut tree: Tree<TreeNode> = TreeBuilder::new()
+            .with_node_capacity(5)
+            .build();
+
+        let root_id: NodeId = tree.insert(Node::new(TreeNode::new("foo")), AsRoot).unwrap();
+        let child_id: NodeId = tree.insert(Node::new(TreeNode::new("bar")), UnderNode(&root_id)).unwrap();
+        let child1_id = tree.insert(Node::new(TreeNode::new("quux1")), UnderNode(&root_id)).unwrap();
+        tree.insert(Node::new(TreeNode::new("quux2")), UnderNode(&child_id)).unwrap();
+        tree.insert(Node::new(TreeNode::new("quux3")), UnderNode(&child_id)).unwrap();
+        tree.insert(Node::new(TreeNode::new("quux4")), UnderNode(&child1_id)).unwrap();
+
+        let (mut rows, scrollbar) = tree::Tree::new(&mut tree)
+            .parent(self.ids.resources_canvas)
+            .middle_of(self.ids.resources_canvas)
+            .padded_w_of(self.ids.resources_canvas, 8.0)
+            .padded_h_of(self.ids.resources_canvas, 8.0)
+            .scrollbar_on_top()
+            .set(self.ids.resource_tree, ui);
+
+        while let Some(row) = rows.next(ui) {
+            let widget = widget::Text::new(&row.data.label).font_size(24 - 8 * row.level as u32).color(color::WHITE);
+            row.item.set(widget, ui);
+        }
+
+        if let Some(s) = scrollbar {
+            s.set(ui);
+        }
+    }
+}
+
+struct TreeNode {
+    expanded: bool,
+    label: String,
+}
+
+impl TreeNode {
+    fn new(label: &str) -> Self { Self { expanded: true, label: label.to_owned() } }
+}
+
+impl super::tree::Expandable for TreeNode {
+    fn expanded(&self) -> bool {
+        self.expanded
     }
 }
