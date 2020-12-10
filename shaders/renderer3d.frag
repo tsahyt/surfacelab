@@ -99,7 +99,7 @@ vec2 sphere_mapping(vec3 p) {
     p = normalize(p);
     float u = 0.5 + atan(p.x, p.z) / (2 * PI);
     float v = 0.5 - asin(p.y) / PI;
-    return vec2(2 * u, v);
+    return vec2(4 * u, 2 * v);
 }
 
 vec2 cylinder_mapping(vec3 p) {
