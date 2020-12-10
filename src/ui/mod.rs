@@ -19,6 +19,7 @@ pub mod node;
 pub mod param_box;
 pub mod renderview;
 pub mod tabs;
+pub mod tree;
 pub mod util;
 
 conrod_winit::v023_conversion_fns!();
