@@ -20,6 +20,8 @@ widget_ids!(
         edit_canvas,
         drawing_canvas,
         sidebar_canvas,
+        settings_canvas,
+        resources_canvas,
         parameter_canvas,
         graph_settings_canvas,
         surface_settings_canvas,
@@ -286,9 +288,9 @@ where
     pub fn update_gui(&mut self, ui: &mut UiCell) {
         use super::tabs;
 
-        let [lw, mw, rw] = match self.app_state.graphs.get_active_collection() {
-            NodeCollection::Graph(_) => [1., 1., 0.5],
-            NodeCollection::Layers(_) => [0.5, 1.5, 0.5],
+        let edit_width = match self.app_state.graphs.get_active_collection() {
+            NodeCollection::Graph(_) => None,
+            NodeCollection::Layers(_) => Some(384.0),
         };
 
         widget::Canvas::new()
@@ -300,11 +302,13 @@ where
                     widget::Canvas::new()
                         .border(PANEL_GAP)
                         .color(color::DARK_CHARCOAL)
-                        .length_weight(lw + mw)
                         .flow_down(&[
                             (
                                 self.ids.top_bar_canvas,
-                                widget::Canvas::new().color(PANEL_COLOR).border(PANEL_GAP).length(48.0),
+                                widget::Canvas::new()
+                                    .color(PANEL_COLOR)
+                                    .border(PANEL_GAP)
+                                    .length(48.0),
                             ),
                             (
                                 self.ids.main_inner_canvas,
@@ -312,17 +316,18 @@ where
                                     .color(PANEL_COLOR)
                                     .border(PANEL_GAP)
                                     .flow_right(&[
-                                        (
-                                            self.ids.edit_canvas,
-                                            widget::Canvas::new()
-                                                .length_weight(lw)
+                                        (self.ids.edit_canvas, {
+                                            let mut w = widget::Canvas::new()
                                                 .color(PANEL_COLOR)
-                                                .border(PANEL_GAP),
-                                        ),
+                                                .border(PANEL_GAP);
+                                            if let Some(x) = edit_width {
+                                                w = w.length(x);
+                                            }
+                                            w
+                                        }),
                                         (
                                             self.ids.drawing_canvas,
                                             widget::Canvas::new()
-                                                .length_weight(mw)
                                                 .color(PANEL_COLOR)
                                                 .border(PANEL_GAP),
                                         ),
@@ -332,7 +337,26 @@ where
                 ),
                 (
                     self.ids.sidebar_canvas,
-                    widget::Canvas::new().border(PANEL_GAP).color(PANEL_COLOR).length_weight(rw),
+                    widget::Canvas::new()
+                        .border(PANEL_GAP)
+                        .color(PANEL_COLOR)
+                        .length(384.0)
+                        .flow_down(&[
+                            (
+                                self.ids.settings_canvas,
+                                widget::Canvas::new()
+                                    .border(PANEL_GAP)
+                                    .color(PANEL_COLOR)
+                                    .length_weight(0.66),
+                            ),
+                            (
+                                self.ids.resources_canvas,
+                                widget::Canvas::new()
+                                    .border(PANEL_GAP)
+                                    .color(PANEL_COLOR)
+                                    .length_weight(0.33),
+                            ),
+                        ]),
                 ),
             ])
             .set(self.ids.window_canvas, ui);
@@ -356,8 +380,8 @@ where
         .label_font_size(10)
         .bar_thickness(48.0)
         .border(PANEL_GAP)
-        .parent(self.ids.sidebar_canvas)
-        .wh_of(self.ids.sidebar_canvas)
+        .parent(self.ids.settings_canvas)
+        .wh_of(self.ids.settings_canvas)
         .middle()
         .set(self.ids.sidebar_tabs, ui);
 
