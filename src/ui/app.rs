@@ -354,6 +354,8 @@ where
         .color(PANEL_COLOR)
         .label_color(color::WHITE)
         .label_font_size(10)
+        .bar_thickness(48.0)
+        .border(PANEL_GAP)
         .parent(self.ids.sidebar_canvas)
         .wh_of(self.ids.sidebar_canvas)
         .middle()
