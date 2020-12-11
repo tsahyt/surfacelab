@@ -309,58 +309,65 @@ impl Layers {
     }
 
     pub fn move_up(&mut self, layer: &Resource<r::Node>) {
-        // let idx_range = self.indices_for(layer);
-        // let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();
+        use id_tree::SwapBehavior::*;
+        let node_id = self
+            .layers
+            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+            .unwrap()
+            .find(|i| &self.layers.get(i).unwrap().data().resource == layer)
+            .expect("Unknown layer");
+        let parent = self
+            .layers
+            .get(&node_id)
+            .unwrap()
+            .parent()
+            .expect("Trying to move node without parent");
 
-        // let insertion_point = if self
-        //     .layers
-        //     .get(idx_range.start)
-        //     .map(|l| l.is_mask)
-        //     .unwrap_or(false)
-        // {
-        //     idx_range.start.saturating_sub(1)
-        // } else {
-        //     self.layers
-        //         .iter()
-        //         .take(idx_range.start)
-        //         .enumerate()
-        //         .rev()
-        //         .skip_while(|(_, l)| l.is_mask)
-        //         .map(|x| x.0)
-        //         .next()
-        //         .unwrap_or(0)
-        // };
-
-        // for l in to_move {
-        //     self.layers.insert(insertion_point, l);
-        // }
+        let traversal: Vec<_> = self
+            .layers
+            .traverse_level_order_ids(&parent)
+            .unwrap()
+            .skip(1)
+            .collect();
+        if let Some([_, next]) = traversal[..].windows(2).find(|xs| match xs {
+            [c, _] => c == &node_id,
+            _ => false,
+        }) {
+            self.layers
+                .swap_nodes(&node_id, next, TakeChildren)
+                .expect("Failed to swap nodes");
+        }
     }
 
     pub fn move_down(&mut self, layer: &Resource<r::Node>) {
-        // let idx_range = self.indices_for(layer);
-        // let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();
+        use id_tree::SwapBehavior::*;
+        let node_id = self
+            .layers
+            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+            .unwrap()
+            .find(|i| &self.layers.get(i).unwrap().data().resource == layer)
+            .expect("Unknown layer");
+        let parent = self
+            .layers
+            .get(&node_id)
+            .unwrap()
+            .parent()
+            .expect("Trying to move node without parent");
 
-        // let insertion_point = if self
-        //     .layers
-        //     .get(idx_range.start)
-        //     .map(|l| l.is_mask)
-        //     .unwrap_or(false)
-        // {
-        //     (idx_range.start + 1).min(self.layers.len())
-        // } else {
-        //     self.layers
-        //         .iter()
-        //         .enumerate()
-        //         .skip(idx_range.start + 1)
-        //         .skip_while(|(_, l)| l.is_mask)
-        //         .map(|x| x.0)
-        //         .next()
-        //         .unwrap_or(self.layers.len())
-        // };
-
-        // for l in to_move {
-        //     self.layers.insert(insertion_point, l);
-        // }
+        let traversal: Vec<_> = self
+            .layers
+            .traverse_level_order_ids(&parent)
+            .unwrap()
+            .skip(1)
+            .collect();
+        if let Some([previous, _]) = traversal[..].windows(2).find(|xs| match xs {
+            [_, c] => c == &node_id,
+            _ => false,
+        }) {
+            self.layers
+                .swap_nodes(&node_id, previous, TakeChildren)
+                .expect("Failed to swap nodes");
+        }
     }
 }
 
