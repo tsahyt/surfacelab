@@ -832,6 +832,8 @@ pub struct App {
     pub addable_operators: Vec<Operator>,
     pub registered_sockets: Vec<super::export_row::RegisteredSocket>,
     pub export_entries: Vec<(String, ExportSpec)>,
+
+    pub test_tree: id_tree::Tree<TreeNode>,
 }
 
 impl App {
@@ -857,6 +859,7 @@ impl App {
                 .collect(),
             registered_sockets: Vec::new(),
             export_entries: Vec::new(),
+            test_tree: test_tree(),
         }
     }
 
@@ -874,4 +877,48 @@ impl App {
 pub struct AppFonts {
     pub text_font: text::font::Id,
     pub icon_font: text::font::Id,
+}
+
+pub struct TreeNode {
+    pub expanded: bool,
+    pub label: String,
+}
+
+impl TreeNode {
+    fn new(label: &str) -> Self {
+        Self {
+            expanded: true,
+            label: label.to_owned(),
+        }
+    }
+}
+
+impl super::tree::Expandable for TreeNode {
+    fn expanded(&self) -> bool {
+        self.expanded
+    }
+}
+
+fn test_tree() -> id_tree::Tree<TreeNode> {
+    use id_tree::{InsertBehavior::*, *};
+
+    let mut tree: Tree<TreeNode> = TreeBuilder::new().with_node_capacity(5).build();
+
+    let root_id: NodeId = tree
+        .insert(Node::new(TreeNode::new("foo")), AsRoot)
+        .unwrap();
+    let child_id: NodeId = tree
+        .insert(Node::new(TreeNode::new("bar")), UnderNode(&root_id))
+        .unwrap();
+    let child1_id = tree
+        .insert(Node::new(TreeNode::new("quux1")), UnderNode(&root_id))
+        .unwrap();
+    tree.insert(Node::new(TreeNode::new("quux2")), UnderNode(&child_id))
+        .unwrap();
+    tree.insert(Node::new(TreeNode::new("quux3")), UnderNode(&child_id))
+        .unwrap();
+    tree.insert(Node::new(TreeNode::new("quux4")), UnderNode(&child1_id))
+        .unwrap();
+
+    tree
 }

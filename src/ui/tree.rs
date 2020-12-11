@@ -1,4 +1,5 @@
 use conrod_core::*;
+use std::collections::VecDeque;
 
 pub trait Expandable {
     /// Query the current expansion state
@@ -6,29 +7,38 @@ pub trait Expandable {
 }
 
 fn visible_tree_items<T: Expandable>(tree: &id_tree::Tree<T>) -> usize {
-    let mut stack: Vec<&id_tree::NodeId> = Vec::with_capacity(tree.height());
+    visible_tree_items_queue(tree).len()
+}
+
+fn visible_tree_items_queue<T: Expandable>(
+    tree: &id_tree::Tree<T>,
+) -> VecDeque<(id_tree::NodeId, usize)> {
+    let mut stack: Vec<(id_tree::NodeId, usize)> = Vec::with_capacity(tree.height());
+    let mut queue: VecDeque<(id_tree::NodeId, usize)> = VecDeque::new();
 
     if let Some(root) = tree.root_node_id() {
-        let mut ns: usize = 0;
-        stack.push(root);
+        stack.push((root.clone(), 0));
 
         while !stack.is_empty() {
-            let current = stack.pop().unwrap();
+            let (current, level) = stack.pop().unwrap();
+            queue.push_back((current.clone(), level));
             if tree
-                .get(current)
+                .get(&current)
                 .expect("Invalid node ID in tree")
                 .data()
                 .expanded()
             {
-                ns += 1;
-                stack.extend(tree.children_ids(current).unwrap());
+                stack.extend(
+                    tree.children_ids(&current)
+                        .unwrap()
+                        .cloned()
+                        .map(|n| (n, level + 1)),
+                );
             }
         }
-
-        ns
-    } else {
-        0
     }
+
+    queue
 }
 
 #[derive(Debug, WidgetCommon)]
@@ -38,7 +48,7 @@ pub struct Tree<'a, T: Expandable> {
     pub common: widget::CommonBuilder,
     /// Unique styling for the `Tree`.
     pub style: Style,
-    tree: &'a mut id_tree::Tree<T>,
+    tree: &'a id_tree::Tree<T>,
 }
 
 /// If the `List` is scrollable, this describes how th `Scrollbar` should be positioned.
@@ -79,7 +89,7 @@ impl<'a, T> Tree<'a, T>
 where
     T: Expandable,
 {
-    pub fn new(tree: &'a mut id_tree::Tree<T>) -> Self {
+    pub fn new(tree: &'a id_tree::Tree<T>) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
@@ -114,41 +124,38 @@ where
     }
 }
 
-pub struct Items<'a, T: Expandable> {
-    stack: Vec<(&'a id_tree::NodeId, usize)>,
-    tree: &'a id_tree::Tree<T>,
+pub struct Items {
+    queue: VecDeque<(id_tree::NodeId, usize)>,
     items: widget::list::Items<widget::list::Down, widget::list::Dynamic>,
 }
 
-impl<'a, T> Items<'a, T>
-where
-    T: Expandable,
-{
-    pub fn next(&mut self, ui: &Ui) -> Option<Item<'a, T>> {
-        if let Some((current, level)) = self.stack.pop() {
-            let node = self.tree.get(current).unwrap();
-
-            if node.data().expanded() {
-                let list_item = self.items.next(ui).unwrap();
-                self.stack.extend(self.tree.children_ids(current).unwrap().map(|x| (x, level + 1)));
-                Some(Item {
-                    data: node.data(),
-                    item: list_item,
-                    level,
-                })
-            } else {
-                self.next(ui)
-            }
-        } else {
-            None
-        }
-    }
-}
-
-pub struct Item<'a, T: Expandable> {
-    pub data: &'a T,
+pub struct Item {
+    pub node_id: id_tree::NodeId,
     pub item: widget::list::Item<widget::list::Down, widget::list::Dynamic>,
     pub level: usize,
+}
+
+impl Items {
+    pub fn next(&mut self, ui: &Ui) -> Option<Item> {
+        self.queue.pop_front().map(|(node_id, level)| {
+            let item = self.items.next(ui).unwrap();
+            Item {
+                node_id,
+                item,
+                level,
+            }
+        })
+    }
+
+    pub fn new<T: Expandable>(
+        tree: &id_tree::Tree<T>,
+        items: widget::list::Items<widget::list::Down, widget::list::Dynamic>,
+    ) -> Self {
+        Self {
+            queue: visible_tree_items_queue(tree),
+            items,
+        }
+    }
 }
 
 impl<'a, T> Widget for Tree<'a, T>
@@ -157,10 +164,7 @@ where
 {
     type State = State;
     type Style = Style;
-    type Event = (
-        Items<'a, T>,
-        Option<widget::list::Scrollbar<widget::scroll::Y>>,
-    );
+    type Event = (Items, Option<widget::list::Scrollbar<widget::scroll::Y>>);
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         State {
@@ -195,16 +199,7 @@ where
         let (list_items, scrollbar) = list.set(args.state.ids.list, args.ui);
 
         // Prepare iterator
-        let mut stack = Vec::new();
-        if let Some(root) = self.tree.root_node_id() {
-            stack.push((root, 0));
-        }
-
-        let items = Items {
-            stack,
-            tree: self.tree,
-            items: list_items,
-        };
+        let items = Items::new(self.tree, list_items);
 
         (items, scrollbar)
     }
