@@ -809,8 +809,9 @@ where
 
         let (mut rows, scrollbar) = tree::Tree::without_root(&active_collection.layers)
             .parent(self.ids.edit_canvas)
-            // .item_size(48.0)
+            .item_size(48.0)
             .padded_w_of(self.ids.edit_canvas, 8.0)
+            .middle_of(self.ids.edit_canvas)
             .h(512.0)
             .down(8.0)
             .scrollbar_on_top()
