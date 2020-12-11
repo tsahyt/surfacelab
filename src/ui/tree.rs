@@ -6,12 +6,13 @@ pub trait Expandable {
     fn expanded(&self) -> bool;
 }
 
-fn visible_tree_items<T: Expandable>(tree: &id_tree::Tree<T>) -> usize {
-    visible_tree_items_queue(tree).len()
+fn visible_tree_items<T: Expandable>(tree: &id_tree::Tree<T>, skip_root: bool) -> usize {
+    visible_tree_items_queue(tree, skip_root).len()
 }
 
 fn visible_tree_items_queue<T: Expandable>(
     tree: &id_tree::Tree<T>,
+    skip_root: bool,
 ) -> VecDeque<(id_tree::NodeId, usize)> {
     let mut stack: Vec<(id_tree::NodeId, usize)> = Vec::with_capacity(tree.height());
     let mut queue: VecDeque<(id_tree::NodeId, usize)> = VecDeque::new();
@@ -21,7 +22,9 @@ fn visible_tree_items_queue<T: Expandable>(
 
         while !stack.is_empty() {
             let (current, level) = stack.pop().unwrap();
-            queue.push_back((current.clone(), level));
+            if !skip_root || level > 0 {
+                queue.push_back((current.clone(), level));
+            }
             if tree
                 .get(&current)
                 .expect("Invalid node ID in tree")
@@ -49,6 +52,7 @@ pub struct Tree<'a, T: Expandable> {
     /// Unique styling for the `Tree`.
     pub style: Style,
     tree: &'a id_tree::Tree<T>,
+    skip_root: bool,
 }
 
 /// If the `List` is scrollable, this describes how th `Scrollbar` should be positioned.
@@ -94,6 +98,17 @@ where
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             tree,
+            skip_root: false,
+        }
+    }
+
+    /// Construct a `Tree` without a root node, e.g. for displaying forests.
+    pub fn without_root(tree: &'a id_tree::Tree<T>) -> Self {
+        Self {
+            common: widget::CommonBuilder::default(),
+            style: Style::default(),
+            tree,
+            skip_root: true,
         }
     }
 
@@ -150,9 +165,10 @@ impl Items {
     pub fn new<T: Expandable>(
         tree: &id_tree::Tree<T>,
         items: widget::list::Items<widget::list::Down, widget::list::Dynamic>,
+        skip_root: bool,
     ) -> Self {
         Self {
-            queue: visible_tree_items_queue(tree),
+            queue: visible_tree_items_queue(tree, skip_root),
             items,
         }
     }
@@ -177,7 +193,7 @@ where
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let mut list = widget::list::List::flow_down(visible_tree_items(self.tree))
+        let mut list = widget::list::List::flow_down(visible_tree_items(self.tree, self.skip_root))
             .parent(args.id)
             .middle_of(args.id)
             .wh_of(args.id);
@@ -199,7 +215,7 @@ where
         let (list_items, scrollbar) = list.set(args.state.ids.list, args.ui);
 
         // Prepare iterator
-        let items = Items::new(self.tree, list_items);
+        let items = Items::new(self.tree, list_items, self.skip_root);
 
         (items, scrollbar)
     }
