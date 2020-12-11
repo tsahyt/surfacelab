@@ -303,6 +303,11 @@ impl Layers {
         }
     }
 
+    pub fn is_base_layer(&self, node: &id_tree::NodeId) -> bool {
+        let root = self.layers.root_node_id().unwrap().clone();
+        self.layers.traverse_level_order_ids(&root).unwrap().nth(1) == Some(node.clone())
+    }
+
     pub fn move_up(&mut self, layer: &Resource<r::Node>) {
         // let idx_range = self.indices_for(layer);
         // let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();

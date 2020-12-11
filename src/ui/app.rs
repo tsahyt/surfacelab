@@ -707,105 +707,111 @@ where
             _ => panic!("Layers UI built for graph"),
         };
 
-        // if let Some((is_base, active_layer)) = self.app_state.active_layer_element.map(|idx| {
-        //     (
-        //         active_collection.layers.len() - 1 == idx,
-        //         &mut active_collection.layers[idx],
-        //     )
-        // }) {
-        //     for _press in icon_button(IconName::TRASH, self.fonts.icon_font)
-        //         .label_font_size(14)
-        //         .label_color(color::WHITE)
-        //         .color(color::DARK_CHARCOAL)
-        //         .border(0.)
-        //         .wh([32., 32.0])
-        //         .top_right_with_margin(8.0)
-        //         .parent(self.ids.edit_canvas)
-        //         .set(self.ids.layer_delete, ui)
-        //     {
-        //         self.sender
-        //             .send(Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
-        //                 active_layer.resource.clone(),
-        //             )))
-        //             .unwrap();
-        //         self.app_state.active_layer_element = None;
-        //     }
+        if let Some((is_base, active_layer)) =
+            self.app_state.active_layer_element.clone().map(|node_id| {
+                (
+                    active_collection.is_base_layer(&node_id),
+                    active_collection
+                        .layers
+                        .get_mut(&node_id)
+                        .unwrap()
+                        .data_mut(),
+                )
+            })
+        {
+            for _press in icon_button(IconName::TRASH, self.fonts.icon_font)
+                .label_font_size(14)
+                .label_color(color::WHITE)
+                .color(color::DARK_CHARCOAL)
+                .border(0.)
+                .wh([32., 32.0])
+                .top_right_with_margin(8.0)
+                .parent(self.ids.edit_canvas)
+                .set(self.ids.layer_delete, ui)
+            {
+                self.sender
+                    .send(Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
+                        active_layer.resource.clone(),
+                    )))
+                    .unwrap();
+                self.app_state.active_layer_element = None;
+            }
 
-        //     if !is_base && !active_layer.is_mask {
-        //         for _press in icon_button(IconName::MASK, self.fonts.icon_font)
-        //             .label_font_size(14)
-        //             .label_color(color::WHITE)
-        //             .color(color::DARK_CHARCOAL)
-        //             .border(0.)
-        //             .wh([32., 32.0])
-        //             .left(8.0)
-        //             .parent(self.ids.edit_canvas)
-        //             .set(self.ids.layer_new_mask, ui)
-        //         {
-        //             self.app_state.add_layer_modal =
-        //                 Some(LayerFilter::Mask(active_layer.resource.clone()));
-        //         }
-        //     }
+            if !is_base && !active_layer.is_mask {
+                for _press in icon_button(IconName::MASK, self.fonts.icon_font)
+                    .label_font_size(14)
+                    .label_color(color::WHITE)
+                    .color(color::DARK_CHARCOAL)
+                    .border(0.)
+                    .wh([32., 32.0])
+                    .left(8.0)
+                    .parent(self.ids.edit_canvas)
+                    .set(self.ids.layer_new_mask, ui)
+                {
+                    self.app_state.add_layer_modal =
+                        Some(LayerFilter::Mask(active_layer.resource.clone()));
+                }
+            }
 
-        //     if let Some(new_selection) =
-        //         widget::DropDownList::new(BlendMode::VARIANTS, Some(active_layer.blend_mode))
-        //             .label_font_size(10)
-        //             .down_from(self.ids.layer_new_fill, 8.0)
-        //             .padded_w_of(self.ids.edit_canvas, 8.0)
-        //             .h(16.0)
-        //             .parent(self.ids.edit_canvas)
-        //             .set(self.ids.layer_blend_mode, ui)
-        //     {
-        //         use strum::IntoEnumIterator;
+            if let Some(new_selection) =
+                widget::DropDownList::new(BlendMode::VARIANTS, Some(active_layer.blend_mode))
+                    .label_font_size(10)
+                    .down_from(self.ids.layer_new_fill, 8.0)
+                    .padded_w_of(self.ids.edit_canvas, 8.0)
+                    .h(16.0)
+                    .parent(self.ids.edit_canvas)
+                    .set(self.ids.layer_blend_mode, ui)
+            {
+                use strum::IntoEnumIterator;
 
-        //         active_layer.blend_mode = new_selection;
+                active_layer.blend_mode = new_selection;
 
-        //         self.sender
-        //             .send(Lang::UserLayersEvent(UserLayersEvent::SetBlendMode(
-        //                 active_layer.resource.clone(),
-        //                 BlendMode::iter().nth(new_selection).unwrap(),
-        //             )))
-        //             .unwrap();
-        //     }
+                self.sender
+                    .send(Lang::UserLayersEvent(UserLayersEvent::SetBlendMode(
+                        active_layer.resource.clone(),
+                        BlendMode::iter().nth(new_selection).unwrap(),
+                    )))
+                    .unwrap();
+            }
 
-        //     if let Some(new_value) = widget::Slider::new(active_layer.opacity, 0.0, 1.0)
-        //         .label(&lang.get_message("opacity"))
-        //         .label_font_size(10)
-        //         .down(8.0)
-        //         .padded_w_of(self.ids.edit_canvas, 8.0)
-        //         .h(16.0)
-        //         .parent(self.ids.edit_canvas)
-        //         .set(self.ids.layer_opacity, ui)
-        //     {
-        //         active_layer.opacity = new_value;
+            if let Some(new_value) = widget::Slider::new(active_layer.opacity, 0.0, 1.0)
+                .label(&lang.get_message("opacity"))
+                .label_font_size(10)
+                .down(8.0)
+                .padded_w_of(self.ids.edit_canvas, 8.0)
+                .h(16.0)
+                .parent(self.ids.edit_canvas)
+                .set(self.ids.layer_opacity, ui)
+            {
+                active_layer.opacity = new_value;
 
-        //         self.sender
-        //             .send(Lang::UserLayersEvent(UserLayersEvent::SetOpacity(
-        //                 active_layer.resource.clone(),
-        //                 new_value,
-        //             )))
-        //             .unwrap();
-        //     }
-        // } else {
-        //     widget::DropDownList::new(BlendMode::VARIANTS, Some(0))
-        //         .enabled(false)
-        //         .label_font_size(10)
-        //         .down_from(self.ids.layer_new_fill, 8.0)
-        //         .padded_w_of(self.ids.edit_canvas, 8.0)
-        //         .h(16.0)
-        //         .parent(self.ids.edit_canvas)
-        //         .set(self.ids.layer_blend_mode, ui);
+                self.sender
+                    .send(Lang::UserLayersEvent(UserLayersEvent::SetOpacity(
+                        active_layer.resource.clone(),
+                        new_value,
+                    )))
+                    .unwrap();
+            }
+        } else {
+            widget::DropDownList::new(BlendMode::VARIANTS, Some(0))
+                .enabled(false)
+                .label_font_size(10)
+                .down_from(self.ids.layer_new_fill, 8.0)
+                .padded_w_of(self.ids.edit_canvas, 8.0)
+                .h(16.0)
+                .parent(self.ids.edit_canvas)
+                .set(self.ids.layer_blend_mode, ui);
 
-        //     widget::Slider::new(1.0, 0.0, 1.0)
-        //         .enabled(false)
-        //         .label(&lang.get_message("opacity"))
-        //         .label_font_size(10)
-        //         .down(8.0)
-        //         .padded_w_of(self.ids.edit_canvas, 8.0)
-        //         .h(16.0)
-        //         .parent(self.ids.edit_canvas)
-        //         .set(self.ids.layer_opacity, ui);
-        // }
+            widget::Slider::new(1.0, 0.0, 1.0)
+                .enabled(false)
+                .label(&lang.get_message("opacity"))
+                .label_font_size(10)
+                .down(8.0)
+                .padded_w_of(self.ids.edit_canvas, 8.0)
+                .h(16.0)
+                .parent(self.ids.edit_canvas)
+                .set(self.ids.layer_opacity, ui);
+        }
 
         let (mut rows, scrollbar) = tree::Tree::without_root(&active_collection.layers)
             .parent(self.ids.edit_canvas)
