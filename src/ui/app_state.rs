@@ -308,6 +308,10 @@ impl Layers {
         self.layers.traverse_level_order_ids(&root).unwrap().nth(1) == Some(node.clone())
     }
 
+    pub fn expandable(&self, node: &id_tree::NodeId) -> bool {
+        self.layers.children(node).expect("Invalid node").count() > 0
+    }
+
     pub fn move_up(&mut self, layer: &Resource<r::Node>) {
         use id_tree::SwapBehavior::*;
         let node_id = self

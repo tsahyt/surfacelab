@@ -10,6 +10,7 @@ pub struct LayerRow<'a> {
     active: bool,
     style: Style,
     toggleable: bool,
+    expandable: bool,
 }
 
 impl<'a> LayerRow<'a> {
@@ -20,6 +21,7 @@ impl<'a> LayerRow<'a> {
             active,
             style: Style::default(),
             toggleable: true,
+            expandable: false,
         }
     }
 
@@ -30,6 +32,11 @@ impl<'a> LayerRow<'a> {
 
     pub fn toggleable(mut self, toggleable: bool) -> Self {
         self.toggleable = toggleable;
+        self
+    }
+
+    pub fn expandable(mut self, expandable: bool) -> Self {
+        self.expandable = expandable;
         self
     }
 }
@@ -43,6 +50,7 @@ pub struct Style {
 widget_ids! {
     pub struct Ids {
         visibility_button,
+        expander_button,
         thumbnail,
         layer_type,
         title,
@@ -62,6 +70,7 @@ pub enum Event {
     ActiveElement,
     Retitled(String),
     ToggleEnabled,
+    ToggleExpanded,
     MoveUp,
     MoveDown,
 }
@@ -209,6 +218,28 @@ impl<'a> Widget for LayerRow<'a> {
 
         for _click in args.ui.widget_input(args.id).clicks() {
             event = Some(Event::ActiveElement);
+        }
+
+        if self.expandable {
+            for _click in util::icon_button(
+                if self.layer.expanded {
+                    util::IconName::DOWN
+                } else {
+                    util::IconName::RIGHT
+                },
+                self.style.icon_font.unwrap().unwrap(),
+            )
+            .color(color::TRANSPARENT)
+            .label_font_size(14)
+            .label_color(color::WHITE)
+            .border(0.0)
+            .w_h(32.0, 32.0)
+            .mid_right_with_margin(64.0)
+            .parent(args.id)
+            .set(args.state.ids.expander_button, args.ui)
+            {
+                event = Some(Event::ToggleExpanded);
+            }
         }
 
         event

@@ -22,6 +22,8 @@ impl IconName {
     pub const MASK: IconName = IconName("\u{f1023}");
     pub const UP: IconName = IconName("\u{f0360}");
     pub const DOWN: IconName = IconName("\u{f035d}");
+    pub const LEFT: IconName = IconName("\u{f035e}");
+    pub const RIGHT: IconName = IconName("\u{f035f}");
 }
 
 pub fn icon_button<'a>(

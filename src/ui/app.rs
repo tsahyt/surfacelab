@@ -825,6 +825,8 @@ where
 
         while let Some(row) = rows.next(ui) {
             let node_id = row.node_id.clone();
+            let toggleable = !active_collection.is_base_layer(&node_id);
+            let expandable = active_collection.expandable(&node_id);
             let data = &mut active_collection
                 .layers
                 .get_mut(&node_id)
@@ -835,8 +837,8 @@ where
                 data,
                 Some(row.node_id) == self.app_state.active_layer_element,
             )
-            // .toggleable(row.i != nrows - 1)
-            .toggleable(true)
+            .toggleable(toggleable)
+            .expandable(expandable)
             .icon_font(self.fonts.icon_font);
 
             if let Some(event) = row.item.set(widget, ui) {
@@ -860,6 +862,9 @@ where
                                 data.enabled,
                             )))
                             .unwrap();
+                    }
+                    layer_row::Event::ToggleExpanded => {
+                        data.toggle_expanded();
                     }
                     layer_row::Event::MoveUp => {
                         self.sender
