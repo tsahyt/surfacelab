@@ -3,7 +3,8 @@ use crate::lang::*;
 
 use conrod_core::{image, text, Point};
 use enum_dispatch::*;
-use std::collections::{HashMap, VecDeque};
+use id_tree::Tree;
+use std::collections::HashMap;
 
 #[enum_dispatch]
 trait Collection {
@@ -201,9 +202,25 @@ pub struct Layer {
     pub blend_mode: usize,
     pub enabled: bool,
     pub is_mask: bool,
+    pub expanded: bool,
 }
 
 impl Layer {
+    pub fn root_layer() -> Self {
+        Self {
+            resource: Resource::node("__root__", None),
+            title: "root".to_owned(),
+            icon: super::util::IconName::SOLID,
+            thumbnail: None,
+            operator_pbox: ParamBoxDescription::empty(),
+            opacity: 0.,
+            blend_mode: 0,
+            enabled: false,
+            is_mask: false,
+            expanded: true,
+        }
+    }
+
     pub fn layer(
         resource: Resource<Node>,
         ty: LayerType,
@@ -225,6 +242,7 @@ impl Layer {
             blend_mode,
             enabled: true,
             is_mask: false,
+            expanded: true,
         }
     }
 
@@ -245,120 +263,99 @@ impl Layer {
             blend_mode,
             enabled: true,
             is_mask: true,
+            expanded: true,
         }
     }
 
     pub fn update(&mut self, param_box: ParamBoxDescription<MessageWriters>) {
         self.operator_pbox = param_box;
     }
+
+    pub fn toggle_expanded(&mut self) {
+        if !self.is_mask {
+            self.expanded = !self.expanded;
+        }
+    }
+}
+
+impl super::tree::Expandable for Layer {
+    fn expanded(&self) -> bool {
+        self.expanded
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Layers {
-    pub layers: VecDeque<Layer>,
+    pub layers: Tree<Layer>,
     exposed_parameters: Vec<(String, GraphParameter)>,
     param_box: ParamBoxDescription<GraphField>,
 }
 
 impl Layers {
     pub fn new(name: &str) -> Self {
+        use id_tree::*;
         Self {
-            layers: VecDeque::new(),
+            layers: TreeBuilder::new()
+                .with_root(Node::new(Layer::root_layer()))
+                .build(),
             exposed_parameters: Vec::new(),
             param_box: ParamBoxDescription::graph_parameters(name),
         }
     }
 
-    pub fn rows(&self) -> usize {
-        self.layers.iter().len()
-    }
-
     pub fn move_up(&mut self, layer: &Resource<r::Node>) {
-        let idx_range = self.indices_for(layer);
-        let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();
+        // let idx_range = self.indices_for(layer);
+        // let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();
 
-        let insertion_point = if self
-            .layers
-            .get(idx_range.start)
-            .map(|l| l.is_mask)
-            .unwrap_or(false)
-        {
-            idx_range.start.saturating_sub(1)
-        } else {
-            self.layers
-                .iter()
-                .take(idx_range.start)
-                .enumerate()
-                .rev()
-                .skip_while(|(_, l)| l.is_mask)
-                .map(|x| x.0)
-                .next()
-                .unwrap_or(0)
-        };
+        // let insertion_point = if self
+        //     .layers
+        //     .get(idx_range.start)
+        //     .map(|l| l.is_mask)
+        //     .unwrap_or(false)
+        // {
+        //     idx_range.start.saturating_sub(1)
+        // } else {
+        //     self.layers
+        //         .iter()
+        //         .take(idx_range.start)
+        //         .enumerate()
+        //         .rev()
+        //         .skip_while(|(_, l)| l.is_mask)
+        //         .map(|x| x.0)
+        //         .next()
+        //         .unwrap_or(0)
+        // };
 
-        for l in to_move {
-            self.layers.insert(insertion_point, l);
-        }
+        // for l in to_move {
+        //     self.layers.insert(insertion_point, l);
+        // }
     }
 
     pub fn move_down(&mut self, layer: &Resource<r::Node>) {
-        let idx_range = self.indices_for(layer);
-        let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();
+        // let idx_range = self.indices_for(layer);
+        // let to_move: Vec<_> = self.layers.drain(idx_range.clone()).rev().collect();
 
-        let insertion_point = if self
-            .layers
-            .get(idx_range.start)
-            .map(|l| l.is_mask)
-            .unwrap_or(false)
-        {
-            (idx_range.start + 1).min(self.layers.len())
-        } else {
-            self.layers
-                .iter()
-                .enumerate()
-                .skip(idx_range.start + 1)
-                .skip_while(|(_, l)| l.is_mask)
-                .map(|x| x.0)
-                .next()
-                .unwrap_or(self.layers.len())
-        };
+        // let insertion_point = if self
+        //     .layers
+        //     .get(idx_range.start)
+        //     .map(|l| l.is_mask)
+        //     .unwrap_or(false)
+        // {
+        //     (idx_range.start + 1).min(self.layers.len())
+        // } else {
+        //     self.layers
+        //         .iter()
+        //         .enumerate()
+        //         .skip(idx_range.start + 1)
+        //         .skip_while(|(_, l)| l.is_mask)
+        //         .map(|x| x.0)
+        //         .next()
+        //         .unwrap_or(self.layers.len())
+        // };
 
-        for l in to_move {
-            self.layers.insert(insertion_point, l);
-        }
-    }
-
-    /// Return all indices belonging to a layer including its masks. If given a
-    /// mask, it will only return the index for this mask.
-    fn indices_for(&self, layer: &Resource<r::Node>) -> std::ops::Range<usize> {
-        let start = self
-            .layers
-            .iter()
-            .position(|l| &l.resource == layer)
-            .expect("Unknown layer");
-        if self.layers[start].is_mask {
-            return std::ops::Range {
-                start,
-                end: start + 1,
-            };
-        }
-
-        let end = self
-            .layers
-            .iter()
-            .enumerate()
-            .skip(start + 1)
-            .take_while(|(_, l)| l.is_mask)
-            .last()
-            .map(|x| x.0 + 1);
-
-        match end {
-            Some(end) => std::ops::Range { start, end },
-            None => std::ops::Range {
-                start,
-                end: start + 1,
-            },
-        }
+        // for l in to_move {
+        //     self.layers.insert(insertion_point, l);
+        // }
     }
 }
 
@@ -381,17 +378,33 @@ impl Collection for Layers {
     }
 
     fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
-        if let Some(layer) = self.layers.iter_mut().find(|l| &l.resource == node) {
-            layer.thumbnail = Some(thumbnail);
+        if let Some(root) = self.layers.root_node_id() {
+            if let Some(node_id) = self
+                .layers
+                .traverse_pre_order_ids(root)
+                .unwrap()
+                .find(|i| &self.layers.get(i).unwrap().data().resource == node)
+            {
+                let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+                layer.thumbnail = Some(thumbnail);
+            }
         }
     }
 
     fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id> {
         let mut old_thumbnail = None;
 
-        if let Some(layer) = self.layers.iter_mut().find(|l| &l.resource == node) {
-            old_thumbnail = layer.thumbnail;
-            layer.thumbnail = None
+        if let Some(root) = self.layers.root_node_id() {
+            if let Some(node_id) = self
+                .layers
+                .traverse_pre_order_ids(root)
+                .unwrap()
+                .find(|i| &self.layers.get(i).unwrap().data().resource == node)
+            {
+                let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+                old_thumbnail = layer.thumbnail;
+                layer.thumbnail = None
+            }
         }
 
         old_thumbnail
@@ -403,8 +416,16 @@ impl Collection for Layers {
         _op: &ComplexOperator,
         pbox: &ParamBoxDescription<MessageWriters>,
     ) {
-        if let Some(layer) = self.layers.iter_mut().find(|l| &l.resource == node) {
-            layer.update(pbox.clone());
+        if let Some(root) = self.layers.root_node_id() {
+            if let Some(node_id) = self
+                .layers
+                .traverse_pre_order_ids(root)
+                .unwrap()
+                .find(|i| &self.layers.get(i).unwrap().data().resource == node)
+            {
+                let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+                layer.update(pbox.clone());
+            }
         }
     }
 }
@@ -463,7 +484,7 @@ impl NodeCollections {
     pub fn active_parameters(
         &mut self,
         active_node_element: Option<petgraph::graph::NodeIndex>,
-        active_layer_element: Option<usize>,
+        active_layer_element: Option<id_tree::NodeId>,
     ) -> Option<(&mut ParamBoxDescription<MessageWriters>, &Resource<r::Node>)> {
         match &mut self.active_collection {
             NodeCollection::Graph(g) => {
@@ -473,8 +494,9 @@ impl NodeCollections {
             }
             NodeCollection::Layers(l) => {
                 let ae = active_layer_element?;
-                let layer = l.layers.get_mut(ae)?;
-                Some((&mut layer.operator_pbox, &layer.resource))
+                let layer = l.layers.get_mut(&ae).ok()?;
+                let data = layer.data_mut();
+                Some((&mut data.operator_pbox, &data.resource))
             }
         }
     }
@@ -590,35 +612,51 @@ impl NodeCollections {
     /// Push a layer onto the parent layer stack. This is a NOP if the parent
     /// collection is a graph.
     pub fn push_layer(&mut self, layer: Layer) {
+        use id_tree::{InsertBehavior::*, Node};
+
         let layer_res = layer.resource.clone();
 
         if let Some(target) = self.target_layers_from_node(&layer_res) {
-            target.layers.push_front(layer);
+            let root = target.layers.root_node_id().unwrap().clone();
+            target
+                .layers
+                .insert(Node::new(layer), UnderNode(&root))
+                .expect("Layer insert failed");
         }
     }
 
     pub fn push_layer_under(&mut self, layer: Layer, under: &Resource<Node>) {
+        use id_tree::{InsertBehavior::*, Node};
         let layer_res = layer.resource.clone();
 
         if let Some(target) = self.target_layers_from_node(&layer_res) {
-            let pos = target
+            let n = target
                 .layers
-                .iter()
-                .position(|l| &l.resource == under)
-                .unwrap();
-            target.layers.insert(pos + 1, layer);
+                .traverse_pre_order_ids(target.layers.root_node_id().unwrap())
+                .unwrap()
+                .find(|i| &target.layers.get(i).unwrap().data().resource == under)
+                .expect("Trying to remove unknown layer");
+            target
+                .layers
+                .insert(Node::new(layer), UnderNode(&n))
+                .expect("Mask insert failed");
         }
     }
 
     pub fn remove_layer(&mut self, layer_res: &Resource<Node>) {
+        use id_tree::RemoveBehavior::*;
+
         if let Some(target) = self.target_layers_from_node(&layer_res) {
-            target.layers.remove(
-                target
-                    .layers
-                    .iter()
-                    .position(|l| &l.resource == layer_res)
-                    .expect("Trying to remove unknown layer"),
-            );
+            let n = target
+                .layers
+                .traverse_pre_order_ids(target.layers.root_node_id().unwrap())
+                .unwrap()
+                .find(|i| &target.layers.get(i).unwrap().data().resource == layer_res)
+                .expect("Trying to remove unknown layer");
+            target
+                .layers
+                .remove_node(n, DropChildren)
+                .expect("Removal unsuccessful");
         }
     }
 
@@ -816,7 +854,7 @@ pub enum RenderImage {
 pub struct App {
     pub graphs: NodeCollections,
     pub active_node_element: Option<petgraph::graph::NodeIndex>,
-    pub active_layer_element: Option<usize>,
+    pub active_layer_element: Option<id_tree::NodeId>,
 
     pub render_image: RenderImage,
     pub monitor_resolution: (u32, u32),
@@ -832,8 +870,6 @@ pub struct App {
     pub addable_operators: Vec<Operator>,
     pub registered_sockets: Vec<super::export_row::RegisteredSocket>,
     pub export_entries: Vec<(String, ExportSpec)>,
-
-    pub test_tree: id_tree::Tree<TreeNode>,
 }
 
 impl App {
@@ -859,7 +895,6 @@ impl App {
                 .collect(),
             registered_sockets: Vec::new(),
             export_entries: Vec::new(),
-            test_tree: test_tree(),
         }
     }
 
@@ -877,48 +912,4 @@ impl App {
 pub struct AppFonts {
     pub text_font: text::font::Id,
     pub icon_font: text::font::Id,
-}
-
-pub struct TreeNode {
-    pub expanded: bool,
-    pub label: String,
-}
-
-impl TreeNode {
-    fn new(label: &str) -> Self {
-        Self {
-            expanded: true,
-            label: label.to_owned(),
-        }
-    }
-}
-
-impl super::tree::Expandable for TreeNode {
-    fn expanded(&self) -> bool {
-        self.expanded
-    }
-}
-
-fn test_tree() -> id_tree::Tree<TreeNode> {
-    use id_tree::{InsertBehavior::*, *};
-
-    let mut tree: Tree<TreeNode> = TreeBuilder::new().with_node_capacity(5).build();
-
-    let root_id: NodeId = tree
-        .insert(Node::new(TreeNode::new("foo")), AsRoot)
-        .unwrap();
-    let child_id: NodeId = tree
-        .insert(Node::new(TreeNode::new("bar")), UnderNode(&root_id))
-        .unwrap();
-    let child1_id = tree
-        .insert(Node::new(TreeNode::new("quux1")), UnderNode(&root_id))
-        .unwrap();
-    tree.insert(Node::new(TreeNode::new("quux2")), UnderNode(&child_id))
-        .unwrap();
-    tree.insert(Node::new(TreeNode::new("quux3")), UnderNode(&child_id))
-        .unwrap();
-    tree.insert(Node::new(TreeNode::new("quux4")), UnderNode(&child1_id))
-        .unwrap();
-
-    tree
 }
