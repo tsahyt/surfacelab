@@ -138,7 +138,7 @@ pub struct ConnectionDraw {
 pub struct Graph<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    graph: &'a super::app_state::NodeGraph,
+    graph: &'a crate::ui::app_state::NodeGraph,
     style: Style,
 }
 
@@ -179,7 +179,7 @@ pub enum Event {
 }
 
 impl<'a> Graph<'a> {
-    pub fn new(graph: &'a super::app_state::NodeGraph) -> Self {
+    pub fn new(graph: &'a crate::ui::app_state::NodeGraph) -> Self {
         Graph {
             common: widget::CommonBuilder::default(),
             graph,

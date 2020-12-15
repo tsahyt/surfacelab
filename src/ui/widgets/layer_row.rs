@@ -1,5 +1,5 @@
-use super::app_state::Layer;
-use super::util;
+use crate::ui::app_state::Layer;
+use crate::ui::util;
 use conrod_core::*;
 
 #[derive(WidgetCommon)]

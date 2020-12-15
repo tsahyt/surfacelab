@@ -1,8 +1,9 @@
 use super::color_picker::ColorPicker;
 use super::color_ramp::ColorRamp;
-use super::util::*;
+
 use crate::lang::*;
 use crate::ui::i18n::Language;
+use crate::ui::util::*;
 
 use conrod_core::*;
 use dialog::{DialogBox, FileSelection, FileSelectionMode};

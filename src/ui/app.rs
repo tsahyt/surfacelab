@@ -4,6 +4,7 @@ use dialog::{DialogBox, FileSelection, FileSelectionMode};
 
 use super::app_state::*;
 use super::i18n::*;
+use super::widgets;
 
 const PANEL_COLOR: Color = color::DARK_CHARCOAL;
 const PANEL_GAP: Scalar = 0.5;
@@ -151,18 +152,18 @@ where
             Lang::ComputeEvent(ComputeEvent::SocketCreated(res, ty)) => match ty {
                 ImageType::Grayscale => {
                     self.app_state.registered_sockets.push(
-                        super::export_row::RegisteredSocket::new((res.clone(), ImageChannel::R)),
+                        widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::R)),
                     );
                 }
                 ImageType::Rgb => {
                     self.app_state.registered_sockets.push(
-                        super::export_row::RegisteredSocket::new((res.clone(), ImageChannel::R)),
+                        widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::R)),
                     );
                     self.app_state.registered_sockets.push(
-                        super::export_row::RegisteredSocket::new((res.clone(), ImageChannel::G)),
+                        widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::G)),
                     );
                     self.app_state.registered_sockets.push(
-                        super::export_row::RegisteredSocket::new((res.clone(), ImageChannel::B)),
+                        widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::B)),
                     );
                 }
             },
@@ -289,7 +290,7 @@ where
     }
 
     pub fn update_gui(&mut self, ui: &mut UiCell) {
-        use super::tabs;
+        use widgets::tabs;
 
         let edit_width = match self.app_state.graphs.get_active_collection() {
             NodeCollection::Graph(_) => None,
@@ -549,7 +550,7 @@ where
     }
 
     fn node_graph(&mut self, ui: &mut UiCell) {
-        use super::graph;
+        use widgets::graph;
 
         let active = match self.app_state.graphs.get_active_collection_mut() {
             NodeCollection::Graph(g) => &mut g.graph,
@@ -620,7 +621,7 @@ where
         }
 
         if let Some(insertion_pt) = self.app_state.add_node_modal {
-            use super::modal;
+            use widgets::modal;
 
             let operators = &self.app_state.addable_operators;
 
@@ -668,10 +669,10 @@ where
     }
 
     fn layer_stack(&mut self, ui: &mut UiCell) {
-        use super::layer_row;
-        use super::tree;
         use super::util::*;
         use strum::VariantNames;
+        use widgets::layer_row;
+        use widgets::tree;
 
         let graphs = &mut self.app_state.graphs;
         let lang = &self.language;
@@ -889,7 +890,7 @@ where
         }
 
         if let Some(filter) = self.app_state.add_layer_modal.as_ref().cloned() {
-            use super::modal;
+            use widgets::modal;
 
             let mut operators = self
                 .app_state
@@ -951,7 +952,7 @@ where
     }
 
     fn render_view(&mut self, ui: &mut UiCell) {
-        use super::renderview::*;
+        use widgets::renderview::*;
 
         let renderer_id = self.ids.render_view.index() as u64;
 
@@ -1028,8 +1029,8 @@ where
         }
 
         if self.app_state.render_modal {
-            use super::modal;
-            use super::param_box;
+            use widgets::modal;
+            use widgets::param_box;
 
             match modal::Modal::canvas()
                 .wh_of(self.ids.drawing_canvas)
@@ -1062,7 +1063,7 @@ where
     }
 
     fn parameter_section(&mut self, ui: &mut UiCell) {
-        use super::param_box::*;
+        use widgets::param_box::*;
 
         let lang = &self.language;
         let graphs = &mut self.app_state.graphs;
@@ -1095,8 +1096,8 @@ where
     }
 
     fn graph_section(&mut self, ui: &mut UiCell) {
-        use super::exposed_param_row;
-        use super::param_box;
+        use widgets::exposed_param_row;
+        use widgets::param_box;
 
         let active_graph = self.app_state.graphs.get_active().clone();
 
@@ -1206,7 +1207,8 @@ where
     }
 
     fn surface_section(&mut self, ui: &mut UiCell) {
-        use super::{export_row, param_box, util::*};
+        use super::util::*;
+        use widgets::{export_row, param_box};
 
         for ev in param_box::ParamBox::new(&mut self.app_state.surface_params, &(), &self.language)
             .parent(self.ids.surface_settings_canvas)

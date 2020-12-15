@@ -6,9 +6,9 @@ pub mod collection;
 pub mod graph;
 pub mod layers;
 
+pub use collection::*;
 pub use graph::*;
 pub use layers::*;
-pub use collection::*;
 
 #[derive(Clone, Debug)]
 pub enum LayerFilter {
@@ -39,7 +39,7 @@ pub struct App {
 
     pub registered_operators: Vec<Operator>,
     pub addable_operators: Vec<Operator>,
-    pub registered_sockets: Vec<super::export_row::RegisteredSocket>,
+    pub registered_sockets: Vec<crate::ui::widgets::export_row::RegisteredSocket>,
     pub export_entries: Vec<(String, ExportSpec)>,
 }
 

@@ -1,6 +1,6 @@
-use super::util::*;
 use crate::lang::*;
 use crate::ui::i18n::Language;
+use crate::ui::util::*;
 use conrod_core::*;
 
 #[derive(WidgetCommon)]

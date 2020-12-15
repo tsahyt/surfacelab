@@ -93,7 +93,7 @@ impl Layer {
     }
 }
 
-impl crate::ui::tree::Expandable for Layer {
+impl crate::ui::widgets::tree::Expandable for Layer {
     fn expanded(&self) -> bool {
         self.expanded
     }

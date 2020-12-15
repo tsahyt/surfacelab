@@ -5,8 +5,8 @@ use conrod_core::image;
 use enum_dispatch::*;
 use std::collections::HashMap;
 
-use super::layers;
 use super::graph;
+use super::layers;
 
 #[enum_dispatch]
 pub trait Collection {
