@@ -6,16 +6,23 @@ pub struct ResourceRow<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     style: Style,
-    res_info: &'a ResourceInfo,
+    res_item: &'a ResourceTreeItem,
+    expandable: bool,
 }
 
 impl<'a> ResourceRow<'a> {
-    pub fn new(res_info: &'a ResourceInfo) -> Self {
+    pub fn new(res_item: &'a ResourceTreeItem) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
-            res_info,
+            res_item,
+            expandable: false,
         }
+    }
+
+    pub fn expandable(mut self, expandable: bool) -> Self {
+        self.expandable = expandable;
+        self
     }
 }
 
@@ -35,7 +42,7 @@ pub struct State {
 }
 
 pub enum Event {
-    ToggleExpander
+    ToggleExpander,
 }
 
 impl<'a> Widget for ResourceRow<'a> {
@@ -56,7 +63,7 @@ impl<'a> Widget for ResourceRow<'a> {
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let mut res = None;
 
-        widget::Text::new(self.res_info.resource_string())
+        widget::Text::new(self.res_item.resource_string())
             .parent(args.id)
             .color(color::WHITE)
             .font_size(10)

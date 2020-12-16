@@ -1325,32 +1325,37 @@ where
     }
 
     fn resource_browser(&mut self, ui: &mut UiCell) {
-        // use super::tree;
+        use crate::ui::widgets::{resource_row, tree};
 
-        // let tree = &mut self.app_state.test_tree;
-        // let (mut rows, scrollbar) = tree::Tree::new(tree)
-        //     .parent(self.ids.resources_canvas)
-        //     .middle_of(self.ids.resources_canvas)
-        //     .padded_w_of(self.ids.resources_canvas, 8.0)
-        //     .padded_h_of(self.ids.resources_canvas, 8.0)
-        //     .scrollbar_on_top()
-        //     .set(self.ids.resource_tree, ui);
+        let (mut rows, scrollbar) = tree::Tree::new(self.app_state.resource_tree.get_tree())
+            .parent(self.ids.resources_canvas)
+            .middle_of(self.ids.resources_canvas)
+            .padded_w_of(self.ids.resources_canvas, 8.0)
+            .padded_h_of(self.ids.resources_canvas, 8.0)
+            .scrollbar_on_top()
+            .set(self.ids.resource_tree, ui);
 
-        // while let Some(row) = rows.next(ui) {
-        //     let data = tree.get_mut(&row.node_id).unwrap().data_mut();
-        //     let widget = widget::Button::new()
-        //         .label(&data.label)
-        //         .h(32.0)
-        //         .label_font_size(24 - 8 * row.level as u32)
-        //         .color(color::WHITE);
+        while let Some(row) = rows.next(ui) {
+            let expandable = self.app_state.resource_tree.expandable(&row.node_id);
+            let data = self
+                .app_state
+                .resource_tree
+                .get_resource_info_mut(&row.node_id);
 
-        //     for _press in row.item.set(widget, ui) {
-        //         data.expanded = !data.expanded;
-        //     }
-        // }
+            let widget = resource_row::ResourceRow::new(&data)
+                .expandable(expandable)
+                .h(32.0);
 
-        // if let Some(s) = scrollbar {
-        //     s.set(ui);
-        // }
+            match row.item.set(widget, ui) {
+                None => {}
+                Some(resource_row::Event::ToggleExpander) => {
+                    data.toggle_expanded();
+                }
+            }
+        }
+
+        if let Some(s) = scrollbar {
+            s.set(ui);
+        }
     }
 }

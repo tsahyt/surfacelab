@@ -26,6 +26,7 @@ pub enum RenderImage {
 
 pub struct App {
     pub graphs: NodeCollections,
+    pub resource_tree: ResourceTree,
     pub active_node_element: Option<petgraph::graph::NodeIndex>,
     pub active_layer_element: Option<id_tree::NodeId>,
 
@@ -49,6 +50,7 @@ impl App {
     pub fn new(monitor_size: (u32, u32)) -> Self {
         Self {
             graphs: NodeCollections::new(),
+            resource_tree: ResourceTree::default(),
             active_node_element: None,
             active_layer_element: None,
             render_image: RenderImage::None,
