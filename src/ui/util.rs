@@ -5,6 +5,12 @@ pub struct IconName(pub &'static str);
 
 impl IconName {
     pub const CONTENT_SAVE: IconName = IconName("\u{f0193}");
+    pub const FOLDER: IconName = IconName("\u{f024b}");
+    pub const NODE: IconName = IconName("\u{f06a0}");
+    pub const SOCKET: IconName = IconName("\u{f0427}");
+    pub const IMAGE: IconName = IconName("\u{f021f}");
+    pub const INPUT: IconName = IconName("\u{f0442}");
+    pub const OUTPUT: IconName = IconName("\u{f0440}");
     pub const FOLDER_OPEN: IconName = IconName("\u{f0770}");
     pub const FOLDER_PLUS: IconName = IconName("\u{f0257}");
     pub const EXPOSE: IconName = IconName("\u{f0003}");

@@ -1342,13 +1342,14 @@ where
                 .resource_tree
                 .get_resource_info_mut(&row.node_id);
 
-            let widget = resource_row::ResourceRow::new(&data)
+            let widget = resource_row::ResourceRow::new(&data, row.level)
                 .expandable(expandable)
+                .icon_font(self.fonts.icon_font)
                 .h(32.0);
 
             match row.item.set(widget, ui) {
                 None => {}
-                Some(resource_row::Event::ToggleExpander) => {
+                Some(resource_row::Event::ToggleExpanded) => {
                     data.toggle_expanded();
                 }
             }
