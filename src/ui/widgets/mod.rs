@@ -8,5 +8,6 @@ pub mod modal;
 pub mod node;
 pub mod param_box;
 pub mod renderview;
+pub mod resource_row;
 pub mod tabs;
 pub mod tree;

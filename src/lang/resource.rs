@@ -220,4 +220,15 @@ impl<S> Resource<S> {
         path.push(file);
         self.resource_path = path;
     }
+
+    /// Cast between resource types. Note that this does not perform *any*
+    /// checks. Usually it is wiser to use one of the specialized casting
+    /// functions. Handle with care!
+    pub fn cast<T>(self) -> Resource<T> {
+        Resource {
+            resource_path: self.resource_path,
+            fragment: self.fragment,
+            phantom_data: std::marker::PhantomData,
+        }
+    }
 }
