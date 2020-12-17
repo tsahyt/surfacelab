@@ -94,18 +94,9 @@ impl<'a> Widget for ResourceRow<'a> {
             ResourceTreeItem::Folder(_, _) => IconName::FOLDER,
         };
 
-        let mut indent = self.level as f64 * self.style.level_indent.unwrap_or(16.0) + 8.0;
-
-        widget::Text::new(icon.0)
-            .parent(args.id)
-            .color(color::WHITE)
-            .font_size(14)
-            .font_id(self.style.icon_font.unwrap().unwrap())
-            .mid_left_with_margin(indent)
-            .set(args.state.ids.icon, args.ui);
+        let mut indent = self.level as f64 * self.style.level_indent.unwrap_or(16.0);
 
         if self.expandable {
-            indent += 32.0;
             for _click in icon_button(
                 if self.res_item.expanded() {
                     IconName::DOWN
@@ -126,6 +117,17 @@ impl<'a> Widget for ResourceRow<'a> {
                 res = Some(Event::ToggleExpanded);
             }
         }
+
+        indent += 32.0;
+
+        widget::Text::new(icon.0)
+            .parent(args.id)
+            .color(color::WHITE)
+            .font_size(14)
+            .font_id(self.style.icon_font.unwrap().unwrap())
+            .mid_left_with_margin(indent)
+            .set(args.state.ids.icon, args.ui);
+
         indent += 32.0;
 
         widget::Text::new(self.res_item.resource_string())
