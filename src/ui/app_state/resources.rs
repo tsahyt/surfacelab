@@ -104,6 +104,13 @@ impl ResourceTreeItem {
             ResourceTreeItem::Folder(_, _) => false,
         }
     }
+
+    pub fn category(&self) -> Option<ResourceCategory> {
+        match self {
+            ResourceTreeItem::ResourceInfo(i) => Some(i.category()),
+            ResourceTreeItem::Folder(_, _) => None,
+        }
+    }
 }
 
 impl Expandable for ResourceTreeItem {
@@ -203,9 +210,24 @@ impl ResourceTree {
         }
     }
 
-    pub fn remove_node(&mut self, node: &r::Resource<r::Node>) {
-        if let Some(n) = self.find_resource(node) {
-            self.tree.remove_node(n, id_tree::RemoveBehavior::DropChildren).unwrap();
+    pub fn remove_resource_and_children<T: 'static + PartialEq>(&mut self, res: &r::Resource<T>) {
+        if let Some(n) = self.find_resource(res) {
+            self.tree
+                .remove_node(n, id_tree::RemoveBehavior::DropChildren)
+                .unwrap();
+        }
+    }
+
+    pub fn rename_resource<T: 'static + PartialEq + r::Scheme>(
+        &mut self,
+        from: &r::Resource<T>,
+        to: &r::Resource<T>,
+    ) {
+        if let Some(n) = self.find_resource(from) {
+            let data = self.tree.get_mut(&n).unwrap().data_mut();
+            let cat = data.category().unwrap();
+            let rinfo = ResourceInfo::new(to.clone(), cat);
+            *data = ResourceTreeItem::ResourceInfo(rinfo);
         }
     }
 

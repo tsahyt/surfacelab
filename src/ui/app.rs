@@ -205,6 +205,7 @@ where
                 self.app_state
                     .registered_operators
                     .push(Operator::ComplexOperator(ComplexOperator::new(to.clone())));
+                self.app_state.resource_tree.rename_resource(from, to);
             }
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
                 self.app_state.graphs.add_node(NodeData::new(
@@ -217,10 +218,13 @@ where
             }
             GraphEvent::NodeRemoved(res) => {
                 self.app_state.graphs.remove_node(res);
-                self.app_state.resource_tree.remove_node(res);
+                self.app_state
+                    .resource_tree
+                    .remove_resource_and_children(res);
             }
             GraphEvent::NodeRenamed(from, to) => {
                 self.app_state.graphs.rename_node(from, to);
+                self.app_state.resource_tree.rename_resource(from, to);
             }
             GraphEvent::ComplexOperatorUpdated(node, op, pbox) => {
                 self.app_state
