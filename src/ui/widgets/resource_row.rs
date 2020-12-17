@@ -1,6 +1,6 @@
 use crate::ui::app_state::resources::*;
-use crate::ui::widgets::tree::Expandable;
 use crate::ui::util::*;
+use crate::ui::widgets::tree::Expandable;
 use conrod_core::*;
 
 #[derive(WidgetCommon)]

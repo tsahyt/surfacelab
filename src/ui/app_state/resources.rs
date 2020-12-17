@@ -68,6 +68,14 @@ impl ResourceInfo {
     pub fn toggle_expanded(&mut self) {
         self.expanded = !self.expanded;
     }
+
+    pub fn represents_resource<T: 'static + PartialEq>(&self, other: &r::Resource<T>) -> bool {
+        if TypeId::of::<T>() == self.res_ty {
+            &self.res.clone().cast() == other
+        } else {
+            false
+        }
+    }
 }
 
 pub enum ResourceTreeItem {
@@ -89,6 +97,13 @@ impl ResourceTreeItem {
             ResourceTreeItem::Folder(_, b) => *b = !*b,
         }
     }
+
+    pub fn represents_resource<T: 'static + PartialEq>(&self, other: &r::Resource<T>) -> bool {
+        match self {
+            ResourceTreeItem::ResourceInfo(i) => i.represents_resource(other),
+            ResourceTreeItem::Folder(_, _) => false,
+        }
+    }
 }
 
 impl Expandable for ResourceTreeItem {
@@ -100,7 +115,12 @@ impl Expandable for ResourceTreeItem {
     }
 }
 
-pub struct ResourceTree(id_tree::Tree<ResourceTreeItem>);
+pub struct ResourceTree {
+    tree: id_tree::Tree<ResourceTreeItem>,
+    root: id_tree::NodeId,
+    graphs: id_tree::NodeId,
+    images: id_tree::NodeId,
+}
 
 impl Default for ResourceTree {
     fn default() -> Self {
@@ -115,40 +135,98 @@ impl Default for ResourceTree {
 
         let root = t.root_node_id().unwrap().clone();
 
+        let graphs = t
+            .insert(
+                Node::new(ResourceTreeItem::Folder("Graphs".to_owned(), true)),
+                UnderNode(&root),
+            )
+            .unwrap()
+            .clone();
+        let images = t
+            .insert(
+                Node::new(ResourceTreeItem::Folder("Images".to_owned(), true)),
+                UnderNode(&root),
+            )
+            .unwrap()
+            .clone();
+
         t.insert(
-            Node::new(ResourceTreeItem::Folder("Graphs".to_owned(), true)),
-            UnderNode(&root),
-        )
-        .unwrap();
-        t.insert(
-            Node::new(ResourceTreeItem::Folder("Images".to_owned(), true)),
-            UnderNode(&root),
+            Node::new(ResourceTreeItem::ResourceInfo(ResourceInfo::new(
+                r::Resource::graph("base", None),
+                ResourceCategory::Graph,
+            ))),
+            UnderNode(&graphs),
         )
         .unwrap();
 
-        ResourceTree(t)
+        ResourceTree {
+            tree: t,
+            root,
+            graphs,
+            images,
+        }
     }
 }
 
 impl ResourceTree {
+    pub fn insert_graph(&mut self, graph: r::Resource<r::Graph>) {
+        let rinfo = ResourceInfo::new(graph, ResourceCategory::Graph);
+        self.tree
+            .insert(
+                id_tree::Node::new(ResourceTreeItem::ResourceInfo(rinfo)),
+                id_tree::InsertBehavior::UnderNode(&self.graphs),
+            )
+            .unwrap();
+    }
+
+    fn find_resource<T: 'static + PartialEq>(
+        &self,
+        res: &r::Resource<T>,
+    ) -> Option<id_tree::NodeId> {
+        self.tree
+            .traverse_level_order_ids(&self.root)
+            .unwrap()
+            .find(|n| self.tree.get(n).unwrap().data().represents_resource(res))
+    }
+
+    pub fn insert_node(&mut self, node: r::Resource<r::Node>) {
+        let parent = node.node_graph();
+        let rinfo = ResourceInfo::new(node, ResourceCategory::Node);
+
+        if let Some(p) = self.find_resource(&parent) {
+            self.tree
+                .insert(
+                    id_tree::Node::new(ResourceTreeItem::ResourceInfo(rinfo)),
+                    id_tree::InsertBehavior::UnderNode(&p),
+                )
+                .unwrap();
+        }
+    }
+
+    pub fn remove_node(&mut self, node: &r::Resource<r::Node>) {
+        if let Some(n) = self.find_resource(node) {
+            self.tree.remove_node(n, id_tree::RemoveBehavior::DropChildren).unwrap();
+        }
+    }
+
     pub fn get_tree(&self) -> &id_tree::Tree<ResourceTreeItem> {
-        &self.0
+        &self.tree
     }
 
     pub fn get_resource_info(&self, node: &id_tree::NodeId) -> &ResourceTreeItem {
-        self.0.get(node).unwrap().data()
+        self.tree.get(node).unwrap().data()
     }
 
     pub fn get_resource_info_mut(&mut self, node: &id_tree::NodeId) -> &mut ResourceTreeItem {
-        self.0.get_mut(node).unwrap().data_mut()
+        self.tree.get_mut(node).unwrap().data_mut()
     }
 
     pub fn expandable(&self, node: &id_tree::NodeId) -> bool {
-        let can_expand = match self.0.get(node).unwrap().data() {
+        let can_expand = match self.tree.get(node).unwrap().data() {
             ResourceTreeItem::ResourceInfo(i) => i.category.expandable(),
             _ => true,
         };
-        let has_children = self.0.children(node).unwrap().next().is_some();
+        let has_children = self.tree.children(node).unwrap().next().is_some();
 
         can_expand && has_children
     }

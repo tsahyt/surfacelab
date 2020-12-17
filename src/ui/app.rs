@@ -190,6 +190,7 @@ where
                 self.app_state
                     .registered_operators
                     .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
+                self.app_state.resource_tree.insert_graph(res.clone())
             }
             GraphEvent::GraphRenamed(from, to) => {
                 self.app_state.graphs.rename_collection(from, to);
@@ -212,9 +213,11 @@ where
                     &op,
                     pbox.clone(),
                 ));
+                self.app_state.resource_tree.insert_node(res.clone());
             }
             GraphEvent::NodeRemoved(res) => {
                 self.app_state.graphs.remove_node(res);
+                self.app_state.resource_tree.remove_node(res);
             }
             GraphEvent::NodeRenamed(from, to) => {
                 self.app_state.graphs.rename_node(from, to);
@@ -260,6 +263,7 @@ where
                 self.app_state
                     .registered_operators
                     .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
+                self.app_state.resource_tree.insert_graph(res.clone())
             }
             LayersEvent::LayerPushed(res, ty, title, _, bmode, opacity, pbox, _) => {
                 let layer = Layer::layer(
