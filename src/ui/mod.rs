@@ -18,11 +18,14 @@ const DIMS: gpu::Extent2D = gpu::Extent2D {
     height: 1080,
 };
 
+/// Set up and run the main UI loop
 fn ui_loop<B: gpu::Backend>(
     gpu: Arc<Mutex<gpu::GPU<B>>>,
     sender: broker::BrokerSender<Lang>,
     receiver: broker::BrokerReceiver<Lang>,
 ) {
+    // Initialize event loop in thread. This is possible on Linux and Windows,
+    // but would be a blocker for macOS.
     let event_loop: winit::event_loop::EventLoop<()> =
         winit::event_loop::EventLoop::new_any_thread();
 
@@ -58,6 +61,7 @@ fn ui_loop<B: gpu::Backend>(
             .unwrap(),
     };
 
+    // Initialize main GUI type
     let mut gui = app::Gui::new(
         app::Ids::new(ui.widget_id_generator()),
         fonts,
@@ -115,6 +119,10 @@ fn ui_loop<B: gpu::Backend>(
     });
 }
 
+/// Spawn the UI thread.
+///
+/// Requires GPU access to render the UI and to have access to thumbnails and
+/// the render images
 pub fn start_ui_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,

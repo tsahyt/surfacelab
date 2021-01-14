@@ -57,15 +57,18 @@ where
         )
     }
 
+    /// Pan the camera in x and y directions
     pub fn pan_camera(&mut self, x: f32, y: f32) {
         self.view.pan[0] += x;
         self.view.pan[1] += y;
     }
 
+    /// Zoom the camera linearly
     pub fn zoom_camera(&mut self, z: f32) {
         self.view.zoom += z;
     }
 
+    /// Set the channel to be displayed
     pub fn set_channel(&mut self, channel: u32) {
         self.view.channel = channel;
     }

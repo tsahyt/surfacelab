@@ -27,16 +27,27 @@ use std::{
 
 use conrod_core::{self, mesh::*};
 
+/// Format of the render target
 const TARGET_FORMAT: f::Format = f::Format::Bgra8Srgb;
+
+/// Number of MSAA samples to use for UI drawing. This does not affect blitted textures!
 const MSAA_SAMPLES: i::NumSamples = 4;
+
+/// Entry point for UI shaders
 const ENTRY_NAME: &str = "main";
+
+/// Format for the glyph cache, used for text and icons
 const GLYPH_CACHE_FORMAT: hal::format::Format = hal::format::Format::R8Unorm;
+
 const COLOR_RANGE: i::SubresourceRange = i::SubresourceRange {
     aspects: f::Aspects::COLOR,
     levels: 0..1,
     layers: 0..1,
 };
 
+/// UI Vertex definition, representationally matching what comes out of conrod
+/// such that we can simply reinterpret the memory region instead of spending
+/// time on conversion.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Vertex {
@@ -90,6 +101,8 @@ where
     }
 }
 
+/// Dynamically resizing vertex buffer for UI. Keeps two sets of memory around
+/// permanently!
 pub struct VertexBuffer<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     capacity: usize,
@@ -112,10 +125,14 @@ impl<B> VertexBuffer<B>
 where
     B: Backend,
 {
+    /// Create a new vertex buffer with default size (16384 vertices).
     pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, VertexBufferError> {
         Self::with_capacity(gpu, 16384)
     }
 
+    /// Helper function to build a buffer of a certain size, with certain
+    /// properties, and certain usage. Used here to not duplicate the code for
+    /// staging and device memory.
     fn build_buffer(
         gpu: Arc<Mutex<GPU<B>>>,
         bytes: u64,
@@ -144,6 +161,7 @@ where
         Ok((buf, mem))
     }
 
+    /// Build a new vertex buffer with a given capacity.
     pub fn with_capacity(
         gpu: Arc<Mutex<GPU<B>>>,
         capacity: usize,
@@ -214,6 +232,7 @@ where
         Ok(())
     }
 
+    /// Copy the data from the given slice into this vertex buffer.
     pub fn copy_from_slice(
         &mut self,
         vertices: &[Vertex],
@@ -261,11 +280,13 @@ where
         Ok(())
     }
 
+    /// Obtain a reference to the underlying buffer for mapping in a pipeline.
     pub fn buffer(&self) -> &B::Buffer {
         &*self.device_buf
     }
 }
 
+/// Conversion function for vertex buffer data. This is zero copy.
 fn conv_vertex_buffer(buffer: &[conrod_core::mesh::Vertex]) -> &[Vertex] {
     unsafe { &*(buffer as *const [conrod_core::mesh::Vertex] as *const [Vertex]) }
 }
@@ -290,6 +311,11 @@ where
     }
 }
 
+/// The glyph cache for the UI renderer. Holds font and icon data. Is prepared
+/// by conrod through rusttype.
+///
+/// Designed to not be updated particularly often, since staging memory is
+/// recreated as needed. Resides on device. The size is fixed at creation time.
 pub struct GlyphCache<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     image: ManuallyDrop<B::Image>,
@@ -300,9 +326,11 @@ pub struct GlyphCache<B: Backend> {
 }
 
 impl<B> GlyphCache<B>
+
 where
     B: Backend,
 {
+    /// Create a new glyph cache with the given dimensions.
     pub fn new(gpu: Arc<Mutex<GPU<B>>>, size: [u32; 2]) -> Self {
         let lock = gpu.lock().unwrap();
 
@@ -357,6 +385,9 @@ where
         }
     }
 
+    /// Upload new glyph cache data. Expected to be laid out by rusttype.
+    ///
+    /// The command pool must reside on the same device as the cache.
     pub fn upload(&mut self, command_pool: &mut B::CommandPool, cpu_cache: &[u8]) {
         let mut lock = self.gpu.lock().unwrap();
 
@@ -472,6 +503,7 @@ where
         }
     }
 
+    /// Obtain image view of the glyph cache for use in a pipeline
     pub fn view(&self) -> &B::ImageView {
         &*self.view
     }
@@ -495,6 +527,7 @@ where
     }
 }
 
+/// UI Renderer
 pub struct Renderer<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
 
@@ -552,6 +585,8 @@ where
         )
         .expect("Failed to initialize render target");
 
+        // Lock after other structures have been created using the GPU already
+        // to prevent deadlock.
         let lock = gpu.lock().unwrap();
 
         let mut surface =
@@ -579,6 +614,7 @@ where
         let basic_set_layout = unsafe {
             lock.device.create_descriptor_set_layout(
                 &[
+                    // Glyph Cache Image
                     pso::DescriptorSetLayoutBinding {
                         binding: 0,
                         ty: pso::DescriptorType::Image {
@@ -590,6 +626,8 @@ where
                         stage_flags: ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
+
+                    // Sampler for glyphs and images
                     pso::DescriptorSetLayoutBinding {
                         binding: 1,
                         ty: pso::DescriptorType::Sampler,
@@ -602,6 +640,8 @@ where
             )
         }
         .expect("Can't create basic descriptor set layout");
+
+        // Descriptor set layout for images
         let image_set_layout = unsafe {
             lock.device.create_descriptor_set_layout(
                 &[pso::DescriptorSetLayoutBinding {
@@ -642,6 +682,7 @@ where
             )
         }
         .expect("Can't create descriptor pool");
+
         let mut image_desc_pool = unsafe {
             lock.device.create_descriptor_pool(
                 4096, // sets
@@ -699,6 +740,7 @@ where
                 }]);
         }
 
+        // Swapchain configuration
         let caps = surface.capabilities(&lock.adapter.physical_device);
         let surface_format = surface
             .supported_formats(&lock.adapter.physical_device)
@@ -718,6 +760,7 @@ where
                 .expect("Can't configure swapchain");
         };
 
+        // Define render pass
         let render_pass = {
             let color_attachment = pass::Attachment {
                 format: Some(TARGET_FORMAT),
@@ -759,6 +802,7 @@ where
             .expect("Can't create render pass")
         };
 
+        // Sync primitives
         let submission_complete_semaphore = lock
             .device
             .create_semaphore()
@@ -767,6 +811,7 @@ where
             .device
             .create_fence(true)
             .expect("Could not create fence");
+
         let command_buffer = unsafe { command_pool.allocate_one(command::Level::Primary) };
 
         let pipeline_layout = unsafe {
@@ -841,6 +886,7 @@ where
                     rate: VertexInputRate::Vertex,
                 });
 
+                // Vertex Attributes
                 pipeline_desc.attributes.push(pso::AttributeDesc {
                     location: 0,
                     binding: 0,
@@ -927,6 +973,10 @@ where
         }
     }
 
+    /// Recreate the swapchain with new dimensions.
+    ///
+    /// Note that the swapchain will *always* be recreated, with the same
+    /// dimensions if no new dimensions are given.
     pub fn recreate_swapchain(&mut self, new_dimensions: Option<window::Extent2D>) {
         if let Some(ext) = new_dimensions {
             self.dimensions = ext;
@@ -958,6 +1008,8 @@ where
         self.viewport.rect.h = extent.height as _;
     }
 
+    /// Render the UI given an image map and a collection of conrod primitives
+    /// to render.
     pub fn render<P: conrod_core::render::PrimitiveWalker>(
         &mut self,
         image_map: &conrod_core::image::Map<Image<B>>,
@@ -990,6 +1042,8 @@ where
             let lock = self.gpu.lock().unwrap();
             let target_lock = self.render_target.image_view().lock().unwrap();
 
+            // Create framebuffer for frame. This is in accordance with the
+            // recommendations from the gfx-rs team
             let framebuffer = unsafe {
                 lock.device
                     .create_framebuffer(
@@ -1004,7 +1058,7 @@ where
                     .unwrap()
             };
 
-            // Wait for the fence of the previous submission of this frame and reset it
+            // Wait for the fence of the previous submission and reset it
             unsafe {
                 lock.device
                     .wait_for_fence(&self.submission_complete_fence, !0)
@@ -1027,10 +1081,12 @@ where
 
             cmd_buffer.set_viewports(0, &[self.viewport.clone()]);
             cmd_buffer.set_scissors(0, &[self.viewport.rect]);
+
             // Fill vertex buffer and copy to device only memory
             self.vertex_buffer
                 .copy_from_slice(conv_vertex_buffer(self.mesh.vertices()), cmd_buffer)
                 .unwrap();
+
             cmd_buffer.bind_graphics_pipeline(&self.pipeline);
             cmd_buffer.bind_vertex_buffers(
                 0,
@@ -1062,6 +1118,7 @@ where
                 command::SubpassContents::Inline,
             );
         }
+
         for cmd in self.mesh.commands() {
             match cmd {
                 Command::Scizzor(scizzor) => unsafe {
@@ -1134,6 +1191,7 @@ where
         }
     }
 
+    /// Fill the internal mesh from the primitives
     pub fn fill<'a, P: conrod_core::render::PrimitiveWalker>(
         &'a mut self,
         image_map: &conrod_core::image::Map<Image<B>>,

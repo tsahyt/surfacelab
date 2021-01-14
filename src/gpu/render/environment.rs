@@ -12,6 +12,13 @@ use super::brdf_lut::*;
 static IRRADIANCE_SHADER: &[u8] = include_bytes!("../../../shaders/irradiance.spv");
 static PREFILTER_SHADER: &[u8] = include_bytes!("../../../shaders/filter_env.spv");
 
+/// Struct to hold all required information for dealing with environment maps
+/// for PBR shading
+///
+/// It holds three images
+/// 1. Irradiance Map for diffuse IBL
+/// 2. Spec Map for specular IBL
+/// 3. Preconvolved BRDF LUT, also for specular IBL
 pub struct EnvironmentMaps<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
 
@@ -334,7 +341,7 @@ where
             (staging_buffer, staging_mem)
         };
 
-        // Move to HDRi device only memory
+        // Move HDRi to device only memory for the compute shader
         let (equirect_image, equirect_view, equirect_memory) = {
             let mut equirect_image = unsafe {
                 lock.device.create_image(
@@ -551,6 +558,8 @@ where
         // Prepare compute pipeline
         let mut descriptor_pool = unsafe {
             use hal::pso::*;
+            // Enough descriptors to have one per convolution task
+            // i.e. MIP_LEVELS + 1 for the specular
             lock.device.create_descriptor_pool(
                 MIP_LEVELS as usize + 1,
                 &[
@@ -617,6 +626,7 @@ where
         let pipeline_layout = unsafe {
             lock.device.create_pipeline_layout(
                 Some(&set_layout),
+                // Push constant for roughness
                 &[(hal::pso::ShaderStageFlags::COMPUTE, 0..4)],
             )
         }
@@ -878,14 +888,17 @@ where
         Ok(env_maps)
     }
 
+    /// Obtain view on the irradiance map of this environment
     pub fn irradiance_view(&self) -> &B::ImageView {
         &*self.irradiance_view
     }
 
+    /// Obtain view on the BRDF LUT of this environment
     pub fn brdf_lut_view(&self) -> &B::ImageView {
         &*self.brdf_lut_view
     }
 
+    /// Obtain view on the filtered spec map of this environment
     pub fn spec_view(&self) -> &B::ImageView {
         &*self.spec_view
     }
