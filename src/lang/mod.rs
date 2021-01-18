@@ -19,6 +19,8 @@ pub use parameters::*;
 pub use resource::*;
 pub use socketed::*;
 
+/// Atomic Operators are operators that can not be decomposed into smaller
+/// parts.
 #[enum_dispatch(Socketed, Parameters, Uniforms, Shader, OperatorParamBox)]
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum AtomicOperator {
@@ -44,6 +46,8 @@ impl AtomicOperator {
         }
     }
 
+    /// A vector of all atomic operators with their default parameters. Useful
+    /// for frontends to present a list of all operators.
     pub fn all_default() -> Vec<Self> {
         vec![
             Self::Blend(Blend::default()),
@@ -68,16 +72,28 @@ impl AtomicOperator {
     }
 }
 
+/// Complex operators are operators that are created through another graph or
+/// layer stack with inputs and outputs.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ComplexOperator {
+    /// Graph giving rise to the operator
     pub graph: Resource<Graph>,
+
+    /// Human readable name
     pub title: String,
+
+    /// Input sockets with their types and internal nodes
     pub inputs: HashMap<String, (OperatorType, Resource<Node>)>,
+
+    /// Output sockets with their types and internal nodes
     pub outputs: HashMap<String, (OperatorType, Resource<Node>)>,
+
+    /// Parameter substitutions performed on this operator
     pub parameters: HashMap<String, ParamSubstitution>,
 }
 
 impl ComplexOperator {
+    /// Create a complex operator from a graph resource
     pub fn new(graph: Resource<Graph>) -> Self {
         ComplexOperator {
             title: graph
@@ -91,6 +107,8 @@ impl ComplexOperator {
         }
     }
 
+    /// Return hash of all parameter substitutions. For compute component
+    /// results caching.
     pub fn parameter_hash(&self) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
@@ -135,6 +153,7 @@ impl Socketed for ComplexOperator {
     }
 }
 
+/// Any operator, complex or atomic.
 #[enum_dispatch(Socketed, Parameters)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Operator {
@@ -143,6 +162,7 @@ pub enum Operator {
 }
 
 impl Operator {
+    /// Cast to atomic operator if possible.
     pub fn to_atomic(&self) -> Option<&AtomicOperator> {
         match self {
             Self::AtomicOperator(op) => Some(op),
@@ -150,6 +170,8 @@ impl Operator {
         }
     }
 
+    /// Return true if and only if this operator is a complex operator for the
+    /// given graph.
     pub fn is_graph(&self, graph: &Resource<Graph>) -> bool {
         match self {
             Operator::AtomicOperator(_) => false,
@@ -168,14 +190,19 @@ impl Operator {
     }
 }
 
+/// A linearization is an executable form of a graph, typically some sort of
+/// topological sort, that can be executed by the compute component.
 pub type Linearization = Vec<Instruction>;
 
+/// Use points describe when something was used or created in a linearization,
+/// indexed by steps.
 #[derive(Debug, Clone)]
 pub struct UsePoint {
     pub last: usize,
     pub creation: usize,
 }
 
+/// Structure holding use point information for each node.
 pub type UsePoints = Vec<(Resource<Node>, UsePoint)>;
 
 /// A force point is a node that has to be explicitly recomputed on request,
@@ -200,6 +227,9 @@ impl Instruction {
     }
 }
 
+/// Enum describing the types of images in the system. Images can be either RGB
+/// or Grayscale. Without further information as to where this is used, no
+/// assumptions should be made about representation!
 #[repr(C)]
 #[derive(
     AsBytes,
@@ -222,6 +252,7 @@ pub enum ImageType {
 }
 
 impl Default for ImageType {
+    /// Images are grayscale by default
     fn default() -> Self {
         ImageType::Grayscale
     }
@@ -236,6 +267,8 @@ impl ImageType {
     }
 }
 
+/// Types of outputs. Possible values include PBR channels as well as
+/// generalized formats.
 #[repr(C)]
 #[derive(
     PartialEq,
@@ -265,8 +298,14 @@ impl Default for OutputType {
     }
 }
 
+/// Type variables are internally represented as `u8`. Therefore there can only
+/// be 256 type variables for each operator.
 pub type TypeVariable = u8;
 
+/// The OperatorType describes types used by an operator. They can be either
+/// monomorphic with a well defined image type, or polymorphic, with some fixed
+/// type variable that is specific to the operator. Multiple polymorphic types
+/// with the same type variable used in the same operator always unify together.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Serialize, Deserialize, Hash)]
 pub enum OperatorType {
     Monomorphic(ImageType),
@@ -274,6 +313,7 @@ pub enum OperatorType {
 }
 
 impl OperatorType {
+    /// Get the monomorphic type if possible.
     pub fn monomorphic(self) -> Option<ImageType> {
         match self {
             Self::Monomorphic(ty) => Some(ty),
@@ -282,7 +322,8 @@ impl OperatorType {
     }
 }
 
-/// Events concerning node operation triggered by the user
+/// Events concerning node operation triggered by the user, such as adding,
+/// removing, etc.
 #[derive(Debug)]
 pub enum UserNodeEvent {
     NewNode(Resource<Graph>, Operator, (f64, f64)),
@@ -296,6 +337,8 @@ pub enum UserNodeEvent {
     OutputSizeAbsolute(Resource<Node>, bool),
 }
 
+/// Events concerning graph operation triggered by the user, such as adding,
+/// removing, etc.
 #[derive(Debug)]
 pub enum UserGraphEvent {
     AddGraph,
@@ -307,6 +350,7 @@ pub enum UserGraphEvent {
     RetitleParameter(Resource<Graph>, String, String),
 }
 
+/// Events concerning graphs, not directly coming from user input.
 #[derive(Debug)]
 pub enum GraphEvent {
     GraphAdded(Resource<Graph>),
@@ -339,12 +383,15 @@ pub enum GraphEvent {
     Cleared,
 }
 
+/// Layers come in two types, as far as the user is concerned, Fill and FX.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum LayerType {
     Fill,
     Fx,
 }
 
+/// Events concerning layer operation triggered by the user, such as adding,
+/// reordering, etc.
 #[derive(Debug)]
 pub enum UserLayersEvent {
     AddLayers,
@@ -362,6 +409,7 @@ pub enum UserLayersEvent {
     Convert(Resource<Graph>),
 }
 
+/// Events concerning layers, not directly coming from user input.
 #[derive(Debug)]
 pub enum LayersEvent {
     LayersAdded(Resource<Graph>, u32),
@@ -390,14 +438,17 @@ pub enum LayersEvent {
     MovedDown(Resource<Node>),
 }
 
+/// Events concerning surfaces, not directly coming from user input.
 #[derive(Debug)]
 pub enum SurfaceEvent {
     ExportImage(ExportSpec, u32, PathBuf),
     ExportSpecLoaded(String, ExportSpec),
 }
 
+/// Renderers are indexed by an ID, internally merely a `u64`.
 pub type RendererID = u64;
 
+/// Light types supported by renderers.
 #[derive(AsBytes, Copy, Clone, Debug, ParameterField)]
 #[repr(u32)]
 pub enum LightType {
@@ -405,6 +456,7 @@ pub enum LightType {
     SunLight = 1,
 }
 
+/// Object types supported by the SDF 3D renderer
 #[derive(AsBytes, Copy, Clone, Debug, ParameterField)]
 #[repr(u32)]
 pub enum ObjectType {
@@ -414,6 +466,7 @@ pub enum ObjectType {
     Cylinder = 3,
 }
 
+/// Events concerning renderer operation triggered by the user
 #[derive(Debug)]
 pub enum UserRenderEvent {
     Rotate(RendererID, f32, f32),
@@ -438,6 +491,7 @@ pub enum UserRenderEvent {
     SampleCount(RendererID, u32),
 }
 
+/// Supported color spaces for (external) images.
 #[repr(u32)]
 #[derive(
     Debug,
@@ -456,8 +510,12 @@ pub enum ColorSpace {
     Linear,
 }
 
+/// Description of an image channel by naming the socket at which the image
+/// resides and the channel specifically.
 pub type ChannelSpec = (Resource<Socket>, ImageChannel);
 
+/// Export specifications, constructed as an appropriate set of channel
+/// specifications. Exposes a Builder-esque interface.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExportSpec {
     RGBA([ChannelSpec; 4]),
@@ -466,6 +524,7 @@ pub enum ExportSpec {
 }
 
 impl ExportSpec {
+    /// Convert to another image type.
     pub fn image_type(self, ty: ImageType) -> Self {
         match &self {
             ExportSpec::RGBA(cs) => match ty {
@@ -483,6 +542,7 @@ impl ExportSpec {
         }
     }
 
+    /// Set existence of alpha channel.
     pub fn alpha(self, alpha: bool) -> Self {
         if alpha {
             match &self {
@@ -501,6 +561,7 @@ impl ExportSpec {
         }
     }
 
+    /// Set red channel. Will set grayscale on grayscale specs.
     pub fn set_r(&mut self, spec: ChannelSpec) {
         match self {
             ExportSpec::RGBA(cs) => {
@@ -515,6 +576,7 @@ impl ExportSpec {
         }
     }
 
+    /// Set green channel if available
     pub fn set_g(&mut self, spec: ChannelSpec) {
         match self {
             ExportSpec::RGBA(cs) => {
@@ -527,6 +589,7 @@ impl ExportSpec {
         }
     }
 
+    /// Set blue channel if available
     pub fn set_b(&mut self, spec: ChannelSpec) {
         match self {
             ExportSpec::RGBA(cs) => {
@@ -539,6 +602,7 @@ impl ExportSpec {
         }
     }
 
+    /// Set alpha channel if available
     pub fn set_a(&mut self, spec: ChannelSpec) {
         match self {
             ExportSpec::RGBA(cs) => {
@@ -550,6 +614,7 @@ impl ExportSpec {
     }
 }
 
+/// IO related events triggered by the user
 #[derive(Debug)]
 pub enum UserIOEvent {
     OpenSurface(PathBuf),
@@ -562,6 +627,7 @@ pub enum UserIOEvent {
     Quit,
 }
 
+/// Events triggered during computation or setup thereof
 #[derive(Debug)]
 pub enum ComputeEvent {
     OutputReady(
@@ -579,12 +645,14 @@ pub enum ComputeEvent {
     ThumbnailUpdated(Resource<Node>),
 }
 
+/// Type of renderer.
 #[derive(Debug, Clone, Copy)]
 pub enum RendererType {
     Renderer3D,
     Renderer2D,
 }
 
+/// Supported PBR material channels
 #[allow(clippy::derive_hash_xor_eq)]
 #[derive(EnumSetType, EnumIter, Debug, Hash, Serialize, Deserialize, Display)]
 pub enum MaterialChannel {
@@ -596,6 +664,7 @@ pub enum MaterialChannel {
 }
 
 impl MaterialChannel {
+    /// Obtain output type from a material channel.
     pub fn to_output_type(self) -> OutputType {
         match self {
             MaterialChannel::Displacement => OutputType::Displacement,
@@ -606,6 +675,7 @@ impl MaterialChannel {
         }
     }
 
+    /// Obtain image type from a material channel.
     pub fn to_image_type(self) -> ImageType {
         match self {
             MaterialChannel::Displacement => ImageType::Grayscale,
@@ -616,6 +686,7 @@ impl MaterialChannel {
         }
     }
 
+    /// Short name of a material channel.
     pub fn short_name(&self) -> &str {
         match self {
             MaterialChannel::Albedo => "col",
@@ -636,6 +707,7 @@ pub enum ImageChannel {
 }
 
 impl ImageChannel {
+    /// Image channel index by RGBA ordering.
     pub fn channel_index(&self) -> usize {
         match self {
             Self::R => 0,
@@ -646,6 +718,7 @@ impl ImageChannel {
     }
 }
 
+/// Events stemming from UI operation, not directly triggered by the user.
 #[derive(Debug)]
 pub enum UIEvent {
     RendererRequested(RendererID, (u32, u32), (u32, u32), RendererType),
@@ -654,12 +727,15 @@ pub enum UIEvent {
     RendererRemoved(RendererID),
 }
 
+/// Events from the renderer
 #[derive(Debug)]
 pub enum RenderEvent {
     RendererAdded(RendererID, crate::gpu::BrokerImageView),
     RendererRedrawn(RendererID),
 }
 
+/// Master event type used by the application bus. This defines the common
+/// language of the application.
 #[derive(Debug)]
 pub enum Lang {
     UserNodeEvent(UserNodeEvent),
