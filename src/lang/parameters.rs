@@ -4,13 +4,24 @@ use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+/// A trait for things that have parameters. Parameters can be set from a field
+/// descriptor and some plain data. It is up to the implementation to interpret
+/// this data.
+///
+/// The reason for the weak typing here is that parameters are sent over the
+/// application bus and this way we can unify the message types and don't care
+/// about the types on the frontend as much.
 #[enum_dispatch]
 pub trait Parameters {
     fn set_parameter(&mut self, field: &str, data: &[u8]);
 }
 
+/// A ParameterBool is just a 4 byte integer representing a bool for use in a
+/// shader.
 pub type ParameterBool = u32;
 
+/// A ParameterField is a type that can be converted from/to data, with a given
+/// fixed size.
 pub trait ParameterField {
     fn from_data(data: &[u8]) -> Self;
     fn to_data(&self) -> Vec<u8>;
@@ -117,6 +128,9 @@ where
     }
 }
 
+/// Note that the PathBuf impl is somewhat pathological and it will break
+/// tuples when it is in the first position! This will trigger an assertion in
+/// the tuple impl in debug builds.
 impl ParameterField for PathBuf {
     fn from_data(data: &[u8]) -> Self {
         let path_str = unsafe { std::str::from_utf8_unchecked(&data) };
@@ -132,15 +146,26 @@ impl ParameterField for PathBuf {
     }
 }
 
+/// A GraphParameter is some exposed parameter of a node graph/layer stack. Each
+/// such parameter references some (atomic) parameter inside the graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphParameter {
+    /// The field name of the parameter, used to address it in `set_parameter`.
     pub graph_field: String,
+
+    /// The *internal* parameter referenced by it
     pub parameter: Resource<super::resource::Param>,
+
+    /// Human readable name
     pub title: String,
+
+    /// Control to be used
     pub control: Control,
 }
 
 impl GraphParameter {
+    /// Convert a parameter with its current settings to a substitution for use
+    /// in computation.
     pub fn to_substitution(&self) -> ParamSubstitution {
         ParamSubstitution {
             resource: self.parameter.clone(),
@@ -149,38 +174,54 @@ impl GraphParameter {
     }
 }
 
+/// Parameter substitutions are used during computation to alter the values used
+/// in nodes in a graph based on values set in the complex operator using this
+/// graph at this instance. This allows fully reusing the linearization and just
+/// substituting in values for the uniforms as required.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
 pub struct ParamSubstitution {
     resource: Resource<Param>,
     value: Vec<u8>,
 }
 
+
 impl ParamSubstitution {
+    /// Perform the substitution
     pub fn substitute<T: Parameters>(&self, on: &mut T) {
         on.set_parameter(&self.resource.fragment().unwrap(), &self.value);
     }
 
+    /// Get the parameter resource being changed by this substitution
     pub fn resource(&self) -> &Resource<Param> {
         &self.resource
     }
 
+    /// Get the parameter resource being changed by this substitution, mutably
     pub fn resource_mut(&mut self) -> &mut Resource<Param> {
         &mut self.resource
     }
 
+    /// Obtain the value being set by this substitution, as a slice
     pub fn get_value(&self) -> &[u8] {
         &self.value
     }
 
+    /// Set the value being set by this substitution, from a slice
     pub fn set_value(&mut self, value: &[u8]) {
         self.value = value.to_vec();
     }
 }
 
+/// A trait to enable creation of "on change" messages for some kind of
+/// resource. Note that this resource is not necessarily what we call a resource
+/// elsewhere in the program. It's just an additional piece of information for
+/// the message creation process, which should describe the "recipient" of the
+/// message.
 #[enum_dispatch]
 pub trait MessageWriter: Clone {
     type Resource;
 
+    /// Create a message given a resource and associated data
     fn transmit(&self, resource: &Self::Resource, data: &[u8]) -> super::Lang;
 
     fn as_field(&self) -> Option<&Field> {
@@ -188,6 +229,7 @@ pub trait MessageWriter: Clone {
     }
 }
 
+/// Various combined MessageWriters, for use in mixed parameter boxes
 #[derive(Clone, Debug, PartialEq)]
 pub enum MessageWriters {
     Field(Field),
@@ -233,6 +275,7 @@ impl From<LayerField> for MessageWriters {
     }
 }
 
+/// A Field is a MessageWriter for operator parameters.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Field(pub String);
 
@@ -251,6 +294,7 @@ impl MessageWriter for Field {
     }
 }
 
+/// A ResourceField is a MessageWriter for metadata of nodes and layers
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ResourceField {
     Name,
@@ -286,6 +330,7 @@ impl MessageWriter for ResourceField {
     }
 }
 
+/// A LayerField is a MessageWriter for interacting with layers.
 #[derive(Clone, Debug, PartialEq)]
 pub enum LayerField {
     ConnectOutput(super::MaterialChannel),
@@ -322,6 +367,7 @@ impl MessageWriter for LayerField {
     }
 }
 
+/// A GraphField is a MessageWriter for metadata of graphs.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GraphField {
     Name,
@@ -344,6 +390,7 @@ impl MessageWriter for GraphField {
     }
 }
 
+/// A MessageWriter for setting renderer parameters
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum RenderField {
     TextureScale,
@@ -420,6 +467,7 @@ impl MessageWriter for RenderField {
     }
 }
 
+/// A MessageWriter for setting surface properties
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SurfaceField {
     Resize,
@@ -435,6 +483,9 @@ impl MessageWriter for SurfaceField {
     }
 }
 
+/// A ParamBoxDescription describes a parameter box with its categories and
+/// parameters. It is a structure that can then get interpreted by the frontend
+/// in order to present the parameters to the user.
 #[derive(Debug, PartialEq, Clone)]
 pub struct ParamBoxDescription<T: MessageWriter> {
     pub box_title: String,
@@ -445,6 +496,7 @@ impl<T> ParamBoxDescription<T>
 where
     T: MessageWriter,
 {
+    /// The empty parameter box
     pub fn empty() -> Self {
         ParamBoxDescription {
             box_title: "".to_string(),
@@ -511,6 +563,8 @@ where
         counts
     }
 
+    /// Map a function over each transmitter in the box. Essentially making the
+    /// description a functor.
     pub fn map_transmitters<Q: MessageWriter, F: Fn(&T) -> Q>(
         self,
         f: F,
@@ -537,6 +591,7 @@ where
         }
     }
 
+    /// Extend categories from an iterator.
     pub fn extend_categories<I>(&mut self, cats: I)
     where
         I: IntoIterator<Item = ParamCategory<T>>,
@@ -544,16 +599,19 @@ where
         self.categories.extend(cats);
     }
 
+    /// Merge two parameter boxes.
     pub fn merge(mut self, other: Self) -> Self {
         self.extend_categories(other.categories.iter().cloned());
         self
     }
 
+    /// Obtain a mutable iterator over all parameters.
     pub fn parameters_mut(&mut self) -> BoxParameters<'_, T> {
         BoxParameters::new(&mut self.categories)
     }
 }
 
+/// Iterator over the parameters in a ParamBoxDescription
 pub struct BoxParameters<'a, T>
 where
     T: MessageWriter,
@@ -599,6 +657,7 @@ where
 }
 
 impl ParamBoxDescription<ResourceField> {
+    /// Construct a parameter box for node metadata.
     pub fn node_parameters(res: &Resource<Node>, scalable: bool) -> Self {
         let mut parameters = vec![Parameter {
             name: "node-resource".to_string(),
@@ -642,6 +701,7 @@ impl ParamBoxDescription<ResourceField> {
 }
 
 impl ParamBoxDescription<RenderField> {
+    /// Construct a parameter box for render parameters.
     pub fn render_parameters() -> Self {
         Self {
             box_title: "renderer".to_string(),
@@ -816,6 +876,7 @@ impl ParamBoxDescription<RenderField> {
 }
 
 impl ParamBoxDescription<GraphField> {
+    /// Construct a parameter box for graph metadata.
     pub fn graph_parameters(name: &str) -> Self {
         Self {
             box_title: "graph-tab".to_string(),
@@ -835,6 +896,7 @@ impl ParamBoxDescription<GraphField> {
 }
 
 impl ParamBoxDescription<LayerField> {
+    /// Construct a parameter box for a fill layer.
     pub fn fill_layer_parameters<T: super::Socketed>(
         operator: &T,
         output_sockets: &HashMap<super::MaterialChannel, String>,
@@ -867,6 +929,7 @@ impl ParamBoxDescription<LayerField> {
         }
     }
 
+    /// Construct a parameter box for an FX layer.
     pub fn fx_layer_parameters<T: super::Socketed>(operator: &T) -> Self {
         use itertools::Itertools;
         use strum::IntoEnumIterator;
@@ -914,6 +977,7 @@ impl ParamBoxDescription<LayerField> {
 }
 
 impl ParamBoxDescription<SurfaceField> {
+    /// Construct a parameter box for surface parameters.
     pub fn surface_parameters() -> Self {
         Self {
             box_title: "surface-tab".to_string(),
@@ -934,6 +998,7 @@ impl ParamBoxDescription<SurfaceField> {
     }
 }
 
+/// Struct for storing the number of controls used by some parameter box.
 #[derive(Default, Copy, Clone, Debug)]
 pub struct ControlCounts {
     pub sliders: usize,
@@ -946,18 +1011,21 @@ pub struct ControlCounts {
     pub entries: usize,
 }
 
+/// Categories used in ParamBoxDescriptions
 #[derive(Debug, PartialEq, Clone)]
 pub struct ParamCategory<T: MessageWriter> {
     pub name: &'static str,
     pub parameters: Vec<Parameter<T>>,
 }
 
+/// Tracks whether a parameter is exposed or not.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ExposeStatus {
     Unexposed,
     Exposed,
 }
 
+/// A parameter used in ParamBoxDescriptions
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parameter<T: MessageWriter> {
     pub name: String,
@@ -966,6 +1034,9 @@ pub struct Parameter<T: MessageWriter> {
     pub expose_status: Option<ExposeStatus>,
 }
 
+/// Controls are used in ParamBoxDescription to hint at the frontend
+/// implementation of a field. It is up to the frontend to use the correct
+/// widgets.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Control {
     Slider {
@@ -1072,6 +1143,7 @@ impl Control {
     }
 }
 
+/// Helper trait to obtain the parameter box from an operator.
 #[enum_dispatch]
 pub trait OperatorParamBox {
     fn param_box_description(&self) -> ParamBoxDescription<Field>;

@@ -24,6 +24,7 @@ pub use ramp::*;
 pub use range::*;
 pub use rgb::*;
 
+/// Image operator to include external images into a node graph
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Image {
     pub path: std::path::PathBuf,
@@ -31,6 +32,7 @@ pub struct Image {
 }
 
 impl Default for Image {
+    /// By default, images use the sRGB colorspace
     fn default() -> Self {
         Self {
             path: std::path::PathBuf::new(),
@@ -106,6 +108,9 @@ impl OperatorParamBox for Image {
     }
 }
 
+/// Output nodes for node graphs are used to gather results. For complex
+/// operators they represent the output sockets. Otherwise they are passed to
+/// the renderer.
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Output {
     pub output_type: super::OutputType,
@@ -181,12 +186,14 @@ impl OperatorParamBox for Output {
     }
 }
 
+/// Input nodes are used to gather inputs for complex operators.
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Input {
     input_type: ImageType,
 }
 
 impl Default for Input {
+    /// By default an input is grayscale
     fn default() -> Self {
         Self {
             input_type: ImageType::Grayscale,
