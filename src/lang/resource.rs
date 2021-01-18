@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 pub type ResourcePart = String;
 
+/// The UTF-8 representation of a Scheme. Used for resource rendering
 pub trait Scheme {
     fn scheme_name() -> &'static str;
 }
@@ -43,6 +44,12 @@ impl Scheme for Socket {
     }
 }
 
+/// A Resource describes some thing in the system. This could refer to a node,
+/// or to a graph/layer stack, or to a socket of a node, or to a parameter, etc.
+///
+/// The type parameter narrows down the type of resource that can be described.
+///
+/// A resource has a schema, depending on the type of resource.
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Resource<S> {
     resource_path: PathBuf,
@@ -85,6 +92,7 @@ where
 }
 
 impl Resource<Node> {
+    /// Constructor for a node resource
     pub fn node<P: AsRef<Path>>(path: P, fragment: Option<String>) -> Self {
         Self {
             resource_path: path.as_ref().to_path_buf(),
@@ -93,6 +101,7 @@ impl Resource<Node> {
         }
     }
 
+    /// Obtain a socket resource from a node resource
     pub fn node_socket(&self, socket: &str) -> Resource<Socket> {
         Resource {
             resource_path: self.resource_path.clone(),
@@ -101,6 +110,7 @@ impl Resource<Node> {
         }
     }
 
+    /// Retrieve the parent graph resource from a node resource
     pub fn node_graph(&self) -> Resource<Graph> {
         let mut path = self.resource_path.clone();
         path.pop();
@@ -111,6 +121,7 @@ impl Resource<Node> {
         }
     }
 
+    /// Obtain a parameter resource from a node resource
     pub fn node_parameter(&self, parameter: &str) -> Resource<Param> {
         Resource {
             resource_path: self.resource_path.clone(),
@@ -121,6 +132,7 @@ impl Resource<Node> {
 }
 
 impl Resource<Graph> {
+    /// Constructor for a graph resource
     pub fn graph<P: AsRef<Path>>(path: P, fragment: Option<String>) -> Self {
         Self {
             resource_path: path.as_ref().to_path_buf(),
@@ -129,6 +141,7 @@ impl Resource<Graph> {
         }
     }
 
+    /// Obtain a node resource from a graph resource
     pub fn graph_node(&self, node: &str) -> Resource<Node> {
         let mut path = self.resource_path.clone();
         path.push(node);
@@ -142,6 +155,7 @@ impl Resource<Graph> {
 }
 
 impl Resource<Param> {
+    /// Constructor for a parameter resource
     pub fn parameter<P: AsRef<Path>>(path: P, fragment: &str) -> Self {
         Self {
             resource_path: path.as_ref().to_path_buf(),
@@ -150,6 +164,7 @@ impl Resource<Param> {
         }
     }
 
+    /// Obtain the parent node resource from a parameter
     pub fn parameter_node(&self) -> Resource<Node> {
         Resource {
             resource_path: self.resource_path.clone(),
@@ -160,6 +175,7 @@ impl Resource<Param> {
 }
 
 impl Resource<Socket> {
+    /// Constructor for a socket resource
     pub fn socket<P: AsRef<Path>>(path: P, fragment: &str) -> Self {
         Self {
             resource_path: path.as_ref().to_path_buf(),
@@ -168,6 +184,7 @@ impl Resource<Socket> {
         }
     }
 
+    /// Obtain the parent node resource from a socket resource
     pub fn socket_node(&self) -> Resource<Node> {
         Resource {
             resource_path: self.resource_path.clone(),
@@ -178,18 +195,22 @@ impl Resource<Socket> {
 }
 
 impl<S> Resource<S> {
+    /// Get the fragment part of a resource if it exists
     pub fn fragment(&self) -> Option<&str> {
         self.fragment.as_ref().map(|x| x.as_ref())
     }
 
+    /// Obtain a view of the path of a resource
     pub fn path(&self) -> &Path {
         &self.resource_path
     }
 
+    /// Obtain a mutable view of the path of a resource
     pub fn path_mut(&mut self) -> &mut PathBuf {
         &mut self.resource_path
     }
 
+    /// Render the resource path to a string
     pub fn path_str(&self) -> Option<&str> {
         self.path().to_str()
     }
@@ -202,14 +223,17 @@ impl<S> Resource<S> {
         }
     }
 
+    /// Modify a resource path in place given a modification function
     pub fn modify_path<F: FnOnce(&mut PathBuf) -> ()>(&mut self, func: F) {
         func(&mut self.resource_path);
     }
 
+    /// Obtain the file part of the path of a resource, if it exists
     pub fn file(&self) -> Option<&str> {
         self.path().file_name().and_then(|x| x.to_str())
     }
 
+    /// Obtain the directory part of the path of a resource, if it exists
     pub fn directory(&self) -> Option<&str> {
         self.path().parent().and_then(|x| x.to_str())
     }

@@ -5,6 +5,7 @@ use zerocopy::AsBytes;
 
 static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../../shaders/renderer2d.spv");
 
+/// A 2D renderer displaying a "top down" view on the texture channel.
 pub type Renderer2D<B> = GPURender<B, Uniforms>;
 
 #[derive(AsBytes, Debug)]

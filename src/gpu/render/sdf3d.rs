@@ -9,6 +9,8 @@ use zerocopy::AsBytes;
 
 static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/renderer3d.spv");
 
+/// A 3D renderer using ray tracing/sphere tracing to display the PBR material
+/// with real displacement. Designed for temporal multisampling
 pub type RendererSDF3D<B> = GPURender<B, Uniforms>;
 
 #[derive(AsBytes, Debug)]
@@ -81,6 +83,7 @@ impl<B> GPURender<B, Uniforms>
 where
     B: Backend,
 {
+    /// Create a new SDF3D renderer
     pub fn new_sdf3d(
         gpu: &Arc<Mutex<GPU<B>>>,
         monitor_dimensions: (u32, u32),
@@ -96,11 +99,14 @@ where
         )
     }
 
+    /// Switch the object type to be displayed. This function recreates the
+    /// pipeline and will therefore incur a slight time penalty.
     pub fn switch_object_type(
         &mut self,
         object_type: ObjectType,
     ) -> Result<(), InitializationError> {
         let lock = self.gpu.lock().unwrap();
+
         let (main_render_pass, main_pipeline, main_pipeline_layout) = Self::make_render_pipeline(
             &lock.device,
             hal::format::Format::Rgba32Sfloat,
@@ -126,11 +132,13 @@ where
         Ok(())
     }
 
+    /// Rotate the camera by two angles theta and phi
     pub fn rotate_camera(&mut self, theta: f32, phi: f32) {
         self.view.phi += phi;
         self.view.theta += theta;
     }
 
+    /// Pan the camera given screen space input deltas
     pub fn pan_camera(&mut self, x: f32, y: f32) {
         let point = (self.view.theta.cos(), self.view.theta.sin());
         let normal = (point.1, -point.0);
@@ -141,60 +149,74 @@ where
         self.view.center[2] += delta.1;
     }
 
+    /// Zoom the camera linearly
     pub fn zoom_camera(&mut self, z: f32) {
         self.view.rad += z;
     }
 
+    /// Move the light given screen space input deltas
     pub fn move_light(&mut self, x: f32, y: f32) {
         self.view.light_pos[0] += x;
         self.view.light_pos[2] += y;
     }
 
+    /// Update the displacement amount to be renderered
     pub fn set_displacement_amount(&mut self, displacement: f32) {
         self.view.displacement = displacement;
     }
 
+    /// Update the texture scale to be rendered
     pub fn set_texture_scale(&mut self, scale: f32) {
         self.view.tex_scale = scale;
         self.view.texel_size = scale / self.image_size as f32;
     }
 
+    /// Set the light type to be rendered
     pub fn set_light_type(&mut self, light_type: LightType) {
         self.view.light_type = light_type;
     }
 
+    /// Set the light strength
     pub fn set_light_strength(&mut self, strength: f32) {
         self.view.light_strength = strength;
     }
 
+    /// Set the fog strength
     pub fn set_fog_strength(&mut self, strength: f32) {
         self.view.fog_strength = strength;
     }
 
+    /// Set the strength of environment lighting (IBL)
     pub fn set_environment_strength(&mut self, strength: f32) {
         self.view.environment_strength = strength;
     }
 
+    /// Determine how much to blur the environment map background
     pub fn set_environment_blur(&mut self, blur: f32) {
         self.view.environment_blur = blur;
     }
 
+    /// Set whether a shadow should be rendered for the light source
     pub fn set_shadow(&mut self, shadow: ParameterBool) {
         self.view.shadow = shadow;
     }
 
+    /// Set whether ambient occlusion should be rendered
     pub fn set_ao(&mut self, ao: ParameterBool) {
         self.view.ao = ao;
     }
 
+    /// Set the camera focal length
     pub fn set_focal_length(&mut self, focal_length: f32) {
         self.view.focal_length = focal_length;
     }
 
+    /// Set the camera aperture size
     pub fn set_aperture_size(&mut self, aperture_size: f32) {
         self.view.aperture_size = aperture_size;
     }
 
+    /// Set the camera focal distance
     pub fn set_focal_distance(&mut self, focal_distance: f32) {
         self.view.focal_distance = focal_distance;
     }

@@ -9,6 +9,7 @@ use strum::IntoEnumIterator;
 const DEFAULT_SAMPLES: usize = 24;
 const TIMING_DECAY: f64 = 0.15;
 
+/// Start the render thread. This thread manages renderers.
 pub fn start_render_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,
@@ -23,11 +24,14 @@ pub fn start_render_thread<B: gpu::Backend>(
 
             loop {
                 let res = if let Ok(message) = receiver.try_recv() {
+                    // Prioritize message if it exists
                     render_manager.step(Some(message))
                 } else if render_manager.must_step() {
+                    // Otherwise wait a bit and render if there are more samples to do
                     thread::sleep(std::time::Duration::from_millis(5));
                     render_manager.step(None)
                 } else {
+                    // Otherwise block until there's an event
                     render_manager.step(receiver.recv().ok())
                 };
 
@@ -47,6 +51,8 @@ pub fn start_render_thread<B: gpu::Backend>(
         .expect("Failed to spawn render thread!")
 }
 
+/// Enum wrapping different renderer types, such that they can be stored in the
+/// render manager.
 enum ManagedRenderer<B: gpu::Backend> {
     RendererSDF3D(gpu::render::RendererSDF3D<B>),
     Renderer2D(gpu::render::Renderer2D<B>),
@@ -56,6 +62,7 @@ impl<B> ManagedRenderer<B>
 where
     B: gpu::Backend,
 {
+    /// Run update function on an SDF 3D renderer. A NOP for all other types
     pub fn update_sdf3d<F: Fn(&mut gpu::render::RendererSDF3D<B>) -> ()>(&mut self, f: F) {
         match self {
             ManagedRenderer::RendererSDF3D(r) => f(r),
@@ -63,6 +70,7 @@ where
         }
     }
 
+    /// Run update function on a 2D renderer. A NOP for all other types
     pub fn update_2d<F: Fn(&mut gpu::render::Renderer2D<B>) -> ()>(&mut self, f: F) {
         match self {
             ManagedRenderer::RendererSDF3D(_) => {}
@@ -70,6 +78,7 @@ where
         }
     }
 
+    /// Reset the sampling
     pub fn reset_sampling(&mut self) {
         match self {
             ManagedRenderer::RendererSDF3D(r) => r.reset_sampling(),
@@ -77,6 +86,7 @@ where
         }
     }
 
+    /// Instruct GPU to render a frame
     pub fn render(&mut self) {
         match self {
             ManagedRenderer::RendererSDF3D(r) => r.render(),
@@ -84,6 +94,7 @@ where
         }
     }
 
+    /// Obtain the render target view from the contained renderer
     pub fn target_view(&self) -> &Arc<Mutex<B::ImageView>> {
         match self {
             ManagedRenderer::RendererSDF3D(r) => r.target_view(),
@@ -91,6 +102,7 @@ where
         }
     }
 
+    /// Recreate all image slots with a given size.
     pub fn recreate_image_slots(&mut self, image_size: u32) {
         match self {
             ManagedRenderer::RendererSDF3D(r) => r.recreate_image_slots(image_size),
@@ -99,6 +111,7 @@ where
         .expect("Failed to resize images in renderer");
     }
 
+    /// Resize the viewport dimensions in the renderer
     pub fn set_viewport_dimensions(&mut self, width: u32, height: u32) {
         match self {
             ManagedRenderer::RendererSDF3D(r) => r.set_viewport_dimensions(width, height),
@@ -106,6 +119,7 @@ where
         }
     }
 
+    /// Transfer an image to a renderer
     pub fn transfer_image(
         &mut self,
         source: &B::Image,
@@ -124,6 +138,7 @@ where
         }
     }
 
+    /// Vacate an image from a renderer
     pub fn vacate_image(&mut self, image_use: crate::lang::OutputType) {
         match self {
             ManagedRenderer::RendererSDF3D(r) => r.vacate_image(image_use),
@@ -132,6 +147,9 @@ where
     }
 }
 
+/// A renderer contains a managed renderer, which is the GPU side component, as
+/// well as extra information such as samples left to go and frame timings for
+/// statistics output.
 struct Renderer<B: gpu::Backend> {
     gpu: ManagedRenderer<B>,
     samples_to_go: usize,
@@ -140,6 +158,7 @@ struct Renderer<B: gpu::Backend> {
 }
 
 impl<B: gpu::Backend> Renderer<B> {
+    /// Create a new renderer, given a managed renderer.
     pub fn new(gpu: ManagedRenderer<B>, max_samples: usize) -> Self {
         Self {
             gpu,
@@ -149,12 +168,14 @@ impl<B: gpu::Backend> Renderer<B> {
         }
     }
 
+    /// Reset the sampling of this renderer
     pub fn reset_sampling(&mut self) {
         self.samples_to_go = self.max_samples;
         self.gpu.reset_sampling();
     }
 }
 
+/// Renderers dereference to their inner managed renderers
 impl<B> std::ops::Deref for Renderer<B>
 where
     B: gpu::Backend,
@@ -166,6 +187,7 @@ where
     }
 }
 
+/// Renderers dereference to their inner managed renderers
 impl<B> std::ops::DerefMut for Renderer<B>
 where
     B: gpu::Backend,
@@ -175,6 +197,8 @@ where
     }
 }
 
+/// The render manager manages various renderers present in the system,
+/// identifier by their RendererID.
 struct RenderManager<B: gpu::Backend> {
     gpu: Arc<Mutex<gpu::GPU<B>>>,
     renderers: HashMap<RendererID, Renderer<B>>,
@@ -184,6 +208,7 @@ impl<B> RenderManager<B>
 where
     B: gpu::Backend,
 {
+    /// Spawn a new render manager. No renderers will be registered after creation.
     pub fn new(gpu: Arc<Mutex<gpu::GPU<B>>>) -> Self {
         RenderManager {
             gpu,
@@ -191,10 +216,13 @@ where
         }
     }
 
+    /// Returns whether any renderer managed by this manager must render another
+    /// sample.
     pub fn must_step(&self) -> bool {
         self.renderers.values().any(|r| r.samples_to_go > 0)
     }
 
+    /// Handle the given event and render if appropriate.
     pub fn step(&mut self, event: Option<Arc<Lang>>) -> Option<Vec<Lang>> {
         let mut response = Vec::new();
 

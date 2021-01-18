@@ -26,6 +26,7 @@ static ACCUM_SHADER: &[u8] = include_bytes!("../../../shaders/accum.spv");
 const IRRADIANCE_SIZE: usize = 32;
 const SPECMAP_SIZE: usize = 512;
 
+/// Functions defining a renderer
 pub trait Renderer {
     fn fragment_shader() -> &'static [u8];
     fn set_resolution(&mut self, w: f32, h: f32);
@@ -46,6 +47,7 @@ impl Default for HaltonSequence2D {
 }
 
 impl HaltonSequence2D {
+    /// Initialize an n,m-Halton sequence
     pub fn new(base1: usize, base2: usize) -> Self {
         Self {
             idx: 0,
@@ -293,6 +295,7 @@ where
     const UNIFORM_BUFFER_SIZE: u64 = 512;
     const FINAL_FORMAT: hal::format::Format = hal::format::Format::Rgba16Sfloat;
 
+    /// Create a new renderer
     pub fn new(
         gpu: &Arc<Mutex<GPU<B>>>,
         monitor_dimensions: (u32, u32),
@@ -673,6 +676,7 @@ where
         Ok((buf, mem))
     }
 
+    /// Create the render pipeline for this renderer
     #[allow(clippy::type_complexity)]
     fn make_render_pipeline(
         device: &B::Device,
@@ -789,6 +793,7 @@ where
         Ok((render_pass, pipeline, pipeline_layout))
     }
 
+    /// Create the accumulator compute pipeline for this renderer
     fn make_accum_pipeline(
         device: &B::Device,
         set_layout: &B::DescriptorSetLayout,
@@ -832,6 +837,7 @@ where
         Ok((pipeline, pipeline_layout))
     }
 
+    /// Recreate all image slots with a new given size. This resets all images!
     pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), InitializationError> {
         let lock = self.gpu.lock().unwrap();
         self.image_size = image_size;
@@ -840,6 +846,7 @@ where
         Ok(())
     }
 
+    /// Set the viewport dimensions.
     pub fn set_viewport_dimensions(&mut self, width: u32, height: u32) {
         self.viewport = hal::pso::Viewport {
             rect: hal::pso::Rect {
@@ -866,6 +873,7 @@ where
         }
     }
 
+    /// Build the SlotOccupancy uniform from the stored image slots.
     fn build_occupancy(&self) -> SlotOccupancy {
         fn from_bool(x: bool) -> u32 {
             if x {
@@ -884,6 +892,7 @@ where
         }
     }
 
+    /// Fill the uniform buffers
     fn fill_uniforms(
         &self,
         device: &B::Device,
@@ -923,11 +932,13 @@ where
         Ok(())
     }
 
+    /// Reset the sampling process.
     pub fn reset_sampling(&mut self) {
         self.current_sample = 0;
         self.halton_sampler = HaltonSequence2D::default();
     }
 
+    /// Render a single frame
     pub fn render(&mut self) {
         // Wait on previous fence to make sure the last frame has been rendered.
         self.synchronize_at_fence();
@@ -1242,6 +1253,7 @@ where
         self.current_sample += 1;
     }
 
+    /// Obtain an image view for the render target
     pub fn target_view(&self) -> &Arc<Mutex<B::ImageView>> {
         self.accum_target.image_view()
     }
@@ -1388,6 +1400,10 @@ where
         }
     }
 
+    /// Vacate a texture, making it inaccessible for the shader.
+    ///
+    /// This does not modify any GPU memory, it merely marks the slot as
+    /// unoccupied in the occupancy uniforms.
     pub fn vacate_image(&mut self, image_use: crate::lang::OutputType) {
         let image_slot = match image_use {
             crate::lang::OutputType::Displacement => &mut self.image_slots.displacement,
@@ -1401,6 +1417,7 @@ where
         image_slot.occupied = false;
     }
 
+    /// Load a new environment from a HDRi file.
     pub fn load_environment<P: AsRef<std::path::Path>>(&mut self, path: P) {
         let new_env =
             EnvironmentMaps::from_file(self.gpu.clone(), IRRADIANCE_SIZE, SPECMAP_SIZE, path)
