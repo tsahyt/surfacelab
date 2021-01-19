@@ -8,13 +8,12 @@ use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
-// TODO: Compute image memory defragmentation
-
 use super::{
     Backend, DownloadError, InitializationError, PipelineError, Shader, ShaderType, UploadError,
     GPU,
 };
 
+/// GPU side compute component
 pub struct GPUCompute<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: ManuallyDrop<B::CommandPool>,
@@ -27,7 +26,7 @@ pub struct GPUCompute<B: Backend> {
     // Image Memory Management
     allocs: Cell<AllocId>,
     image_mem: ManuallyDrop<B::Memory>,
-    image_mem_chunks: RefCell<Vec<Chunk>>, // TODO: compute image handling without refcell
+    image_mem_chunks: RefCell<Vec<Chunk>>,
 
     // Descriptors
     descriptor_pool: ManuallyDrop<B::DescriptorPool>,
@@ -39,11 +38,16 @@ pub struct GPUCompute<B: Backend> {
     fence: ManuallyDrop<B::Fence>,
 }
 
+/// Memory allocation ID.
 type AllocId = u32;
 
+/// A Chunk is a piece of VRAM of fixed size that can be allocated for some
+/// image. The size is hardcoded as `CHUNK_SIZE`.
 #[derive(Debug, Clone)]
 struct Chunk {
+    /// Offset of the chunk in the contiguous image memory region.
     offset: u64,
+    /// Allocation currently occupying this chunk, if any
     alloc: Option<AllocId>,
 }
 
@@ -61,10 +65,16 @@ impl<B> GPUCompute<B>
 where
     B: Backend,
 {
-    const UNIFORM_BUFFER_SIZE: u64 = 2048; // bytes
+    /// Size of the uniform buffer for compute shaders, in bytes
+    const UNIFORM_BUFFER_SIZE: u64 = 2048;
 
+    /// Size of the image memory region, in bytes
     const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 128; // bytes
+
+    /// Size of a single chunk, in bytes
     const CHUNK_SIZE: u64 = 256 * 256 * 4; // bytes
+
+    /// Number of chunks in the image memory region
     const N_CHUNKS: u64 = Self::IMAGE_MEMORY_SIZE / Self::CHUNK_SIZE;
 
     /// Create a new GPUCompute instance.
@@ -431,6 +441,8 @@ where
         unsafe { lock.device.write_descriptor_sets(write_iter) };
     }
 
+    /// Run a single compute pipeline given input and output images, the size of
+    /// the output images, and the descriptors to be used.
     pub fn run_pipeline(
         &mut self,
         image_size: u32,
@@ -498,16 +510,18 @@ where
         }
     }
 
+    /// Borrow the uniform buffer
     pub fn uniform_buffer(&self) -> &B::Buffer {
         &self.uniform_buf
     }
 
+    /// Borrow the sampler
     pub fn sampler(&self) -> &B::Sampler {
         &self.sampler
     }
 
-    /// Download a raw image from the GPU by copying it into a temporary CPU
-    /// visible buffer.
+    /// Download a raw image from the GPU by copying it into a CPU visible
+    /// buffer.
     pub fn download_image(&mut self, image: &Image<B>) -> Result<Vec<u8>, DownloadError> {
         let mut lock = self.gpu.lock().unwrap();
         let bytes = (image.size * image.size * image.px_width as u32) as u64;
@@ -963,6 +977,7 @@ where
     }
 }
 
+/// An allocation in the compute image memory.
 #[derive(Debug, Clone)]
 pub struct Alloc<B: Backend> {
     parent: *const GPUCompute<B>,
@@ -974,6 +989,7 @@ impl<B> Drop for Alloc<B>
 where
     B: Backend,
 {
+    /// Allocations will free on drop
     fn drop(&mut self) {
         log::trace!("Release image memory for allocation {}", self.id);
         let parent = unsafe { &*self.parent };
@@ -981,6 +997,7 @@ where
     }
 }
 
+/// A compute image, which may or may not be allocated.
 pub struct Image<B: Backend> {
     parent: *const GPUCompute<B>,
     size: u32,
@@ -997,6 +1014,7 @@ impl<B> Image<B>
 where
     B: Backend,
 {
+    /// Bind this image to some region in the image memory.
     fn bind_memory(&mut self, offset: u64, compute: &GPUCompute<B>) -> Result<(), ImageError> {
         let mut raw_lock = self.raw.lock().unwrap();
         let lock = compute.gpu.lock().unwrap();
@@ -1028,6 +1046,8 @@ where
         Ok(())
     }
 
+    /// Create an appropriate image barrier transition to a specified Access and
+    /// Layout.
     pub fn barrier_to<'a>(
         &self,
         image: &'a B::Image,
@@ -1107,10 +1127,12 @@ where
         self.layout.get()
     }
 
+    /// Get the current image access flags
     pub fn get_access(&self) -> hal::image::Access {
         self.access.get()
     }
 
+    /// Get size of this image
     pub fn get_size(&self) -> u32 {
         self.size
     }
@@ -1129,6 +1151,8 @@ where
     /// the last reference to it drops.
     fn drop(&mut self) {
         let parent = unsafe { &*self.parent };
+
+        // Spinlock to acquire the image.
         let image = {
             let mut raw = unsafe { ManuallyDrop::take(&mut self.raw) };
             loop {
@@ -1152,6 +1176,8 @@ where
     }
 }
 
+/// A compute pipeline that can be used with GPUCompute. Typically describes one
+/// compute shader execution for one atomic operator.
 // NOTE: The resources claimed by a compute pipeline are never cleaned up.
 // gfx-hal has functions to do so, but it of course requires a handle back to
 // the parent GPU object, which is difficult to do in Rust with our design. A
@@ -1177,6 +1203,11 @@ where
 #[derive(Debug)]
 pub struct ThumbnailIndex(usize);
 
+/// The thumbnail cache stores all thumbnails to be used in the system. They
+/// reside in the compute component and are managed here.
+///
+/// The cache is dynamically sized. If more thumbnails are required, another
+/// memory region will be allocated for them.
 pub struct ThumbnailCache<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     memory: SmallVec<[B::Memory; 4]>,
