@@ -15,7 +15,6 @@ type ChannelMap = HashMap<MaterialChannel, String>;
 /// A type encoding a function from sockets to material channels.
 type InputMap = HashMap<String, MaterialChannel>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
 /// A mask (layer) is any operator that has one input or less, and some number
 /// of outputs greater than 0 that can be interpreted as grayscale images. To
 /// retain flexibility, color outputs may be allowed, but only the red channel
@@ -23,10 +22,15 @@ type InputMap = HashMap<String, MaterialChannel>;
 ///
 /// Masks are thus single-channel layers. When blending mask layers, there is no
 /// way to apply a mask into the blend, i.e. masks cannot be "recursive".
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Mask {
+    /// Human readable name of the mask
     name: String,
+    /// Mask operator
     operator: Operator,
+    /// The output socket of the operator to use
     output_socket: String,
+    /// Options to blend the mask with mask layers below it
     blend_options: MaskBlendOptions,
 }
 
@@ -46,6 +50,8 @@ impl From<Operator> for Mask {
     }
 }
 
+/// Options for blending masks. Differs from ordinary blend options in that it
+/// can not have any masks itself.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MaskBlendOptions {
     opacity: f32,
@@ -74,6 +80,8 @@ impl Default for MaskBlendOptions {
     }
 }
 
+/// A mask stack is like a layer stack but specialized such that it must have
+/// specific types of operators, and cannot have masks itself.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct MaskStack {
     stack: Vec<Mask>,
@@ -144,6 +152,12 @@ impl MaskStack {
         .is_some()
     }
 
+    /// Utilize this mask stack in a larger layer linearization.
+    ///
+    /// Linearization structures are passed into this function as mutable
+    /// references, and resource naming functions are passed as closures.
+    ///
+    /// Will return None if an error occurs.
     pub fn linearize_into<F: Fn(&Mask) -> Resource<Node>, G: Fn(&Mask) -> Resource<Node>>(
         &self,
         mask_resource: F,
@@ -284,6 +298,8 @@ impl MaskStack {
         Some(())
     }
 
+    /// Insert this mask stack into a graph, for use in converting layer stacks
+    /// to graphs.
     pub fn insert_into_graph(
         &self,
         graph: &mut super::nodegraph::NodeGraph,
@@ -333,6 +349,7 @@ impl MaskStack {
         last_socket
     }
 
+    /// Push a new mask operator onto the mask stack
     pub fn push(&mut self, mask: Mask, resource: Resource<Node>) -> Option<()> {
         if !mask.operator.inputs().is_empty() && self.stack.is_empty() {
             return None;
@@ -345,24 +362,29 @@ impl MaskStack {
         Some(())
     }
 
+    /// Iterator over all masks in the stack
     pub fn iter(&self) -> impl Iterator<Item = &Mask> {
         self.stack.iter()
     }
 
+    /// Get size of the mask stack
     pub fn len(&self) -> usize {
         self.stack.len()
     }
 
+    /// True if and only if the stack is empty
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty()
     }
 
+    /// Get the operator for a specific mask, specified by resource, if it exists.
     pub fn get_operator(&self, mask: &Resource<Node>) -> Option<&Operator> {
         self.resources
             .get(mask.file().unwrap())
             .map(|idx| &self.stack[*idx].operator)
     }
 
+    /// Swap two resources.
     fn swap_resources(&mut self, a: &str, b: &str) {
         debug_assert!(a != b);
         let idx_a = self.resources.get_mut(a).expect("Unknown resource") as *mut usize;
@@ -418,12 +440,18 @@ impl MaskStack {
     }
 }
 
+/// Options for blending a layer on top of the underlying stack.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LayerBlendOptions {
+    /// Mask stack to use. The empty mask stack is effectively ignored.
     mask: MaskStack,
+    /// Blend opacity
     opacity: f32,
+    /// Channels that should be blended over the bottom stack
     channels: EnumSet<MaterialChannel>,
+    /// Blend mode to use, uniform across all channels
     blend_mode: BlendMode,
+    /// Whether this layer is enabled at all
     enabled: bool,
 }
 
@@ -447,10 +475,12 @@ impl LayerBlendOptions {
         }
     }
 
+    /// True if and only if the layer has a nonempty mask stack
     pub fn has_masks(&self) -> bool {
         !self.mask.stack.is_empty()
     }
 
+    /// Obtain the topmost mask in the stack if it exists.
     pub fn top_mask<F: Fn(&Mask) -> Resource<Node>, G: Fn(&Mask) -> Resource<Node>>(
         &self,
         mask_resource: F,
@@ -496,12 +526,19 @@ impl Default for LayerBlendOptions {
 /// layers are simply layers with no input sockets.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Layer {
+    /// Internal name of the layer
     name: String,
+    /// Human readable name of the layer
     title: String,
+    /// Layer operator
     operator: Operator,
+    /// Input socket mapping for layers below
     input_sockets: InputMap,
+    /// Output socket mapping from sockets to PBR channels
     output_sockets: ChannelMap,
+    /// Blend options
     blend_options: LayerBlendOptions,
+    /// Type of layer
     layer_type: LayerType,
 }
 
@@ -630,6 +667,11 @@ impl Layer {
     }
 }
 
+/// A stack of layers, equivalent to a graph of a specific form, that can be
+/// linearized or converted.
+///
+/// Contrary to graphs, layer stacks have a well defined set of outputs, one per
+/// PBR channel.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LayerStack {
     name: String,
@@ -650,6 +692,8 @@ impl LayerStack {
         }
     }
 
+    /// Obtain the next free resource name given a base, see node graph for
+    /// analogous function
     fn next_free_name(&self, base_name: &str) -> String {
         let mut resource = String::new();
 
@@ -665,14 +709,17 @@ impl LayerStack {
         resource
     }
 
+    /// Obtain the resource name of a layer
     pub fn layer_resource(&self, layer: &Layer) -> Resource<Node> {
         Resource::node(&format!("{}/{}", self.name, layer.name()), None)
     }
 
+    /// Obtain the resource name of a mask
     pub fn mask_resource(&self, mask: &Mask) -> Resource<Node> {
         Resource::node(&format!("{}/{}", self.name, mask.name), None)
     }
 
+    /// Obtain the resource name of a mask blend
     pub fn mask_blend_resource(&self, mask: &Mask) -> Resource<Node> {
         Resource::node(&format!("{}/{}.blend", self.name, mask.name), None)
     }
@@ -688,6 +735,7 @@ impl LayerStack {
         )
     }
 
+    /// Obtain the resource name of a layer blend
     pub fn blend_resource(&self, layer: &Layer, channel: MaterialChannel) -> Resource<Node> {
         Resource::node(
             &format!(
@@ -700,12 +748,14 @@ impl LayerStack {
         )
     }
 
+    /// Push a new layer onto the stack.
     fn push(&mut self, layer: Layer, resource: &Resource<Node>) {
         self.layers.push(layer);
         self.resources
             .insert(resource.file().unwrap().to_owned(), self.layers.len() - 1);
     }
 
+    /// Push a new layer onto the stack
     pub fn push_layer(
         &mut self,
         mut layer: Layer,
@@ -722,6 +772,7 @@ impl LayerStack {
         resource
     }
 
+    /// Push a new mask onto the mask stack for a given layer
     pub fn push_mask(
         &mut self,
         mut mask: Mask,
@@ -743,6 +794,7 @@ impl LayerStack {
         }
     }
 
+    /// Remove a layer by resource
     pub fn remove(&mut self, resource: &Resource<Node>) -> Option<Layer> {
         if let Some(index) = self.resources.remove(resource.file().unwrap()) {
             let layer = self.layers.remove(index);
@@ -757,11 +809,13 @@ impl LayerStack {
         }
     }
 
+    /// Reset the layer stack, removing all layers
     pub fn reset(&mut self) {
         self.layers.clear();
         self.resources.clear();
     }
 
+    /// Obtain the output resource for a material channel
     pub fn output_resource(&self, channel: MaterialChannel) -> Resource<Node> {
         Resource::node(
             &format!("{}/output.{}", self.name, channel.short_name(),),
@@ -769,6 +823,7 @@ impl LayerStack {
         )
     }
 
+    /// Get a list of all layer resources, including blend nodes
     pub fn all_resources(&self) -> Vec<Resource<Node>> {
         self.layers
             .iter()
@@ -853,12 +908,14 @@ impl LayerStack {
         }
     }
 
+    /// Set the title, i.e. human readable name, of a layer
     pub fn set_title(&mut self, layer: &Resource<Node>, title: &str) {
         if let Some(idx) = self.resources.get(layer.file().unwrap()) {
             self.layers[*idx].set_title(title);
         }
     }
 
+    /// Define an output for a layer and material channel
     pub fn set_output(
         &mut self,
         layer: &Resource<Node>,
@@ -879,6 +936,7 @@ impl LayerStack {
         }
     }
 
+    /// Define an input for a layer and socket from material channel
     pub fn set_input(&mut self, layer_socket: &Resource<Socket>, channel: MaterialChannel) {
         if let Some(idx) = self.resources.get(layer_socket.file().unwrap()) {
             let l = &mut self.layers[*idx];
@@ -889,6 +947,7 @@ impl LayerStack {
         }
     }
 
+    /// Toggle the visibility of an output channel
     pub fn set_output_channel(
         &mut self,
         layer: &Resource<Node>,
@@ -905,6 +964,7 @@ impl LayerStack {
         }
     }
 
+    /// Set the opacity of a layer
     pub fn set_layer_opacity(&mut self, layer: &Resource<Node>, opacity: f32) {
         if layer.path_str().unwrap().contains("mask") {
             self.set_mask_opacity(layer, opacity);
@@ -913,6 +973,7 @@ impl LayerStack {
         }
     }
 
+    /// Set the opacity of a mask
     fn set_mask_opacity(&mut self, mask: &Resource<Node>, opacity: f32) {
         let parent_resource = layer_resource_from_mask_resource(mask);
 
@@ -921,6 +982,7 @@ impl LayerStack {
         }
     }
 
+    /// Set the blend mode of a layer
     pub fn set_layer_blend_mode(&mut self, layer: &Resource<Node>, blend_mode: BlendMode) {
         if layer.path_str().unwrap().contains("mask") {
             self.set_mask_blend_mode(layer, blend_mode);
@@ -929,6 +991,7 @@ impl LayerStack {
         }
     }
 
+    /// Set the blend mode of a mask
     fn set_mask_blend_mode(&mut self, mask: &Resource<Node>, blend_mode: BlendMode) {
         let parent_resource = layer_resource_from_mask_resource(mask);
 
@@ -937,6 +1000,7 @@ impl LayerStack {
         }
     }
 
+    /// Enable or disable a layer
     pub fn set_layer_enabled(&mut self, layer: &Resource<Node>, enabled: bool) {
         if layer.path_str().unwrap().contains("mask") {
             self.set_mask_enabled(layer, enabled);
@@ -948,6 +1012,7 @@ impl LayerStack {
         }
     }
 
+    /// Enable or disable a mask
     fn set_mask_enabled(&mut self, mask: &Resource<Node>, enabled: bool) {
         let parent_resource = layer_resource_from_mask_resource(mask);
 
@@ -956,10 +1021,12 @@ impl LayerStack {
         }
     }
 
+    /// Clear the force points of the layer stack
     pub fn clear_force_points(&mut self) {
         self.force_points.clear();
     }
 
+    /// Determine whether the stack can be linearized in its current state
     pub fn can_linearize(&self) -> bool {
         use super::NodeCollection;
 
@@ -989,6 +1056,7 @@ impl LayerStack {
         }
     }
 
+    /// Move a mask up if possible. Returns true on success.
     fn move_mask_up(&mut self, mask: &Resource<Node>) -> bool {
         let parent_resource = layer_resource_from_mask_resource(mask);
 
@@ -1021,6 +1089,7 @@ impl LayerStack {
         }
     }
 
+    /// Move a mask down if possible. Returns true on success.
     fn move_mask_down(&mut self, mask: &Resource<Node>) -> bool {
         let parent_resource = layer_resource_from_mask_resource(mask);
 
