@@ -13,7 +13,8 @@ pub mod layers;
 pub mod nodegraph;
 
 /// Trait describing functionality relating to exposed parameters on node
-/// graphs.
+/// graphs. These operations only mutate backend data, other parts of the system
+/// need to be notified accordingly.
 #[enum_dispatch]
 trait ExposedParameters: NodeCollection {
     /// Get a mutable reference to the exposed parameters of the node graph.
@@ -102,12 +103,22 @@ trait ExposedParameters: NodeCollection {
     }
 }
 
+/// Modes for linearization. Applicable to node graphs rather than layer stacks,
+/// since layer stacks are by nature already linear.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum LinearizationMode {
+    /// Produces a topological sort of the node graph. This means that nodes
+    /// will only be visited once. Can place higher demands on memory during
+    /// execution because more things have to be kept in cache.
     TopoSort,
+    /// A full traversal produces a depth first ordering of the node graph. As a
+    /// result, nodes can be visited multiple times. If still cached, the
+    /// compute component is unlikely (but free) to recompute them. 
     FullTraversal,
 }
 
+/// Information pertaining to the update of a complex operator in case the
+/// underlying graph was changed.
 pub type ComplexOperatorUpdate = (Resource<Node>, HashMap<String, ParamSubstitution>);
 
 /// General functions of a node graph
@@ -154,6 +165,7 @@ trait NodeCollection {
     fn element_param_box(&self, element: &Resource<Node>) -> ParamBoxDescription<MessageWriters>;
 }
 
+/// A node collection that can be stored by the node manager.
 #[enum_dispatch(ExposedParameters, NodeCollection)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NodeGraph {
@@ -162,11 +174,14 @@ pub enum NodeGraph {
 }
 
 impl Default for NodeGraph {
+    /// The default collection is the empty graph, named base
     fn default() -> Self {
         Self::NodeGraph(nodegraph::NodeGraph::new("base"))
     }
 }
 
+/// The node manager is responsible for storing and modifying the node networks
+/// in the current surface file.
 struct NodeManager {
     parent_size: u32,
     export_specs: HashMap<String, lang::ExportSpec>,
@@ -176,6 +191,7 @@ struct NodeManager {
 
 // FIXME: Changing output socket type after connection has already been made does not propagate type changes into preceeding polymorphic nodes!
 impl NodeManager {
+    /// Initialize the node manager with default settings.
     pub fn new() -> Self {
         NodeManager {
             parent_size: 1024,
@@ -185,6 +201,9 @@ impl NodeManager {
         }
     }
 
+    /// Create the parameter box for an operator. This needs to be done by the
+    /// node manager in order to support complex operator, for which we need
+    /// information about other graphs.
     pub fn operator_param_box(
         &self,
         operator: &lang::Operator,
@@ -201,6 +220,7 @@ impl NodeManager {
         }
     }
 
+    /// Parameter box for an "element", i.e. the collection itself.
     pub fn element_param_box(
         &self,
         operator: &lang::Operator,
@@ -215,6 +235,10 @@ impl NodeManager {
         elbox.merge(opbox.map_transmitters(|t| t.clone().into()))
     }
 
+    /// Process an event from the application bus and dispatch the necessary
+    /// operations to respond.
+    ///
+    /// Returning None indicates shutdown of the component.
     pub fn process_event(&mut self, event: Arc<lang::Lang>) -> Option<Vec<lang::Lang>> {
         use crate::lang::*;
         let mut response = vec![];
@@ -959,6 +983,7 @@ impl NodeManager {
         Some(response)
     }
 
+    /// Construct update events for complex operators after a change to a graph.
     fn update_complex_operators(
         &mut self,
         changed_graph: &lang::Resource<lang::Graph>,
@@ -1013,6 +1038,7 @@ impl NodeManager {
         response
     }
 
+    /// Run the linearization procedura on a graph.
     fn relinearize(&self, graph: &lang::Resource<lang::Graph>) -> Option<lang::Lang> {
         self.graphs
             .get(graph.path_str().unwrap())
@@ -1043,6 +1069,9 @@ impl NodeManager {
     }
 }
 
+/// Start the node manager thread.
+///
+/// Designed to exist once in the system.
 pub fn start_nodes_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinHandle<()> {
     log::info!("Starting Node Manager");
     let (sender, receiver, disconnector) = broker.subscribe();

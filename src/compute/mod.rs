@@ -15,6 +15,7 @@ pub mod shaders;
 
 const TIMING_DECAY: f64 = 0.15;
 
+/// Start the compute manager in a thread. There should only be one such thread.
 pub fn start_compute_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,
@@ -53,15 +54,30 @@ pub fn start_compute_thread<B: gpu::Backend>(
     }
 }
 
+/// An ExternalImage is a wrapper around an aligned buffer containing image data
+/// loaded from file or otherwise not coming from procedural computation.
 struct ExternalImage {
     buffer: Vec<u16>,
 }
 
+/// An output socket with a type and associated metadata. Outputs are *always*
+/// backed by a compute image. However, this image may not necessarily be backed
+/// by an allocation at all times.
 struct TypedOutput<B: gpu::Backend> {
+    /// Sequence number to determine when this output was last touched
     seq: u64,
+
+    /// GPU side image backing the output
     image: gpu::compute::Image<B>,
+
+    /// Image type of the output, stored such that it is known for exporting.
     ty: ImageType,
+
+    /// Determines whether the output must be recomputed under all circumstances
+    /// at the next recomputation.
     force: bool,
+
+    /// Whether this output can be transferred to
     transfer_dst: bool,
 }
 
@@ -104,10 +120,12 @@ struct SocketData<B: gpu::Backend> {
     /// future. Measured in seconds, for easy conversion from Durations.
     time_ema: EMA<f64>,
 
+    /// Optional thumbnail for the "node".
     thumbnail: Option<gpu::compute::ThumbnailIndex>,
 }
 
 impl<B: gpu::Backend> SocketData<B> {
+    /// Update timing information
     pub fn update_time_ema(&mut self, seconds: f64) {
         self.time_ema.update(seconds);
         log::trace!(
@@ -118,6 +136,8 @@ impl<B: gpu::Backend> SocketData<B> {
     }
 }
 
+/// Mapping to associate socket data to each node as required. Nodes can be from
+/// anywhere, and are not required to be in the same graph.
 struct Sockets<B: gpu::Backend>(HashMap<Resource<Node>, SocketData<B>>);
 
 impl<B> Sockets<B>
@@ -128,6 +148,7 @@ where
         Sockets(HashMap::new())
     }
 
+    /// Clear all socket information, releasing all resources.
     pub fn clear(&mut self, gpu: &mut gpu::compute::GPUCompute<B>) {
         for (_, mut socket) in self.0.drain() {
             if let Some(thumbnail) = socket.thumbnail.take() {
@@ -136,6 +157,7 @@ where
         }
     }
 
+    /// Update the timing data associated with one node.
     pub fn update_timing_data(&mut self, node: &Resource<Node>, seconds: f64) {
         if let Some(sdata) = self.0.get_mut(&node) {
             sdata.update_time_ema(seconds);
@@ -201,6 +223,7 @@ where
         false
     }
 
+    /// Return the thumbnail for the given node
     pub fn clear_thumbnail(&mut self, res: &Resource<Node>, gpu: &mut gpu::compute::GPUCompute<B>) {
         if let Some(socket) = self.0.get_mut(res) {
             if let Some(thumbnail) = socket.thumbnail.take() {
@@ -214,6 +237,7 @@ where
         self.0.get(res).and_then(|s| s.thumbnail.as_ref())
     }
 
+    /// Insert a new output socket
     pub fn add_output_socket(
         &mut self,
         res: &Resource<Socket>,
@@ -279,6 +303,7 @@ where
         }
     }
 
+    /// Reinitialize output images of a node given a new size.
     pub fn reinit_output_images(
         &mut self,
         res: &Resource<Node>,
@@ -304,6 +329,7 @@ where
             .map(|x| (&x.image, x.ty))
     }
 
+    /// Obtain type of output image given a socket resource along with its type
     pub fn get_output_image_type(&self, res: &Resource<Socket>) -> Option<ImageType> {
         self.get_output_image_typed(res).map(|x| x.1)
     }
@@ -347,6 +373,7 @@ where
             .map(|x| (&x.image, x.ty))
     }
 
+    /// Obtain type of input image given a socket resource along with its type
     pub fn get_input_image_type(&self, res: &Resource<Socket>) -> Option<ImageType> {
         self.get_input_image_typed(res).map(|x| x.1)
     }
@@ -356,6 +383,7 @@ where
         self.get_input_image_typed(res).map(|x| x.0)
     }
 
+    /// Obtain when the input image was last updated
     pub fn get_input_image_updated(&self, res: &Resource<Socket>) -> Option<u64> {
         let sockets = self.0.get(&res.socket_node())?;
         let output_res = sockets.inputs.get(res.fragment()?)?;
@@ -366,6 +394,7 @@ where
             .map(|x| x.seq)
     }
 
+    /// Obtain when the output image was last updated
     pub fn get_output_image_updated(&self, node: &Resource<Node>) -> Option<u64> {
         self.0
             .get(&node)
@@ -376,6 +405,7 @@ where
             .max()
     }
 
+    /// Obtain whether a node must be forced
     pub fn get_force(&self, node: &Resource<Node>) -> bool {
         self.0
             .get(&node)
@@ -385,12 +415,14 @@ where
             .any(|x| x.force)
     }
 
+    /// Force recomputation of a node on the next step
     pub fn force(&mut self, node: &Resource<Node>) {
         for typed_output in self.0.get_mut(&node).unwrap().typed_outputs.values_mut() {
             typed_output.force = true;
         }
     }
 
+    /// Set when the output image was last updated
     pub fn set_output_image_updated(&mut self, node: &Resource<Node>, updated: u64) {
         for img in self.0.get_mut(&node).unwrap().typed_outputs.values_mut() {
             img.seq = updated;
@@ -398,7 +430,7 @@ where
         }
     }
 
-    /// connect an output to an input
+    /// Connect an output to an input
     pub fn connect_input(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
         self.0
             .get_mut(&to.socket_node())
@@ -407,6 +439,7 @@ where
             .insert(to.fragment().unwrap().to_string(), from.to_owned());
     }
 
+    /// Get the size of the images associated with this node
     pub fn get_image_size(&self, res: &Resource<Node>) -> u32 {
         self.0.get(&res).unwrap().output_size
     }
@@ -451,6 +484,7 @@ where
         }
     }
 
+    /// Obtain iterator over all known nodes
     pub fn known_nodes(&self) -> impl Iterator<Item = &Resource<Node>> {
         self.0.keys()
     }
@@ -523,6 +557,8 @@ impl StackFrame {
     }
 }
 
+/// The compute manager is responsible for managing the compute component and
+/// processing events from the bus relating to that.
 struct ComputeManager<B: gpu::Backend> {
     gpu: gpu::compute::GPUCompute<B>,
 
@@ -530,7 +566,10 @@ struct ComputeManager<B: gpu::Backend> {
     /// and inputs.
     sockets: Sockets<B>,
 
+    /// Shader library containing all known shaders
     shader_library: shaders::ShaderLibrary<B>,
+
+    /// Storage for external images
     external_images: HashMap<(std::path::PathBuf, ColorSpace), Option<ExternalImage>>,
 
     /// Last known linearization of a graph
@@ -544,6 +583,7 @@ struct ComputeManager<B: gpu::Backend> {
     /// if no changes happen, execution can be skipped entirely.
     last_known: HashMap<Resource<Node>, u64>,
 
+    /// Callstack for complex operator calls
     execution_stack: Vec<StackFrame>,
 }
 
@@ -551,6 +591,7 @@ impl<B> ComputeManager<B>
 where
     B: gpu::Backend,
 {
+    /// Initialize a new compute manager.
     pub fn new(mut gpu: gpu::compute::GPUCompute<B>) -> Self {
         let shader_library = shaders::ShaderLibrary::new(&mut gpu).unwrap();
 
@@ -566,6 +607,7 @@ where
         }
     }
 
+    /// Process one event from the application bus
     pub fn process_event(&mut self, event: Arc<Lang>) -> Option<Vec<Lang>> {
         let mut response = Vec::new();
         match &*event {
@@ -724,7 +766,7 @@ where
                 GraphEvent::SocketMonomorphized(res, ty) => {
                     if self.sockets.is_known_output(res) {
                         log::trace!("Adding monomorphized socket {}", res);
-                        // NOTE: Polymorphic operators never have external data.
+                        // Polymorphic operators never have external data.
                         let img = self
                             .gpu
                             .create_compute_image(
@@ -777,6 +819,7 @@ where
         Some(response)
     }
 
+    /// Rename a node
     fn rename(&mut self, from: &Resource<Node>, to: &Resource<Node>) {
         // Move last known hash so we can save on a recomputation
         if let Some(h) = self.last_known.remove(from) {
@@ -787,12 +830,15 @@ where
         self.sockets.rename(from, to);
     }
 
+    /// Reset the entire compute manager. This clears all socket data and external images.
     pub fn reset(&mut self) {
         self.sockets.clear(&mut self.gpu);
         self.external_images.clear();
         self.last_known.clear();
     }
 
+    /// Interpret a linearization that is known by the graph name, given some
+    /// set of substitutions.
     fn interpret_linearization<'a, I>(
         &mut self,
         graph: &Resource<Graph>,
@@ -830,6 +876,8 @@ where
 
             match self.interpret(i, &substitutions_map) {
                 Ok(mut r) => response.append(&mut r),
+
+                // Handle OOM
                 Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
                     self.cleanup();
                     match self.interpret(i, &substitutions_map) {
@@ -888,6 +936,7 @@ where
         }
     }
 
+    /// Interpret a single instruction, given a substitution map
     fn interpret(
         &mut self,
         instr: &Instruction,
@@ -1052,7 +1101,7 @@ where
         Ok(())
     }
 
-    /// Execute a copy instructions.
+    /// Execute a copy instruction.
     ///
     /// *Note*: The source image has to be backed. This is *not* checked and may result
     /// in segfaults or all sorts of nasty behaviour. The target image will be
@@ -1097,6 +1146,7 @@ where
         Ok(())
     }
 
+    /// Execute an Image operator.
     fn execute_image(
         &mut self,
         res: &Resource<Node>,
@@ -1160,6 +1210,7 @@ where
         }
     }
 
+    /// Execute an Input operator
     fn execute_input(&mut self, res: &Resource<Node>) -> Result<(), InterpretationError> {
         let start_time = Instant::now();
         let socket_res = res.node_socket("data");
@@ -1173,6 +1224,9 @@ where
         Ok(())
     }
 
+    /// Execute an Output operatoro
+    ///
+    /// Requires the socket to exist and be backed.
     fn execute_output(&mut self, op: &Output, res: &Resource<Node>) -> Vec<ComputeEvent> {
         let output_type = op.output_type;
         let socket_res = res.node_socket("data");
@@ -1223,6 +1277,7 @@ where
         result
     }
 
+    /// Export an RGBA image as given by an array of channel specifications to a certain path.
     fn export_to_rgba<P: AsRef<Path>>(&mut self, spec: [ChannelSpec; 4], size: u32, path: P) {
         let mut images = HashMap::new();
 
@@ -1258,6 +1313,7 @@ where
         final_image.save(path).unwrap();
     }
 
+    /// Export an RGB image as given by an array of channel specifications to a certain path.
     fn export_to_rgb<P: AsRef<Path>>(&mut self, spec: [ChannelSpec; 3], size: u32, path: P) {
         let mut images = HashMap::new();
 
@@ -1292,6 +1348,7 @@ where
         final_image.save(path).unwrap();
     }
 
+    /// Export a grayscale image as given by an array of channel specifications to a certain path.
     fn export_to_grayscale<P: AsRef<Path>>(&mut self, spec: ChannelSpec, size: u32, path: P) {
         #[allow(clippy::or_fun_call)]
         let (image, ty) = self
@@ -1314,6 +1371,13 @@ where
         final_image.save(path).unwrap();
     }
 
+    /// Executes a single atomic operator.
+    ///
+    /// For all intents and purposes this is the main workhorse of the compute
+    /// component. Requires that all output images are already present, i.e.
+    /// exist and are backed.
+    ///
+    /// Will skip execution if not required.
     fn execute_atomic_operator(
         &mut self,
         op: &AtomicOperator,

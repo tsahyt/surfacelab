@@ -1,3 +1,5 @@
+/// Tools for defining shaders for atomic operators.
+
 use crate::{
     gpu,
     lang::{self, Socketed},
@@ -6,24 +8,33 @@ use enum_dispatch::*;
 use std::collections::HashMap;
 use zerocopy::AsBytes;
 
+/// Usage of a descriptor for an operator
 pub enum OperatorDescriptorUse {
+    /// Input images are passed into the shader
     InputImage(&'static str),
+    /// Input images are compute results of the shader
     OutputImage(&'static str),
+    /// The sampler to use on input images
     Sampler,
+    /// Uniform buffer
     Uniforms,
 }
 
+/// Simplified description of a descriptor for use in operators
 pub struct OperatorDescriptor {
+    /// Binding of the descriptor. Needs to match with shader code!
     pub binding: u32,
     pub descriptor: OperatorDescriptorUse,
 }
 
+/// Describes an operator shader. Typically there is one shader per operator.
 pub struct OperatorShader {
     pub spirv: &'static [u8],
     pub descriptors: &'static [OperatorDescriptor],
 }
 
 impl OperatorShader {
+    /// Return an iterator describing the descriptor set layout of this shader
     pub fn layout(&self) -> impl Iterator<Item = gpu::DescriptorSetLayoutBinding> {
         self.descriptors.iter().map(|desc| match desc.descriptor {
             OperatorDescriptorUse::OutputImage(..) => gpu::DescriptorSetLayoutBinding {
@@ -68,6 +79,9 @@ impl OperatorShader {
         })
     }
 
+    /// Return descriptor set write operators for this shader, given a
+    /// descriptor set to write to, uniform buffer, sampler, as well as input
+    /// and output images.
     pub fn writers<'a, B: gpu::Backend>(
         &self,
         desc_set: &'a B::DescriptorSet,
@@ -113,11 +127,14 @@ impl OperatorShader {
     }
 }
 
+/// A Shader is anything that can return an operator shader for itself.
 #[enum_dispatch]
 pub trait Shader {
     fn operator_shader(&self) -> Option<OperatorShader>;
 }
 
+/// Uniforms are structs that can be converted into plain buffers for GPU use,
+/// and can be hashed.
 #[enum_dispatch]
 pub trait Uniforms {
     fn uniforms(&self) -> &[u8];
@@ -161,6 +178,7 @@ impl Uniforms for lang::Input {
     }
 }
 
+/// The shader library holds relevant data for all (operator) shaders.
 pub struct ShaderLibrary<B: gpu::Backend> {
     _shaders: HashMap<String, gpu::Shader<B>>,
     pipelines: HashMap<String, gpu::compute::ComputePipeline<B>>,
@@ -171,11 +189,13 @@ impl<B> ShaderLibrary<B>
 where
     B: gpu::Backend,
 {
+    /// Initialize the shader library
     pub fn new(gpu: &mut gpu::compute::GPUCompute<B>) -> Result<Self, String> {
         log::info!("Initializing Shader Library");
         let mut shaders = HashMap::new();
         let mut pipelines = HashMap::new();
         let mut descriptor_sets = HashMap::new();
+
         for op in lang::AtomicOperator::all_default() {
             log::trace!("Initializing operator {}", op.title());
             if let Some(operator_shader) = op.operator_shader() {
@@ -202,11 +222,13 @@ where
         })
     }
 
+    /// Obtain a compute pipeline for the given operator
     pub fn pipeline_for(&self, op: &lang::AtomicOperator) -> &gpu::compute::ComputePipeline<B> {
         debug_assert!(op.default_name() != "image" && op.default_name() != "output");
         self.pipelines.get(op.default_name()).unwrap()
     }
 
+    /// Obtain the descriptor set for the given operator
     pub fn descriptor_set_for(&self, op: &lang::AtomicOperator) -> &B::DescriptorSet {
         debug_assert!(op.default_name() != "image" && op.default_name() != "output");
         self.descriptor_sets.get(op.default_name()).unwrap()

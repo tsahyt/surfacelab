@@ -8,6 +8,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
+/// Specialized graph type used in this module.
 pub type Graph = graph::Graph<Node, EdgeLabel, petgraph::Directed>;
 
 /// Edge labels in the node graph determine the sink/source sockets for this
@@ -17,16 +18,27 @@ type EdgeLabel = (String, String);
 /// A vector of resource tuples describing connections between sockets.
 pub type Connections = Vec<(Resource<r::Socket>, Resource<r::Socket>)>;
 
+/// A single node in the graph. Nodes each have exactly one operator that they
+/// correspond to. They are connected in the graph with edges that denote the
+/// sockets that are being connected.
+///
+/// Each node also has a set of type variables to support polymorphism.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
+    /// Node operator
     operator: Operator,
+    /// Node position, stored here such that it can be retrieved from a file
     position: (f64, f64),
+    /// Whether absolute size should be used for this node
     absolute_size: bool,
+    /// The image size of the node, either relative or absolute
     size: i32,
+    /// Type variables of this node, with their assignments
     type_variables: HashMap<TypeVariable, ImageType>,
 }
 
 impl Node {
+    /// Create a new node from an operator.
     pub fn new(operator: Operator) -> Self {
         Node {
             position: (0.0, 0.0),
@@ -40,6 +52,7 @@ impl Node {
         }
     }
 
+    /// Obtain the monomorphic type of a socket if possible.
     pub fn monomorphic_type(&self, socket: &str) -> Result<OperatorType, String> {
         let ty = self
             .operator
@@ -58,6 +71,8 @@ impl Node {
         }
     }
 
+    /// Obtain the absolute size of a node, dependent on parent size and size
+    /// settings of the node.
     pub fn node_size(&self, parent: u32) -> u32 {
         // Image operators are special in sizing, storing an actually absolute size
         if let Operator::AtomicOperator(AtomicOperator::Image(..)) = self.operator {
@@ -82,6 +97,8 @@ impl Node {
     }
 }
 
+/// Container type for a node graph. Contains the actual graph, as well as
+/// metadata, and index structures for faster access.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeGraph {
     graph: graph::Graph<Node, EdgeLabel, petgraph::Directed>,
@@ -92,6 +109,7 @@ pub struct NodeGraph {
 }
 
 impl NodeGraph {
+    /// Create a new empty node graph
     pub fn new(name: &str) -> Self {
         NodeGraph {
             graph: graph::Graph::default(),
@@ -102,6 +120,7 @@ impl NodeGraph {
         }
     }
 
+    /// Obtain the resource corresponding to a node by graph index
     fn node_resource(&self, idx: &petgraph::graph::NodeIndex) -> Resource<r::Node> {
         Resource::node(
             [&self.name, self.indices.get_by_right(idx).unwrap()]
@@ -111,6 +130,7 @@ impl NodeGraph {
         )
     }
 
+    /// Obtain all node resources in the graph, with their operators and positions
     pub fn nodes(&self) -> Vec<(Resource<r::Node>, Operator, (f64, f64))> {
         self.graph
             .node_indices()
@@ -122,6 +142,7 @@ impl NodeGraph {
             .collect()
     }
 
+    /// Obtain all connections in the graph
     pub fn connections(&self) -> Connections {
         self.graph
             .edge_indices()
@@ -144,6 +165,10 @@ impl NodeGraph {
         self.graph.clear();
     }
 
+    /// Obtain a free resource name given a base name
+    ///
+    /// This will try `base.1`, `base.2`, etc, until it succeeds in finding a
+    /// free name.
     fn next_free_name(&self, base_name: &str) -> String {
         let mut resource = String::new();
 
@@ -446,12 +471,12 @@ impl NodeGraph {
         Ok(affected)
     }
 
+    /// Get the type for a socket.
     fn socket_type(&self, socket_node: &str, socket_name: &str) -> Result<OperatorType, String> {
         let path = self
             .indices
             .get_by_left(&socket_node.to_string())
             .ok_or(format!("Node for URI {} not found!", &socket_node))?;
-
         let node = self
             .graph
             .node_weight(*path)
@@ -459,7 +484,7 @@ impl NodeGraph {
         node.monomorphic_type(&socket_name)
     }
 
-    /// Write the layout position of a node.
+    /// Update the layout position of a node.
     pub fn position_node(&mut self, name: &str, x: f64, y: f64) {
         if let Some(node) = self.indices.get_by_left(&name.to_string()) {
             let nw = self.graph.node_weight_mut(*node).unwrap();
@@ -467,7 +492,7 @@ impl NodeGraph {
         }
     }
 
-    /// Rename a node from a resource to a resource.
+    /// Rename a node from a given name to a new name.
     pub fn rename_node(&mut self, from: &str, to: &str) -> Option<Lang> {
         log::trace!("Renaming node {} to {}", from, to);
         if let Some((_, idx)) = self.indices.remove_by_left(&from.to_string()) {
@@ -514,6 +539,8 @@ impl NodeGraph {
         )))
     }
 
+    /// Helper function to determine whether all inputs of a node have
+    /// connections.
     fn all_node_inputs_connected(&self, idx: graph::NodeIndex) -> bool {
         self.graph.node_weight(idx).unwrap().operator.inputs().len()
             == self

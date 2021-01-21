@@ -15,6 +15,7 @@ struct SurfaceFile<'a> {
 }
 
 impl NodeManager {
+    /// Save state of the node manager to a file.
     pub fn save_surface<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<(), String> {
         log::info!("Saving to {:?}", path);
         let surf = SurfaceFile {
@@ -27,6 +28,7 @@ impl NodeManager {
         serde_cbor::to_writer(output_file, &surf).map_err(|e| format!("Saving failed with {}", e))
     }
 
+    /// Load a surface file, replacing the current state of the node manager.
     pub fn open_surface<P: AsRef<Path> + std::fmt::Debug>(
         &mut self,
         path: P,
