@@ -1,5 +1,6 @@
 use conrod_core::*;
 
+/// Predefined icon names from icon font. Hardcoded for the font used.
 #[derive(Debug, Clone)]
 pub struct IconName(pub &'static str);
 
@@ -32,6 +33,8 @@ impl IconName {
     pub const RIGHT: IconName = IconName("\u{f035f}");
 }
 
+/// Create an icon button, i.e. a button with an icon in it. Uses an IconName
+/// for easy declaration of the icon.
 pub fn icon_button<'a>(
     icon: IconName,
     icon_font: text::font::Id,

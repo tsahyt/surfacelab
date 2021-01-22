@@ -76,6 +76,8 @@ widget_ids!(
     }
 );
 
+/// GUI container type. Contains everything required to run the UI, including UI
+/// state and the broker sender.
 pub struct Gui<B: crate::gpu::Backend> {
     ids: Ids,
     fonts: AppFonts,
@@ -89,6 +91,7 @@ impl<B> Gui<B>
 where
     B: crate::gpu::Backend,
 {
+    /// Create a new GUI instance
     pub fn new(
         ids: Ids,
         fonts: AppFonts,
@@ -106,14 +109,17 @@ where
         }
     }
 
+    /// Translate a message given a placeholder string. Uses the language currently defined in the GUI.
     pub fn label_text(&self, id: &'static str) -> std::borrow::Cow<str> {
         self.language.get_message(id)
     }
 
+    /// Obtain a reference to the image map
     pub fn image_map(&self) -> &image::Map<crate::gpu::ui::Image<B>> {
         &self.image_map
     }
 
+    /// Handle UI event
     pub fn handle_event(
         &mut self,
         ui: &mut Ui,
@@ -183,6 +189,7 @@ where
         }
     }
 
+    /// Handle Graph Events
     fn handle_graph_event(&mut self, event: &GraphEvent) {
         match event {
             GraphEvent::GraphAdded(res) => {
@@ -260,6 +267,7 @@ where
         }
     }
 
+    /// Handle layer events
     fn handle_layers_event(&mut self, event: &LayersEvent) {
         match event {
             LayersEvent::LayersAdded(res, _) => {
@@ -297,6 +305,10 @@ where
         }
     }
 
+    /// GUI update function. Called per frame. This function constructs the
+    /// entire UI with updated parameters and processes events since the last
+    /// frame. Widgets are however cached on the backend to help with
+    /// performance.
     pub fn update_gui(&mut self, ui: &mut UiCell) {
         use widgets::tabs;
 
@@ -305,6 +317,7 @@ where
             NodeCollection::Layers(_) => Some(384.0),
         };
 
+        // Main canvasses
         widget::Canvas::new()
             .border(0.0)
             .color(PANEL_COLOR)
@@ -373,6 +386,7 @@ where
             ])
             .set(self.ids.window_canvas, ui);
 
+        // Side tabs
         tabs::Tabs::new(&[
             (
                 self.ids.parameter_canvas,
@@ -397,6 +411,7 @@ where
         .middle()
         .set(self.ids.sidebar_tabs, ui);
 
+        // Call update functions for each part of the UI
         self.top_bar(ui);
         match self.app_state.graphs.get_active_collection() {
             NodeCollection::Graph(_) => self.node_graph(ui),
@@ -409,6 +424,7 @@ where
         self.resource_browser(ui);
     }
 
+    /// Updates the top bar
     fn top_bar(&mut self, ui: &mut UiCell) {
         use super::util::*;
 
@@ -557,6 +573,7 @@ where
         }
     }
 
+    /// Updates the node graph widget
     fn node_graph(&mut self, ui: &mut UiCell) {
         use widgets::graph;
 
@@ -676,6 +693,7 @@ where
         }
     }
 
+    /// Updates the layer stack widget
     fn layer_stack(&mut self, ui: &mut UiCell) {
         use super::util::*;
         use strum::VariantNames;
@@ -959,6 +977,7 @@ where
         }
     }
 
+    /// Updates a render view
     fn render_view(&mut self, ui: &mut UiCell) {
         use widgets::renderview::*;
 
@@ -1070,6 +1089,7 @@ where
         }
     }
 
+    /// Updates the parameter section of the sidebar
     fn parameter_section(&mut self, ui: &mut UiCell) {
         use widgets::param_box::*;
 
@@ -1103,6 +1123,7 @@ where
         }
     }
 
+    /// Updates the graph section of the sidebar
     fn graph_section(&mut self, ui: &mut UiCell) {
         use widgets::exposed_param_row;
         use widgets::param_box;
@@ -1214,6 +1235,7 @@ where
         }
     }
 
+    /// Updates the surface section of the sidebar
     fn surface_section(&mut self, ui: &mut UiCell) {
         use super::util::*;
         use widgets::{export_row, param_box};
@@ -1332,6 +1354,7 @@ where
         }
     }
 
+    /// Updates the resource browser
     fn resource_browser(&mut self, ui: &mut UiCell) {
         use crate::ui::widgets::{resource_row, tree};
 
