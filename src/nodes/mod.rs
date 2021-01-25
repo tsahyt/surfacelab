@@ -1069,6 +1069,12 @@ impl NodeManager {
     }
 }
 
+impl Default for NodeManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Start the node manager thread.
 ///
 /// Designed to exist once in the system.
