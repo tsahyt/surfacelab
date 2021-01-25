@@ -687,7 +687,7 @@ impl MaterialChannel {
     }
 
     /// Short name of a material channel.
-    pub fn short_name(&self) -> &str {
+    pub fn short_name(&self) -> &'static str {
         match self {
             MaterialChannel::Albedo => "col",
             MaterialChannel::Roughness => "rgh",
