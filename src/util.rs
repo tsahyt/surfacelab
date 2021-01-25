@@ -6,7 +6,7 @@
 /// measurement.
 pub struct EMA<T> {
     ema: T,
-    decay: T,
+    alpha: T,
 }
 
 impl<T> EMA<T>
@@ -18,20 +18,22 @@ where
 {
     /// Create a new EMA with a given initial value and a decay parameter,
     /// called alpha, documentation.
-    pub fn new(initial: T, decay: T) -> Self {
+    pub fn new(initial: T, alpha: T) -> Self {
         Self {
             ema: initial,
-            decay,
+            alpha,
         }
     }
 
     /// Update the EMA with a new measurement
     pub fn update(&mut self, measurement: T) {
-        self.ema = self.ema + self.decay * (measurement - self.ema);
+        self.ema = self.ema + self.alpha * (measurement - self.ema);
     }
 
     /// Get the current value of the EMA
-    pub fn get(&self) -> &T {
-        &self.ema
+    pub fn get(&self) -> T {
+        self.ema
+    }
+}
     }
 }
