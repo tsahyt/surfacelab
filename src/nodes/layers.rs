@@ -724,17 +724,6 @@ impl LayerStack {
         Resource::node(&format!("{}/{}.blend", self.name, mask.name), None)
     }
 
-    pub fn material_layer_resource(
-        &self,
-        layer: &Layer,
-        channel: MaterialChannel,
-    ) -> Resource<Node> {
-        Resource::node(
-            &format!("{}/{}.{}", self.name, layer.name(), channel.short_name()),
-            None,
-        )
-    }
-
     /// Obtain the resource name of a layer blend
     pub fn blend_resource(&self, layer: &Layer, channel: MaterialChannel) -> Resource<Node> {
         Resource::node(
