@@ -32,7 +32,7 @@ impl BrokerDisconnect {
     }
 }
 
-impl<T: std::fmt::Debug> Broker<T> {
+impl<T> Broker<T> {
     /// Create a new Broker with a given capacity.
     pub fn new(capacity: usize) -> Self {
         let (s, r) = bounded(capacity);
