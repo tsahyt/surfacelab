@@ -184,7 +184,6 @@ pub struct ParamSubstitution {
     value: Vec<u8>,
 }
 
-
 impl ParamSubstitution {
     /// Perform the substitution
     pub fn substitute<T: Parameters>(&self, on: &mut T) {

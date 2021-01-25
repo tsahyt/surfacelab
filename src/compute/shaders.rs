@@ -1,5 +1,4 @@
 /// Tools for defining shaders for atomic operators.
-
 use crate::{
     gpu,
     lang::{self, Socketed},

@@ -326,7 +326,6 @@ pub struct GlyphCache<B: Backend> {
 }
 
 impl<B> GlyphCache<B>
-
 where
     B: Backend,
 {
@@ -626,7 +625,6 @@ where
                         stage_flags: ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
-
                     // Sampler for glyphs and images
                     pso::DescriptorSetLayoutBinding {
                         binding: 1,

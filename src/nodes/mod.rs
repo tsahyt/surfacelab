@@ -113,7 +113,7 @@ pub enum LinearizationMode {
     TopoSort,
     /// A full traversal produces a depth first ordering of the node graph. As a
     /// result, nodes can be visited multiple times. If still cached, the
-    /// compute component is unlikely (but free) to recompute them. 
+    /// compute component is unlikely (but free) to recompute them.
     FullTraversal,
 }
 
