@@ -61,13 +61,12 @@ impl Node {
             .cloned()
             .or_else(|| self.operator.outputs().get(socket).cloned())
             .ok_or("Missing socket type")?;
-        if let OperatorType::Polymorphic(p) = ty {
-            match self.type_variables.get(&p) {
+        match ty {
+            OperatorType::Polymorphic(p) => match self.type_variables.get(&p) {
                 Some(x) => Ok(OperatorType::Monomorphic(*x)),
                 _ => Ok(ty),
-            }
-        } else {
-            Ok(ty)
+            },
+            OperatorType::Monomorphic(_) => Ok(ty),
         }
     }
 
