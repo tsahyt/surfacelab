@@ -35,5 +35,57 @@ where
         self.ema
     }
 }
+
+/// An iterator over a 2D (2,3)-Halton sequence for QMC, except index 0 is added
+/// as (0.5, 0.5) to get a clean center sample first.
+pub struct HaltonSequence2D {
+    idx: usize,
+    base1: f32,
+    base2: f32,
+}
+
+impl Default for HaltonSequence2D {
+    fn default() -> Self {
+        Self::new(2, 3)
+    }
+}
+
+impl HaltonSequence2D {
+    /// Initialize an n,m-Halton sequence
+    pub fn new(base1: usize, base2: usize) -> Self {
+        Self {
+            idx: 0,
+            base1: base1 as f32,
+            base2: base2 as f32,
+        }
+    }
+
+    fn halton_1d(mut idx: f32, base: f32) -> f32 {
+        let mut fraction = 1.0;
+        let mut result = 0.0;
+
+        while idx > 0.0 {
+            fraction /= base;
+            result += fraction * (idx % base);
+            idx = (idx / base).floor();
+        }
+
+        result
+    }
+}
+
+impl Iterator for HaltonSequence2D {
+    type Item = (f32, f32);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx == 0 {
+            self.idx += 1;
+            Some((0.5, 0.5))
+        } else {
+            let x = Self::halton_1d((self.idx - 1) as f32, self.base1);
+            let y = Self::halton_1d((self.idx - 1) as f32, self.base2);
+            self.idx += 1;
+            Some((x, y))
+        }
     }
 }
