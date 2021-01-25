@@ -163,7 +163,7 @@ pub enum Operator {
 
 impl Operator {
     /// Cast to atomic operator if possible.
-    pub fn to_atomic(&self) -> Option<&AtomicOperator> {
+    pub fn as_atomic(&self) -> Option<&AtomicOperator> {
         match self {
             Self::AtomicOperator(op) => Some(op),
             _ => None,

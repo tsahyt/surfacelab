@@ -197,7 +197,7 @@ impl NodeGraph {
         let idx = self.graph.add_node(node);
         self.indices.insert(node_id.clone(), idx);
 
-        if op.to_atomic().map(|x| x.is_output()).unwrap_or(false) {
+        if op.as_atomic().map(|x| x.is_output()).unwrap_or(false) {
             self.outputs.insert(idx);
         }
 
