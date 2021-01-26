@@ -1,3 +1,10 @@
+/// Node graphs. A node graph knows two major types of resources, nodes and
+/// sockets. Each node has some number of sockets, partitioned into input and
+/// output sockets.
+///
+/// Internally we reference by `&str` here, instead of using the resource
+/// abstraction. This is slightly faster and the full resource is unnecessary,
+/// since we already know the graph part of the resource.
 use super::{ExposedParameters, LinearizationMode, NodeCollection};
 use crate::lang::resource as r;
 use crate::lang::*;
@@ -16,8 +23,11 @@ pub type Graph = graph::Graph<Node, EdgeLabel, petgraph::Directed>;
 /// connection in the multigraph.
 type EdgeLabel = (String, String);
 
+/// A connection is a tuple of sockets.
+pub type Connection = (Resource<r::Socket>, Resource<r::Socket>);
+
 /// A vector of resource tuples describing connections between sockets.
-pub type Connections = Vec<(Resource<r::Socket>, Resource<r::Socket>)>;
+pub type Connections = Vec<Connection>;
 
 #[derive(Error, Debug)]
 pub enum MonomorphizationError {
@@ -160,23 +170,21 @@ impl NodeGraph {
         )
     }
 
-    /// Obtain all node resources in the graph, with their operators and positions
-    pub fn nodes(&self) -> Vec<(Resource<r::Node>, Operator, (f64, f64))> {
+    /// Obtain an iterator over all node resources in the graph
+    pub fn nodes(&self) -> impl Iterator<Item = Resource<r::Node>> + '_ {
         self.graph
             .node_indices()
-            .map(|idx| {
-                let node = self.graph.node_weight(idx).unwrap();
+            .map(move |idx| {
                 let res = self.node_resource(&idx);
-                (res, node.operator.clone(), node.position)
+                res
             })
-            .collect()
     }
 
-    /// Obtain all connections in the graph
-    pub fn connections(&self) -> Connections {
+    /// Obtain an iterator over all connections in the graph
+    pub fn connections(&self) -> impl Iterator<Item = Connection> + '_ {
         self.graph
             .edge_indices()
-            .map(|idx| {
+            .map(move |idx| {
                 let (source_idx, sink_idx) = self.graph.edge_endpoints(idx).unwrap();
                 let (source_socket, sink_socket) = self.graph.edge_weight(idx).unwrap();
                 (
@@ -184,7 +192,6 @@ impl NodeGraph {
                     self.node_resource(&sink_idx).node_socket(sink_socket),
                 )
             })
-            .collect()
     }
 
     /// Reset, i.e. clear, the node graph entirely. This removes all nodes and
