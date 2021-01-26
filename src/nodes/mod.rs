@@ -163,6 +163,9 @@ trait NodeCollection {
     /// in the case of complex operators.
     fn rebuild_events(&self, parent_size: u32) -> Vec<Lang>;
 
+    /// Construct a parameter box description for elements in this node
+    /// collection. E.g. nodes in the case of graphs or layers/masks in the case
+    /// of layer stacks.
     fn element_param_box(&self, element: &Resource<Node>) -> ParamBoxDescription<MessageWriters>;
 }
 
