@@ -1292,7 +1292,7 @@ where
                         .1
                         .clone()
                         .image_type(ImageType::Rgb)
-                        .alpha(false);
+                        .set_has_alpha(false);
                     updated_spec = true;
                 }
                 Some(export_row::Event::ChangeToRGBA) => {
@@ -1300,7 +1300,7 @@ where
                         .1
                         .clone()
                         .image_type(ImageType::Rgb)
-                        .alpha(true);
+                        .set_has_alpha(true);
                     updated_spec = true;
                 }
                 Some(export_row::Event::ChangeToGrayscale) => {
@@ -1311,19 +1311,19 @@ where
                     updated_spec = true;
                 }
                 Some(export_row::Event::SetChannelR(spec)) => {
-                    self.app_state.export_entries[row.i].1.set_r(spec);
+                    self.app_state.export_entries[row.i].1.set_red(spec);
                     updated_spec = true;
                 }
                 Some(export_row::Event::SetChannelG(spec)) => {
-                    self.app_state.export_entries[row.i].1.set_g(spec);
+                    self.app_state.export_entries[row.i].1.set_green(spec);
                     updated_spec = true;
                 }
                 Some(export_row::Event::SetChannelB(spec)) => {
-                    self.app_state.export_entries[row.i].1.set_b(spec);
+                    self.app_state.export_entries[row.i].1.set_blue(spec);
                     updated_spec = true;
                 }
                 Some(export_row::Event::SetChannelA(spec)) => {
-                    self.app_state.export_entries[row.i].1.set_a(spec);
+                    self.app_state.export_entries[row.i].1.set_alpha(spec);
                     updated_spec = true;
                 }
                 Some(export_row::Event::Rename(new)) => {

@@ -543,7 +543,7 @@ impl ExportSpec {
     }
 
     /// Set existence of alpha channel.
-    pub fn alpha(self, alpha: bool) -> Self {
+    pub fn set_has_alpha(self, alpha: bool) -> Self {
         if alpha {
             match &self {
                 ExportSpec::RGB(cs) => {
@@ -562,7 +562,7 @@ impl ExportSpec {
     }
 
     /// Set red channel. Will set grayscale on grayscale specs.
-    pub fn set_r(&mut self, spec: ChannelSpec) {
+    pub fn set_red(&mut self, spec: ChannelSpec) {
         match self {
             ExportSpec::RGBA(cs) => {
                 cs[0] = spec;
@@ -577,7 +577,7 @@ impl ExportSpec {
     }
 
     /// Set green channel if available
-    pub fn set_g(&mut self, spec: ChannelSpec) {
+    pub fn set_green(&mut self, spec: ChannelSpec) {
         match self {
             ExportSpec::RGBA(cs) => {
                 cs[1] = spec;
@@ -590,7 +590,7 @@ impl ExportSpec {
     }
 
     /// Set blue channel if available
-    pub fn set_b(&mut self, spec: ChannelSpec) {
+    pub fn set_blue(&mut self, spec: ChannelSpec) {
         match self {
             ExportSpec::RGBA(cs) => {
                 cs[2] = spec;
@@ -603,7 +603,7 @@ impl ExportSpec {
     }
 
     /// Set alpha channel if available
-    pub fn set_a(&mut self, spec: ChannelSpec) {
+    pub fn set_alpha(&mut self, spec: ChannelSpec) {
         match self {
             ExportSpec::RGBA(cs) => {
                 cs[3] = spec;
