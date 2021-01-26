@@ -769,17 +769,11 @@ impl NodeCollection for NodeGraph {
     /// Change a parameter in a resource in this graph. Will return an error if
     /// the resource does not exist in this graph. May return a message as a
     /// side effect of changing the parameter.
-    fn parameter_change(
-        &mut self,
-        resource: &Resource<Param>,
-        data: &[u8],
-    ) -> Option<Lang> {
+    fn parameter_change(&mut self, resource: &Resource<Param>, data: &[u8]) -> Option<Lang> {
         let res = resource.file().unwrap();
         let field = resource.fragment().unwrap();
 
-        let node = self
-            .indices
-            .get_by_left(&res.to_string())?;
+        let node = self.indices.get_by_left(&res.to_string())?;
         let node_res = self.node_resource(node);
         let node_data = self.graph.node_weight_mut(*node).unwrap();
         node_data.operator.set_parameter(field, data);

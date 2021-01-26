@@ -1431,11 +1431,7 @@ impl super::NodeCollection for LayerStack {
         ))
     }
 
-    fn parameter_change(
-        &mut self,
-        resource: &Resource<Param>,
-        data: &[u8],
-    ) -> Option<Lang> {
+    fn parameter_change(&mut self, resource: &Resource<Param>, data: &[u8]) -> Option<Lang> {
         if resource.path_str().unwrap().contains("mask") {
             let res_file = resource.file().unwrap();
             let pos = res_file.find(".mask").unwrap();
