@@ -105,6 +105,28 @@ impl Node {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum SocketTypeError {
+    #[error("Type Mismatch")]
+    Mismatch,
+    #[error("Tried connecting polymorphic socket to polymorphic socket")]
+    PolyPolyConnection,
+}
+
+#[derive(Error, Debug)]
+pub enum NodeGraphError {
+    #[error("Socket type error")]
+    ConnectionTypeError(#[from] SocketTypeError),
+    #[error("Node not found")]
+    NodeNotFound(String),
+    #[error("Socket not found")]
+    SocketNotFound(String),
+    #[error("Invalid connection")]
+    InvalidConnection,
+    #[error("Monomorphization Error")]
+    MonomorphizationError(#[from] MonomorphizationError),
+}
+
 /// Container type for a node graph. Contains the actual graph, as well as
 /// metadata, and index structures for faster access.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -225,14 +247,14 @@ impl NodeGraph {
     pub fn remove_node(
         &mut self,
         resource: &str,
-    ) -> Result<(Option<OutputType>, Connections, bool), String> {
+    ) -> Result<(Option<OutputType>, Connections, bool), NodeGraphError> {
         use petgraph::visit::EdgeRef;
 
         let mut co_change = false;
         let node = *self
             .indices
             .get_by_left(&resource.to_string())
-            .ok_or(format!("Node for URI {} not found!", resource))?;
+            .ok_or(NodeGraphError::NodeNotFound(resource.to_string()))?;
 
         log::trace!(
             "Removing node with identifier {:?}, indexed {:?}",
@@ -303,17 +325,17 @@ impl NodeGraph {
         from_socket: &str,
         to_node: &str,
         to_socket: &str,
-    ) -> Result<Vec<Lang>, String> {
+    ) -> Result<Vec<Lang>, NodeGraphError> {
         let mut response = Vec::new();
         // Get relevant resources
         let from_path = *self
             .indices
             .get_by_left(&from_node.to_string())
-            .ok_or(format!("Node for URI {} not found!", &from_node))?;
+            .ok_or(NodeGraphError::NodeNotFound(from_node.to_string()))?;
         let to_path = *self
             .indices
             .get_by_left(&to_node.to_string())
-            .ok_or(format!("Node for URI {} not found!", &to_node))?;
+            .ok_or(NodeGraphError::NodeNotFound(to_node.to_string()))?;
 
         // Check that from is a source and to is a sink
         if !(self
@@ -331,12 +353,12 @@ impl NodeGraph {
                 .inputs()
                 .contains_key(to_socket))
         {
-            return Err("Tried to connect from a sink to a source".into());
+            return Err(NodeGraphError::InvalidConnection);
         }
 
         // Check that from and to are two different nodes
         if from_node == to_node {
-            return Err("Tried to connect a node with itself".into());
+            return Err(NodeGraphError::InvalidConnection);
         }
 
         // Handle type checking/inference
@@ -344,12 +366,15 @@ impl NodeGraph {
         let to_type = self.socket_type(to_node, to_socket).unwrap();
         match (from_type, to_type) {
             (OperatorType::Polymorphic(..), OperatorType::Polymorphic(..)) => {
-                // TODO: polymorphism over multiple arcs
-                return Err("Unable to connect polymorphic socket to polymorphic socket".into());
+                return Err(NodeGraphError::ConnectionTypeError(
+                    SocketTypeError::PolyPolyConnection,
+                ));
             }
             (OperatorType::Monomorphic(ty1), OperatorType::Monomorphic(ty2)) => {
                 if ty1 != ty2 {
-                    return Err("Type mismatch".into());
+                    return Err(NodeGraphError::ConnectionTypeError(
+                        SocketTypeError::Mismatch,
+                    ));
                 }
             }
             (OperatorType::Monomorphic(ty), OperatorType::Polymorphic(p)) => {
@@ -388,13 +413,13 @@ impl NodeGraph {
         &mut self,
         sink_node: &str,
         sink_socket: &str,
-    ) -> Result<Vec<Lang>, String> {
+    ) -> Result<Vec<Lang>, NodeGraphError> {
         use petgraph::visit::EdgeRef;
 
         let sink_path = *self
             .indices
             .get_by_left(&sink_node.to_string())
-            .ok_or(format!("Sink for URI {} not found", &sink_node))?;
+            .ok_or(NodeGraphError::NodeNotFound(sink_node.to_string()))?;
         let sink = self.node_resource(&sink_path).node_socket(sink_socket);
 
         let mut resp = Vec::new();
@@ -452,17 +477,14 @@ impl NodeGraph {
         node: &str,
         variable: TypeVariable,
         ty: Option<ImageType>,
-    ) -> Result<Vec<Resource<r::Socket>>, String> {
+    ) -> Result<Vec<Resource<r::Socket>>, NodeGraphError> {
         let path = *self
             .indices
             .get_by_left(&node.to_string())
-            .ok_or(format!("Node for URI {} not found!", &node))?;
+            .ok_or(NodeGraphError::NodeNotFound(node.to_string()))?;
         let node_res = self.node_resource(&path);
 
-        let node_data = self
-            .graph
-            .node_weight_mut(path)
-            .expect("Missing node during type lookup");
+        let node_data = self.graph.node_weight_mut(path).unwrap();
 
         match ty {
             Some(t) => node_data.type_variables.insert(variable, t),
@@ -480,19 +502,20 @@ impl NodeGraph {
     }
 
     /// Get the type for a socket.
-    fn socket_type(&self, socket_node: &str, socket_name: &str) -> Result<OperatorType, String> {
+    fn socket_type(
+        &self,
+        socket_node: &str,
+        socket_name: &str,
+    ) -> Result<OperatorType, NodeGraphError> {
         let path = self
             .indices
             .get_by_left(&socket_node.to_string())
-            .ok_or(format!("Node for URI {} not found!", &socket_node))?;
-        let node = self
-            .graph
-            .node_weight(*path)
-            .expect("Missing node during type lookup");
+            .ok_or(NodeGraphError::NodeNotFound(socket_node.to_string()))?;
+        let node = self.graph.node_weight(*path).unwrap();
         match node.monomorphic_type(&socket_name) {
             Ok(t) => Ok(OperatorType::Monomorphic(t)),
             Err(MonomorphizationError::PolymorphicSocket(v)) => Ok(OperatorType::Polymorphic(v)),
-            Err(e) => Err(e.to_string()),
+            Err(e) => Err(NodeGraphError::MonomorphizationError(e)),
         }
     }
 
