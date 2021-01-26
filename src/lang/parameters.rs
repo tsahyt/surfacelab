@@ -1,9 +1,9 @@
 use super::resource::*;
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use smallvec::SmallVec;
 
 /// A trait for things that have parameters. Parameters can be set from a field
 /// descriptor and some plain data. It is up to the implementation to interpret
@@ -79,14 +79,7 @@ impl ParameterField for i32 {
 
 impl ParameterField for [f32; 3] {
     fn from_data(data: &[u8]) -> Self {
-        let cols: SmallVec<[f32; 4]> = data
-            .chunks(4)
-            .map(|z| {
-                let mut arr: [u8; 4] = Default::default();
-                arr.copy_from_slice(z);
-                f32::from_be_bytes(arr)
-            })
-            .collect();
+        let cols: SmallVec<[f32; 4]> = data.chunks(4).map(|z| f32::from_data(z)).collect();
         [cols[0], cols[1], cols[2]]
     }
 
