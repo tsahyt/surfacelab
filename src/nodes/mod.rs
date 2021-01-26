@@ -165,15 +165,15 @@ trait NodeCollection {
     fn element_param_box(&self, element: &Resource<Node>) -> ParamBoxDescription<MessageWriters>;
 }
 
-/// A node collection that can be stored by the node manager.
+/// A node collection that can be stored and managed by the node manager.
 #[enum_dispatch(ExposedParameters, NodeCollection)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum NodeGraph {
+pub enum ManagedNodeCollection {
     NodeGraph(nodegraph::NodeGraph),
     LayerStack(layers::LayerStack),
 }
 
-impl Default for NodeGraph {
+impl Default for ManagedNodeCollection {
     /// The default collection is the empty graph, named base
     fn default() -> Self {
         Self::NodeGraph(nodegraph::NodeGraph::new("base"))
@@ -185,7 +185,7 @@ impl Default for NodeGraph {
 struct NodeManager {
     parent_size: u32,
     export_specs: HashMap<String, lang::ExportSpec>,
-    graphs: HashMap<String, NodeGraph>,
+    graphs: HashMap<String, ManagedNodeCollection>,
     active_graph: lang::Resource<lang::Graph>,
 }
 
@@ -196,7 +196,7 @@ impl NodeManager {
         NodeManager {
             parent_size: 1024,
             export_specs: HashMap::new(),
-            graphs: hashmap! { "base".to_string() => NodeGraph::default() },
+            graphs: hashmap! { "base".to_string() => ManagedNodeCollection::default() },
             active_graph: lang::Resource::graph("base", None),
         }
     }
@@ -250,7 +250,9 @@ impl NodeManager {
                     let op = self.complete_operator(op);
                     let mut update_co = None;
 
-                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph_name) {
+                    if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                        self.graphs.get_mut(graph_name)
+                    {
                         // Add node to graph
                         let (node_id, size) = graph.new_node(&op, self.parent_size);
                         let resource = Resource::node(
@@ -299,7 +301,9 @@ impl NodeManager {
 
                     let mut update_co = None;
 
-                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                        self.graphs.get_mut(graph)
+                    {
                         match graph.remove_node(node) {
                             Ok((ty, removed_conns, co_change)) => {
                                 response = removed_conns
@@ -342,7 +346,9 @@ impl NodeManager {
 
                     debug_assert_eq!(graph, to.directory().unwrap());
 
-                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                        self.graphs.get_mut(graph)
+                    {
                         match graph.connect_sockets(from_node, from_socket, to_node, to_socket) {
                             Ok(mut res) => {
                                 response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
@@ -377,7 +383,9 @@ impl NodeManager {
                     let socket = sink.fragment().unwrap();
                     let graph = sink.directory().unwrap();
 
-                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                        self.graphs.get_mut(graph)
+                    {
                         match graph.disconnect_sink_socket(node, socket) {
                             Ok(mut r) => response.append(&mut r),
                             Err(e) => log::error!("Error while disconnecting sink {}", e),
@@ -409,7 +417,9 @@ impl NodeManager {
                 UserNodeEvent::PositionNode(res, (x, y)) => {
                     let node = res.file().unwrap();
                     let graph = res.directory().unwrap();
-                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                        self.graphs.get_mut(graph)
+                    {
                         graph.position_node(node, *x, *y);
                     }
                 }
@@ -420,7 +430,9 @@ impl NodeManager {
 
                     debug_assert_eq!(graph, to.directory().unwrap());
 
-                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                        self.graphs.get_mut(graph)
+                    {
                         if let Some(r) = graph.rename_node(from_node, to_node) {
                             response.push(r);
                         }
@@ -430,7 +442,9 @@ impl NodeManager {
                     let node = res.file().unwrap();
                     let graph = res.directory().unwrap();
 
-                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                        self.graphs.get_mut(graph)
+                    {
                         if let Some(r) =
                             graph.resize_node(node, Some(*size), None, self.parent_size)
                         {
@@ -442,7 +456,9 @@ impl NodeManager {
                     let node = res.file().unwrap();
                     let graph = res.directory().unwrap();
 
-                    if let Some(NodeGraph::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                        self.graphs.get_mut(graph)
+                    {
                         if let Some(r) = graph.resize_node(node, None, Some(*abs), self.parent_size)
                         {
                             response.push(r);
@@ -458,7 +474,7 @@ impl NodeManager {
                         .unwrap();
                     self.graphs.insert(
                         name.to_string(),
-                        NodeGraph::NodeGraph(nodegraph::NodeGraph::new(&name)),
+                        ManagedNodeCollection::NodeGraph(nodegraph::NodeGraph::new(&name)),
                     );
                     response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphAdded(
                         Resource::graph(name, None),
@@ -581,14 +597,14 @@ impl NodeManager {
                         .unwrap();
                     self.graphs.insert(
                         name.to_string(),
-                        NodeGraph::LayerStack(layers::LayerStack::new(&name)),
+                        ManagedNodeCollection::LayerStack(layers::LayerStack::new(&name)),
                     );
                     response.push(lang::Lang::LayersEvent(lang::LayersEvent::LayersAdded(
                         Resource::graph(name.clone(), None),
                         self.parent_size,
                     )));
 
-                    if let NodeGraph::LayerStack(ls) = self.graphs.get(&name).unwrap() {
+                    if let ManagedNodeCollection::LayerStack(ls) = self.graphs.get(&name).unwrap() {
                         for (_, (ty, node)) in ls.outputs() {
                             response.push(Lang::GraphEvent(GraphEvent::OutputSocketAdded(
                                 node.node_socket("data"),
@@ -602,7 +618,7 @@ impl NodeManager {
                 UserLayersEvent::PushLayer(graph_res, ty, op) => {
                     let op = self.complete_operator(op);
 
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(graph_res.path_str().unwrap())
                     {
                         let res =
@@ -652,7 +668,7 @@ impl NodeManager {
                 }
                 UserLayersEvent::PushMask(for_layer, op) => {
                     let op = self.complete_operator(op);
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(for_layer.directory().unwrap())
                     {
                         let mask = layers::Mask::from(op.clone());
@@ -702,7 +718,7 @@ impl NodeManager {
                     }
                 }
                 UserLayersEvent::RemoveLayer(layer_res) => {
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
                     {
                         if ls.remove(layer_res).is_some() {
@@ -722,7 +738,7 @@ impl NodeManager {
                 UserLayersEvent::SetOutput(layer_res, channel, selected, enabled) => {
                     let mut update_co = None;
 
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
                     {
                         log::debug!(
@@ -752,7 +768,7 @@ impl NodeManager {
                     }
                 }
                 UserLayersEvent::SetInput(socket_res, channel) => {
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(socket_res.directory().unwrap())
                     {
                         log::debug!("Set {} input to {}", socket_res, channel,);
@@ -768,7 +784,7 @@ impl NodeManager {
                     }
                 }
                 UserLayersEvent::SetOpacity(layer_res, opacity) => {
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
                     {
                         log::debug!("Set layer opacity of {} to {}", layer_res, opacity);
@@ -784,7 +800,7 @@ impl NodeManager {
                     }
                 }
                 UserLayersEvent::SetBlendMode(layer_res, blend_mode) => {
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
                     {
                         log::debug!("Set layer blend mode of {} to {:?}", layer_res, blend_mode);
@@ -800,14 +816,14 @@ impl NodeManager {
                     }
                 }
                 UserLayersEvent::SetTitle(layer_res, title) => {
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
                     {
                         ls.set_title(layer_res, title);
                     }
                 }
                 UserLayersEvent::SetEnabled(layer_res, enabled) => {
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
                     {
                         log::debug!("Set layer enabled of {} to {}", layer_res, enabled);
@@ -823,14 +839,14 @@ impl NodeManager {
                     }
 
                     // Reborrow after linearization to clear the force point
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
                     {
                         ls.clear_force_points();
                     }
                 }
                 UserLayersEvent::MoveUp(layer_res) => {
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
                     {
                         if ls.move_up(layer_res) {
@@ -847,7 +863,7 @@ impl NodeManager {
                     }
                 }
                 UserLayersEvent::MoveDown(layer_res) => {
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get_mut(layer_res.directory().unwrap())
                     {
                         if ls.move_down(layer_res) {
@@ -864,7 +880,7 @@ impl NodeManager {
                     }
                 }
                 UserLayersEvent::Convert(graph_res) => {
-                    if let Some(NodeGraph::LayerStack(ls)) =
+                    if let Some(ManagedNodeCollection::LayerStack(ls)) =
                         self.graphs.get(graph_res.path_str().unwrap())
                     {
                         if let Some(graph) = ls.to_graph(self.parent_size) {
@@ -874,7 +890,7 @@ impl NodeManager {
 
                             self.graphs.insert(
                                 new_graph_res.file().unwrap().to_owned(),
-                                NodeGraph::NodeGraph(graph),
+                                ManagedNodeCollection::NodeGraph(graph),
                             );
 
                             for ev in evs.iter_mut() {
@@ -931,7 +947,7 @@ impl NodeManager {
                 self.graphs.clear();
                 self.graphs.insert(
                     "base".to_string(),
-                    NodeGraph::NodeGraph(nodegraph::NodeGraph::new("base")),
+                    ManagedNodeCollection::NodeGraph(nodegraph::NodeGraph::new("base")),
                 );
                 response.push(Lang::GraphEvent(GraphEvent::Cleared));
                 response.push(Lang::GraphEvent(GraphEvent::GraphAdded(Resource::graph(

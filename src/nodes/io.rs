@@ -1,5 +1,5 @@
 use crate::lang::{ExportSpec, GraphEvent, Lang, LayersEvent, Resource, UserGraphEvent};
-use crate::nodes::{LinearizationMode, NodeCollection, NodeGraph, NodeManager};
+use crate::nodes::{LinearizationMode, ManagedNodeCollection, NodeCollection, NodeManager};
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -11,7 +11,7 @@ use std::path::Path;
 struct SurfaceFile<'a> {
     parent_size: u32,
     export_specs: Cow<'a, HashMap<String, ExportSpec>>,
-    graphs: Cow<'a, HashMap<String, NodeGraph>>,
+    graphs: Cow<'a, HashMap<String, ManagedNodeCollection>>,
 }
 
 impl NodeManager {
@@ -49,8 +49,10 @@ impl NodeManager {
         for (name, graph) in self.graphs.iter() {
             let res = Resource::graph(&name, None);
             events.push(match graph {
-                NodeGraph::NodeGraph(_) => Lang::GraphEvent(GraphEvent::GraphAdded(res.clone())),
-                NodeGraph::LayerStack(_) => {
+                ManagedNodeCollection::NodeGraph(_) => {
+                    Lang::GraphEvent(GraphEvent::GraphAdded(res.clone()))
+                }
+                ManagedNodeCollection::LayerStack(_) => {
                     Lang::LayersEvent(LayersEvent::LayersAdded(res.clone(), self.parent_size))
                 }
             });
