@@ -1435,7 +1435,7 @@ impl super::NodeCollection for LayerStack {
         &mut self,
         resource: &Resource<Param>,
         data: &[u8],
-    ) -> Result<Option<Lang>, String> {
+    ) -> Option<Lang> {
         if resource.path_str().unwrap().contains("mask") {
             let res_file = resource.file().unwrap();
             let pos = res_file.find(".mask").unwrap();
@@ -1460,7 +1460,7 @@ impl super::NodeCollection for LayerStack {
             }
         }
 
-        Ok(None)
+        None
     }
 
     fn update_complex_operators(

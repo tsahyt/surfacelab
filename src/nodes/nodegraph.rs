@@ -773,14 +773,13 @@ impl NodeCollection for NodeGraph {
         &mut self,
         resource: &Resource<Param>,
         data: &[u8],
-    ) -> Result<Option<Lang>, String> {
+    ) -> Option<Lang> {
         let res = resource.file().unwrap();
         let field = resource.fragment().unwrap();
 
         let node = self
             .indices
-            .get_by_left(&res.to_string())
-            .ok_or("Missing node for parameter change")?;
+            .get_by_left(&res.to_string())?;
         let node_res = self.node_resource(node);
         let node_data = self.graph.node_weight_mut(*node).unwrap();
         node_data.operator.set_parameter(field, data);
@@ -794,15 +793,15 @@ impl NodeCollection for NodeGraph {
                 let new_size = w.max(h) as i32;
                 if node_data.size != new_size {
                     node_data.size = new_size;
-                    return Ok(Some(Lang::GraphEvent(GraphEvent::NodeResized(
+                    return Some(Lang::GraphEvent(GraphEvent::NodeResized(
                         node_res,
                         node_data.node_size(1),
-                    ))));
+                    )));
                 }
             }
         }
 
-        Ok(None)
+        None
     }
 
     /// Update all the complex operators matching a call to the old graph.

@@ -138,12 +138,13 @@ trait NodeCollection {
     fn linearize(&self, mode: LinearizationMode)
         -> Option<(Linearization, UsePoints, ForcePoints)>;
 
-    /// Change a parameter in a resource in this node collection.
+    /// Change a parameter in a resource in this node collection. May optionally
+    /// return an event or fail silently.
     fn parameter_change(
         &mut self,
         resource: &Resource<Param>,
         data: &[u8],
-    ) -> Result<Option<Lang>, String>;
+    ) -> Option<Lang>;
 
     /// Update all the complex operators matching a call to the old graph.
     /// Returns a vector of all node resources that have been updated.
@@ -394,7 +395,7 @@ impl NodeManager {
                 }
                 UserNodeEvent::ParameterChange(res, data) => {
                     if let Some(graph) = self.graphs.get_mut(res.directory().unwrap()) {
-                        if let Some(side_effect) = graph.parameter_change(res, data).unwrap() {
+                        if let Some(side_effect) = graph.parameter_change(res, data) {
                             response.push(side_effect);
                         }
                         if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
