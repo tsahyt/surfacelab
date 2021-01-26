@@ -41,7 +41,7 @@ impl ResourceInfo {
         Self {
             res_ty: TypeId::of::<T>(),
             res_str: format!("{}", resource),
-            res: resource.cast(),
+            res: resource.cast_unchecked(),
             category,
             expanded: true,
         }
@@ -51,7 +51,7 @@ impl ResourceInfo {
     /// parameter T matches that of the resource used to build this info struct.
     pub fn get_resource<T: 'static>(&self) -> Option<r::Resource<T>> {
         if TypeId::of::<T>() == self.res_ty {
-            Some(self.res.clone().cast())
+            Some(self.res.clone().cast_unchecked())
         } else {
             None
         }
@@ -71,7 +71,7 @@ impl ResourceInfo {
 
     pub fn represents_resource<T: 'static + PartialEq>(&self, other: &r::Resource<T>) -> bool {
         if TypeId::of::<T>() == self.res_ty {
-            &self.res.clone().cast() == other
+            &self.res.clone().cast_unchecked() == other
         } else {
             false
         }

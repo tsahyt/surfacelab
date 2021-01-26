@@ -248,7 +248,7 @@ impl<S> Resource<S> {
     /// Cast between resource types. Note that this does not perform *any*
     /// checks. Usually it is wiser to use one of the specialized casting
     /// functions. Handle with care!
-    pub fn cast<T>(self) -> Resource<T> {
+    pub fn cast_unchecked<T>(self) -> Resource<T> {
         Resource {
             resource_path: self.resource_path,
             fragment: self.fragment,
