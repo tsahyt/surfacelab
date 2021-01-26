@@ -10,6 +10,7 @@ use enumset::{EnumSet, EnumSetType};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::*;
+use std::convert::TryFrom;
 use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
@@ -312,12 +313,14 @@ pub enum OperatorType {
     Polymorphic(TypeVariable),
 }
 
-impl OperatorType {
-    /// Get the monomorphic type if possible.
-    pub fn monomorphic(self) -> Option<ImageType> {
-        match self {
-            Self::Monomorphic(ty) => Some(ty),
-            _ => None,
+/// Get the monomorphic type if possible. Will fail on polymorphic types.
+impl TryFrom<OperatorType> for ImageType {
+    type Error = &'static str;
+
+    fn try_from(value: OperatorType) -> Result<Self, Self::Error> {
+        match value {
+            OperatorType::Monomorphic(ty) => Ok(ty),
+            _ => Err("Attempted to convert polymorphic operator type to image type"),
         }
     }
 }
