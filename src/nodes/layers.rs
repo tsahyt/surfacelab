@@ -813,10 +813,10 @@ impl LayerStack {
     }
 
     /// Get a list of all layer resources, including blend nodes
-    pub fn all_resources(&self) -> Vec<Resource<Node>> {
+    pub fn all_resources(&self) -> impl Iterator<Item = Resource<Node>> + '_ {
         self.layers
             .iter()
-            .map(|layer| {
+            .map(move |layer| {
                 layer
                     .get_blend_options()
                     .channels
@@ -826,7 +826,6 @@ impl LayerStack {
                     .collect::<Vec<_>>()
             })
             .flatten()
-            .collect()
     }
 
     /// Return all output sockets of the given layer
@@ -1504,7 +1503,6 @@ impl super::NodeCollection for LayerStack {
 
     fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
         self.all_resources()
-            .drain(0..)
             .map(|res| Lang::GraphEvent(GraphEvent::NodeResized(res, parent_size)))
             .collect()
     }
