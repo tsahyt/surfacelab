@@ -172,26 +172,22 @@ impl NodeGraph {
 
     /// Obtain an iterator over all node resources in the graph
     pub fn nodes(&self) -> impl Iterator<Item = Resource<r::Node>> + '_ {
-        self.graph
-            .node_indices()
-            .map(move |idx| {
-                let res = self.node_resource(&idx);
-                res
-            })
+        self.graph.node_indices().map(move |idx| {
+            let res = self.node_resource(&idx);
+            res
+        })
     }
 
     /// Obtain an iterator over all connections in the graph
     pub fn connections(&self) -> impl Iterator<Item = Connection> + '_ {
-        self.graph
-            .edge_indices()
-            .map(move |idx| {
-                let (source_idx, sink_idx) = self.graph.edge_endpoints(idx).unwrap();
-                let (source_socket, sink_socket) = self.graph.edge_weight(idx).unwrap();
-                (
-                    self.node_resource(&source_idx).node_socket(source_socket),
-                    self.node_resource(&sink_idx).node_socket(sink_socket),
-                )
-            })
+        self.graph.edge_indices().map(move |idx| {
+            let (source_idx, sink_idx) = self.graph.edge_endpoints(idx).unwrap();
+            let (source_socket, sink_socket) = self.graph.edge_weight(idx).unwrap();
+            (
+                self.node_resource(&source_idx).node_socket(source_socket),
+                self.node_resource(&sink_idx).node_socket(sink_socket),
+            )
+        })
     }
 
     /// Reset, i.e. clear, the node graph entirely. This removes all nodes and
