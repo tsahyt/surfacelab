@@ -6,7 +6,9 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 use strum::IntoEnumIterator;
 
-/// Slice width for graph layouting on conversion
+/// Slice width for graph layouting on conversion. The "correct" value for this
+/// depends on the size of nodes in the UI. These *should* be standardized to
+/// 128.
 const SLICE_WIDTH: f64 = 256.0;
 
 /// A type encoding a function from material channels to sockets.
