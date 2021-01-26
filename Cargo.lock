@@ -2010,6 +2010,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "surfacelab-derive",
+ "thiserror",
  "unic-langid",
  "winit",
  "zerocopy",

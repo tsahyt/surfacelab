@@ -5,7 +5,7 @@ pub mod resource;
 pub mod socketed;
 
 use enum_dispatch::*;
-use enumset::{EnumSetType, EnumSet};
+use enumset::{EnumSet, EnumSetType};
 
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;

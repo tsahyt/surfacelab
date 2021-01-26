@@ -1,6 +1,7 @@
 use super::{ExposedParameters, LinearizationMode, NodeCollection};
 use crate::lang::resource as r;
 use crate::lang::*;
+use thiserror::Error;
 
 use bimap::BiHashMap;
 use petgraph::graph;
@@ -17,6 +18,14 @@ type EdgeLabel = (String, String);
 
 /// A vector of resource tuples describing connections between sockets.
 pub type Connections = Vec<(Resource<r::Socket>, Resource<r::Socket>)>;
+
+#[derive(Error, Debug)]
+pub enum MonomorphizationError {
+    #[error("Socket missing in node")]
+    MissingSocket,
+    #[error("Monomorphization of polymorphic socket attempted")]
+    PolymorphicSocket(TypeVariable),
+}
 
 /// A single node in the graph. Nodes each have exactly one operator that they
 /// correspond to. They are connected in the graph with edges that denote the
@@ -53,20 +62,20 @@ impl Node {
     }
 
     /// Obtain the monomorphic type of a socket if possible.
-    pub fn monomorphic_type(&self, socket: &str) -> Result<OperatorType, String> {
+    pub fn monomorphic_type(&self, socket: &str) -> Result<ImageType, MonomorphizationError> {
         let ty = self
             .operator
             .inputs()
             .get(socket)
             .cloned()
             .or_else(|| self.operator.outputs().get(socket).cloned())
-            .ok_or("Missing socket type")?;
+            .ok_or(MonomorphizationError::MissingSocket)?;
         match ty {
             OperatorType::Polymorphic(p) => match self.type_variables.get(&p) {
-                Some(x) => Ok(OperatorType::Monomorphic(*x)),
-                _ => Ok(ty),
+                Some(x) => Ok(*x),
+                _ => Err(MonomorphizationError::PolymorphicSocket(p)),
             },
-            OperatorType::Monomorphic(_) => Ok(ty),
+            OperatorType::Monomorphic(x) => Ok(x),
         }
     }
 
@@ -480,7 +489,11 @@ impl NodeGraph {
             .graph
             .node_weight(*path)
             .expect("Missing node during type lookup");
-        node.monomorphic_type(&socket_name)
+        match node.monomorphic_type(&socket_name) {
+            Ok(t) => Ok(OperatorType::Monomorphic(t)),
+            Err(MonomorphizationError::PolymorphicSocket(v)) => Ok(OperatorType::Polymorphic(v)),
+            Err(e) => Err(e.to_string()),
+        }
     }
 
     /// Update the layout position of a node.
