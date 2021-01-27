@@ -269,7 +269,6 @@ impl NodeManager {
                         [graph_name, &node_id]
                             .iter()
                             .collect::<std::path::PathBuf>(),
-                        None,
                     );
 
                     // If the node is an input or output, construct update

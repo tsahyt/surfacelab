@@ -145,8 +145,8 @@ impl MaskStack {
 
     pub fn can_linearize(&self) -> bool {
         self.linearize_into(
-            |_| Resource::node("", None),
-            |_| Resource::node("", None),
+            |_| Resource::node(""),
+            |_| Resource::node(""),
             &mut Vec::new(),
             &mut HashMap::new(),
             &mut 0,
@@ -713,30 +713,27 @@ impl LayerStack {
 
     /// Obtain the resource name of a layer
     pub fn layer_resource(&self, layer: &Layer) -> Resource<Node> {
-        Resource::node(&format!("{}/{}", self.name, layer.name()), None)
+        Resource::node(&format!("{}/{}", self.name, layer.name()))
     }
 
     /// Obtain the resource name of a mask
     pub fn mask_resource(&self, mask: &Mask) -> Resource<Node> {
-        Resource::node(&format!("{}/{}", self.name, mask.name), None)
+        Resource::node(&format!("{}/{}", self.name, mask.name))
     }
 
     /// Obtain the resource name of a mask blend
     pub fn mask_blend_resource(&self, mask: &Mask) -> Resource<Node> {
-        Resource::node(&format!("{}/{}.blend", self.name, mask.name), None)
+        Resource::node(&format!("{}/{}.blend", self.name, mask.name))
     }
 
     /// Obtain the resource name of a layer blend
     pub fn blend_resource(&self, layer: &Layer, channel: MaterialChannel) -> Resource<Node> {
-        Resource::node(
-            &format!(
-                "{}/{}.blend.{}",
-                self.name,
-                layer.name(),
-                channel.short_name()
-            ),
-            None,
-        )
+        Resource::node(&format!(
+            "{}/{}.blend.{}",
+            self.name,
+            layer.name(),
+            channel.short_name()
+        ))
     }
 
     /// Push a new layer onto the stack.
@@ -753,10 +750,7 @@ impl LayerStack {
         layer_type: LayerType,
         base_name: &str,
     ) -> Resource<Node> {
-        let resource = Resource::node(
-            &format!("{}/{}", self.name, self.next_free_name(base_name)),
-            None,
-        );
+        let resource = Resource::node(&format!("{}/{}", self.name, self.next_free_name(base_name)));
         layer.name = resource.file().unwrap().to_owned();
         layer.layer_type = layer_type;
         self.push(layer, &resource);
@@ -775,7 +769,7 @@ impl LayerStack {
             let name = self.next_free_name(&base_name);
             mask.name = name.to_owned();
 
-            let resource = Resource::node(&format!("{}/{}", self.name, name), None);
+            let resource = Resource::node(&format!("{}/{}", self.name, name));
 
             self.layers[*idx].push_mask(mask, resource.clone())?;
 
@@ -808,10 +802,7 @@ impl LayerStack {
 
     /// Obtain the output resource for a material channel
     pub fn output_resource(&self, channel: MaterialChannel) -> Resource<Node> {
-        Resource::node(
-            &format!("{}/output.{}", self.name, channel.short_name(),),
-            None,
-        )
+        Resource::node(&format!("{}/output.{}", self.name, channel.short_name(),))
     }
 
     /// Get a list of all layer resources, including blend nodes

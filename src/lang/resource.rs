@@ -93,10 +93,10 @@ where
 
 impl Resource<Node> {
     /// Constructor for a node resource
-    pub fn node<P: AsRef<Path>>(path: P, fragment: Option<String>) -> Self {
+    pub fn node<P: AsRef<Path>>(path: P) -> Self {
         Self {
             resource_path: path.as_ref().to_path_buf(),
-            fragment,
+            fragment: None,
             phantom_data: std::marker::PhantomData,
         }
     }

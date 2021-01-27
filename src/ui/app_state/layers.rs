@@ -23,7 +23,7 @@ pub struct Layer {
 impl Layer {
     pub fn root_layer() -> Self {
         Self {
-            resource: Resource::node("__root__", None),
+            resource: Resource::node("__root__"),
             title: "root".to_owned(),
             icon: crate::ui::util::IconName::SOLID,
             thumbnail: None,

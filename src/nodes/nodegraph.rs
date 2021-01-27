@@ -166,7 +166,6 @@ impl NodeGraph {
             [&self.name, self.indices.get_by_right(idx).unwrap()]
                 .iter()
                 .collect::<std::path::PathBuf>(),
-            None,
         )
     }
 
@@ -536,14 +535,8 @@ impl NodeGraph {
         if let Some((_, idx)) = self.indices.remove_by_left(&from.to_string()) {
             self.indices.insert(to.to_string(), idx);
             Some(Lang::GraphEvent(GraphEvent::NodeRenamed(
-                Resource::node(
-                    [&self.name, from].iter().collect::<std::path::PathBuf>(),
-                    None,
-                ),
-                Resource::node(
-                    [&self.name, to].iter().collect::<std::path::PathBuf>(),
-                    None,
-                ),
+                Resource::node([&self.name, from].iter().collect::<std::path::PathBuf>()),
+                Resource::node([&self.name, to].iter().collect::<std::path::PathBuf>()),
             )))
         } else {
             None
