@@ -77,6 +77,24 @@ impl<B: gpu::Backend> SocketData<B> {
             seconds * 1e6
         );
     }
+
+    /// Construct a new empty SocketData with a given output size
+    pub fn new(size: u32) -> Self {
+        Self {
+            typed_outputs: HashMap::new(),
+            known_outputs: HashSet::new(),
+            output_size: size,
+            inputs: HashMap::new(),
+            time_ema: EMA::new(0.0, TIMING_DECAY),
+            thumbnail: None,
+        }
+    }
+}
+
+impl<B: gpu::Backend> Default for SocketData<B> {
+    fn default() -> Self {
+        Self::new(1024)
+    }
 }
 
 /// Mapping to associate socket data to each node as required. Nodes can be from
@@ -136,14 +154,7 @@ where
 
     /// Ensure the node is known
     pub fn ensure_node_exists(&mut self, res: &Resource<Node>, size: u32) -> &mut SocketData<B> {
-        self.0.entry(res.clone()).or_insert(SocketData {
-            typed_outputs: HashMap::new(),
-            known_outputs: HashSet::new(),
-            output_size: size,
-            inputs: HashMap::new(),
-            time_ema: EMA::new(0.0, TIMING_DECAY),
-            thumbnail: None,
-        })
+        self.0.entry(res.clone()).or_insert(SocketData::new(size))
     }
 
     /// Ensure the node described by the resource has a thumbnail image
