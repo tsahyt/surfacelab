@@ -244,15 +244,6 @@ impl Default for ImageType {
     }
 }
 
-impl ImageType {
-    pub fn gpu_bytes_per_pixel(self) -> u8 {
-        match self {
-            Self::Rgb => 8,
-            Self::Grayscale => 4,
-        }
-    }
-}
-
 /// Type variables are internally represented as `u8`. Therefore there can only
 /// be 256 type variables for each operator.
 pub type TypeVariable = u8;

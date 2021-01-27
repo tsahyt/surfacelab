@@ -272,7 +272,11 @@ where
             // specific GPU.
             lang::ImageType::Rgb => hal::format::Format::Rgba16Sfloat,
         };
-        let px_width = ty.gpu_bytes_per_pixel();
+        let px_width = match format {
+            hal::format::Format::R32Sfloat => 4,
+            hal::format::Format::Rgba16Sfloat => 8,
+            _ => panic!("Unsupported compute image format!"),
+        };
 
         // Create device image
         let image = unsafe {
