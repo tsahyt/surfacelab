@@ -503,51 +503,6 @@ where
         self.categories.len()
     }
 
-    /// Return the number of controls, by control type
-    pub fn control_counts(&self) -> ControlCounts {
-        let mut counts = ControlCounts::default();
-
-        for parameter in self
-            .categories
-            .iter()
-            .map(|c| c.parameters.iter())
-            .flatten()
-        {
-            match parameter.control {
-                Control::Slider { .. } => {
-                    counts.sliders += 1;
-                }
-                Control::DiscreteSlider { .. } => {
-                    counts.discrete_sliders += 1;
-                }
-                Control::RgbColor { .. } => {
-                    counts.rgb_colors += 1;
-                }
-                Control::Enum { .. } => {
-                    counts.enums += 1;
-                }
-                Control::File { .. } => {
-                    counts.files += 1;
-                }
-                Control::Ramp { .. } => {
-                    counts.ramps += 1;
-                }
-                Control::Toggle { .. } => {
-                    counts.toggles += 1;
-                }
-                Control::Entry { .. } => {
-                    counts.entries += 1;
-                }
-                Control::ChannelMap { .. } => {
-                    counts.enums += 1;
-                    counts.toggles += 1;
-                }
-            }
-        }
-
-        counts
-    }
-
     /// Map a function over each transmitter in the box. Essentially making the
     /// description a functor.
     pub fn map_transmitters<Q: MessageWriter, F: Fn(&T) -> Q>(
@@ -981,19 +936,6 @@ impl ParamBoxDescription<SurfaceField> {
             }],
         }
     }
-}
-
-/// Struct for storing the number of controls used by some parameter box.
-#[derive(Default, Copy, Clone, Debug)]
-pub struct ControlCounts {
-    pub sliders: usize,
-    pub discrete_sliders: usize,
-    pub rgb_colors: usize,
-    pub enums: usize,
-    pub files: usize,
-    pub ramps: usize,
-    pub toggles: usize,
-    pub entries: usize,
 }
 
 /// Categories used in ParamBoxDescriptions

@@ -12,6 +12,69 @@ use palette::{Hsv, LinSrgb};
 use std::any::TypeId;
 use std::collections::HashMap;
 
+/// Struct for storing the number of controls used by some parameter box.
+#[derive(Default, Copy, Clone, Debug)]
+pub struct ControlCounts {
+    pub sliders: usize,
+    pub discrete_sliders: usize,
+    pub rgb_colors: usize,
+    pub enums: usize,
+    pub files: usize,
+    pub ramps: usize,
+    pub toggles: usize,
+    pub entries: usize,
+}
+
+/// Get control counts from a parameter box description
+impl<T> From<&ParamBoxDescription<T>> for ControlCounts
+where
+    T: MessageWriter,
+{
+    fn from(pbox: &ParamBoxDescription<T>) -> Self {
+        let mut counts = ControlCounts::default();
+
+        for parameter in pbox
+            .categories
+            .iter()
+            .map(|c| c.parameters.iter())
+            .flatten()
+        {
+            match parameter.control {
+                Control::Slider { .. } => {
+                    counts.sliders += 1;
+                }
+                Control::DiscreteSlider { .. } => {
+                    counts.discrete_sliders += 1;
+                }
+                Control::RgbColor { .. } => {
+                    counts.rgb_colors += 1;
+                }
+                Control::Enum { .. } => {
+                    counts.enums += 1;
+                }
+                Control::File { .. } => {
+                    counts.files += 1;
+                }
+                Control::Ramp { .. } => {
+                    counts.ramps += 1;
+                }
+                Control::Toggle { .. } => {
+                    counts.toggles += 1;
+                }
+                Control::Entry { .. } => {
+                    counts.entries += 1;
+                }
+                Control::ChannelMap { .. } => {
+                    counts.enums += 1;
+                    counts.toggles += 1;
+                }
+            }
+        }
+
+        counts
+    }
+}
+
 #[derive(WidgetCommon)]
 pub struct ParamBox<'a, T: MessageWriter> {
     #[conrod(common_builder)]
@@ -45,7 +108,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .categories
                 .resize(self.description.categories(), id_gen);
 
-            let counts = self.description.control_counts();
+            let counts = ControlCounts::from(&*self.description);
             state
                 .controls
                 .get_mut(&TypeId::of::<widget::Slider<f32>>())
@@ -85,7 +148,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
     }
 
     fn needs_resize(&self, state: &State) -> bool {
-        let counts = self.description.control_counts();
+        let counts = ControlCounts::from(&*self.description);
 
         state.labels.len() < self.description.len()
             || state.exposes.len() < self.description.len()
