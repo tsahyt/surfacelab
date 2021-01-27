@@ -39,14 +39,6 @@ pub enum AtomicOperator {
 }
 
 impl AtomicOperator {
-    /// Returns whether an operator can use external data.
-    pub fn external_data(&self) -> bool {
-        match self {
-            Self::Image { .. } => true,
-            _ => false,
-        }
-    }
-
     /// A vector of all atomic operators with their default parameters. Useful
     /// for frontends to present a list of all operators.
     pub fn all_default() -> Vec<Self> {
@@ -63,13 +55,6 @@ impl AtomicOperator {
             Self::Output(Output::default()),
             Self::Input(Input::default()),
         ]
-    }
-
-    pub fn is_output(&self) -> bool {
-        match self {
-            Self::Output { .. } => true,
-            _ => false,
-        }
     }
 }
 
