@@ -170,8 +170,8 @@ impl Operator {
     pub fn is_mask(&self) -> bool {
         self.inputs().len() <= 1
             && self.outputs().values().any(|t| match t {
-                OperatorType::Monomorphic(ImageType::Grayscale) => true,
-                _ => false,
+                OperatorType::Monomorphic(ImageType::Rgb) => false,
+                _ => true,
             })
     }
 }
