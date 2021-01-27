@@ -9,8 +9,8 @@ use enumset::{EnumSet, EnumSetType};
 
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::*;
 use std::convert::TryFrom;
+use std::path::*;
 use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
@@ -250,37 +250,6 @@ impl ImageType {
             Self::Rgb => 8,
             Self::Grayscale => 4,
         }
-    }
-}
-
-/// Types of outputs. Possible values include PBR channels as well as
-/// generalized formats.
-#[repr(C)]
-#[derive(
-    PartialEq,
-    Clone,
-    Copy,
-    Debug,
-    EnumIter,
-    EnumVariantNames,
-    EnumString,
-    Serialize,
-    Deserialize,
-    ParameterField,
-)]
-pub enum OutputType {
-    Albedo,
-    Roughness,
-    Normal,
-    Displacement,
-    Metallic,
-    Value,
-    Rgb,
-}
-
-impl Default for OutputType {
-    fn default() -> Self {
-        OutputType::Value
     }
 }
 

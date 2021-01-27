@@ -6,6 +6,7 @@ use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::VariantNames;
+use strum_macros::*;
 use surfacelab_derive::*;
 
 pub mod blend;
@@ -105,6 +106,37 @@ impl OperatorParamBox for Image {
                 ],
             }],
         }
+    }
+}
+
+/// Types of outputs. Possible values include PBR channels as well as
+/// generalized formats.
+#[repr(C)]
+#[derive(
+    PartialEq,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    ParameterField,
+)]
+pub enum OutputType {
+    Albedo,
+    Roughness,
+    Normal,
+    Displacement,
+    Metallic,
+    Value,
+    Rgb,
+}
+
+impl Default for OutputType {
+    fn default() -> Self {
+        OutputType::Value
     }
 }
 
