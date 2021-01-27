@@ -33,11 +33,11 @@ impl ParameterField for f32 {
     fn from_data(data: &[u8]) -> Self {
         let mut arr: [u8; 4] = Default::default();
         arr.copy_from_slice(data);
-        f32::from_be_bytes(arr)
+        f32::from_ne_bytes(arr)
     }
 
     fn to_data(&self) -> Vec<u8> {
-        self.to_be_bytes().to_vec()
+        self.to_ne_bytes().to_vec()
     }
 
     fn data_length() -> usize {
@@ -49,11 +49,11 @@ impl ParameterField for u32 {
     fn from_data(data: &[u8]) -> Self {
         let mut arr: [u8; 4] = Default::default();
         arr.copy_from_slice(data);
-        u32::from_be_bytes(arr)
+        u32::from_ne_bytes(arr)
     }
 
     fn to_data(&self) -> Vec<u8> {
-        self.to_be_bytes().to_vec()
+        self.to_ne_bytes().to_vec()
     }
 
     fn data_length() -> usize {
@@ -65,11 +65,11 @@ impl ParameterField for i32 {
     fn from_data(data: &[u8]) -> Self {
         let mut arr: [u8; 4] = Default::default();
         arr.copy_from_slice(data);
-        i32::from_be_bytes(arr)
+        i32::from_ne_bytes(arr)
     }
 
     fn to_data(&self) -> Vec<u8> {
-        self.to_be_bytes().to_vec()
+        self.to_ne_bytes().to_vec()
     }
 
     fn data_length() -> usize {
@@ -85,10 +85,10 @@ impl ParameterField for [f32; 3] {
 
     fn to_data(&self) -> Vec<u8> {
         let mut buf = Vec::new();
-        buf.extend_from_slice(&(self[0] as f32).to_be_bytes());
-        buf.extend_from_slice(&(self[1] as f32).to_be_bytes());
-        buf.extend_from_slice(&(self[2] as f32).to_be_bytes());
-        buf.extend_from_slice(&(1.0 as f32).to_be_bytes());
+        buf.extend_from_slice(&(self[0] as f32).to_ne_bytes());
+        buf.extend_from_slice(&(self[1] as f32).to_ne_bytes());
+        buf.extend_from_slice(&(self[2] as f32).to_ne_bytes());
+        buf.extend_from_slice(&(1.0 as f32).to_ne_bytes());
         buf
     }
 
@@ -1071,10 +1071,10 @@ impl Control {
             Self::Ramp { steps } => {
                 let mut buf = Vec::new();
                 for step in steps.iter() {
-                    buf.extend_from_slice(&step[0].to_be_bytes());
-                    buf.extend_from_slice(&step[1].to_be_bytes());
-                    buf.extend_from_slice(&step[2].to_be_bytes());
-                    buf.extend_from_slice(&step[3].to_be_bytes());
+                    buf.extend_from_slice(&step[0].to_ne_bytes());
+                    buf.extend_from_slice(&step[1].to_ne_bytes());
+                    buf.extend_from_slice(&step[2].to_ne_bytes());
+                    buf.extend_from_slice(&step[3].to_ne_bytes());
                 }
                 buf
             }
@@ -1106,7 +1106,7 @@ impl Control {
                             .map(|z| {
                                 let mut arr: [u8; 4] = Default::default();
                                 arr.copy_from_slice(z);
-                                f32::from_be_bytes(arr)
+                                f32::from_ne_bytes(arr)
                             })
                             .collect();
                         [fields[0], fields[1], fields[2], fields[3]]

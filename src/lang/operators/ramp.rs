@@ -84,7 +84,7 @@ impl Parameters for Ramp {
                             .map(|z| {
                                 let mut arr: [u8; 4] = Default::default();
                                 arr.copy_from_slice(z);
-                                f32::from_be_bytes(arr)
+                                f32::from_ne_bytes(arr)
                             })
                             .collect();
                         [fields[0], fields[1], fields[2], fields[3]]
