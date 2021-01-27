@@ -205,6 +205,11 @@ impl<S> Resource<S> {
         &self.resource_path
     }
 
+    /// Rename the file component of the resource
+    pub fn rename_file(&mut self, new: &str) {
+        self.resource_path.set_file_name(new);
+    }
+
     /// Obtain a mutable view of the path of a resource
     pub fn path_mut(&mut self) -> &mut PathBuf {
         &mut self.resource_path
@@ -221,11 +226,6 @@ impl<S> Resource<S> {
             fragment: None,
             phantom_data: std::marker::PhantomData,
         }
-    }
-
-    /// Modify a resource path in place given a modification function
-    pub fn modify_path<F: FnOnce(&mut PathBuf) -> ()>(&mut self, func: F) {
-        func(&mut self.resource_path);
     }
 
     /// Obtain the file part of the path of a resource, if it exists

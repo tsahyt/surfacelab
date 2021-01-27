@@ -301,12 +301,8 @@ impl MessageWriter for ResourceField {
     fn transmit(&self, resource: &Resource<Node>, data: &[u8]) -> super::Lang {
         match self {
             Self::Name => {
-                let new = unsafe { std::str::from_utf8_unchecked(&data) };
                 let mut res_new = resource.clone();
-                res_new.modify_path(|p| {
-                    p.pop();
-                    p.push(new);
-                });
+                res_new.rename_file(unsafe { std::str::from_utf8_unchecked(&data) });
                 super::Lang::UserNodeEvent(super::UserNodeEvent::RenameNode(
                     resource.clone(),
                     res_new,
@@ -370,12 +366,8 @@ impl MessageWriter for GraphField {
     type Resource = Resource<Graph>;
 
     fn transmit(&self, resource: &Resource<Graph>, data: &[u8]) -> super::Lang {
-        let new = unsafe { std::str::from_utf8_unchecked(&data) };
         let mut res_new = resource.clone();
-        res_new.modify_path(|p| {
-            p.pop();
-            p.push(new);
-        });
+        res_new.rename_file(unsafe { std::str::from_utf8_unchecked(&data) });
         super::Lang::UserGraphEvent(super::UserGraphEvent::RenameGraph(
             resource.clone(),
             res_new,

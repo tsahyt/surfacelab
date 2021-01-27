@@ -624,7 +624,7 @@ where
                             blend_node.file().unwrap(),
                             channel.short_name()
                         );
-                        blend_node.modify_path(|pb| pb.set_file_name(new_name));
+                        blend_node.rename_file(&new_name);
                         self.sockets.ensure_node_exists(&blend_node, *size);
                     }
                 }
@@ -634,7 +634,7 @@ where
 
                     let mut blend_node = res.clone();
                     let new_name = format!("{}.blend", blend_node.file().unwrap(),);
-                    blend_node.modify_path(|pb| pb.set_file_name(new_name));
+                    blend_node.rename_file(&new_name);
                     self.sockets.ensure_node_exists(&blend_node, *size);
                 }
                 LayersEvent::LayersAdded(g, size) => {
@@ -661,7 +661,7 @@ where
                             blend_node.file().unwrap(),
                             channel.short_name()
                         );
-                        blend_node.modify_path(|pb| pb.set_file_name(new_name));
+                        blend_node.rename_file(&new_name);
 
                         for socket in self
                             .sockets

@@ -874,7 +874,7 @@ impl LayerStack {
     ) -> Vec<(Resource<Socket>, OperatorType)> {
         let mut blend_res = mask.clone();
         let new_name = format!("{}.blend", blend_res.file().unwrap(),);
-        blend_res.modify_path(|pb| pb.set_file_name(new_name));
+        blend_res.rename_file(&new_name);
         vec![(
             blend_res.node_socket("color"),
             OperatorType::Monomorphic(ImageType::Grayscale),
@@ -1438,7 +1438,7 @@ impl super::NodeCollection for LayerStack {
             let pos = res_file.find(".mask").unwrap();
 
             let mut parent_resource = resource.clone();
-            parent_resource.modify_path(|pb| pb.set_file_name(&res_file[..pos]));
+            parent_resource.rename_file(&res_file[..pos]);
 
             if let Some(idx) = self
                 .resources
@@ -1590,7 +1590,7 @@ fn layer_resource_from_mask_resource(mask: &Resource<Node>) -> Resource<Node> {
     let pos = res_file.find(".mask").unwrap();
 
     let mut parent_resource = mask.clone();
-    parent_resource.modify_path(|pb| pb.set_file_name(&res_file[..pos]));
+    parent_resource.rename_file(&res_file[..pos]);
 
     parent_resource
 }
