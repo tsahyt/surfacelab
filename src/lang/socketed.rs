@@ -1,5 +1,6 @@
 use enum_dispatch::*;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 
 pub use super::{ImageType, OperatorType, TypeVariable};
 
@@ -64,6 +65,15 @@ pub trait Socketed {
     /// Determine whether this Socketed value is an Input
     fn is_input(&self) -> bool {
         false
+    }
+
+    /// Return all type variables of this Socketed value
+    fn type_variables(&self) -> Vec<TypeVariable> {
+        self.inputs()
+            .values()
+            .chain(self.outputs().values())
+            .filter_map(|x| TypeVariable::try_from(*x).ok())
+            .collect()
     }
 }
 

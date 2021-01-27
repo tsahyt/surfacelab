@@ -279,6 +279,17 @@ impl TryFrom<OperatorType> for ImageType {
     }
 }
 
+impl TryFrom<OperatorType> for TypeVariable {
+    type Error = &'static str;
+
+    fn try_from(value: OperatorType) -> Result<Self, Self::Error> {
+        match value {
+            OperatorType::Polymorphic(v) => Ok(v),
+            _ => Err("Attempted to get type variable from monomorphic type"),
+        }
+    }
+}
+
 /// Events concerning node operation triggered by the user, such as adding,
 /// removing, etc.
 #[derive(Debug)]
