@@ -220,14 +220,6 @@ impl<S> Resource<S> {
         self.path().to_str()
     }
 
-    pub fn unregistered_node() -> Resource<S> {
-        Resource {
-            resource_path: PathBuf::from("__unregistered__"),
-            fragment: None,
-            phantom_data: std::marker::PhantomData,
-        }
-    }
-
     /// Obtain the file part of the path of a resource, if it exists
     pub fn file(&self) -> Option<&str> {
         self.path().file_name().and_then(|x| x.to_str())
