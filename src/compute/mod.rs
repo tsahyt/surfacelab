@@ -294,15 +294,6 @@ where
         }
     }
 
-    /// Frees *all* compute images. The nuclear cleanup option.
-    pub fn free_all_images(&mut self, gpu: &mut gpu::compute::GPUCompute<B>) {
-        for sockets in self.0.values_mut() {
-            for out in sockets.typed_outputs.values_mut() {
-                out.reinit_image(gpu, sockets.output_size)
-            }
-        }
-    }
-
     /// Reinitialize output images of a node given a new size.
     pub fn reinit_output_images(
         &mut self,
