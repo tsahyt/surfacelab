@@ -159,7 +159,7 @@ impl Default for ResourceTree {
 
         t.insert(
             Node::new(ResourceTreeItem::ResourceInfo(ResourceInfo::new(
-                r::Resource::graph("base", None),
+                r::Resource::graph("base"),
                 ResourceCategory::Graph,
             ))),
             UnderNode(&graphs),

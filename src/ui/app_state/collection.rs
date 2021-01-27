@@ -70,7 +70,7 @@ impl NodeCollections {
         Self {
             collections: HashMap::new(),
             active_collection: NodeCollection::default(),
-            active_resource: Resource::graph("base", None),
+            active_resource: Resource::graph("base"),
         }
     }
 
@@ -182,7 +182,7 @@ impl NodeCollections {
         node: &Resource<r::Node>,
     ) -> Option<&mut NodeCollection> {
         let graph_name = node.directory().unwrap();
-        let graph_res = Resource::graph(graph_name, None);
+        let graph_res = Resource::graph(graph_name);
 
         if self.active_resource == graph_res {
             Some(&mut self.active_collection)

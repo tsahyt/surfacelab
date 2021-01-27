@@ -1217,7 +1217,7 @@ impl super::NodeCollection for LayerStack {
     }
 
     fn graph_resource(&self) -> Resource<Graph> {
-        Resource::graph(self.name.clone(), None)
+        Resource::graph(self.name.clone())
     }
 
     fn rename(&mut self, name: &str) {

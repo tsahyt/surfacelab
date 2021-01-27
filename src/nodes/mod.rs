@@ -197,7 +197,7 @@ impl NodeManager {
             parent_size: 1024,
             export_specs: HashMap::new(),
             graphs: hashmap! { "base".to_string() => ManagedNodeCollection::default() },
-            active_graph: lang::Resource::graph("base", None),
+            active_graph: lang::Resource::graph("base"),
         }
     }
 
@@ -474,7 +474,7 @@ impl NodeManager {
                     ManagedNodeCollection::NodeGraph(nodegraph::NodeGraph::new(&name)),
                 );
                 response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphAdded(
-                    Resource::graph(name, None),
+                    Resource::graph(name),
                 )));
             }
             UserGraphEvent::ChangeGraph(res) => {
@@ -602,7 +602,7 @@ impl NodeManager {
                     ManagedNodeCollection::LayerStack(layers::LayerStack::new(&name)),
                 );
                 response.push(lang::Lang::LayersEvent(lang::LayersEvent::LayersAdded(
-                    Resource::graph(name.clone(), None),
+                    Resource::graph(name.clone()),
                     self.parent_size,
                 )));
 
@@ -947,7 +947,7 @@ impl NodeManager {
                 );
                 response.push(Lang::GraphEvent(GraphEvent::Cleared));
                 response.push(Lang::GraphEvent(GraphEvent::GraphAdded(Resource::graph(
-                    "base", None,
+                    "base",
                 ))));
             }
             UserIOEvent::SetParentSize(size) => {

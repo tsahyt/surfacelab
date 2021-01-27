@@ -47,7 +47,7 @@ impl NodeManager {
         // Rebuild events for all graphs in the surface file
         let mut events = Vec::new();
         for (name, graph) in self.graphs.iter() {
-            let res = Resource::graph(&name, None);
+            let res = Resource::graph(&name);
             events.push(match graph {
                 ManagedNodeCollection::NodeGraph(_) => {
                     Lang::GraphEvent(GraphEvent::GraphAdded(res.clone()))
@@ -94,7 +94,7 @@ impl NodeManager {
 
         // Finally make sure base is picked
         events.push(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
-            Resource::graph("base", None),
+            Resource::graph("base"),
         )));
 
         Ok(events)
