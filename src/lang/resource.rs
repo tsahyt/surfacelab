@@ -8,6 +8,9 @@ pub trait Scheme {
     fn scheme_name() -> &'static str;
 }
 
+/// Resource types that are contained in a graph
+pub trait InGraph {}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Node;
 
@@ -16,6 +19,8 @@ impl Scheme for Node {
         "node"
     }
 }
+
+impl InGraph for Node {}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Graph;
@@ -35,6 +40,8 @@ impl Scheme for Param {
     }
 }
 
+impl InGraph for Param {}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Socket;
 
@@ -43,6 +50,8 @@ impl Scheme for Socket {
         "socket"
     }
 }
+
+impl InGraph for Socket {}
 
 /// A Resource describes some thing in the system. This could refer to a node,
 /// or to a graph/layer stack, or to a socket of a node, or to a parameter, etc.
@@ -230,13 +239,6 @@ impl<S> Resource<S> {
         self.path().parent().and_then(|x| x.to_str())
     }
 
-    pub fn set_graph<P: AsRef<Path>>(&mut self, graph: P) {
-        let file = self.resource_path.file_name().unwrap();
-        let mut path = graph.as_ref().to_path_buf();
-        path.push(file);
-        self.resource_path = path;
-    }
-
     /// Cast between resource types. Note that this does not perform *any*
     /// checks. Usually it is wiser to use one of the specialized casting
     /// functions. Handle with care!
@@ -246,5 +248,15 @@ impl<S> Resource<S> {
             fragment: self.fragment,
             phantom_data: std::marker::PhantomData,
         }
+    }
+}
+
+impl<S: InGraph> Resource<S> {
+    /// Set the parent graph of this resource.
+    pub fn set_graph<P: AsRef<Path>>(&mut self, graph: P) {
+        let file = self.resource_path.file_name().unwrap();
+        let mut path = graph.as_ref().to_path_buf();
+        path.push(file);
+        self.resource_path = path;
     }
 }
