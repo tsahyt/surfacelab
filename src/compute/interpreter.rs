@@ -46,7 +46,7 @@ impl From<gpu::PipelineError> for InterpretationError {
 }
 
 #[derive(Debug)]
-struct StackFrame {
+pub struct StackFrame {
     step: usize,
     instructions: VecDeque<Instruction>,
     linearization: Rc<Linearization>,
@@ -113,7 +113,7 @@ pub struct Interpreter<'a, B: gpu::Backend> {
 }
 
 impl<'a, B: gpu::Backend> Interpreter<'a, B> {
-    pub fn new<I>(
+    pub fn new(
         gpu: &'a mut gpu::compute::GPUCompute<B>,
         sockets: &'a mut Sockets<B>,
         last_known: &'a mut HashMap<Resource<Node>, u64>,
@@ -642,7 +642,7 @@ where
         let substitutions = frame.substitutions_map.clone();
         frame.step += 1;
 
-        match self.interpret(&instruction, &substitutions) {
+        let response = match self.interpret(&instruction, &substitutions) {
             Ok(r) => Some(Ok(r)),
 
             // Handle OOM
@@ -651,13 +651,20 @@ where
                 match self.interpret(&instruction, &substitutions) {
                     Ok(r) => Some(Ok(r)),
                     Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
-                        return Some(Err(InterpretationError::HardOOM))
+                        Some(Err(InterpretationError::HardOOM))
                     }
-                    e => return Some(e),
+                    e => Some(e),
                 }
             }
-            e => return Some(e),
+            e => Some(e),
+        };
+
+        // Pop frame if we're done here
+        if self.execution_stack.last()?.instructions.is_empty() {
+            self.execution_stack.pop();
         }
+
+        response
     }
 }
 
