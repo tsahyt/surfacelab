@@ -1208,7 +1208,16 @@ where
 
 /// An index into the thumbnail cache
 #[derive(Debug)]
-pub struct ThumbnailIndex(usize);
+pub struct ThumbnailIndex(Option<usize>);
+
+/// Drop implementation checks whether thumbnail was returned properly to the
+/// cache before dropping. Failure to do so will cause a panic in Debug builds
+/// only!
+impl Drop for ThumbnailIndex {
+    fn drop(&mut self) {
+        debug_assert!(self.0.is_none());
+    }
+}
 
 /// The thumbnail cache stores all thumbnails to be used in the system. They
 /// reside in the compute component and are managed here.
@@ -1229,7 +1238,7 @@ where
     fn drop(&mut self) {
         let n = self.memory.len() * Self::THUMBNAIL_CHUNK_LENGTH;
         for i in 0..n {
-            self.free(ThumbnailIndex(i));
+            self.free(ThumbnailIndex(Some(i)));
         }
 
         let lock = self.gpu.lock().unwrap();
@@ -1311,7 +1320,7 @@ where
             .next()
         {
             self.new_thumbnail_at(i, grayscale);
-            ThumbnailIndex(i)
+            ThumbnailIndex(Some(i))
         } else {
             self.grow();
             self.next(grayscale)
@@ -1396,18 +1405,19 @@ where
 
     /// Get the underlying Image from a thumbnail
     pub fn image(&self, index: &ThumbnailIndex) -> &B::Image {
-        self.images[index.0].as_ref().unwrap()
+        self.images[index.0.unwrap()].as_ref().unwrap()
     }
 
     /// Get the underlying image view from a thumbnail
     pub fn image_view(&self, index: &ThumbnailIndex) -> &Arc<Mutex<B::ImageView>> {
-        self.views[index.0].as_ref().unwrap()
+        self.views[index.0.unwrap()].as_ref().unwrap()
     }
 
     /// Free a thumbnail by its index. Note that this takes ownership.
-    pub fn free(&mut self, index: ThumbnailIndex) {
+    pub fn free(&mut self, mut index: ThumbnailIndex) {
+        let idx = index.0.take().unwrap();
         let view = {
-            let mut inner = self.views[index.0].take().unwrap();
+            let mut inner = self.views[idx].take().unwrap();
             loop {
                 match Arc::try_unwrap(inner) {
                     Ok(t) => break t,
@@ -1419,8 +1429,7 @@ where
 
         unsafe {
             lock.device.destroy_image_view(view.into_inner().unwrap());
-            lock.device
-                .destroy_image(self.images[index.0].take().unwrap());
+            lock.device.destroy_image(self.images[idx].take().unwrap());
         }
     }
 
