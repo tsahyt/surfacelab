@@ -1,9 +1,9 @@
+use super::shaders::{ShaderLibrary, Uniforms};
 use super::sockets::*;
-use super::shaders::ShaderLibrary;
-use super::{Linearization};
+use super::Linearization;
 use crate::{gpu, lang::*};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
-use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -23,6 +23,8 @@ pub enum InterpretationError {
     ExternalImageRead,
     /// Hard OOM, i.e. OOM after cleanup
     HardOOM,
+    /// Call to unknown graph
+    UnknownCall,
 }
 
 impl From<gpu::compute::ImageError> for InterpretationError {
@@ -44,12 +46,35 @@ impl From<gpu::PipelineError> for InterpretationError {
 }
 
 #[derive(Debug)]
-struct StackFrame {
+struct StackFrame<'a> {
     step: usize,
+    instructions: VecDeque<Instruction>,
     linearization: Rc<Linearization>,
+    substitutions_map: HashMap<Resource<Node>, Vec<&'a ParamSubstitution>>,
 }
 
-impl StackFrame {
+impl<'a> StackFrame<'a> {
+    pub fn new<I>(linearization: Rc<Linearization>, substitutions: I) -> Self
+    where
+        I: Iterator<Item = &'a ParamSubstitution>,
+    {
+        let mut substitutions_map: HashMap<Resource<Node>, Vec<&ParamSubstitution>> =
+            HashMap::new();
+        for s in substitutions {
+            substitutions_map
+                .entry(s.resource().parameter_node())
+                .and_modify(|x| x.push(s))
+                .or_insert_with(|| vec![s]);
+        }
+
+        Self {
+            step: 0,
+            instructions: VecDeque::from_iter(linearization.instructions.iter().cloned()),
+            linearization: linearization.clone(),
+            substitutions_map,
+        }
+    }
+
     /// Find the retention set for this stack frame, i.e. the set of images that
     ///
     /// 1. Has a last use point >= current step AND
@@ -59,7 +84,6 @@ impl StackFrame {
         self.linearization.retention_set_at(self.step)
     }
 }
-
 
 /// An interpreter takes a view into the current compute manager state, and runs
 /// one interpretation, yielding events through the Iterator instance step by step.
@@ -79,30 +103,39 @@ pub struct Interpreter<'a, B: gpu::Backend> {
     /// Reference to shader library
     shader_library: &'a ShaderLibrary<B>,
 
+    /// Reference to known linearizations
+    linearizations: &'a HashMap<Resource<Graph>, Rc<Linearization>>,
+
     /// Number of executions, kept for cache invalidation
     seq: u64,
 
     /// Callstack for complex operator calls
-    execution_stack: Vec<StackFrame>,
+    execution_stack: Vec<StackFrame<'a>>,
 }
 
 impl<'a, B: gpu::Backend> Interpreter<'a, B> {
-    pub fn new(
+    pub fn new<I>(
         gpu: &'a mut gpu::compute::GPUCompute<B>,
         sockets: &'a mut Sockets<B>,
         last_known: &'a mut HashMap<Resource<Node>, u64>,
         external_images: &'a mut HashMap<(std::path::PathBuf, ColorSpace), Option<ExternalImage>>,
         shader_library: &'a ShaderLibrary<B>,
+        linearizations: &'a HashMap<Resource<Graph>, Rc<Linearization>>,
         seq: u64,
+        graph: &Resource<Graph>,
     ) -> Self {
+        let linearization = linearizations.get(graph).expect("Unknown graph").clone();
+        let execution_stack = vec![StackFrame::new(linearization, std::iter::empty())];
+
         Self {
             gpu,
             sockets,
             last_known,
             external_images,
             shader_library,
+            linearizations,
             seq,
-            execution_stack: Vec::new(),
+            execution_stack,
         }
     }
 
@@ -203,6 +236,14 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
         let start_time = Instant::now();
 
+        // Push call onto stack
+        let frame = StackFrame::new(
+            self.linearizations
+                .get(&op.graph)
+                .ok_or(InterpretationError::UnknownCall)?
+            .clone(),
+            op.parameters.values()
+        );
         // TODO: self.interpret_linearization(&op.graph, op.parameters.values())?;
 
         for (socket, _) in op.outputs().iter() {
@@ -396,6 +437,110 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         result
     }
 
+    /// Executes a single atomic operator.
+    ///
+    /// For all intents and purposes this is the main workhorse of the compute
+    /// component. Requires that all output images are already present, i.e.
+    /// exist and are backed.
+    ///
+    /// Will skip execution if not required.
+    fn execute_atomic_operator(
+        &mut self,
+        op: &AtomicOperator,
+        res: &Resource<Node>,
+    ) -> Result<(), InterpretationError> {
+        log::trace!("Executing operator {:?} of {}", op, res);
+
+        // Ensure output images are allocated
+        for (socket, _) in op.outputs().iter() {
+            let socket_res = res.node_socket(&socket);
+            self.sockets
+                .get_output_image_mut(&socket_res)
+                .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
+                .ensure_alloc(&self.gpu)?;
+        }
+
+        // In debug builds, ensure that all input images exist and are backed
+        debug_assert!(op.inputs().iter().all(|(socket, _)| {
+            let socket_res = res.node_socket(&socket);
+            let output = self.sockets.get_input_image(&socket_res);
+            output.is_some() && output.unwrap().is_backed()
+        }));
+
+        // skip execution if neither uniforms nor input changed
+        let uniform_hash = op.uniform_hash();
+        let op_seq = self
+            .sockets
+            .get_output_image_updated(res)
+            .expect("Missing sequence for operator");
+        let inputs_updated = op.inputs().iter().any(|(socket, _)| {
+            let socket_res = res.node_socket(&socket);
+            self.sockets
+                .get_input_image_updated(&socket_res)
+                .expect("Missing input image")
+                > op_seq
+        });
+        match self.last_known.get(res) {
+            Some(hash)
+                if *hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) =>
+            {
+                log::trace!("Reusing cached image");
+                return Ok(());
+            }
+            _ => {}
+        };
+
+        let start_time = Instant::now();
+
+        let mut inputs = HashMap::new();
+        for socket in op.inputs().keys() {
+            let socket_res = res.node_socket(&socket);
+            inputs.insert(
+                socket.clone(),
+                self.sockets.get_input_image(&socket_res).unwrap(),
+            );
+        }
+
+        let mut outputs = HashMap::new();
+        for socket in op.outputs().keys() {
+            let socket_res = res.node_socket(&socket);
+            outputs.insert(
+                socket.clone(),
+                self.sockets.get_output_image(&socket_res).unwrap(),
+            );
+        }
+
+        // fill uniforms and execute shader
+        let pipeline = self.shader_library.pipeline_for(&op);
+        let desc_set = self.shader_library.descriptor_set_for(&op);
+        let uniforms = op.uniforms();
+        let descriptors = ShaderLibrary::write_desc(
+            op,
+            desc_set,
+            self.gpu.uniform_buffer(),
+            self.gpu.sampler(),
+            &inputs,
+            &outputs,
+        );
+
+        self.gpu.fill_uniforms(uniforms)?;
+        self.gpu.write_descriptor_sets(descriptors);
+        self.gpu.run_pipeline(
+            self.sockets.get_image_size(res),
+            inputs.values().copied().collect(),
+            outputs.values().copied().collect(),
+            pipeline,
+            desc_set,
+        );
+
+        self.last_known.insert(res.clone(), uniform_hash);
+        self.sockets.set_output_image_updated(res, self.seq);
+        self.sockets
+            .update_timing_data(res, start_time.elapsed().as_secs_f64());
+
+        Ok(())
+    }
+
     /// Clean up all image data, using the current execution stack to determine what can be cleaned up.
     ///
     /// We can safely clean up an image if
@@ -429,6 +574,57 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.sockets.free_images_for_node(&node, &mut self.gpu);
         }
     }
+
+    /// Interpret a single instruction, given a substitution map
+    fn interpret(&mut self, instr: &Instruction, substitutions: &HashMap<Resource<Node>, Vec<&ParamSubstitution>>) -> Result<Vec<ComputeEvent>, InterpretationError> {
+        let mut response = Vec::new();
+
+        match instr {
+            Instruction::Move(from, to) => {
+                log::trace!("Moving texture from {} to {}", from, to);
+                debug_assert!(self.sockets.get_output_image(from).is_some());
+
+                self.sockets.connect_input(from, to);
+            }
+            Instruction::Execute(res, op) => {
+                let mut op = op.clone();
+                if let Some(subs) = substitutions.get(res) {
+                    for s in subs {
+                        s.substitute(&mut op);
+                    }
+                }
+
+                match op {
+                    AtomicOperator::Image(Image { path, color_space }) => {
+                        self.execute_image(res, &path, color_space)?;
+                    }
+                    AtomicOperator::Input(..) => {
+                        self.execute_input(res)?;
+                    }
+                    AtomicOperator::Output(output) => {
+                        for res in self.execute_output(&output, res) {
+                            response.push(res);
+                        }
+                    }
+                    _ => {
+                        self.execute_atomic_operator(&op, res)?;
+                    }
+                }
+            }
+            Instruction::Call(res, op) => {
+                self.execute_call(res, op)?;
+            }
+            Instruction::Copy(from, to) => {
+                self.execute_copy(from, to)?;
+            }
+            Instruction::Thumbnail(socket) => {
+                let mut r = self.execute_thumbnail(socket);
+                response.append(&mut r);
+            }
+        }
+
+        Ok(response)
+    }
 }
 
 impl<'a, B> Iterator for Interpreter<'a, B>
@@ -438,7 +634,27 @@ where
     type Item = Result<Vec<ComputeEvent>, InterpretationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+        let stack = &mut self.execution_stack;
+        let frame = stack.last_mut()?;
+        let instruction = frame.instructions.pop_front().unwrap();
+        frame.step += 1;
+
+        match self.interpret(&instruction, &frame.substitutions_map) {
+            Ok(r) => Some(Ok(r)),
+
+            // Handle OOM
+            Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
+                self.cleanup();
+                match self.interpret(&instruction, &frame.substitutions_map) {
+                    Ok(r) => Some(Ok(r)),
+                    Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
+                        return Some(Err(InterpretationError::HardOOM))
+                    }
+                    e => return Some(e),
+                }
+            }
+            e => return Some(e),
+        }
     }
 }
 
