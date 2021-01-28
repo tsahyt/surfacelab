@@ -242,6 +242,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         self.execution_stack.push(frame);
         self.seq += 1;
 
+        // Set up outputs for copy back
         for (socket, _) in op.outputs().iter() {
             let socket_res = res.node_socket(&socket);
             self.sockets
@@ -250,6 +251,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .ensure_alloc(&self.gpu)?;
         }
 
+        // Write down uniforms and timing data
         self.last_known.insert(res.clone(), uniform_hash);
         self.sockets
             .update_timing_data(res, start_time.elapsed().as_secs_f64());
