@@ -133,7 +133,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             external_images,
             shader_library,
             linearizations,
-            seq,
+            seq: seq + 1,
             execution_stack,
         }
     }
@@ -240,6 +240,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             op.parameters.values(),
         );
         self.execution_stack.push(frame);
+        self.seq += 1;
 
         for (socket, _) in op.outputs().iter() {
             let socket_res = res.node_socket(&socket);
