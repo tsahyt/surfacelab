@@ -46,32 +46,31 @@ impl From<gpu::PipelineError> for InterpretationError {
 }
 
 #[derive(Debug)]
-struct StackFrame<'a> {
+struct StackFrame {
     step: usize,
     instructions: VecDeque<Instruction>,
     linearization: Rc<Linearization>,
-    substitutions_map: HashMap<Resource<Node>, Vec<&'a ParamSubstitution>>,
+    substitutions_map: Rc<HashMap<Resource<Node>, Vec<ParamSubstitution>>>,
 }
 
-impl<'a> StackFrame<'a> {
-    pub fn new<I>(linearization: Rc<Linearization>, substitutions: I) -> Self
+impl StackFrame {
+    pub fn new<'a, I>(linearization: Rc<Linearization>, substitutions: I) -> Self
     where
         I: Iterator<Item = &'a ParamSubstitution>,
     {
-        let mut substitutions_map: HashMap<Resource<Node>, Vec<&ParamSubstitution>> =
-            HashMap::new();
+        let mut substitutions_map: HashMap<Resource<Node>, Vec<ParamSubstitution>> = HashMap::new();
         for s in substitutions {
             substitutions_map
                 .entry(s.resource().parameter_node())
-                .and_modify(|x| x.push(s))
-                .or_insert_with(|| vec![s]);
+                .and_modify(|x| x.push(s.clone()))
+                .or_insert_with(|| vec![s.clone()]);
         }
 
         Self {
             step: 0,
             instructions: VecDeque::from_iter(linearization.instructions.iter().cloned()),
             linearization: linearization.clone(),
-            substitutions_map,
+            substitutions_map: Rc::new(substitutions_map),
         }
     }
 
@@ -110,7 +109,7 @@ pub struct Interpreter<'a, B: gpu::Backend> {
     seq: u64,
 
     /// Callstack for complex operator calls
-    execution_stack: Vec<StackFrame<'a>>,
+    execution_stack: Vec<StackFrame>,
 }
 
 impl<'a, B: gpu::Backend> Interpreter<'a, B> {
@@ -241,10 +240,10 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.linearizations
                 .get(&op.graph)
                 .ok_or(InterpretationError::UnknownCall)?
-            .clone(),
-            op.parameters.values()
+                .clone(),
+            op.parameters.values(),
         );
-        // TODO: self.interpret_linearization(&op.graph, op.parameters.values())?;
+        self.execution_stack.push(frame);
 
         for (socket, _) in op.outputs().iter() {
             let socket_res = res.node_socket(&socket);
@@ -576,7 +575,11 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     }
 
     /// Interpret a single instruction, given a substitution map
-    fn interpret(&mut self, instr: &Instruction, substitutions: &HashMap<Resource<Node>, Vec<&ParamSubstitution>>) -> Result<Vec<ComputeEvent>, InterpretationError> {
+    fn interpret(
+        &mut self,
+        instr: &Instruction,
+        substitutions: &HashMap<Resource<Node>, Vec<ParamSubstitution>>,
+    ) -> Result<Vec<ComputeEvent>, InterpretationError> {
         let mut response = Vec::new();
 
         match instr {
@@ -634,18 +637,18 @@ where
     type Item = Result<Vec<ComputeEvent>, InterpretationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let stack = &mut self.execution_stack;
-        let frame = stack.last_mut()?;
+        let frame = self.execution_stack.last_mut()?;
         let instruction = frame.instructions.pop_front().unwrap();
+        let substitutions = frame.substitutions_map.clone();
         frame.step += 1;
 
-        match self.interpret(&instruction, &frame.substitutions_map) {
+        match self.interpret(&instruction, &substitutions) {
             Ok(r) => Some(Ok(r)),
 
             // Handle OOM
             Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
                 self.cleanup();
-                match self.interpret(&instruction, &frame.substitutions_map) {
+                match self.interpret(&instruction, &substitutions) {
                     Ok(r) => Some(Ok(r)),
                     Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
                         return Some(Err(InterpretationError::HardOOM))

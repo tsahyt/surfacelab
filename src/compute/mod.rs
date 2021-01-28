@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
+pub mod interpreter;
 pub mod shaders;
 pub mod sockets;
 
@@ -94,7 +95,7 @@ impl From<gpu::PipelineError> for InterpretationError {
 }
 
 #[derive(Debug)]
-struct Linearization {
+pub struct Linearization {
     instructions: Vec<Instruction>,
     use_points: Vec<(Resource<Node>, UsePoint)>,
 }
