@@ -46,7 +46,7 @@ impl From<gpu::PipelineError> for InterpretationError {
 }
 
 #[derive(Debug)]
-pub struct StackFrame {
+struct StackFrame {
     step: usize,
     instructions: VecDeque<Instruction>,
     linearization: Rc<Linearization>,
@@ -136,10 +136,6 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             seq,
             execution_stack,
         }
-    }
-
-    pub fn get_seq(&self) -> u64 {
-        self.seq
     }
 
     /// Execute a thumbnail instruction.
@@ -634,7 +630,7 @@ impl<'a, B> Iterator for Interpreter<'a, B>
 where
     B: gpu::Backend,
 {
-    type Item = Result<Vec<ComputeEvent>, InterpretationError>;
+    type Item = Result<(Vec<ComputeEvent>, u64), InterpretationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let frame = self.execution_stack.last_mut()?;
@@ -643,20 +639,20 @@ where
         frame.step += 1;
 
         let response = match self.interpret(&instruction, &substitutions) {
-            Ok(r) => Some(Ok(r)),
+            Ok(r) => Some(Ok((r, self.seq))),
 
             // Handle OOM
             Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
                 self.cleanup();
                 match self.interpret(&instruction, &substitutions) {
-                    Ok(r) => Some(Ok(r)),
+                    Ok(r) => Some(Ok((r, self.seq))),
                     Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
                         Some(Err(InterpretationError::HardOOM))
                     }
-                    e => Some(e),
+                    Err(e) => Some(Err(e)),
                 }
             }
-            e => Some(e),
+            Err(e) => Some(Err(e)),
         };
 
         // Pop frame if we're done here

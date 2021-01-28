@@ -97,9 +97,6 @@ struct ComputeManager<B: gpu::Backend> {
     /// uniforms for each resource. On the next execution this is checked, and
     /// if no changes happen, execution can be skipped entirely.
     last_known: HashMap<Resource<Node>, u64>,
-
-    /// Callstack for complex operator calls
-    execution_stack: Vec<interpreter::StackFrame>,
 }
 
 impl<B> ComputeManager<B>
@@ -118,7 +115,6 @@ where
             linearizations: HashMap::new(),
             seq: 0,
             last_known: HashMap::new(),
-            execution_stack: Vec::new(),
         }
     }
 
@@ -263,8 +259,6 @@ where
                     );
                 }
                 GraphEvent::Recompute(graph) => {
-                    debug_assert!(self.execution_stack.is_empty());
-
                     let interpreter = interpreter::Interpreter::new(
                         &mut self.gpu,
                         &mut self.sockets,
@@ -282,10 +276,11 @@ where
                                 log::error!("Error during compute interpretation: {:?}", e);
                                 log::error!("Aborting compute!");
                             }
-                            Ok(r) => {
+                            Ok((r, s)) => {
                                 for ev in r {
                                     response.push(Lang::ComputeEvent(ev))
                                 }
+                                self.seq = s;
                             }
                         }
                     }
