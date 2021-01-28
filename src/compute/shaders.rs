@@ -179,7 +179,6 @@ impl Uniforms for lang::Input {
 
 /// The shader library holds relevant data for all (operator) shaders.
 pub struct ShaderLibrary<B: gpu::Backend> {
-    _shaders: HashMap<String, gpu::Shader<B>>,
     pipelines: HashMap<String, gpu::compute::ComputePipeline<B>>,
     descriptor_sets: HashMap<String, B::DescriptorSet>,
 }
@@ -191,7 +190,6 @@ where
     /// Initialize the shader library
     pub fn new(gpu: &mut gpu::compute::GPUCompute<B>) -> Result<Self, String> {
         log::info!("Initializing Shader Library");
-        let mut shaders = HashMap::new();
         let mut pipelines = HashMap::new();
         let mut descriptor_sets = HashMap::new();
 
@@ -206,7 +204,6 @@ where
                     .map_err(|e| format!("{:?}", e))?;
                 let desc_set = gpu.allocate_descriptor_set(pipeline.set_layout())?;
 
-                shaders.insert(op.default_name().to_string(), shader);
                 pipelines.insert(op.default_name().to_string(), pipeline);
                 descriptor_sets.insert(op.default_name().to_string(), desc_set);
             }
@@ -215,7 +212,6 @@ where
         log::info!("Shader Library initialized!");
 
         Ok(ShaderLibrary {
-            _shaders: shaders,
             pipelines,
             descriptor_sets,
         })
