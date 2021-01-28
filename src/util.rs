@@ -7,6 +7,7 @@
 pub struct EMA<T> {
     ema: T,
     alpha: T,
+    extra: T,
 }
 
 impl<T> EMA<T>
@@ -14,25 +15,28 @@ where
     T: std::ops::Sub<T, Output = T>
         + std::ops::Mul<T, Output = T>
         + std::ops::Add<T, Output = T>
+        + num::Num
         + Copy,
 {
     /// Create a new EMA with a given initial value and a decay parameter,
     /// called alpha, documentation.
-    pub fn new(initial: T, alpha: T) -> Self {
+    pub fn new(alpha: T) -> Self {
         Self {
-            ema: initial,
+            ema: T::zero(),
             alpha,
+            extra: T::one(),
         }
     }
 
     /// Update the EMA with a new measurement
     pub fn update(&mut self, measurement: T) {
-        self.ema = self.ema + self.alpha * (measurement - self.ema);
+        self.ema = self.alpha * self.ema + (T::one() - self.alpha) * measurement;
+        self.extra = self.alpha * self.extra
     }
 
     /// Get the current value of the EMA
     pub fn get(&self) -> T {
-        self.ema
+        self.ema / (T::one() - self.extra)
     }
 }
 

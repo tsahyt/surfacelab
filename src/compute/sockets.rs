@@ -1,7 +1,7 @@
 use crate::{gpu, lang::*, util::*};
 use std::collections::{HashMap, HashSet};
 
-const TIMING_DECAY: f64 = 0.15;
+const TIMING_DECAY: f64 = 0.85;
 
 /// An output socket with a type and associated metadata. Outputs are *always*
 /// backed by a compute image. However, this image may not necessarily be backed
@@ -85,7 +85,7 @@ impl<B: gpu::Backend> SocketData<B> {
             known_outputs: HashSet::new(),
             output_size: size,
             inputs: HashMap::new(),
-            time_ema: EMA::new(0.0, TIMING_DECAY),
+            time_ema: EMA::new(TIMING_DECAY),
             thumbnail: None,
         }
     }

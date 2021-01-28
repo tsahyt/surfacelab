@@ -7,7 +7,7 @@ use std::time::Instant;
 use strum::IntoEnumIterator;
 
 const DEFAULT_SAMPLES: usize = 24;
-const TIMING_DECAY: f64 = 0.15;
+const TIMING_DECAY: f64 = 0.85;
 
 /// Start the render thread. This thread manages renderers.
 pub fn start_render_thread<B: gpu::Backend>(
@@ -164,7 +164,7 @@ impl<B: gpu::Backend> Renderer<B> {
             gpu,
             samples_to_go: 0,
             max_samples,
-            frametime_ema: EMA::new(0., TIMING_DECAY),
+            frametime_ema: EMA::new(TIMING_DECAY),
         }
     }
 

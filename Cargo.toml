@@ -29,6 +29,7 @@ maplit = "1.0.2"
 palette = "0.5.0"
 petgraph = { version = "0.5.0", features = ["serde-1"] }
 raw-window-handle = "0.3.3"
+num = "0.3.1"
 serde = "1.0.110"
 serde-big-array = "0.3.0"
 serde_cbor = "0.11.1"
