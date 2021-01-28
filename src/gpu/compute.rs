@@ -939,8 +939,11 @@ where
     }
 
     /// Get a new thumbnail from the cache
-    pub fn new_thumbnail(&mut self, grayscale: bool) -> ThumbnailIndex {
-        self.thumbnail_cache.next(grayscale)
+    pub fn new_thumbnail(&mut self, ty: lang::ImageType) -> ThumbnailIndex {
+        match ty {
+            lang::ImageType::Grayscale => self.thumbnail_cache.next(true),
+            lang::ImageType::Rgb => self.thumbnail_cache.next(false),
+        }
     }
 
     /// Return a thumbnail the cache. Thumbnail to thumbnail, dust to dust.

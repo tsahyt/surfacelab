@@ -167,10 +167,7 @@ where
     ) -> bool {
         if let Some(socket) = self.0.get_mut(&res) {
             if socket.thumbnail.is_none() {
-                socket.thumbnail = Some(gpu.new_thumbnail(match ty {
-                    ImageType::Grayscale => true,
-                    ImageType::Rgb => false,
-                }));
+                socket.thumbnail = Some(gpu.new_thumbnail(ty));
                 return true;
             }
         }
