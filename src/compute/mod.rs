@@ -288,11 +288,12 @@ where
                 GraphEvent::SocketMonomorphized(res, ty) => {
                     if self.sockets.is_known_output(res) {
                         log::trace!("Adding monomorphized socket {}", res);
+                        let size = self.sockets.get_image_size(&res.socket_node());
                         // Polymorphic operators never have external data.
                         let img = self
                             .gpu
                             .create_compute_image(
-                                self.sockets.get_image_size(&res.socket_node()),
+                                size,
                                 *ty,
                                 false,
                             )
@@ -300,7 +301,7 @@ where
                         // The socket is a known output, and thus the actual
                         // size should also already be known!
                         self.sockets
-                            .add_output_socket(res, Some((img, *ty)), 1024, false);
+                            .add_output_socket(res, Some((img, *ty)), size, false);
                         response.push(Lang::ComputeEvent(ComputeEvent::SocketCreated(
                             res.clone(),
                             *ty,
