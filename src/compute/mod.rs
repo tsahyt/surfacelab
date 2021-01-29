@@ -290,14 +290,7 @@ where
                         log::trace!("Adding monomorphized socket {}", res);
                         let size = self.sockets.get_image_size(&res.socket_node());
                         // Polymorphic operators never have external data.
-                        let img = self
-                            .gpu
-                            .create_compute_image(
-                                size,
-                                *ty,
-                                false,
-                            )
-                            .unwrap();
+                        let img = self.gpu.create_compute_image(size, *ty, false).unwrap();
                         // The socket is a known output, and thus the actual
                         // size should also already be known!
                         self.sockets
