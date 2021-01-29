@@ -146,11 +146,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     /// The thumbnail generation will only happen if the output socket has been
     /// updated in the current seq step.
     fn execute_thumbnail(&mut self, socket: &Resource<Socket>) -> Vec<ComputeEvent> {
-        debug_assert!(self
-            .sockets
-            .get_output_image(&socket)
-            .unwrap()
-            .is_backed());
+        debug_assert!(self.sockets.get_output_image(&socket).unwrap().is_backed());
 
         let node = socket.socket_node();
         let mut response = Vec::new();
@@ -277,6 +273,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         debug_assert!(self
             .sockets
             .get_output_image(&from)
+            .or(self.sockets.get_input_image(&from))
             .unwrap()
             .is_backed());
 
