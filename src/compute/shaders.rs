@@ -188,7 +188,7 @@ where
     B: gpu::Backend,
 {
     /// Initialize the shader library
-    pub fn new(gpu: &mut gpu::compute::GPUCompute<B>) -> Result<Self, String> {
+    pub fn new(gpu: &mut gpu::compute::GPUCompute<B>) -> Result<Self, gpu::InitializationError> {
         log::info!("Initializing Shader Library");
         let mut pipelines = HashMap::new();
         let mut descriptor_sets = HashMap::new();
@@ -196,12 +196,9 @@ where
         for op in lang::AtomicOperator::all_default() {
             log::trace!("Initializing operator {}", op.title());
             if let Some(operator_shader) = op.operator_shader() {
-                let shader: gpu::Shader<B> = gpu
-                    .create_shader(operator_shader.spirv)
-                    .map_err(|e| format!("{:?}", e))?;
-                let pipeline: gpu::compute::ComputePipeline<B> = gpu
-                    .create_pipeline(&shader, operator_shader.layout())
-                    .map_err(|e| format!("{:?}", e))?;
+                let shader: gpu::Shader<B> = gpu.create_shader(operator_shader.spirv)?;
+                let pipeline: gpu::compute::ComputePipeline<B> =
+                    gpu.create_pipeline(&shader, operator_shader.layout())?;
                 let desc_set = gpu.allocate_descriptor_set(pipeline.set_layout())?;
 
                 pipelines.insert(op.default_name().to_string(), pipeline);

@@ -429,9 +429,9 @@ where
     pub fn allocate_descriptor_set(
         &mut self,
         layout: &B::DescriptorSetLayout,
-    ) -> Result<B::DescriptorSet, String> {
+    ) -> Result<B::DescriptorSet, InitializationError> {
         unsafe { self.descriptor_pool.allocate_set(layout) }
-            .map_err(|e| format!("Failed to allocate descriptor set: {}", e))
+            .map_err(|_| InitializationError::Allocation("Failed to allocate descriptor set"))
     }
 
     /// Specifying the parameters of a descriptor set write operation
