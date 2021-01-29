@@ -77,7 +77,7 @@ impl App {
         if let Some(default) = self.registered_sockets.last() {
             self.export_entries.push((
                 "unnamed".to_owned(),
-                ExportSpec::Grayscale(default.spec.clone()),
+                ExportSpec::Grayscale([default.spec.clone()]),
             ));
         }
     }

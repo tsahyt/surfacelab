@@ -479,7 +479,7 @@ pub type ChannelSpec = (Resource<Socket>, ImageChannel);
 pub enum ExportSpec {
     RGBA([ChannelSpec; 4]),
     RGB([ChannelSpec; 3]),
-    Grayscale(ChannelSpec),
+    Grayscale([ChannelSpec; 1]),
 }
 
 impl ExportSpec {
@@ -488,13 +488,13 @@ impl ExportSpec {
         match &self {
             ExportSpec::RGBA(cs) => match ty {
                 ImageType::Rgb => self,
-                ImageType::Grayscale => ExportSpec::Grayscale(cs[0].clone()),
+                ImageType::Grayscale => ExportSpec::Grayscale([cs[0].clone()]),
             },
             ExportSpec::RGB(cs) => match ty {
                 ImageType::Rgb => self,
-                ImageType::Grayscale => ExportSpec::Grayscale(cs[0].clone()),
+                ImageType::Grayscale => ExportSpec::Grayscale([cs[0].clone()]),
             },
-            ExportSpec::Grayscale(c) => match ty {
+            ExportSpec::Grayscale([c]) => match ty {
                 ImageType::Grayscale => self,
                 ImageType::Rgb => ExportSpec::RGB([c.clone(), c.clone(), c.clone()]),
             },
@@ -530,7 +530,7 @@ impl ExportSpec {
                 cs[0] = spec;
             }
             ExportSpec::Grayscale(c) => {
-                *c = spec;
+                c[0] = spec;
             }
         }
     }
@@ -569,6 +569,14 @@ impl ExportSpec {
             }
             ExportSpec::RGB(_) => {}
             ExportSpec::Grayscale(_) => {}
+        }
+    }
+
+    pub fn channel_specs(&self) -> &[ChannelSpec] {
+        match self {
+            ExportSpec::RGBA(s) => &s[..],
+            ExportSpec::RGB(s) => &s[..],
+            ExportSpec::Grayscale(s) => &s[..],
         }
     }
 }

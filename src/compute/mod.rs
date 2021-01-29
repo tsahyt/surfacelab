@@ -328,13 +328,9 @@ where
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset(),
             Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset(),
-            Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => match export {
-                ExportSpec::RGBA(rgba_spec) => self.export_to_rgba(rgba_spec.clone(), *size, path),
-                ExportSpec::RGB(rgb_spec) => self.export_to_rgb(rgb_spec.clone(), *size, path),
-                ExportSpec::Grayscale(gray_spec) => {
-                    self.export_to_grayscale(gray_spec.clone(), *size, path)
-                }
-            },
+            Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => {
+                self.export(export, *size, path)
+            }
             _ => {}
         }
 
@@ -359,11 +355,11 @@ where
         self.last_known.clear();
     }
 
-    /// Export an RGBA image as given by an array of channel specifications to a certain path.
-    fn export_to_rgba<P: AsRef<Path>>(&mut self, spec: [ChannelSpec; 4], size: u32, path: P) {
+    /// Export an image as given by the export specifications to a certain path.
+    fn export<P: AsRef<Path>>(&mut self, spec: &ExportSpec, size: u32, path: P) {
         let mut images = HashMap::new();
 
-        for s in &spec {
+        for s in spec.channel_specs() {
             let entry = images.entry(s.0.clone());
             entry.or_insert_with(|| {
                 #[allow(clippy::or_fun_call)]
@@ -383,74 +379,35 @@ where
             });
         }
 
-        let final_image = ImageBuffer::from_fn(size, size, |x, y| {
-            Rgba([
-                images.get(&spec[0].0).unwrap().get_pixel(x, y)[spec[0].1.channel_index()],
-                images.get(&spec[1].0).unwrap().get_pixel(x, y)[spec[1].1.channel_index()],
-                images.get(&spec[2].0).unwrap().get_pixel(x, y)[spec[2].1.channel_index()],
-                images.get(&spec[3].0).unwrap().get_pixel(x, y)[spec[3].1.channel_index()],
-            ])
-        });
-
-        final_image.save(path).unwrap();
-    }
-
-    /// Export an RGB image as given by an array of channel specifications to a certain path.
-    fn export_to_rgb<P: AsRef<Path>>(&mut self, spec: [ChannelSpec; 3], size: u32, path: P) {
-        let mut images = HashMap::new();
-
-        for s in &spec {
-            let entry = images.entry(s.0.clone());
-            entry.or_insert_with(|| {
-                #[allow(clippy::or_fun_call)]
-                let (image, ty) = self
-                    .sockets
-                    .get_input_image_typed(&s.0)
-                    .or(self.sockets.get_output_image_typed(&s.0))
-                    .expect("Trying to export non-existent socket");
-                let img_size = image.get_size();
-                imageops::resize(
-                    &convert_image(&self.gpu.download_image(image).unwrap(), img_size, ty)
-                        .expect("Image conversion failed"),
-                    size,
-                    size,
-                    imageops::Triangle,
-                )
-            });
+        match spec {
+            ExportSpec::RGBA([r, g, b, a]) => {
+                let final_image = ImageBuffer::from_fn(size, size, |x, y| {
+                    Rgba([
+                        images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()],
+                        images.get(&g.0).unwrap().get_pixel(x, y)[g.1.channel_index()],
+                        images.get(&b.0).unwrap().get_pixel(x, y)[b.1.channel_index()],
+                        images.get(&a.0).unwrap().get_pixel(x, y)[a.1.channel_index()],
+                    ])
+                });
+                final_image.save(path).unwrap();
+            }
+            ExportSpec::RGB([r, g, b]) => {
+                let final_image = ImageBuffer::from_fn(size, size, |x, y| {
+                    Rgb([
+                        images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()],
+                        images.get(&g.0).unwrap().get_pixel(x, y)[g.1.channel_index()],
+                        images.get(&b.0).unwrap().get_pixel(x, y)[b.1.channel_index()],
+                    ])
+                });
+                final_image.save(path).unwrap();
+            }
+            ExportSpec::Grayscale([r]) => {
+                let final_image = ImageBuffer::from_fn(size, size, |x, y| {
+                    Luma([images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()]])
+                });
+                final_image.save(path).unwrap();
+            }
         }
-
-        let final_image = ImageBuffer::from_fn(size, size, |x, y| {
-            Rgb([
-                images.get(&spec[0].0).unwrap().get_pixel(x, y)[spec[0].1.channel_index()],
-                images.get(&spec[1].0).unwrap().get_pixel(x, y)[spec[1].1.channel_index()],
-                images.get(&spec[2].0).unwrap().get_pixel(x, y)[spec[2].1.channel_index()],
-            ])
-        });
-
-        final_image.save(path).unwrap();
-    }
-
-    /// Export a grayscale image as given by an array of channel specifications to a certain path.
-    fn export_to_grayscale<P: AsRef<Path>>(&mut self, spec: ChannelSpec, size: u32, path: P) {
-        #[allow(clippy::or_fun_call)]
-        let (image, ty) = self
-            .sockets
-            .get_input_image_typed(&spec.0)
-            .or(self.sockets.get_output_image_typed(&spec.0))
-            .expect("Trying to export non-existent socket {}");
-        let img_size = image.get_size();
-
-        let downloaded = imageops::resize(
-            &convert_image(&self.gpu.download_image(image).unwrap(), img_size, ty).unwrap(),
-            size,
-            size,
-            imageops::Triangle,
-        );
-        let final_image = ImageBuffer::from_fn(size, size, |x, y| {
-            Luma([downloaded.get_pixel(x, y)[spec.1.channel_index()]])
-        });
-
-        final_image.save(path).unwrap();
     }
 }
 
