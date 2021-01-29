@@ -1,7 +1,7 @@
 use super::shaders::{ShaderLibrary, Uniforms};
 use super::sockets::*;
 use super::Linearization;
-use crate::{gpu, lang::*};
+use crate::{gpu, lang::*, util::*};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::rc::Rc;
@@ -665,22 +665,6 @@ where
 
         response
     }
-}
-
-fn f16_from_u8(sample: u8) -> u16 {
-    half::f16::from_f32(sample as f32 / 256.0).to_bits()
-}
-
-fn f16_from_u16(sample: u16) -> u16 {
-    half::f16::from_f32(sample as f32 / 65536.0).to_bits()
-}
-
-fn f16_from_u8_gamma(sample: u8) -> u16 {
-    half::f16::from_f32((sample as f32 / 256.0).powf(2.2)).to_bits()
-}
-
-fn f16_from_u16_gamma(sample: u16) -> u16 {
-    half::f16::from_f32((sample as f32 / 65536.0).powf(2.2)).to_bits()
 }
 
 /// Load an image from a path into a u16 buffer with f16 encoding, using the

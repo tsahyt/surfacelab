@@ -93,3 +93,19 @@ impl Iterator for HaltonSequence2D {
         }
     }
 }
+
+pub fn f16_from_u8(sample: u8) -> u16 {
+    half::f16::from_f32(sample as f32 / 256.0).to_bits()
+}
+
+pub fn f16_from_u16(sample: u16) -> u16 {
+    half::f16::from_f32(sample as f32 / 65536.0).to_bits()
+}
+
+pub fn f16_from_u8_gamma(sample: u8) -> u16 {
+    half::f16::from_f32((sample as f32 / 256.0).powf(2.2)).to_bits()
+}
+
+pub fn f16_from_u16_gamma(sample: u16) -> u16 {
+    half::f16::from_f32((sample as f32 / 65536.0).powf(2.2)).to_bits()
+}
