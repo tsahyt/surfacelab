@@ -146,6 +146,12 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     /// The thumbnail generation will only happen if the output socket has been
     /// updated in the current seq step.
     fn execute_thumbnail(&mut self, socket: &Resource<Socket>) -> Vec<ComputeEvent> {
+        debug_assert!(self
+            .sockets
+            .get_output_image(&socket)
+            .unwrap()
+            .is_backed());
+
         let node = socket.socket_node();
         let mut response = Vec::new();
         let updated = self
@@ -261,14 +267,19 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
     /// Execute a copy instruction.
     ///
-    /// *Note*: The source image has to be backed. This is *not* checked and may result
-    /// in segfaults or all sorts of nasty behaviour. The target image will be
+    /// *Note*: The source image has to be backed. The target image will be
     /// allocated if not already.
     fn execute_copy(
         &mut self,
         from: &Resource<Socket>,
         to: &Resource<Socket>,
     ) -> Result<(), InterpretationError> {
+        debug_assert!(self
+            .sockets
+            .get_output_image(&from)
+            .unwrap()
+            .is_backed());
+
         let to_seq = self.sockets.get_output_image_updated(&to.socket_node());
         let from_seq = self
             .sockets
