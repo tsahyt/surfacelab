@@ -757,9 +757,15 @@ where
                 .set(self.ids.layer_delete, ui)
             {
                 self.sender
-                    .send(Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
-                        active_layer.resource.clone(),
-                    )))
+                    .send(if active_layer.is_mask {
+                        Lang::UserLayersEvent(UserLayersEvent::RemoveMask(
+                            active_layer.resource.clone(),
+                        ))
+                    } else {
+                        Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
+                            active_layer.resource.clone(),
+                        ))
+                    })
                     .unwrap();
                 self.app_state.active_layer_element = None;
             }

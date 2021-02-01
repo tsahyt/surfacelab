@@ -236,6 +236,7 @@ impl NodeCollections {
         }
     }
 
+    /// Removes a layer or mask
     pub fn remove_layer(&mut self, layer_res: &Resource<Node>) {
         use id_tree::RemoveBehavior::*;
 

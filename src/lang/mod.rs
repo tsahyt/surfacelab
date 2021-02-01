@@ -357,6 +357,7 @@ pub enum UserLayersEvent {
     PushLayer(Resource<Graph>, LayerType, Operator),
     PushMask(Resource<Node>, Operator),
     RemoveLayer(Resource<Node>),
+    RemoveMask(Resource<Node>),
     MoveUp(Resource<Node>),
     MoveDown(Resource<Node>),
     SetOutput(Resource<Node>, MaterialChannel, usize, bool),

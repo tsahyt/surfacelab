@@ -718,9 +718,27 @@ impl NodeManager {
                 if let Some(ManagedNodeCollection::LayerStack(ls)) =
                     self.graphs.get_mut(layer_res.directory().unwrap())
                 {
-                    if ls.remove(layer_res).is_some() {
+                    if ls.remove_layer(layer_res).is_some() {
                         response.push(Lang::LayersEvent(LayersEvent::LayerRemoved(
                             layer_res.clone(),
+                        )));
+                    }
+
+                    if let Some(linearize) = self.relinearize(&self.active_graph) {
+                        response.push(linearize);
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                            self.active_graph.clone(),
+                        )));
+                    }
+                }
+            }
+            UserLayersEvent::RemoveMask(mask_res) => {
+                if let Some(ManagedNodeCollection::LayerStack(ls)) =
+                    self.graphs.get_mut(mask_res.directory().unwrap())
+                {
+                    if ls.remove_mask(mask_res).is_some() {
+                        response.push(Lang::LayersEvent(LayersEvent::LayerRemoved(
+                            mask_res.clone(),
                         )));
                     }
 

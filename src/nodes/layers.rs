@@ -440,6 +440,13 @@ impl MaskStack {
             mask.blend_options.enabled = enabled;
         }
     }
+
+    pub fn remove_mask(&mut self, mask: &Resource<Node>) -> Option<Mask> {
+        self.resources
+            .get(mask.file().unwrap())
+            .copied()
+            .map(|idx| self.stack.remove(idx))
+    }
 }
 
 /// Options for blending a layer on top of the underlying stack.
@@ -661,6 +668,10 @@ impl Layer {
         self.blend_options.mask.move_down(mask)
     }
 
+    pub fn remove_mask(&mut self, mask: &Resource<Node>) -> Option<Mask> {
+        self.blend_options.mask.remove_mask(mask)
+    }
+
     /// Determine the number of graph "layers" taken up by this layer, for use
     /// in converting the layer stack to a graph. This is not the total count of
     /// nodes, since channels can be stacked vertically and don't affect the width.
@@ -780,7 +791,7 @@ impl LayerStack {
     }
 
     /// Remove a layer by resource
-    pub fn remove(&mut self, resource: &Resource<Node>) -> Option<Layer> {
+    pub fn remove_layer(&mut self, resource: &Resource<Node>) -> Option<Layer> {
         if let Some(index) = self.resources.remove(resource.file().unwrap()) {
             let layer = self.layers.remove(index);
 
@@ -792,6 +803,13 @@ impl LayerStack {
         } else {
             None
         }
+    }
+
+    /// Remove a mask by resource
+    pub fn remove_mask(&mut self, resource: &Resource<Node>) -> Option<Mask> {
+        let parent_resource = layer_resource_from_mask_resource(resource);
+        let idx = self.resources.get(parent_resource.file().unwrap())?;
+        self.layers[*idx].remove_mask(resource)
     }
 
     /// Reset the layer stack, removing all layers
