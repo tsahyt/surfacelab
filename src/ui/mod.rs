@@ -54,11 +54,11 @@ fn ui_loop<B: gpu::Backend>(
         icon_font: ui
             .fonts
             .insert_from_file(assets.join("MaterialDesignIcons.ttf"))
-            .unwrap(),
+            .expect("Missing icon font!"),
         text_font: ui
             .fonts
             .insert_from_file(assets.join("Recursive-Regular.ttf"))
-            .unwrap(),
+            .expect("Missing UI font!"),
     };
 
     // Initialize main GUI type
