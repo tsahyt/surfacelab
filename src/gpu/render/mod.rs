@@ -31,9 +31,10 @@ const SPECMAP_SIZE: usize = 512;
 pub trait Renderer {
     fn fragment_shader() -> &'static [u8];
     fn set_resolution(&mut self, w: f32, h: f32);
+    fn uniforms(&self) -> &[u8];
 }
 
-pub struct GPURender<B: Backend, U: Renderer + AsBytes> {
+pub struct GPURender<B: Backend, U: Renderer> {
     gpu: Arc<Mutex<GPU<B>>>,
     command_pool: ManuallyDrop<B::CommandPool>,
 
@@ -237,7 +238,7 @@ where
 impl<B, U> GPURender<B, U>
 where
     B: Backend,
-    U: Renderer + AsBytes,
+    U: Renderer,
 {
     const UNIFORM_BUFFER_SIZE: u64 = 512;
     const FINAL_FORMAT: hal::format::Format = hal::format::Format::Rgba16Sfloat;
@@ -894,7 +895,7 @@ where
             let mut lock = self.gpu.lock().unwrap();
 
             let occupancy = self.build_occupancy();
-            let uniforms = self.view.as_bytes();
+            let uniforms = self.view.uniforms();
             self.fill_uniforms(&lock.device, occupancy.as_bytes(), uniforms)
                 .expect("Error filling uniforms during render");
 
@@ -1376,7 +1377,7 @@ where
 impl<B, U> Drop for GPURender<B, U>
 where
     B: Backend,
-    U: Renderer + AsBytes,
+    U: Renderer,
 {
     fn drop(&mut self) {
         // Finish all rendering before destruction of resources

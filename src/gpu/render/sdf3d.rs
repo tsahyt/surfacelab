@@ -77,6 +77,10 @@ impl Renderer for Uniforms {
     fn set_resolution(&mut self, w: f32, h: f32) {
         self.resolution = [w, h];
     }
+
+    fn uniforms(&self) -> &[u8] {
+        self.as_bytes()
+    }
 }
 
 impl<B> GPURender<B, Uniforms>
