@@ -917,128 +917,131 @@ where
 
             unsafe {
                 use hal::pso::*;
-                lock.device.write_descriptor_sets(vec![
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 0,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Sampler(&*self.sampler)),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 1,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Buffer(
-                            &*self.occupancy_buffer,
-                            hal::buffer::SubRange::WHOLE,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 2,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Buffer(
-                            &*self.uniform_buffer,
-                            hal::buffer::SubRange::WHOLE,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 3,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            &*self.image_slots.displacement.view,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 4,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            &*self.image_slots.albedo.view,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 5,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            &*self.image_slots.normal.view,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 6,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            &*self.image_slots.roughness.view,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 7,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            &*self.image_slots.metallic.view,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 8,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            self.environment_maps.irradiance_view(),
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 9,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            self.environment_maps.spec_view(),
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.main_descriptor_set,
-                        binding: 10,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            self.environment_maps.brdf_lut_view(),
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.accum_descriptor_set,
-                        binding: 0,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Sampler(&*self.sampler)),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.accum_descriptor_set,
-                        binding: 1,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            &*self.render_target.image_view().lock().unwrap(),
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    DescriptorSetWrite {
-                        set: &self.accum_descriptor_set,
-                        binding: 2,
-                        array_offset: 0,
-                        descriptors: Some(Descriptor::Image(
-                            &*self.accum_target.image_view().lock().unwrap(),
-                            hal::image::Layout::General,
-                        )),
-                    },
-                ]);
+                lock.device.write_descriptor_sets(
+                    vec![
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 0,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Sampler(&*self.sampler)),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 1,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Buffer(
+                                &*self.occupancy_buffer,
+                                hal::buffer::SubRange::WHOLE,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 2,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Buffer(
+                                &*self.uniform_buffer,
+                                hal::buffer::SubRange::WHOLE,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 3,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                &*self.image_slots.displacement.view,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 4,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                &*self.image_slots.albedo.view,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 5,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                &*self.image_slots.normal.view,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 6,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                &*self.image_slots.roughness.view,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 7,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                &*self.image_slots.metallic.view,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 8,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                self.environment_maps.irradiance_view(),
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 9,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                self.environment_maps.spec_view(),
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 10,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                self.environment_maps.brdf_lut_view(),
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.accum_descriptor_set,
+                            binding: 0,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Sampler(&*self.sampler)),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.accum_descriptor_set,
+                            binding: 1,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                &*self.render_target.image_view().lock().unwrap(),
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.accum_descriptor_set,
+                            binding: 2,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                &*self.accum_target.image_view().lock().unwrap(),
+                                hal::image::Layout::General,
+                            )),
+                        },
+                    ]
+                    .into_iter(),
+                );
             }
 
             let cmd_buffer = unsafe {
