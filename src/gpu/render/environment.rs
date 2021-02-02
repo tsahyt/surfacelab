@@ -404,7 +404,7 @@ where
         let mut command_pool = unsafe {
             lock.device.create_command_pool(
                 lock.queue_group.family,
-                hal::pool::CommandPoolCreateFlags::empty(),
+                hal::pool::CommandPoolCreateFlags::TRANSIENT,
             )
         }
         .map_err(|_| {
