@@ -736,7 +736,7 @@ impl ParamBoxDescription<RenderField> {
                         Parameter {
                             name: "fog-strength".to_string(),
                             control: Control::Slider {
-                                value: 0.2,
+                                value: 0.0,
                                 min: 0.0,
                                 max: 1.0,
                             },

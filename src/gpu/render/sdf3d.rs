@@ -62,7 +62,7 @@ impl Default for Uniforms {
             environment_blur: 0.5,
             light_type: LightType::PointLight,
             light_strength: 100.0,
-            fog_strength: 0.2,
+            fog_strength: 0.0,
             shadow: 1,
             ao: 0,
         }
