@@ -21,7 +21,6 @@ pub use sdf3d::RendererSDF3D;
 
 use environment::EnvironmentMaps;
 
-static MAIN_VERTEX_SHADER: &[u8] = include_bytes!("../../../shaders/quad.spv");
 static ACCUM_SHADER: &[u8] = include_bytes!("../../../shaders/accum.spv");
 
 const IRRADIANCE_SIZE: usize = 32;
@@ -29,6 +28,7 @@ const SPECMAP_SIZE: usize = 512;
 
 /// Functions defining a renderer
 pub trait Renderer {
+    fn vertex_shader() -> &'static [u8];
     fn fragment_shader() -> &'static [u8];
     fn set_resolution(&mut self, w: f32, h: f32);
     fn uniforms(&self) -> &[u8];
@@ -460,7 +460,7 @@ where
             hal::format::Format::Rgba32Sfloat,
             &main_set_layout,
             ObjectType::Cube,
-            MAIN_VERTEX_SHADER,
+            U::vertex_shader(),
             U::fragment_shader(),
         )?;
 

@@ -7,6 +7,7 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
 
+static MAIN_VERTEX_SHADER_3D: &[u8] = include_bytes!("../../../shaders/quad.spv");
 static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/sdf3d.spv");
 
 /// A 3D renderer using ray tracing/sphere tracing to display the PBR material
@@ -70,6 +71,10 @@ impl Default for Uniforms {
 }
 
 impl Renderer for Uniforms {
+    fn vertex_shader() -> &'static [u8] {
+        MAIN_VERTEX_SHADER_3D
+    }
+
     fn fragment_shader() -> &'static [u8] {
         MAIN_FRAGMENT_SHADER_3D
     }
@@ -116,8 +121,8 @@ where
             hal::format::Format::Rgba32Sfloat,
             &*self.main_descriptor_set_layout,
             object_type,
-            super::MAIN_VERTEX_SHADER,
-            MAIN_FRAGMENT_SHADER_3D,
+            Uniforms::vertex_shader(),
+            Uniforms::fragment_shader(),
         )?;
 
         unsafe {

@@ -3,6 +3,7 @@ use crate::gpu::{Backend, InitializationError, GPU};
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
 
+static MAIN_VERTEX_SHADER_2D: &[u8] = include_bytes!("../../../shaders/quad.spv");
 static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../../shaders/renderer2d.spv");
 
 /// A 2D renderer displaying a "top down" view on the texture channel.
@@ -30,6 +31,10 @@ impl Default for Uniforms {
 }
 
 impl Renderer for Uniforms {
+    fn vertex_shader() -> &'static [u8] {
+        MAIN_VERTEX_SHADER_2D
+    }
+
     fn fragment_shader() -> &'static [u8] {
         MAIN_FRAGMENT_SHADER_2D
     }
