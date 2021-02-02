@@ -652,7 +652,7 @@ where
     pub fn load_hdri<P: AsRef<std::path::Path>>(&mut self, renderer_id: RendererID, path: P) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             if let ManagedRenderer::RendererSDF3D(r) = &mut r.gpu {
-                r.load_environment(path);
+                r.load_environment(path).unwrap();
             }
             r.reset_sampling();
         }

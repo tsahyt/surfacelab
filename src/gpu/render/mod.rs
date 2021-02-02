@@ -1376,11 +1376,14 @@ where
     }
 
     /// Load a new environment from a HDRi file.
-    pub fn load_environment<P: AsRef<std::path::Path>>(&mut self, path: P) {
+    pub fn load_environment<P: AsRef<std::path::Path>>(
+        &mut self,
+        path: P,
+    ) -> Result<(), environment::EnvironmentError> {
         let new_env =
-            EnvironmentMaps::from_file(self.gpu.clone(), IRRADIANCE_SIZE, SPECMAP_SIZE, path)
-                .unwrap();
+            EnvironmentMaps::from_file(self.gpu.clone(), IRRADIANCE_SIZE, SPECMAP_SIZE, path)?;
         self.environment_maps = new_env;
+        Ok(())
     }
 }
 
