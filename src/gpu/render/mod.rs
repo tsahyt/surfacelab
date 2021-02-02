@@ -1238,31 +1238,6 @@ where
 
         image_slot.occupied = true;
 
-        let blits: Vec<_> = (0..image_slot.mip_levels)
-            .map(|level| hal::command::ImageBlit {
-                src_subresource: hal::image::SubresourceLayers {
-                    aspects: hal::format::Aspects::COLOR,
-                    level: 0,
-                    layers: 0..1,
-                },
-                src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-                    x: source_size,
-                    y: source_size,
-                    z: 1,
-                },
-                dst_subresource: hal::image::SubresourceLayers {
-                    aspects: hal::format::Aspects::COLOR,
-                    level,
-                    layers: 0..1,
-                },
-                dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
-                    x: image_slot.image_size >> level,
-                    y: image_slot.image_size >> level,
-                    z: 1,
-                },
-            })
-            .collect();
-
         let cmd_buffer = unsafe {
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
             cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
@@ -1302,7 +1277,28 @@ where
                 &*image_slot.image,
                 hal::image::Layout::TransferDstOptimal,
                 hal::image::Filter::Linear,
-                &blits,
+                (0..image_slot.mip_levels).map(|level| hal::command::ImageBlit {
+                    src_subresource: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level: 0,
+                        layers: 0..1,
+                    },
+                    src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                        x: source_size,
+                        y: source_size,
+                        z: 1,
+                    },
+                    dst_subresource: hal::image::SubresourceLayers {
+                        aspects: hal::format::Aspects::COLOR,
+                        level,
+                        layers: 0..1,
+                    },
+                    dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                        x: image_slot.image_size >> level,
+                        y: image_slot.image_size >> level,
+                        z: 1,
+                    },
+                }),
             );
             cmd_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::FRAGMENT_SHADER,
