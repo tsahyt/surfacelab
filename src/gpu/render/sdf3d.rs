@@ -7,7 +7,7 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
 
-static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/renderer3d.spv");
+static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/sdf3d.spv");
 
 /// A 3D renderer using ray tracing/sphere tracing to display the PBR material
 /// with real displacement. Designed for temporal multisampling
