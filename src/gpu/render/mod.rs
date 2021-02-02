@@ -7,8 +7,8 @@ use gfx_hal::prelude::*;
 use std::borrow::Cow;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
-use zerocopy::AsBytes;
 use thiserror::Error;
+use zerocopy::AsBytes;
 
 use super::{Backend, InitializationError, PipelineError, GPU};
 
@@ -239,7 +239,9 @@ where
 #[derive(Debug, Error)]
 pub enum RenderError {
     #[error("Failed failling uniforms during render")]
-    UniformFill
+    UniformFill,
+    #[error("Render fence timed out")]
+    FenceTimeout,
 }
 
 impl<B, U> GPURender<B, U>
@@ -894,7 +896,7 @@ where
     }
 
     /// Render a single frame
-    pub fn render(&mut self) -> Result<(), RenderError>{
+    pub fn render(&mut self) -> Result<(), RenderError> {
         // Wait on previous fence to make sure the last frame has been rendered.
         self.synchronize_at_fence();
 
@@ -903,7 +905,8 @@ where
 
             let occupancy = self.build_occupancy();
             let uniforms = self.view.uniforms();
-            self.fill_uniforms(&lock.device, occupancy.as_bytes(), uniforms).map_err(|_| RenderError::UniformFill)?;
+            self.fill_uniforms(&lock.device, occupancy.as_bytes(), uniforms)
+                .map_err(|_| RenderError::UniformFill)?;
 
             let framebuffer = unsafe {
                 lock.device
@@ -1198,7 +1201,7 @@ where
                 );
                 lock.device
                     .wait_for_fence(&self.complete_fence, 10_000_000_000)
-                    .expect("Failed to wait for fence after render");
+                    .map_err(|_| RenderError::FenceTimeout)?;
             }
 
             unsafe {
