@@ -1,4 +1,4 @@
-use super::{Backend, GPU};
+use super::{Backend, InitializationError, GPU};
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use image::hdr;
@@ -6,6 +6,7 @@ use std::mem::ManuallyDrop;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use thiserror::Error;
 
 use super::brdf_lut::*;
 
@@ -28,7 +29,6 @@ pub struct EnvironmentMaps<B: Backend> {
 
     spec_image: ManuallyDrop<B::Image>,
     spec_view: ManuallyDrop<B::ImageView>,
-    spec_mip_views: Vec<B::ImageView>,
     spec_memory: ManuallyDrop<B::Memory>,
 
     brdf_lut_image: ManuallyDrop<B::Image>,
@@ -50,6 +50,14 @@ pub const CUBE_MIP_COLOR_RANGE: hal::image::SubresourceRange = hal::image::Subre
     layers: 0..6,
 };
 
+#[derive(Debug, Error)]
+pub enum EnvironmentError {
+    #[error("Failed to initialize GPU structures")]
+    InitializationError(#[from] InitializationError),
+    #[error("HDRi IO failed")]
+    HDRiIOFailure,
+}
+
 impl<B> EnvironmentMaps<B>
 where
     B: Backend,
@@ -63,7 +71,7 @@ where
         gpu: Arc<Mutex<GPU<B>>>,
         irradiance_size: usize,
         spec_size: usize,
-    ) -> Result<Self, &'static str> {
+    ) -> Result<Self, InitializationError> {
         let lock = gpu.lock().unwrap();
 
         // Irradiance cube map
@@ -78,7 +86,7 @@ where
                     hal::image::ViewCapabilities::KIND_CUBE,
                 )
             }
-            .map_err(|_| "Failed to acquire cube map image")?;
+            .map_err(|_| InitializationError::ResourceAcquisition("Irradiance map image"))?;
 
             let requirements = unsafe { lock.device.get_image_requirements(&irradiance_image) };
             let memory_type = lock
@@ -94,7 +102,7 @@ where
                 .into();
             let irradiance_memory =
                 unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
-                    .map_err(|_| "Failed to allocate memory for cube map")?;
+                    .map_err(|_| InitializationError::Allocation("Irradiance map"))?;
             unsafe {
                 lock.device
                     .bind_image_memory(&irradiance_memory, 0, &mut irradiance_image)
@@ -110,13 +118,13 @@ where
                     CUBE_COLOR_RANGE.clone(),
                 )
             }
-            .map_err(|_| "Failed to create cube map view")?;
+            .map_err(|_| InitializationError::ResourceAcquisition("Irradiance map view"))?;
 
             (irradiance_image, irradiance_memory, irradiance_view)
         };
 
         // Pre-filtered environment map
-        let (spec_image, spec_memory, spec_view, spec_mip_views) = {
+        let (spec_image, spec_memory, spec_view) = {
             let mut spec_image = unsafe {
                 lock.device.create_image(
                     hal::image::Kind::D2(spec_size as u32, spec_size as u32, 6, 1),
@@ -127,7 +135,7 @@ where
                     hal::image::ViewCapabilities::KIND_CUBE,
                 )
             }
-            .map_err(|_| "Failed to acquire cube map image")?;
+            .map_err(|_| InitializationError::ResourceAcquisition("Specular map image"))?;
 
             let requirements = unsafe { lock.device.get_image_requirements(&spec_image) };
             let memory_type = lock
@@ -143,7 +151,7 @@ where
                 .into();
             let spec_memory =
                 unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
-                    .map_err(|_| "Failed to allocate memory for cube map")?;
+                    .map_err(|_| InitializationError::Allocation("Specular map"))?;
             unsafe {
                 lock.device
                     .bind_image_memory(&spec_memory, 0, &mut spec_image)
@@ -159,29 +167,9 @@ where
                     CUBE_MIP_COLOR_RANGE.clone(),
                 )
             }
-            .map_err(|_| "Failed to create cube map view")?;
+            .map_err(|_| InitializationError::ResourceAcquisition("Specular map view"))?;
 
-            let mut spec_mip_views = Vec::with_capacity(MIP_LEVELS as usize);
-
-            for level in 0..MIP_LEVELS {
-                let view = unsafe {
-                    lock.device.create_image_view(
-                        &spec_image,
-                        hal::image::ViewKind::Cube,
-                        Self::FORMAT,
-                        hal::format::Swizzle::NO,
-                        hal::image::SubresourceRange {
-                            aspects: hal::format::Aspects::COLOR,
-                            levels: level..level + 1,
-                            layers: 0..6,
-                        },
-                    )
-                }
-                .map_err(|_| "Failed to create cube map MIP view")?;
-                spec_mip_views.push(view);
-            }
-
-            (spec_image, spec_memory, spec_view, spec_mip_views)
+            (spec_image, spec_memory, spec_view)
         };
 
         // Lookup table
@@ -196,7 +184,7 @@ where
                     hal::image::ViewCapabilities::empty(),
                 )
             }
-            .map_err(|_| "Failed to acquire BRDF LUT image")?;
+            .map_err(|_| InitializationError::ResourceAcquisition("BRDF LUT image"))?;
 
             let requirements = unsafe { lock.device.get_image_requirements(&brdf_image) };
             let memory_type = lock
@@ -212,7 +200,7 @@ where
                 .into();
             let brdf_memory =
                 unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
-                    .map_err(|_| "Failed to allocate memory for BRDF LUT")?;
+                    .map_err(|_| InitializationError::Allocation("BRDF LUT"))?;
             unsafe {
                 lock.device
                     .bind_image_memory(&brdf_memory, 0, &mut brdf_image)
@@ -228,7 +216,7 @@ where
                     super::super::COLOR_RANGE.clone(),
                 )
             }
-            .map_err(|_| "Failed to create BRDF LUT view")?;
+            .map_err(|_| InitializationError::ResourceAcquisition("BRDF LUT view"))?;
 
             (brdf_image, brdf_memory, brdf_view)
         };
@@ -243,7 +231,6 @@ where
             spec_image: ManuallyDrop::new(spec_image),
             spec_memory: ManuallyDrop::new(spec_memory),
             spec_view: ManuallyDrop::new(spec_view),
-            spec_mip_views,
             brdf_lut_image: ManuallyDrop::new(brdf_lut_image),
             brdf_lut_memory: ManuallyDrop::new(brdf_lut_memory),
             brdf_lut_view: ManuallyDrop::new(brdf_lut_view),
@@ -257,7 +244,7 @@ where
         irradiance_size: usize,
         spec_size: usize,
         path: P,
-    ) -> Result<Self, &'static str> {
+    ) -> Result<Self, EnvironmentError> {
         use std::fs::File;
         use std::io::BufReader;
 
@@ -267,12 +254,12 @@ where
         // Read data from file
         let start_io = Instant::now();
 
-        let reader = BufReader::new(File::open(path).map_err(|_| "Failed to open HDRi file")?);
-        let decoder = hdr::HdrDecoder::new(reader).map_err(|_| "Failed to decode HDRi file")?;
+        let reader = BufReader::new(File::open(path).map_err(|_| EnvironmentError::HDRiIOFailure)?);
+        let decoder = hdr::HdrDecoder::new(reader).map_err(|_| EnvironmentError::HDRiIOFailure)?;
         let metadata = decoder.metadata();
         let raw_hdri: Vec<image::Rgba<f32>> = decoder
             .read_image_hdr()
-            .map_err(|_| "Failed to read from HDRi file")?
+            .map_err(|_| EnvironmentError::HDRiIOFailure)?
             .iter()
             .map(|rgb| image::Rgba([rgb[0], rgb[1], rgb[2], 1.0]))
             .collect();
@@ -293,7 +280,11 @@ where
                     hal::buffer::Usage::TRANSFER_SRC,
                 )
             }
-            .map_err(|_| "Failed to create staging buffer")?;
+            .map_err(|_| {
+                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                    "Staging buffer",
+                ))
+            })?;
 
             let buffer_requirements =
                 unsafe { lock.device.get_buffer_requirements(&staging_buffer) };
@@ -311,12 +302,18 @@ where
                 .unwrap()
                 .into();
             let staging_mem = unsafe { lock.device.allocate_memory(staging_memory_type, bytes) }
-                .map_err(|_| "Failed to allocate memory for staging buffer")?;
+                .map_err(|_| {
+                    EnvironmentError::InitializationError(InitializationError::Allocation(
+                        "Staging buffer",
+                    ))
+                })?;
 
             unsafe {
                 lock.device
                     .bind_buffer_memory(&staging_mem, 0, &mut staging_buffer)
-                    .map_err(|_| "Failed to bind staging buffer")?
+                    .map_err(|_| {
+                        EnvironmentError::InitializationError(InitializationError::Bind)
+                    })?;
             };
 
             unsafe {
@@ -353,7 +350,11 @@ where
                     hal::image::ViewCapabilities::empty(),
                 )
             }
-            .map_err(|_| "Failed to acquire equirectangular image")?;
+            .map_err(|_| {
+                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                    "Equirectangular image",
+                ))
+            })?;
 
             let requirements = unsafe { lock.device.get_image_requirements(&equirect_image) };
             let memory_type = lock
@@ -369,8 +370,13 @@ where
                 .into();
 
             let equirect_memory =
-                unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
-                    .map_err(|_| "Failed to allocate memory for equirectangular")?;
+                unsafe { lock.device.allocate_memory(memory_type, requirements.size) }.map_err(
+                    |_| {
+                        EnvironmentError::InitializationError(InitializationError::Allocation(
+                            "Equirectangular",
+                        ))
+                    },
+                )?;
             unsafe {
                 lock.device
                     .bind_image_memory(&equirect_memory, 0, &mut equirect_image)
@@ -386,7 +392,11 @@ where
                     super::super::COLOR_RANGE.clone(),
                 )
             }
-            .map_err(|_| "Failed to create equirectangular view")?;
+            .map_err(|_| {
+                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                    "Equirectangular view",
+                ))
+            })?;
 
             (equirect_image, equirect_view, equirect_memory)
         };
@@ -397,7 +407,11 @@ where
                 hal::pool::CommandPoolCreateFlags::empty(),
             )
         }
-        .map_err(|_| "Failed to create command pool for HDRi processing")?;
+        .map_err(|_| {
+            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                "Command pool",
+            ))
+        })?;
 
         let fence = lock.device.create_fence(false).unwrap();
 
@@ -585,7 +599,11 @@ where
                 DescriptorPoolCreateFlags::empty(),
             )
         }
-        .map_err(|_| "Failed to create descriptor pool")?;
+        .map_err(|_| {
+            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                "Descriptor pool",
+            ))
+        })?;
 
         let set_layout = unsafe {
             lock.device.create_descriptor_set_layout(
@@ -621,7 +639,11 @@ where
                 &[],
             )
         }
-        .map_err(|_| "Failed to create descriptor set layout")?;
+        .map_err(|_| {
+            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                "Descriptor set layout",
+            ))
+        })?;
 
         let pipeline_layout = unsafe {
             lock.device.create_pipeline_layout(
@@ -630,18 +652,24 @@ where
                 &[(hal::pso::ShaderStageFlags::COMPUTE, 0..4)],
             )
         }
-        .map_err(|_| "Failed to create compute pipeline")?;
+        .map_err(|_| {
+            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                "Compute pipeline",
+            ))
+        })?;
 
         let irradiance_module = {
-            let loaded_spirv =
-                hal::pso::read_spirv(std::io::Cursor::new(IRRADIANCE_SHADER)).map_err(|_| "")?;
-            unsafe { lock.device.create_shader_module(&loaded_spirv) }.map_err(|_| "")?
+            let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(IRRADIANCE_SHADER))
+                .map_err(|_| InitializationError::ShaderSPIRV)?;
+            unsafe { lock.device.create_shader_module(&loaded_spirv) }
+                .map_err(|_| InitializationError::ShaderModule)?
         };
 
         let prefilter_module = {
-            let loaded_spirv =
-                hal::pso::read_spirv(std::io::Cursor::new(PREFILTER_SHADER)).map_err(|_| "")?;
-            unsafe { lock.device.create_shader_module(&loaded_spirv) }.map_err(|_| "")?
+            let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(PREFILTER_SHADER))
+                .map_err(|_| InitializationError::ShaderSPIRV)?;
+            unsafe { lock.device.create_shader_module(&loaded_spirv) }
+                .map_err(|_| InitializationError::ShaderModule)?
         };
 
         let irradiance_pipeline = unsafe {
@@ -657,7 +685,11 @@ where
                 None,
             )
         }
-        .map_err(|_| "Failed to create irradiance compute pipeline")?;
+        .map_err(|_| {
+            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                "Compute pipeline",
+            ))
+        })?;
 
         let prefilter_pipeline = unsafe {
             lock.device.create_compute_pipeline(
@@ -672,7 +704,11 @@ where
                 None,
             )
         }
-        .map_err(|_| "Failed to create irradiance compute pipeline")?;
+        .map_err(|_| {
+            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                "Compute pipeline",
+            ))
+        })?;
 
         let sampler = unsafe {
             lock.device.create_sampler(&hal::image::SamplerDesc::new(
@@ -680,13 +716,21 @@ where
                 hal::image::WrapMode::Tile,
             ))
         }
-        .map_err(|_| "Failed to create sampler")?;
+        .map_err(|_| {
+            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                "Sampler",
+            ))
+        })?;
 
         log::debug!("Starting convolution of HDRi");
         let start_conv = Instant::now();
 
-        let irradiance_descriptors = unsafe { descriptor_pool.allocate_set(&set_layout) }
-            .map_err(|_| "Failed to get descriptors from pool")?;
+        let irradiance_descriptors =
+            unsafe { descriptor_pool.allocate_set(&set_layout) }.map_err(|_| {
+                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                    "Descriptor",
+                ))
+            })?;
 
         unsafe {
             lock.device.write_descriptor_sets(vec![
@@ -717,11 +761,38 @@ where
             ]);
         }
 
+        let mut spec_mip_views = Vec::with_capacity(MIP_LEVELS as usize);
+
+        for level in 0..MIP_LEVELS {
+            let view = unsafe {
+                lock.device.create_image_view(
+                    &env_maps.spec_image,
+                    hal::image::ViewKind::Cube,
+                    Self::FORMAT,
+                    hal::format::Swizzle::NO,
+                    hal::image::SubresourceRange {
+                        aspects: hal::format::Aspects::COLOR,
+                        levels: level..level + 1,
+                        layers: 0..6,
+                    },
+                )
+            }
+            .map_err(|_| {
+                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                    "MIP view",
+                ))
+            })?;
+            spec_mip_views.push(view);
+        }
+
         let mut prefilter_descriptors = Vec::with_capacity(MIP_LEVELS as usize);
 
         for level in 0..MIP_LEVELS {
-            let descr = unsafe { descriptor_pool.allocate_set(&set_layout) }
-                .map_err(|_| "Failed to get descriptors from pool")?;
+            let descr = unsafe { descriptor_pool.allocate_set(&set_layout) }.map_err(|_| {
+                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
+                    "Descriptor",
+                ))
+            })?;
 
             unsafe {
                 lock.device.write_descriptor_sets(vec![
@@ -745,7 +816,7 @@ where
                         binding: 2,
                         array_offset: 0,
                         descriptors: Some(hal::pso::Descriptor::Image(
-                            &env_maps.spec_mip_views[level as usize],
+                            &spec_mip_views[level as usize],
                             hal::image::Layout::General,
                         )),
                     },
@@ -881,6 +952,9 @@ where
             lock.device.destroy_image(equirect_image);
             lock.device.destroy_image_view(equirect_view);
             lock.device.free_memory(equirect_memory);
+            for view in spec_mip_views.drain(0..) {
+                lock.device.destroy_image_view(view);
+            }
         }
 
         drop(lock);
@@ -924,9 +998,6 @@ where
                 .destroy_image(ManuallyDrop::take(&mut self.spec_image));
             lock.device
                 .destroy_image_view(ManuallyDrop::take(&mut self.spec_view));
-            for view in self.spec_mip_views.drain(0..) {
-                lock.device.destroy_image_view(view);
-            }
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.spec_memory));
             lock.device

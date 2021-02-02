@@ -4,6 +4,7 @@ use gfx_hal::prelude::*;
 use std::any::Any;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex, Weak};
+use thiserror::Error;
 
 pub use gfx_hal::Backend;
 pub use hal::buffer::SubRange;
@@ -62,18 +63,19 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum InitializationError {
-    /// Failed to acquire a resource during initialization
+    #[error("Failed to acquire a resource during initialization")]
     ResourceAcquisition(&'static str),
-    /// Failed to allocate memory
+    #[error("Failed to allocate memory")]
     Allocation(&'static str),
-    /// Failed to bind memory to a resource
+    #[error("Failed to bind memory to a resource")]
     Bind,
+    #[error("Missing feature")]
     MissingFeature(&'static str),
-    /// Failed to read shader SPIR-V
+    #[error("Failed to read SPIR-V for shader")]
     ShaderSPIRV,
-    /// Failed to build shader module
+    #[error("Failed to build shader module")]
     ShaderModule,
 }
 
