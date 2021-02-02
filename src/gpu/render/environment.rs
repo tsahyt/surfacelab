@@ -733,32 +733,35 @@ where
             })?;
 
         unsafe {
-            lock.device.write_descriptor_sets(vec![
-                hal::pso::DescriptorSetWrite {
-                    set: &irradiance_descriptors,
-                    binding: 0,
-                    array_offset: 0,
-                    descriptors: Some(hal::pso::Descriptor::Image(
-                        &equirect_view,
-                        hal::image::Layout::ShaderReadOnlyOptimal,
-                    )),
-                },
-                hal::pso::DescriptorSetWrite {
-                    set: &irradiance_descriptors,
-                    binding: 1,
-                    array_offset: 0,
-                    descriptors: Some(hal::pso::Descriptor::Sampler(&sampler)),
-                },
-                hal::pso::DescriptorSetWrite {
-                    set: &irradiance_descriptors,
-                    binding: 2,
-                    array_offset: 0,
-                    descriptors: Some(hal::pso::Descriptor::Image(
-                        &*env_maps.irradiance_view,
-                        hal::image::Layout::General,
-                    )),
-                },
-            ]);
+            lock.device.write_descriptor_sets(
+                vec![
+                    hal::pso::DescriptorSetWrite {
+                        set: &irradiance_descriptors,
+                        binding: 0,
+                        array_offset: 0,
+                        descriptors: Some(hal::pso::Descriptor::Image(
+                            &equirect_view,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        )),
+                    },
+                    hal::pso::DescriptorSetWrite {
+                        set: &irradiance_descriptors,
+                        binding: 1,
+                        array_offset: 0,
+                        descriptors: Some(hal::pso::Descriptor::Sampler(&sampler)),
+                    },
+                    hal::pso::DescriptorSetWrite {
+                        set: &irradiance_descriptors,
+                        binding: 2,
+                        array_offset: 0,
+                        descriptors: Some(hal::pso::Descriptor::Image(
+                            &*env_maps.irradiance_view,
+                            hal::image::Layout::General,
+                        )),
+                    },
+                ]
+                .into_iter(),
+            );
         }
 
         let mut spec_mip_views = Vec::with_capacity(MIP_LEVELS as usize);
@@ -795,32 +798,35 @@ where
             })?;
 
             unsafe {
-                lock.device.write_descriptor_sets(vec![
-                    hal::pso::DescriptorSetWrite {
-                        set: &descr,
-                        binding: 0,
-                        array_offset: 0,
-                        descriptors: Some(hal::pso::Descriptor::Image(
-                            &equirect_view,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        )),
-                    },
-                    hal::pso::DescriptorSetWrite {
-                        set: &descr,
-                        binding: 1,
-                        array_offset: 0,
-                        descriptors: Some(hal::pso::Descriptor::Sampler(&sampler)),
-                    },
-                    hal::pso::DescriptorSetWrite {
-                        set: &descr,
-                        binding: 2,
-                        array_offset: 0,
-                        descriptors: Some(hal::pso::Descriptor::Image(
-                            &spec_mip_views[level as usize],
-                            hal::image::Layout::General,
-                        )),
-                    },
-                ]);
+                lock.device.write_descriptor_sets(
+                    vec![
+                        hal::pso::DescriptorSetWrite {
+                            set: &descr,
+                            binding: 0,
+                            array_offset: 0,
+                            descriptors: Some(hal::pso::Descriptor::Image(
+                                &equirect_view,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        hal::pso::DescriptorSetWrite {
+                            set: &descr,
+                            binding: 1,
+                            array_offset: 0,
+                            descriptors: Some(hal::pso::Descriptor::Sampler(&sampler)),
+                        },
+                        hal::pso::DescriptorSetWrite {
+                            set: &descr,
+                            binding: 2,
+                            array_offset: 0,
+                            descriptors: Some(hal::pso::Descriptor::Image(
+                                &spec_mip_views[level as usize],
+                                hal::image::Layout::General,
+                            )),
+                        },
+                    ]
+                    .into_iter(),
+                );
             }
 
             prefilter_descriptors.push(descr);
