@@ -91,7 +91,7 @@ where
         match self {
             ManagedRenderer::RendererSDF3D(r) => r.render(),
             ManagedRenderer::Renderer2D(r) => r.render(),
-        }
+        }.expect("Rendering failed")
     }
 
     /// Obtain the render target view from the contained renderer
