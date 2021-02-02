@@ -244,7 +244,7 @@ where
     const FINAL_FORMAT: hal::format::Format = hal::format::Format::Rgba16Sfloat;
 
     /// Create a new renderer
-    pub fn new(
+    fn new(
         gpu: &Arc<Mutex<GPU<B>>>,
         monitor_dimensions: (u32, u32),
         viewport_dimensions: (u32, u32),
