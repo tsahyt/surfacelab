@@ -620,10 +620,12 @@ where
                 // memory type that has a `1` (or, is allowed), and is
                 // visible to the CPU.
                 buffer_req.type_mask & (1 << id) != 0
-                    && mem_type.properties.contains(
+                    && (mem_type.properties.contains(
                         hal::memory::Properties::CPU_VISIBLE
                             | hal::memory::Properties::DEVICE_LOCAL,
-                    )
+                    ) || mem_type.properties.contains(
+                        hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
+                    ))
             })
             .unwrap()
             .into();
