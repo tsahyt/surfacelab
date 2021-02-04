@@ -1,5 +1,4 @@
-use crate::gpu::{GPU, InitializationError};
-use super::{Backend, GPUCompute};
+use crate::gpu::{Backend, InitializationError, GPU};
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
@@ -34,7 +33,10 @@ pub struct ComputeAllocator<B: Backend> {
     image_mem_chunks: RefCell<Vec<Chunk>>,
 }
 
-impl<B> ComputeAllocator<B> where B: Backend {
+impl<B> ComputeAllocator<B>
+where
+    B: Backend,
+{
     /// Size of the image memory region, in bytes
     const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 128; // bytes
 
@@ -129,7 +131,10 @@ impl<B> ComputeAllocator<B> where B: Backend {
     }
 }
 
-impl<B> Drop for ComputeAllocator<B> where B: Backend {
+impl<B> Drop for ComputeAllocator<B>
+where
+    B: Backend,
+{
     fn drop(&mut self) {
         log::info!("Releasing GPU Compute allocator");
 
@@ -143,9 +148,9 @@ impl<B> Drop for ComputeAllocator<B> where B: Backend {
 }
 
 /// An allocation in the compute image memory.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Alloc<B: Backend> {
-    parent: *const GPUCompute<B>,
+    parent: Arc<Mutex<ComputeAllocator<B>>>,
     id: AllocId,
     offset: u64,
 }
@@ -157,8 +162,7 @@ where
     /// Allocations will free on drop
     fn drop(&mut self) {
         log::trace!("Release image memory for allocation {}", self.id);
-        let parent = unsafe { &*self.parent };
-        parent.free_image_memory(self.id);
+        self.parent.lock().unwrap().free_image_memory(self.id);
     }
 }
 
@@ -177,7 +181,7 @@ pub enum ImageError {
 
 /// A compute image, which may or may not be allocated.
 pub struct Image<B: Backend> {
-    parent: *const GPUCompute<B>,
+    parent: Arc<Mutex<ComputeAllocator<B>>>,
     size: u32,
     px_width: u8,
     raw: ManuallyDrop<Arc<Mutex<B::Image>>>,
@@ -193,19 +197,21 @@ where
     B: Backend,
 {
     /// Bind this image to some region in the image memory.
-    fn bind_memory(&mut self, offset: u64, compute: &GPUCompute<B>) -> Result<(), ImageError> {
+    fn bind_memory(&mut self, offset: u64) -> Result<(), ImageError> {
         let mut raw_lock = self.raw.lock().unwrap();
-        let lock = compute.gpu.lock().unwrap();
+        let parent_lock = self.parent.lock().unwrap();
+        let gpu_lock = parent_lock.gpu.lock().unwrap();
 
         unsafe {
-            lock.device
-                .bind_image_memory(&compute.image_mem, offset, &mut raw_lock)
+            gpu_lock
+                .device
+                .bind_image_memory(&parent_lock.image_mem, offset, &mut raw_lock)
         }
         .map_err(|_| ImageError::Bind)?;
 
         // Create view once the image is bound
         let view = unsafe {
-            lock.device.create_image_view(
+            gpu_lock.device.create_image_view(
                 &raw_lock,
                 hal::image::ViewKind::D2,
                 self.format,
@@ -216,7 +222,7 @@ where
         .map_err(|_| ImageError::ViewCreation)?;
         unsafe {
             if let Some(view) = ManuallyDrop::take(&mut self.view) {
-                lock.device.destroy_image_view(view);
+                gpu_lock.device.destroy_image_view(view);
             }
         }
         self.view = ManuallyDrop::new(Some(view));
@@ -245,15 +251,17 @@ where
     }
 
     /// Allocate fresh memory to the image from the underlying memory pool in compute.
-    pub fn allocate_memory(&mut self, compute: &GPUCompute<B>) -> Result<(), ImageError> {
+    pub fn allocate_memory(&mut self) -> Result<(), ImageError> {
         debug_assert!(self.alloc.is_none());
+
+        let parent_lock = self.parent.lock().unwrap();
 
         // Handle memory manager
         let bytes = self.size as u64 * self.size as u64 * self.px_width as u64;
-        let (offset, chunks) = compute
+        let (offset, chunks) = parent_lock
             .find_free_image_memory(bytes)
             .ok_or(ImageError::OutOfMemory)?;
-        let alloc = compute.allocate_image_memory(&chunks);
+        let alloc = parent_lock.allocate_image_memory(&chunks);
 
         log::trace!(
             "Allocated memory for {}x{} image ({} bytes, id {})",
@@ -264,13 +272,16 @@ where
         );
 
         self.alloc = Some(Alloc {
-            parent: self.parent,
+            parent: self.parent.clone(),
             id: alloc,
             offset,
         });
 
+        // Drop parent lock before calling bind_memory
+        drop(parent_lock);
+
         // Bind
-        self.bind_memory(offset, compute)?;
+        self.bind_memory(offset)?;
 
         Ok(())
     }
@@ -282,9 +293,9 @@ where
 
     /// Ensures that the image is backed. If no memory is currently allocated to
     /// it, new memory will be allocated. May fail if out of memory!
-    pub fn ensure_alloc(&mut self, compute: &GPUCompute<B>) -> Result<(), ImageError> {
+    pub fn ensure_alloc(&mut self) -> Result<(), ImageError> {
         if self.alloc.is_none() {
-            return self.allocate_memory(compute);
+            return self.allocate_memory();
         }
 
         log::trace!("Reusing existing allocation");
@@ -328,8 +339,6 @@ where
     /// Drop the raw resource. Any allocated memory will only be dropped when
     /// the last reference to it drops.
     fn drop(&mut self) {
-        let parent = unsafe { &*self.parent };
-
         // Spinlock to acquire the image.
         let image = {
             let mut raw = unsafe { ManuallyDrop::take(&mut self.raw) };
@@ -343,12 +352,13 @@ where
 
         // NOTE: Lock *after* having aquired the image, to avoid a deadlock
         // between here and the image copy in render
-        let lock = parent.gpu.lock().unwrap();
+        let parent_lock = self.parent.lock().unwrap();
+        let gpu_lock = parent_lock.gpu.lock().unwrap();
 
         unsafe {
-            lock.device.destroy_image(image.into_inner().unwrap());
+            gpu_lock.device.destroy_image(image.into_inner().unwrap());
             if let Some(view) = ManuallyDrop::take(&mut self.view) {
-                lock.device.destroy_image_view(view);
+                gpu_lock.device.destroy_image_view(view);
             }
         }
     }
