@@ -777,6 +777,7 @@ where
 
     /// Copy data between images. This assumes that both images are already allocated!
     pub fn copy_image(&mut self, from: &Image<B>, to: &Image<B>) {
+        debug_assert!(from.is_backed() && to.is_backed());
         let mut lock = self.gpu.lock().unwrap();
 
         unsafe { lock.device.reset_fence(&self.fence).unwrap() };
