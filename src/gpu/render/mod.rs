@@ -818,16 +818,19 @@ where
         self.view.set_resolution(width as _, height as _);
     }
 
-    fn synchronize_at_fence(&self) {
+    fn synchronize_at_fence(&self) -> Result<(), RenderError> {
         let lock = self.gpu.lock().unwrap();
+
         unsafe {
             lock.device
                 .wait_for_fence(&self.complete_fence, 10_000_000_000)
-                .expect("Failed to wait for render fence after 10s");
+                .map_err(|_| RenderError::FenceTimeout)?;
             lock.device
                 .reset_fence(&self.complete_fence)
                 .expect("Failed to reset render fence");
         }
+
+        Ok(())
     }
 
     /// Build the SlotOccupancy uniform from the stored image slots.
@@ -898,7 +901,7 @@ where
     /// Render a single frame
     pub fn render(&mut self) -> Result<(), RenderError> {
         // Wait on previous fence to make sure the last frame has been rendered.
-        self.synchronize_at_fence();
+        self.synchronize_at_fence()?;
 
         {
             let mut lock = self.gpu.lock().unwrap();
@@ -1394,7 +1397,8 @@ where
 {
     fn drop(&mut self) {
         // Finish all rendering before destruction of resources
-        self.synchronize_at_fence();
+        self.synchronize_at_fence()
+            .expect("Failed to synchronize with fence at drop time");
 
         log::info!("Releasing GPU Render resources");
 
