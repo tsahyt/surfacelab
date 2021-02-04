@@ -1,5 +1,4 @@
 use crate::gpu::{Backend, InitializationError, GPU};
-
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use std::cell::{Cell, RefCell};
@@ -86,7 +85,7 @@ where
 
     /// Find the first set of chunks of contiguous free memory that fits the
     /// requested number of bytes
-    fn find_free_image_memory(&self, bytes: u64) -> Option<(u64, Vec<usize>)> {
+    pub fn find_free_image_memory(&self, bytes: u64) -> Option<(u64, Vec<usize>)> {
         let request = bytes.max(Self::CHUNK_SIZE) / Self::CHUNK_SIZE;
         let mut free = Vec::with_capacity(request as usize);
         let mut offset = 0;
@@ -108,7 +107,7 @@ where
 
     /// Mark the given set of chunks as used. Assumes that the chunks were
     /// previously free!
-    fn allocate_image_memory(&self, chunks: &[usize]) -> AllocId {
+    pub fn allocate_image_memory(&self, chunks: &[usize]) -> AllocId {
         let alloc = self.allocs.get();
         for i in chunks {
             self.image_mem_chunks.borrow_mut()[*i].alloc = Some(alloc);
@@ -119,7 +118,7 @@ where
 
     /// Mark the given set of chunks as free. Memory freed here should no longer
     /// be used!
-    fn free_image_memory(&self, alloc: AllocId) {
+    pub fn free_image_memory(&self, alloc: AllocId) {
         for mut chunk in self
             .image_mem_chunks
             .borrow_mut()
@@ -196,6 +195,26 @@ impl<B> Image<B>
 where
     B: Backend,
 {
+    pub fn new(
+        parent: Arc<Mutex<ComputeAllocator<B>>>,
+        size: u32,
+        px_width: u8,
+        raw: B::Image,
+        format: hal::format::Format,
+    ) -> Self {
+        Self {
+            parent,
+            size,
+            px_width,
+            raw: ManuallyDrop::new(Arc::new(Mutex::new(raw))),
+            layout: Cell::new(hal::image::Layout::Undefined),
+            access: Cell::new(hal::image::Access::empty()),
+            view: ManuallyDrop::new(None),
+            alloc: None,
+            format,
+        }
+    }
+
     /// Bind this image to some region in the image memory.
     fn bind_memory(&mut self, offset: u64) -> Result<(), ImageError> {
         let mut raw_lock = self.raw.lock().unwrap();
@@ -329,6 +348,11 @@ where
     /// Get the raw image
     pub fn get_raw(&self) -> &Arc<Mutex<B::Image>> {
         &*self.raw
+    }
+
+    /// Get the number of bytes occupied by this image
+    pub fn get_bytes(&self) -> u32 {
+        self.size * self.size * self.px_width as u32
     }
 }
 

@@ -239,7 +239,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.sockets
                 .get_output_image_mut(&socket_res)
                 .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
-                .ensure_alloc(&self.gpu)?;
+                .ensure_alloc()?;
         }
 
         // Write down uniforms and timing data
@@ -280,7 +280,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.sockets
                 .get_output_image_mut(to)
                 .expect("Unable to find source image for copy")
-                .ensure_alloc(&self.gpu)?;
+                .ensure_alloc()?;
 
             #[allow(clippy::or_fun_call)]
             let from_image = self
@@ -350,7 +350,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             })
         {
             log::trace!("Uploading image to GPU");
-            image.ensure_alloc(&self.gpu)?;
+            image.ensure_alloc()?;
             self.gpu.upload_image(&image, &external_image.buffer)?;
             self.last_known.insert(res.clone(), parameter_hash);
             self.sockets.set_output_image_updated(res, self.seq);
@@ -372,7 +372,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         self.sockets
             .get_output_image_mut(&socket_res)
             .expect("Missing output image on input socket")
-            .ensure_alloc(&self.gpu)?;
+            .ensure_alloc()?;
         self.sockets
             .update_timing_data(res, start_time.elapsed().as_secs_f64());
 
@@ -452,7 +452,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.sockets
                 .get_output_image_mut(&socket_res)
                 .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
-                .ensure_alloc(&self.gpu)?;
+                .ensure_alloc()?;
         }
 
         // In debug builds, ensure that all input images exist and are backed
