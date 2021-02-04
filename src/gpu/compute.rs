@@ -7,6 +7,7 @@ use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
+use thiserror::Error;
 
 use super::{
     Backend, DownloadError, InitializationError, PipelineError, Shader, ShaderType, UploadError,
@@ -51,13 +52,16 @@ struct Chunk {
     alloc: Option<AllocId>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ImageError {
     /// Failed to bind image to memory
+    #[error("Failed to bind image to memory")]
     Bind,
     /// Failed to create an image view
+    #[error("Failed to create an image view")]
     ViewCreation,
     /// Failed to find free memory for image
+    #[error("Unable to find free memory for image")]
     OutOfMemory,
 }
 

@@ -6,43 +6,32 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::rc::Rc;
 use std::time::Instant;
+use thiserror::Error;
 
 pub struct ExternalImage {
     buffer: Vec<u16>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum InterpretationError {
     /// An error occurred regarding GPU Compute Images
-    ImageError(gpu::compute::ImageError),
+    #[error("An error occurred regarding GPU Compute Images")]
+    ImageError(#[from] gpu::compute::ImageError),
     /// An error occurred during uploading of an image
-    UploadError(gpu::UploadError),
+    #[error("An error occurred during uploading of an image")]
+    UploadError(#[from] gpu::UploadError),
     /// An error occured during pipeline execution,
-    PipelineError(gpu::PipelineError),
+    #[error("An error occured during pipeline execution")]
+    PipelineError(#[from] gpu::PipelineError),
     /// Failed to read external image
+    #[error("Failed to read external image")]
     ExternalImageRead,
     /// Hard OOM, i.e. OOM after cleanup
+    #[error("Hard out of memory condition encountered")]
     HardOOM,
     /// Call to unknown graph
+    #[error("Call to unknown graph attempted")]
     UnknownCall,
-}
-
-impl From<gpu::compute::ImageError> for InterpretationError {
-    fn from(e: gpu::compute::ImageError) -> Self {
-        InterpretationError::ImageError(e)
-    }
-}
-
-impl From<gpu::UploadError> for InterpretationError {
-    fn from(e: gpu::UploadError) -> Self {
-        InterpretationError::UploadError(e)
-    }
-}
-
-impl From<gpu::PipelineError> for InterpretationError {
-    fn from(e: gpu::PipelineError) -> Self {
-        InterpretationError::PipelineError(e)
-    }
 }
 
 #[derive(Debug)]
