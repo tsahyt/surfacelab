@@ -904,7 +904,7 @@ where
         self.synchronize_at_fence()?;
 
         {
-            let mut lock = self.gpu.lock().unwrap();
+            let lock = self.gpu.lock().unwrap();
 
             let occupancy = self.build_occupancy();
             let uniforms = self.view.uniforms();
@@ -1056,6 +1056,9 @@ where
                 );
             }
 
+            // Drop lock here to free the device for other threads while building command buffer
+            drop(lock);
+
             let cmd_buffer = unsafe {
                 let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);
                 cmd_buffer.begin_primary(hal::command::CommandBufferFlags::ONE_TIME_SUBMIT);
@@ -1195,6 +1198,9 @@ where
 
                 cmd_buffer
             };
+
+            // Reacquire lock for submission
+            let mut lock = self.gpu.lock().unwrap();
 
             // Submit for render
             unsafe {
