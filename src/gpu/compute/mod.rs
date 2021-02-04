@@ -9,6 +9,8 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
+pub mod allocator;
+
 use super::{
     Backend, DownloadError, InitializationError, PipelineError, Shader, ShaderType, UploadError,
     GPU,
