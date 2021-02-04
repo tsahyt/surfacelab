@@ -354,6 +354,11 @@ where
     pub fn get_bytes(&self) -> u32 {
         self.size * self.size * self.px_width as u32
     }
+
+    /// Get the image format
+    pub fn get_format(&self) -> hal::format::Format {
+        self.format
+    }
 }
 
 impl<B> Drop for Image<B>
