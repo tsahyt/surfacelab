@@ -522,8 +522,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         self.gpu.write_descriptor_sets(descriptors);
         self.gpu.run_pipeline(
             self.sockets.get_image_size(res),
-            inputs.values().copied().collect(),
-            outputs.values().copied().collect(),
+            inputs.values().copied(),
+            outputs.values().copied(),
             pipeline,
             desc_set,
         );
