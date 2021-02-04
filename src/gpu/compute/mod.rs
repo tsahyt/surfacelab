@@ -667,6 +667,8 @@ where
     }
 
     /// Copy data between images. This assumes that both images are already allocated!
+    ///
+    /// Requires both images to use the same format and size!
     pub fn copy_image(&mut self, from: &Image<B>, to: &Image<B>) {
         debug_assert!(from.is_backed() && to.is_backed());
         debug_assert!(from.get_format() == to.get_format());
