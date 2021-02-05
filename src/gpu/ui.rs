@@ -693,7 +693,7 @@ where
                 format: Some(TARGET_FORMAT),
                 samples: render_target.samples(),
                 ops: pass::AttachmentOps::new(
-                    pass::AttachmentLoadOp::Clear,
+                    pass::AttachmentLoadOp::DontCare,
                     pass::AttachmentStoreOp::Store,
                 ),
                 stencil_ops: pass::AttachmentOps::DONT_CARE,
