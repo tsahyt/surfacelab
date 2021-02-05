@@ -1,4 +1,7 @@
-use super::{basic_mem::BasicImageBuilder, RenderTarget, GPU};
+use super::{
+    basic_mem::{BasicBufferBuilder, BasicImageBuilder},
+    RenderTarget, GPU,
+};
 
 use gfx_hal as hal;
 use hal::{
@@ -21,7 +24,6 @@ use std::{
     io::Cursor,
     iter,
     mem::{self, ManuallyDrop},
-    ptr,
     sync::Weak,
 };
 
@@ -130,37 +132,6 @@ where
         Self::with_capacity(gpu, 16384)
     }
 
-    /// Helper function to build a buffer of a certain size, with certain
-    /// properties, and certain usage. Used here to not duplicate the code for
-    /// staging and device memory.
-    fn build_buffer(
-        gpu: Arc<Mutex<GPU<B>>>,
-        bytes: u64,
-        properties: hal::memory::Properties,
-        usage: hal::buffer::Usage,
-    ) -> Result<(B::Buffer, B::Memory), VertexBufferError> {
-        let lock = gpu.lock().unwrap();
-
-        let mut buf = unsafe { lock.device.create_buffer(bytes, usage) }
-            .map_err(VertexBufferError::BufferCreation)?;
-        let req = unsafe { lock.device.get_buffer_requirements(&buf) };
-        let ty = lock
-            .memory_properties
-            .memory_types
-            .iter()
-            .enumerate()
-            .position(|(id, mem_type)| {
-                req.type_mask & (1 << id) != 0 && mem_type.properties.contains(properties)
-            })
-            .unwrap();
-        let mem = unsafe { lock.device.allocate_memory(ty.into(), req.size) }
-            .map_err(VertexBufferError::MemoryAllocation)?;
-        unsafe { lock.device.bind_buffer_memory(&mem, 0, &mut buf) }
-            .map_err(VertexBufferError::Bind)?;
-
-        Ok((buf, mem))
-    }
-
     /// Build a new vertex buffer with a given capacity.
     pub fn with_capacity(
         gpu: Arc<Mutex<GPU<B>>>,
@@ -168,18 +139,26 @@ where
     ) -> Result<Self, VertexBufferError> {
         let bytes = (std::mem::size_of::<Vertex>() * capacity) as u64;
 
-        let (staging_buf, staging_mem) = Self::build_buffer(
-            gpu.clone(),
-            bytes,
-            hal::memory::Properties::CPU_VISIBLE,
-            hal::buffer::Usage::TRANSFER_SRC,
-        )?;
-        let (device_buf, device_mem) = Self::build_buffer(
-            gpu.clone(),
-            bytes,
-            hal::memory::Properties::DEVICE_LOCAL,
-            hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::VERTEX,
-        )?;
+        let lock = gpu.lock().unwrap();
+
+        let (staging_buf, staging_mem) =
+            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
+                .bytes(bytes)
+                .usage(hal::buffer::Usage::TRANSFER_SRC)
+                .memory_type(hal::memory::Properties::CPU_VISIBLE)
+                .unwrap()
+                .build::<B>(&lock.device)
+                .unwrap();
+        let (device_buf, device_mem) =
+            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
+                .bytes(bytes)
+                .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::VERTEX)
+                .memory_type(hal::memory::Properties::DEVICE_LOCAL)
+                .unwrap()
+                .build::<B>(&lock.device)
+                .unwrap();
+
+        drop(lock);
 
         Ok(Self {
             gpu,
@@ -195,18 +174,24 @@ where
     fn resize(&mut self, new_capacity: usize) -> Result<(), VertexBufferError> {
         let bytes = (std::mem::size_of::<Vertex>() * new_capacity) as u64;
 
-        let (staging_buf, staging_mem) = Self::build_buffer(
-            self.gpu.clone(),
-            bytes,
-            hal::memory::Properties::CPU_VISIBLE,
-            hal::buffer::Usage::TRANSFER_SRC,
-        )?;
-        let (device_buf, device_mem) = Self::build_buffer(
-            self.gpu.clone(),
-            bytes,
-            hal::memory::Properties::DEVICE_LOCAL,
-            hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::VERTEX,
-        )?;
+        let lock = self.gpu.lock().unwrap();
+
+        let (staging_buf, staging_mem) =
+            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
+                .bytes(bytes)
+                .usage(hal::buffer::Usage::TRANSFER_SRC)
+                .memory_type(hal::memory::Properties::CPU_VISIBLE)
+                .unwrap()
+                .build::<B>(&lock.device)
+                .unwrap();
+        let (device_buf, device_mem) =
+            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
+                .bytes(bytes)
+                .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::VERTEX)
+                .memory_type(hal::memory::Properties::DEVICE_LOCAL)
+                .unwrap()
+                .build::<B>(&lock.device)
+                .unwrap();
 
         {
             let lock = self.gpu.lock().unwrap();
@@ -362,43 +347,15 @@ where
     pub fn upload(&mut self, command_pool: &mut B::CommandPool, cpu_cache: &[u8]) {
         let mut lock = self.gpu.lock().unwrap();
 
-        let mut image_upload_buffer = unsafe {
-            lock.device
-                .create_buffer(self.cache_size, buffer::Usage::TRANSFER_SRC)
-        }
-        .unwrap();
-        let image_upload_reqs =
-            unsafe { lock.device.get_buffer_requirements(&image_upload_buffer) };
-
-        let upload_type = lock
-            .memory_properties
-            .memory_types
-            .iter()
-            .enumerate()
-            .position(|(id, mem_type)| {
-                image_upload_reqs.type_mask & (1 << id) != 0
-                    && mem_type.properties.contains(m::Properties::CPU_VISIBLE)
-            })
-            .unwrap()
-            .into();
-
-        // copy image data into staging buffer
-        let image_upload_memory = unsafe {
-            let memory = lock
-                .device
-                .allocate_memory(upload_type, image_upload_reqs.size)
-                .unwrap();
-            lock.device
-                .bind_buffer_memory(&memory, 0, &mut image_upload_buffer)
-                .unwrap();
-            let mapping = lock.device.map_memory(&memory, m::Segment::ALL).unwrap();
-            ptr::copy_nonoverlapping(cpu_cache.as_ptr() as *const u8, mapping, cpu_cache.len());
-            lock.device
-                .flush_mapped_memory_ranges(iter::once((&memory, m::Segment::ALL)))
-                .unwrap();
-            lock.device.unmap_memory(&memory);
-            memory
-        };
+        let (image_upload_buffer, image_upload_memory) =
+            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
+                .bytes(self.cache_size)
+                .data(cpu_cache)
+                .usage(buffer::Usage::TRANSFER_SRC)
+                .memory_type(m::Properties::CPU_VISIBLE)
+                .unwrap()
+                .build::<B>(&lock.device)
+                .expect("Failed to create, allocate, or fill, upload buffer");
 
         // copy buffer to texture
         let copy_fence = lock
