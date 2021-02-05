@@ -1,5 +1,5 @@
-use super::{Backend, InitializationError, GPU};
-use crate::gpu::basic_mem::BasicImageBuilder;
+use super::{Backend, GPU};
+use crate::gpu::basic_mem::*;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use image::hdr;
@@ -53,10 +53,22 @@ const CUBE_MIP_COLOR_RANGE: hal::image::SubresourceRange = hal::image::Subresour
 
 #[derive(Debug, Error)]
 pub enum EnvironmentError {
-    #[error("Failed to initialize GPU structures")]
-    InitializationError(#[from] InitializationError),
+    #[error("Failed to initialize GPU image")]
+    ImageError(#[from] BasicImageBuilderError),
+    #[error("Failed to initialize GPU buffer")]
+    BufferError(#[from] BasicBufferBuilderError),
     #[error("HDRi IO failed")]
     HDRiIOFailure,
+    #[error("GPU Out of Memory")]
+    OutOfMemory(#[from] hal::device::OutOfMemory),
+    #[error("Failed to create compute pipeline for convolution")]
+    Pipeline(#[from] hal::pso::CreationError),
+    #[error("Failed to allocate necessary resource for pipeline")]
+    DeviceAllocation(#[from] hal::device::AllocationError),
+    #[error("Failed to allocate necessary resource for pipeline")]
+    PipelineAllocation(#[from] hal::pso::AllocationError),
+    #[error("Failed to create MIP view")]
+    ImageViewCreation(#[from] hal::image::ViewCreationError),
 }
 
 impl<B> EnvironmentMaps<B>
@@ -72,7 +84,7 @@ where
         gpu: Arc<Mutex<GPU<B>>>,
         irradiance_size: usize,
         spec_size: usize,
-    ) -> Result<Self, InitializationError> {
+    ) -> Result<Self, EnvironmentError> {
         let lock = gpu.lock().unwrap();
 
         // Irradiance cube map
@@ -149,6 +161,10 @@ where
             .map(|rgb| image::Rgba([rgb[0], rgb[1], rgb[2], 1.0]))
             .collect();
 
+        let raw_hdri_u8 = unsafe {
+            std::slice::from_raw_parts(raw_hdri.as_ptr() as *const u8, raw_hdri.len() * 4)
+        };
+
         log::debug!(
             "Read HDRi from disk in {}ms",
             start_io.elapsed().as_millis()
@@ -157,71 +173,14 @@ where
         // Upload raw HDRi to staging buffer
         let mut lock = env_maps.gpu.lock().unwrap();
 
-        let (staging_buffer, staging_memory) = {
-            let bytes = (metadata.width * metadata.height * 4 * 4) as u64;
-            let mut staging_buffer = unsafe {
-                lock.device.create_buffer(
-                    bytes.max(BRDF_LUT_BYTES as u64),
-                    hal::buffer::Usage::TRANSFER_SRC,
-                )
-            }
-            .map_err(|_| {
-                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                    "Staging buffer",
-                ))
-            })?;
-
-            let buffer_requirements =
-                unsafe { lock.device.get_buffer_requirements(&staging_buffer) };
-            let staging_memory_type = lock
-                .memory_properties
-                .memory_types
-                .iter()
-                .enumerate()
-                .position(|(id, mem_type)| {
-                    buffer_requirements.type_mask & (1 << id) != 0
-                        && mem_type
-                            .properties
-                            .contains(hal::memory::Properties::CPU_VISIBLE)
-                })
+        let (staging_buffer, staging_memory) =
+            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
+                .bytes((metadata.width * metadata.height * 4 * 4).max(BRDF_LUT_BYTES as u32) as u64)
+                .usage(hal::buffer::Usage::TRANSFER_SRC)
+                .data(raw_hdri_u8)
+                .memory_type(hal::memory::Properties::CPU_VISIBLE)
                 .unwrap()
-                .into();
-            let staging_mem = unsafe { lock.device.allocate_memory(staging_memory_type, bytes) }
-                .map_err(|_| {
-                    EnvironmentError::InitializationError(InitializationError::Allocation(
-                        "Staging buffer",
-                    ))
-                })?;
-
-            unsafe {
-                lock.device
-                    .bind_buffer_memory(&staging_mem, 0, &mut staging_buffer)
-                    .map_err(|_| {
-                        EnvironmentError::InitializationError(InitializationError::Bind)
-                    })?;
-            };
-
-            unsafe {
-                let mapping = lock
-                    .device
-                    .map_memory(
-                        &staging_mem,
-                        hal::memory::Segment {
-                            offset: 0,
-                            size: Some(bytes),
-                        },
-                    )
-                    .unwrap();
-                let u8s: &[u8] = std::slice::from_raw_parts(
-                    raw_hdri.as_ptr() as *const u8,
-                    raw_hdri.len() * std::mem::size_of::<image::Rgba<f32>>(),
-                );
-                std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, bytes as usize);
-                lock.device.unmap_memory(&staging_mem);
-            }
-
-            (staging_buffer, staging_mem)
-        };
+                .build::<B>(&lock.device)?;
 
         // Move HDRi to device only memory for the compute shader
         let (equirect_image, equirect_memory, equirect_view) =
@@ -238,12 +197,7 @@ where
                 lock.queue_group.family,
                 hal::pool::CommandPoolCreateFlags::TRANSIENT,
             )
-        }
-        .map_err(|_| {
-            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                "Command pool",
-            ))
-        })?;
+        }?;
 
         let fence = lock.device.create_fence(false).unwrap();
 
@@ -430,12 +384,7 @@ where
                 ],
                 DescriptorPoolCreateFlags::empty(),
             )
-        }
-        .map_err(|_| {
-            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                "Descriptor pool",
-            ))
-        })?;
+        }?;
 
         let set_layout = unsafe {
             lock.device.create_descriptor_set_layout(
@@ -470,12 +419,7 @@ where
                 ],
                 &[],
             )
-        }
-        .map_err(|_| {
-            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                "Descriptor set layout",
-            ))
-        })?;
+        }?;
 
         let pipeline_layout = unsafe {
             lock.device.create_pipeline_layout(
@@ -483,25 +427,18 @@ where
                 // Push constant for roughness
                 &[(hal::pso::ShaderStageFlags::COMPUTE, 0..4)],
             )
-        }
-        .map_err(|_| {
-            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                "Compute pipeline",
-            ))
-        })?;
+        }?;
 
         let irradiance_module = {
-            let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(IRRADIANCE_SHADER))
-                .map_err(|_| InitializationError::ShaderSPIRV)?;
-            unsafe { lock.device.create_shader_module(&loaded_spirv) }
-                .map_err(|_| InitializationError::ShaderModule)?
+            let loaded_spirv =
+                hal::pso::read_spirv(std::io::Cursor::new(IRRADIANCE_SHADER)).unwrap();
+            unsafe { lock.device.create_shader_module(&loaded_spirv) }.unwrap()
         };
 
         let prefilter_module = {
-            let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(PREFILTER_SHADER))
-                .map_err(|_| InitializationError::ShaderSPIRV)?;
-            unsafe { lock.device.create_shader_module(&loaded_spirv) }
-                .map_err(|_| InitializationError::ShaderModule)?
+            let loaded_spirv =
+                hal::pso::read_spirv(std::io::Cursor::new(PREFILTER_SHADER)).unwrap();
+            unsafe { lock.device.create_shader_module(&loaded_spirv) }.unwrap()
         };
 
         let irradiance_pipeline = unsafe {
@@ -516,12 +453,7 @@ where
                 ),
                 None,
             )
-        }
-        .map_err(|_| {
-            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                "Compute pipeline",
-            ))
-        })?;
+        }?;
 
         let prefilter_pipeline = unsafe {
             lock.device.create_compute_pipeline(
@@ -535,34 +467,19 @@ where
                 ),
                 None,
             )
-        }
-        .map_err(|_| {
-            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                "Compute pipeline",
-            ))
-        })?;
+        }?;
 
         let sampler = unsafe {
             lock.device.create_sampler(&hal::image::SamplerDesc::new(
                 hal::image::Filter::Linear,
                 hal::image::WrapMode::Tile,
             ))
-        }
-        .map_err(|_| {
-            EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                "Sampler",
-            ))
-        })?;
+        }?;
 
         log::debug!("Starting convolution of HDRi");
         let start_conv = Instant::now();
 
-        let irradiance_descriptors =
-            unsafe { descriptor_pool.allocate_set(&set_layout) }.map_err(|_| {
-                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                    "Descriptor",
-                ))
-            })?;
+        let irradiance_descriptors = unsafe { descriptor_pool.allocate_set(&set_layout) }?;
 
         unsafe {
             lock.device.write_descriptor_sets(
@@ -611,23 +528,14 @@ where
                         layers: 0..6,
                     },
                 )
-            }
-            .map_err(|_| {
-                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                    "MIP view",
-                ))
-            })?;
+            }?;
             spec_mip_views.push(view);
         }
 
         let mut prefilter_descriptors = Vec::with_capacity(MIP_LEVELS as usize);
 
         for level in 0..MIP_LEVELS {
-            let descr = unsafe { descriptor_pool.allocate_set(&set_layout) }.map_err(|_| {
-                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                    "Descriptor",
-                ))
-            })?;
+            let descr = unsafe { descriptor_pool.allocate_set(&set_layout) }?;
 
             unsafe {
                 lock.device.write_descriptor_sets(

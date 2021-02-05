@@ -1,8 +1,20 @@
 /// Basic structures for dealing with memory at a low level of abstraction.
 /// Provides builders for buffers and images, backed by their own memory.
-use super::InitializationError;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum BasicImageBuilderError {
+    #[error("Error during creating image")]
+    ImageCreation(#[from] hal::image::CreationError),
+    #[error("Error during allocation of memory for image")]
+    MemoryAllocation(#[from] hal::device::AllocationError),
+    #[error("Failed to bind image to memory")]
+    MemoryBinding(#[from] hal::device::BindError),
+    #[error("Failed create image view")]
+    ViewCreation(#[from] hal::image::ViewCreationError),
+}
 
 pub struct BasicImageBuilder<'a> {
     memory_types: &'a [hal::adapter::MemoryType],
@@ -78,7 +90,7 @@ impl<'a> BasicImageBuilder<'a> {
     pub fn build<B: hal::Backend>(
         &self,
         device: &B::Device,
-    ) -> Result<(B::Image, B::Memory, B::ImageView), InitializationError> {
+    ) -> Result<(B::Image, B::Memory, B::ImageView), BasicImageBuilderError> {
         let mut image = unsafe {
             device.create_image(
                 self.kind,
@@ -88,13 +100,11 @@ impl<'a> BasicImageBuilder<'a> {
                 self.usage,
                 self.view_caps,
             )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Irradiance map image"))?;
+        }?;
 
         let requirements = unsafe { device.get_image_requirements(&image) };
-        let memory = unsafe { device.allocate_memory(self.memory_type, requirements.size) }
-            .map_err(|_| InitializationError::Allocation("Irradiance map"))?;
-        unsafe { device.bind_image_memory(&memory, 0, &mut image) }.unwrap();
+        let memory = unsafe { device.allocate_memory(self.memory_type, requirements.size) }?;
+        unsafe { device.bind_image_memory(&memory, 0, &mut image) }?;
 
         let view = unsafe {
             device.create_image_view(
@@ -108,11 +118,22 @@ impl<'a> BasicImageBuilder<'a> {
                 hal::format::Swizzle::NO,
                 self.range.clone(),
             )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Irradiance map view"))?;
+        }?;
 
         Ok((image, memory, view))
     }
+}
+
+#[derive(Debug, Error)]
+pub enum BasicBufferBuilderError {
+    #[error("Error during buffer creation")]
+    ImageCreation(#[from] hal::buffer::CreationError),
+    #[error("Error during allocation of memory for image")]
+    MemoryAllocation(#[from] hal::device::AllocationError),
+    #[error("Failed to bind image to memory")]
+    MemoryBinding(#[from] hal::device::BindError),
+    #[error("Failed map memory region")]
+    MemoryMapping(#[from] hal::device::MapError),
 }
 
 pub struct BasicBufferBuilder<'a> {
@@ -161,30 +182,24 @@ impl<'a> BasicBufferBuilder<'a> {
     pub fn build<B: hal::Backend>(
         &self,
         device: &B::Device,
-    ) -> Result<(B::Buffer, B::Memory), InitializationError> {
-        let mut buffer = unsafe { device.create_buffer(self.bytes, self.usage) }
-            .map_err(|_| InitializationError::ResourceAcquisition("Buffer"))?;
+    ) -> Result<(B::Buffer, B::Memory), BasicBufferBuilderError> {
+        let mut buffer = unsafe { device.create_buffer(self.bytes, self.usage) }?;
 
-        let mem = unsafe { device.allocate_memory(self.memory_type, self.bytes) }
-            .map_err(|_| InitializationError::Allocation("Buffer memory"))?;
+        let mem = unsafe { device.allocate_memory(self.memory_type, self.bytes) }?;
 
         unsafe {
-            device
-                .bind_buffer_memory(&mem, 0, &mut buffer)
-                .map_err(|_| InitializationError::Bind)?;
+            device.bind_buffer_memory(&mem, 0, &mut buffer)?;
         };
 
         if let Some(data) = self.data {
             unsafe {
-                let mapping = device
-                    .map_memory(
-                        &mem,
-                        hal::memory::Segment {
-                            offset: 0,
-                            size: Some(self.bytes),
-                        },
-                    )
-                    .unwrap();
+                let mapping = device.map_memory(
+                    &mem,
+                    hal::memory::Segment {
+                        offset: 0,
+                        size: Some(self.bytes),
+                    },
+                )?;
                 let u8s: &[u8] = std::slice::from_raw_parts(
                     data.as_ptr() as *const u8,
                     data.len() * std::mem::size_of::<image::Rgba<f32>>(),
