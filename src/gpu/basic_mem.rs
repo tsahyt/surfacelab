@@ -23,6 +23,7 @@ pub struct BasicImageBuilder<'a> {
     mip_levels: u8,
     format: hal::format::Format,
     usage: hal::image::Usage,
+    tiling: hal::image::Tiling,
     view_caps: hal::image::ViewCapabilities,
     range: hal::image::SubresourceRange,
 }
@@ -36,6 +37,7 @@ impl<'a> BasicImageBuilder<'a> {
             mip_levels: 1,
             format: hal::format::Format::Rgba8Srgb,
             usage: hal::image::Usage::empty(),
+            tiling: hal::image::Tiling::Linear,
             view_caps: hal::image::ViewCapabilities::empty(),
             range: hal::image::SubresourceRange {
                 aspects: hal::format::Aspects::COLOR,
@@ -69,6 +71,11 @@ impl<'a> BasicImageBuilder<'a> {
 
     pub fn usage(&mut self, usage: hal::image::Usage) -> &mut Self {
         self.usage = usage;
+        self
+    }
+
+    pub fn tiling(&mut self, tiling: hal::image::Tiling) -> &mut Self {
+        self.tiling = tiling;
         self
     }
 

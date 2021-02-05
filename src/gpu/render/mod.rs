@@ -1,4 +1,5 @@
 use super::RenderTarget;
+use crate::gpu::basic_mem::{BasicImageBuilder, BasicImageBuilderError};
 use crate::lang::ObjectType;
 use crate::util::HaltonSequence2D;
 
@@ -92,7 +93,7 @@ impl<B: Backend> ImageSlots<B> {
         device: &B::Device,
         memory_properties: &hal::adapter::MemoryProperties,
         image_size: u32,
-    ) -> Result<Self, InitializationError> {
+    ) -> Result<Self, BasicImageBuilderError> {
         Ok(Self {
             albedo: ImageSlot::new(
                 device,
@@ -184,52 +185,23 @@ where
         memory_properties: &hal::adapter::MemoryProperties,
         format: hal::format::Format,
         image_size: u32,
-    ) -> Result<Self, InitializationError> {
-        // Create Image
-        let mut image = unsafe {
-            device.create_image(
-                hal::image::Kind::D2(image_size, image_size, 1, 1),
-                MIP_LEVELS,
-                format,
-                hal::image::Tiling::Optimal,
-                hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
-                hal::image::ViewCapabilities::empty(),
-            )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Image"))?;
-
-        // Allocate and bind memory for image
-        let requirements = unsafe { device.get_image_requirements(&image) };
-        let memory_type = memory_properties
-            .memory_types
-            .iter()
-            .position(|mem_type| {
-                mem_type
-                    .properties
-                    .contains(hal::memory::Properties::DEVICE_LOCAL)
-            })
-            .unwrap()
-            .into();
-        let image_memory = unsafe { device.allocate_memory(memory_type, requirements.size) }
-            .map_err(|_| InitializationError::Allocation("Render Image"))?;
-        unsafe { device.bind_image_memory(&image_memory, 0, &mut image) }.unwrap();
-
-        let image_view = unsafe {
-            device.create_image_view(
-                &image,
-                hal::image::ViewKind::D2,
-                format,
-                hal::format::Swizzle::NO,
-                IMG_SLOT_RANGE.clone(),
-            )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Image View"))?;
+    ) -> Result<Self, BasicImageBuilderError> {
+        let (image, image_memory, image_view) =
+            BasicImageBuilder::new(&memory_properties.memory_types)
+                .size_2d(image_size, image_size)
+                .mip_levels(MIP_LEVELS)
+                .format(format)
+                .usage(hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST)
+                .tiling(hal::image::Tiling::Optimal)
+                .memory_type(hal::memory::Properties::DEVICE_LOCAL)
+                .unwrap()
+                .build::<B>(&device)?;
 
         Ok(ImageSlot {
             image: ManuallyDrop::new(image),
             view: ManuallyDrop::new(image_view),
             memory: ManuallyDrop::new(image_memory),
-            mip_levels: 8,
+            mip_levels: MIP_LEVELS,
             image_size: image_size as i32,
             occupied: false,
         })
@@ -551,7 +523,8 @@ where
         let tfence = lock.device.create_fence(false).unwrap();
 
         // Image slots
-        let image_slots = ImageSlots::new(&lock.device, &lock.memory_properties, image_size)?;
+        let image_slots = ImageSlots::new(&lock.device, &lock.memory_properties, image_size)
+            .expect("Failed to build image slots");
 
         Ok(GPURender {
             gpu: gpu.clone(),
@@ -798,7 +771,7 @@ where
     }
 
     /// Recreate all image slots with a new given size. This resets all images!
-    pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), InitializationError> {
+    pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), BasicImageBuilderError> {
         let lock = self.gpu.lock().unwrap();
         self.image_size = image_size;
         self.image_slots = ImageSlots::new(&lock.device, &lock.memory_properties, image_size)?;
