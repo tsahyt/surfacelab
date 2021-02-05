@@ -527,7 +527,7 @@ where
         let mut command_pool = unsafe {
             lock.device.create_command_pool(
                 lock.queue_group.family,
-                pool::CommandPoolCreateFlags::TRANSIENT,
+                pool::CommandPoolCreateFlags::empty(),
             )
         }
         .expect("Can't create command pool");
