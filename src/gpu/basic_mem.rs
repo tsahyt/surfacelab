@@ -23,7 +23,7 @@ impl<'a> BasicImageBuilder<'a> {
             kind: hal::image::Kind::D2(1024, 1024, 1, 1),
             mip_levels: 1,
             format: hal::format::Format::Rgba8Srgb,
-            usage: hal::image::Usage::SAMPLED,
+            usage: hal::image::Usage::empty(),
             view_caps: hal::image::ViewCapabilities::empty(),
             range: hal::image::SubresourceRange {
                 aspects: hal::format::Aspects::COLOR,
@@ -112,5 +112,88 @@ impl<'a> BasicImageBuilder<'a> {
         .map_err(|_| InitializationError::ResourceAcquisition("Irradiance map view"))?;
 
         Ok((image, memory, view))
+    }
+}
+
+pub struct BasicBufferBuilder<'a> {
+    memory_types: &'a [hal::adapter::MemoryType],
+    memory_type: hal::MemoryTypeId,
+    bytes: u64,
+    usage: hal::buffer::Usage,
+    data: Option<&'a [u8]>,
+}
+
+impl<'a> BasicBufferBuilder<'a> {
+    pub fn new(memory_types: &'a [hal::adapter::MemoryType]) -> Self {
+        Self {
+            memory_types,
+            memory_type: hal::MemoryTypeId(0),
+            bytes: 1024,
+            usage: hal::buffer::Usage::empty(),
+            data: None,
+        }
+    }
+
+    pub fn bytes(&mut self, bytes: u64) -> &mut Self {
+        self.bytes = bytes;
+        self
+    }
+
+    pub fn usage(&mut self, usage: hal::buffer::Usage) -> &mut Self {
+        self.usage = usage;
+        self
+    }
+
+    pub fn data(&mut self, data: &'a [u8]) -> &mut Self {
+        self.data = Some(data);
+        self
+    }
+
+    pub fn memory_type(&mut self, memory_type: hal::memory::Properties) -> Option<&mut Self> {
+        self.memory_type = self
+            .memory_types
+            .iter()
+            .position(|mem_type| mem_type.properties.contains(memory_type))?
+            .into();
+        Some(self)
+    }
+
+    pub fn build<B: hal::Backend>(
+        &self,
+        device: &B::Device,
+    ) -> Result<(B::Buffer, B::Memory), InitializationError> {
+        let mut buffer = unsafe { device.create_buffer(self.bytes, self.usage) }
+            .map_err(|_| InitializationError::ResourceAcquisition("Buffer"))?;
+
+        let mem = unsafe { device.allocate_memory(self.memory_type, self.bytes) }
+            .map_err(|_| InitializationError::Allocation("Buffer memory"))?;
+
+        unsafe {
+            device
+                .bind_buffer_memory(&mem, 0, &mut buffer)
+                .map_err(|_| InitializationError::Bind)?;
+        };
+
+        if let Some(data) = self.data {
+            unsafe {
+                let mapping = device
+                    .map_memory(
+                        &mem,
+                        hal::memory::Segment {
+                            offset: 0,
+                            size: Some(self.bytes),
+                        },
+                    )
+                    .unwrap();
+                let u8s: &[u8] = std::slice::from_raw_parts(
+                    data.as_ptr() as *const u8,
+                    data.len() * std::mem::size_of::<image::Rgba<f32>>(),
+                );
+                std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, self.bytes as usize);
+                device.unmap_memory(&mem);
+            }
+        }
+
+        Ok((buffer, mem))
     }
 }
