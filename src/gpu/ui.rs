@@ -1,9 +1,9 @@
-use super::{RenderTarget, GPU};
+use super::{basic_mem::BasicImageBuilder, RenderTarget, GPU};
 
 use gfx_hal as hal;
 use hal::{
     buffer, command, format as f,
-    format::{ChannelType, Swizzle},
+    format::ChannelType,
     image as i, memory as m, pass,
     pass::Subpass,
     pool,
@@ -334,52 +334,24 @@ where
         let lock = gpu.lock().unwrap();
 
         let [width, height] = size;
-        let kind = i::Kind::D2(width as i::Size, height as i::Size, 1, 1);
 
-        let mut image = unsafe {
-            lock.device.create_image(
-                kind,
-                1,
-                GLYPH_CACHE_FORMAT,
-                i::Tiling::Linear,
-                i::Usage::TRANSFER_DST | i::Usage::SAMPLED,
-                i::ViewCapabilities::empty(),
-            )
-        }
-        .unwrap();
-        let image_req = unsafe { lock.device.get_image_requirements(&image) };
-
-        let device_type = lock
-            .memory_properties
-            .memory_types
-            .iter()
-            .enumerate()
-            .position(|(id, memory_type)| {
-                image_req.type_mask & (1 << id) != 0
-                    && memory_type.properties.contains(m::Properties::DEVICE_LOCAL)
-            })
+        let (image, memory, view) = BasicImageBuilder::new(&lock.memory_properties.memory_types)
+            .size_2d(width, height)
+            .format(GLYPH_CACHE_FORMAT)
+            .usage(i::Usage::TRANSFER_DST | i::Usage::SAMPLED)
+            .memory_type(m::Properties::DEVICE_LOCAL)
             .unwrap()
-            .into();
-        let memory = unsafe { lock.device.allocate_memory(device_type, image_req.size) }.unwrap();
+            .build::<B>(&lock.device)
+            .expect("Error initializing GPU glyph cache");
 
-        unsafe { lock.device.bind_image_memory(&memory, 0, &mut image) }.unwrap();
-        let view = unsafe {
-            lock.device.create_image_view(
-                &image,
-                i::ViewKind::D2,
-                GLYPH_CACHE_FORMAT,
-                Swizzle::NO,
-                COLOR_RANGE.clone(),
-            )
-        }
-        .unwrap();
+        let cache_size = unsafe { lock.device.get_image_requirements(&image) }.size;
 
         GlyphCache {
             gpu: gpu.clone(),
             image: ManuallyDrop::new(image),
             memory: ManuallyDrop::new(memory),
             view: ManuallyDrop::new(view),
-            cache_size: image_req.size,
+            cache_size,
             cache_dims: size,
         }
     }
