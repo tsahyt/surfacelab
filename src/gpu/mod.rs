@@ -16,6 +16,7 @@ pub use hal::pso::{
 pub use hal::window::Extent2D;
 pub use hal::Instance;
 
+pub mod basic_mem;
 pub mod compute;
 pub mod render;
 pub mod ui;

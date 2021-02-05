@@ -1,4 +1,5 @@
 use super::{Backend, InitializationError, GPU};
+use crate::gpu::basic_mem::BasicImageBuilder;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use image::hdr;
@@ -36,7 +37,7 @@ pub struct EnvironmentMaps<B: Backend> {
     brdf_lut_memory: ManuallyDrop<B::Memory>,
 }
 
-pub const CUBE_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
+const CUBE_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     aspects: hal::format::Aspects::COLOR,
     levels: 0..1,
     layers: 0..6,
@@ -44,7 +45,7 @@ pub const CUBE_COLOR_RANGE: hal::image::SubresourceRange = hal::image::Subresour
 
 const MIP_LEVELS: u8 = 6;
 
-pub const CUBE_MIP_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
+const CUBE_MIP_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     aspects: hal::format::Aspects::COLOR,
     levels: 0..MIP_LEVELS,
     layers: 0..6,
@@ -75,151 +76,35 @@ where
         let lock = gpu.lock().unwrap();
 
         // Irradiance cube map
-        let (irradiance_image, irradiance_memory, irradiance_view) = {
-            let mut irradiance_image = unsafe {
-                lock.device.create_image(
-                    hal::image::Kind::D2(irradiance_size as u32, irradiance_size as u32, 6, 1),
-                    1,
-                    Self::FORMAT,
-                    hal::image::Tiling::Linear,
-                    hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
-                    hal::image::ViewCapabilities::KIND_CUBE,
-                )
-            }
-            .map_err(|_| InitializationError::ResourceAcquisition("Irradiance map image"))?;
-
-            let requirements = unsafe { lock.device.get_image_requirements(&irradiance_image) };
-            let memory_type = lock
-                .memory_properties
-                .memory_types
-                .iter()
-                .position(|mem_type| {
-                    mem_type
-                        .properties
-                        .contains(hal::memory::Properties::DEVICE_LOCAL)
-                })
+        let (irradiance_image, irradiance_memory, irradiance_view) =
+            BasicImageBuilder::new(&lock.memory_properties.memory_types)
+                .size_cube(irradiance_size as u32)
+                .format(Self::FORMAT)
+                .usage(hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE)
+                .memory_type(hal::memory::Properties::DEVICE_LOCAL)
                 .unwrap()
-                .into();
-            let irradiance_memory =
-                unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
-                    .map_err(|_| InitializationError::Allocation("Irradiance map"))?;
-            unsafe {
-                lock.device
-                    .bind_image_memory(&irradiance_memory, 0, &mut irradiance_image)
-            }
-            .unwrap();
-
-            let irradiance_view = unsafe {
-                lock.device.create_image_view(
-                    &irradiance_image,
-                    hal::image::ViewKind::Cube,
-                    Self::FORMAT,
-                    hal::format::Swizzle::NO,
-                    CUBE_COLOR_RANGE.clone(),
-                )
-            }
-            .map_err(|_| InitializationError::ResourceAcquisition("Irradiance map view"))?;
-
-            (irradiance_image, irradiance_memory, irradiance_view)
-        };
+                .build::<B>(&lock.device)?;
 
         // Pre-filtered environment map
-        let (spec_image, spec_memory, spec_view) = {
-            let mut spec_image = unsafe {
-                lock.device.create_image(
-                    hal::image::Kind::D2(spec_size as u32, spec_size as u32, 6, 1),
-                    MIP_LEVELS,
-                    Self::FORMAT,
-                    hal::image::Tiling::Linear,
-                    hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE,
-                    hal::image::ViewCapabilities::KIND_CUBE,
-                )
-            }
-            .map_err(|_| InitializationError::ResourceAcquisition("Specular map image"))?;
-
-            let requirements = unsafe { lock.device.get_image_requirements(&spec_image) };
-            let memory_type = lock
-                .memory_properties
-                .memory_types
-                .iter()
-                .position(|mem_type| {
-                    mem_type
-                        .properties
-                        .contains(hal::memory::Properties::DEVICE_LOCAL)
-                })
+        let (spec_image, spec_memory, spec_view) =
+            BasicImageBuilder::new(&lock.memory_properties.memory_types)
+                .size_cube(spec_size as u32)
+                .mip_levels(MIP_LEVELS)
+                .format(Self::FORMAT)
+                .usage(hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE)
+                .memory_type(hal::memory::Properties::DEVICE_LOCAL)
                 .unwrap()
-                .into();
-            let spec_memory =
-                unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
-                    .map_err(|_| InitializationError::Allocation("Specular map"))?;
-            unsafe {
-                lock.device
-                    .bind_image_memory(&spec_memory, 0, &mut spec_image)
-            }
-            .unwrap();
-
-            let spec_view = unsafe {
-                lock.device.create_image_view(
-                    &spec_image,
-                    hal::image::ViewKind::Cube,
-                    Self::FORMAT,
-                    hal::format::Swizzle::NO,
-                    CUBE_MIP_COLOR_RANGE.clone(),
-                )
-            }
-            .map_err(|_| InitializationError::ResourceAcquisition("Specular map view"))?;
-
-            (spec_image, spec_memory, spec_view)
-        };
+                .build::<B>(&lock.device)?;
 
         // Lookup table
-        let (brdf_lut_image, brdf_lut_memory, brdf_lut_view) = {
-            let mut brdf_image = unsafe {
-                lock.device.create_image(
-                    hal::image::Kind::D2(64, 64, 1, 1),
-                    1,
-                    Self::BRDF_FORMAT,
-                    hal::image::Tiling::Linear,
-                    hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
-                    hal::image::ViewCapabilities::empty(),
-                )
-            }
-            .map_err(|_| InitializationError::ResourceAcquisition("BRDF LUT image"))?;
-
-            let requirements = unsafe { lock.device.get_image_requirements(&brdf_image) };
-            let memory_type = lock
-                .memory_properties
-                .memory_types
-                .iter()
-                .position(|mem_type| {
-                    mem_type
-                        .properties
-                        .contains(hal::memory::Properties::DEVICE_LOCAL)
-                })
+        let (brdf_lut_image, brdf_lut_memory, brdf_lut_view) =
+            BasicImageBuilder::new(&lock.memory_properties.memory_types)
+                .size_2d(64, 64)
+                .format(Self::BRDF_FORMAT)
+                .usage(hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST)
+                .memory_type(hal::memory::Properties::DEVICE_LOCAL)
                 .unwrap()
-                .into();
-            let brdf_memory =
-                unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
-                    .map_err(|_| InitializationError::Allocation("BRDF LUT"))?;
-            unsafe {
-                lock.device
-                    .bind_image_memory(&brdf_memory, 0, &mut brdf_image)
-            }
-            .unwrap();
-
-            let brdf_view = unsafe {
-                lock.device.create_image_view(
-                    &brdf_image,
-                    hal::image::ViewKind::D2,
-                    Self::BRDF_FORMAT,
-                    hal::format::Swizzle::NO,
-                    super::super::COLOR_RANGE.clone(),
-                )
-            }
-            .map_err(|_| InitializationError::ResourceAcquisition("BRDF LUT view"))?;
-
-            (brdf_image, brdf_memory, brdf_view)
-        };
+                .build::<B>(&lock.device)?;
 
         drop(lock);
 
@@ -339,67 +224,14 @@ where
         };
 
         // Move HDRi to device only memory for the compute shader
-        let (equirect_image, equirect_view, equirect_memory) = {
-            let mut equirect_image = unsafe {
-                lock.device.create_image(
-                    hal::image::Kind::D2(metadata.width, metadata.height, 1, 1),
-                    1,
-                    Self::FORMAT,
-                    hal::image::Tiling::Linear,
-                    hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST,
-                    hal::image::ViewCapabilities::empty(),
-                )
-            }
-            .map_err(|_| {
-                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                    "Equirectangular image",
-                ))
-            })?;
-
-            let requirements = unsafe { lock.device.get_image_requirements(&equirect_image) };
-            let memory_type = lock
-                .memory_properties
-                .memory_types
-                .iter()
-                .position(|mem_type| {
-                    mem_type
-                        .properties
-                        .contains(hal::memory::Properties::DEVICE_LOCAL)
-                })
+        let (equirect_image, equirect_memory, equirect_view) =
+            BasicImageBuilder::new(&lock.memory_properties.memory_types)
+                .size_2d(metadata.width, metadata.height)
+                .format(Self::FORMAT)
+                .usage(hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST)
+                .memory_type(hal::memory::Properties::DEVICE_LOCAL)
                 .unwrap()
-                .into();
-
-            let equirect_memory =
-                unsafe { lock.device.allocate_memory(memory_type, requirements.size) }.map_err(
-                    |_| {
-                        EnvironmentError::InitializationError(InitializationError::Allocation(
-                            "Equirectangular",
-                        ))
-                    },
-                )?;
-            unsafe {
-                lock.device
-                    .bind_image_memory(&equirect_memory, 0, &mut equirect_image)
-            }
-            .unwrap();
-
-            let equirect_view = unsafe {
-                lock.device.create_image_view(
-                    &equirect_image,
-                    hal::image::ViewKind::D2,
-                    Self::FORMAT,
-                    hal::format::Swizzle::NO,
-                    super::super::COLOR_RANGE.clone(),
-                )
-            }
-            .map_err(|_| {
-                EnvironmentError::InitializationError(InitializationError::ResourceAcquisition(
-                    "Equirectangular view",
-                ))
-            })?;
-
-            (equirect_image, equirect_view, equirect_memory)
-        };
+                .build::<B>(&lock.device)?;
 
         let mut command_pool = unsafe {
             lock.device.create_command_pool(
