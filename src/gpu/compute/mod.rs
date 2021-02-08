@@ -70,46 +70,25 @@ where
         // shaders, since only one is ever running at the same time. The size
         // of the buffer is given by UNIFORM_BUFFER_SIZE, and must be large
         // enough to accomodate every possible uniform struct!
-        let (uniform_buf, uniform_mem) = unsafe {
-            let mut buf = lock
-                .device
-                .create_buffer(
-                    Self::UNIFORM_BUFFER_SIZE,
-                    hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM,
+        let mut buffer_builder = BasicBufferBuilder::new(&lock.memory_properties.memory_types);
+        buffer_builder
+            .bytes(Self::UNIFORM_BUFFER_SIZE)
+            .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM);
+
+        // Pick memory type for buffer builder for AMD/Nvidia
+        if let None = buffer_builder.memory_type(
+            hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+        ) {
+            buffer_builder
+                .memory_type(
+                    hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
                 )
-                .map_err(|_| InitializationError::ResourceAcquisition("Uniform Buffer"))?;
-            let buffer_req = lock.device.get_buffer_requirements(&buf);
-            let upload_type = lock
-                .memory_properties
-                .memory_types
-                .iter()
-                .enumerate()
-                .position(|(id, mem_type)| {
-                    // type_mask is a bit field where each bit represents a
-                    // memory type. If the bit is set to 1 it means we can use
-                    // that type for our buffer. So this code finds the first
-                    // memory type that has a `1` (or, is allowed), and is
-                    // visible to the CPU.
-                    buffer_req.type_mask & (1 << id) != 0
-                        && (mem_type.properties.contains(
-                            hal::memory::Properties::CPU_VISIBLE
-                                | hal::memory::Properties::DEVICE_LOCAL,
-                        ) || mem_type.properties.contains(
-                            hal::memory::Properties::CPU_VISIBLE
-                                | hal::memory::Properties::COHERENT,
-                        ))
-                })
-                .unwrap()
-                .into();
-            let mem = lock
-                .device
-                .allocate_memory(upload_type, Self::UNIFORM_BUFFER_SIZE)
-                .map_err(|_| InitializationError::Allocation("Uniform Buffer"))?;
-            lock.device
-                .bind_buffer_memory(&mem, 0, &mut buf)
-                .map_err(|_| InitializationError::Bind)?;
-            (buf, mem)
-        };
+                .expect("Failed to find appropriate memory type for uniforms");
+        }
+
+        let (uniform_buf, uniform_mem) = buffer_builder
+            .build::<B>(&lock.device)
+            .expect("Failed to build uniform buffer");
 
         // Descriptor Pool. We need to set out resource limits here. Since we
         // keep descriptor sets around for each shader after creation, we need a
