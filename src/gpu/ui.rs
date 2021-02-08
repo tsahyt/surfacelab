@@ -736,7 +736,7 @@ where
                     pso::EntryPoint {
                         entry: ENTRY_NAME,
                         module: &vs_module,
-                        specialization: hal::spec_const_list![0.8f32],
+                        specialization: pso::Specialization::default(),
                     },
                     pso::EntryPoint {
                         entry: ENTRY_NAME,
