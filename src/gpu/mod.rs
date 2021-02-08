@@ -171,6 +171,17 @@ where
     }
 }
 
+/// Convenience function for creating shader modules for SPIR-V bytecode.
+pub fn load_shader<B: Backend>(
+    device: &B::Device,
+    spirv: &'static [u8],
+) -> Result<B::ShaderModule, InitializationError> {
+    let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
+        .map_err(|_| InitializationError::ShaderSPIRV)?;
+    unsafe { device.create_shader_module(&loaded_spirv) }
+        .map_err(|_| InitializationError::ShaderModule)
+}
+
 impl<B> Drop for GPU<B>
 where
     B: Backend,

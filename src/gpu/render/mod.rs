@@ -1,5 +1,5 @@
 use super::RenderTarget;
-use crate::gpu::basic_mem::*;
+use crate::gpu::{basic_mem::*, load_shader};
 use crate::lang::ObjectType;
 use crate::util::HaltonSequence2D;
 
@@ -595,8 +595,8 @@ where
         format: hal::format::Format,
         set_layout: &B::DescriptorSetLayout,
         object_type: ObjectType,
-        vertex_shader: &[u8],
-        fragment_shader: &[u8],
+        vertex_shader: &'static [u8],
+        fragment_shader: &'static [u8],
     ) -> Result<(B::RenderPass, B::GraphicsPipeline, B::PipelineLayout), InitializationError> {
         // Create Render Pass
         let render_pass = {
@@ -639,18 +639,8 @@ where
         };
 
         let pipeline = {
-            let vs_module = {
-                let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(vertex_shader))
-                    .map_err(|_| InitializationError::ShaderSPIRV)?;
-                unsafe { device.create_shader_module(&loaded_spirv) }
-                    .map_err(|_| InitializationError::ShaderModule)?
-            };
-            let fs_module = {
-                let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(fragment_shader))
-                    .map_err(|_| InitializationError::ShaderSPIRV)?;
-                unsafe { device.create_shader_module(&loaded_spirv) }
-                    .map_err(|_| InitializationError::ShaderModule)?
-            };
+            let vs_module = load_shader::<B>(device, vertex_shader)?;
+            let fs_module = load_shader::<B>(device, fragment_shader)?;
 
             let pipeline = {
                 let shader_entries = hal::pso::GraphicsShaderSet {
@@ -709,7 +699,7 @@ where
     fn make_accum_pipeline(
         device: &B::Device,
         set_layout: &B::DescriptorSetLayout,
-        accum_shader: &[u8],
+        accum_shader: &'static [u8],
     ) -> Result<(B::ComputePipeline, B::PipelineLayout), InitializationError> {
         let pipeline_layout = unsafe {
             device.create_pipeline_layout(
@@ -719,12 +709,7 @@ where
         }
         .map_err(|_| InitializationError::ResourceAcquisition("Accum Pipeline Layout"))?;
 
-        let shader_module = {
-            let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(accum_shader))
-                .map_err(|_| InitializationError::ShaderSPIRV)?;
-            unsafe { device.create_shader_module(&loaded_spirv) }
-                .map_err(|_| InitializationError::ShaderModule)?
-        };
+        let shader_module = load_shader::<B>(device, accum_shader)?;
 
         let pipeline = unsafe {
             device

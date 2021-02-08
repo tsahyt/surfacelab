@@ -1,5 +1,5 @@
 use super::{Backend, GPU};
-use crate::gpu::basic_mem::*;
+use crate::gpu::{basic_mem::*, load_shader};
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use image::hdr;
@@ -429,17 +429,8 @@ where
             )
         }?;
 
-        let irradiance_module = {
-            let loaded_spirv =
-                hal::pso::read_spirv(std::io::Cursor::new(IRRADIANCE_SHADER)).unwrap();
-            unsafe { lock.device.create_shader_module(&loaded_spirv) }.unwrap()
-        };
-
-        let prefilter_module = {
-            let loaded_spirv =
-                hal::pso::read_spirv(std::io::Cursor::new(PREFILTER_SHADER)).unwrap();
-            unsafe { lock.device.create_shader_module(&loaded_spirv) }.unwrap()
-        };
+        let irradiance_module = load_shader::<B>(&lock.device, IRRADIANCE_SHADER).unwrap();
+        let prefilter_module = load_shader::<B>(&lock.device, PREFILTER_SHADER).unwrap();
 
         let irradiance_pipeline = unsafe {
             lock.device.create_compute_pipeline(

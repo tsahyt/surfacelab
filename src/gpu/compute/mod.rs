@@ -14,7 +14,10 @@ pub mod thumbnails;
 pub use allocator::{Image, ImageError};
 pub use thumbnails::ThumbnailIndex;
 
-use super::{Backend, DownloadError, InitializationError, PipelineError, Shader, ShaderType, GPU};
+use super::{
+    load_shader, Backend, DownloadError, InitializationError, PipelineError, Shader, ShaderType,
+    GPU,
+};
 
 /// GPU side compute component
 pub struct GPUCompute<B: Backend> {
@@ -164,12 +167,9 @@ where
     /// Build a new compute shader given raw SPIR-V. The resulting shader will
     /// destroy itself when dropped. The parent GPU can not be dropped before
     /// all its shaders are dropped!
-    pub fn create_shader(&self, spirv: &[u8]) -> Result<Shader<B>, InitializationError> {
+    pub fn create_shader(&self, spirv: &'static [u8]) -> Result<Shader<B>, InitializationError> {
         let lock = self.gpu.lock().unwrap();
-        let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
-            .map_err(|_| InitializationError::ShaderSPIRV)?;
-        let shader = unsafe { lock.device.create_shader_module(&loaded_spirv) }
-            .map_err(|_| InitializationError::ShaderModule)?;
+        let shader = load_shader::<B>(&lock.device, spirv)?;
         Ok(Shader {
             raw: ManuallyDrop::new(shader),
             ty: ShaderType::Compute,

@@ -1,6 +1,6 @@
 use super::{
     basic_mem::{BasicBufferBuilder, BasicImageBuilder},
-    RenderTarget, GPU,
+    load_shader, RenderTarget, GPU,
 };
 
 use gfx_hal as hal;
@@ -21,7 +21,6 @@ use std::sync::{Arc, Mutex};
 use std::{
     borrow::Borrow,
     collections::HashMap,
-    io::Cursor,
     iter,
     mem::{self, ManuallyDrop},
     sync::Weak,
@@ -748,18 +747,18 @@ where
         .expect("Can't create pipeline layout");
         let pipeline = {
             let vs_module = {
-                let spirv = pso::read_spirv(Cursor::new(
+                load_shader::<B>(
+                    &lock.device,
                     &include_bytes!("../../shaders/ui-vert.spv")[..],
-                ))
-                .unwrap();
-                unsafe { lock.device.create_shader_module(&spirv) }.unwrap()
+                )
+                .unwrap()
             };
             let fs_module = {
-                let spirv = pso::read_spirv(Cursor::new(
+                load_shader::<B>(
+                    &lock.device,
                     &include_bytes!("../../shaders/ui-frag.spv")[..],
-                ))
-                .unwrap();
-                unsafe { lock.device.create_shader_module(&spirv) }.unwrap()
+                )
+                .unwrap()
             };
 
             let pipeline = {
