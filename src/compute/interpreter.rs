@@ -19,7 +19,7 @@ pub enum InterpretationError {
     ImageError(#[from] gpu::compute::ImageError),
     /// An error occurred during uploading of an image
     #[error("An error occurred during uploading of an image")]
-    UploadError(#[from] gpu::UploadError),
+    UploadError(#[from] gpu::basic_mem::BasicBufferBuilderError),
     /// An error occured during pipeline execution,
     #[error("An error occured during pipeline execution")]
     PipelineError(#[from] gpu::PipelineError),

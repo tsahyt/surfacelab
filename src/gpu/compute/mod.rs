@@ -1,3 +1,4 @@
+use crate::gpu::basic_mem::{BasicBufferBuilder, BasicBufferBuilderError};
 use crate::lang;
 
 use gfx_hal as hal;
@@ -13,10 +14,7 @@ pub mod thumbnails;
 pub use allocator::{Image, ImageError};
 pub use thumbnails::ThumbnailIndex;
 
-use super::{
-    Backend, DownloadError, InitializationError, PipelineError, Shader, ShaderType, UploadError,
-    GPU,
-};
+use super::{Backend, DownloadError, InitializationError, PipelineError, Shader, ShaderType, GPU};
 
 /// GPU side compute component
 pub struct GPUCompute<B: Backend> {
@@ -545,59 +543,73 @@ where
     }
 
     /// Upload image. This assumes the image to be allocated!
-    pub fn upload_image(&mut self, image: &Image<B>, buffer: &[u16]) -> Result<(), UploadError> {
+    pub fn upload_image(
+        &mut self,
+        image: &Image<B>,
+        buffer: &[u16],
+    ) -> Result<(), BasicBufferBuilderError> {
         debug_assert!(image.is_backed());
 
         let mut lock = self.gpu.lock().unwrap();
         let bytes = image.get_bytes() as u64;
+        let u8s: &[u8] =
+            unsafe { std::slice::from_raw_parts(buffer.as_ptr() as *const u8, buffer.len() * 2) };
 
-        // Create and allocate staging buffer in host readable memory.
-        let mut buf = unsafe {
-            lock.device
-                .create_buffer(bytes, hal::buffer::Usage::TRANSFER_SRC)
-        }
-        .map_err(|_| UploadError::Creation)?;
+        let (buf, mem) = BasicBufferBuilder::new(&lock.memory_properties.memory_types)
+            .bytes(bytes)
+            .usage(hal::buffer::Usage::TRANSFER_SRC)
+            .data(u8s)
+            .memory_type(hal::memory::Properties::CPU_VISIBLE)
+            .expect("Failed to build CPU visible staging buffer")
+            .build::<B>(&lock.device)?;
 
-        let buf_req = unsafe { lock.device.get_buffer_requirements(&buf) };
-        let mem_type = lock
-            .memory_properties
-            .memory_types
-            .iter()
-            .enumerate()
-            .position(|(id, mem_type)| {
-                buf_req.type_mask & (1 << id) != 0
-                    && mem_type
-                        .properties
-                        .contains(hal::memory::Properties::CPU_VISIBLE)
-            })
-            .unwrap()
-            .into();
-        let mem = unsafe { lock.device.allocate_memory(mem_type, bytes) }
-            .map_err(|_| UploadError::Allocation)?;
+        // // Create and allocate staging buffer in host readable memory.
+        // let mut buf = unsafe {
+        //     lock.device
+        //         .create_buffer(bytes, hal::buffer::Usage::TRANSFER_SRC)
+        // }
+        // .map_err(|_| UploadError::Creation)?;
 
-        unsafe {
-            lock.device
-                .bind_buffer_memory(&mem, 0, &mut buf)
-                .map_err(|_| UploadError::BufferBind)?
-        };
+        // let buf_req = unsafe { lock.device.get_buffer_requirements(&buf) };
+        // let mem_type = lock
+        //     .memory_properties
+        //     .memory_types
+        //     .iter()
+        //     .enumerate()
+        //     .position(|(id, mem_type)| {
+        //         buf_req.type_mask & (1 << id) != 0
+        //             && mem_type
+        //                 .properties
+        //                 .contains(hal::memory::Properties::CPU_VISIBLE)
+        //     })
+        //     .unwrap()
+        //     .into();
+        // let mem = unsafe { lock.device.allocate_memory(mem_type, bytes) }
+        //     .map_err(|_| UploadError::Allocation)?;
 
-        // Upload image to staging buffer
-        unsafe {
-            let mapping = lock
-                .device
-                .map_memory(
-                    &mem,
-                    hal::memory::Segment {
-                        offset: 0,
-                        size: Some(bytes),
-                    },
-                )
-                .unwrap();
-            let u8s: &[u8] =
-                std::slice::from_raw_parts(buffer.as_ptr() as *const u8, buffer.len() * 2);
-            std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, bytes as usize);
-            lock.device.unmap_memory(&mem);
-        }
+        // unsafe {
+        //     lock.device
+        //         .bind_buffer_memory(&mem, 0, &mut buf)
+        //         .map_err(|_| UploadError::BufferBind)?
+        // };
+
+        // // Upload image to staging buffer
+        // unsafe {
+        //     let mapping = lock
+        //         .device
+        //         .map_memory(
+        //             &mem,
+        //             hal::memory::Segment {
+        //                 offset: 0,
+        //                 size: Some(bytes),
+        //             },
+        //         )
+        //         .unwrap();
+        //     let u8s: &[u8] =
+        //         std::slice::from_raw_parts(buffer.as_ptr() as *const u8, buffer.len() * 2);
+        //     std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, bytes as usize);
+        //     lock.device.unmap_memory(&mem);
+        // }
 
         // Reset fence
         unsafe {

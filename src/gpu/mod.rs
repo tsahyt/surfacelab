@@ -88,9 +88,6 @@ pub enum PipelineError {
     /// Errors during downloading of images
     #[error("Error during image download")]
     DownloadError(#[from] DownloadError),
-    /// Errors during uploading of images
-    #[error("Error during image upload")]
-    UploadError(#[from] UploadError),
 }
 
 #[derive(Debug, Error)]
@@ -107,19 +104,6 @@ pub enum DownloadError {
     /// Failed to map download buffer into CPU space
     #[error("Failed to map download buffer into CPU space")]
     Map,
-}
-
-#[derive(Debug, Error)]
-pub enum UploadError {
-    /// Failed to create upload buffer
-    #[error("Failed to create an upload buffer")]
-    Creation,
-    /// Failed to allocate memory for upload buffer
-    #[error("Failed to allocate memory for upload buffer")]
-    Allocation,
-    /// Failed to bind memory for upload buffer
-    #[error("Failed to bind upload buffer")]
-    BufferBind,
 }
 
 /// Initialize the GPU, optionally headless. When headless is specified,
