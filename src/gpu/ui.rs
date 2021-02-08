@@ -350,6 +350,11 @@ where
     pub fn view(&self) -> &B::ImageView {
         &*self.view
     }
+
+    /// Obtain image view of the glyph cache for use in barriers
+    pub fn image(&self) -> &B::Image {
+        &*self.image
+    }
 }
 
 impl<B> Drop for GlyphCache<B>
@@ -931,7 +936,20 @@ where
 
         unsafe {
             cmd_buffer.begin_primary(command::CommandBufferFlags::ONE_TIME_SUBMIT);
-
+            cmd_buffer.pipeline_barrier(
+                hal::pso::PipelineStage::TOP_OF_PIPE..hal::pso::PipelineStage::FRAGMENT_SHADER,
+                hal::memory::Dependencies::empty(),
+                &[hal::memory::Barrier::Image {
+                    states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                        ..(
+                            hal::image::Access::SHADER_READ,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        ),
+                    target: self.glyph_cache.image(),
+                    families: None,
+                    range: super::COLOR_RANGE,
+                }],
+            );
             cmd_buffer.set_viewports(0, &[self.viewport.clone()]);
             cmd_buffer.set_scissors(0, &[self.viewport.rect]);
 
