@@ -431,6 +431,38 @@ where
     }
 }
 
+#[derive(Debug, Error)]
+pub enum RendererError {
+    #[error("Error in vertex buffer operation")]
+    VertexBuffer(#[from] VertexBufferError),
+    #[error("Error in glyph cache operation")]
+    GlyphCache(#[from] GlyphCacheError),
+    #[error("Failed window initialization")]
+    WindowInit(#[from] hal::window::InitError),
+    #[error("Failed window initialization")]
+    WindowCreation(#[from] hal::window::CreationError),
+    #[error("Surface does not support queue family")]
+    SurfaceQueueMismatch,
+    #[error("Out of memory condition encountered")]
+    OutOfMemory(#[from] hal::device::OutOfMemory),
+    #[error("Driver allocation error encountered")]
+    AllocationError(#[from] hal::device::AllocationError),
+    #[error("Shader initialization failed")]
+    ShaderInit,
+    #[error("Render target (re)initialization failed")]
+    TargetInit,
+}
+
+#[derive(Debug, Error)]
+pub enum RenderError {
+    #[error("Error writing glyph cache")]
+    CacheWriteError(#[from] conrod_core::text::rt::gpu_cache::CacheWriteErr),
+    #[error("Error uploading glyph cache")]
+    GlyphCache(#[from] GlyphCacheError),
+    #[error("Synchronization primitives timed out")]
+    SyncTimeout,
+}
+
 /// UI Renderer
 pub struct Renderer<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
@@ -476,10 +508,9 @@ where
         window: &W,
         dimensions: window::Extent2D,
         glyph_cache_dims: [u32; 2],
-    ) -> Renderer<B> {
-        let vertex_buffer = VertexBuffer::new(gpu.clone()).expect("Error creating Vertex Buffer");
-        let glyph_cache =
-            GlyphCache::new(gpu.clone(), glyph_cache_dims).expect("Error creating Glyph Cache");
+    ) -> Result<Renderer<B>, RendererError> {
+        let vertex_buffer = VertexBuffer::new(gpu.clone())?;
+        let glyph_cache = GlyphCache::new(gpu.clone(), glyph_cache_dims)?;
         let render_target = RenderTarget::new(
             gpu.clone(),
             TARGET_FORMAT,
@@ -487,17 +518,16 @@ where
             false,
             (dimensions.width, dimensions.height),
         )
-        .expect("Failed to initialize render target");
+        .map_err(|_| RendererError::TargetInit)?;
 
         // Lock after other structures have been created using the GPU already
         // to prevent deadlock.
         let lock = gpu.lock().unwrap();
 
-        let mut surface =
-            unsafe { lock.instance.create_surface(window) }.expect("Failed to create surface");
+        let mut surface = unsafe { lock.instance.create_surface(window) }?;
 
         if !surface.supports_queue_family(&lock.adapter.queue_families[lock.queue_group.family.0]) {
-            log::error!("Surface does not support queue family!");
+            return Err(RendererError::SurfaceQueueMismatch);
         }
 
         let mut command_pool = unsafe {
@@ -505,14 +535,12 @@ where
                 lock.queue_group.family,
                 pool::CommandPoolCreateFlags::empty(),
             )
-        }
-        .expect("Can't create command pool");
+        }?;
 
         let sampler = unsafe {
             lock.device
                 .create_sampler(&i::SamplerDesc::new(i::Filter::Linear, i::WrapMode::Clamp))
-        }
-        .expect("Can't create sampler");
+        }?;
 
         // Setup renderpass and pipeline
         let basic_set_layout = unsafe {
@@ -541,8 +569,7 @@ where
                 ],
                 &[],
             )
-        }
-        .expect("Can't create basic descriptor set layout");
+        }?;
 
         // Descriptor set layout for images
         let image_set_layout = unsafe {
@@ -560,8 +587,7 @@ where
                 }],
                 &[],
             )
-        }
-        .expect("Can't create image descriptor set layout");
+        }?;
 
         // Descriptors
         let mut basic_desc_pool = unsafe {
@@ -583,8 +609,7 @@ where
                 ],
                 pso::DescriptorPoolCreateFlags::empty(),
             )
-        }
-        .expect("Can't create descriptor pool");
+        }?;
 
         let mut image_desc_pool = unsafe {
             lock.device.create_descriptor_pool(
@@ -599,8 +624,7 @@ where
                 }],
                 pso::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET,
             )
-        }
-        .expect("Can't create descriptor pool");
+        }?;
 
         let basic_desc_set = unsafe { basic_desc_pool.allocate_set(&basic_set_layout) }.unwrap();
 
@@ -648,11 +672,7 @@ where
 
         let swap_config = window::SwapchainConfig::from_caps(&caps, TARGET_FORMAT, dimensions);
         let extent = swap_config.extent;
-        unsafe {
-            surface
-                .configure_swapchain(&lock.device, swap_config)
-                .expect("Can't configure swapchain");
-        };
+        unsafe { surface.configure_swapchain(&lock.device, swap_config)? };
 
         // Define render pass
         let render_pass = {
@@ -692,41 +712,33 @@ where
                     &[subpass],
                     &[],
                 )
-            }
-            .expect("Can't create render pass")
+            }?
         };
 
         // Sync primitives
-        let submission_complete_semaphore = lock
-            .device
-            .create_semaphore()
-            .expect("Could not create semaphore");
-        let submission_complete_fence = lock
-            .device
-            .create_fence(true)
-            .expect("Could not create fence");
+        let submission_complete_semaphore = lock.device.create_semaphore()?;
+        let submission_complete_fence = lock.device.create_fence(true)?;
 
         let command_buffer = unsafe { command_pool.allocate_one(command::Level::Primary) };
 
         let pipeline_layout = unsafe {
             lock.device
                 .create_pipeline_layout(vec![&basic_set_layout, &image_set_layout], &[])
-        }
-        .expect("Can't create pipeline layout");
+        }?;
         let pipeline = {
             let vs_module = {
                 load_shader::<B>(
                     &lock.device,
                     &include_bytes!("../../shaders/ui-vert.spv")[..],
                 )
-                .unwrap()
+                .map_err(|_| RendererError::ShaderInit)?
             };
             let fs_module = {
                 load_shader::<B>(
                     &lock.device,
                     &include_bytes!("../../shaders/ui-frag.spv")[..],
                 )
-                .unwrap()
+                .map_err(|_| RendererError::ShaderInit)?
             };
 
             let pipeline = {
@@ -840,7 +852,7 @@ where
 
         let mesh = Mesh::with_glyph_cache_dimensions(glyph_cache_dims);
 
-        Renderer {
+        Ok(Renderer {
             gpu: gpu.clone(),
             surface: ManuallyDrop::new(surface),
             dimensions,
@@ -863,14 +875,17 @@ where
             render_target,
             sampler: ManuallyDrop::new(sampler),
             mesh,
-        }
+        })
     }
 
     /// Recreate the swapchain with new dimensions.
     ///
     /// Note that the swapchain will *always* be recreated, with the same
     /// dimensions if no new dimensions are given.
-    pub fn recreate_swapchain(&mut self, new_dimensions: Option<window::Extent2D>) {
+    pub fn recreate_swapchain(
+        &mut self,
+        new_dimensions: Option<window::Extent2D>,
+    ) -> Result<(), RendererError> {
         if let Some(ext) = new_dimensions {
             self.dimensions = ext;
         }
@@ -882,7 +897,7 @@ where
             false,
             (self.dimensions.width, self.dimensions.height),
         )
-        .expect("Failed to rebuild render target");
+        .map_err(|_| RendererError::TargetInit)?;
 
         let lock = self.gpu.lock().unwrap();
 
@@ -892,12 +907,13 @@ where
 
         unsafe {
             self.surface
-                .configure_swapchain(&lock.device, swap_config)
-                .expect("Can't create swapchain");
+                .configure_swapchain(&lock.device, swap_config)?;
         }
 
         self.viewport.rect.w = extent.width as _;
         self.viewport.rect.h = extent.height as _;
+
+        Ok(())
     }
 
     /// Render the UI given an image map and a collection of conrod primitives
@@ -906,7 +922,7 @@ where
         &mut self,
         image_map: &conrod_core::image::Map<Image<B>>,
         primitives: P,
-    ) {
+    ) -> Result<(), RenderError> {
         self.fill(
             image_map,
             [
@@ -917,15 +933,14 @@ where
             ],
             1.0,
             primitives,
-        )
-        .expect("Error while filling");
+        )?;
 
         let surface_image = unsafe {
             match self.surface.acquire_image(!0) {
                 Ok((image, _)) => image,
                 Err(_) => {
                     self.recreate_swapchain(None);
-                    return;
+                    return Ok(());
                 }
             }
         };
@@ -954,10 +969,10 @@ where
             unsafe {
                 lock.device
                     .wait_for_fence(&self.submission_complete_fence, !0)
-                    .expect("Failed to wait for fence");
+                    .map_err(|_| RenderError::SyncTimeout)?;
                 lock.device
                     .reset_fence(&self.submission_complete_fence)
-                    .expect("Failed to reset fence");
+                    .map_err(|_| RenderError::SyncTimeout)?;
                 self.command_pool.reset(false);
             }
 
@@ -1070,6 +1085,8 @@ where
                 self.recreate_swapchain(None);
             }
         }
+
+        Ok(())
     }
 
     /// Fill the internal mesh from the primitives
@@ -1079,7 +1096,7 @@ where
         viewport: [f32; 4],
         dpi_factor: f64,
         primitives: P,
-    ) -> Result<(), conrod_core::text::rt::gpu_cache::CacheWriteErr> {
+    ) -> Result<(), RenderError> {
         let [vp_l, vp_t, vp_r, vp_b] = viewport;
         let lt = [vp_l as conrod_core::Scalar, vp_t as conrod_core::Scalar];
         let rb = [vp_r as conrod_core::Scalar, vp_b as conrod_core::Scalar];
@@ -1088,12 +1105,10 @@ where
             .mesh
             .fill(viewport, dpi_factor, image_map, primitives)?;
         if fill.glyph_cache_requires_upload {
-            self.glyph_cache
-                .upload(
-                    &mut *self.command_pool,
-                    self.mesh.glyph_cache_pixel_buffer(),
-                )
-                .expect("Glyph cache upload failed");
+            self.glyph_cache.upload(
+                &mut *self.command_pool,
+                self.mesh.glyph_cache_pixel_buffer(),
+            )?;
         }
         Ok(())
     }

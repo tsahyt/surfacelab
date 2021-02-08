@@ -44,7 +44,8 @@ fn ui_loop<B: gpu::Backend>(
         .next()
         .unwrap();
 
-    let mut renderer = gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]);
+    let mut renderer =
+        gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]).expect("Error building renderer");
     let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
     let assets = find_folder::Search::KidsThenParents(3, 5)
         .for_folder("assets")
@@ -89,10 +90,12 @@ fn ui_loop<B: gpu::Backend>(
                     *control_flow = winit::event_loop::ControlFlow::Exit
                 }
                 winit::event::WindowEvent::Resized(dims) => {
-                    renderer.recreate_swapchain(Some(gpu::Extent2D {
-                        width: dims.width,
-                        height: dims.height,
-                    }));
+                    renderer
+                        .recreate_swapchain(Some(gpu::Extent2D {
+                            width: dims.width,
+                            height: dims.height,
+                        }))
+                        .expect("Swapchain recreation failed");
                 }
                 _ => {}
             },
@@ -112,7 +115,9 @@ fn ui_loop<B: gpu::Backend>(
                     Some(ps) => ps,
                 };
 
-                renderer.render(&gui.image_map(), primitives);
+                renderer
+                    .render(&gui.image_map(), primitives)
+                    .expect("Rendering failed");
             }
             _ => {}
         }
