@@ -1,5 +1,5 @@
 use super::{
-    basic_mem::{BasicBufferBuilder, BasicImageBuilder},
+    basic_mem::{BasicBufferBuilder, BasicBufferBuilderError, BasicImageBuilder},
     load_shader, RenderTarget, GPU,
 };
 
@@ -25,6 +25,8 @@ use std::{
     mem::{self, ManuallyDrop},
     sync::Weak,
 };
+
+use thiserror::Error;
 
 use conrod_core::{self, mesh::*};
 
@@ -113,13 +115,14 @@ pub struct VertexBuffer<B: Backend> {
     device_buf: ManuallyDrop<B::Buffer>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum VertexBufferError {
-    BufferCreation(hal::buffer::CreationError),
-    MemoryAllocation(hal::device::AllocationError),
-    Bind(hal::device::BindError),
-    Map(hal::device::MapError),
-    OutOfMemory(hal::device::OutOfMemory),
+    #[error("Error during buffer building")]
+    BufferCreation(#[from] BasicBufferBuilderError),
+    #[error("Error during memory mapping")]
+    Map(#[from] hal::device::MapError),
+    #[error("Out of memory during write")]
+    OutOfMemory(#[from] hal::device::OutOfMemory),
 }
 
 impl<B> VertexBuffer<B>
@@ -146,16 +149,14 @@ where
                 .usage(hal::buffer::Usage::TRANSFER_SRC)
                 .memory_type(hal::memory::Properties::CPU_VISIBLE)
                 .unwrap()
-                .build::<B>(&lock.device)
-                .unwrap();
+                .build::<B>(&lock.device)?;
         let (device_buf, device_mem) =
             BasicBufferBuilder::new(&lock.memory_properties.memory_types)
                 .bytes(bytes)
                 .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::VERTEX)
                 .memory_type(hal::memory::Properties::DEVICE_LOCAL)
                 .unwrap()
-                .build::<B>(&lock.device)
-                .unwrap();
+                .build::<B>(&lock.device)?;
 
         drop(lock);
 
@@ -181,16 +182,14 @@ where
                 .usage(hal::buffer::Usage::TRANSFER_SRC)
                 .memory_type(hal::memory::Properties::CPU_VISIBLE)
                 .unwrap()
-                .build::<B>(&lock.device)
-                .unwrap();
+                .build::<B>(&lock.device)?;
         let (device_buf, device_mem) =
             BasicBufferBuilder::new(&lock.memory_properties.memory_types)
                 .bytes(bytes)
                 .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::VERTEX)
                 .memory_type(hal::memory::Properties::DEVICE_LOCAL)
                 .unwrap()
-                .build::<B>(&lock.device)
-                .unwrap();
+                .build::<B>(&lock.device)?;
 
         {
             let lock = self.gpu.lock().unwrap();
@@ -236,16 +235,13 @@ where
         let mapping = unsafe {
             lock.device
                 .map_memory(&*self.staging_mem, hal::memory::Segment::ALL)
-        }
-        .map_err(VertexBufferError::Map)?;
+        }?;
         unsafe {
             std::ptr::copy_nonoverlapping(vertices.as_ptr() as *const u8, mapping, bytes);
-            lock.device
-                .flush_mapped_memory_ranges(std::iter::once((
-                    &*self.staging_mem,
-                    hal::memory::Segment::ALL,
-                )))
-                .map_err(VertexBufferError::OutOfMemory)?;
+            lock.device.flush_mapped_memory_ranges(std::iter::once((
+                &*self.staging_mem,
+                hal::memory::Segment::ALL,
+            )))?;
             lock.device.unmap_memory(&*self.staging_mem);
         };
 
