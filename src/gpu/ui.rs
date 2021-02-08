@@ -999,18 +999,7 @@ where
                 &self.render_pass,
                 &framebuffer,
                 self.viewport.rect,
-                &[
-                    command::ClearValue {
-                        color: command::ClearColor {
-                            float32: [0.0, 0.0, 0.0, 1.0],
-                        },
-                    },
-                    command::ClearValue {
-                        color: command::ClearColor {
-                            float32: [0.0, 0.0, 0.0, 1.0],
-                        },
-                    },
-                ],
+                &[],
                 command::SubpassContents::Inline,
             );
         }
