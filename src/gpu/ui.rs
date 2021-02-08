@@ -2,12 +2,12 @@ use super::{basic_mem::*, load_shader, RenderTarget, GPU};
 
 use gfx_hal as hal;
 use hal::{
-    buffer, command, format as f, image as i, memory as m, pass,
+    buffer, command, format as f, image as i, pass,
     pass::Subpass,
     pool,
     prelude::*,
     pso,
-    pso::{PipelineStage, ShaderStageFlags, VertexInputRate},
+    pso::{ShaderStageFlags, VertexInputRate},
     queue::Submission,
     window, Backend,
 };
@@ -36,12 +36,6 @@ const ENTRY_NAME: &str = "main";
 
 /// Format for the glyph cache, used for text and icons
 const GLYPH_CACHE_FORMAT: hal::format::Format = hal::format::Format::R8Unorm;
-
-const COLOR_RANGE: i::SubresourceRange = i::SubresourceRange {
-    aspects: f::Aspects::COLOR,
-    levels: 0..1,
-    layers: 0..1,
-};
 
 /// UI Vertex definition, representationally matching what comes out of conrod
 /// such that we can simply reinterpret the memory region instead of spending
@@ -265,6 +259,10 @@ pub enum GlyphCacheError {
     ImageBuilderError(#[from] BasicImageBuilderError),
     #[error("Failed to build buffer for upload")]
     UploadBufferError(#[from] BasicBufferBuilderError),
+    #[error("Error during memory mapping")]
+    Map(#[from] hal::device::MapError),
+    #[error("Out of memory during write")]
+    OutOfMemory(#[from] hal::device::OutOfMemory),
 }
 
 /// The glyph cache for the UI renderer. Holds font and icon data. Is prepared
@@ -277,8 +275,7 @@ pub struct GlyphCache<B: Backend> {
     image: ManuallyDrop<B::Image>,
     view: ManuallyDrop<B::ImageView>,
     memory: ManuallyDrop<B::Memory>,
-    cache_size: u64,
-    cache_dims: [u32; 2],
+    cache_size: usize,
 }
 
 impl<B> GlyphCache<B>
@@ -291,15 +288,28 @@ where
 
         let [width, height] = size;
 
-        let (image, memory, view) = BasicImageBuilder::new(&lock.memory_properties.memory_types)
-            .size_2d(width, height)
-            .format(GLYPH_CACHE_FORMAT)
-            .usage(i::Usage::TRANSFER_DST | i::Usage::SAMPLED)
-            .memory_type(m::Properties::DEVICE_LOCAL)
-            .unwrap()
+        let mut image_builder = BasicImageBuilder::new(&lock.memory_properties.memory_types);
+
+        image_builder
+                .size_2d(width, height)
+                .format(GLYPH_CACHE_FORMAT)
+                .usage(i::Usage::TRANSFER_DST | i::Usage::SAMPLED);
+
+        // Pick memory type for buffer builder for AMD/Nvidia
+        if let None = image_builder.memory_type(
+            hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+        ) {
+            image_builder
+                .memory_type(
+                    hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
+                )
+                .expect("Failed to find appropriate memory type for UI vertex buffer");
+        }
+
+        let (image, memory, view) = image_builder
             .build::<B>(&lock.device)?;
 
-        let cache_size = unsafe { lock.device.get_image_requirements(&image) }.size;
+        let cache_size = unsafe { lock.device.get_image_requirements(&image) }.size as usize;
 
         Ok(GlyphCache {
             gpu: gpu.clone(),
@@ -307,7 +317,6 @@ where
             memory: ManuallyDrop::new(memory),
             view: ManuallyDrop::new(view),
             cache_size,
-            cache_dims: size,
         })
     }
 
@@ -316,92 +325,23 @@ where
     /// The command pool must reside on the same device as the cache.
     pub fn upload(
         &mut self,
-        command_pool: &mut B::CommandPool,
         cpu_cache: &[u8],
     ) -> Result<(), GlyphCacheError> {
-        let mut lock = self.gpu.lock().unwrap();
+        let lock = self.gpu.lock().unwrap();
 
-        let (image_upload_buffer, image_upload_memory) =
-            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
-                .bytes(self.cache_size)
-                .data(cpu_cache)
-                .usage(buffer::Usage::TRANSFER_SRC)
-                .memory_type(m::Properties::CPU_VISIBLE)
-                .unwrap()
-                .build::<B>(&lock.device)?;
-
-        // copy buffer to texture
-        let copy_fence = lock
-            .device
-            .create_fence(false)
-            .expect("Could not create fence");
-        unsafe {
-            let mut cmd_buffer = command_pool.allocate_one(command::Level::Primary);
-            cmd_buffer.begin_primary(command::CommandBufferFlags::ONE_TIME_SUBMIT);
-
-            let image_barrier = m::Barrier::Image {
-                states: (i::Access::empty(), i::Layout::Undefined)
-                    ..(i::Access::TRANSFER_WRITE, i::Layout::TransferDstOptimal),
-                target: &*self.image,
-                families: None,
-                range: COLOR_RANGE.clone(),
-            };
-
-            cmd_buffer.pipeline_barrier(
-                PipelineStage::TOP_OF_PIPE..PipelineStage::TRANSFER,
-                m::Dependencies::empty(),
-                &[image_barrier],
-            );
-
-            cmd_buffer.copy_buffer_to_image(
-                &image_upload_buffer,
-                &*self.image,
-                i::Layout::TransferDstOptimal,
-                &[command::BufferImageCopy {
-                    buffer_offset: 0,
-                    buffer_width: self.cache_dims[0],
-                    buffer_height: self.cache_dims[1],
-                    image_layers: i::SubresourceLayers {
-                        aspects: f::Aspects::COLOR,
-                        level: 0,
-                        layers: 0..1,
-                    },
-                    image_offset: i::Offset { x: 0, y: 0, z: 0 },
-                    image_extent: i::Extent {
-                        width: self.cache_dims[0],
-                        height: self.cache_dims[1],
-                        depth: 1,
-                    },
-                }],
-            );
-
-            let image_barrier = m::Barrier::Image {
-                states: (i::Access::TRANSFER_WRITE, i::Layout::TransferDstOptimal)
-                    ..(i::Access::SHADER_READ, i::Layout::ShaderReadOnlyOptimal),
-                target: &*self.image,
-                families: None,
-                range: COLOR_RANGE.clone(),
-            };
-            cmd_buffer.pipeline_barrier(
-                PipelineStage::TRANSFER..PipelineStage::FRAGMENT_SHADER,
-                m::Dependencies::empty(),
-                &[image_barrier],
-            );
-
-            cmd_buffer.finish();
-
-            lock.queue_group.queues[0]
-                .submit_without_semaphores(Some(&cmd_buffer), Some(&copy_fence));
-
+        let mapping = unsafe {
             lock.device
-                .wait_for_fence(&copy_fence, !0)
-                .expect("Can't wait for fence");
-        }
+                .map_memory(&*self.memory, hal::memory::Segment::ALL)
+        }?;
 
         unsafe {
-            lock.device.free_memory(image_upload_memory);
-            lock.device.destroy_fence(copy_fence);
-        }
+            std::ptr::copy_nonoverlapping(cpu_cache.as_ptr() as *const u8, mapping, self.cache_size);
+            lock.device.flush_mapped_memory_ranges(std::iter::once((
+                &*self.memory,
+                hal::memory::Segment::ALL,
+            )))?;
+            lock.device.unmap_memory(&*self.memory);
+        };
 
         Ok(())
     }
@@ -1105,7 +1045,6 @@ where
             .fill(viewport, dpi_factor, image_map, primitives)?;
         if fill.glyph_cache_requires_upload {
             self.glyph_cache.upload(
-                &mut *self.command_pool,
                 self.mesh.glyph_cache_pixel_buffer(),
             )?;
         }
