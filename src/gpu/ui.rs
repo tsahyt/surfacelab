@@ -109,10 +109,8 @@ where
 pub struct VertexBuffer<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     capacity: usize,
-    staging_mem: ManuallyDrop<B::Memory>,
-    staging_buf: ManuallyDrop<B::Buffer>,
-    device_mem: ManuallyDrop<B::Memory>,
-    device_buf: ManuallyDrop<B::Buffer>,
+    memory: ManuallyDrop<B::Memory>,
+    buffer: ManuallyDrop<B::Buffer>,
 }
 
 #[derive(Debug, Error)]
@@ -143,30 +141,31 @@ where
 
         let lock = gpu.lock().unwrap();
 
-        let (staging_buf, staging_mem) =
-            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
-                .bytes(bytes)
-                .usage(hal::buffer::Usage::TRANSFER_SRC)
-                .memory_type(hal::memory::Properties::CPU_VISIBLE)
-                .unwrap()
-                .build::<B>(&lock.device)?;
-        let (device_buf, device_mem) =
-            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
-                .bytes(bytes)
-                .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::VERTEX)
-                .memory_type(hal::memory::Properties::DEVICE_LOCAL)
-                .unwrap()
-                .build::<B>(&lock.device)?;
+        let mut buffer_builder = BasicBufferBuilder::new(&lock.memory_properties.memory_types);
+        buffer_builder
+            .bytes(bytes)
+            .usage(hal::buffer::Usage::VERTEX);
+
+        // Pick memory type for buffer builder for AMD/Nvidia
+        if let None = buffer_builder.memory_type(
+            hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+        ) {
+            buffer_builder
+                .memory_type(
+                    hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
+                )
+                .expect("Failed to find appropriate memory type for UI vertex buffer");
+        }
+
+        let (buffer, memory) = buffer_builder.build::<B>(&lock.device)?;
 
         drop(lock);
 
         Ok(Self {
             gpu,
             capacity,
-            staging_mem: ManuallyDrop::new(staging_mem),
-            staging_buf: ManuallyDrop::new(staging_buf),
-            device_buf: ManuallyDrop::new(device_buf),
-            device_mem: ManuallyDrop::new(device_mem),
+            memory: ManuallyDrop::new(memory),
+            buffer: ManuallyDrop::new(buffer),
         })
     }
 
@@ -176,51 +175,42 @@ where
 
         let lock = self.gpu.lock().unwrap();
 
-        let (staging_buf, staging_mem) =
-            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
-                .bytes(bytes)
-                .usage(hal::buffer::Usage::TRANSFER_SRC)
-                .memory_type(hal::memory::Properties::CPU_VISIBLE)
-                .unwrap()
-                .build::<B>(&lock.device)?;
-        let (device_buf, device_mem) =
-            BasicBufferBuilder::new(&lock.memory_properties.memory_types)
-                .bytes(bytes)
-                .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::VERTEX)
-                .memory_type(hal::memory::Properties::DEVICE_LOCAL)
-                .unwrap()
-                .build::<B>(&lock.device)?;
+        let mut buffer_builder = BasicBufferBuilder::new(&lock.memory_properties.memory_types);
+        buffer_builder
+            .bytes(bytes)
+            .usage(hal::buffer::Usage::VERTEX);
+
+        // Pick memory type for buffer builder for AMD/Nvidia
+        if let None = buffer_builder.memory_type(
+            hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+        ) {
+            buffer_builder
+                .memory_type(
+                    hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
+                )
+                .expect("Failed to find appropriate memory type for UI vertex buffer");
+        }
+
+        let (buffer, memory) = buffer_builder.build::<B>(&lock.device)?;
 
         {
-            let lock = self.gpu.lock().unwrap();
-
             unsafe {
                 lock.device
-                    .free_memory(ManuallyDrop::take(&mut self.staging_mem));
+                    .destroy_buffer(ManuallyDrop::take(&mut self.buffer));
                 lock.device
-                    .free_memory(ManuallyDrop::take(&mut self.device_mem));
-                lock.device
-                    .destroy_buffer(ManuallyDrop::take(&mut self.staging_buf));
-                lock.device
-                    .destroy_buffer(ManuallyDrop::take(&mut self.device_buf));
+                    .free_memory(ManuallyDrop::take(&mut self.memory));
             }
         }
 
-        self.staging_buf = ManuallyDrop::new(staging_buf);
-        self.staging_mem = ManuallyDrop::new(staging_mem);
-        self.device_buf = ManuallyDrop::new(device_buf);
-        self.device_mem = ManuallyDrop::new(device_mem);
+        self.buffer = ManuallyDrop::new(buffer);
+        self.memory = ManuallyDrop::new(memory);
         self.capacity = new_capacity;
 
         Ok(())
     }
 
     /// Copy the data from the given slice into this vertex buffer.
-    pub fn copy_from_slice(
-        &mut self,
-        vertices: &[Vertex],
-        cmd_buffer: &mut B::CommandBuffer,
-    ) -> Result<(), VertexBufferError> {
+    pub fn copy_from_slice(&mut self, vertices: &[Vertex]) -> Result<(), VertexBufferError> {
         if vertices.len() > self.capacity {
             self.resize(vertices.len().max(self.capacity * 2))?;
         }
@@ -234,35 +224,23 @@ where
 
         let mapping = unsafe {
             lock.device
-                .map_memory(&*self.staging_mem, hal::memory::Segment::ALL)
+                .map_memory(&*self.memory, hal::memory::Segment::ALL)
         }?;
         unsafe {
             std::ptr::copy_nonoverlapping(vertices.as_ptr() as *const u8, mapping, bytes);
             lock.device.flush_mapped_memory_ranges(std::iter::once((
-                &*self.staging_mem,
+                &*self.memory,
                 hal::memory::Segment::ALL,
             )))?;
-            lock.device.unmap_memory(&*self.staging_mem);
+            lock.device.unmap_memory(&*self.memory);
         };
-
-        unsafe {
-            cmd_buffer.copy_buffer(
-                &*self.staging_buf,
-                &*self.device_buf,
-                std::iter::once(hal::command::BufferCopy {
-                    src: 0,
-                    dst: 0,
-                    size: bytes as u64,
-                }),
-            );
-        }
 
         Ok(())
     }
 
     /// Obtain a reference to the underlying buffer for mapping in a pipeline.
     pub fn buffer(&self) -> &B::Buffer {
-        &*self.device_buf
+        &*self.buffer
     }
 }
 
@@ -280,13 +258,9 @@ where
 
         unsafe {
             lock.device
-                .free_memory(ManuallyDrop::take(&mut self.staging_mem));
+                .free_memory(ManuallyDrop::take(&mut self.memory));
             lock.device
-                .free_memory(ManuallyDrop::take(&mut self.device_mem));
-            lock.device
-                .destroy_buffer(ManuallyDrop::take(&mut self.staging_buf));
-            lock.device
-                .destroy_buffer(ManuallyDrop::take(&mut self.device_buf));
+                .destroy_buffer(ManuallyDrop::take(&mut self.buffer));
         }
     }
 }
@@ -998,16 +972,16 @@ where
         let mut image_locks = HashMap::new();
         let cmd_buffer = &mut *self.command_buffer;
 
+        // Fill vertex buffer
+        self.vertex_buffer
+            .copy_from_slice(conv_vertex_buffer(self.mesh.vertices()))
+            .unwrap();
+
         unsafe {
             cmd_buffer.begin_primary(command::CommandBufferFlags::ONE_TIME_SUBMIT);
 
             cmd_buffer.set_viewports(0, &[self.viewport.clone()]);
             cmd_buffer.set_scissors(0, &[self.viewport.rect]);
-
-            // Fill vertex buffer and copy to device only memory
-            self.vertex_buffer
-                .copy_from_slice(conv_vertex_buffer(self.mesh.vertices()), cmd_buffer)
-                .unwrap();
 
             cmd_buffer.bind_graphics_pipeline(&self.pipeline);
             cmd_buffer.bind_vertex_buffers(
