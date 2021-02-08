@@ -291,9 +291,9 @@ where
         let mut image_builder = BasicImageBuilder::new(&lock.memory_properties.memory_types);
 
         image_builder
-                .size_2d(width, height)
-                .format(GLYPH_CACHE_FORMAT)
-                .usage(i::Usage::TRANSFER_DST | i::Usage::SAMPLED);
+            .size_2d(width, height)
+            .format(GLYPH_CACHE_FORMAT)
+            .usage(i::Usage::TRANSFER_DST | i::Usage::SAMPLED);
 
         // Pick memory type for buffer builder for AMD/Nvidia
         if let None = image_builder.memory_type(
@@ -306,8 +306,7 @@ where
                 .expect("Failed to find appropriate memory type for UI vertex buffer");
         }
 
-        let (image, memory, view) = image_builder
-            .build::<B>(&lock.device)?;
+        let (image, memory, view) = image_builder.build::<B>(&lock.device)?;
 
         let cache_size = unsafe { lock.device.get_image_requirements(&image) }.size as usize;
 
@@ -323,10 +322,7 @@ where
     /// Upload new glyph cache data. Expected to be laid out by rusttype.
     ///
     /// The command pool must reside on the same device as the cache.
-    pub fn upload(
-        &mut self,
-        cpu_cache: &[u8],
-    ) -> Result<(), GlyphCacheError> {
+    pub fn upload(&mut self, cpu_cache: &[u8]) -> Result<(), GlyphCacheError> {
         let lock = self.gpu.lock().unwrap();
 
         let mapping = unsafe {
@@ -335,7 +331,11 @@ where
         }?;
 
         unsafe {
-            std::ptr::copy_nonoverlapping(cpu_cache.as_ptr() as *const u8, mapping, self.cache_size);
+            std::ptr::copy_nonoverlapping(
+                cpu_cache.as_ptr() as *const u8,
+                mapping,
+                self.cache_size,
+            );
             lock.device.flush_mapped_memory_ranges(std::iter::once((
                 &*self.memory,
                 hal::memory::Segment::ALL,
@@ -400,6 +400,8 @@ pub enum RenderError {
     GlyphCache(#[from] GlyphCacheError),
     #[error("Synchronization primitives timed out")]
     SyncTimeout,
+    #[error("Swapchain recreation failed")]
+    SwapchainRecreation(#[from] RendererError),
 }
 
 /// UI Renderer
@@ -878,7 +880,7 @@ where
             match self.surface.acquire_image(!0) {
                 Ok((image, _)) => image,
                 Err(_) => {
-                    self.recreate_swapchain(None);
+                    self.recreate_swapchain(None)?;
                     return Ok(());
                 }
             }
@@ -1021,7 +1023,7 @@ where
             };
 
             if result.is_err() {
-                self.recreate_swapchain(None);
+                self.recreate_swapchain(None)?;
             }
         }
 
@@ -1044,9 +1046,8 @@ where
             .mesh
             .fill(viewport, dpi_factor, image_map, primitives)?;
         if fill.glyph_cache_requires_upload {
-            self.glyph_cache.upload(
-                self.mesh.glyph_cache_pixel_buffer(),
-            )?;
+            self.glyph_cache
+                .upload(self.mesh.glyph_cache_pixel_buffer())?;
         }
         Ok(())
     }
