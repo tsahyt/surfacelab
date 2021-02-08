@@ -1,12 +1,8 @@
-use super::{
-    basic_mem::{BasicBufferBuilder, BasicBufferBuilderError, BasicImageBuilder},
-    load_shader, RenderTarget, GPU,
-};
+use super::{basic_mem::*, load_shader, RenderTarget, GPU};
 
 use gfx_hal as hal;
 use hal::{
-    buffer, command, format as f,
-    image as i, memory as m, pass,
+    buffer, command, format as f, image as i, memory as m, pass,
     pass::Subpass,
     pool,
     prelude::*,
@@ -264,6 +260,14 @@ where
     }
 }
 
+#[derive(Debug, Error)]
+pub enum GlyphCacheError {
+    #[error("Failed to build glyph cache image")]
+    ImageBuilderError(#[from] BasicImageBuilderError),
+    #[error("Failed to build buffer for upload")]
+    UploadBufferError(#[from] BasicBufferBuilderError),
+}
+
 /// The glyph cache for the UI renderer. Holds font and icon data. Is prepared
 /// by conrod through rusttype.
 ///
@@ -283,7 +287,7 @@ where
     B: Backend,
 {
     /// Create a new glyph cache with the given dimensions.
-    pub fn new(gpu: Arc<Mutex<GPU<B>>>, size: [u32; 2]) -> Self {
+    pub fn new(gpu: Arc<Mutex<GPU<B>>>, size: [u32; 2]) -> Result<Self, GlyphCacheError> {
         let lock = gpu.lock().unwrap();
 
         let [width, height] = size;
@@ -294,25 +298,28 @@ where
             .usage(i::Usage::TRANSFER_DST | i::Usage::SAMPLED)
             .memory_type(m::Properties::DEVICE_LOCAL)
             .unwrap()
-            .build::<B>(&lock.device)
-            .expect("Error initializing GPU glyph cache");
+            .build::<B>(&lock.device)?;
 
         let cache_size = unsafe { lock.device.get_image_requirements(&image) }.size;
 
-        GlyphCache {
+        Ok(GlyphCache {
             gpu: gpu.clone(),
             image: ManuallyDrop::new(image),
             memory: ManuallyDrop::new(memory),
             view: ManuallyDrop::new(view),
             cache_size,
             cache_dims: size,
-        }
+        })
     }
 
     /// Upload new glyph cache data. Expected to be laid out by rusttype.
     ///
     /// The command pool must reside on the same device as the cache.
-    pub fn upload(&mut self, command_pool: &mut B::CommandPool, cpu_cache: &[u8]) {
+    pub fn upload(
+        &mut self,
+        command_pool: &mut B::CommandPool,
+        cpu_cache: &[u8],
+    ) -> Result<(), GlyphCacheError> {
         let mut lock = self.gpu.lock().unwrap();
 
         let (image_upload_buffer, image_upload_memory) =
@@ -322,8 +329,7 @@ where
                 .usage(buffer::Usage::TRANSFER_SRC)
                 .memory_type(m::Properties::CPU_VISIBLE)
                 .unwrap()
-                .build::<B>(&lock.device)
-                .expect("Failed to create, allocate, or fill, upload buffer");
+                .build::<B>(&lock.device)?;
 
         // copy buffer to texture
         let copy_fence = lock
@@ -397,6 +403,8 @@ where
             lock.device.free_memory(image_upload_memory);
             lock.device.destroy_fence(copy_fence);
         }
+
+        Ok(())
     }
 
     /// Obtain image view of the glyph cache for use in a pipeline
@@ -470,7 +478,8 @@ where
         glyph_cache_dims: [u32; 2],
     ) -> Renderer<B> {
         let vertex_buffer = VertexBuffer::new(gpu.clone()).expect("Error creating Vertex Buffer");
-        let glyph_cache = GlyphCache::new(gpu.clone(), glyph_cache_dims);
+        let glyph_cache =
+            GlyphCache::new(gpu.clone(), glyph_cache_dims).expect("Error creating Glyph Cache");
         let render_target = RenderTarget::new(
             gpu.clone(),
             TARGET_FORMAT,
@@ -878,8 +887,7 @@ where
         let lock = self.gpu.lock().unwrap();
 
         let caps = self.surface.capabilities(&lock.adapter.physical_device);
-        let swap_config =
-            window::SwapchainConfig::from_caps(&caps, TARGET_FORMAT, self.dimensions);
+        let swap_config = window::SwapchainConfig::from_caps(&caps, TARGET_FORMAT, self.dimensions);
         let extent = swap_config.extent.to_extent();
 
         unsafe {
@@ -1080,10 +1088,12 @@ where
             .mesh
             .fill(viewport, dpi_factor, image_map, primitives)?;
         if fill.glyph_cache_requires_upload {
-            self.glyph_cache.upload(
-                &mut *self.command_pool,
-                self.mesh.glyph_cache_pixel_buffer(),
-            );
+            self.glyph_cache
+                .upload(
+                    &mut *self.command_pool,
+                    self.mesh.glyph_cache_pixel_buffer(),
+                )
+                .expect("Glyph cache upload failed");
         }
         Ok(())
     }
