@@ -99,8 +99,7 @@ where
     }
 }
 
-/// Dynamically resizing vertex buffer for UI. Keeps two sets of memory around
-/// permanently!
+/// Dynamically resizing vertex buffer for UI.
 pub struct VertexBuffer<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     capacity: usize,
