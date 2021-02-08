@@ -1,5 +1,5 @@
 use super::RenderTarget;
-use crate::gpu::basic_mem::{BasicImageBuilder, BasicImageBuilderError};
+use crate::gpu::basic_mem::*;
 use crate::lang::ObjectType;
 use crate::util::HaltonSequence2D;
 
@@ -513,10 +513,28 @@ where
         .map_err(|_| InitializationError::ResourceAcquisition("Render Sampler"))?;
 
         // Uniforms
-        let (uniform_buf, uniform_mem) =
-            Self::new_uniform_buffer(&lock.device, &lock.memory_properties)?;
-        let (occupancy_buf, occupancy_mem) =
-            Self::new_uniform_buffer(&lock.device, &lock.memory_properties)?;
+        let mut buffer_builder = BasicBufferBuilder::new(&lock.memory_properties.memory_types);
+        buffer_builder
+            .bytes(Self::UNIFORM_BUFFER_SIZE)
+            .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM);
+
+        // Pick memory type for buffer builder for AMD/Nvidia
+        if let None = buffer_builder.memory_type(
+            hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+        ) {
+            buffer_builder
+                .memory_type(
+                    hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
+                )
+                .expect("Failed to find appropriate memory type for uniforms");
+        }
+
+        let (uniform_buf, uniform_mem) = buffer_builder
+            .build::<B>(&lock.device)
+            .expect("Failed to build uniform buffer");
+        let (occupancy_buf, occupancy_mem) = buffer_builder
+            .build::<B>(&lock.device)
+            .expect("Failed to build uniform buffer");
 
         // Synchronization primitives
         let fence = lock.device.create_fence(true).unwrap();
@@ -568,45 +586,6 @@ where
             complete_fence: ManuallyDrop::new(fence),
             transfer_fence: ManuallyDrop::new(tfence),
         })
-    }
-
-    fn new_uniform_buffer(
-        device: &B::Device,
-        memory_properties: &hal::adapter::MemoryProperties,
-    ) -> Result<(B::Buffer, B::Memory), InitializationError> {
-        let mut buf = unsafe {
-            device.create_buffer(
-                Self::UNIFORM_BUFFER_SIZE,
-                hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM,
-            )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Uniform Buffer"))?;
-        let buffer_req = unsafe { device.get_buffer_requirements(&buf) };
-        let upload_type = memory_properties
-            .memory_types
-            .iter()
-            .enumerate()
-            .position(|(id, mem_type)| {
-                // type_mask is a bit field where each bit represents a
-                // memory type. If the bit is set to 1 it means we can use
-                // that type for our buffer. So this code finds the first
-                // memory type that has a `1` (or, is allowed), and is
-                // visible to the CPU.
-                buffer_req.type_mask & (1 << id) != 0
-                    && (mem_type.properties.contains(
-                        hal::memory::Properties::CPU_VISIBLE
-                            | hal::memory::Properties::DEVICE_LOCAL,
-                    ) || mem_type.properties.contains(
-                        hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
-                    ))
-            })
-            .unwrap()
-            .into();
-        let mem = unsafe { device.allocate_memory(upload_type, Self::UNIFORM_BUFFER_SIZE) }
-            .map_err(|_| InitializationError::Allocation("Render Uniform Buffer"))?;
-        unsafe { device.bind_buffer_memory(&mem, 0, &mut buf) }
-            .map_err(|_| InitializationError::Bind)?;
-        Ok((buf, mem))
     }
 
     /// Create the render pipeline for this renderer
