@@ -92,15 +92,9 @@ pub enum PipelineError {
 
 #[derive(Debug, Error)]
 pub enum DownloadError {
-    /// Failed to create download buffer
-    #[error("Failed to create a download buffer")]
-    Creation,
-    /// Failed to allocate memory for download buffer
-    #[error("Failed to allocate memory for download buffer")]
-    Allocation,
-    /// Failed to bind memory for download buffer
-    #[error("Failed to bind memory for download buffer")]
-    BufferBind,
+    /// Failed to build the download buffer
+    #[error("Failed to build the download buffer")]
+    Building(#[from] basic_mem::BasicBufferBuilderError),
     /// Failed to map download buffer into CPU space
     #[error("Failed to map download buffer into CPU space")]
     Map,

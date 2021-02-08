@@ -432,36 +432,12 @@ where
         let mut lock = self.gpu.lock().unwrap();
         let bytes = image.get_bytes() as u64;
 
-        // Create, allocate, and bind download buffer. We need this buffer
-        // because the image is otherwise not in host readable memory!
-        let mut buf = unsafe {
-            lock.device
-                .create_buffer(bytes, hal::buffer::Usage::TRANSFER_DST)
-        }
-        .map_err(|_| DownloadError::Creation)?;
-
-        let buf_req = unsafe { lock.device.get_buffer_requirements(&buf) };
-        let mem_type = lock
-            .memory_properties
-            .memory_types
-            .iter()
-            .enumerate()
-            .position(|(id, mem_type)| {
-                buf_req.type_mask & (1 << id) != 0
-                    && mem_type
-                        .properties
-                        .contains(hal::memory::Properties::CPU_VISIBLE)
-            })
-            .unwrap()
-            .into();
-        let mem = unsafe { lock.device.allocate_memory(mem_type, bytes) }
-            .map_err(|_| DownloadError::Allocation)?;
-
-        unsafe {
-            lock.device
-                .bind_buffer_memory(&mem, 0, &mut buf)
-                .map_err(|_| DownloadError::BufferBind)?
-        };
+        let (buf, mem) = BasicBufferBuilder::new(&lock.memory_properties.memory_types)
+            .bytes(bytes)
+            .usage(hal::buffer::Usage::TRANSFER_DST)
+            .memory_type(hal::memory::Properties::CPU_VISIBLE)
+            .expect("Failed to build CPU visible download buffer")
+            .build::<B>(&lock.device)?;
 
         // Reset fence
         unsafe {
