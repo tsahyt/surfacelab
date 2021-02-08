@@ -6,7 +6,6 @@ use super::{
 use gfx_hal as hal;
 use hal::{
     buffer, command, format as f,
-    format::ChannelType,
     image as i, memory as m, pass,
     pass::Subpass,
     pool,
@@ -429,7 +428,6 @@ pub struct Renderer<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
 
     surface: ManuallyDrop<B::Surface>,
-    surface_format: hal::format::Format,
 
     dimensions: window::Extent2D,
     viewport: pso::Viewport,
@@ -638,17 +636,8 @@ where
 
         // Swapchain configuration
         let caps = surface.capabilities(&lock.adapter.physical_device);
-        let surface_format = surface
-            .supported_formats(&lock.adapter.physical_device)
-            .map_or(f::Format::Bgra8Srgb, |formats| {
-                formats
-                    .iter()
-                    .find(|format| format.base_format().1 == ChannelType::Srgb)
-                    .copied()
-                    .unwrap_or(formats[0])
-            });
 
-        let swap_config = window::SwapchainConfig::from_caps(&caps, surface_format, dimensions);
+        let swap_config = window::SwapchainConfig::from_caps(&caps, TARGET_FORMAT, dimensions);
         let extent = swap_config.extent;
         unsafe {
             surface
@@ -670,7 +659,7 @@ where
             };
 
             let present_attachment = pass::Attachment {
-                format: Some(surface_format),
+                format: Some(TARGET_FORMAT),
                 samples: 1,
                 ops: pass::AttachmentOps::new(
                     pass::AttachmentLoadOp::DontCare,
@@ -845,7 +834,6 @@ where
         Renderer {
             gpu: gpu.clone(),
             surface: ManuallyDrop::new(surface),
-            surface_format,
             dimensions,
             viewport,
             render_pass: ManuallyDrop::new(render_pass),
@@ -891,7 +879,7 @@ where
 
         let caps = self.surface.capabilities(&lock.adapter.physical_device);
         let swap_config =
-            window::SwapchainConfig::from_caps(&caps, self.surface_format, self.dimensions);
+            window::SwapchainConfig::from_caps(&caps, TARGET_FORMAT, self.dimensions);
         let extent = swap_config.extent.to_extent();
 
         unsafe {
