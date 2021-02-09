@@ -13,7 +13,6 @@ const PANEL_GAP: Scalar = 0.5;
 widget_ids!(
     pub struct Ids {
         // Main Areas
-        top_bar,
         window_canvas,
         top_bar_canvas,
         main_canvas,
@@ -26,6 +25,10 @@ widget_ids!(
         parameter_canvas,
         graph_settings_canvas,
         surface_settings_canvas,
+
+        // Components
+        top_bar,
+        node_editor,
 
         // Sidebar
         sidebar_tabs,
@@ -438,122 +441,11 @@ where
 
     /// Updates the node graph widget
     fn node_graph(&mut self, ui: &mut UiCell) {
-        use widgets::graph;
-
-        let active = match self.app_state.graphs.get_active_collection_mut() {
-            NodeCollection::Graph(g) => &mut g.graph,
-            _ => panic!("Node Graph UI built for non-graph"),
-        };
-
-        for event in graph::Graph::new(&active)
+        components::node_editor::NodeEditor::new(&self.sender, &mut self.app_state.graphs)
             .parent(self.ids.edit_canvas)
             .wh_of(self.ids.edit_canvas)
-            .middle()
-            .set(self.ids.node_graph, ui)
-        {
-            match event {
-                graph::Event::NodeDrag(idx, x, y) => {
-                    let mut node = active.node_weight_mut(idx).unwrap();
-                    node.position[0] += x;
-                    node.position[1] += y;
-
-                    self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
-                            node.resource.clone(),
-                            (node.position[0], node.position[1]),
-                        )))
-                        .unwrap();
-                }
-                graph::Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
-                    let from_res = active
-                        .node_weight(from)
-                        .unwrap()
-                        .resource
-                        .node_socket(&from_socket);
-                    let to_res = active
-                        .node_weight(to)
-                        .unwrap()
-                        .resource
-                        .node_socket(&to_socket);
-                    self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
-                            from_res, to_res,
-                        )))
-                        .unwrap();
-                }
-                graph::Event::NodeDelete(idx) => {
-                    self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
-                            active.node_weight(idx).unwrap().resource.clone(),
-                        )))
-                        .unwrap();
-                }
-                graph::Event::SocketClear(idx, socket) => {
-                    self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
-                            active
-                                .node_weight(idx)
-                                .unwrap()
-                                .resource
-                                .node_socket(&socket),
-                        )))
-                        .unwrap();
-                }
-                graph::Event::ActiveElement(idx) => {
-                    self.app_state.active_node_element = Some(idx);
-                }
-                graph::Event::AddModal(pt) => {
-                    self.app_state.add_node_modal = Some(pt);
-                }
-            }
-        }
-
-        if let Some(insertion_pt) = self.app_state.add_node_modal {
-            use widgets::modal;
-
-            let operators = &self.app_state.addable_operators;
-
-            match modal::Modal::new(
-                widget::List::flow_down(operators.len())
-                    .item_size(50.0)
-                    .scrollbar_on_top(),
-            )
-            .wh_of(self.ids.edit_canvas)
             .middle_of(self.ids.edit_canvas)
-            .graphics_for(self.ids.edit_canvas)
-            .set(self.ids.add_node_modal, ui)
-            {
-                modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
-                    while let Some(item) = items.next(ui) {
-                        let i = item.i;
-                        let label = operators[i].title();
-                        let button = widget::Button::new()
-                            .label(&label)
-                            .label_color(conrod_core::color::WHITE)
-                            .label_font_size(12)
-                            .color(conrod_core::color::CHARCOAL);
-                        for _press in item.set(button, ui) {
-                            self.app_state.add_node_modal = None;
-
-                            self.sender
-                                .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                                    self.app_state.graphs.get_active().clone(),
-                                    operators[i].clone(),
-                                    (insertion_pt[0], insertion_pt[1]),
-                                )))
-                                .unwrap();
-                        }
-                    }
-
-                    if let Some(s) = scrollbar {
-                        s.set(ui)
-                    }
-                }
-                modal::Event::Hide => {
-                    self.app_state.add_node_modal = None;
-                }
-            }
-        }
+            .set(self.ids.node_editor, ui);
     }
 
     /// Updates the layer stack widget
