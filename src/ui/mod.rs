@@ -7,6 +7,7 @@ use std::thread;
 
 pub mod app;
 pub mod app_state;
+pub mod components;
 pub mod i18n;
 pub mod util;
 pub mod widgets;

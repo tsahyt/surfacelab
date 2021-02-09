@@ -4,7 +4,7 @@ use dialog::{DialogBox, FileSelection, FileSelectionMode};
 
 use super::app_state::*;
 use super::i18n::*;
-use super::widgets;
+use super::{widgets, components};
 
 const PANEL_COLOR: Color = color::DARK_CHARCOAL;
 const PANEL_GAP: Scalar = 0.5;
@@ -14,6 +14,7 @@ const PANEL_GAP: Scalar = 0.5;
 widget_ids!(
     pub struct Ids {
         // Main Areas
+        top_bar,
         window_canvas,
         top_bar_canvas,
         main_canvas,
@@ -426,151 +427,15 @@ where
 
     /// Updates the top bar
     fn top_bar(&mut self, ui: &mut UiCell) {
-        use super::util::*;
+        use components::top_bar;
 
-        for _press in icon_button(IconName::FOLDER_PLUS, self.fonts.icon_font)
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .mid_left_with_margin(8.0)
+        top_bar::TopBar::new()
+            .icon_font(self.fonts.icon_font)
             .parent(self.ids.top_bar_canvas)
-            .set(self.ids.new_surface, ui)
-        {
-            self.sender
-                .send(Lang::UserIOEvent(UserIOEvent::NewSurface))
-                .unwrap();
-        }
+            .wh_of(self.ids.top_bar_canvas)
+            .middle_of(self.ids.top_bar_canvas)
+            .set(self.ids.top_bar, ui);
 
-        for _press in icon_button(IconName::FOLDER_OPEN, self.fonts.icon_font)
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .right(8.0)
-            .parent(self.ids.top_bar_canvas)
-            .set(self.ids.open_surface, ui)
-        {
-            if let Ok(Some(path)) = FileSelection::new(self.label_text("surface-file-select"))
-                .title(self.label_text("surface-open-title"))
-                .mode(FileSelectionMode::Open)
-                .show()
-            {
-                self.sender
-                    .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
-                        std::path::PathBuf::from(path),
-                    )))
-                    .unwrap();
-                self.app_state.graphs.clear_all();
-            }
-        }
-
-        for _press in icon_button(IconName::CONTENT_SAVE, self.fonts.icon_font)
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .right(8.0)
-            .parent(self.ids.top_bar_canvas)
-            .set(self.ids.save_surface, ui)
-        {
-            if let Ok(Some(path)) = FileSelection::new(self.label_text("surface-file-select"))
-                .title(self.label_text("surface-save-title"))
-                .mode(FileSelectionMode::Save)
-                .show()
-            {
-                self.sender
-                    .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
-                        std::path::PathBuf::from(path),
-                    )))
-                    .unwrap();
-            }
-        }
-
-        for _press in icon_button(IconName::EXPORT, self.fonts.icon_font)
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .right(8.0)
-            .parent(self.ids.top_bar_canvas)
-            .set(self.ids.export_surface, ui)
-        {
-            if let Ok(Some(path)) = FileSelection::new(self.label_text("base-name-select"))
-                .title(self.label_text("surface-export-title"))
-                .mode(FileSelectionMode::Save)
-                .show()
-            {
-                let e_path = std::path::PathBuf::from(&path);
-                self.sender
-                    .send(Lang::UserIOEvent(UserIOEvent::RunExports(e_path)))
-                    .unwrap();
-            }
-        }
-
-        if let Some(selection) =
-            widget::DropDownList::new(&self.app_state.graphs.list_collection_names(), Some(0))
-                .label_font_size(12)
-                .parent(self.ids.top_bar_canvas)
-                .mid_right_with_margin(8.0)
-                .w(256.0)
-                .set(self.ids.graph_selector, ui)
-        {
-            if let Some(graph) = self
-                .app_state
-                .graphs
-                .get_collection_resource(selection)
-                .cloned()
-            {
-                self.sender
-                    .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
-                        graph.clone(),
-                    )))
-                    .unwrap();
-                self.app_state.graphs.set_active(graph);
-                self.app_state.addable_operators = self
-                    .app_state
-                    .registered_operators
-                    .iter()
-                    .filter(|o| !o.is_graph(self.app_state.graphs.get_active()))
-                    .cloned()
-                    .collect();
-            }
-        }
-
-        for _press in icon_button(IconName::GRAPH, self.fonts.icon_font)
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .left(8.0)
-            .parent(self.ids.top_bar_canvas)
-            .set(self.ids.graph_add, ui)
-        {
-            self.sender
-                .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph))
-                .unwrap()
-        }
-
-        for _press in icon_button(IconName::LAYERS, self.fonts.icon_font)
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .left(8.0)
-            .parent(self.ids.top_bar_canvas)
-            .set(self.ids.layers_add, ui)
-        {
-            self.sender
-                .send(Lang::UserLayersEvent(UserLayersEvent::AddLayers))
-                .unwrap()
-        }
     }
 
     /// Updates the node graph widget
