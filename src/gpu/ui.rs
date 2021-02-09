@@ -1,4 +1,5 @@
 use super::{basic_mem::*, load_shader, RenderTarget, GPU};
+use crate::shader;
 
 use gfx_hal as hal;
 use hal::{
@@ -673,18 +674,12 @@ where
         }?;
         let pipeline = {
             let vs_module = {
-                load_shader::<B>(
-                    &lock.device,
-                    &include_bytes!("../../shaders/ui-vert.spv")[..],
-                )
-                .map_err(|_| RendererError::ShaderInit)?
+                load_shader::<B>(&lock.device, &shader!("ui-vert")[..])
+                    .map_err(|_| RendererError::ShaderInit)?
             };
             let fs_module = {
-                load_shader::<B>(
-                    &lock.device,
-                    &include_bytes!("../../shaders/ui-frag.spv")[..],
-                )
-                .map_err(|_| RendererError::ShaderInit)?
+                load_shader::<B>(&lock.device, &shader!("ui-frag")[..])
+                    .map_err(|_| RendererError::ShaderInit)?
             };
 
             let pipeline = {

@@ -1,14 +1,15 @@
 use super::{GPURender, Renderer};
 use crate::gpu::{Backend, InitializationError, GPU};
 use crate::lang::{LightType, ObjectType, ParameterBool};
+use crate::shader;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
 
-static MAIN_VERTEX_SHADER_3D: &[u8] = include_bytes!("../../../shaders/quad.spv");
-static MAIN_FRAGMENT_SHADER_3D: &[u8] = include_bytes!("../../../shaders/sdf3d.spv");
+static MAIN_VERTEX_SHADER_3D: &[u8] = shader!("quad");
+static MAIN_FRAGMENT_SHADER_3D: &[u8] = shader!("sdf3d");
 
 /// A 3D renderer using ray tracing/sphere tracing to display the PBR material
 /// with real displacement. Designed for temporal multisampling

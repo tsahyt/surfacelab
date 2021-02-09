@@ -1,3 +1,21 @@
+/// Macro to include a shader SPIR-V file. Note that the file extension is not
+/// required!
+///
+/// ```
+/// shader!("quad")
+/// ```
+#[macro_export]
+macro_rules! shader {
+    ($shader:expr) => {
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/shaders/",
+            $shader,
+            ".spv"
+        ))
+    };
+}
+
 /// Exponential Moving Average of a type. Used to keep track of recent timing
 /// information (e.g. frame times or compute times for nodes).
 ///

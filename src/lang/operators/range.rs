@@ -1,6 +1,7 @@
 use super::super::parameters::*;
 use super::super::socketed::*;
 use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
+use crate::shader;
 
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
@@ -79,7 +80,7 @@ impl Socketed for Range {
 impl Shader for Range {
     fn operator_shader(&self) -> Option<OperatorShader> {
         Some(OperatorShader {
-            spirv: include_bytes!("../../../shaders/range.spv"),
+            spirv: shader!("range"),
             descriptors: &[
                 OperatorDescriptor {
                     binding: 0,

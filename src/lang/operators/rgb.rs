@@ -1,6 +1,7 @@
 use super::super::parameters::*;
 use super::super::socketed::*;
 use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
+use crate::shader;
 
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
@@ -45,7 +46,7 @@ impl Socketed for Rgb {
 impl Shader for Rgb {
     fn operator_shader(&self) -> Option<OperatorShader> {
         Some(OperatorShader {
-            spirv: include_bytes!("../../../shaders/rgb.spv"),
+            spirv: shader!("rgb"),
             descriptors: &[
                 OperatorDescriptor {
                     binding: 0,

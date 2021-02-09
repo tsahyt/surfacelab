@@ -1,10 +1,11 @@
 use super::{GPURender, Renderer};
 use crate::gpu::{Backend, InitializationError, GPU};
+use crate::shader;
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
 
-static MAIN_VERTEX_SHADER_2D: &[u8] = include_bytes!("../../../shaders/quad.spv");
-static MAIN_FRAGMENT_SHADER_2D: &[u8] = include_bytes!("../../../shaders/renderer2d.spv");
+static MAIN_VERTEX_SHADER_2D: &[u8] = shader!("quad");
+static MAIN_FRAGMENT_SHADER_2D: &[u8] = shader!("renderer2d");
 
 /// A 2D renderer displaying a "top down" view on the texture channel.
 pub type Renderer2D<B> = GPURender<B, Uniforms>;

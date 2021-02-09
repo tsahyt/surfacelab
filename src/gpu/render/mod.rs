@@ -1,6 +1,7 @@
 use super::RenderTarget;
 use crate::gpu::{basic_mem::*, load_shader};
 use crate::lang::ObjectType;
+use crate::shader;
 use crate::util::HaltonSequence2D;
 
 use gfx_hal as hal;
@@ -23,7 +24,7 @@ pub use sdf3d::RendererSDF3D;
 
 use environment::EnvironmentMaps;
 
-static ACCUM_SHADER: &[u8] = include_bytes!("../../../shaders/accum.spv");
+static ACCUM_SHADER: &[u8] = shader!("accum");
 
 const IRRADIANCE_SIZE: usize = 32;
 const SPECMAP_SIZE: usize = 512;

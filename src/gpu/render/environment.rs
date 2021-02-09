@@ -1,5 +1,6 @@
 use super::{Backend, GPU};
 use crate::gpu::{basic_mem::*, load_shader};
+use crate::shader;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use image::hdr;
@@ -11,8 +12,8 @@ use thiserror::Error;
 
 use super::brdf_lut::*;
 
-static IRRADIANCE_SHADER: &[u8] = include_bytes!("../../../shaders/irradiance.spv");
-static PREFILTER_SHADER: &[u8] = include_bytes!("../../../shaders/filter_env.spv");
+static IRRADIANCE_SHADER: &[u8] = shader!("irradiance");
+static PREFILTER_SHADER: &[u8] = shader!("filter_env");
 
 /// Struct to hold all required information for dealing with environment maps
 /// for PBR shading

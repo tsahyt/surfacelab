@@ -1,6 +1,7 @@
 use super::super::parameters::*;
 use super::super::socketed::*;
 use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
+use crate::shader;
 
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
@@ -83,7 +84,7 @@ impl Socketed for Blend {
 impl Shader for Blend {
     fn operator_shader(&self) -> Option<OperatorShader> {
         Some(OperatorShader {
-            spirv: include_bytes!("../../../shaders/blend.spv"),
+            spirv: shader!("blend"),
             descriptors: &[
                 OperatorDescriptor {
                     binding: 0,
@@ -205,7 +206,7 @@ impl Socketed for BlendMasked {
 impl Shader for BlendMasked {
     fn operator_shader(&self) -> Option<OperatorShader> {
         Some(OperatorShader {
-            spirv: include_bytes!("../../../shaders/blend_masked.spv"),
+            spirv: shader!("blend_masked"),
             descriptors: &[
                 OperatorDescriptor {
                     binding: 0,

@@ -1,6 +1,7 @@
 use super::super::parameters::*;
 use super::super::socketed::*;
 use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
+use crate::shader;
 
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
@@ -74,7 +75,7 @@ impl Socketed for Grayscale {
 impl Shader for Grayscale {
     fn operator_shader(&self) -> Option<OperatorShader> {
         Some(OperatorShader {
-            spirv: include_bytes!("../../../shaders/grayscale.spv"),
+            spirv: shader!("grayscale"),
             descriptors: &[
                 OperatorDescriptor {
                     binding: 0,
