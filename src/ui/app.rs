@@ -748,7 +748,7 @@ where
 
     /// Updates a render view
     fn render_view(&mut self, ui: &mut UiCell) {
-        use widgets::renderview::*;
+        use widgets::render_view::*;
 
         let renderer_id = self.ids.render_view.index() as u64;
 
