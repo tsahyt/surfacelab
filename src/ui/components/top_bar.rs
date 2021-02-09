@@ -1,17 +1,26 @@
-use crate::ui::util::*;
+use crate::broker::BrokerSender;
+use crate::lang::*;
+use crate::ui::{i18n::Language, util::*};
+
 use conrod_core::*;
 
+use dialog::{DialogBox, FileSelection, FileSelectionMode};
+
 #[derive(WidgetCommon)]
-pub struct TopBar {
+pub struct TopBar<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    style: Style
+    language: &'a Language,
+    sender: &'a BrokerSender<Lang>,
+    style: Style,
 }
 
-impl TopBar {
-    pub fn new() -> Self {
+impl<'a> TopBar<'a> {
+    pub fn new(language: &'a Language, sender: &'a BrokerSender<Lang>) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
+            language,
+            sender,
             style: Style::default(),
         }
     }
@@ -21,7 +30,6 @@ impl TopBar {
         self
     }
 }
-
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
@@ -41,7 +49,7 @@ widget_ids! {
     }
 }
 
-impl Widget for TopBar {
+impl<'a> Widget for TopBar<'a> {
     type State = Ids;
     type Style = Style;
     type Event = ();
@@ -55,66 +63,77 @@ impl Widget for TopBar {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        for _press in icon_button(IconName::FOLDER_PLUS, self.style.icon_font.unwrap().unwrap())
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .mid_left_with_margin(8.0)
-            .parent(args.id)
-            .set(args.state.new_surface, args.ui)
+        for _press in icon_button(
+            IconName::FOLDER_PLUS,
+            self.style.icon_font.unwrap().unwrap(),
+        )
+        .label_font_size(14)
+        .label_color(color::WHITE)
+        .color(color::DARK_CHARCOAL)
+        .border(0.0)
+        .wh([32., 32.0])
+        .mid_left_with_margin(8.0)
+        .parent(args.id)
+        .set(args.state.new_surface, args.ui)
         {
-            // self.sender
-            //     .send(Lang::UserIOEvent(UserIOEvent::NewSurface))
-            //     .unwrap();
+            self.sender
+                .send(Lang::UserIOEvent(UserIOEvent::NewSurface))
+                .unwrap();
         }
 
-        for _press in icon_button(IconName::FOLDER_OPEN, self.style.icon_font.unwrap().unwrap())
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .right(8.0)
-            .parent(args.id)
-            .set(args.state.open_surface, args.ui)
+        for _press in icon_button(
+            IconName::FOLDER_OPEN,
+            self.style.icon_font.unwrap().unwrap(),
+        )
+        .label_font_size(14)
+        .label_color(color::WHITE)
+        .color(color::DARK_CHARCOAL)
+        .border(0.0)
+        .wh([32., 32.0])
+        .right(8.0)
+        .parent(args.id)
+        .set(args.state.open_surface, args.ui)
         {
-            // if let Ok(Some(path)) = FileSelection::new(self.label_text("surface-file-select"))
-            //     .title(self.label_text("surface-open-title"))
-            //     .mode(FileSelectionMode::Open)
-            //     .show()
-            // {
-            //     self.sender
-            //         .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
-            //             std::path::PathBuf::from(path),
-            //         )))
-            //         .unwrap();
-            //     self.app_state.graphs.clear_all();
-            // }
+            if let Ok(Some(path)) =
+                FileSelection::new(self.language.get_message("surface-file-select"))
+                    .title(self.language.get_message("surface-open-title"))
+                    .mode(FileSelectionMode::Open)
+                    .show()
+            {
+                self.sender
+                    .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
+                        std::path::PathBuf::from(path),
+                    )))
+                    .unwrap();
+                // self.app_state.graphs.clear_all();
+            }
         }
 
-        for _press in icon_button(IconName::CONTENT_SAVE, self.style.icon_font.unwrap().unwrap())
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .right(8.0)
-            .parent(args.id)
-            .set(args.state.save_surface, args.ui)
+        for _press in icon_button(
+            IconName::CONTENT_SAVE,
+            self.style.icon_font.unwrap().unwrap(),
+        )
+        .label_font_size(14)
+        .label_color(color::WHITE)
+        .color(color::DARK_CHARCOAL)
+        .border(0.0)
+        .wh([32., 32.0])
+        .right(8.0)
+        .parent(args.id)
+        .set(args.state.save_surface, args.ui)
         {
-            // if let Ok(Some(path)) = FileSelection::new(self.label_text("surface-file-select"))
-            //     .title(self.label_text("surface-save-title"))
-            //     .mode(FileSelectionMode::Save)
-            //     .show()
-            // {
-            //     self.sender
-            //         .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
-            //             std::path::PathBuf::from(path),
-            //         )))
-            //         .unwrap();
-            // }
+            if let Ok(Some(path)) =
+                FileSelection::new(self.language.get_message("surface-file-select"))
+                    .title(self.language.get_message("surface-save-title"))
+                    .mode(FileSelectionMode::Save)
+                    .show()
+            {
+                self.sender
+                    .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
+                        std::path::PathBuf::from(path),
+                    )))
+                    .unwrap();
+            }
         }
 
         for _press in icon_button(IconName::EXPORT, self.style.icon_font.unwrap().unwrap())
@@ -127,26 +146,27 @@ impl Widget for TopBar {
             .parent(args.id)
             .set(args.state.export_surface, args.ui)
         {
-            // if let Ok(Some(path)) = FileSelection::new(self.label_text("base-name-select"))
-            //     .title(self.label_text("surface-export-title"))
-            //     .mode(FileSelectionMode::Save)
-            //     .show()
-            // {
-            //     let e_path = std::path::PathBuf::from(&path);
-            //     self.sender
-            //         .send(Lang::UserIOEvent(UserIOEvent::RunExports(e_path)))
-            //         .unwrap();
-            // }
+            if let Ok(Some(path)) =
+                FileSelection::new(self.language.get_message("base-name-select"))
+                    .title(self.language.get_message("surface-export-title"))
+                    .mode(FileSelectionMode::Save)
+                    .show()
+            {
+                let e_path = std::path::PathBuf::from(&path);
+                self.sender
+                    .send(Lang::UserIOEvent(UserIOEvent::RunExports(e_path)))
+                    .unwrap();
+            }
         }
 
         if let Some(selection) =
             // widget::DropDownList::new(&self.app_state.graphs.list_collection_names(), Some(0))
             widget::DropDownList::new(&["foo"], Some(0))
-                .label_font_size(12)
-                .parent(args.id)
-                .mid_right_with_margin(8.0)
-                .w(256.0)
-                .set(args.state.graph_selector, args.ui)
+            .label_font_size(12)
+            .parent(args.id)
+            .mid_right_with_margin(8.0)
+            .w(256.0)
+            .set(args.state.graph_selector, args.ui)
         {
             // if let Some(graph) = self
             //     .app_state
@@ -180,9 +200,9 @@ impl Widget for TopBar {
             .parent(args.id)
             .set(args.state.graph_add, args.ui)
         {
-            // self.sender
-            //     .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph))
-            //     .unwrap()
+            self.sender
+                .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph))
+                .unwrap()
         }
 
         for _press in icon_button(IconName::LAYERS, self.style.icon_font.unwrap().unwrap())
@@ -195,9 +215,9 @@ impl Widget for TopBar {
             .parent(args.id)
             .set(args.state.layers_add, args.ui)
         {
-            // self.sender
-            //     .send(Lang::UserLayersEvent(UserLayersEvent::AddLayers))
-            //     .unwrap()
+            self.sender
+                .send(Lang::UserLayersEvent(UserLayersEvent::AddLayers))
+                .unwrap()
         }
     }
 }

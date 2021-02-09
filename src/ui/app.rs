@@ -1,10 +1,9 @@
 use crate::{broker::BrokerSender, lang::*};
 use conrod_core::*;
-use dialog::{DialogBox, FileSelection, FileSelectionMode};
 
 use super::app_state::*;
 use super::i18n::*;
-use super::{widgets, components};
+use super::{components, widgets};
 
 const PANEL_COLOR: Color = color::DARK_CHARCOAL;
 const PANEL_GAP: Scalar = 0.5;
@@ -429,13 +428,12 @@ where
     fn top_bar(&mut self, ui: &mut UiCell) {
         use components::top_bar;
 
-        top_bar::TopBar::new()
+        top_bar::TopBar::new(&self.language, &self.sender)
             .icon_font(self.fonts.icon_font)
             .parent(self.ids.top_bar_canvas)
             .wh_of(self.ids.top_bar_canvas)
             .middle_of(self.ids.top_bar_canvas)
             .set(self.ids.top_bar, ui);
-
     }
 
     /// Updates the node graph widget
