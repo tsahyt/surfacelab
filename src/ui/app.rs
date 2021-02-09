@@ -428,7 +428,7 @@ where
     fn top_bar(&mut self, ui: &mut UiCell) {
         use components::top_bar;
 
-        top_bar::TopBar::new(&self.language, &self.sender)
+        top_bar::TopBar::new(&self.language, &self.sender, &mut self.app_state.graphs)
             .icon_font(self.fonts.icon_font)
             .parent(self.ids.top_bar_canvas)
             .wh_of(self.ids.top_bar_canvas)

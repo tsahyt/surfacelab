@@ -1,6 +1,6 @@
 use crate::broker::BrokerSender;
 use crate::lang::*;
-use crate::ui::{i18n::Language, util::*};
+use crate::ui::{app_state::NodeCollections, i18n::Language, util::*};
 
 use conrod_core::*;
 
@@ -12,15 +12,21 @@ pub struct TopBar<'a> {
     common: widget::CommonBuilder,
     language: &'a Language,
     sender: &'a BrokerSender<Lang>,
+    graphs: &'a mut NodeCollections,
     style: Style,
 }
 
 impl<'a> TopBar<'a> {
-    pub fn new(language: &'a Language, sender: &'a BrokerSender<Lang>) -> Self {
+    pub fn new(
+        language: &'a Language,
+        sender: &'a BrokerSender<Lang>,
+        graphs: &'a mut NodeCollections,
+    ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             language,
             sender,
+            graphs,
             style: Style::default(),
         }
     }
@@ -105,7 +111,7 @@ impl<'a> Widget for TopBar<'a> {
                         std::path::PathBuf::from(path),
                     )))
                     .unwrap();
-                // self.app_state.graphs.clear_all();
+                self.graphs.clear_all();
             }
         }
 
@@ -160,34 +166,21 @@ impl<'a> Widget for TopBar<'a> {
         }
 
         if let Some(selection) =
-            // widget::DropDownList::new(&self.app_state.graphs.list_collection_names(), Some(0))
-            widget::DropDownList::new(&["foo"], Some(0))
-            .label_font_size(12)
-            .parent(args.id)
-            .mid_right_with_margin(8.0)
-            .w(256.0)
-            .set(args.state.graph_selector, args.ui)
+            widget::DropDownList::new(&self.graphs.list_collection_names(), Some(0))
+                .label_font_size(12)
+                .parent(args.id)
+                .mid_right_with_margin(8.0)
+                .w(256.0)
+                .set(args.state.graph_selector, args.ui)
         {
-            // if let Some(graph) = self
-            //     .app_state
-            //     .graphs
-            //     .get_collection_resource(selection)
-            //     .cloned()
-            // {
-            //     self.sender
-            //         .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
-            //             graph.clone(),
-            //         )))
-            //         .unwrap();
-            //     self.app_state.graphs.set_active(graph);
-            //     self.app_state.addable_operators = self
-            //         .app_state
-            //         .registered_operators
-            //         .iter()
-            //         .filter(|o| !o.is_graph(self.app_state.graphs.get_active()))
-            //         .cloned()
-            //         .collect();
-            // }
+            if let Some(graph) = self.graphs.get_collection_resource(selection).cloned() {
+                self.sender
+                    .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
+                        graph.clone(),
+                    )))
+                    .unwrap();
+                self.graphs.set_active(graph);
+            }
         }
 
         for _press in icon_button(IconName::GRAPH, self.style.icon_font.unwrap().unwrap())
