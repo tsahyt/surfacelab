@@ -13,15 +13,21 @@ pub struct NodeEditor<'a> {
     common: widget::CommonBuilder,
     sender: &'a BrokerSender<Lang>,
     graphs: &'a mut app_state::NodeCollections,
+    operators: &'a [Operator],
     style: Style,
 }
 
 impl<'a> NodeEditor<'a> {
-    pub fn new(sender: &'a BrokerSender<Lang>, graphs: &'a mut app_state::NodeCollections) -> Self {
+    pub fn new(
+        sender: &'a BrokerSender<Lang>,
+        graphs: &'a mut app_state::NodeCollections,
+        operators: &'a [Operator],
+    ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             sender,
             graphs,
+            operators,
             style: Style::default(),
         }
     }
@@ -130,10 +136,8 @@ impl<'a> Widget for NodeEditor<'a> {
         }
 
         if let Some(insertion_pt) = args.state.add_modal {
-            let operators: &[Operator] = &[]; // &self.app_state.addable_operators;
-
             match modal::Modal::new(
-                widget::List::flow_down(operators.len())
+                widget::List::flow_down(self.operators.len())
                     .item_size(50.0)
                     .scrollbar_on_top(),
             )
@@ -145,7 +149,7 @@ impl<'a> Widget for NodeEditor<'a> {
                 modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
                     while let Some(item) = items.next(args.ui) {
                         let i = item.i;
-                        let label = operators[i].title();
+                        let label = self.operators[i].title();
                         let button = widget::Button::new()
                             .label(&label)
                             .label_color(conrod_core::color::WHITE)
@@ -157,7 +161,7 @@ impl<'a> Widget for NodeEditor<'a> {
                             self.sender
                                 .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
                                     self.graphs.get_active().clone(),
-                                    operators[i].clone(),
+                                    self.operators[i].clone(),
                                     (insertion_pt[0], insertion_pt[1]),
                                 )))
                                 .unwrap();

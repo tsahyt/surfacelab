@@ -441,11 +441,15 @@ where
 
     /// Updates the node graph widget
     fn node_graph(&mut self, ui: &mut UiCell) {
-        components::node_editor::NodeEditor::new(&self.sender, &mut self.app_state.graphs)
-            .parent(self.ids.edit_canvas)
-            .wh_of(self.ids.edit_canvas)
-            .middle_of(self.ids.edit_canvas)
-            .set(self.ids.node_editor, ui);
+        components::node_editor::NodeEditor::new(
+            &self.sender,
+            &mut self.app_state.graphs,
+            &self.app_state.addable_operators,
+        )
+        .parent(self.ids.edit_canvas)
+        .wh_of(self.ids.edit_canvas)
+        .middle_of(self.ids.edit_canvas)
+        .set(self.ids.node_editor, ui);
     }
 
     /// Updates the layer stack widget
