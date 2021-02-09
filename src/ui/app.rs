@@ -30,6 +30,7 @@ widget_ids!(
         top_bar,
         node_editor,
         parameter_section,
+        graph_section,
 
         // Sidebar
         sidebar_tabs,
@@ -881,114 +882,13 @@ where
 
     /// Updates the graph section of the sidebar
     fn graph_section(&mut self, ui: &mut UiCell) {
-        use widgets::exposed_param_row;
-        use widgets::param_box;
+        use components::graph_section;
 
-        let active_graph = self.app_state.graphs.get_active().clone();
-
-        let mut offset = 0.0;
-
-        if self
-            .app_state
-            .graphs
-            .get_active_collection_mut()
-            .as_layers_mut()
-            .is_some()
-        {
-            offset = 32.0;
-
-            for _click in widget::Button::new()
-                .label(&self.label_text("convert-to-graph"))
-                .label_font_size(10)
-                .parent(self.ids.graph_settings_canvas)
-                .padded_w_of(self.ids.graph_settings_canvas, 16.0)
-                .h(16.0)
-                .mid_top_with_margin(16.0)
-                .set(self.ids.layer_convert, ui)
-            {
-                self.sender
-                    .send(Lang::UserLayersEvent(UserLayersEvent::Convert(
-                        active_graph.clone(),
-                    )))
-                    .unwrap();
-            }
-        }
-
-        for ev in param_box::ParamBox::new(
-            self.app_state.graphs.get_collection_parameters_mut(),
-            &active_graph,
-            &self.language,
-        )
-        .parent(self.ids.graph_settings_canvas)
-        .w_of(self.ids.graph_settings_canvas)
-        .mid_top_with_margin(32.0)
-        .set(self.ids.graph_param_box, ui)
-        {
-            if let param_box::Event::ChangeParameter(event) = ev {
-                self.sender.send(event).unwrap()
-            }
-        }
-
-        widget::Text::new(&self.label_text("exposed-parameters"))
+        graph_section::GraphSection::new(&self.language, &self.sender, &mut self.app_state.graphs)
             .parent(self.ids.graph_settings_canvas)
-            .color(color::WHITE)
-            .font_size(12)
-            .mid_top_with_margin(96.0 + offset)
-            .set(self.ids.exposed_param_title, ui);
-
-        let exposed_params = self.app_state.graphs.get_exposed_parameters_mut();
-
-        let (mut rows, scrollbar) = widget::List::flow_down(exposed_params.len())
-            .parent(self.ids.graph_settings_canvas)
-            .item_size(160.0)
-            .padded_w_of(self.ids.graph_settings_canvas, 8.0)
-            .h(320.0)
-            .mid_top_with_margin(112.0 + offset)
-            .scrollbar_on_top()
-            .set(self.ids.exposed_param_list, ui);
-
-        while let Some(row) = rows.next(ui) {
-            let widget = exposed_param_row::ExposedParamRow::new(
-                &mut exposed_params[row.i].1,
-                &self.language,
-            )
-            .icon_font(self.fonts.icon_font);
-
-            if let Some(ev) = row.set(widget, ui) {
-                match ev {
-                    exposed_param_row::Event::ConcealParameter => {
-                        self.sender
-                            .send(Lang::UserGraphEvent(UserGraphEvent::ConcealParameter(
-                                active_graph.clone(),
-                                exposed_params[row.i].0.clone(),
-                            )))
-                            .unwrap();
-                    }
-                    exposed_param_row::Event::UpdateTitle => {
-                        self.sender
-                            .send(Lang::UserGraphEvent(UserGraphEvent::RetitleParameter(
-                                active_graph.clone(),
-                                exposed_params[row.i].0.clone(),
-                                exposed_params[row.i].1.title.to_owned(),
-                            )))
-                            .unwrap();
-                    }
-                    exposed_param_row::Event::UpdateField => {
-                        self.sender
-                            .send(Lang::UserGraphEvent(UserGraphEvent::RefieldParameter(
-                                active_graph.clone(),
-                                exposed_params[row.i].0.clone(),
-                                exposed_params[row.i].1.graph_field.to_owned(),
-                            )))
-                            .unwrap();
-                    }
-                }
-            }
-        }
-
-        if let Some(s) = scrollbar {
-            s.set(ui);
-        }
+            .wh_of(self.ids.graph_settings_canvas)
+            .middle_of(self.ids.graph_settings_canvas)
+            .set(self.ids.graph_section, ui);
     }
 
     /// Updates the surface section of the sidebar
