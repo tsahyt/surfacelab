@@ -29,6 +29,7 @@ widget_ids!(
         // Components
         top_bar,
         node_editor,
+        parameter_section,
 
         // Sidebar
         sidebar_tabs,
@@ -441,7 +442,9 @@ where
 
     /// Updates the node graph widget
     fn node_graph(&mut self, ui: &mut UiCell) {
-        components::node_editor::NodeEditor::new(
+        use components::node_editor;
+
+        node_editor::NodeEditor::new(
             &self.sender,
             &mut self.app_state.graphs,
             &self.app_state.addable_operators,
@@ -856,35 +859,23 @@ where
 
     /// Updates the parameter section of the sidebar
     fn parameter_section(&mut self, ui: &mut UiCell) {
-        use widgets::param_box::*;
+        use components::parameter_section;
 
-        let lang = &self.language;
-        let graphs = &mut self.app_state.graphs;
-
-        if let Some((description, resource)) = graphs.active_parameters(
+        if let Some((description, resource)) = self.app_state.graphs.active_parameters(
             self.app_state.active_node_element,
             self.app_state.active_layer_element.clone(),
         ) {
-            for ev in ParamBox::new(description, resource, lang)
-                .parent(self.ids.parameter_canvas)
-                .w_of(self.ids.parameter_canvas)
-                .mid_top()
-                .icon_font(self.fonts.icon_font)
-                .set(self.ids.node_param_box, ui)
-            {
-                let resp = match ev {
-                    Event::ChangeParameter(event) => event,
-                    Event::ExposeParameter(field, name, control) => Lang::UserGraphEvent({
-                        let p_res = resource.clone().node_parameter(&field);
-                        UserGraphEvent::ExposeParameter(p_res, field, name, control)
-                    }),
-                    Event::ConcealParameter(field) => Lang::UserGraphEvent(
-                        UserGraphEvent::ConcealParameter(resource.clone().node_graph(), field),
-                    ),
-                };
-
-                self.sender.send(resp).unwrap();
-            }
+            parameter_section::ParameterSection::new(
+                &self.language,
+                &self.sender,
+                description,
+                resource,
+            )
+            .icon_font(self.fonts.icon_font)
+            .parent(self.ids.parameter_canvas)
+            .wh_of(self.ids.parameter_canvas)
+            .middle_of(self.ids.parameter_canvas)
+            .set(self.ids.parameter_section, ui);
         }
     }
 
