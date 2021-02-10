@@ -452,6 +452,7 @@ where
         node_editor::NodeEditor::new(
             &self.sender,
             &mut self.app_state.graphs,
+            &mut self.app_state.active_node_element,
             &self.app_state.addable_operators,
         )
         .parent(self.ids.edit_canvas)

@@ -13,6 +13,7 @@ pub struct NodeEditor<'a> {
     common: widget::CommonBuilder,
     sender: &'a BrokerSender<Lang>,
     graphs: &'a mut app_state::NodeCollections,
+    active_node_element: &'a mut Option<petgraph::graph::NodeIndex>,
     operators: &'a [Operator],
     style: Style,
 }
@@ -21,12 +22,14 @@ impl<'a> NodeEditor<'a> {
     pub fn new(
         sender: &'a BrokerSender<Lang>,
         graphs: &'a mut app_state::NodeCollections,
+        active_node_element: &'a mut Option<petgraph::graph::NodeIndex>,
         operators: &'a [Operator],
     ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             sender,
             graphs,
+            active_node_element,
             operators,
             style: Style::default(),
         }
@@ -127,7 +130,7 @@ impl<'a> Widget for NodeEditor<'a> {
                         .unwrap();
                 }
                 graph::Event::ActiveElement(idx) => {
-                    // self.app_state.active_node_element = Some(idx);
+                    *self.active_node_element = Some(idx);
                 }
                 graph::Event::AddModal(pt) => {
                     args.state.update(|state| state.add_modal = Some(pt));
