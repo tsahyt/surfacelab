@@ -38,50 +38,6 @@ widget_ids!(
 
         // Sidebar
         sidebar_tabs,
-
-        // Top Buttons
-        new_surface,
-        open_surface,
-        save_surface,
-        export_surface,
-        graph_selector,
-        graph_add,
-        layers_add,
-
-        // Main Views
-        node_graph,
-        render_view,
-        add_node_modal,
-        add_layer_modal,
-        render_modal,
-
-        // Layers
-        layer_opacity,
-        layer_blend_mode,
-        layer_new_fill,
-        layer_new_fx,
-        layer_new_mask,
-        layer_delete,
-        layer_list,
-        layer_convert,
-
-        // Render Modal
-        render_params,
-
-        // Parameter Area
-        node_param_box,
-        graph_param_box,
-        surface_param_box,
-        exposed_param_title,
-        exposed_param_list,
-
-        // Exporting
-        export_label,
-        export_add,
-        export_list,
-
-        // Resources
-        resource_tree,
     }
 );
 

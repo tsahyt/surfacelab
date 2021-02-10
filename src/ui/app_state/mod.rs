@@ -1,6 +1,6 @@
 use crate::lang::*;
 
-use conrod_core::{image, text, Point};
+use conrod_core::{image, text};
 
 pub mod collection;
 pub mod graph;
@@ -33,11 +33,6 @@ pub struct App {
     pub render_image: RenderImage,
     pub monitor_resolution: (u32, u32),
 
-    pub add_node_modal: Option<Point>,
-    pub add_layer_modal: Option<LayerFilter>,
-    pub render_modal: bool,
-
-    pub render_params: ParamBoxDescription<RenderField>,
     pub surface_params: ParamBoxDescription<SurfaceField>,
 
     pub registered_operators: Vec<Operator>,
@@ -55,10 +50,6 @@ impl App {
             active_layer_element: None,
             render_image: RenderImage::None,
             monitor_resolution: (monitor_size.0, monitor_size.1),
-            add_node_modal: None,
-            add_layer_modal: None,
-            render_modal: false,
-            render_params: ParamBoxDescription::render_parameters(),
             surface_params: ParamBoxDescription::surface_parameters(),
             registered_operators: AtomicOperator::all_default()
                 .iter()
