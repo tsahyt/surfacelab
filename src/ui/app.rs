@@ -34,6 +34,7 @@ widget_ids!(
         parameter_section,
         graph_section,
         surface_section,
+        resource_browser,
 
         // Sidebar
         sidebar_tabs,
@@ -547,38 +548,17 @@ where
 
     /// Updates the resource browser
     fn resource_browser(&mut self, ui: &mut UiCell) {
-        use crate::ui::widgets::{resource_row, tree};
+        use components::resource_browser;
 
-        let (mut rows, scrollbar) = tree::Tree::new(self.app_state.resource_tree.get_tree())
-            .parent(self.ids.resources_canvas)
-            .middle_of(self.ids.resources_canvas)
-            .padded_w_of(self.ids.resources_canvas, 8.0)
-            .padded_h_of(self.ids.resources_canvas, 8.0)
-            .scrollbar_on_top()
-            .set(self.ids.resource_tree, ui);
-
-        while let Some(row) = rows.next(ui) {
-            let expandable = self.app_state.resource_tree.expandable(&row.node_id);
-            let data = self
-                .app_state
-                .resource_tree
-                .get_resource_info_mut(&row.node_id);
-
-            let widget = resource_row::ResourceRow::new(&data, row.level)
-                .expandable(expandable)
-                .icon_font(self.fonts.icon_font)
-                .h(32.0);
-
-            match row.item.set(widget, ui) {
-                None => {}
-                Some(resource_row::Event::ToggleExpanded) => {
-                    data.toggle_expanded();
-                }
-            }
-        }
-
-        if let Some(s) = scrollbar {
-            s.set(ui);
-        }
+        resource_browser::ResourceBrowser::new(
+            &self.language,
+            &self.sender,
+            &mut self.app_state.resource_tree,
+        )
+        .icon_font(self.fonts.icon_font)
+        .parent(self.ids.resources_canvas)
+        .wh_of(self.ids.resources_canvas)
+        .middle_of(self.ids.resources_canvas)
+        .set(self.ids.resource_browser, ui);
     }
 }

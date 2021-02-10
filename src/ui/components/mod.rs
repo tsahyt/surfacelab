@@ -7,6 +7,7 @@ pub mod graph_section;
 pub mod layer_editor;
 pub mod node_editor;
 pub mod parameter_section;
+pub mod resource_browser;
 pub mod surface_section;
 pub mod top_bar;
 pub mod viewport;
