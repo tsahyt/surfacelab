@@ -4,6 +4,7 @@
 //! APIs.
 
 pub mod graph_section;
+pub mod layer_editor;
 pub mod node_editor;
 pub mod parameter_section;
 pub mod surface_section;
