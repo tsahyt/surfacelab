@@ -32,6 +32,7 @@ widget_ids!(
         viewport,
         parameter_section,
         graph_section,
+        surface_section,
 
         // Sidebar
         sidebar_tabs,
@@ -799,121 +800,20 @@ where
 
     /// Updates the surface section of the sidebar
     fn surface_section(&mut self, ui: &mut UiCell) {
-        use super::util::*;
-        use widgets::{export_row, param_box};
+        use components::surface_section;
 
-        for ev in param_box::ParamBox::new(&mut self.app_state.surface_params, &(), &self.language)
-            .parent(self.ids.surface_settings_canvas)
-            .w_of(self.ids.surface_settings_canvas)
-            .mid_top()
-            .set(self.ids.surface_param_box, ui)
-        {
-            if let param_box::Event::ChangeParameter(event) = ev {
-                self.sender.send(event).unwrap()
-            }
-        }
-
-        widget::Text::new(&self.label_text("export-spec"))
-            .parent(self.ids.surface_settings_canvas)
-            .mid_top_with_margin(96.0)
-            .color(color::WHITE)
-            .font_size(12)
-            .set(self.ids.export_label, ui);
-
-        for _ev in icon_button(IconName::PLUS, self.fonts.icon_font)
-            .parent(self.ids.surface_settings_canvas)
-            .top_right_with_margins(96.0, 16.0)
-            .border(0.)
-            .color(color::DARK_CHARCOAL)
-            .label_color(color::WHITE)
-            .label_font_size(12)
-            .wh([20.0, 16.0])
-            .set(self.ids.export_add, ui)
-        {
-            self.app_state.add_export_entry();
-        }
-
-        let (mut rows, scrollbar) = widget::List::flow_down(self.app_state.export_entries.len())
-            .parent(self.ids.surface_settings_canvas)
-            .padded_w_of(self.ids.surface_settings_canvas, 8.0)
-            .h(320.0)
-            .mid_top_with_margin(112.0)
-            .scrollbar_on_top()
-            .set(self.ids.export_list, ui);
-
-        while let Some(row) = rows.next(ui) {
-            let widget = export_row::ExportRow::new(
-                &self.app_state.export_entries[row.i],
-                &self.app_state.registered_sockets,
-                &self.language,
-            );
-            let mut updated_spec = false;
-            match row.set(widget, ui) {
-                Some(export_row::Event::ChangeToRGB) => {
-                    self.app_state.export_entries[row.i].1 = self.app_state.export_entries[row.i]
-                        .1
-                        .clone()
-                        .image_type(ImageType::Rgb)
-                        .set_has_alpha(false);
-                    updated_spec = true;
-                }
-                Some(export_row::Event::ChangeToRGBA) => {
-                    self.app_state.export_entries[row.i].1 = self.app_state.export_entries[row.i]
-                        .1
-                        .clone()
-                        .image_type(ImageType::Rgb)
-                        .set_has_alpha(true);
-                    updated_spec = true;
-                }
-                Some(export_row::Event::ChangeToGrayscale) => {
-                    self.app_state.export_entries[row.i].1 = self.app_state.export_entries[row.i]
-                        .1
-                        .clone()
-                        .image_type(ImageType::Grayscale);
-                    updated_spec = true;
-                }
-                Some(export_row::Event::SetChannelR(spec)) => {
-                    self.app_state.export_entries[row.i].1.set_red(spec);
-                    updated_spec = true;
-                }
-                Some(export_row::Event::SetChannelG(spec)) => {
-                    self.app_state.export_entries[row.i].1.set_green(spec);
-                    updated_spec = true;
-                }
-                Some(export_row::Event::SetChannelB(spec)) => {
-                    self.app_state.export_entries[row.i].1.set_blue(spec);
-                    updated_spec = true;
-                }
-                Some(export_row::Event::SetChannelA(spec)) => {
-                    self.app_state.export_entries[row.i].1.set_alpha(spec);
-                    updated_spec = true;
-                }
-                Some(export_row::Event::Rename(new)) => {
-                    // TODO: renaming two specs to the same name causes discrepancies with the backend
-                    self.sender
-                        .send(Lang::UserIOEvent(UserIOEvent::RenameExport(
-                            self.app_state.export_entries[row.i].0.clone(),
-                            new.clone(),
-                        )))
-                        .unwrap();
-                    self.app_state.export_entries[row.i].0 = new;
-                }
-                None => {}
-            }
-
-            if updated_spec {
-                self.sender
-                    .send(Lang::UserIOEvent(UserIOEvent::DeclareExport(
-                        self.app_state.export_entries[row.i].0.clone(),
-                        self.app_state.export_entries[row.i].1.clone(),
-                    )))
-                    .unwrap();
-            }
-        }
-
-        if let Some(s) = scrollbar {
-            s.set(ui);
-        }
+        surface_section::SurfaceSection::new(
+            &self.language,
+            &self.sender,
+            &mut self.app_state.surface_params,
+            &mut self.app_state.export_entries,
+            &self.app_state.registered_sockets,
+        )
+        .icon_font(self.fonts.icon_font)
+        .parent(self.ids.surface_settings_canvas)
+        .wh_of(self.ids.surface_settings_canvas)
+        .middle_of(self.ids.surface_settings_canvas)
+        .set(self.ids.surface_section, ui);
     }
 
     /// Updates the resource browser
