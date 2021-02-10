@@ -29,6 +29,7 @@ widget_ids!(
         // Components
         top_bar,
         node_editor,
+        viewport,
         parameter_section,
         graph_section,
 
@@ -748,114 +749,19 @@ where
 
     /// Updates a render view
     fn render_view(&mut self, ui: &mut UiCell) {
-        use widgets::render_view::*;
+        use components::viewport;
 
-        let renderer_id = self.ids.render_view.index() as u64;
-
-        // If there is a known render image, create a render view for it
-        match self.app_state.render_image {
-            RenderImage::Image(render_image) => {
-                let rv = RenderView::new(render_image, self.app_state.monitor_resolution)
-                    .parent(self.ids.drawing_canvas)
-                    .wh_of(self.ids.drawing_canvas)
-                    .middle()
-                    .set(self.ids.render_view, ui);
-
-                // The widget itself does not communicate with the backend. Process
-                // events here
-                match rv {
-                    Some(Event::Resized(w, h)) => self
-                        .sender
-                        .send(Lang::UIEvent(UIEvent::RendererResize(renderer_id, w, h)))
-                        .unwrap(),
-                    Some(Event::Rotate(x, y)) => self
-                        .sender
-                        .send(Lang::UserRenderEvent(UserRenderEvent::Rotate(
-                            renderer_id,
-                            x,
-                            y,
-                        )))
-                        .unwrap(),
-                    Some(Event::Pan(x, y)) => self
-                        .sender
-                        .send(Lang::UserRenderEvent(UserRenderEvent::Pan(
-                            renderer_id,
-                            x,
-                            y,
-                        )))
-                        .unwrap(),
-                    Some(Event::LightPan(x, y)) => self
-                        .sender
-                        .send(Lang::UserRenderEvent(UserRenderEvent::LightMove(
-                            renderer_id,
-                            x,
-                            y,
-                        )))
-                        .unwrap(),
-                    Some(Event::Zoom(delta)) => self
-                        .sender
-                        .send(Lang::UserRenderEvent(UserRenderEvent::Zoom(
-                            renderer_id,
-                            delta,
-                        )))
-                        .unwrap(),
-                    Some(Event::OpenModal) => {
-                        self.app_state.render_modal = true;
-                    }
-                    _ => {}
-                }
-            }
-            RenderImage::None => {
-                // Otherwise create one by notifying the render component
-                let [w, h] = ui.wh_of(self.ids.drawing_canvas).unwrap();
-                self.sender
-                    .send(Lang::UIEvent(UIEvent::RendererRequested(
-                        renderer_id,
-                        (
-                            self.app_state.monitor_resolution.0,
-                            self.app_state.monitor_resolution.1,
-                        ),
-                        (w as u32, h as u32),
-                        RendererType::Renderer3D,
-                    )))
-                    .expect("Error contacting renderer backend");
-                self.app_state.render_image = RenderImage::Requested;
-            }
-            RenderImage::Requested => {}
-        }
-
-        if self.app_state.render_modal {
-            use widgets::modal;
-            use widgets::param_box;
-
-            match modal::Modal::canvas()
-                .wh_of(self.ids.drawing_canvas)
-                .middle_of(self.ids.drawing_canvas)
-                .graphics_for(self.ids.drawing_canvas)
-                .set(self.ids.render_modal, ui)
-            {
-                modal::Event::ChildEvent((_, id)) => {
-                    for ev in param_box::ParamBox::new(
-                        &mut self.app_state.render_params,
-                        &renderer_id,
-                        &self.language,
-                    )
-                    .parent(id)
-                    .w_of(id)
-                    .mid_top()
-                    .icon_font(self.fonts.icon_font)
-                    .set(self.ids.render_params, ui)
-                    {
-                        if let param_box::Event::ChangeParameter(lang) = ev {
-                            self.sender.send(lang).unwrap()
-                        }
-                    }
-                }
-                modal::Event::Hide => {
-                    self.app_state.render_modal = false;
-                }
-            }
-        }
+        viewport::Viewport::new(
+            &self.language,
+            &self.sender,
+            &mut self.app_state.render_image,
+        )
+        .icon_font(self.fonts.icon_font)
+        .monitor_resolution(self.app_state.monitor_resolution)
+        .parent(self.ids.drawing_canvas)
+        .wh_of(self.ids.drawing_canvas)
+        .middle_of(self.ids.drawing_canvas)
+        .set(self.ids.viewport, ui);
     }
 
     /// Updates the parameter section of the sidebar
