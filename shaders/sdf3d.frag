@@ -203,6 +203,13 @@ float sdCappedCylinder(vec3 p, float h, float dia)
     return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
 }
 
+// Special normals function for cube. Used to get proper triplanar projection on
+// undistorted cube.
+vec3 cubeNormal(vec3 p, float s)
+{
+    return sign(p) * normalize(max(abs(p) - vec3(s), 0.0));
+}
+
 float sdf(vec3 p, float lod) {
     float height = 0.;
     switch (OBJECT_TYPE) {
@@ -213,15 +220,13 @@ float sdf(vec3 p, float lod) {
         case OBJECT_TYPE_CUBE:
             float boxDist = sdBox(p, vec3(0.9)) - 0.1;
             vec2 e = vec2(0.01, 0);
-            vec3 n = normalize(boxDist -
-                        vec3(sdBox(p - e.xyy, vec3(0.9)) - 0.1,
-                        sdBox(p - e.yxy, vec3(0.9)) - 0.1,
-                        sdBox(p - e.yyx, vec3(0.9)) - 0.1)
-                        );
+            vec3 n = cubeNormal(p, 0.9);
+
             n = pow(abs(n), vec3(4.0));
             n = n / (n.x + n.y + n.z);
 
             p /= 2.;
+
             float height_front = heightfield(p.xy, lod) * displacement_amount * n.b;
             float height_side = heightfield(p.zy, lod) * displacement_amount * n.r;
             float height_top = heightfield(p.xz, lod) * displacement_amount * n.g;
@@ -281,7 +286,7 @@ vec2 outer_bound(vec3 ro, vec3 rd, float d) {
     return vec2(0.);
 }
 
-//  Get normals from normal map
+// Get normals from SDF
 vec3 normal(vec3 p, float s, float lod) {
     float d = sdf(p, lod);
     vec2 e = vec2(s, 0);
@@ -551,8 +556,6 @@ vec3 render(vec3 ro, vec3 rd) {
     vec3 p = ro + rd * d;
     vec3 n = normal(p, max(texel_size, world_space_sample_size(d)), lod_by_distance(d));
 
-    // return n;
-
     // Texture fetching
     vec3 albedo_;
     float metallic_;
@@ -565,9 +568,10 @@ vec3 render(vec3 ro, vec3 rd) {
             roughness_ = roughness(plane_mapping(p), lod_by_distance(d));
             break;
         case OBJECT_TYPE_CUBE:
-            albedo_ = triplanar_albedo(p / 2., n, lod_by_distance(d));
-            metallic_ = triplanar_metallic(p / 2., n, lod_by_distance(d));
-            roughness_ = triplanar_roughness(p / 2., n, lod_by_distance(d));
+            vec3 nprime = cubeNormal(p, 0.9);
+            albedo_ = triplanar_albedo(p / 2., nprime, lod_by_distance(d));
+            metallic_ = triplanar_metallic(p / 2., nprime, lod_by_distance(d));
+            roughness_ = triplanar_roughness(p / 2., nprime, lod_by_distance(d));
             break;
         case OBJECT_TYPE_SPHERE:
             albedo_ = albedo(sphere_mapping(p), lod_by_distance(d));
