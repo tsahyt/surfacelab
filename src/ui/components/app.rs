@@ -541,7 +541,7 @@ where
         use components::parameter_section;
 
         state.update(|state| {
-            if let Some((description, resource)) = state.graphs.active_parameters(None, None) {
+            if let Some((resource, description)) = state.graphs.active_parameters() {
                 parameter_section::ParameterSection::new(
                     &self.app_data.language,
                     &self.app_data.sender,

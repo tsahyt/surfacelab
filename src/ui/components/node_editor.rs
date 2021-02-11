@@ -46,7 +46,6 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     add_modal: Option<Point>,
-    active: Option<petgraph::graph::NodeIndex>,
 }
 
 impl<'a> Widget for NodeEditor<'a> {
@@ -58,7 +57,6 @@ impl<'a> Widget for NodeEditor<'a> {
         State {
             ids: Ids::new(id_gen),
             add_modal: None,
-            active: None,
         }
     }
 
@@ -69,14 +67,13 @@ impl<'a> Widget for NodeEditor<'a> {
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let widget::UpdateArgs { state, ui, id, .. } = args;
 
-        let active = &mut self
+        let collection = self
             .graphs
             .get_active_collection_mut()
             .as_graph_mut()
-            .expect("Node Graph UI built for non-graph")
-            .graph;
+            .expect("Node Graph UI built for non-graph");
 
-        for event in graph::Graph::new(&active)
+        for event in graph::Graph::new(&collection.graph)
             .parent(id)
             .wh_of(id)
             .middle()
@@ -84,7 +81,7 @@ impl<'a> Widget for NodeEditor<'a> {
         {
             match event {
                 graph::Event::NodeDrag(idx, x, y) => {
-                    let mut node = active.node_weight_mut(idx).unwrap();
+                    let mut node = collection.graph.node_weight_mut(idx).unwrap();
                     node.position[0] += x;
                     node.position[1] += y;
 
@@ -96,12 +93,14 @@ impl<'a> Widget for NodeEditor<'a> {
                         .unwrap();
                 }
                 graph::Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
-                    let from_res = active
+                    let from_res = collection
+                        .graph
                         .node_weight(from)
                         .unwrap()
                         .resource
                         .node_socket(&from_socket);
-                    let to_res = active
+                    let to_res = collection
+                        .graph
                         .node_weight(to)
                         .unwrap()
                         .resource
@@ -115,14 +114,15 @@ impl<'a> Widget for NodeEditor<'a> {
                 graph::Event::NodeDelete(idx) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
-                            active.node_weight(idx).unwrap().resource.clone(),
+                            collection.graph.node_weight(idx).unwrap().resource.clone(),
                         )))
                         .unwrap();
                 }
                 graph::Event::SocketClear(idx, socket) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
-                            active
+                            collection
+                                .graph
                                 .node_weight(idx)
                                 .unwrap()
                                 .resource
@@ -131,7 +131,7 @@ impl<'a> Widget for NodeEditor<'a> {
                         .unwrap();
                 }
                 graph::Event::ActiveElement(idx) => {
-                    state.update(|state| state.active = Some(idx));
+                    collection.active_element = Some(idx);
                 }
                 graph::Event::AddModal(pt) => {
                     state.update(|state| state.add_modal = Some(pt));

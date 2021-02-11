@@ -67,7 +67,6 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     modal: Option<LayerFilter>,
-    active: Option<id_tree::NodeId>,
 }
 
 impl<'a> Widget for LayerEditor<'a> {
@@ -79,7 +78,6 @@ impl<'a> Widget for LayerEditor<'a> {
         State {
             ids: Ids::new(id_gen),
             modal: None,
-            active: None,
         }
     }
 
@@ -121,16 +119,17 @@ impl<'a> Widget for LayerEditor<'a> {
             _ => panic!("Layers UI built for graph"),
         };
 
-        if let Some((is_base, active_layer)) = state.active.clone().map(|node_id| {
-            (
-                active_collection.is_base_layer(&node_id),
-                active_collection
-                    .layers
-                    .get_mut(&node_id)
-                    .unwrap()
-                    .data_mut(),
-            )
-        }) {
+        if let Some((is_base, active_layer)) =
+            active_collection
+                .active_element
+                .clone()
+                .and_then(|node_id| {
+                    Some((
+                        active_collection.is_base_layer(&node_id),
+                        active_collection.layers.get_mut(&node_id).ok()?.data_mut(),
+                    ))
+                })
+        {
             for _press in icon_button(IconName::TRASH, self.style.icon_font.unwrap().unwrap())
                 .label_font_size(14)
                 .label_color(color::WHITE)
@@ -152,7 +151,6 @@ impl<'a> Widget for LayerEditor<'a> {
                         ))
                     })
                     .unwrap();
-                state.update(|state| state.active = None);
             }
 
             if !is_base && !active_layer.is_mask {
@@ -252,15 +250,18 @@ impl<'a> Widget for LayerEditor<'a> {
                 .unwrap()
                 .data_mut();
 
-            let widget = layer_row::LayerRow::new(data, Some(row.node_id) == state.active)
-                .toggleable(toggleable)
-                .expandable(expandable)
-                .icon_font(self.style.icon_font.unwrap().unwrap());
+            let widget = layer_row::LayerRow::new(
+                data,
+                Some(row.node_id) == active_collection.active_element,
+            )
+            .toggleable(toggleable)
+            .expandable(expandable)
+            .icon_font(self.style.icon_font.unwrap().unwrap());
 
             if let Some(event) = row.item.set(widget, ui) {
                 match event {
                     layer_row::Event::ActiveElement => {
-                        state.update(|state| state.active = Some(node_id))
+                        active_collection.active_element = Some(node_id);
                     }
                     layer_row::Event::Retitled(new) => {
                         self.sender

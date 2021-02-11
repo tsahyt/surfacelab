@@ -104,6 +104,7 @@ pub struct Layers {
     pub layers: Tree<Layer>,
     exposed_parameters: Vec<(String, GraphParameter)>,
     param_box: ParamBoxDescription<GraphField>,
+    pub active_element: Option<id_tree::NodeId>,
 }
 
 impl Layers {
@@ -115,6 +116,7 @@ impl Layers {
                 .build(),
             exposed_parameters: Vec::new(),
             param_box: ParamBoxDescription::graph_parameters(name),
+            active_element: None,
         }
     }
 
@@ -258,5 +260,14 @@ impl Collection for Layers {
                 layer.update(pbox.clone());
             }
         }
+    }
+
+    fn active_element(
+        &mut self,
+    ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)> {
+        let idx = self.active_element.as_ref()?;
+        let layer = self.layers.get_mut(&idx).ok()?;
+        let data = layer.data_mut();
+        Some((&data.resource, &mut data.operator_pbox))
     }
 }
