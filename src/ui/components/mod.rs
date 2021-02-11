@@ -3,6 +3,7 @@
 //! components and widgets is somewhat arbitrary, since they both use the same
 //! APIs.
 
+pub mod app;
 pub mod graph_section;
 pub mod layer_editor;
 pub mod node_editor;
