@@ -136,8 +136,6 @@ pub struct State {
     registered_sockets: Vec<crate::ui::widgets::export_row::RegisteredSocket>,
     addable_operators: Vec<Operator>,
     registered_operators: Vec<Operator>,
-    export_entries: Vec<(String, ExportSpec)>,
-    surface_params: ParamBoxDescription<SurfaceField>,
 }
 
 impl<'a, B> Widget for Application<'a, B>
@@ -162,8 +160,6 @@ where
                 .iter()
                 .map(|x| Operator::from(x.clone()))
                 .collect(),
-            surface_params: ParamBoxDescription::surface_parameters(),
-            export_entries: Vec::new(),
         }
     }
 
@@ -352,9 +348,6 @@ where
             }
             Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),
             Lang::LayersEvent(ev) => self.handle_layers_event(state, ev),
-            Lang::SurfaceEvent(SurfaceEvent::ExportSpecLoaded(name, spec)) => {
-                state.export_entries.push((name.clone(), spec.clone()));
-            }
             _ => {}
         }
     }
@@ -411,7 +404,6 @@ where
             GraphEvent::SocketDemonomorphized(socket) => state.graphs.demonomorphize_socket(socket),
             GraphEvent::Cleared => {
                 state.graphs.clear_all();
-                state.export_entries.clear();
                 state.registered_sockets.clear();
             }
             GraphEvent::ParameterExposed(graph, param) => {
@@ -582,9 +574,9 @@ where
             surface_section::SurfaceSection::new(
                 &self.app_data.language,
                 &self.app_data.sender,
-                &mut state.export_entries,
                 &state.registered_sockets,
             )
+            .event_buffer(self.event_buffer.unwrap())
             .icon_font(self.style.icon_font.unwrap().unwrap())
             .parent(state.ids.surface_settings_canvas)
             .wh_of(state.ids.surface_settings_canvas)
