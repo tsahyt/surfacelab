@@ -183,7 +183,7 @@ where
         if let Some(ev_buf) = self.event_buffer {
             for ev in ev_buf {
                 state.update(|state| {
-                    self.handle_event(ui, state, ev);
+                    self.handle_event(state, ev);
                 });
             }
         }
@@ -306,23 +306,8 @@ where
     B: crate::gpu::Backend,
 {
     /// Handle UI event
-    fn handle_event(&mut self, ui: &mut UiCell, state: &mut State, event: &Lang) {
+    fn handle_event(&mut self, state: &mut State, event: &Lang) {
         match event {
-            Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
-                if let Some(view) = view.clone().to::<B>() {
-                    if let Some(img) = self.renderer.create_image(
-                        view,
-                        self.app_data.monitor_resolution.0,
-                        self.app_data.monitor_resolution.1,
-                    ) {
-                        let id = self.app_data.image_map.insert(img);
-                        state.render_image = RenderImage::Image(id);
-                    }
-                }
-            }
-            Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
-                ui.needs_redraw();
-            }
             Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
                 if let Some(t) = thmb.clone().to::<B>() {
                     if let Some(img) = self.renderer.create_image(t, 128, 128) {
@@ -539,15 +524,17 @@ where
     }
 
     // /// Updates a render view
-    fn update_render_view(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
+    fn update_render_view(&mut self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::viewport;
 
         state.update(|state| {
             viewport::Viewport::new(
                 &self.app_data.language,
                 &self.app_data.sender,
-                &mut state.render_image,
+                &mut self.renderer,
+                &mut self.app_data.image_map,
             )
+            .event_buffer(self.event_buffer.unwrap())
             .icon_font(self.style.icon_font.unwrap().unwrap())
             .monitor_resolution(self.app_data.monitor_resolution)
             .parent(state.ids.drawing_canvas)

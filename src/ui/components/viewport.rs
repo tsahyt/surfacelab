@@ -2,33 +2,48 @@ use crate::broker::BrokerSender;
 use crate::lang::*;
 use crate::ui::{app_state::RenderImage, i18n::Language, widgets};
 
+use std::sync::Arc;
+
 use conrod_core::*;
 
 #[derive(WidgetCommon)]
-pub struct Viewport<'a> {
+pub struct Viewport<'a, B: crate::gpu::Backend> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     language: &'a Language,
     sender: &'a BrokerSender<Lang>,
-    render_image: &'a mut RenderImage,
+    renderer: &'a mut crate::gpu::ui::Renderer<B>,
+    image_map: &'a mut image::Map<crate::gpu::ui::Image<B>>,
     monitor_resolution: (u32, u32),
+    event_buffer: Option<&'a [Arc<Lang>]>,
     style: Style,
 }
 
-impl<'a> Viewport<'a> {
+impl<'a, B> Viewport<'a, B>
+where
+    B: crate::gpu::Backend,
+{
     pub fn new(
         language: &'a Language,
         sender: &'a BrokerSender<Lang>,
-        render_image: &'a mut RenderImage,
+        renderer: &'a mut crate::gpu::ui::Renderer<B>,
+        image_map: &'a mut image::Map<crate::gpu::ui::Image<B>>,
     ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             language,
             sender,
-            render_image,
+            renderer,
+            image_map,
             monitor_resolution: (1920, 1080),
+            event_buffer: None,
             style: Style::default(),
         }
+    }
+
+    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
+        self.event_buffer = Some(buffer);
+        self
     }
 
     pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
@@ -60,9 +75,13 @@ pub struct State {
     ids: Ids,
     modal: bool,
     parameters: ParamBoxDescription<RenderField>,
+    render_image: RenderImage,
 }
 
-impl<'a> Widget for Viewport<'a> {
+impl<'a, B> Widget for Viewport<'a, B>
+where
+    B: crate::gpu::Backend,
+{
     type State = State;
     type Style = Style;
     type Event = ();
@@ -72,6 +91,7 @@ impl<'a> Widget for Viewport<'a> {
             ids: Ids::new(id_gen),
             modal: false,
             parameters: ParamBoxDescription::render_parameters(),
+            render_image: RenderImage::None,
         }
     }
 
@@ -79,19 +99,27 @@ impl<'a> Widget for Viewport<'a> {
         self.style
     }
 
-    fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+    fn update(mut self, args: widget::UpdateArgs<Self>) -> Self::Event {
         use widgets::render_view;
 
-        let renderer_id = args.state.ids.inner.index() as u64;
+        let widget::UpdateArgs { state, ui, id, .. } = args;
+
+        if let Some(ev_buf) = self.event_buffer {
+            for ev in ev_buf {
+                self.handle_event(ui, state, ev);
+            }
+        }
+
+        let renderer_id = state.ids.inner.index() as u64;
 
         // If there is a known render image, create a render view for it
-        match self.render_image {
+        match state.render_image {
             RenderImage::Image(render_image) => {
-                let rv = render_view::RenderView::new(*render_image, self.monitor_resolution)
-                    .parent(args.id)
-                    .wh_of(args.id)
+                let rv = render_view::RenderView::new(render_image, self.monitor_resolution)
+                    .parent(id)
+                    .wh_of(id)
                     .middle()
-                    .set(args.state.ids.inner, args.ui);
+                    .set(state.ids.inner, ui);
 
                 // The widget itself does not communicate with the backend. Process
                 // events here
@@ -132,14 +160,14 @@ impl<'a> Widget for Viewport<'a> {
                         )))
                         .unwrap(),
                     Some(render_view::Event::OpenModal) => {
-                        args.state.update(|state| state.modal = true);
+                        state.update(|state| state.modal = true);
                     }
                     _ => {}
                 }
             }
             RenderImage::None => {
                 // Otherwise create one by notifying the render component
-                let [w, h] = args.ui.wh_of(args.id).unwrap();
+                let [w, h] = ui.wh_of(args.id).unwrap();
                 self.sender
                     .send(Lang::UIEvent(UIEvent::RendererRequested(
                         renderer_id,
@@ -148,24 +176,22 @@ impl<'a> Widget for Viewport<'a> {
                         RendererType::Renderer3D,
                     )))
                     .expect("Error contacting renderer backend");
-                *self.render_image = RenderImage::Requested;
+                state.update(|state| state.render_image = RenderImage::Requested);
             }
             RenderImage::Requested => {}
         }
 
-        if args.state.modal {
+        if state.modal {
             use widgets::modal;
             use widgets::param_box;
 
-            let ui = args.ui;
-
             match modal::Modal::canvas()
-                .wh_of(args.id)
-                .middle_of(args.id)
-                .graphics_for(args.id)
-                .set(args.state.ids.modal, ui)
+                .wh_of(id)
+                .middle_of(id)
+                .graphics_for(id)
+                .set(state.ids.modal, ui)
             {
-                modal::Event::ChildEvent((_, id)) => args.state.update(|state| {
+                modal::Event::ChildEvent((_, id)) => state.update(|state| {
                     for ev in param_box::ParamBox::new(
                         &mut state.parameters,
                         &renderer_id,
@@ -183,9 +209,35 @@ impl<'a> Widget for Viewport<'a> {
                     }
                 }),
                 modal::Event::Hide => {
-                    args.state.update(|state| state.modal = false);
+                    state.update(|state| state.modal = false);
                 }
             }
+        }
+    }
+}
+
+impl<'a, B> Viewport<'a, B>
+where
+    B: crate::gpu::Backend,
+{
+    fn handle_event(&mut self, ui: &mut UiCell, state: &mut widget::State<State>, event: &Lang) {
+        match event {
+            Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
+                if let Some(view) = view.clone().to::<B>() {
+                    if let Some(img) = self.renderer.create_image(
+                        view,
+                        self.monitor_resolution.0,
+                        self.monitor_resolution.1,
+                    ) {
+                        let id = self.image_map.insert(img);
+                        state.update(|state| state.render_image = RenderImage::Image(id));
+                    }
+                }
+            }
+            Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
+                ui.needs_redraw();
+            }
+            _ => {}
         }
     }
 }

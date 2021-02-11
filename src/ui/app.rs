@@ -437,19 +437,19 @@ where
 
     /// Updates a render view
     fn render_view(&mut self, ui: &mut UiCell) {
-        use components::viewport;
+        // use components::viewport;
 
-        viewport::Viewport::new(
-            &self.language,
-            &self.sender,
-            &mut self.app_state.render_image,
-        )
-        .icon_font(self.fonts.icon_font)
-        .monitor_resolution(self.app_state.monitor_resolution)
-        .parent(self.ids.drawing_canvas)
-        .wh_of(self.ids.drawing_canvas)
-        .middle_of(self.ids.drawing_canvas)
-        .set(self.ids.viewport, ui);
+        // viewport::Viewport::new(
+        //     &self.language,
+        //     &self.sender,
+        //     &mut self.app_state.render_image,
+        // )
+        // .icon_font(self.fonts.icon_font)
+        // .monitor_resolution(self.app_state.monitor_resolution)
+        // .parent(self.ids.drawing_canvas)
+        // .wh_of(self.ids.drawing_canvas)
+        // .middle_of(self.ids.drawing_canvas)
+        // .set(self.ids.viewport, ui);
     }
 
     /// Updates the parameter section of the sidebar
