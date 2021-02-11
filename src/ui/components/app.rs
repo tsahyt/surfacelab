@@ -135,7 +135,6 @@ pub struct State {
     resource_tree: ResourceTree,
     active_node_element: Option<petgraph::graph::NodeIndex>,
     active_layer_element: Option<id_tree::NodeId>,
-    render_image: RenderImage,
     registered_sockets: Vec<crate::ui::widgets::export_row::RegisteredSocket>,
     addable_operators: Vec<Operator>,
     registered_operators: Vec<Operator>,
@@ -158,7 +157,6 @@ where
             resource_tree: ResourceTree::default(),
             active_node_element: None,
             active_layer_element: None,
-            render_image: RenderImage::None,
             registered_sockets: Vec::new(),
             addable_operators: AtomicOperator::all_default()
                 .iter()

@@ -6,7 +6,6 @@ use winit::platform::unix::EventLoopExtUnix;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-pub mod app;
 pub mod app_state;
 pub mod components;
 pub mod i18n;
