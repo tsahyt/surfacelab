@@ -1,6 +1,7 @@
 use crate::broker::BrokerSender;
 use crate::lang::*;
-use crate::ui::{i18n::Language, components, widgets::tabs};
+use crate::ui::{components, i18n::Language, widgets::tabs};
+use std::sync::Arc;
 
 use crate::ui::app_state::*;
 
@@ -13,7 +14,10 @@ pub struct ApplicationData<B: crate::gpu::Backend> {
     monitor_resolution: (u32, u32),
 }
 
-impl<B> ApplicationData<B> where B: crate::gpu::Backend {
+impl<B> ApplicationData<B>
+where
+    B: crate::gpu::Backend,
+{
     /// Create a new ApplicationData instance
     pub fn new(
         sender: BrokerSender<Lang>,
@@ -35,16 +39,19 @@ impl<B> ApplicationData<B> where B: crate::gpu::Backend {
 }
 
 #[derive(WidgetCommon)]
-pub struct Application<'a, B : crate::gpu::Backend> {
+pub struct Application<'a, B: crate::gpu::Backend> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     app_data: &'a mut ApplicationData<B>,
-    event_buffer: Option<&'a [Lang]>,
+    event_buffer: Option<&'a [Arc<Lang>]>,
     renderer: &'a mut crate::gpu::ui::Renderer<B>,
     style: Style,
 }
 
-impl<'a, B> Application<'a, B> where B: crate::gpu::Backend {
+impl<'a, B> Application<'a, B>
+where
+    B: crate::gpu::Backend,
+{
     pub fn new(
         app_data: &'a mut ApplicationData<B>,
         renderer: &'a mut crate::gpu::ui::Renderer<B>,
@@ -58,7 +65,7 @@ impl<'a, B> Application<'a, B> where B: crate::gpu::Backend {
         }
     }
 
-    pub fn event_buffer(mut self, buffer: &'a [Lang]) -> Self{
+    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
         self.event_buffer = Some(buffer);
         self
     }
@@ -74,6 +81,9 @@ impl<'a, B> Application<'a, B> where B: crate::gpu::Backend {
         self.style.text_font = Some(Some(font_id));
         self
     }
+
+    builder_method!(pub panel_color { style.panel_color = Some(Color) });
+    builder_method!(pub panel_gap { style.panel_gap = Some(Scalar) });
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
@@ -133,7 +143,10 @@ pub struct State {
     surface_params: ParamBoxDescription<SurfaceField>,
 }
 
-impl<'a, B> Widget for Application<'a, B> where B: crate::gpu::Backend {
+impl<'a, B> Widget for Application<'a, B>
+where
+    B: crate::gpu::Backend,
+{
     type State = State;
     type Style = Style;
     type Event = ();
@@ -288,14 +301,12 @@ impl<'a, B> Widget for Application<'a, B> where B: crate::gpu::Backend {
     }
 }
 
-impl<'a, B> Application<'a, B> where B: crate::gpu::Backend {
+impl<'a, B> Application<'a, B>
+where
+    B: crate::gpu::Backend,
+{
     /// Handle UI event
-    fn handle_event(
-        &mut self,
-        ui: &mut UiCell,
-        state: &mut State,
-        event: &Lang,
-    ) {
+    fn handle_event(&mut self, ui: &mut UiCell, state: &mut State, event: &Lang) {
         match event {
             Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
                 if let Some(view) = view.clone().to::<B>() {
@@ -328,18 +339,30 @@ impl<'a, B> Application<'a, B> where B: crate::gpu::Backend {
             Lang::ComputeEvent(ComputeEvent::SocketCreated(res, ty)) => match ty {
                 ImageType::Grayscale => {
                     state.registered_sockets.push(
-                        crate::ui::widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::R)),
+                        crate::ui::widgets::export_row::RegisteredSocket::new((
+                            res.clone(),
+                            ImageChannel::R,
+                        )),
                     );
                 }
                 ImageType::Rgb => {
                     state.registered_sockets.push(
-                        crate::ui::widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::R)),
+                        crate::ui::widgets::export_row::RegisteredSocket::new((
+                            res.clone(),
+                            ImageChannel::R,
+                        )),
                     );
                     state.registered_sockets.push(
-                        crate::ui::widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::G)),
+                        crate::ui::widgets::export_row::RegisteredSocket::new((
+                            res.clone(),
+                            ImageChannel::G,
+                        )),
                     );
                     state.registered_sockets.push(
-                        crate::ui::widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::B)),
+                        crate::ui::widgets::export_row::RegisteredSocket::new((
+                            res.clone(),
+                            ImageChannel::B,
+                        )),
                     );
                 }
             },
@@ -351,9 +374,7 @@ impl<'a, B> Application<'a, B> where B: crate::gpu::Backend {
             Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),
             Lang::LayersEvent(ev) => self.handle_layers_event(state, ev),
             Lang::SurfaceEvent(SurfaceEvent::ExportSpecLoaded(name, spec)) => {
-                state
-                    .export_entries
-                    .push((name.clone(), spec.clone()));
+                state.export_entries.push((name.clone(), spec.clone()));
             }
             _ => {}
         }
@@ -394,40 +415,28 @@ impl<'a, B> Application<'a, B> where B: crate::gpu::Backend {
             }
             GraphEvent::NodeRemoved(res) => {
                 state.graphs.remove_node(res);
-                state
-                    .resource_tree
-                    .remove_resource_and_children(res);
+                state.resource_tree.remove_resource_and_children(res);
             }
             GraphEvent::NodeRenamed(from, to) => {
                 state.graphs.rename_node(from, to);
                 state.resource_tree.rename_resource(from, to);
             }
             GraphEvent::ComplexOperatorUpdated(node, op, pbox) => {
-                state
-                    .graphs
-                    .update_complex_operator(node, op, pbox);
+                state.graphs.update_complex_operator(node, op, pbox);
             }
-            GraphEvent::ConnectedSockets(from, to) => {
-                state.graphs.connect_sockets(from, to)
-            }
-            GraphEvent::DisconnectedSockets(from, to) => {
-                state.graphs.disconnect_sockets(from, to)
-            }
+            GraphEvent::ConnectedSockets(from, to) => state.graphs.connect_sockets(from, to),
+            GraphEvent::DisconnectedSockets(from, to) => state.graphs.disconnect_sockets(from, to),
             GraphEvent::SocketMonomorphized(socket, ty) => {
                 state.graphs.monomorphize_socket(socket, *ty)
             }
-            GraphEvent::SocketDemonomorphized(socket) => {
-                state.graphs.demonomorphize_socket(socket)
-            }
+            GraphEvent::SocketDemonomorphized(socket) => state.graphs.demonomorphize_socket(socket),
             GraphEvent::Cleared => {
                 state.graphs.clear_all();
                 state.export_entries.clear();
                 state.registered_sockets.clear();
             }
             GraphEvent::ParameterExposed(graph, param) => {
-                state
-                    .graphs
-                    .parameter_exposed(graph, param.clone());
+                state.graphs.parameter_exposed(graph, param.clone());
             }
             GraphEvent::ParameterConcealed(graph, field) => {
                 state.graphs.parameter_concealed(graph, field);
@@ -477,145 +486,153 @@ impl<'a, B> Application<'a, B> where B: crate::gpu::Backend {
     fn update_top_bar(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::top_bar;
 
-        state.update(|state|
-        top_bar::TopBar::new(&self.app_data.language, &self.app_data.sender, &mut state.graphs)
+        state.update(|state| {
+            top_bar::TopBar::new(
+                &self.app_data.language,
+                &self.app_data.sender,
+                &mut state.graphs,
+            )
             .icon_font(self.style.icon_font.unwrap().unwrap())
             .parent(state.ids.top_bar_canvas)
             .wh_of(state.ids.top_bar_canvas)
             .middle_of(state.ids.top_bar_canvas)
             .set(state.ids.top_bar, ui)
-        );
+        });
     }
 
     /// Updates the node graph widget
     fn update_node_graph(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::node_editor;
 
-        state.update(|state|
-        node_editor::NodeEditor::new(
-            &self.app_data.sender,
-            &mut state.graphs,
-            &mut state.active_node_element,
-            &state.addable_operators,
-        )
-        .parent(state.ids.edit_canvas)
-        .wh_of(state.ids.edit_canvas)
-        .middle_of(state.ids.edit_canvas)
-        .set(state.ids.node_editor, ui)
-        );
+        state.update(|state| {
+            node_editor::NodeEditor::new(
+                &self.app_data.sender,
+                &mut state.graphs,
+                &mut state.active_node_element,
+                &state.addable_operators,
+            )
+            .parent(state.ids.edit_canvas)
+            .wh_of(state.ids.edit_canvas)
+            .middle_of(state.ids.edit_canvas)
+            .set(state.ids.node_editor, ui)
+        });
     }
 
     // /// Updates the layer stack widget
     fn update_layer_stack(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::layer_editor;
 
-        state.update(|state|
-        layer_editor::LayerEditor::new(
-            &self.app_data.language,
-            &self.app_data.sender,
-            &mut state.graphs,
-            &mut state.active_layer_element,
-            &state.addable_operators,
-        )
-        .icon_font(self.style.icon_font.unwrap().unwrap())
-        .parent(state.ids.edit_canvas)
-        .wh_of(state.ids.edit_canvas)
-        .middle_of(state.ids.edit_canvas)
-        .set(state.ids.layer_editor, ui)
-        );
+        state.update(|state| {
+            layer_editor::LayerEditor::new(
+                &self.app_data.language,
+                &self.app_data.sender,
+                &mut state.graphs,
+                &mut state.active_layer_element,
+                &state.addable_operators,
+            )
+            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .parent(state.ids.edit_canvas)
+            .wh_of(state.ids.edit_canvas)
+            .middle_of(state.ids.edit_canvas)
+            .set(state.ids.layer_editor, ui)
+        });
     }
 
     // /// Updates a render view
     fn update_render_view(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::viewport;
 
-        state.update(|state|
-        viewport::Viewport::new(
-            &self.app_data.language,
-            &self.app_data.sender,
-            &mut state.render_image,
-        )
-        .icon_font(self.style.icon_font.unwrap().unwrap())
-        .monitor_resolution(self.app_data.monitor_resolution)
-        .parent(state.ids.drawing_canvas)
-        .wh_of(state.ids.drawing_canvas)
-        .middle_of(state.ids.drawing_canvas)
-        .set(state.ids.viewport, ui)
-        );
+        state.update(|state| {
+            viewport::Viewport::new(
+                &self.app_data.language,
+                &self.app_data.sender,
+                &mut state.render_image,
+            )
+            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .monitor_resolution(self.app_data.monitor_resolution)
+            .parent(state.ids.drawing_canvas)
+            .wh_of(state.ids.drawing_canvas)
+            .middle_of(state.ids.drawing_canvas)
+            .set(state.ids.viewport, ui)
+        });
     }
 
     /// Updates the parameter section of the sidebar
     fn update_parameter_section(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::parameter_section;
 
-        state.update(|state|
-        if let Some((description, resource)) = state.graphs.active_parameters(
-            state.active_node_element,
-            state.active_layer_element.clone(),
-        ) {
-            parameter_section::ParameterSection::new(
-                &self.app_data.language,
-                &self.app_data.sender,
-                description,
-                resource,
-            )
-            .icon_font(self.style.icon_font.unwrap().unwrap())
-            .parent(state.ids.parameter_canvas)
-            .wh_of(state.ids.parameter_canvas)
-            .middle_of(state.ids.parameter_canvas)
-            .set(state.ids.parameter_section, ui);
-        }
-        );
+        state.update(|state| {
+            if let Some((description, resource)) = state.graphs.active_parameters(
+                state.active_node_element,
+                state.active_layer_element.clone(),
+            ) {
+                parameter_section::ParameterSection::new(
+                    &self.app_data.language,
+                    &self.app_data.sender,
+                    description,
+                    resource,
+                )
+                .icon_font(self.style.icon_font.unwrap().unwrap())
+                .parent(state.ids.parameter_canvas)
+                .wh_of(state.ids.parameter_canvas)
+                .middle_of(state.ids.parameter_canvas)
+                .set(state.ids.parameter_section, ui);
+            }
+        });
     }
 
     /// Updates the graph section of the sidebar
     fn update_graph_section(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::graph_section;
 
-        state.update(|state|
-        graph_section::GraphSection::new(&self.app_data.language, &self.app_data.sender, &mut state.graphs)
+        state.update(|state| {
+            graph_section::GraphSection::new(
+                &self.app_data.language,
+                &self.app_data.sender,
+                &mut state.graphs,
+            )
             .parent(state.ids.graph_settings_canvas)
             .wh_of(state.ids.graph_settings_canvas)
             .middle_of(state.ids.graph_settings_canvas)
             .set(state.ids.graph_section, ui)
-        );
+        });
     }
 
     /// Updates the surface section of the sidebar
     fn update_surface_section(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::surface_section;
 
-        state.update(|state|
-        surface_section::SurfaceSection::new(
-            &self.app_data.language,
-            &self.app_data.sender,
-            &mut state.surface_params,
-            &mut state.export_entries,
-            &state.registered_sockets,
-        )
-        .icon_font(self.style.icon_font.unwrap().unwrap())
-        .parent(state.ids.surface_settings_canvas)
-        .wh_of(state.ids.surface_settings_canvas)
-        .middle_of(state.ids.surface_settings_canvas)
-        .set(state.ids.surface_section, ui)
-        );
+        state.update(|state| {
+            surface_section::SurfaceSection::new(
+                &self.app_data.language,
+                &self.app_data.sender,
+                &mut state.surface_params,
+                &mut state.export_entries,
+                &state.registered_sockets,
+            )
+            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .parent(state.ids.surface_settings_canvas)
+            .wh_of(state.ids.surface_settings_canvas)
+            .middle_of(state.ids.surface_settings_canvas)
+            .set(state.ids.surface_section, ui)
+        });
     }
 
     /// Updates the resource browser
     fn update_resource_browser(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::resource_browser;
 
-        state.update(|state|
-        resource_browser::ResourceBrowser::new(
-            &self.app_data.language,
-            &self.app_data.sender,
-            &mut state.resource_tree,
-        )
-        .icon_font(self.style.icon_font.unwrap().unwrap())
-        .parent(state.ids.resources_canvas)
-        .wh_of(state.ids.resources_canvas)
-        .middle_of(state.ids.resources_canvas)
-        .set(state.ids.resource_browser, ui)
-        );
+        state.update(|state| {
+            resource_browser::ResourceBrowser::new(
+                &self.app_data.language,
+                &self.app_data.sender,
+                &mut state.resource_tree,
+            )
+            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .parent(state.ids.resources_canvas)
+            .wh_of(state.ids.resources_canvas)
+            .middle_of(state.ids.resources_canvas)
+            .set(state.ids.resource_browser, ui)
+        });
     }
 }
