@@ -78,6 +78,8 @@ fn ui_loop<B: gpu::Backend>(
     // Initialize top level ids
     let ids = Ids::new(ui.widget_id_generator());
 
+    let mut event_buffer = Vec::new();
+
     // It is important that the closure move captures the Renderer,
     // otherwise it will not be dropped when the event loop exits.
     event_loop.run(move |event, _, control_flow| {
@@ -86,6 +88,11 @@ fn ui_loop<B: gpu::Backend>(
         }
 
         *control_flow = winit::event_loop::ControlFlow::Wait;
+
+        // Buffer all events from the receiver
+        while let Ok(broker_event) = receiver.try_recv() {
+            event_buffer.push(broker_event);
+        }
 
         match event {
             winit::event::Event::WindowEvent { event, .. } => match event {
@@ -104,12 +111,6 @@ fn ui_loop<B: gpu::Backend>(
             },
 
             winit::event::Event::MainEventsCleared => {
-                // Buffer all events from the receiver
-                let mut event_buffer = Vec::new();
-                while let Ok(broker_event) = receiver.try_recv() {
-                    event_buffer.push(broker_event);
-                }
-
                 // Update widgets if any event has happened
                 if ui.global_input().events().next().is_some() {
                     let mut ui = ui.set_widgets();
@@ -121,6 +122,7 @@ fn ui_loop<B: gpu::Backend>(
                         .panel_gap(0.5)
                         .set(ids.application, &mut ui);
                     window.request_redraw();
+                    event_buffer.clear();
                 }
             }
 
