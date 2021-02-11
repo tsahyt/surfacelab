@@ -78,7 +78,7 @@ fn ui_loop<B: gpu::Backend>(
     // Initialize top level ids
     let ids = Ids::new(ui.widget_id_generator());
 
-    let mut event_buffer = Vec::new();
+    let mut event_buffer = Vec::with_capacity(8);
 
     // It is important that the closure move captures the Renderer,
     // otherwise it will not be dropped when the event loop exits.
