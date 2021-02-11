@@ -18,7 +18,6 @@ pub struct LayerEditor<'a> {
     language: &'a Language,
     sender: &'a BrokerSender<Lang>,
     graphs: &'a mut NodeCollections,
-    active_layer_element: &'a mut Option<id_tree::NodeId>,
     operators: &'a [Operator],
     style: Style,
 }
@@ -28,7 +27,6 @@ impl<'a> LayerEditor<'a> {
         language: &'a Language,
         sender: &'a BrokerSender<Lang>,
         graphs: &'a mut NodeCollections,
-        active_layer_element: &'a mut Option<id_tree::NodeId>,
         operators: &'a [Operator],
     ) -> Self {
         Self {
@@ -36,7 +34,6 @@ impl<'a> LayerEditor<'a> {
             language,
             sender,
             graphs,
-            active_layer_element,
             operators,
             style: Style::default(),
         }
@@ -70,6 +67,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     modal: Option<LayerFilter>,
+    active: Option<id_tree::NodeId>,
 }
 
 impl<'a> Widget for LayerEditor<'a> {
@@ -81,6 +79,7 @@ impl<'a> Widget for LayerEditor<'a> {
         State {
             ids: Ids::new(id_gen),
             modal: None,
+            active: None,
         }
     }
 
@@ -89,6 +88,8 @@ impl<'a> Widget for LayerEditor<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        let widget::UpdateArgs { state, ui, id, .. } = args;
+
         for _press in icon_button(IconName::SOLID, self.style.icon_font.unwrap().unwrap())
             .label_font_size(14)
             .label_color(color::WHITE)
@@ -96,11 +97,10 @@ impl<'a> Widget for LayerEditor<'a> {
             .border(0.)
             .wh([32., 32.0])
             .top_left_with_margin(8.0)
-            .parent(args.id)
-            .set(args.state.ids.new_fill, args.ui)
+            .parent(id)
+            .set(state.ids.new_fill, ui)
         {
-            args.state
-                .update(|state| state.modal = Some(LayerFilter::Layer(LayerType::Fill)));
+            state.update(|state| state.modal = Some(LayerFilter::Layer(LayerType::Fill)));
         }
 
         for _press in icon_button(IconName::FX, self.style.icon_font.unwrap().unwrap())
@@ -110,11 +110,10 @@ impl<'a> Widget for LayerEditor<'a> {
             .border(0.)
             .wh([32., 32.0])
             .right(8.0)
-            .parent(args.id)
-            .set(args.state.ids.new_fx, args.ui)
+            .parent(id)
+            .set(state.ids.new_fx, ui)
         {
-            args.state
-                .update(|state| state.modal = Some(LayerFilter::Layer(LayerType::Fx)));
+            state.update(|state| state.modal = Some(LayerFilter::Layer(LayerType::Fx)));
         }
 
         let active_collection = match self.graphs.get_active_collection_mut() {
@@ -122,7 +121,7 @@ impl<'a> Widget for LayerEditor<'a> {
             _ => panic!("Layers UI built for graph"),
         };
 
-        if let Some((is_base, active_layer)) = self.active_layer_element.clone().map(|node_id| {
+        if let Some((is_base, active_layer)) = state.active.clone().map(|node_id| {
             (
                 active_collection.is_base_layer(&node_id),
                 active_collection
@@ -139,8 +138,8 @@ impl<'a> Widget for LayerEditor<'a> {
                 .border(0.)
                 .wh([32., 32.0])
                 .top_right_with_margin(8.0)
-                .parent(args.id)
-                .set(args.state.ids.delete, args.ui)
+                .parent(id)
+                .set(state.ids.delete, ui)
             {
                 self.sender
                     .send(if active_layer.is_mask {
@@ -153,7 +152,7 @@ impl<'a> Widget for LayerEditor<'a> {
                         ))
                     })
                     .unwrap();
-                *self.active_layer_element = None;
+                state.update(|state| state.active = None);
             }
 
             if !is_base && !active_layer.is_mask {
@@ -164,10 +163,10 @@ impl<'a> Widget for LayerEditor<'a> {
                     .border(0.)
                     .wh([32., 32.0])
                     .left(8.0)
-                    .parent(args.id)
-                    .set(args.state.ids.new_mask, args.ui)
+                    .parent(id)
+                    .set(state.ids.new_mask, ui)
                 {
-                    args.state.update(|state| {
+                    state.update(|state| {
                         state.modal = Some(LayerFilter::Mask(active_layer.resource.clone()))
                     });
                 }
@@ -176,11 +175,11 @@ impl<'a> Widget for LayerEditor<'a> {
             if let Some(new_selection) =
                 widget::DropDownList::new(BlendMode::VARIANTS, Some(active_layer.blend_mode))
                     .label_font_size(10)
-                    .down_from(args.state.ids.new_fill, 8.0)
-                    .padded_w_of(args.id, 8.0)
+                    .down_from(state.ids.new_fill, 8.0)
+                    .padded_w_of(id, 8.0)
                     .h(16.0)
-                    .parent(args.id)
-                    .set(args.state.ids.blend_mode, args.ui)
+                    .parent(id)
+                    .set(state.ids.blend_mode, ui)
             {
                 use strum::IntoEnumIterator;
 
@@ -198,10 +197,10 @@ impl<'a> Widget for LayerEditor<'a> {
                 .label(&self.language.get_message("opacity"))
                 .label_font_size(10)
                 .down(8.0)
-                .padded_w_of(args.id, 8.0)
+                .padded_w_of(id, 8.0)
                 .h(16.0)
-                .parent(args.id)
-                .set(args.state.ids.opacity, args.ui)
+                .parent(id)
+                .set(state.ids.opacity, ui)
             {
                 active_layer.opacity = new_value;
 
@@ -216,34 +215,34 @@ impl<'a> Widget for LayerEditor<'a> {
             widget::DropDownList::new(BlendMode::VARIANTS, Some(0))
                 .enabled(false)
                 .label_font_size(10)
-                .down_from(args.state.ids.new_fill, 8.0)
-                .padded_w_of(args.id, 8.0)
+                .down_from(state.ids.new_fill, 8.0)
+                .padded_w_of(id, 8.0)
                 .h(16.0)
-                .parent(args.id)
-                .set(args.state.ids.blend_mode, args.ui);
+                .parent(id)
+                .set(state.ids.blend_mode, ui);
 
             widget::Slider::new(1.0, 0.0, 1.0)
                 .enabled(false)
                 .label(&self.language.get_message("opacity"))
                 .label_font_size(10)
                 .down(8.0)
-                .padded_w_of(args.id, 8.0)
+                .padded_w_of(id, 8.0)
                 .h(16.0)
-                .parent(args.id)
-                .set(args.state.ids.opacity, args.ui);
+                .parent(id)
+                .set(state.ids.opacity, ui);
         }
 
         let (mut rows, scrollbar) = tree::Tree::without_root(&active_collection.layers)
-            .parent(args.id)
+            .parent(id)
             .item_size(48.0)
-            .padded_w_of(args.id, 8.0)
-            .middle_of(args.id)
+            .padded_w_of(id, 8.0)
+            .middle_of(id)
             .h(512.0)
             .down(8.0)
             .scrollbar_on_top()
-            .set(args.state.ids.list, args.ui);
+            .set(state.ids.list, ui);
 
-        while let Some(row) = rows.next(args.ui) {
+        while let Some(row) = rows.next(ui) {
             let node_id = row.node_id.clone();
             let toggleable = !active_collection.is_base_layer(&node_id);
             let expandable = active_collection.expandable(&node_id);
@@ -253,16 +252,15 @@ impl<'a> Widget for LayerEditor<'a> {
                 .unwrap()
                 .data_mut();
 
-            let widget =
-                layer_row::LayerRow::new(data, Some(row.node_id) == *self.active_layer_element)
-                    .toggleable(toggleable)
-                    .expandable(expandable)
-                    .icon_font(self.style.icon_font.unwrap().unwrap());
+            let widget = layer_row::LayerRow::new(data, Some(row.node_id) == state.active)
+                .toggleable(toggleable)
+                .expandable(expandable)
+                .icon_font(self.style.icon_font.unwrap().unwrap());
 
-            if let Some(event) = row.item.set(widget, args.ui) {
+            if let Some(event) = row.item.set(widget, ui) {
                 match event {
                     layer_row::Event::ActiveElement => {
-                        *self.active_layer_element = Some(node_id);
+                        state.update(|state| state.active = Some(node_id))
                     }
                     layer_row::Event::Retitled(new) => {
                         self.sender
@@ -303,10 +301,10 @@ impl<'a> Widget for LayerEditor<'a> {
         }
 
         if let Some(s) = scrollbar {
-            s.set(args.ui);
+            s.set(ui);
         }
 
-        if let Some(filter) = args.state.modal.as_ref().cloned() {
+        if let Some(filter) = state.modal.as_ref().cloned() {
             let mut operators = self.operators.iter().filter(|o| match filter {
                 LayerFilter::Layer(LayerType::Fill) => o.inputs().is_empty(),
                 LayerFilter::Layer(LayerType::Fx) => !o.inputs().is_empty(),
@@ -319,13 +317,13 @@ impl<'a> Widget for LayerEditor<'a> {
                     .scrollbar_on_top(),
             )
             .padding(32.0)
-            .wh_of(args.id)
-            .middle_of(args.id)
-            .graphics_for(args.id)
-            .set(args.state.ids.modal, args.ui)
+            .wh_of(id)
+            .middle_of(id)
+            .graphics_for(id)
+            .set(state.ids.modal, ui)
             {
                 modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
-                    while let Some(item) = items.next(args.ui) {
+                    while let Some(item) = items.next(ui) {
                         let op = operators.next().unwrap();
                         let label = op.title();
                         let button = widget::Button::new()
@@ -333,8 +331,8 @@ impl<'a> Widget for LayerEditor<'a> {
                             .label_color(conrod_core::color::WHITE)
                             .label_font_size(12)
                             .color(conrod_core::color::CHARCOAL);
-                        for _press in item.set(button, args.ui) {
-                            args.state.update(|state| state.modal = None);
+                        for _press in item.set(button, ui) {
+                            state.update(|state| state.modal = None);
 
                             self.sender
                                 .send(match &filter {
@@ -354,10 +352,10 @@ impl<'a> Widget for LayerEditor<'a> {
                     }
 
                     if let Some(s) = scrollbar {
-                        s.set(args.ui)
+                        s.set(ui)
                     }
                 }
-                modal::Event::Hide => args.state.update(|state| state.modal = None),
+                modal::Event::Hide => state.update(|state| state.modal = None),
             }
         }
     }

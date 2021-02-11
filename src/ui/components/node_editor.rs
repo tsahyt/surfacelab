@@ -13,7 +13,6 @@ pub struct NodeEditor<'a> {
     common: widget::CommonBuilder,
     sender: &'a BrokerSender<Lang>,
     graphs: &'a mut app_state::NodeCollections,
-    active_node_element: &'a mut Option<petgraph::graph::NodeIndex>,
     operators: &'a [Operator],
     style: Style,
 }
@@ -22,14 +21,12 @@ impl<'a> NodeEditor<'a> {
     pub fn new(
         sender: &'a BrokerSender<Lang>,
         graphs: &'a mut app_state::NodeCollections,
-        active_node_element: &'a mut Option<petgraph::graph::NodeIndex>,
         operators: &'a [Operator],
     ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             sender,
             graphs,
-            active_node_element,
             operators,
             style: Style::default(),
         }
@@ -49,6 +46,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     add_modal: Option<Point>,
+    active: Option<petgraph::graph::NodeIndex>,
 }
 
 impl<'a> Widget for NodeEditor<'a> {
@@ -60,6 +58,7 @@ impl<'a> Widget for NodeEditor<'a> {
         State {
             ids: Ids::new(id_gen),
             add_modal: None,
+            active: None,
         }
     }
 
@@ -68,6 +67,8 @@ impl<'a> Widget for NodeEditor<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        let widget::UpdateArgs { state, ui, id, .. } = args;
+
         let active = &mut self
             .graphs
             .get_active_collection_mut()
@@ -76,10 +77,10 @@ impl<'a> Widget for NodeEditor<'a> {
             .graph;
 
         for event in graph::Graph::new(&active)
-            .parent(args.id)
-            .wh_of(args.id)
+            .parent(id)
+            .wh_of(id)
             .middle()
-            .set(args.state.ids.graph, args.ui)
+            .set(state.ids.graph, ui)
         {
             match event {
                 graph::Event::NodeDrag(idx, x, y) => {
@@ -130,27 +131,27 @@ impl<'a> Widget for NodeEditor<'a> {
                         .unwrap();
                 }
                 graph::Event::ActiveElement(idx) => {
-                    *self.active_node_element = Some(idx);
+                    state.update(|state| state.active = Some(idx));
                 }
                 graph::Event::AddModal(pt) => {
-                    args.state.update(|state| state.add_modal = Some(pt));
+                    state.update(|state| state.add_modal = Some(pt));
                 }
             }
         }
 
-        if let Some(insertion_pt) = args.state.add_modal {
+        if let Some(insertion_pt) = state.add_modal {
             match modal::Modal::new(
                 widget::List::flow_down(self.operators.len())
                     .item_size(50.0)
                     .scrollbar_on_top(),
             )
-            .wh_of(args.id)
-            .middle_of(args.id)
-            .graphics_for(args.id)
-            .set(args.state.ids.add_modal, args.ui)
+            .wh_of(id)
+            .middle_of(id)
+            .graphics_for(id)
+            .set(state.ids.add_modal, ui)
             {
                 modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
-                    while let Some(item) = items.next(args.ui) {
+                    while let Some(item) = items.next(ui) {
                         let i = item.i;
                         let label = self.operators[i].title();
                         let button = widget::Button::new()
@@ -158,8 +159,8 @@ impl<'a> Widget for NodeEditor<'a> {
                             .label_color(conrod_core::color::WHITE)
                             .label_font_size(12)
                             .color(conrod_core::color::CHARCOAL);
-                        for _press in item.set(button, args.ui) {
-                            args.state.update(|state| state.add_modal = None);
+                        for _press in item.set(button, ui) {
+                            state.update(|state| state.add_modal = None);
 
                             self.sender
                                 .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
@@ -172,10 +173,10 @@ impl<'a> Widget for NodeEditor<'a> {
                     }
 
                     if let Some(s) = scrollbar {
-                        s.set(args.ui)
+                        s.set(ui)
                     }
                 }
-                modal::Event::Hide => args.state.update(|state| state.add_modal = None),
+                modal::Event::Hide => state.update(|state| state.add_modal = None),
             }
         }
     }

@@ -133,8 +133,6 @@ pub struct State {
     ids: Ids,
     graphs: NodeCollections,
     resource_tree: ResourceTree,
-    active_node_element: Option<petgraph::graph::NodeIndex>,
-    active_layer_element: Option<id_tree::NodeId>,
     registered_sockets: Vec<crate::ui::widgets::export_row::RegisteredSocket>,
     addable_operators: Vec<Operator>,
     registered_operators: Vec<Operator>,
@@ -155,8 +153,6 @@ where
             ids: Ids::new(id_gen),
             graphs: NodeCollections::new(),
             resource_tree: ResourceTree::default(),
-            active_node_element: None,
-            active_layer_element: None,
             registered_sockets: Vec::new(),
             addable_operators: AtomicOperator::all_default()
                 .iter()
@@ -491,7 +487,6 @@ where
             node_editor::NodeEditor::new(
                 &self.app_data.sender,
                 &mut state.graphs,
-                &mut state.active_node_element,
                 &state.addable_operators,
             )
             .parent(state.ids.edit_canvas)
@@ -510,7 +505,6 @@ where
                 &self.app_data.language,
                 &self.app_data.sender,
                 &mut state.graphs,
-                &mut state.active_layer_element,
                 &state.addable_operators,
             )
             .icon_font(self.style.icon_font.unwrap().unwrap())
@@ -547,10 +541,7 @@ where
         use components::parameter_section;
 
         state.update(|state| {
-            if let Some((description, resource)) = state.graphs.active_parameters(
-                state.active_node_element,
-                state.active_layer_element.clone(),
-            ) {
+            if let Some((description, resource)) = state.graphs.active_parameters(None, None) {
                 parameter_section::ParameterSection::new(
                     &self.app_data.language,
                     &self.app_data.sender,
