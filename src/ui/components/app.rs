@@ -582,7 +582,6 @@ where
             surface_section::SurfaceSection::new(
                 &self.app_data.language,
                 &self.app_data.sender,
-                &mut state.surface_params,
                 &mut state.export_entries,
                 &state.registered_sockets,
             )

@@ -14,7 +14,6 @@ pub struct SurfaceSection<'a> {
     common: widget::CommonBuilder,
     language: &'a Language,
     sender: &'a BrokerSender<Lang>,
-    surface_params: &'a mut ParamBoxDescription<SurfaceField>,
     export_entries: &'a mut Vec<(String, ExportSpec)>,
     registered_sockets: &'a [export_row::RegisteredSocket],
     style: Style,
@@ -24,7 +23,6 @@ impl<'a> SurfaceSection<'a> {
     pub fn new(
         language: &'a Language,
         sender: &'a BrokerSender<Lang>,
-        surface_params: &'a mut ParamBoxDescription<SurfaceField>,
         export_entries: &'a mut Vec<(String, ExportSpec)>,
         registered_sockets: &'a [export_row::RegisteredSocket],
     ) -> Self {
@@ -32,7 +30,6 @@ impl<'a> SurfaceSection<'a> {
             common: widget::CommonBuilder::default(),
             language,
             sender,
-            surface_params,
             export_entries,
             registered_sockets,
             style: Style::default(),
@@ -60,13 +57,21 @@ widget_ids! {
     }
 }
 
+pub struct State {
+    ids: Ids,
+    parameters: ParamBoxDescription<SurfaceField>,
+}
+
 impl<'a> Widget for SurfaceSection<'a> {
-    type State = Ids;
+    type State = State;
     type Style = Style;
     type Event = ();
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
-        Ids::new(id_gen)
+        State {
+            ids: Ids::new(id_gen),
+            parameters: ParamBoxDescription::surface_parameters(),
+        }
     }
 
     fn style(&self) -> Self::Style {
@@ -74,33 +79,37 @@ impl<'a> Widget for SurfaceSection<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        for ev in param_box::ParamBox::new(self.surface_params, &(), &self.language)
-            .parent(args.id)
-            .w_of(args.id)
-            .mid_top()
-            .set(args.state.param_box, args.ui)
-        {
-            if let param_box::Event::ChangeParameter(event) = ev {
-                self.sender.send(event).unwrap()
+        let widget::UpdateArgs { state, ui, id, .. } = args;
+
+        state.update(|state|
+            for ev in param_box::ParamBox::new(&mut state.parameters, &(), &self.language)
+                .parent(id)
+                .w_of(id)
+                .mid_top()
+                .set(state.ids.param_box, ui)
+            {
+                if let param_box::Event::ChangeParameter(event) = ev {
+                    self.sender.send(event).unwrap()
+                }
             }
-        }
+        );
 
         widget::Text::new(&self.language.get_message("export-spec"))
-            .parent(args.id)
+            .parent(id)
             .mid_top_with_margin(96.0)
             .color(color::WHITE)
             .font_size(12)
-            .set(args.state.export_label, args.ui);
+            .set(state.ids.export_label, ui);
 
         for _ev in icon_button(IconName::PLUS, self.style.icon_font.unwrap().unwrap())
-            .parent(args.id)
+            .parent(id)
             .top_right_with_margins(96.0, 16.0)
             .border(0.)
             .color(color::DARK_CHARCOAL)
             .label_color(color::WHITE)
             .label_font_size(12)
             .wh([20.0, 16.0])
-            .set(args.state.export_add, args.ui)
+            .set(state.ids.export_add, ui)
         {
             if let Some(default) = self.registered_sockets.last() {
                 self.export_entries.push((
@@ -111,21 +120,21 @@ impl<'a> Widget for SurfaceSection<'a> {
         }
 
         let (mut rows, scrollbar) = widget::List::flow_down(self.export_entries.len())
-            .parent(args.id)
-            .padded_w_of(args.id, 8.0)
+            .parent(id)
+            .padded_w_of(id, 8.0)
             .h(320.0)
             .mid_top_with_margin(112.0)
             .scrollbar_on_top()
-            .set(args.state.export_list, args.ui);
+            .set(state.ids.export_list, ui);
 
-        while let Some(row) = rows.next(args.ui) {
+        while let Some(row) = rows.next(ui) {
             let widget = export_row::ExportRow::new(
                 &self.export_entries[row.i],
                 &self.registered_sockets,
                 &self.language,
             );
             let mut updated_spec = false;
-            match row.set(widget, args.ui) {
+            match row.set(widget, ui) {
                 Some(export_row::Event::ChangeToRGB) => {
                     self.export_entries[row.i].1 = self.export_entries[row.i]
                         .1
@@ -189,7 +198,7 @@ impl<'a> Widget for SurfaceSection<'a> {
         }
 
         if let Some(s) = scrollbar {
-            s.set(args.ui);
+            s.set(ui);
         }
     }
 }
