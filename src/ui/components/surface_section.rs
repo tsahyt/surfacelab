@@ -17,21 +17,15 @@ pub struct SurfaceSection<'a> {
     language: &'a Language,
     sender: &'a BrokerSender<Lang>,
     event_buffer: Option<&'a [Arc<Lang>]>,
-    registered_sockets: &'a [export_row::RegisteredSocket],
     style: Style,
 }
 
 impl<'a> SurfaceSection<'a> {
-    pub fn new(
-        language: &'a Language,
-        sender: &'a BrokerSender<Lang>,
-        registered_sockets: &'a [export_row::RegisteredSocket],
-    ) -> Self {
+    pub fn new(language: &'a Language, sender: &'a BrokerSender<Lang>) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             language,
             sender,
-            registered_sockets,
             event_buffer: None,
             style: Style::default(),
         }
@@ -67,6 +61,7 @@ pub struct State {
     ids: Ids,
     parameters: ParamBoxDescription<SurfaceField>,
     export_entries: Vec<(String, ExportSpec)>,
+    registered_sockets: Vec<export_row::RegisteredSocket>,
 }
 
 impl<'a> Widget for SurfaceSection<'a> {
@@ -79,6 +74,7 @@ impl<'a> Widget for SurfaceSection<'a> {
             ids: Ids::new(id_gen),
             parameters: ParamBoxDescription::surface_parameters(),
             export_entries: Vec::new(),
+            registered_sockets: Vec::new(),
         }
     }
 
@@ -125,14 +121,14 @@ impl<'a> Widget for SurfaceSection<'a> {
             .wh([20.0, 16.0])
             .set(state.ids.export_add, ui)
         {
-            if let Some(default) = self.registered_sockets.last() {
-                state.update(|state| {
+            state.update(|state| {
+                if let Some(default) = state.registered_sockets.last() {
                     state.export_entries.push((
                         "unnamed".to_owned(),
                         ExportSpec::Grayscale([default.spec.clone()]),
                     ))
-                });
-            }
+                }
+            });
         }
 
         let (mut rows, scrollbar) = widget::List::flow_down(state.export_entries.len())
@@ -146,7 +142,7 @@ impl<'a> Widget for SurfaceSection<'a> {
         while let Some(row) = rows.next(ui) {
             let widget = export_row::ExportRow::new(
                 &state.export_entries[row.i],
-                &self.registered_sockets,
+                &state.registered_sockets,
                 &self.language,
             );
             let mut updated_spec = false;
@@ -232,7 +228,51 @@ impl<'a> SurfaceSection<'a> {
                 state.update(|state| state.export_entries.push((name.clone(), spec.clone())));
             }
             Lang::GraphEvent(GraphEvent::Cleared) => {
-                state.update(|state| state.export_entries.clear());
+                state.update(|state| {
+                    state.export_entries.clear();
+                    state.registered_sockets.clear();
+                });
+            }
+            Lang::ComputeEvent(ComputeEvent::SocketCreated(res, ty)) => match ty {
+                ImageType::Grayscale => {
+                    state.update(|state| {
+                        state.registered_sockets.push(
+                            crate::ui::widgets::export_row::RegisteredSocket::new((
+                                res.clone(),
+                                ImageChannel::R,
+                            )),
+                        )
+                    });
+                }
+                ImageType::Rgb => {
+                    state.update(|state| {
+                        state.registered_sockets.push(
+                            crate::ui::widgets::export_row::RegisteredSocket::new((
+                                res.clone(),
+                                ImageChannel::R,
+                            )),
+                        );
+                        state.registered_sockets.push(
+                            crate::ui::widgets::export_row::RegisteredSocket::new((
+                                res.clone(),
+                                ImageChannel::G,
+                            )),
+                        );
+                        state.registered_sockets.push(
+                            crate::ui::widgets::export_row::RegisteredSocket::new((
+                                res.clone(),
+                                ImageChannel::B,
+                            )),
+                        );
+                    });
+                }
+            },
+            Lang::ComputeEvent(ComputeEvent::SocketDestroyed(res)) => {
+                state.update(|state| {
+                    state
+                        .registered_sockets
+                        .drain_filter(|x| x.resource() == res);
+                });
             }
             _ => {}
         }

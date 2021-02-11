@@ -133,7 +133,6 @@ pub struct State {
     ids: Ids,
     graphs: NodeCollections,
     resource_tree: ResourceTree,
-    registered_sockets: Vec<crate::ui::widgets::export_row::RegisteredSocket>,
     addable_operators: Vec<Operator>,
     registered_operators: Vec<Operator>,
 }
@@ -151,7 +150,6 @@ where
             ids: Ids::new(id_gen),
             graphs: NodeCollections::new(),
             resource_tree: ResourceTree::default(),
-            registered_sockets: Vec::new(),
             addable_operators: AtomicOperator::all_default()
                 .iter()
                 .map(|x| Operator::from(x.clone()))
@@ -311,41 +309,6 @@ where
                     self.app_data.image_map.remove(id);
                 }
             }
-            Lang::ComputeEvent(ComputeEvent::SocketCreated(res, ty)) => match ty {
-                ImageType::Grayscale => {
-                    state.registered_sockets.push(
-                        crate::ui::widgets::export_row::RegisteredSocket::new((
-                            res.clone(),
-                            ImageChannel::R,
-                        )),
-                    );
-                }
-                ImageType::Rgb => {
-                    state.registered_sockets.push(
-                        crate::ui::widgets::export_row::RegisteredSocket::new((
-                            res.clone(),
-                            ImageChannel::R,
-                        )),
-                    );
-                    state.registered_sockets.push(
-                        crate::ui::widgets::export_row::RegisteredSocket::new((
-                            res.clone(),
-                            ImageChannel::G,
-                        )),
-                    );
-                    state.registered_sockets.push(
-                        crate::ui::widgets::export_row::RegisteredSocket::new((
-                            res.clone(),
-                            ImageChannel::B,
-                        )),
-                    );
-                }
-            },
-            Lang::ComputeEvent(ComputeEvent::SocketDestroyed(res)) => {
-                state
-                    .registered_sockets
-                    .drain_filter(|x| x.resource() == res);
-            }
             Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),
             Lang::LayersEvent(ev) => self.handle_layers_event(state, ev),
             _ => {}
@@ -404,7 +367,6 @@ where
             GraphEvent::SocketDemonomorphized(socket) => state.graphs.demonomorphize_socket(socket),
             GraphEvent::Cleared => {
                 state.graphs.clear_all();
-                state.registered_sockets.clear();
             }
             GraphEvent::ParameterExposed(graph, param) => {
                 state.graphs.parameter_exposed(graph, param.clone());
@@ -571,17 +533,13 @@ where
         use components::surface_section;
 
         state.update(|state| {
-            surface_section::SurfaceSection::new(
-                &self.app_data.language,
-                &self.app_data.sender,
-                &state.registered_sockets,
-            )
-            .event_buffer(self.event_buffer.unwrap())
-            .icon_font(self.style.icon_font.unwrap().unwrap())
-            .parent(state.ids.surface_settings_canvas)
-            .wh_of(state.ids.surface_settings_canvas)
-            .middle_of(state.ids.surface_settings_canvas)
-            .set(state.ids.surface_section, ui)
+            surface_section::SurfaceSection::new(&self.app_data.language, &self.app_data.sender)
+                .event_buffer(self.event_buffer.unwrap())
+                .icon_font(self.style.icon_font.unwrap().unwrap())
+                .parent(state.ids.surface_settings_canvas)
+                .wh_of(state.ids.surface_settings_canvas)
+                .middle_of(state.ids.surface_settings_canvas)
+                .set(state.ids.surface_section, ui)
         });
     }
 
