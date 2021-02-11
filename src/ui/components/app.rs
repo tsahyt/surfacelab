@@ -40,17 +40,20 @@ pub struct Application<'a, B : crate::gpu::Backend> {
     common: widget::CommonBuilder,
     app_data: &'a mut ApplicationData<B>,
     event_buffer: Option<&'a [Lang]>,
+    renderer: &'a mut crate::gpu::ui::Renderer<B>,
     style: Style,
 }
 
 impl<'a, B> Application<'a, B> where B: crate::gpu::Backend {
     pub fn new(
         app_data: &'a mut ApplicationData<B>,
+        renderer: &'a mut crate::gpu::ui::Renderer<B>,
     ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             app_data,
             event_buffer: None,
+            renderer,
             style: Style::default(),
         }
     }
@@ -125,6 +128,7 @@ pub struct State {
     render_image: RenderImage,
     registered_sockets: Vec<crate::ui::widgets::export_row::RegisteredSocket>,
     addable_operators: Vec<Operator>,
+    registered_operators: Vec<Operator>,
     export_entries: Vec<(String, ExportSpec)>,
     surface_params: ParamBoxDescription<SurfaceField>,
 }
@@ -147,6 +151,10 @@ impl<'a, B> Widget for Application<'a, B> where B: crate::gpu::Backend {
                 .iter()
                 .map(|x| Operator::from(x.clone()))
                 .collect(),
+            registered_operators: AtomicOperator::all_default()
+                .iter()
+                .map(|x| Operator::from(x.clone()))
+                .collect(),
             surface_params: ParamBoxDescription::surface_parameters(),
             export_entries: Vec::new(),
         }
@@ -156,8 +164,16 @@ impl<'a, B> Widget for Application<'a, B> where B: crate::gpu::Backend {
         self.style
     }
 
-    fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+    fn update(mut self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let widget::UpdateArgs { state, ui, .. } = args;
+
+        if let Some(ev_buf) = self.event_buffer {
+            for ev in ev_buf {
+                state.update(|state| {
+                    self.handle_event(ui, state, ev);
+                });
+            }
+        }
 
         let edit_width = match state.graphs.get_active_collection() {
             NodeCollection::Graph(_) => None,
@@ -273,6 +289,190 @@ impl<'a, B> Widget for Application<'a, B> where B: crate::gpu::Backend {
 }
 
 impl<'a, B> Application<'a, B> where B: crate::gpu::Backend {
+    /// Handle UI event
+    fn handle_event(
+        &mut self,
+        ui: &mut UiCell,
+        state: &mut State,
+        event: &Lang,
+    ) {
+        match event {
+            Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
+                if let Some(view) = view.clone().to::<B>() {
+                    if let Some(img) = self.renderer.create_image(
+                        view,
+                        self.app_data.monitor_resolution.0,
+                        self.app_data.monitor_resolution.1,
+                    ) {
+                        let id = self.app_data.image_map.insert(img);
+                        state.render_image = RenderImage::Image(id);
+                    }
+                }
+            }
+            Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
+                ui.needs_redraw();
+            }
+            Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
+                if let Some(t) = thmb.clone().to::<B>() {
+                    if let Some(img) = self.renderer.create_image(t, 128, 128) {
+                        let id = self.app_data.image_map.insert(img);
+                        state.graphs.register_thumbnail(&res, id);
+                    }
+                }
+            }
+            Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(res)) => {
+                if let Some(id) = state.graphs.unregister_thumbnail(&res) {
+                    self.app_data.image_map.remove(id);
+                }
+            }
+            Lang::ComputeEvent(ComputeEvent::SocketCreated(res, ty)) => match ty {
+                ImageType::Grayscale => {
+                    state.registered_sockets.push(
+                        crate::ui::widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::R)),
+                    );
+                }
+                ImageType::Rgb => {
+                    state.registered_sockets.push(
+                        crate::ui::widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::R)),
+                    );
+                    state.registered_sockets.push(
+                        crate::ui::widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::G)),
+                    );
+                    state.registered_sockets.push(
+                        crate::ui::widgets::export_row::RegisteredSocket::new((res.clone(), ImageChannel::B)),
+                    );
+                }
+            },
+            Lang::ComputeEvent(ComputeEvent::SocketDestroyed(res)) => {
+                state
+                    .registered_sockets
+                    .drain_filter(|x| x.resource() == res);
+            }
+            Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),
+            Lang::LayersEvent(ev) => self.handle_layers_event(state, ev),
+            Lang::SurfaceEvent(SurfaceEvent::ExportSpecLoaded(name, spec)) => {
+                state
+                    .export_entries
+                    .push((name.clone(), spec.clone()));
+            }
+            _ => {}
+        }
+    }
+    /// Handle Graph Events
+    fn handle_graph_event(&self, state: &mut State, event: &GraphEvent) {
+        match event {
+            GraphEvent::GraphAdded(res) => {
+                state.graphs.add_graph(res.clone());
+                state
+                    .registered_operators
+                    .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
+                state.resource_tree.insert_graph(res.clone())
+            }
+            GraphEvent::GraphRenamed(from, to) => {
+                state.graphs.rename_collection(from, to);
+                let old_op = Operator::ComplexOperator(ComplexOperator::new(from.clone()));
+                state.registered_operators.remove(
+                    state
+                        .registered_operators
+                        .iter()
+                        .position(|x| x == &old_op)
+                        .expect("Missing old operator"),
+                );
+                state
+                    .registered_operators
+                    .push(Operator::ComplexOperator(ComplexOperator::new(to.clone())));
+                state.resource_tree.rename_resource(from, to);
+            }
+            GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
+                state.graphs.add_node(NodeData::new(
+                    res.clone(),
+                    position.map(|(x, y)| [x, y]),
+                    &op,
+                    pbox.clone(),
+                ));
+                state.resource_tree.insert_node(res.clone());
+            }
+            GraphEvent::NodeRemoved(res) => {
+                state.graphs.remove_node(res);
+                state
+                    .resource_tree
+                    .remove_resource_and_children(res);
+            }
+            GraphEvent::NodeRenamed(from, to) => {
+                state.graphs.rename_node(from, to);
+                state.resource_tree.rename_resource(from, to);
+            }
+            GraphEvent::ComplexOperatorUpdated(node, op, pbox) => {
+                state
+                    .graphs
+                    .update_complex_operator(node, op, pbox);
+            }
+            GraphEvent::ConnectedSockets(from, to) => {
+                state.graphs.connect_sockets(from, to)
+            }
+            GraphEvent::DisconnectedSockets(from, to) => {
+                state.graphs.disconnect_sockets(from, to)
+            }
+            GraphEvent::SocketMonomorphized(socket, ty) => {
+                state.graphs.monomorphize_socket(socket, *ty)
+            }
+            GraphEvent::SocketDemonomorphized(socket) => {
+                state.graphs.demonomorphize_socket(socket)
+            }
+            GraphEvent::Cleared => {
+                state.graphs.clear_all();
+                state.export_entries.clear();
+                state.registered_sockets.clear();
+            }
+            GraphEvent::ParameterExposed(graph, param) => {
+                state
+                    .graphs
+                    .parameter_exposed(graph, param.clone());
+            }
+            GraphEvent::ParameterConcealed(graph, field) => {
+                state.graphs.parameter_concealed(graph, field);
+            }
+            _ => {}
+        }
+    }
+
+    /// Handle layer events
+    fn handle_layers_event(&self, state: &mut State, event: &LayersEvent) {
+        match event {
+            LayersEvent::LayersAdded(res, _) => {
+                state.graphs.add_layers(res.clone());
+                state
+                    .registered_operators
+                    .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
+                state.resource_tree.insert_graph(res.clone())
+            }
+            LayersEvent::LayerPushed(res, ty, title, _, bmode, opacity, pbox, _) => {
+                let layer = Layer::layer(
+                    res.clone(),
+                    *ty,
+                    title,
+                    pbox.clone(),
+                    *bmode as usize,
+                    *opacity,
+                );
+                state.graphs.push_layer(layer);
+            }
+            LayersEvent::LayerRemoved(res) => {
+                state.graphs.remove_layer(res);
+            }
+            LayersEvent::MaskPushed(for_layer, res, title, _, bmode, opacity, pbox, _) => {
+                let layer =
+                    Layer::mask(res.clone(), title, pbox.clone(), *bmode as usize, *opacity);
+                state.graphs.push_layer_under(layer, for_layer);
+            }
+            LayersEvent::MovedUp(res) => {
+                state.graphs.move_layer_up(res);
+            }
+            LayersEvent::MovedDown(res) => {
+                state.graphs.move_layer_down(res);
+            }
+        }
+    }
     /// Updates the top bar
     fn update_top_bar(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::top_bar;
