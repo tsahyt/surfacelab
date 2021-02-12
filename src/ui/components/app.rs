@@ -133,8 +133,6 @@ pub struct State {
     ids: Ids,
     graphs: NodeCollections,
     resource_tree: ResourceTree,
-    addable_operators: Vec<Operator>,
-    registered_operators: Vec<Operator>,
 }
 
 impl<'a, B> Widget for Application<'a, B>
@@ -150,14 +148,6 @@ where
             ids: Ids::new(id_gen),
             graphs: NodeCollections::new(),
             resource_tree: ResourceTree::default(),
-            addable_operators: AtomicOperator::all_default()
-                .iter()
-                .map(|x| Operator::from(x.clone()))
-                .collect(),
-            registered_operators: AtomicOperator::all_default()
-                .iter()
-                .map(|x| Operator::from(x.clone()))
-                .collect(),
         }
     }
 
@@ -319,24 +309,10 @@ where
         match event {
             GraphEvent::GraphAdded(res) => {
                 state.graphs.add_graph(res.clone());
-                state
-                    .registered_operators
-                    .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
                 state.resource_tree.insert_graph(res.clone())
             }
             GraphEvent::GraphRenamed(from, to) => {
                 state.graphs.rename_collection(from, to);
-                let old_op = Operator::ComplexOperator(ComplexOperator::new(from.clone()));
-                state.registered_operators.remove(
-                    state
-                        .registered_operators
-                        .iter()
-                        .position(|x| x == &old_op)
-                        .expect("Missing old operator"),
-                );
-                state
-                    .registered_operators
-                    .push(Operator::ComplexOperator(ComplexOperator::new(to.clone())));
                 state.resource_tree.rename_resource(from, to);
             }
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
@@ -383,9 +359,6 @@ where
         match event {
             LayersEvent::LayersAdded(res, _) => {
                 state.graphs.add_layers(res.clone());
-                state
-                    .registered_operators
-                    .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())));
                 state.resource_tree.insert_graph(res.clone())
             }
             LayersEvent::LayerPushed(res, ty, title, _, bmode, opacity, pbox, _) => {
@@ -438,15 +411,12 @@ where
         use components::node_editor;
 
         state.update(|state| {
-            node_editor::NodeEditor::new(
-                &self.app_data.sender,
-                &mut state.graphs,
-                &state.addable_operators,
-            )
-            .parent(state.ids.edit_canvas)
-            .wh_of(state.ids.edit_canvas)
-            .middle_of(state.ids.edit_canvas)
-            .set(state.ids.node_editor, ui)
+            node_editor::NodeEditor::new(&self.app_data.sender, &mut state.graphs)
+                .event_buffer(self.event_buffer.unwrap())
+                .parent(state.ids.edit_canvas)
+                .wh_of(state.ids.edit_canvas)
+                .middle_of(state.ids.edit_canvas)
+                .set(state.ids.node_editor, ui)
         });
     }
 
@@ -459,8 +429,8 @@ where
                 &self.app_data.language,
                 &self.app_data.sender,
                 &mut state.graphs,
-                &state.addable_operators,
             )
+            .event_buffer(self.event_buffer.unwrap())
             .icon_font(self.style.icon_font.unwrap().unwrap())
             .parent(state.ids.edit_canvas)
             .wh_of(state.ids.edit_canvas)

@@ -7,6 +7,8 @@ use crate::ui::{
     widgets::{layer_row, modal, tree},
 };
 
+use std::sync::Arc;
+
 use strum::VariantNames;
 
 use conrod_core::*;
@@ -18,7 +20,7 @@ pub struct LayerEditor<'a> {
     language: &'a Language,
     sender: &'a BrokerSender<Lang>,
     graphs: &'a mut NodeCollections,
-    operators: &'a [Operator],
+    event_buffer: Option<&'a [Arc<Lang>]>,
     style: Style,
 }
 
@@ -27,20 +29,24 @@ impl<'a> LayerEditor<'a> {
         language: &'a Language,
         sender: &'a BrokerSender<Lang>,
         graphs: &'a mut NodeCollections,
-        operators: &'a [Operator],
     ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             language,
             sender,
             graphs,
-            operators,
+            event_buffer: None,
             style: Style::default(),
         }
     }
 
     pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
         self.style.icon_font = Some(Some(font_id));
+        self
+    }
+
+    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
+        self.event_buffer = Some(buffer);
         self
     }
 }
@@ -67,6 +73,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     modal: Option<LayerFilter>,
+    operators: Vec<Operator>,
 }
 
 impl<'a> Widget for LayerEditor<'a> {
@@ -78,6 +85,10 @@ impl<'a> Widget for LayerEditor<'a> {
         State {
             ids: Ids::new(id_gen),
             modal: None,
+            operators: AtomicOperator::all_default()
+                .iter()
+                .map(|x| Operator::from(x.clone()))
+                .collect(),
         }
     }
 
@@ -87,6 +98,12 @@ impl<'a> Widget for LayerEditor<'a> {
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let widget::UpdateArgs { state, ui, id, .. } = args;
+
+        if let Some(ev_buf) = self.event_buffer {
+            for ev in ev_buf {
+                self.handle_event(state, ev);
+            }
+        }
 
         for _press in icon_button(IconName::SOLID, self.style.icon_font.unwrap().unwrap())
             .label_font_size(14)
@@ -306,7 +323,8 @@ impl<'a> Widget for LayerEditor<'a> {
         }
 
         if let Some(filter) = state.modal.as_ref().cloned() {
-            let mut operators = self.operators.iter().filter(|o| match filter {
+            let mut hide_modal = false;
+            let mut operators = state.operators.iter().filter(|o| match filter {
                 LayerFilter::Layer(LayerType::Fill) => o.inputs().is_empty(),
                 LayerFilter::Layer(LayerType::Fx) => !o.inputs().is_empty(),
                 LayerFilter::Mask(..) => o.is_mask(),
@@ -333,7 +351,7 @@ impl<'a> Widget for LayerEditor<'a> {
                             .label_font_size(12)
                             .color(conrod_core::color::CHARCOAL);
                         for _press in item.set(button, ui) {
-                            state.update(|state| state.modal = None);
+                            hide_modal = true;
 
                             self.sender
                                 .send(match &filter {
@@ -356,8 +374,49 @@ impl<'a> Widget for LayerEditor<'a> {
                         s.set(ui)
                     }
                 }
-                modal::Event::Hide => state.update(|state| state.modal = None),
+                modal::Event::Hide => hide_modal = true,
             }
+
+            if hide_modal {
+                state.update(|state| state.modal = None);
+            }
+        }
+    }
+}
+
+impl<'a> LayerEditor<'a> {
+    fn handle_event(&self, state: &mut widget::State<State>, event: &Lang) {
+        match event {
+            Lang::GraphEvent(GraphEvent::GraphAdded(res)) => {
+                state.update(|state| {
+                    state
+                        .operators
+                        .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())))
+                });
+            }
+            Lang::GraphEvent(GraphEvent::GraphRenamed(from, to)) => {
+                state.update(|state| {
+                    let old_op = Operator::ComplexOperator(ComplexOperator::new(from.clone()));
+                    state.operators.remove(
+                        state
+                            .operators
+                            .iter()
+                            .position(|x| x == &old_op)
+                            .expect("Missing old operator"),
+                    );
+                    state
+                        .operators
+                        .push(Operator::ComplexOperator(ComplexOperator::new(to.clone())));
+                });
+            }
+            Lang::LayersEvent(LayersEvent::LayersAdded(res, _)) => {
+                state.update(|state| {
+                    state
+                        .operators
+                        .push(Operator::ComplexOperator(ComplexOperator::new(res.clone())))
+                });
+            }
+            _ => {}
         }
     }
 }
