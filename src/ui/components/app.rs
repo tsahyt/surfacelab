@@ -158,9 +158,7 @@ where
 
         if let Some(ev_buf) = self.event_buffer {
             for ev in ev_buf {
-                state.update(|state| {
-                    self.handle_event(state, ev);
-                });
+                self.handle_event(state, ev);
             }
         }
 
@@ -282,20 +280,22 @@ where
     B: crate::gpu::Backend,
 {
     /// Handle UI event
-    fn handle_event(&mut self, state: &mut State, event: &Lang) {
+    fn handle_event(&mut self, state: &mut widget::State<State>, event: &Lang) {
         match event {
             Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
                 if let Some(t) = thmb.clone().to::<B>() {
                     if let Some(img) = self.renderer.create_image(t, 128, 128) {
                         let id = self.app_data.image_map.insert(img);
-                        state.graphs.register_thumbnail(&res, id);
+                        state.update(|state| state.graphs.register_thumbnail(&res, id));
                     }
                 }
             }
             Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(res)) => {
-                if let Some(id) = state.graphs.unregister_thumbnail(&res) {
-                    self.app_data.image_map.remove(id);
-                }
+                state.update(|state| {
+                    if let Some(id) = state.graphs.unregister_thumbnail(&res) {
+                        self.app_data.image_map.remove(id);
+                    }
+                });
             }
             Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),
             Lang::LayersEvent(ev) => self.handle_layers_event(state, ev),
@@ -303,55 +303,63 @@ where
         }
     }
     /// Handle Graph Events
-    fn handle_graph_event(&self, state: &mut State, event: &GraphEvent) {
+    fn handle_graph_event(&self, state: &mut widget::State<State>, event: &GraphEvent) {
         match event {
             GraphEvent::GraphAdded(res) => {
-                state.graphs.add_graph(res.clone());
+                state.update(|state| state.graphs.add_graph(res.clone()));
             }
             GraphEvent::GraphRenamed(from, to) => {
-                state.graphs.rename_collection(from, to);
+                state.update(|state| state.graphs.rename_collection(from, to));
             }
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
-                state.graphs.add_node(NodeData::new(
-                    res.clone(),
-                    position.map(|(x, y)| [x, y]),
-                    &op,
-                    pbox.clone(),
-                ));
+                state.update(|state| {
+                    state.graphs.add_node(NodeData::new(
+                        res.clone(),
+                        position.map(|(x, y)| [x, y]),
+                        &op,
+                        pbox.clone(),
+                    ))
+                });
             }
             GraphEvent::NodeRemoved(res) => {
-                state.graphs.remove_node(res);
+                state.update(|state| state.graphs.remove_node(res));
             }
             GraphEvent::NodeRenamed(from, to) => {
-                state.graphs.rename_node(from, to);
+                state.update(|state| state.graphs.rename_node(from, to));
             }
             GraphEvent::ComplexOperatorUpdated(node, op, pbox) => {
-                state.graphs.update_complex_operator(node, op, pbox);
+                state.update(|state| state.graphs.update_complex_operator(node, op, pbox));
             }
-            GraphEvent::ConnectedSockets(from, to) => state.graphs.connect_sockets(from, to),
-            GraphEvent::DisconnectedSockets(from, to) => state.graphs.disconnect_sockets(from, to),
+            GraphEvent::ConnectedSockets(from, to) => {
+                state.update(|state| state.graphs.connect_sockets(from, to))
+            }
+            GraphEvent::DisconnectedSockets(from, to) => {
+                state.update(|state| state.graphs.disconnect_sockets(from, to))
+            }
             GraphEvent::SocketMonomorphized(socket, ty) => {
-                state.graphs.monomorphize_socket(socket, *ty)
+                state.update(|state| state.graphs.monomorphize_socket(socket, *ty));
             }
-            GraphEvent::SocketDemonomorphized(socket) => state.graphs.demonomorphize_socket(socket),
+            GraphEvent::SocketDemonomorphized(socket) => {
+                state.update(|state| state.graphs.demonomorphize_socket(socket))
+            }
             GraphEvent::Cleared => {
-                state.graphs.clear_all();
+                state.update(|state| state.graphs.clear_all());
             }
             GraphEvent::ParameterExposed(graph, param) => {
-                state.graphs.parameter_exposed(graph, param.clone());
+                state.update(|state| state.graphs.parameter_exposed(graph, param.clone()));
             }
             GraphEvent::ParameterConcealed(graph, field) => {
-                state.graphs.parameter_concealed(graph, field);
+                state.update(|state| state.graphs.parameter_concealed(graph, field));
             }
             _ => {}
         }
     }
 
     /// Handle layer events
-    fn handle_layers_event(&self, state: &mut State, event: &LayersEvent) {
+    fn handle_layers_event(&self, state: &mut widget::State<State>, event: &LayersEvent) {
         match event {
             LayersEvent::LayersAdded(res, _) => {
-                state.graphs.add_layers(res.clone());
+                state.update(|state| state.graphs.add_layers(res.clone()));
             }
             LayersEvent::LayerPushed(res, ty, title, _, bmode, opacity, pbox, _) => {
                 let layer = Layer::layer(
@@ -362,21 +370,21 @@ where
                     *bmode as usize,
                     *opacity,
                 );
-                state.graphs.push_layer(layer);
+                state.update(|state| state.graphs.push_layer(layer));
             }
             LayersEvent::LayerRemoved(res) => {
-                state.graphs.remove_layer(res);
+                state.update(|state| state.graphs.remove_layer(res));
             }
             LayersEvent::MaskPushed(for_layer, res, title, _, bmode, opacity, pbox, _) => {
                 let layer =
                     Layer::mask(res.clone(), title, pbox.clone(), *bmode as usize, *opacity);
-                state.graphs.push_layer_under(layer, for_layer);
+                state.update(|state| state.graphs.push_layer_under(layer, for_layer));
             }
             LayersEvent::MovedUp(res) => {
-                state.graphs.move_layer_up(res);
+                state.update(|state| state.graphs.move_layer_up(res));
             }
             LayersEvent::MovedDown(res) => {
-                state.graphs.move_layer_down(res);
+                state.update(|state| state.graphs.move_layer_down(res));
             }
         }
     }
