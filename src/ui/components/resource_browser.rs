@@ -6,6 +6,8 @@ use crate::ui::{
     widgets::{resource_row, tree},
 };
 
+use std::sync::Arc;
+
 use conrod_core::*;
 
 #[derive(WidgetCommon)]
@@ -14,27 +16,28 @@ pub struct ResourceBrowser<'a> {
     common: widget::CommonBuilder,
     language: &'a Language,
     sender: &'a BrokerSender<Lang>,
-    resource_tree: &'a mut ResourceTree,
+    event_buffer: Option<&'a [Arc<Lang>]>,
     style: Style,
 }
 
 impl<'a> ResourceBrowser<'a> {
-    pub fn new(
-        language: &'a Language,
-        sender: &'a BrokerSender<Lang>,
-        resource_tree: &'a mut ResourceTree,
-    ) -> Self {
+    pub fn new(language: &'a Language, sender: &'a BrokerSender<Lang>) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             language,
             sender,
-            resource_tree,
+            event_buffer: None,
             style: Style::default(),
         }
     }
 
     pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
         self.style.icon_font = Some(Some(font_id));
+        self
+    }
+
+    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
+        self.event_buffer = Some(buffer);
         self
     }
 }
@@ -51,13 +54,21 @@ widget_ids! {
     }
 }
 
+pub struct State {
+    ids: Ids,
+    tree: ResourceTree,
+}
+
 impl<'a> Widget for ResourceBrowser<'a> {
-    type State = Ids;
+    type State = State;
     type Style = Style;
     type Event = ();
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
-        Ids::new(id_gen)
+        State {
+            ids: Ids::new(id_gen),
+            tree: ResourceTree::default(),
+        }
     }
 
     fn style(&self) -> Self::Style {
@@ -65,32 +76,71 @@ impl<'a> Widget for ResourceBrowser<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let (mut rows, scrollbar) = tree::Tree::new(self.resource_tree.get_tree())
-            .parent(args.id)
-            .middle_of(args.id)
-            .padded_wh_of(args.id, 8.0)
-            .scrollbar_on_top()
-            .set(args.state.tree, args.ui);
+        let widget::UpdateArgs { state, ui, id, .. } = args;
 
-        while let Some(row) = rows.next(args.ui) {
-            let expandable = self.resource_tree.expandable(&row.node_id);
-            let data = self.resource_tree.get_resource_info_mut(&row.node_id);
+        if let Some(ev_buf) = self.event_buffer {
+            for ev in ev_buf {
+                self.handle_event(state, ev);
+            }
+        }
+
+        let (mut rows, scrollbar) = tree::Tree::new(state.tree.get_tree())
+            .parent(id)
+            .middle_of(id)
+            .padded_wh_of(id, 8.0)
+            .scrollbar_on_top()
+            .set(state.ids.tree, ui);
+
+        while let Some(row) = rows.next(ui) {
+            let expandable = state.tree.expandable(&row.node_id);
+            let data = state.tree.get_resource_info(&row.node_id);
 
             let widget = resource_row::ResourceRow::new(&data, row.level)
                 .expandable(expandable)
                 .icon_font(self.style.icon_font.unwrap().unwrap())
                 .h(32.0);
 
-            match row.item.set(widget, args.ui) {
+            match row.item.set(widget, ui) {
                 None => {}
                 Some(resource_row::Event::ToggleExpanded) => {
-                    data.toggle_expanded();
+                    state.update(|state| {
+                        state
+                            .tree
+                            .get_resource_info_mut(&row.node_id)
+                            .toggle_expanded();
+                    });
                 }
             }
         }
 
         if let Some(s) = scrollbar {
-            s.set(args.ui);
+            s.set(ui);
+        }
+    }
+}
+
+impl<'a> ResourceBrowser<'a> {
+    fn handle_event(&self, state: &mut widget::State<State>, event: &Lang) {
+        match event {
+            Lang::GraphEvent(GraphEvent::GraphAdded(res)) => {
+                state.update(|state| state.tree.insert_graph(res.clone()));
+            }
+            Lang::GraphEvent(GraphEvent::GraphRenamed(from, to)) => {
+                state.update(|state| state.tree.rename_resource(from, to));
+            }
+            Lang::GraphEvent(GraphEvent::NodeAdded(res, _, _, _, _)) => {
+                state.update(|state| state.tree.insert_node(res.clone()));
+            }
+            Lang::GraphEvent(GraphEvent::NodeRemoved(res)) => {
+                state.update(|state| state.tree.remove_resource_and_children(res));
+            }
+            Lang::GraphEvent(GraphEvent::NodeRenamed(from, to)) => {
+                state.update(|state| state.tree.rename_resource(from, to));
+            }
+            Lang::LayersEvent(LayersEvent::LayersAdded(res, _)) => {
+                state.update(|state| state.tree.insert_graph(res.clone()));
+            }
+            _ => {}
         }
     }
 }

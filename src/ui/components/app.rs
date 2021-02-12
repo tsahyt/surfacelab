@@ -132,7 +132,6 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     graphs: NodeCollections,
-    resource_tree: ResourceTree,
 }
 
 impl<'a, B> Widget for Application<'a, B>
@@ -147,7 +146,6 @@ where
         State {
             ids: Ids::new(id_gen),
             graphs: NodeCollections::new(),
-            resource_tree: ResourceTree::default(),
         }
     }
 
@@ -309,11 +307,9 @@ where
         match event {
             GraphEvent::GraphAdded(res) => {
                 state.graphs.add_graph(res.clone());
-                state.resource_tree.insert_graph(res.clone())
             }
             GraphEvent::GraphRenamed(from, to) => {
                 state.graphs.rename_collection(from, to);
-                state.resource_tree.rename_resource(from, to);
             }
             GraphEvent::NodeAdded(res, op, pbox, position, _size) => {
                 state.graphs.add_node(NodeData::new(
@@ -322,15 +318,12 @@ where
                     &op,
                     pbox.clone(),
                 ));
-                state.resource_tree.insert_node(res.clone());
             }
             GraphEvent::NodeRemoved(res) => {
                 state.graphs.remove_node(res);
-                state.resource_tree.remove_resource_and_children(res);
             }
             GraphEvent::NodeRenamed(from, to) => {
                 state.graphs.rename_node(from, to);
-                state.resource_tree.rename_resource(from, to);
             }
             GraphEvent::ComplexOperatorUpdated(node, op, pbox) => {
                 state.graphs.update_complex_operator(node, op, pbox);
@@ -359,7 +352,6 @@ where
         match event {
             LayersEvent::LayersAdded(res, _) => {
                 state.graphs.add_layers(res.clone());
-                state.resource_tree.insert_graph(res.clone())
             }
             LayersEvent::LayerPushed(res, ty, title, _, bmode, opacity, pbox, _) => {
                 let layer = Layer::layer(
@@ -518,16 +510,13 @@ where
         use components::resource_browser;
 
         state.update(|state| {
-            resource_browser::ResourceBrowser::new(
-                &self.app_data.language,
-                &self.app_data.sender,
-                &mut state.resource_tree,
-            )
-            .icon_font(self.style.icon_font.unwrap().unwrap())
-            .parent(state.ids.resources_canvas)
-            .wh_of(state.ids.resources_canvas)
-            .middle_of(state.ids.resources_canvas)
-            .set(state.ids.resource_browser, ui)
+            resource_browser::ResourceBrowser::new(&self.app_data.language, &self.app_data.sender)
+                .event_buffer(self.event_buffer.unwrap())
+                .icon_font(self.style.icon_font.unwrap().unwrap())
+                .parent(state.ids.resources_canvas)
+                .wh_of(state.ids.resources_canvas)
+                .middle_of(state.ids.resources_canvas)
+                .set(state.ids.resource_browser, ui)
         });
     }
 }
