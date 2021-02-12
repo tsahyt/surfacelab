@@ -21,6 +21,9 @@ pub trait Collection {
         op: &ComplexOperator,
         pbox: &ParamBoxDescription<MessageWriters>,
     );
+    fn active_element(
+        &mut self,
+    ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)>;
 }
 
 #[enum_dispatch(Collection)]
@@ -76,21 +79,10 @@ impl NodeCollections {
 
     pub fn active_parameters(
         &mut self,
-        active_node_element: Option<petgraph::graph::NodeIndex>,
-        active_layer_element: Option<id_tree::NodeId>,
-    ) -> Option<(&mut ParamBoxDescription<MessageWriters>, &Resource<r::Node>)> {
+    ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)> {
         match &mut self.active_collection {
-            NodeCollection::Graph(g) => {
-                let ae = active_node_element?;
-                let node = g.graph.node_weight_mut(ae)?;
-                Some((&mut node.param_box, &node.resource))
-            }
-            NodeCollection::Layers(l) => {
-                let ae = active_layer_element?;
-                let layer = l.layers.get_mut(&ae).ok()?;
-                let data = layer.data_mut();
-                Some((&mut data.operator_pbox, &data.resource))
-            }
+            NodeCollection::Graph(g) => g.active_element(),
+            NodeCollection::Layers(l) => l.active_element(),
         }
     }
 

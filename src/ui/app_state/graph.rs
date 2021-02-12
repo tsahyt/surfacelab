@@ -12,6 +12,7 @@ pub struct Graph {
     pub resources: HashMap<Resource<r::Node>, petgraph::graph::NodeIndex>,
     pub exposed_parameters: Vec<(String, GraphParameter)>,
     pub param_box: ParamBoxDescription<GraphField>,
+    pub active_element: Option<petgraph::graph::NodeIndex>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -95,6 +96,7 @@ impl Graph {
             resources: HashMap::new(),
             exposed_parameters: Vec::new(),
             param_box: ParamBoxDescription::graph_parameters(name),
+            active_element: None,
         }
     }
 
@@ -175,6 +177,14 @@ impl Collection for Graph {
             let node_weight = self.graph.node_weight_mut(*idx).unwrap();
             node_weight.update(Operator::ComplexOperator(op.clone()), pbox.clone());
         }
+    }
+
+    fn active_element(
+        &mut self,
+    ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)> {
+        let idx = self.active_element.as_ref()?;
+        let node = self.graph.node_weight_mut(idx.clone())?;
+        Some((&node.resource, &mut node.param_box))
     }
 }
 

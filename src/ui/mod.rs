@@ -1,12 +1,13 @@
 use crate::{broker, gpu, lang::*};
 
+use conrod_core::{widget::Widget, widget_ids};
 use winit::platform::unix::EventLoopExtUnix;
 
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-pub mod app;
 pub mod app_state;
+pub mod components;
 pub mod i18n;
 pub mod util;
 pub mod widgets;
@@ -17,6 +18,12 @@ const DIMS: gpu::Extent2D = gpu::Extent2D {
     width: 1920,
     height: 1080,
 };
+
+widget_ids! {
+    struct Ids {
+        application
+    }
+}
 
 /// Set up and run the main UI loop
 fn ui_loop<B: gpu::Backend>(
@@ -51,25 +58,26 @@ fn ui_loop<B: gpu::Backend>(
         .for_folder("assets")
         .unwrap();
 
-    let fonts = app_state::AppFonts {
-        icon_font: ui
-            .fonts
-            .insert_from_file(assets.join("MaterialDesignIcons.ttf"))
-            .expect("Missing icon font!"),
-        text_font: ui
-            .fonts
-            .insert_from_file(assets.join("Recursive-Regular.ttf"))
-            .expect("Missing UI font!"),
-    };
+    let icon_font = ui
+        .fonts
+        .insert_from_file(assets.join("MaterialDesignIcons.ttf"))
+        .expect("Missing icon font!");
+    let text_font = ui
+        .fonts
+        .insert_from_file(assets.join("Recursive-Regular.ttf"))
+        .expect("Missing UI font!");
 
-    // Initialize main GUI type
-    let mut gui = app::Gui::new(
-        app::Ids::new(ui.widget_id_generator()),
-        fonts,
+    // Initialize GUI Application Data
+    let mut app_data = components::app::ApplicationData::new(
         sender,
-        (monitor_size.width, monitor_size.height),
         conrod_core::image::Map::new(),
+        (monitor_size.width, monitor_size.height),
     );
+
+    // Initialize top level ids
+    let ids = Ids::new(ui.widget_id_generator());
+
+    let mut event_buffer = Vec::with_capacity(8);
 
     // It is important that the closure move captures the Renderer,
     // otherwise it will not be dropped when the event loop exits.
@@ -80,8 +88,9 @@ fn ui_loop<B: gpu::Backend>(
 
         *control_flow = winit::event_loop::ControlFlow::Wait;
 
-        if let Ok(broker_event) = receiver.try_recv() {
-            gui.handle_event(&mut ui, &mut renderer, &*broker_event);
+        // Buffer all events from the receiver
+        while let Ok(broker_event) = receiver.try_recv() {
+            event_buffer.push(broker_event);
         }
 
         match event {
@@ -104,8 +113,15 @@ fn ui_loop<B: gpu::Backend>(
                 // Update widgets if any event has happened
                 if ui.global_input().events().next().is_some() {
                     let mut ui = ui.set_widgets();
-                    gui.update_gui(&mut ui);
+                    components::app::Application::new(&mut app_data, &mut renderer)
+                        .event_buffer(&event_buffer)
+                        .text_font(text_font)
+                        .icon_font(icon_font)
+                        .panel_color(conrod_core::color::DARK_CHARCOAL)
+                        .panel_gap(0.5)
+                        .set(ids.application, &mut ui);
                     window.request_redraw();
+                    event_buffer.clear();
                 }
             }
 
@@ -116,7 +132,7 @@ fn ui_loop<B: gpu::Backend>(
                 };
 
                 renderer
-                    .render(&gui.image_map(), primitives)
+                    .render(&app_data.image_map(), primitives)
                     .expect("Rendering failed");
             }
             _ => {}
