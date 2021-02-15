@@ -284,38 +284,69 @@ impl TryFrom<OperatorType> for TypeVariable {
 }
 
 /// Events concerning node operation triggered by the user, such as adding,
-/// removing, etc.
+/// removing, etc. These events should be treated as unsanitized, since they are
+/// user generated.
 #[derive(Debug)]
 pub enum UserNodeEvent {
+    /// The user requests creation of a new node inside a given graph, using this operator, at layout position.
     NewNode(Resource<Graph>, Operator, (f64, f64)),
+    /// The user requests the removal of a given node.
     RemoveNode(Resource<Node>),
+    /// The user requests a connection between the two sockets.
     ConnectSockets(Resource<Socket>, Resource<Socket>),
+    /// The user requests the disconnection of the given sink socket.
     DisconnectSinkSocket(Resource<Socket>),
+    /// The user changes the given parameter to the supplied value.
     ParameterChange(Resource<Param>, Vec<u8>),
+    /// The user repositions the node to the given coordinates.
     PositionNode(Resource<Node>, (f64, f64)),
+    /// The user renames a node from a resource to another resource.
     RenameNode(Resource<Node>, Resource<Node>),
+    /// The user changes the output size of the given node
     OutputSizeChange(Resource<Node>, i32),
+    /// The user sets the absolute size property of a node
     OutputSizeAbsolute(Resource<Node>, bool),
 }
 
 /// Events concerning graph operation triggered by the user, such as adding,
-/// removing, etc.
+/// removing, etc. These events should be treated as unsanitized, since they are
+/// user generated.
 #[derive(Debug)]
 pub enum UserGraphEvent {
+    /// The user adds a new graph.
     AddGraph,
+    /// The user changes the *current* graph to operate on
     ChangeGraph(Resource<Graph>),
+    /// The user renames a graph from a resource to another resource
     RenameGraph(Resource<Graph>, Resource<Graph>),
+    /// The user asks for exposure of a given parameter, where the two strings
+    /// represent (in order) the *graph field*, i.e. the field name to be used
+    /// for the exposed parameter, and the *title*, i.e. the human readable name
+    /// of the parameter. Finally a control is given that should be used in the
+    /// graph parameter box.
     ExposeParameter(Resource<Param>, String, String, Control),
+    /// The user asks to conceal a parameter in a graph, identified by its graph
+    /// field.
     ConcealParameter(Resource<Graph>, String),
+    /// The user renames a graph field from a string to a string.
     RefieldParameter(Resource<Graph>, String, String),
+    /// The user renames the human readable title of a graph field from a string
+    /// to a string.
     RetitleParameter(Resource<Graph>, String, String),
 }
 
 /// Events concerning graphs, not directly coming from user input.
 #[derive(Debug)]
 pub enum GraphEvent {
+    /// A graph identified by this resource has been added to the system.
     GraphAdded(Resource<Graph>),
+    /// A graph has been renamed from a resource to a resource.
     GraphRenamed(Resource<Graph>, Resource<Graph>),
+    /// A node has been added inside of a graph, identified by a resource. The
+    /// node uses the supplied operator, and has the parameters given in the
+    /// parameter box description. If it has a fixed position, it is given in
+    /// the Option. Finally the size of the node's images (in *absolute pixel
+    /// count*) is given.
     NodeAdded(
         Resource<Node>,
         Operator,
@@ -323,24 +354,45 @@ pub enum GraphEvent {
         Option<(f64, f64)>,
         u32,
     ),
+    /// An output socket has been created in the system, with a given type. The
+    /// boolean denotes whether the socket is associated with external data. The
+    /// `u32` denotes the pixel size of the socket.
     OutputSocketAdded(Resource<Socket>, OperatorType, bool, u32),
+    /// A node has been removed from the system
     NodeRemoved(Resource<Node>),
+    /// A node has been renamed/moved from a resource to a resource.
     NodeRenamed(Resource<Node>, Resource<Node>),
+    /// A node has been resized to the new given size.
     NodeResized(Resource<Node>, u32),
+    /// A complex operator has been updated in the system, and is now
+    /// represented by the given parameters.
     ComplexOperatorUpdated(
         Resource<Node>,
         ComplexOperator,
         ParamBoxDescription<MessageWriters>,
     ),
+    /// Two sockets have been connected. The first socket is a source, the
+    /// second socket is a sink.
     ConnectedSockets(Resource<Socket>, Resource<Socket>),
+    /// Two sockets have been disconnected from each other.
     DisconnectedSockets(Resource<Socket>, Resource<Socket>),
+    /// A graph has been relinearized, resulting in the new linearization data
+    /// supplied.
     Relinearized(Resource<Graph>, Linearization, UsePoints, ForcePoints),
+    /// A graph needs to be recomputed.
     Recompute(Resource<Graph>),
+    /// A sockets type has been monomorphized to the given image type.
     SocketMonomorphized(Resource<Socket>, ImageType),
+    /// A sockets type is no longer monomorphic.
     SocketDemonomorphized(Resource<Socket>),
+    /// A parameter has been exposed for a given graph.
     ParameterExposed(Resource<Graph>, GraphParameter),
+    /// A parameter has been concealed for a given graph, identified by its
+    /// graph field.
     ParameterConcealed(Resource<Graph>, String),
+    /// An output has been removed.
     OutputRemoved(Resource<Node>, OutputType),
+    /// *All* graphs have been cleared in the system.
     Cleared,
 }
 
@@ -352,29 +404,63 @@ pub enum LayerType {
 }
 
 /// Events concerning layer operation triggered by the user, such as adding,
-/// reordering, etc.
+/// removing, reordering, etc. These events should be treated as unsanitized,
+/// since they are user generated.
 #[derive(Debug)]
 pub enum UserLayersEvent {
+    /// The user requests a new layer stack.
     AddLayers,
+    /// The user seeks to push a new layer onto the layer stack, with a given
+    /// type and operator.
     PushLayer(Resource<Graph>, LayerType, Operator),
+    /// The user seeks to push a new mask onto the layer stack, with a given
+    /// type and operator.
     PushMask(Resource<Node>, Operator),
+    /// The user requests removal of a layer.
     RemoveLayer(Resource<Node>),
+    /// The user requests removal of a mask.
     RemoveMask(Resource<Node>),
+    /// The user requests to move the specified layer or mask upwards in the
+    /// stack.
     MoveUp(Resource<Node>),
+    /// The user requests to move the specified layer or mask downwards in the
+    /// stack.
     MoveDown(Resource<Node>),
+    /// The user requests setting the output of a layer to the given material
+    /// channel to the specified output as enumerated. The boolean denotes
+    /// whether the channel is enabled or not.
     SetOutput(Resource<Node>, MaterialChannel, usize, bool),
+    /// The user requests setting the input for a layer denoted by the input
+    /// socket to the given material channel.
     SetInput(Resource<Socket>, MaterialChannel),
+    /// The user requests setting the opacity of the given layer or mask
     SetOpacity(Resource<Node>, f32),
+    /// The user requests setting the blend mode of the given layer or mask
     SetBlendMode(Resource<Node>, BlendMode),
+    /// The user requests changing the title of the given layer or mask
     SetTitle(Resource<Node>, String),
+    /// The user seeks to enable/disable the given layer or mask
     SetEnabled(Resource<Node>, bool),
+    /// The user requests conversion of this layer stack to a graph
     Convert(Resource<Graph>),
 }
 
 /// Events concerning layers, not directly coming from user input.
 #[derive(Debug)]
 pub enum LayersEvent {
+    /// A layer stack has been added to the system, with the given parent size.
     LayersAdded(Resource<Graph>, u32),
+    /// A layer has been pushed onto a layer stack, with the goven resource and
+    /// type. The fields describe the following, in order
+    ///
+    /// 1. The resource of the new layer
+    /// 2. The type of the layer
+    /// 3. The human readable title
+    /// 4. The operator used in the layer
+    /// 5. The blend mode of the new layer
+    /// 6. The opacity of the layer
+    /// 7. A parameter box description to describe the parameters of the layer
+    /// 8. The image size
     LayerPushed(
         Resource<Node>,
         LayerType,
@@ -385,7 +471,11 @@ pub enum LayersEvent {
         ParamBoxDescription<MessageWriters>,
         u32,
     ),
+    /// A layer or mask has been removed.
     LayerRemoved(Resource<Node>),
+    /// A mask has been pushed for a layer in a stack. Fields are similar to
+    /// `LayersAdded`, except for the resources that also include the parent
+    /// layer.
     MaskPushed(
         Resource<Node>,
         Resource<Node>,
@@ -396,14 +486,19 @@ pub enum LayersEvent {
         ParamBoxDescription<MessageWriters>,
         u32,
     ),
+    /// A layer/mask has been moved up one position in the stack.
     MovedUp(Resource<Node>),
+    /// A layer/mask has been moved down one position in the stack.
     MovedDown(Resource<Node>),
 }
 
 /// Events concerning surfaces, not directly coming from user input.
 #[derive(Debug)]
 pub enum SurfaceEvent {
+    /// The system requests an export according to the given export spec, with
+    /// the given image size, to the path specified.
     ExportImage(ExportSpec, u32, PathBuf),
+    /// The system reports having loaded an export specification with a given name.
     ExportSpecLoaded(String, ExportSpec),
 }
 
@@ -428,28 +523,48 @@ pub enum ObjectType {
     Cylinder = 3,
 }
 
-/// Events concerning renderer operation triggered by the user
+/// Events concerning renderer operation triggered by the user.
 #[derive(Debug)]
 pub enum UserRenderEvent {
+    /// The user requests rotation of the view by angles theta and phi.
     Rotate(RendererID, f32, f32),
+    /// The user requests panning of view by x and y deltas.
     Pan(RendererID, f32, f32),
+    /// The user requests zooming of view
     Zoom(RendererID, f32),
+    /// The user requests moving the light position by x and y deltas.
     LightMove(RendererID, f32, f32),
+    /// The user requests display of the specified channel
     ChannelChange2D(RendererID, MaterialChannel),
+    /// The user requests setting the displacement amount
     DisplacementAmount(RendererID, f32),
+    /// The user requests setting the texture scale
     TextureScale(RendererID, f32),
+    /// The user requests setting the strength of the HDRi
     EnvironmentStrength(RendererID, f32),
+    /// The user requests setting the blurring of the HDRi
     EnvironmentBlur(RendererID, f32),
+    /// The user requests setting the light type
     LightType(RendererID, LightType),
+    /// The user requests setting the light strength
     LightStrength(RendererID, f32),
+    /// The user requests setting the fog strength
     FogStrength(RendererID, f32),
+    /// The user requests setting the focal length
     FocalLength(RendererID, f32),
+    /// The user requests setting the aperture size
     ApertureSize(RendererID, f32),
+    /// The user requests setting the focal distance
     FocalDistance(RendererID, f32),
+    /// The user requests enabling/disabling shadow calculation
     SetShadow(RendererID, ParameterBool),
+    /// The user requests enabling/disabling ambient occlusion calculation
     SetAO(RendererID, ParameterBool),
+    /// The user seeks to load a new HDRi from file
     LoadHDRI(RendererID, PathBuf),
+    /// The user requests setting the object type to be rendered
     ObjectType(RendererID, ObjectType),
+    /// The user requests setting the sample count
     SampleCount(RendererID, u32),
 }
 
@@ -584,22 +699,32 @@ impl ExportSpec {
     }
 }
 
-/// IO related events triggered by the user
+/// IO related events triggered by the user. Should be treated as unsanitized
+/// because they are usually user generated.
 #[derive(Debug)]
 pub enum UserIOEvent {
+    /// The user requests loading a surface from file to replace the current.
     OpenSurface(PathBuf),
+    /// The user requests saving the current surface to file.
     SaveSurface(PathBuf),
+    /// The user requests setting the parent size.
     SetParentSize(u32),
+    /// The user requests declaration of an export specification.
     DeclareExport(String, ExportSpec),
+    /// The user requests renaming of an export specification.
     RenameExport(String, String),
+    /// The user requests export according to existing specification.
     RunExports(PathBuf),
+    /// The user requests a new surface file.
     NewSurface,
+    /// The user requests quitting the application.
     Quit,
 }
 
 /// Events triggered during computation or setup thereof
 #[derive(Debug)]
 pub enum ComputeEvent {
+    /// The system has computed an output image.
     OutputReady(
         Resource<Node>,
         crate::gpu::BrokerImage,
@@ -608,10 +733,15 @@ pub enum ComputeEvent {
         u32,
         OutputType,
     ),
+    /// The system has created a compute socket with a fixed type.
     SocketCreated(Resource<Socket>, ImageType),
+    /// The system has destroyed a compute socket.
     SocketDestroyed(Resource<Socket>),
+    /// The system has created and filled a thumbnail.
     ThumbnailCreated(Resource<Node>, crate::gpu::BrokerImageView),
+    /// The system has destroyed a thumbnail.
     ThumbnailDestroyed(Resource<Node>),
+    /// The system has the given thumbnail for the given node.
     ThumbnailUpdated(Resource<Node>),
 }
 
@@ -689,18 +819,26 @@ impl ImageChannel {
 }
 
 /// Events stemming from UI operation, not directly triggered by the user.
+/// Instead these events are created by the UI internally.
 #[derive(Debug)]
 pub enum UIEvent {
+    /// The UI requests a renderer with a fixed ID, specifying the monitor size
+    /// and view size and the type of renderer to be created.
     RendererRequested(RendererID, (u32, u32), (u32, u32), RendererType),
+    /// The UI requests a redraw of the given renderer.
     RendererRedraw(RendererID),
+    /// The UI requests resizing the given renderer.
     RendererResize(RendererID, u32, u32),
+    /// The UI requests removal of the renderer.
     RendererRemoved(RendererID),
 }
 
-/// Events from the renderer
+/// Events from the renderer.
 #[derive(Debug)]
 pub enum RenderEvent {
+    /// A renderer has been added with the given ID and image view.
     RendererAdded(RendererID, crate::gpu::BrokerImageView),
+    /// The specified renderer has been redrawn.
     RendererRedrawn(RendererID),
 }
 
