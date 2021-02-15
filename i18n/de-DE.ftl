@@ -78,7 +78,7 @@ grayscale-conversion-mode = Graustufenmodus
 
 scale = Skalierung
 octaves = Oktaven
-attenuation = Abschwächung
+roughness = Rauheit
 
 gradient = Gradient
 

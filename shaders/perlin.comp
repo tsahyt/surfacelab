@@ -5,7 +5,7 @@ layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 0) uniform Params {
     float scale;
     float octaves;
-    float att;
+    float roughness;
 };
 
 layout(set = 0, binding = 1, r32f) uniform image2D t_Out;
@@ -170,22 +170,27 @@ float cnoise(vec4 P) {
 // Perlin Noise with Octaves, mirroring the fBm algorithm from Texturing &
 // Modelling: A Procedural Approach, 3rd edition, but using 4D Noise with a
 // wrapped around domain such that the result is tileable
+//
+// Each octave is attenuated by a factor of 'roughness', as in Blender.
 float perlin_noise(vec2 uv) {
     float n = 0.;
+    float amplitude = 1.0;
+    float maxamp = 0.0;
+
     int i;
     vec4 p = vec4(cos(uv.x * tau), cos(uv.y * tau), sin(uv.x * tau), sin(uv.y * tau));
 
     for(i = 0; i <= octaves; ++i) {
-        // get noise
         float noise = cnoise(p * scale * pow(2,i));
-        // attenuation
-        float attenuation = pow(att, -i);
-        n += noise * attenuation;
+        n += noise * amplitude;
+        maxamp += amplitude;
+        amplitude *= roughness;
     }
 
     float remainder = fract(octaves);
-    n += remainder * cnoise(p * scale * pow(2,i)) * pow(att, -i);
+    n += remainder * cnoise(p * scale * pow(2,i)) * amplitude;
 
+    n /= maxamp;
     n = (n + 1.0) / 2.0;
 
     return n;

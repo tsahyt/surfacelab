@@ -14,7 +14,7 @@ use zerocopy::AsBytes;
 pub struct PerlinNoise {
     pub scale: f32,
     pub octaves: f32,
-    pub attenuation: f32,
+    pub roughness: f32,
 }
 
 impl Default for PerlinNoise {
@@ -22,7 +22,7 @@ impl Default for PerlinNoise {
         Self {
             scale: 3.0,
             octaves: 2.0,
-            attenuation: 2.0,
+            roughness: 0.5,
         }
     }
 }
@@ -92,12 +92,12 @@ impl OperatorParamBox for PerlinNoise {
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
-                        name: "attenuation".to_string(),
-                        transmitter: Field(PerlinNoise::ATTENUATION.to_string()),
+                        name: "roughness".to_string(),
+                        transmitter: Field(PerlinNoise::ROUGHNESS.to_string()),
                         control: Control::Slider {
-                            value: self.attenuation,
+                            value: self.roughness,
                             min: 0.,
-                            max: 4.,
+                            max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
