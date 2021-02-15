@@ -89,3 +89,7 @@ to-min = Zu Min
 to-max = Zu Max
 
 color = Farbe
+
+hue = Farbe
+saturation = Sättigung
+value = Wert

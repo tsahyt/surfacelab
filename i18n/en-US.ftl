@@ -89,3 +89,7 @@ to-min = To Min
 to-max = To Max
 
 color = Color
+
+hue = Hue
+saturation = Saturation
+value = Value

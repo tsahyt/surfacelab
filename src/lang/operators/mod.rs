@@ -11,6 +11,7 @@ use surfacelab_derive::*;
 
 pub mod blend;
 pub mod grayscale;
+pub mod hsv;
 pub mod normal_map;
 pub mod perlin_noise;
 pub mod ramp;
@@ -19,6 +20,7 @@ pub mod rgb;
 
 pub use blend::*;
 pub use grayscale::*;
+pub use hsv::*;
 pub use normal_map::*;
 pub use perlin_noise::*;
 pub use ramp::*;
