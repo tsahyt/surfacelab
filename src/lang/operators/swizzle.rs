@@ -92,7 +92,7 @@ impl OperatorParamBox for Swizzle {
                             selected: self.channel_r as usize,
                             variants: channels.clone(),
                         },
-                        expose_status: None,
+                        expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
                         name: "green-channel".to_string(),
@@ -101,7 +101,7 @@ impl OperatorParamBox for Swizzle {
                             selected: self.channel_g as usize,
                             variants: channels.clone(),
                         },
-                        expose_status: None,
+                        expose_status: Some(ExposeStatus::Unexposed),
                     },
                     Parameter {
                         name: "blue-channel".to_string(),
@@ -110,7 +110,7 @@ impl OperatorParamBox for Swizzle {
                             selected: self.channel_b as usize,
                             variants: channels.clone(),
                         },
-                        expose_status: None,
+                        expose_status: Some(ExposeStatus::Unexposed),
                     },
                 ],
             }],
