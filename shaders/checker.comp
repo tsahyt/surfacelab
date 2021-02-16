@@ -1,0 +1,39 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    uint tiling;
+    uint rotated;
+    uint inverted;
+};
+layout(set = 0, binding = 1, r32f) uniform image2D t_Out;
+
+const float PI = 3.14159265359;
+const mat2 rot = mat2(
+    vec2(cos(PI / 4.), - sin(PI/ 4.)),
+    vec2(sin(PI / 4.), cos(PI / 4.))
+);
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_Out);
+
+    float t = float(resolution.x) / float(tiling);
+
+    vec2 coord = vec2(idx);
+
+    if(rotated != 0) {
+        coord *= rot;
+        coord *= sqrt(2.0);
+    }
+
+    vec2 xy = floor(mod(coord, t) / t * 2);
+    float checker = mod(xy.x + xy.y, 2);
+
+    if(inverted != 0) {
+        checker = 1.0 - checker;
+    }
+
+    imageStore(t_Out, idx, vec4(checker, checker, checker, 1.));
+}

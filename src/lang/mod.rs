@@ -27,6 +27,7 @@ pub use socketed::*;
 pub enum AtomicOperator {
     Blend,
     BlendMasked,
+    Checker,
     PerlinNoise,
     Rgb,
     Hsv,
@@ -47,6 +48,7 @@ impl AtomicOperator {
         vec![
             Self::Blend(Blend::default()),
             Self::BlendMasked(BlendMasked::default()),
+            Self::Checker(Checker::default()),
             Self::PerlinNoise(PerlinNoise::default()),
             Self::Rgb(Rgb::default()),
             Self::Hsv(Hsv::default()),

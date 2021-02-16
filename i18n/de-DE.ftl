@@ -97,3 +97,7 @@ value = Wert
 red-channel = Roter Kanal
 green-channel = Grüner Kanal
 blue-channel = Blauer Kanal
+
+tiling = Kacheln
+rotated = Rotiert
+inverted = Invertiert

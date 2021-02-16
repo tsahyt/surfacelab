@@ -10,6 +10,7 @@ use strum_macros::*;
 use surfacelab_derive::*;
 
 pub mod blend;
+pub mod checker;
 pub mod grayscale;
 pub mod hsv;
 pub mod normal_map;
@@ -20,6 +21,7 @@ pub mod rgb;
 pub mod swizzle;
 
 pub use blend::*;
+pub use checker::*;
 pub use grayscale::*;
 pub use hsv::*;
 pub use normal_map::*;
