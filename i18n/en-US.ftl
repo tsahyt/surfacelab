@@ -93,3 +93,7 @@ color = Color
 hue = Hue
 saturation = Saturation
 value = Value
+
+red-channel = Red Channel
+green-channel = Green Channel
+blue-channel = Blue Channel

@@ -93,3 +93,7 @@ color = Farbe
 hue = Farbe
 saturation = Sättigung
 value = Wert
+
+red-channel = Roter Kanal
+green-channel = Grüner Kanal
+blue-channel = Blauer Kanal

@@ -31,6 +31,7 @@ pub enum AtomicOperator {
     Rgb,
     Hsv,
     Range,
+    Swizzle,
     Grayscale,
     Ramp,
     NormalMap,
@@ -50,6 +51,7 @@ impl AtomicOperator {
             Self::Rgb(Rgb::default()),
             Self::Hsv(Hsv::default()),
             Self::Range(Range::default()),
+            Self::Swizzle(Swizzle::default()),
             Self::Grayscale(Grayscale::default()),
             Self::Ramp(Ramp::default()),
             Self::NormalMap(NormalMap::default()),
@@ -798,7 +800,10 @@ impl MaterialChannel {
     }
 }
 
-#[derive(Debug, Display, Clone, Copy, Serialize, Deserialize)]
+#[repr(u32)]
+#[derive(
+    Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, AsBytes, ParameterField,
+)]
 pub enum ImageChannel {
     R,
     G,

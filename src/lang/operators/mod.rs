@@ -17,6 +17,7 @@ pub mod perlin_noise;
 pub mod ramp;
 pub mod range;
 pub mod rgb;
+pub mod swizzle;
 
 pub use blend::*;
 pub use grayscale::*;
@@ -26,6 +27,7 @@ pub use perlin_noise::*;
 pub use ramp::*;
 pub use range::*;
 pub use rgb::*;
+pub use swizzle::*;
 
 /// Image operator to include external images into a node graph
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
