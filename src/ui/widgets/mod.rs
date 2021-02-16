@@ -10,4 +10,5 @@ pub mod param_box;
 pub mod render_view;
 pub mod resource_row;
 pub mod tabs;
+pub mod transform;
 pub mod tree;
