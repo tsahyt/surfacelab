@@ -10,6 +10,7 @@ layout(set = 0, binding = 0) uniform Params {
 layout(set = 0, binding = 1, r32f) uniform image2D t_Out;
 
 const float PI = 3.14159265359;
+const float SQRT_2 = sqrt(2.0);
 const mat2 rot = mat2(
     vec2(cos(PI / 4.), - sin(PI/ 4.)),
     vec2(sin(PI / 4.), cos(PI / 4.))
@@ -25,7 +26,7 @@ void main() {
 
     if(rotated != 0) {
         coord *= rot;
-        coord *= sqrt(2.0);
+        coord *= SQRT_2;
     }
 
     vec2 xy = floor(mod(coord, t) / t * 2);
