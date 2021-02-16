@@ -77,23 +77,25 @@ impl ParameterField for i32 {
     }
 }
 
-impl ParameterField for [f32; 3] {
+impl<T> ParameterField for [T; 3]
+where
+    T: ParameterField + Copy,
+{
     fn from_data(data: &[u8]) -> Self {
-        let cols: SmallVec<[f32; 4]> = data.chunks(4).map(|z| f32::from_data(z)).collect();
+        let cols: SmallVec<[T; 4]> = data.chunks(4).map(|z| T::from_data(z)).collect();
         [cols[0], cols[1], cols[2]]
     }
 
     fn to_data(&self) -> Vec<u8> {
         let mut buf = Vec::new();
-        buf.extend_from_slice(&(self[0] as f32).to_ne_bytes());
-        buf.extend_from_slice(&(self[1] as f32).to_ne_bytes());
-        buf.extend_from_slice(&(self[2] as f32).to_ne_bytes());
-        buf.extend_from_slice(&(1.0 as f32).to_ne_bytes());
+        buf.extend_from_slice(&(self[0].to_data()));
+        buf.extend_from_slice(&(self[1].to_data()));
+        buf.extend_from_slice(&(self[2].to_data()));
         buf
     }
 
     fn data_length() -> usize {
-        4 * 3
+        T::data_length() * 3
     }
 }
 
