@@ -10,19 +10,56 @@ use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
 #[repr(C)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+pub struct TransformMatrix([[f32; 4]; 3]);
+
+impl TransformMatrix {
+    pub fn new(translation: [f32; 2], rotation: f32, scale: f32) -> Self {
+        let transform: nalgebra::Matrix3<f32> = nalgebra::Similarity2::new(
+            nalgebra::Vector2::new(translation[0], translation[1]),
+            rotation,
+            scale,
+        )
+        .to_homogeneous();
+
+        Self([
+            [transform[(0, 0)], transform[(1, 0)], transform[(2, 0)], 0.0],
+            [transform[(0, 1)], transform[(1, 1)], transform[(2, 1)], 0.0],
+            [transform[(0, 2)], transform[(1, 2)], transform[(2, 2)], 0.0],
+        ])
+    }
+}
+
+impl Default for TransformMatrix {
+    fn default() -> Self {
+        Self::new([0., 0.], 0., 1.)
+    }
+}
+
+impl ParameterField for TransformMatrix {
+    fn from_data(data: &[u8]) -> Self {
+        Self(<[[f32; 4]; 3]>::from_data(data))
+    }
+
+    fn to_data(&self) -> Vec<u8> {
+        self.0.to_data()
+    }
+
+    fn data_length() -> usize {
+        <[[f32; 4]; 3]>::data_length()
+    }
+}
+
+#[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Transform {
-    pub transform: [[f32; 4]; 3],
+    pub transform: TransformMatrix,
 }
 
 impl Default for Transform {
     fn default() -> Self {
         Self {
-            transform: [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-            ],
+            transform: TransformMatrix::default(),
         }
     }
 }
