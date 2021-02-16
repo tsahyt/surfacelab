@@ -99,6 +99,29 @@ where
     }
 }
 
+impl<T> ParameterField for [T; 4]
+where
+    T: ParameterField + Copy,
+{
+    fn from_data(data: &[u8]) -> Self {
+        let cols: SmallVec<[T; 4]> = data.chunks(4).map(|z| T::from_data(z)).collect();
+        [cols[0], cols[1], cols[2], cols[3]]
+    }
+
+    fn to_data(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&(self[0].to_data()));
+        buf.extend_from_slice(&(self[1].to_data()));
+        buf.extend_from_slice(&(self[2].to_data()));
+        buf.extend_from_slice(&(self[3].to_data()));
+        buf
+    }
+
+    fn data_length() -> usize {
+        T::data_length() * 4
+    }
+}
+
 impl<T, Q> ParameterField for (T, Q)
 where
     T: ParameterField,

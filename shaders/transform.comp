@@ -1,0 +1,22 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    mat3 transform;
+};
+
+layout(set = 0, binding = 1) uniform texture2D t_Color1;
+layout(set = 0, binding = 2) uniform sampler Sampler;
+layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_Out);
+    vec3 uv = vec3(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y), 1.);
+
+    uv *= transform;
+    vec4 col = texture(sampler2D(t_Color1, Sampler), uv.xy);
+
+    imageStore(t_Out, idx, col);
+}

@@ -19,6 +19,7 @@ pub mod ramp;
 pub mod range;
 pub mod rgb;
 pub mod swizzle;
+pub mod transform;
 
 pub use blend::*;
 pub use checker::*;
@@ -30,6 +31,7 @@ pub use ramp::*;
 pub use range::*;
 pub use rgb::*;
 pub use swizzle::*;
+pub use transform::*;
 
 /// Image operator to include external images into a node graph
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
