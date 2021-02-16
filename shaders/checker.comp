@@ -29,6 +29,10 @@ void main() {
         coord *= SQRT_2;
     }
 
+    // The most horrifying FP hack in history
+    coord += 0.0001;
+    coord *= 0.9999;
+
     vec2 xy = floor(mod(coord, t) / t * 2);
     float checker = mod(xy.x + xy.y, 2);
 
