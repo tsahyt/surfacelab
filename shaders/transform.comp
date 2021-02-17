@@ -15,7 +15,9 @@ void main() {
     ivec2 resolution = imageSize(t_Out);
     vec3 uv = vec3(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y), 1.);
 
+    uv -= vec3(0.5, 0.5, 0.);
     uv *= transform;
+    uv += vec3(0.5, 0.5, 0.);
     vec4 col = texture(sampler2D(t_Color1, Sampler), uv.xy);
 
     imageStore(t_Out, idx, col);
