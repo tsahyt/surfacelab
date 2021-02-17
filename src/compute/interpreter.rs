@@ -518,7 +518,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             &outputs,
         );
 
-        self.gpu.fill_uniforms(uniforms)?;
+        self.gpu.fill_uniforms(&uniforms)?;
         self.gpu.write_descriptor_sets(descriptors);
         self.gpu.run_pipeline(
             self.sockets.get_image_size(res),

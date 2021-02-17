@@ -4,6 +4,7 @@ use crate::compute::shaders::{OperatorShader, Shader, Uniforms};
 
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use strum::VariantNames;
 use strum_macros::*;
@@ -76,8 +77,8 @@ impl Socketed for Image {
 
 /// Image is special and doesn't have uniforms. Therefore the output is empty
 impl Uniforms for Image {
-    fn uniforms(&self) -> &[u8] {
-        &[]
+    fn uniforms(&self) -> Cow<[u8]> {
+        Cow::Borrowed(&[])
     }
 }
 
@@ -206,8 +207,8 @@ impl Socketed for Output {
 
 /// Output is special and doesn't have uniforms. Therefore the output is empty
 impl Uniforms for Output {
-    fn uniforms(&self) -> &[u8] {
-        &[]
+    fn uniforms(&self) -> Cow<[u8]> {
+        Cow::Borrowed(&[])
     }
 }
 
@@ -287,8 +288,8 @@ impl Socketed for Input {
 
 /// Input is special and doesn't have uniforms. Therefore the output is empty
 impl Uniforms for Input {
-    fn uniforms(&self) -> &[u8] {
-        &[]
+    fn uniforms(&self) -> Cow<[u8]> {
+        Cow::Borrowed(&[])
     }
 }
 

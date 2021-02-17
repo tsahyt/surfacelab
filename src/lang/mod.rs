@@ -8,6 +8,7 @@ use enum_dispatch::*;
 use enumset::{EnumSet, EnumSetType};
 
 use serde_derive::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::*;

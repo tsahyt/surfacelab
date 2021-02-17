@@ -4,6 +4,7 @@ use crate::{
     lang::{self, Socketed},
 };
 use enum_dispatch::*;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use zerocopy::AsBytes;
 
@@ -136,13 +137,13 @@ pub trait Shader {
 /// and can be hashed.
 #[enum_dispatch]
 pub trait Uniforms {
-    fn uniforms(&self) -> &[u8];
+    fn uniforms(&self) -> Cow<[u8]>;
     fn uniform_hash(&self) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::Hasher;
 
         let mut hasher = DefaultHasher::new();
-        hasher.write(self.uniforms());
+        hasher.write(&self.uniforms());
         hasher.finish()
     }
 }
@@ -151,8 +152,8 @@ impl<T> Uniforms for T
 where
     T: AsBytes,
 {
-    fn uniforms(&self) -> &[u8] {
-        self.as_bytes()
+    fn uniforms(&self) -> Cow<[u8]> {
+        Cow::Borrowed(self.as_bytes())
     }
 }
 
