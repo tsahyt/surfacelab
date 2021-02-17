@@ -1,6 +1,6 @@
 use super::parameters::*;
 use super::socketed::*;
-use crate::compute::shaders::{OperatorShader, Shader};
+use crate::compute::shaders::{OperatorShader, Shader, Uniforms};
 
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
@@ -71,6 +71,13 @@ impl Socketed for Image {
 
     fn external_data(&self) -> bool {
         true
+    }
+}
+
+/// Image is special and doesn't have uniforms. Therefore the output is empty
+impl Uniforms for Image {
+    fn uniforms(&self) -> &[u8] {
+        &[]
     }
 }
 
@@ -197,6 +204,13 @@ impl Socketed for Output {
     }
 }
 
+/// Output is special and doesn't have uniforms. Therefore the output is empty
+impl Uniforms for Output {
+    fn uniforms(&self) -> &[u8] {
+        &[]
+    }
+}
+
 impl Shader for Output {
     fn operator_shader(&self) -> Option<OperatorShader> {
         None
@@ -268,6 +282,13 @@ impl Socketed for Input {
 
     fn is_input(&self) -> bool {
         true
+    }
+}
+
+/// Input is special and doesn't have uniforms. Therefore the output is empty
+impl Uniforms for Input {
+    fn uniforms(&self) -> &[u8] {
+        &[]
     }
 }
 

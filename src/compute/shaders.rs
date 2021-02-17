@@ -156,27 +156,6 @@ where
     }
 }
 
-/// Image is special and doesn't have uniforms. Therefore the output is empty
-impl Uniforms for lang::Image {
-    fn uniforms(&self) -> &[u8] {
-        &[]
-    }
-}
-
-/// Output is special and doesn't have uniforms. Therefore the output is empty
-impl Uniforms for lang::Output {
-    fn uniforms(&self) -> &[u8] {
-        &[]
-    }
-}
-
-/// Input is special and doesn't have uniforms. Therefore the output is empty
-impl Uniforms for lang::Input {
-    fn uniforms(&self) -> &[u8] {
-        &[]
-    }
-}
-
 /// The shader library holds relevant data for all (operator) shaders.
 pub struct ShaderLibrary<B: gpu::Backend> {
     pipelines: HashMap<String, gpu::compute::ComputePipeline<B>>,
