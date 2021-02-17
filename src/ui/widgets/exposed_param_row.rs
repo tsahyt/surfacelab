@@ -154,6 +154,7 @@ fn control_name(control: &Control) -> &'static str {
     match control {
         Control::Slider { .. } => "f32",
         Control::DiscreteSlider { .. } => "i32",
+        Control::XYPad { .. } => "xy",
         Control::RgbColor { .. } => "rgb",
         Control::Enum { .. } => "list",
         Control::File { .. } => "file",

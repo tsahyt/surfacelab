@@ -59,11 +59,13 @@ impl Socketed for Transform {
     }
 }
 
+/// Transform requires a matrix for its uniforms that is not stored in the
+/// operator parameters but needs to be constructed on demand.
 impl Uniforms for Transform {
     fn uniforms(&self) -> Cow<[u8]> {
         let similarity: nalgebra::Matrix3<f32> = nalgebra::Isometry2::new(
             nalgebra::Vector2::new(self.translation[0], self.translation[1]),
-            self.rotation,
+            self.rotation * std::f32::consts::PI / 180.,
         )
         .to_homogeneous();
 
@@ -123,7 +125,48 @@ impl OperatorParamBox for Transform {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
-                parameters: vec![],
+                parameters: vec![
+                    Parameter {
+                        name: "translation".to_string(),
+                        transmitter: Field(Transform::TRANSLATION.to_string()),
+                        control: Control::XYPad {
+                            value: self.translation,
+                            min: [-1., -1.],
+                            max: [1., 1.],
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                    Parameter {
+                        name: "scale".to_string(),
+                        transmitter: Field(Transform::SCALE.to_string()),
+                        control: Control::XYPad {
+                            value: self.scale,
+                            min: [0., 0.],
+                            max: [2., 2.],
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                    Parameter {
+                        name: "shear".to_string(),
+                        transmitter: Field(Transform::SHEAR.to_string()),
+                        control: Control::XYPad {
+                            value: self.shear,
+                            min: [-1., -1.],
+                            max: [1., 1.],
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                    Parameter {
+                        name: "rotation".to_string(),
+                        transmitter: Field(Transform::ROTATION.to_string()),
+                        control: Control::Slider {
+                            value: self.rotation,
+                            min: 0.,
+                            max: 360.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                ],
             }],
         }
     }

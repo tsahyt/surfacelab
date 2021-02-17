@@ -17,6 +17,7 @@ use std::collections::HashMap;
 pub struct ControlCounts {
     pub sliders: usize,
     pub discrete_sliders: usize,
+    pub xy_pads: usize,
     pub rgb_colors: usize,
     pub enums: usize,
     pub files: usize,
@@ -45,6 +46,9 @@ where
                 }
                 Control::DiscreteSlider { .. } => {
                     counts.discrete_sliders += 1;
+                }
+                Control::XYPad { .. } => {
+                    counts.xy_pads += 1;
                 }
                 Control::RgbColor { .. } => {
                     counts.rgb_colors += 1;
@@ -121,6 +125,11 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .resize(counts.enums, id_gen);
             state
                 .controls
+                .get_mut(&TypeId::of::<widget::XYPad<f32, f32>>())
+                .unwrap()
+                .resize(counts.xy_pads, id_gen);
+            state
+                .controls
                 .get_mut(&TypeId::of::<ColorPicker<Hsv>>())
                 .unwrap()
                 .resize(counts.rgb_colors, id_gen);
@@ -165,6 +174,12 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .unwrap()
                 .len()
                 < (counts.enums)
+            || state
+                .controls
+                .get(&TypeId::of::<widget::XYPad<f32, f32>>())
+                .unwrap()
+                .len()
+                < (counts.xy_pads)
             || state
                 .controls
                 .get(&TypeId::of::<ColorPicker<Hsv>>())
@@ -239,6 +254,7 @@ where
             controls: hashmap! {
                 TypeId::of::<widget::Slider<f32>>() => widget::id::List::new(),
                 TypeId::of::<widget::DropDownList<String>>() => widget::id::List::new(),
+                TypeId::of::<widget::XYPad<f32,f32>>() => widget::id::List::new(),
                 TypeId::of::<ColorPicker<Hsv>>() => widget::id::List::new(),
                 TypeId::of::<ColorRamp>() => widget::id::List::new(),
                 TypeId::of::<widget::Button<widget::button::Flat>>() => widget::id::List::new(),
@@ -366,6 +382,32 @@ where
                             }
                         }
                         control_idx.discrete_sliders += 1;
+                    }
+                    Control::XYPad { value, min, max } => {
+                        let control_id = state
+                            .controls
+                            .get(&TypeId::of::<widget::XYPad<f32, f32>>())
+                            .unwrap()[control_idx.xy_pads];
+                        if let Some((new_x, new_y)) =
+                            widget::XYPad::new(value[0], min[0], max[0], value[1], min[1], max[1])
+                                .color(color::DARK_CHARCOAL)
+                                .label_color(color::WHITE)
+                                .label_font_size(10)
+                                .value_font_size(10)
+                                .line_thickness(1.0)
+                                .padded_w_of(id, 16.0)
+                                .h(256.0)
+                                .set(control_id, ui)
+                        {
+                            *value = [new_x, new_y];
+                            ev.push(Event::ChangeParameter(
+                                parameter
+                                    .transmitter
+                                    .transmit(self.resource, &value.to_data()),
+                            ));
+                        }
+                        top_margin += 256.0;
+                        control_idx.xy_pads += 1;
                     }
                     Control::RgbColor { value } => {
                         let control_id = state

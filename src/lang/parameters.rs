@@ -1022,6 +1022,11 @@ pub enum Control {
         min: i32,
         max: i32,
     },
+    XYPad {
+        value: [f32; 2],
+        min: [f32; 2],
+        max: [f32; 2],
+    },
     RgbColor {
         value: [f32; 3],
     },
@@ -1053,6 +1058,7 @@ impl Control {
         match self {
             Self::Slider { value, .. } => value.to_data(),
             Self::DiscreteSlider { value, .. } => value.to_data(),
+            Self::XYPad { value, .. } => value.to_data(),
             Self::RgbColor { value, .. } => value.to_data(),
             Self::Enum { selected, .. } => (*selected as u32).to_data(),
             Self::File { selected } => selected.clone().unwrap().to_data(),
@@ -1080,12 +1086,13 @@ impl Control {
 
     pub fn set_value(&mut self, data: &[u8]) {
         match self {
-            Control::Slider { value, .. } => *value = f32::from_data(data),
-            Control::DiscreteSlider { value, .. } => *value = i32::from_data(data),
-            Control::RgbColor { value } => *value = <[f32; 3]>::from_data(data),
-            Control::Enum { selected, .. } => *selected = u32::from_data(data) as usize,
-            Control::File { selected } => *selected = Some(PathBuf::from_data(data)),
-            Control::Ramp { steps } => {
+            Self::Slider { value, .. } => *value = f32::from_data(data),
+            Self::DiscreteSlider { value, .. } => *value = i32::from_data(data),
+            Self::XYPad { value, .. } => *value = <[f32; 2]>::from_data(data),
+            Self::RgbColor { value } => *value = <[f32; 3]>::from_data(data),
+            Self::Enum { selected, .. } => *selected = u32::from_data(data) as usize,
+            Self::File { selected } => *selected = Some(PathBuf::from_data(data)),
+            Self::Ramp { steps } => {
                 *steps = data
                     .chunks(std::mem::size_of::<[f32; 4]>())
                     .map(|chunk| {
@@ -1101,11 +1108,11 @@ impl Control {
                     })
                     .collect()
             }
-            Control::Toggle { def } => *def = u32::from_data(data) == 1,
-            Control::Entry { value } => {
+            Self::Toggle { def } => *def = u32::from_data(data) == 1,
+            Self::Entry { value } => {
                 *value = unsafe { std::str::from_utf8_unchecked(data) }.to_owned()
             }
-            Control::ChannelMap {
+            Self::ChannelMap {
                 enabled, selected, ..
             } => {
                 let (n_enabled, n_selected) = <(u32, u32)>::from_data(data);
