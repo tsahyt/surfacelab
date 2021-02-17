@@ -20,9 +20,10 @@ pub struct Style {}
 widget_ids! {
     #[derive(Debug)]
     pub struct Ids {
-        translation_pad,
+        translation,
         rotation,
         scale,
+        shear,
     }
 }
 
@@ -31,7 +32,8 @@ pub struct State {
     ids: Ids,
     translation: Point,
     rotation: f32,
-    scale: f32,
+    scale: Point,
+    shear: Point,
 }
 
 impl Widget for TransformEditor {
@@ -44,7 +46,8 @@ impl Widget for TransformEditor {
             ids: Ids::new(id_gen),
             translation: [0., 0.],
             rotation: 0.,
-            scale: 1.,
+            scale: [1., 1.],
+            shear: [0., 0.],
         }
     }
 

@@ -14,13 +14,22 @@ use zerocopy::AsBytes;
 pub struct TransformMatrix([[f32; 4]; 3]);
 
 impl TransformMatrix {
-    pub fn new(translation: [f32; 2], rotation: f32, scale: f32) -> Self {
-        let transform: nalgebra::Matrix3<f32> = nalgebra::Similarity2::new(
+    pub fn new(translation: [f32; 2], rotation: f32, scale: [f32; 2], shear: [f32; 2]) -> Self {
+        let similarity: nalgebra::Matrix3<f32> = nalgebra::Isometry2::new(
             nalgebra::Vector2::new(translation[0], translation[1]),
             rotation,
-            scale,
         )
         .to_homogeneous();
+
+        let mut shear_matrix = nalgebra::Matrix3::identity();
+        shear_matrix[(0, 1)] = shear[0].tan();
+        shear_matrix[(1, 0)] = shear[1].tan();
+
+        let mut scale_matrix = nalgebra::Matrix3::identity();
+        scale_matrix[(0, 0)] = scale[0];
+        scale_matrix[(1, 1)] = scale[1];
+
+        let transform = similarity * shear_matrix * scale_matrix;
 
         Self([
             [transform[(0, 0)], transform[(1, 0)], transform[(2, 0)], 0.0],
@@ -32,7 +41,7 @@ impl TransformMatrix {
 
 impl Default for TransformMatrix {
     fn default() -> Self {
-        Self::new([0., 0.], 0., 1.)
+        Self::new([0., 0.], 0., [1., 1.], [0., 0.])
     }
 }
 
