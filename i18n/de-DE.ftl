@@ -101,3 +101,7 @@ blue-channel = Blauer Kanal
 tiling = Kacheln
 rotated = Rotiert
 inverted = Invertiert
+
+translation = Verschiebung
+shear = Scheren
+rotation = Rotation

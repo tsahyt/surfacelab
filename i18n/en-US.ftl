@@ -101,3 +101,7 @@ blue-channel = Blue Channel
 tiling = Tiling
 rotated = Rotated
 inverted = Inverted
+
+translation = Translation
+shear = Shear
+rotation = Rotation
