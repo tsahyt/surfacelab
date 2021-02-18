@@ -103,7 +103,7 @@ impl<'a> BasicImageBuilder<'a> {
                 self.kind,
                 self.mip_levels,
                 self.format,
-                hal::image::Tiling::Linear,
+                self.tiling,
                 self.usage,
                 self.view_caps,
             )
