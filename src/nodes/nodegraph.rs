@@ -240,7 +240,7 @@ impl NodeGraph {
     /// Remove a node with the given Resource if it exists. Returns the type of
     /// output if the node was an output, a list of connections that have been
     /// removed, as well as a boolean determining whether the complex operators
-    /// associated with this graph require updatingtype of output if the node
+    /// associated with this graph require updating, type of output if the node
     /// was an output, a list of connections that have been removed, as well as
     /// a boolean determining whether the complex operators associated with this
     /// graph require updating
