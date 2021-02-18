@@ -275,6 +275,7 @@ where
                             Err(e) => {
                                 log::error!("Error during compute interpretation: {:?}", e);
                                 log::error!("Aborting compute!");
+                                break;
                             }
                             Ok((r, s)) => {
                                 for ev in r {
