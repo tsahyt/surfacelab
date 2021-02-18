@@ -43,7 +43,7 @@ struct StackFrame {
 }
 
 impl StackFrame {
-    pub fn new<'a, I>(linearization: Rc<Linearization>, substitutions: I) -> Self
+    pub fn new<'a, I>(linearization: Rc<Linearization>, substitutions: I) -> Option<Self>
     where
         I: Iterator<Item = &'a ParamSubstitution>,
     {
@@ -55,12 +55,17 @@ impl StackFrame {
                 .or_insert_with(|| vec![s.clone()]);
         }
 
-        Self {
+        let instructions = VecDeque::from_iter(linearization.instructions.iter().cloned());
+        if instructions.is_empty() {
+            return None;
+        }
+
+        Some(Self {
             step: 0,
-            instructions: VecDeque::from_iter(linearization.instructions.iter().cloned()),
+            instructions,
             linearization: linearization.clone(),
             substitutions_map: Rc::new(substitutions_map),
-        }
+        })
     }
 
     /// Find the retention set for this stack frame, i.e. the set of images that
@@ -113,7 +118,9 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         graph: &Resource<Graph>,
     ) -> Self {
         let linearization = linearizations.get(graph).expect("Unknown graph").clone();
-        let execution_stack = vec![StackFrame::new(linearization, std::iter::empty())];
+        let execution_stack = std::iter::once(StackFrame::new(linearization, std::iter::empty()))
+            .flatten()
+            .collect();
 
         Self {
             gpu,
@@ -223,14 +230,15 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         let start_time = Instant::now();
 
         // Push call onto stack
-        let frame = StackFrame::new(
+        if let Some(frame) = StackFrame::new(
             self.linearizations
                 .get(&op.graph)
                 .ok_or(InterpretationError::UnknownCall)?
                 .clone(),
             op.parameters.values(),
-        );
-        self.execution_stack.push(frame);
+        ) {
+            self.execution_stack.push(frame);
+        }
         self.seq += 1;
 
         // Set up outputs for copy back
@@ -634,7 +642,10 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         let frame = self.execution_stack.last_mut()?;
-        let instruction = frame.instructions.pop_front().unwrap();
+        let instruction = frame
+            .instructions
+            .pop_front()
+            .expect("Found empty stack frame");
         let substitutions = frame.substitutions_map.clone();
         frame.step += 1;
 
