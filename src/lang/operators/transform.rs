@@ -16,6 +16,7 @@ use zerocopy::AsBytes;
 #[derive(AsBytes)]
 pub struct TransformUniforms {
     pub transform: [[f32; 4]; 3],
+    pub tiling: ParameterBool,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
@@ -24,6 +25,7 @@ pub struct Transform {
     pub scale: [f32; 2],
     pub shear: [f32; 2],
     pub rotation: f32,
+    pub tiling: ParameterBool,
 }
 
 impl Default for Transform {
@@ -33,6 +35,7 @@ impl Default for Transform {
             scale: [1., 1.],
             shear: [0., 0.],
             rotation: 0.,
+            tiling: 1,
         }
     }
 }
@@ -79,17 +82,16 @@ impl Uniforms for Transform {
 
         let transform = similarity * shear_matrix * scale_matrix;
 
-        Cow::Owned(
-            [
+        let uniforms = TransformUniforms {
+            transform: [
                 [transform[(0, 0)], transform[(0, 1)], transform[(0, 2)], 0.0],
                 [transform[(1, 0)], transform[(1, 1)], transform[(1, 2)], 0.0],
                 [transform[(2, 0)], transform[(2, 1)], transform[(2, 2)], 0.0],
-            ]
-            .as_bytes()
-            .iter()
-            .copied()
-            .collect(),
-        )
+            ],
+            tiling: self.tiling,
+        };
+
+        Cow::Owned(uniforms.as_bytes().iter().copied().collect())
     }
 }
 
@@ -163,6 +165,14 @@ impl OperatorParamBox for Transform {
                             value: self.rotation,
                             min: 0.,
                             max: 360.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                    Parameter {
+                        name: "tiling".to_string(),
+                        transmitter: Field(Transform::TILING.to_string()),
+                        control: Control::Toggle {
+                            def: self.tiling == 1,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                     },
