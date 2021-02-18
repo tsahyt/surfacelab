@@ -1934,16 +1934,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99e7b308464d16b56eba9964e4972a3eee817760ab60d88c3f86e1fecb08204c"
 
 [[package]]
-name = "serde-big-array"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52309f7932ab258e58bcf73cc89037e307ffef3bcfb7ce7a246580c26f81dc55"
-dependencies = [
- "serde",
- "serde_derive",
-]
-
-[[package]]
 name = "serde_cbor"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2137,7 +2127,6 @@ dependencies = [
  "rand",
  "raw-window-handle",
  "serde",
- "serde-big-array",
  "serde_cbor",
  "serde_derive",
  "shaderc",

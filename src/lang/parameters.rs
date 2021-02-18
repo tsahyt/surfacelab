@@ -168,6 +168,25 @@ where
     }
 }
 
+impl<T> ParameterField for Vec<T>
+where
+    T: ParameterField,
+{
+    fn to_data(&self) -> Vec<u8> {
+        self.iter().map(|c| c.to_data()).flatten().collect()
+    }
+
+    fn from_data(data: &[u8]) -> Self {
+        data.chunks(T::data_length())
+            .map(|c| T::from_data(c))
+            .collect()
+    }
+
+    fn data_length() -> usize {
+        0
+    }
+}
+
 /// Note that the PathBuf impl is somewhat pathological and it will break
 /// tuples when it is in the first position! This will trigger an assertion in
 /// the tuple impl in debug builds.
