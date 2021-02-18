@@ -664,7 +664,7 @@ impl NodeCollection for NodeGraph {
             Visit(Option<(&'a EdgeLabel, graph::NodeIndex)>),
             /// Indicates a use point of the given node
             Use(graph::NodeIndex),
-        };
+        }
 
         let mut stack: Vec<(graph::NodeIndex, Action)> = self
             .outputs
