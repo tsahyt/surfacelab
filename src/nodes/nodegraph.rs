@@ -301,18 +301,21 @@ impl NodeGraph {
             .collect();
 
         // Obtain last node before removal for reindexing
-        let last = self
-            .indices
-            .get_by_right(&self.graph.node_indices().next_back().unwrap())
-            .unwrap()
-            .to_owned();
+        let last_idx = self.graph.node_indices().next_back().unwrap();
+        let last = self.indices.get_by_right(&last_idx).unwrap().to_owned();
 
         // Remove node
         self.graph.remove_node(node);
         self.indices.remove_by_left(&resource.to_string());
 
         // Reindex last node
-        self.indices.insert(last, node);
+        if last_idx != node {
+            self.indices.insert(last, node);
+
+            if self.outputs.remove(&last_idx) {
+                self.outputs.insert(node);
+            }
+        }
 
         Ok((output_type, es, co_change))
     }
