@@ -1,5 +1,3 @@
-#![feature(tau_constant)]
-#![feature(clamp)]
 #![feature(box_patterns)]
 #![feature(cell_update)]
 #![feature(drain_filter)]
