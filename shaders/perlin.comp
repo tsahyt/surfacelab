@@ -176,21 +176,23 @@ float perlin_noise(vec2 uv) {
     float n = 0.;
     float amplitude = 1.0;
     float maxamp = 0.0;
+    float fscale = scale;
 
     int i;
     vec4 p = vec4(cos(uv.x * tau), cos(uv.y * tau), sin(uv.x * tau), sin(uv.y * tau));
 
     for(i = 0; i <= octaves; ++i) {
-        float noise = cnoise(p * scale * pow(2,i));
+        float noise = cnoise(p * fscale);
         n += noise * amplitude;
         maxamp += amplitude;
         amplitude *= roughness;
+        fscale *= 2.0;
     }
 
     float remainder = fract(octaves);
-    n += remainder * cnoise(p * scale * pow(2,i)) * amplitude;
+    n += remainder * cnoise(p * fscale) * amplitude;
 
-    n /= maxamp;
+    n /= maxamp + amplitude * remainder;
     n = (n + 1.0) / 2.0;
 
     return n;
