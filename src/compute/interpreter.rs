@@ -40,10 +40,16 @@ struct StackFrame {
     instructions: VecDeque<Instruction>,
     linearization: Rc<Linearization>,
     substitutions_map: Rc<HashMap<Resource<Node>, Vec<ParamSubstitution>>>,
+    start_time: Instant,
+    caller: Option<Resource<Node>>,
 }
 
 impl StackFrame {
-    pub fn new<'a, I>(linearization: Rc<Linearization>, substitutions: I) -> Option<Self>
+    pub fn new<'a, I>(
+        linearization: Rc<Linearization>,
+        substitutions: I,
+        caller: Option<Resource<Node>>,
+    ) -> Option<Self>
     where
         I: Iterator<Item = &'a ParamSubstitution>,
     {
@@ -65,6 +71,8 @@ impl StackFrame {
             instructions,
             linearization: linearization.clone(),
             substitutions_map: Rc::new(substitutions_map),
+            start_time: Instant::now(),
+            caller,
         })
     }
 
@@ -118,9 +126,10 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         graph: &Resource<Graph>,
     ) -> Self {
         let linearization = linearizations.get(graph).expect("Unknown graph").clone();
-        let execution_stack = std::iter::once(StackFrame::new(linearization, std::iter::empty()))
-            .flatten()
-            .collect();
+        let execution_stack =
+            std::iter::once(StackFrame::new(linearization, std::iter::empty(), None))
+                .flatten()
+                .collect();
 
         Self {
             gpu,
@@ -227,8 +236,6 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             _ => {}
         };
 
-        let start_time = Instant::now();
-
         // Push call onto stack
         if let Some(frame) = StackFrame::new(
             self.linearizations
@@ -236,6 +243,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .ok_or(InterpretationError::UnknownCall)?
                 .clone(),
             op.parameters.values(),
+            Some(res.clone()),
         ) {
             self.execution_stack.push(frame);
         }
@@ -252,8 +260,6 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
         // Write down uniforms and timing data
         self.last_known.insert(res.clone(), uniform_hash);
-        self.sockets
-            .update_timing_data(res, start_time.elapsed().as_secs_f64());
 
         Ok(())
     }
@@ -668,7 +674,12 @@ where
 
         // Pop frame if we're done here
         if self.execution_stack.last()?.instructions.is_empty() {
-            self.execution_stack.pop();
+            let frame = self.execution_stack.pop().unwrap();
+            if let Some(caller) = frame.caller {
+                let elapsed = frame.start_time.elapsed();
+                self.sockets
+                    .update_timing_data(&caller, elapsed.as_secs_f64());
+            }
         }
 
         response
