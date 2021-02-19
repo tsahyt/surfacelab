@@ -196,13 +196,11 @@ where
 
     /// Obtain a compute pipeline for the given operator
     pub fn pipeline_for(&self, op: &lang::AtomicOperator) -> &gpu::compute::ComputePipeline<B> {
-        debug_assert!(op.default_name() != "image" && op.default_name() != "output");
         self.pipelines.get(op.default_name()).unwrap()
     }
 
     /// Obtain the descriptor set for the given operator
     pub fn descriptor_set_for(&self, op: &lang::AtomicOperator) -> &B::DescriptorSet {
-        debug_assert!(op.default_name() != "image" && op.default_name() != "output");
         self.descriptor_sets.get(op.default_name()).unwrap()
     }
 
