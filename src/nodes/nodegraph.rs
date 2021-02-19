@@ -326,50 +326,50 @@ impl NodeGraph {
     /// **Errors** and aborts if either of the two Resources does not exist!
     pub fn connect_sockets(
         &mut self,
-        from_node: &str,
-        from_socket: &str,
-        to_node: &str,
-        to_socket: &str,
+        source_node: &str,
+        source_socket: &str,
+        sink_node: &str,
+        sink_socket: &str,
     ) -> Result<Vec<Lang>, NodeGraphError> {
         let mut response = Vec::new();
         // Get relevant resources
-        let from_path = *self
+        let source_idx = *self
             .indices
-            .get_by_left(&from_node.to_string())
-            .ok_or(NodeGraphError::NodeNotFound(from_node.to_string()))?;
-        let to_path = *self
+            .get_by_left(&source_node.to_string())
+            .ok_or(NodeGraphError::NodeNotFound(source_node.to_string()))?;
+        let sink_idx = *self
             .indices
-            .get_by_left(&to_node.to_string())
-            .ok_or(NodeGraphError::NodeNotFound(to_node.to_string()))?;
+            .get_by_left(&sink_node.to_string())
+            .ok_or(NodeGraphError::NodeNotFound(sink_node.to_string()))?;
 
-        // Check that from is a source and to is a sink
+        // Check that source and to are two different nodes
+        if source_node == sink_node {
+            return Err(NodeGraphError::InvalidConnection);
+        }
+
+        // Check that source is a source and sink is a sink
         if !(self
             .graph
-            .node_weight(from_path)
+            .node_weight(source_idx)
             .unwrap()
             .operator
             .outputs()
-            .contains_key(from_socket)
+            .contains_key(source_socket)
             && self
                 .graph
-                .node_weight(to_path)
+                .node_weight(sink_idx)
                 .unwrap()
                 .operator
                 .inputs()
-                .contains_key(to_socket))
+                .contains_key(sink_socket))
         {
             return Err(NodeGraphError::InvalidConnection);
         }
 
-        // Check that from and to are two different nodes
-        if from_node == to_node {
-            return Err(NodeGraphError::InvalidConnection);
-        }
-
         // Handle type checking/inference
-        let from_type = self.socket_type(from_node, from_socket).unwrap();
-        let to_type = self.socket_type(to_node, to_socket).unwrap();
-        match (from_type, to_type) {
+        let source_type = self.socket_type(source_node, source_socket).unwrap();
+        let sink_type = self.socket_type(sink_node, sink_socket).unwrap();
+        match (source_type, sink_type) {
             (OperatorType::Polymorphic(..), OperatorType::Polymorphic(..)) => {
                 return Err(NodeGraphError::ConnectionTypeError(
                     SocketTypeError::PolyPolyConnection,
@@ -383,13 +383,13 @@ impl NodeGraph {
                 }
             }
             (OperatorType::Monomorphic(ty), OperatorType::Polymorphic(p)) => {
-                let affected = self.set_type_variable(&to_node, p, Some(ty))?;
+                let affected = self.set_type_variable(&sink_node, p, Some(ty))?;
                 for res in affected {
                     response.push(Lang::GraphEvent(GraphEvent::SocketMonomorphized(res, ty)))
                 }
             }
             (OperatorType::Polymorphic(p), OperatorType::Monomorphic(ty)) => {
-                let affected = self.set_type_variable(&from_node, p, Some(ty))?;
+                let affected = self.set_type_variable(&source_node, p, Some(ty))?;
                 for res in affected {
                     response.push(Lang::GraphEvent(GraphEvent::SocketMonomorphized(res, ty)))
                 }
@@ -399,15 +399,15 @@ impl NodeGraph {
         // Perform connection
         log::trace!(
             "Connecting {:?} with {:?} from socket {:?} to socket {:?}",
-            from_path,
-            to_path,
-            from_socket,
-            to_socket,
+            source_idx,
+            sink_idx,
+            source_socket,
+            sink_socket,
         );
         self.graph.add_edge(
-            from_path,
-            to_path,
-            (from_socket.to_string(), to_socket.to_string()),
+            source_idx,
+            sink_idx,
+            (source_socket.to_string(), sink_socket.to_string()),
         );
 
         Ok(response)

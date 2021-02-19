@@ -378,8 +378,7 @@ pub enum GraphEvent {
         ComplexOperator,
         ParamBoxDescription<MessageWriters>,
     ),
-    /// Two sockets have been connected. The first socket is a source, the
-    /// second socket is a sink.
+    /// Two sockets have been connected.
     ConnectedSockets(Resource<Socket>, Resource<Socket>),
     /// Two sockets have been disconnected from each other.
     DisconnectedSockets(Resource<Socket>, Resource<Socket>),
