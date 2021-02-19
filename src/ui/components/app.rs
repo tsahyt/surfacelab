@@ -491,6 +491,7 @@ where
                 &self.app_data.sender,
                 &mut state.graphs,
             )
+            .icon_font(self.style.icon_font.unwrap().unwrap())
             .parent(state.ids.graph_settings_canvas)
             .wh_of(state.ids.graph_settings_canvas)
             .middle_of(state.ids.graph_settings_canvas)
