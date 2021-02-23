@@ -322,14 +322,8 @@ where
 
     /// Run a single compute pipeline given input and output images, the size of
     /// the output images, and the descriptors to be used.
-    pub fn run_pipeline<'a, I>(
-        &mut self,
-        image_size: u32,
-        input_images: I,
-        output_images: I,
-        pipeline: &ComputePipeline<B>,
-        descriptors: &B::DescriptorSet,
-    ) where
+    pub fn run_pipeline<'a, I>(&mut self, image_size: u32, input_images: I, output_images: I)
+    where
         I: IntoIterator<Item = &'a Image<B>> + Clone,
     {
         unsafe {
@@ -374,14 +368,14 @@ where
                 hal::memory::Dependencies::empty(),
                 pre_barriers,
             );
-            command_buffer.bind_compute_pipeline(&pipeline.raw);
-            command_buffer.bind_compute_descriptor_sets(
-                &pipeline.pipeline_layout,
-                0,
-                Some(descriptors),
-                &[],
-            );
-            command_buffer.dispatch([image_size / 8, image_size / 8, 1]);
+            // command_buffer.bind_compute_pipeline(&pipeline.raw);
+            // command_buffer.bind_compute_descriptor_sets(
+            //     &pipeline.pipeline_layout,
+            //     0,
+            //     Some(descriptors),
+            //     &[],
+            // );
+            // command_buffer.dispatch([image_size / 8, image_size / 8, 1]);
             command_buffer.finish();
             command_buffer
         };
@@ -874,7 +868,17 @@ where
     B: Backend,
 {
     /// Get descriptor set layout.
+    pub fn pipeline(&self) -> &B::ComputePipeline {
+        &self.raw
+    }
+
+    /// Get descriptor set layout.
     pub fn set_layout(&self) -> &B::DescriptorSetLayout {
         &self.set_layout
+    }
+
+    /// Get descriptor set layout.
+    pub fn pipeline_layout(&self) -> &B::PipelineLayout {
+        &self.pipeline_layout
     }
 }

@@ -1,6 +1,6 @@
 use super::parameters::*;
 use super::socketed::*;
-use crate::compute::shaders::{OperatorShader, Shader, Uniforms};
+use crate::compute::shaders::*;
 
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
@@ -83,8 +83,8 @@ impl Uniforms for Image {
 }
 
 impl Shader for Image {
-    fn operator_shader(&self) -> Option<OperatorShader> {
-        None
+    fn operator_passes(&self) -> Vec<OperatorPassDescription> {
+        vec![]
     }
 }
 
@@ -213,8 +213,8 @@ impl Uniforms for Output {
 }
 
 impl Shader for Output {
-    fn operator_shader(&self) -> Option<OperatorShader> {
-        None
+    fn operator_passes(&self) -> Vec<OperatorPassDescription> {
+        vec![]
     }
 }
 
@@ -294,8 +294,8 @@ impl Uniforms for Input {
 }
 
 impl Shader for Input {
-    fn operator_shader(&self) -> Option<OperatorShader> {
-        None
+    fn operator_passes(&self) -> Vec<OperatorPassDescription> {
+        vec![]
     }
 }
 

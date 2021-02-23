@@ -32,6 +32,8 @@ pub enum InterpretationError {
     /// Call to unknown graph
     #[error("Call to unknown graph attempted")]
     UnknownCall,
+    #[error("Missing shader in shader library")]
+    MissingShader,
 }
 
 #[derive(Debug)]
@@ -519,28 +521,30 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             );
         }
 
-        // fill uniforms and execute shader
-        let pipeline = self.shader_library.pipeline_for(&op);
-        let desc_set = self.shader_library.descriptor_set_for(&op);
-        let uniforms = op.uniforms();
-        let descriptors = ShaderLibrary::write_desc(
-            op,
-            desc_set,
-            self.gpu.uniform_buffer(),
-            self.gpu.sampler(),
-            &inputs,
-            &outputs,
-        );
+        // fill uniforms and execute operator passes
+        let passes = self
+            .shader_library
+            .passes_for(&op)
+            .ok_or(InterpretationError::MissingShader)?;
 
-        self.gpu.fill_uniforms(&uniforms)?;
-        self.gpu.write_descriptor_sets(descriptors);
-        self.gpu.run_pipeline(
-            self.sockets.get_image_size(res),
-            inputs.values().copied(),
-            outputs.values().copied(),
-            pipeline,
-            desc_set,
-        );
+        self.gpu.fill_uniforms(&op.uniforms())?;
+        for pass in passes {
+            let writers = pass.descriptor_writers(
+                self.gpu.uniform_buffer(),
+                self.gpu.sampler(),
+                &inputs,
+                &outputs,
+            );
+            self.gpu.write_descriptor_sets(writers);
+        }
+
+        // self.gpu.run_pipeline(
+        //     self.sockets.get_image_size(res),
+        //     inputs.values().copied(),
+        //     outputs.values().copied(),
+        //     pipeline,
+        //     desc_set,
+        // );
 
         self.last_known.insert(res.clone(), uniform_hash);
         self.sockets.set_output_image_updated(res, self.seq);

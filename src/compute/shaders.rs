@@ -127,10 +127,103 @@ impl OperatorShader {
     }
 }
 
-/// A Shader is anything that can return an operator shader for itself.
+/// Executing an operator on the GPU is done by running one or more passes.
+/// There is a special pass to synchronize resources between other passes, in
+/// case there is a data dependency.
+///
+/// Note that the Uniform descriptor passed into passes refers to the *same*
+/// uniform struct across *all* passes!
+pub enum OperatorPassDescription {
+    RunShader(OperatorShader),
+    Synchronize,
+}
+
+/// A "compiled" operator pass holding the required GPU structures for execution.
+pub enum OperatorPass<B: gpu::Backend> {
+    RunShader {
+        operator_shader: OperatorShader,
+        pipeline: gpu::compute::ComputePipeline<B>,
+        descriptors: B::DescriptorSet,
+    },
+    Synchronize,
+}
+
+impl<B> OperatorPass<B>
+where
+    B: gpu::Backend,
+{
+    /// Fill the given command buffer with commands to execute this operator pass.
+    pub fn build_commands(&self, image_size: u32, cmd_buffer: &mut B::CommandBuffer) {
+        use gfx_hal::prelude::*;
+        match self {
+            Self::RunShader {
+                pipeline,
+                descriptors,
+                ..
+            } => unsafe {
+                cmd_buffer.bind_compute_pipeline(pipeline.pipeline());
+                cmd_buffer.bind_compute_descriptor_sets(
+                    pipeline.pipeline_layout(),
+                    0,
+                    Some(descriptors),
+                    &[],
+                );
+                cmd_buffer.dispatch([image_size / 8, image_size / 8, 1]);
+            },
+            Self::Synchronize => {
+                todo!()
+            }
+        }
+    }
+
+    /// Obtain descriptor set writers for this operator pass.
+    pub fn descriptor_writers<'a>(
+        &'a self,
+        uniforms: &'a B::Buffer,
+        sampler: &'a B::Sampler,
+        inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
+        outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
+    ) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
+        match self {
+            OperatorPass::RunShader {
+                operator_shader,
+                descriptors,
+                ..
+            } => operator_shader
+                .writers(descriptors, uniforms, sampler, inputs, outputs)
+                .collect(),
+            OperatorPass::Synchronize => Vec::new(),
+        }
+    }
+
+    /// Create an `OperatorPass` from a description. This will convert the
+    /// description to GPU structures.
+    pub fn from_description(
+        description: OperatorPassDescription,
+        gpu: &mut gpu::compute::GPUCompute<B>,
+    ) -> Result<Self, gpu::InitializationError> {
+        match description {
+            OperatorPassDescription::RunShader(operator_shader) => {
+                let shader: gpu::Shader<B> = gpu.create_shader(operator_shader.spirv)?;
+                let pipeline: gpu::compute::ComputePipeline<B> =
+                    gpu.create_pipeline(&shader, operator_shader.layout())?;
+                let desc_set = gpu.allocate_descriptor_set(pipeline.set_layout())?;
+                Ok(Self::RunShader {
+                    operator_shader,
+                    pipeline,
+                    descriptors: desc_set,
+                })
+            }
+            OperatorPassDescription::Synchronize => Ok(Self::Synchronize),
+        }
+    }
+}
+
+/// A Shader is anything that can return a list of operator passes for itself. This
+/// trait is used to attach a GPU side implementation to an operator.
 #[enum_dispatch]
 pub trait Shader {
-    fn operator_shader(&self) -> Option<OperatorShader>;
+    fn operator_passes(&self) -> Vec<OperatorPassDescription>;
 }
 
 /// Uniforms are structs that can be converted into plain buffers for GPU use,
@@ -159,8 +252,7 @@ where
 
 /// The shader library holds relevant data for all (operator) shaders.
 pub struct ShaderLibrary<B: gpu::Backend> {
-    pipelines: HashMap<String, gpu::compute::ComputePipeline<B>>,
-    descriptor_sets: HashMap<String, B::DescriptorSet>,
+    shaders: HashMap<String, Vec<OperatorPass<B>>>,
 }
 
 impl<B> ShaderLibrary<B>
@@ -170,55 +262,26 @@ where
     /// Initialize the shader library
     pub fn new(gpu: &mut gpu::compute::GPUCompute<B>) -> Result<Self, gpu::InitializationError> {
         log::info!("Initializing Shader Library");
-        let mut pipelines = HashMap::new();
-        let mut descriptor_sets = HashMap::new();
+        let mut shaders = HashMap::new();
 
         for op in lang::AtomicOperator::all_default() {
             log::trace!("Initializing operator {}", op.title());
-            if let Some(operator_shader) = op.operator_shader() {
-                let shader: gpu::Shader<B> = gpu.create_shader(operator_shader.spirv)?;
-                let pipeline: gpu::compute::ComputePipeline<B> =
-                    gpu.create_pipeline(&shader, operator_shader.layout())?;
-                let desc_set = gpu.allocate_descriptor_set(pipeline.set_layout())?;
-
-                pipelines.insert(op.default_name().to_string(), pipeline);
-                descriptor_sets.insert(op.default_name().to_string(), desc_set);
-            }
+            let passes = op
+                .operator_passes()
+                .drain(0..)
+                .map(|pass| OperatorPass::from_description(pass, gpu))
+                .flatten()
+                .collect();
+            shaders.insert(op.default_name().to_string(), passes);
         }
 
         log::info!("Shader Library initialized!");
 
-        Ok(ShaderLibrary {
-            pipelines,
-            descriptor_sets,
-        })
+        Ok(ShaderLibrary { shaders })
     }
 
-    /// Obtain a compute pipeline for the given operator
-    pub fn pipeline_for(&self, op: &lang::AtomicOperator) -> &gpu::compute::ComputePipeline<B> {
-        self.pipelines.get(op.default_name()).unwrap()
-    }
-
-    /// Obtain the descriptor set for the given operator
-    pub fn descriptor_set_for(&self, op: &lang::AtomicOperator) -> &B::DescriptorSet {
-        self.descriptor_sets.get(op.default_name()).unwrap()
-    }
-
-    /// Create descriptor set writes for given operator with its inputs and outputs.
-    /// This assumes that all given inputs and outputs are already bound!
-    pub fn write_desc<'a>(
-        op: &lang::AtomicOperator,
-        desc_set: &'a B::DescriptorSet,
-        uniforms: &'a B::Buffer,
-        sampler: &'a B::Sampler,
-        inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
-        outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
-    ) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
-        match op.operator_shader() {
-            Some(operator_shader) => operator_shader
-                .writers(desc_set, uniforms, sampler, inputs, outputs)
-                .collect(),
-            None => vec![],
-        }
+    /// Obtain the operator passes for the given atomic operator
+    pub fn passes_for(&self, op: &lang::AtomicOperator) -> Option<&[OperatorPass<B>]> {
+        self.shaders.get(op.default_name()).map(|x| x.as_ref())
     }
 }

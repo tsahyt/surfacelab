@@ -1,6 +1,6 @@
 use super::super::parameters::*;
 use super::super::socketed::*;
-use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
+use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
@@ -52,8 +52,8 @@ impl Socketed for Hsv {
 }
 
 impl Shader for Hsv {
-    fn operator_shader(&self) -> Option<OperatorShader> {
-        Some(OperatorShader {
+    fn operator_passes(&self) -> Vec<OperatorPassDescription> {
+        vec![OperatorPassDescription::RunShader(OperatorShader {
             spirv: shader!("hsv"),
             descriptors: &[
                 OperatorDescriptor {
@@ -73,7 +73,7 @@ impl Shader for Hsv {
                     descriptor: OperatorDescriptorUse::OutputImage("color_out"),
                 },
             ],
-        })
+        })]
     }
 }
 

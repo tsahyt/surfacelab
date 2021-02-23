@@ -1,6 +1,6 @@
 use super::super::parameters::*;
 use super::super::socketed::*;
-use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
+use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
@@ -82,8 +82,8 @@ impl Socketed for Blend {
 }
 
 impl Shader for Blend {
-    fn operator_shader(&self) -> Option<OperatorShader> {
-        Some(OperatorShader {
+    fn operator_passes(&self) -> Vec<OperatorPassDescription> {
+        vec![OperatorPassDescription::RunShader(OperatorShader {
             spirv: shader!("blend"),
             descriptors: &[
                 OperatorDescriptor {
@@ -107,7 +107,7 @@ impl Shader for Blend {
                     descriptor: OperatorDescriptorUse::OutputImage("color"),
                 },
             ],
-        })
+        })]
     }
 }
 
@@ -204,8 +204,8 @@ impl Socketed for BlendMasked {
 }
 
 impl Shader for BlendMasked {
-    fn operator_shader(&self) -> Option<OperatorShader> {
-        Some(OperatorShader {
+    fn operator_passes(&self) -> Vec<OperatorPassDescription> {
+        vec![OperatorPassDescription::RunShader(OperatorShader {
             spirv: shader!("blend_masked"),
             descriptors: &[
                 OperatorDescriptor {
@@ -233,7 +233,7 @@ impl Shader for BlendMasked {
                     descriptor: OperatorDescriptorUse::OutputImage("color"),
                 },
             ],
-        })
+        })]
     }
 }
 

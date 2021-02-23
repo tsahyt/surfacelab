@@ -1,6 +1,6 @@
 use super::super::parameters::*;
 use super::super::socketed::*;
-use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
+use crate::compute::shaders::*;
 use crate::lang::ImageChannel;
 use crate::shader;
 
@@ -51,8 +51,8 @@ impl Socketed for Swizzle {
 }
 
 impl Shader for Swizzle {
-    fn operator_shader(&self) -> Option<OperatorShader> {
-        Some(OperatorShader {
+    fn operator_passes(&self) -> Vec<OperatorPassDescription> {
+        vec![OperatorPassDescription::RunShader(OperatorShader {
             spirv: shader!("swizzle"),
             descriptors: &[
                 OperatorDescriptor {
@@ -72,7 +72,7 @@ impl Shader for Swizzle {
                     descriptor: OperatorDescriptorUse::OutputImage("color_out"),
                 },
             ],
-        })
+        })]
     }
 }
 

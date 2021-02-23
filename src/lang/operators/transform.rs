@@ -1,8 +1,6 @@
 use super::super::parameters::*;
 use super::super::socketed::*;
-use crate::compute::shaders::{
-    OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader, Uniforms,
-};
+use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
@@ -96,8 +94,8 @@ impl Uniforms for Transform {
 }
 
 impl Shader for Transform {
-    fn operator_shader(&self) -> Option<OperatorShader> {
-        Some(OperatorShader {
+    fn operator_passes(&self) -> Vec<OperatorPassDescription> {
+        vec![OperatorPassDescription::RunShader(OperatorShader {
             spirv: shader!("transform"),
             descriptors: &[
                 OperatorDescriptor {
@@ -117,7 +115,7 @@ impl Shader for Transform {
                     descriptor: OperatorDescriptorUse::OutputImage("out"),
                 },
             ],
-        })
+        })]
     }
 }
 

@@ -1,6 +1,6 @@
 use super::super::parameters::*;
 use super::super::socketed::*;
-use crate::compute::shaders::{OperatorDescriptor, OperatorDescriptorUse, OperatorShader, Shader};
+use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
@@ -48,8 +48,8 @@ impl Socketed for Checker {
 }
 
 impl Shader for Checker {
-    fn operator_shader(&self) -> Option<OperatorShader> {
-        Some(OperatorShader {
+    fn operator_passes(&self) -> Vec<OperatorPassDescription> {
+        vec![OperatorPassDescription::RunShader(OperatorShader {
             spirv: shader!("checker"),
             descriptors: &[
                 OperatorDescriptor {
@@ -61,7 +61,7 @@ impl Shader for Checker {
                     descriptor: OperatorDescriptorUse::OutputImage("pattern"),
                 },
             ],
-        })
+        })]
     }
 }
 
