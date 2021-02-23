@@ -538,13 +538,16 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.gpu.write_descriptor_sets(writers);
         }
 
-        // self.gpu.run_pipeline(
-        //     self.sockets.get_image_size(res),
-        //     inputs.values().copied(),
-        //     outputs.values().copied(),
-        //     pipeline,
-        //     desc_set,
-        // );
+        self.gpu.run_compute(
+            self.sockets.get_image_size(res),
+            inputs.values().copied(),
+            outputs.values().copied(),
+            |img_size, cmd_buffer| {
+                for pass in passes {
+                    pass.build_commands(img_size, cmd_buffer);
+                }
+            },
+        );
 
         self.last_known.insert(res.clone(), uniform_hash);
         self.sockets.set_output_image_updated(res, self.seq);

@@ -320,10 +320,16 @@ where
         unsafe { lock.device.write_descriptor_sets(write_iter) };
     }
 
-    /// Run a single compute pipeline given input and output images, the size of
-    /// the output images, and the descriptors to be used.
-    pub fn run_pipeline<'a, I>(&mut self, image_size: u32, input_images: I, output_images: I)
-    where
+    /// Runs compute pipelines given input and output images, the size of the
+    /// output images, and a callback to fill the command buffer after
+    /// initialization.
+    pub fn run_compute<'a, I, F: FnOnce(u32, &mut B::CommandBuffer)>(
+        &mut self,
+        image_size: u32,
+        input_images: I,
+        output_images: I,
+        buffer_builder: F,
+    ) where
         I: IntoIterator<Item = &'a Image<B>> + Clone,
     {
         unsafe {
@@ -368,14 +374,7 @@ where
                 hal::memory::Dependencies::empty(),
                 pre_barriers,
             );
-            // command_buffer.bind_compute_pipeline(&pipeline.raw);
-            // command_buffer.bind_compute_descriptor_sets(
-            //     &pipeline.pipeline_layout,
-            //     0,
-            //     Some(descriptors),
-            //     &[],
-            // );
-            // command_buffer.dispatch([image_size / 8, image_size / 8, 1]);
+            buffer_builder(image_size, &mut command_buffer);
             command_buffer.finish();
             command_buffer
         };
