@@ -73,6 +73,7 @@ impl Shader for Hsv {
                     descriptor: OperatorDescriptorUse::OutputImage("color_out"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

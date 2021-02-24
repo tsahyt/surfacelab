@@ -72,6 +72,7 @@ impl Shader for Swizzle {
                     descriptor: OperatorDescriptorUse::OutputImage("color_out"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

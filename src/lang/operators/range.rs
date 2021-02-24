@@ -99,6 +99,7 @@ impl Shader for Range {
                     descriptor: OperatorDescriptorUse::OutputImage("value"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

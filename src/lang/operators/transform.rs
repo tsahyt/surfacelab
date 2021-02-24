@@ -115,6 +115,7 @@ impl Shader for Transform {
                     descriptor: OperatorDescriptorUse::OutputImage("out"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

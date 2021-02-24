@@ -6,12 +6,12 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex, Weak};
 use thiserror::Error;
 
-pub use gfx_hal::Backend;
+pub use gfx_hal::{spec_const_list, Backend};
 pub use hal::buffer::SubRange;
 pub use hal::image::{Access, Layout};
 pub use hal::pso::{
     BufferDescriptorFormat, BufferDescriptorType, Descriptor, DescriptorSetLayoutBinding,
-    DescriptorSetWrite, DescriptorType, ImageDescriptorType, ShaderStageFlags,
+    DescriptorSetWrite, DescriptorType, ImageDescriptorType, ShaderStageFlags, Specialization,
 };
 pub use hal::window::Extent2D;
 pub use hal::Instance;

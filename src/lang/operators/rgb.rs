@@ -57,6 +57,7 @@ impl Shader for Rgb {
                     descriptor: OperatorDescriptorUse::OutputImage("color"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

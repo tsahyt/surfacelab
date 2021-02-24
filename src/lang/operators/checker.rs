@@ -61,6 +61,7 @@ impl Shader for Checker {
                     descriptor: OperatorDescriptorUse::OutputImage("pattern"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

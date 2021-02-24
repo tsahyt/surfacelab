@@ -60,6 +60,7 @@ impl Shader for PerlinNoise {
                     descriptor: OperatorDescriptorUse::OutputImage("noise"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

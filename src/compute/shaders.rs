@@ -8,6 +8,8 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use zerocopy::AsBytes;
 
+pub use gpu::Specialization;
+
 /// Usage of a descriptor for an operator
 pub enum OperatorDescriptorUse {
     /// Input images are passed into the shader
@@ -31,6 +33,7 @@ pub struct OperatorDescriptor {
 pub struct OperatorShader {
     pub spirv: &'static [u8],
     pub descriptors: &'static [OperatorDescriptor],
+    pub specialization: Specialization<'static>,
 }
 
 impl OperatorShader {

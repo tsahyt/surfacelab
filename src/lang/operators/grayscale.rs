@@ -94,6 +94,7 @@ impl Shader for Grayscale {
                     descriptor: OperatorDescriptorUse::OutputImage("value"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

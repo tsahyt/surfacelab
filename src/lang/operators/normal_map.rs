@@ -65,6 +65,7 @@ impl Shader for NormalMap {
                     descriptor: OperatorDescriptorUse::OutputImage("normal"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

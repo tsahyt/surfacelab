@@ -107,6 +107,7 @@ impl Shader for Blend {
                     descriptor: OperatorDescriptorUse::OutputImage("color"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }
@@ -233,6 +234,7 @@ impl Shader for BlendMasked {
                     descriptor: OperatorDescriptorUse::OutputImage("color"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

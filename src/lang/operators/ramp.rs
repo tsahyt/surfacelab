@@ -104,6 +104,7 @@ impl Shader for Ramp {
                     descriptor: OperatorDescriptorUse::OutputImage("color"),
                 },
             ],
+            specialization: Specialization::default(),
         })]
     }
 }

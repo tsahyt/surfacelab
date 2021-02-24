@@ -1,4 +1,4 @@
-use crate::compute::shaders::{OperatorPassDescription, OperatorShader, Shader, Uniforms};
+use crate::compute::shaders::{OperatorPassDescription, Shader, Uniforms};
 pub mod operators;
 pub mod parameters;
 pub mod resource;
