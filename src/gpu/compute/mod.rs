@@ -264,6 +264,7 @@ where
     pub fn create_pipeline<I>(
         &self,
         shader: &Shader<B>,
+        specialization: &hal::pso::Specialization<'static>,
         bindings: I,
     ) -> Result<ComputePipeline<B>, InitializationError>
     where
@@ -281,7 +282,7 @@ where
         let entry_point = hal::pso::EntryPoint {
             entry: "main",
             module: &*shader.raw,
-            specialization: hal::pso::Specialization::default(),
+            specialization: specialization.clone(),
         };
 
         // Pipeline

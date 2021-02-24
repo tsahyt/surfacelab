@@ -208,8 +208,11 @@ where
         match description {
             OperatorPassDescription::RunShader(operator_shader) => {
                 let shader: gpu::Shader<B> = gpu.create_shader(operator_shader.spirv)?;
-                let pipeline: gpu::compute::ComputePipeline<B> =
-                    gpu.create_pipeline(&shader, operator_shader.layout())?;
+                let pipeline: gpu::compute::ComputePipeline<B> = gpu.create_pipeline(
+                    &shader,
+                    &operator_shader.specialization,
+                    operator_shader.layout(),
+                )?;
                 let desc_set = gpu.allocate_descriptor_set(pipeline.set_layout())?;
                 Ok(Self::RunShader {
                     operator_shader,
