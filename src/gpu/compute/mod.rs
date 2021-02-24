@@ -349,6 +349,11 @@ where
             .into_iter()
             .map(|i| i.get_raw().lock().unwrap())
             .collect();
+        let intermediate_locks: SmallVec<[_; 2]> = intermediate_images
+            .clone()
+            .into_iter()
+            .map(|i| i.get_raw().lock().unwrap())
+            .collect();
 
         let pre_barriers = {
             let input_barriers = input_images.into_iter().enumerate().map(|(k, i)| {
@@ -365,7 +370,17 @@ where
                     hal::image::Layout::General,
                 )
             });
-            input_barriers.chain(output_barriers)
+            let intermediate_barriers =
+                intermediate_images.into_iter().enumerate().map(|(k, i)| {
+                    i.barrier_to(
+                        &intermediate_locks[k],
+                        hal::image::Access::SHADER_WRITE | hal::image::Access::SHADER_READ,
+                        hal::image::Layout::General,
+                    )
+                });
+            input_barriers
+                .chain(output_barriers)
+                .chain(intermediate_barriers)
         };
 
         let command_buffer = unsafe {

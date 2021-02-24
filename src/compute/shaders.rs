@@ -16,6 +16,8 @@ pub enum OperatorDescriptorUse {
     InputImage(&'static str),
     /// Input images are compute results of the shader
     OutputImage(&'static str),
+    /// Intermediate images are used for temporary storages and persist between operator passes
+    IntermediateImage(&'static str),
     /// The sampler to use on input images
     Sampler,
     /// Uniform buffer
@@ -60,6 +62,15 @@ impl OperatorShader {
                 stage_flags: gpu::ShaderStageFlags::COMPUTE,
                 immutable_samplers: false,
             },
+            OperatorDescriptorUse::IntermediateImage(..) => gpu::DescriptorSetLayoutBinding {
+                binding: desc.binding,
+                ty: gpu::DescriptorType::Image {
+                    ty: gpu::ImageDescriptorType::Storage { read_only: false },
+                },
+                count: 1,
+                stage_flags: gpu::ShaderStageFlags::COMPUTE,
+                immutable_samplers: false,
+            },
             OperatorDescriptorUse::Sampler => gpu::DescriptorSetLayoutBinding {
                 binding: desc.binding,
                 ty: gpu::DescriptorType::Sampler,
@@ -92,6 +103,7 @@ impl OperatorShader {
         sampler: &'a B::Sampler,
         inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
         outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
+        intermediates: &'a HashMap<String, &'a gpu::compute::Image<B>>,
     ) -> impl Iterator<Item = gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
         self.descriptors
             .iter()
@@ -123,6 +135,15 @@ impl OperatorShader {
                     array_offset: 0,
                     descriptors: vec![gpu::Descriptor::Image(
                         outputs.get(socket).unwrap().get_view().unwrap(),
+                        gpu::Layout::General,
+                    )],
+                },
+                OperatorDescriptorUse::IntermediateImage(name) => gpu::DescriptorSetWrite {
+                    set: desc_set,
+                    binding: desc.binding,
+                    array_offset: 0,
+                    descriptors: vec![gpu::Descriptor::Image(
+                        intermediates.get(name).unwrap().get_view().unwrap(),
                         gpu::Layout::General,
                     )],
                 },
@@ -186,6 +207,7 @@ where
         sampler: &'a B::Sampler,
         inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
         outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
+        intermediates: &'a HashMap<String, &'a gpu::compute::Image<B>>,
     ) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
         match self {
             OperatorPass::RunShader {
@@ -193,7 +215,14 @@ where
                 descriptors,
                 ..
             } => operator_shader
-                .writers(descriptors, uniforms, sampler, inputs, outputs)
+                .writers(
+                    descriptors,
+                    uniforms,
+                    sampler,
+                    inputs,
+                    outputs,
+                    intermediates,
+                )
                 .collect(),
             OperatorPass::Synchronize => Vec::new(),
         }

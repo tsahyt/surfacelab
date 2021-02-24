@@ -522,7 +522,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             );
         }
 
-        let intermediate = HashMap::new();
+        let intermediates = HashMap::new();
 
         // fill uniforms and execute operator passes
         let passes = self
@@ -537,6 +537,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 self.gpu.sampler(),
                 &inputs,
                 &outputs,
+                &intermediates,
             );
             self.gpu.write_descriptor_sets(writers);
         }
@@ -545,7 +546,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.sockets.get_image_size(res),
             inputs.values().copied(),
             outputs.values().copied(),
-            intermediate.values().copied(),
+            intermediates.values().copied(),
             |img_size, cmd_buffer| {
                 for pass in passes {
                     pass.build_commands(img_size, cmd_buffer);
