@@ -329,6 +329,7 @@ where
         image_size: u32,
         input_images: I,
         output_images: I,
+        intermediate_images: I,
         buffer_builder: F,
     ) where
         I: IntoIterator<Item = &'a Image<B>> + Clone,

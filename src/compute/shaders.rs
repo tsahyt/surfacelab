@@ -1,7 +1,7 @@
 /// Tools for defining shaders for atomic operators.
 use crate::{
     gpu,
-    lang::{self, Socketed},
+    lang::{self, ImageType, Socketed},
 };
 use enum_dispatch::*;
 use std::borrow::Cow;
@@ -229,7 +229,13 @@ where
 /// trait is used to attach a GPU side implementation to an operator.
 #[enum_dispatch]
 pub trait Shader {
+    /// Return a list of operator passes
     fn operator_passes(&self) -> Vec<OperatorPassDescription>;
+
+    /// Return a hashmap describing all intermediate data by name. Defaults to empty.
+    fn intermediate_data(&self) -> HashMap<String, ImageType> {
+        HashMap::new()
+    }
 }
 
 /// Uniforms are structs that can be converted into plain buffers for GPU use,
@@ -256,9 +262,14 @@ where
     }
 }
 
+struct ShaderData<B: gpu::Backend> {
+    passes: Vec<OperatorPass<B>>,
+    intermediate_data: Vec<(String, ImageType)>,
+}
+
 /// The shader library holds relevant data for all (operator) shaders.
 pub struct ShaderLibrary<B: gpu::Backend> {
-    shaders: HashMap<String, Vec<OperatorPass<B>>>,
+    shaders: HashMap<String, ShaderData<B>>,
 }
 
 impl<B> ShaderLibrary<B>
@@ -278,7 +289,15 @@ where
                 .map(|pass| OperatorPass::from_description(pass, gpu))
                 .flatten()
                 .collect();
-            shaders.insert(op.default_name().to_string(), passes);
+            let intermediate_data = op.intermediate_data().drain().collect();
+
+            shaders.insert(
+                op.default_name().to_string(),
+                ShaderData {
+                    passes,
+                    intermediate_data,
+                },
+            );
         }
 
         log::info!("Shader Library initialized!");
@@ -288,6 +307,17 @@ where
 
     /// Obtain the operator passes for the given atomic operator
     pub fn passes_for(&self, op: &lang::AtomicOperator) -> Option<&[OperatorPass<B>]> {
-        self.shaders.get(op.default_name()).map(|x| x.as_ref())
+        self.shaders
+            .get(op.default_name())
+            .map(|x| x.passes.as_ref())
+    }
+
+    pub fn intermediate_data_for(
+        &self,
+        op: &lang::AtomicOperator,
+    ) -> Option<&[(String, ImageType)]> {
+        self.shaders
+            .get(op.default_name())
+            .map(|x| x.intermediate_data.as_ref())
     }
 }

@@ -503,6 +503,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
         let start_time = Instant::now();
 
+        // Get inputs and outputs
         let mut inputs = HashMap::new();
         for socket in op.inputs().keys() {
             let socket_res = res.node_socket(&socket);
@@ -520,6 +521,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 self.sockets.get_output_image(&socket_res).unwrap(),
             );
         }
+
+        let intermediate = HashMap::new();
 
         // fill uniforms and execute operator passes
         let passes = self
@@ -542,6 +545,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.sockets.get_image_size(res),
             inputs.values().copied(),
             outputs.values().copied(),
+            intermediate.values().copied(),
             |img_size, cmd_buffer| {
                 for pass in passes {
                     pass.build_commands(img_size, cmd_buffer);
