@@ -31,11 +31,21 @@ pub struct OperatorDescriptor {
     pub descriptor: OperatorDescriptorUse,
 }
 
+/// Workgroup size of the operator pass.
+pub enum OperatorShape {
+    /// Execute shader per pixel, using given local work group sizes
+    PerPixel { local_x: u8, local_y: u8 },
+    /// Execute shader per row or column, using the given work group size for
+    /// number of rows in a local workgroup
+    PerRowOrColumn { local_size: u8 },
+}
+
 /// Describes an operator shader. Typically there is one shader per operator.
 pub struct OperatorShader {
     pub spirv: &'static [u8],
     pub descriptors: &'static [OperatorDescriptor],
     pub specialization: Specialization<'static>,
+    pub shape: OperatorShape,
 }
 
 impl OperatorShader {
@@ -195,7 +205,7 @@ where
             Self::RunShader {
                 pipeline,
                 descriptors,
-                ..
+                operator_shader: OperatorShader { shape, .. },
             } => unsafe {
                 cmd_buffer.bind_compute_pipeline(pipeline.pipeline());
                 cmd_buffer.bind_compute_descriptor_sets(
@@ -204,7 +214,16 @@ where
                     Some(descriptors),
                     &[],
                 );
-                cmd_buffer.dispatch([image_size / 8, image_size / 8, 1]);
+                cmd_buffer.dispatch(match shape {
+                    OperatorShape::PerPixel { local_x, local_y } => [
+                        image_size / *local_x as u32,
+                        image_size / *local_y as u32,
+                        1,
+                    ],
+                    OperatorShape::PerRowOrColumn { local_size } => {
+                        [image_size / *local_size as u32, 1, 1]
+                    }
+                });
             },
             Self::Synchronize(descs) => unsafe {
                 cmd_buffer.pipeline_barrier(

@@ -66,6 +66,10 @@ impl Shader for NormalMap {
                 },
             ],
             specialization: Specialization::default(),
+            shape: OperatorShape::PerPixel {
+                local_x: 8,
+                local_y: 8,
+            },
         })]
     }
 }
