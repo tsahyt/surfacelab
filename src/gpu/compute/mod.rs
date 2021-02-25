@@ -324,15 +324,16 @@ where
     /// Runs compute pipelines given input and output images, the size of the
     /// output images, and a callback to fill the command buffer after
     /// initialization.
-    pub fn run_compute<'a, I, F: FnOnce(u32, &mut B::CommandBuffer)>(
+    pub fn run_compute<'a, I, J, F: FnOnce(u32, &mut B::CommandBuffer)>(
         &mut self,
         image_size: u32,
         input_images: I,
         output_images: I,
-        intermediate_images: I,
+        intermediate_images: J,
         buffer_builder: F,
     ) where
         I: IntoIterator<Item = &'a Image<B>> + Clone,
+        J: IntoIterator<Item = &'a Image<B>> + Clone,
     {
         unsafe {
             let lock = self.gpu.lock().unwrap();

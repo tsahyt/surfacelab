@@ -522,7 +522,20 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             );
         }
 
-        let intermediates = HashMap::new();
+        let mut intermediates = HashMap::new();
+        for (name, ty) in self
+            .shader_library
+            .intermediate_data_for(&op)
+            .ok_or(InterpretationError::MissingShader)?
+        {
+            let mut img = self
+                .gpu
+                .create_compute_image(self.sockets.get_image_size(res), *ty, false)
+                .expect("Failed to create intermediate image");
+            img.ensure_alloc()
+                .expect("Failed to alloc intermediate image");
+            intermediates.insert(name.clone(), img);
+        }
 
         // fill uniforms and execute operator passes
         let passes = self
@@ -546,10 +559,10 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.sockets.get_image_size(res),
             inputs.values().copied(),
             outputs.values().copied(),
-            intermediates.values().copied(),
+            intermediates.values(),
             |img_size, cmd_buffer| {
                 for pass in passes {
-                    pass.build_commands(img_size, cmd_buffer);
+                    pass.build_commands(img_size, &intermediates, cmd_buffer);
                 }
             },
         );

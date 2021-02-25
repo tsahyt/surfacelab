@@ -103,7 +103,7 @@ impl OperatorShader {
         sampler: &'a B::Sampler,
         inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
         outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
-        intermediates: &'a HashMap<String, &'a gpu::compute::Image<B>>,
+        intermediates: &'a HashMap<String, gpu::compute::Image<B>>,
     ) -> impl Iterator<Item = gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
         self.descriptors
             .iter()
@@ -151,6 +151,13 @@ impl OperatorShader {
     }
 }
 
+/// Description of synchronization to be performed. The string refers to an
+/// intermediate image by name.
+pub enum SynchronizeDescription {
+    ToWrite(&'static str),
+    ToRead(&'static str),
+}
+
 /// Executing an operator on the GPU is done by running one or more passes.
 /// There is a special pass to synchronize resources between other passes, in
 /// case there is a data dependency.
@@ -159,7 +166,7 @@ impl OperatorShader {
 /// uniform struct across *all* passes!
 pub enum OperatorPassDescription {
     RunShader(OperatorShader),
-    Synchronize,
+    Synchronize(&'static [SynchronizeDescription]),
 }
 
 /// A "compiled" operator pass holding the required GPU structures for execution.
@@ -169,7 +176,7 @@ pub enum OperatorPass<B: gpu::Backend> {
         pipeline: gpu::compute::ComputePipeline<B>,
         descriptors: B::DescriptorSet,
     },
-    Synchronize,
+    Synchronize(&'static [SynchronizeDescription]),
 }
 
 impl<B> OperatorPass<B>
@@ -177,7 +184,12 @@ where
     B: gpu::Backend,
 {
     /// Fill the given command buffer with commands to execute this operator pass.
-    pub fn build_commands(&self, image_size: u32, cmd_buffer: &mut B::CommandBuffer) {
+    pub fn build_commands<'a>(
+        &self,
+        image_size: u32,
+        intermediates: &'a HashMap<String, gpu::compute::Image<B>>,
+        cmd_buffer: &mut B::CommandBuffer,
+    ) {
         use gfx_hal::prelude::*;
         match self {
             Self::RunShader {
@@ -194,9 +206,31 @@ where
                 );
                 cmd_buffer.dispatch([image_size / 8, image_size / 8, 1]);
             },
-            Self::Synchronize => {
-                todo!()
-            }
+            Self::Synchronize(descs) => unsafe {
+                cmd_buffer.pipeline_barrier(
+                    gfx_hal::pso::PipelineStage::COMPUTE_SHADER
+                        ..gfx_hal::pso::PipelineStage::COMPUTE_SHADER,
+                    gfx_hal::memory::Dependencies::empty(),
+                    descs.iter().map(|desc| match desc {
+                        SynchronizeDescription::ToWrite(name) => intermediates
+                            .get(*name)
+                            .expect("Illegal intermediate image")
+                            .barrier_to(
+                                todo!(),
+                                gfx_hal::image::Access::SHADER_WRITE,
+                                gfx_hal::image::Layout::General,
+                            ),
+                        SynchronizeDescription::ToRead(name) => intermediates
+                            .get(*name)
+                            .expect("Illegal intermediate image")
+                            .barrier_to(
+                                todo!(),
+                                gfx_hal::image::Access::SHADER_READ,
+                                gfx_hal::image::Layout::General,
+                            ),
+                    }),
+                );
+            },
         }
     }
 
@@ -207,7 +241,7 @@ where
         sampler: &'a B::Sampler,
         inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
         outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
-        intermediates: &'a HashMap<String, &'a gpu::compute::Image<B>>,
+        intermediates: &'a HashMap<String, gpu::compute::Image<B>>,
     ) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
         match self {
             OperatorPass::RunShader {
@@ -224,7 +258,7 @@ where
                     intermediates,
                 )
                 .collect(),
-            OperatorPass::Synchronize => Vec::new(),
+            OperatorPass::Synchronize(..) => Vec::new(),
         }
     }
 
@@ -249,7 +283,7 @@ where
                     descriptors: desc_set,
                 })
             }
-            OperatorPassDescription::Synchronize => Ok(Self::Synchronize),
+            OperatorPassDescription::Synchronize(desc) => Ok(Self::Synchronize(desc)),
         }
     }
 }
