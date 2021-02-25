@@ -212,22 +212,28 @@ where
                         ..gfx_hal::pso::PipelineStage::COMPUTE_SHADER,
                     gfx_hal::memory::Dependencies::empty(),
                     descs.iter().map(|desc| match desc {
-                        SynchronizeDescription::ToWrite(name) => intermediates
-                            .get(*name)
-                            .expect("Illegal intermediate image")
-                            .barrier_to(
+                        SynchronizeDescription::ToWrite(name) => {
+                            let image = intermediates
+                                .get(*name)
+                                .expect("Illegal intermediate image");
+
+                            image.barrier_to(
                                 todo!(),
                                 gfx_hal::image::Access::SHADER_WRITE,
                                 gfx_hal::image::Layout::General,
-                            ),
-                        SynchronizeDescription::ToRead(name) => intermediates
-                            .get(*name)
-                            .expect("Illegal intermediate image")
-                            .barrier_to(
+                            )
+                        }
+                        SynchronizeDescription::ToRead(name) => {
+                            let image = intermediates
+                                .get(*name)
+                                .expect("Illegal intermediate image");
+
+                            image.barrier_to(
                                 todo!(),
                                 gfx_hal::image::Access::SHADER_READ,
                                 gfx_hal::image::Layout::General,
-                            ),
+                            )
+                        }
                     }),
                 );
             },
