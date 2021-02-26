@@ -12,11 +12,13 @@ use zerocopy::AsBytes;
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Blur {
+    sigma: f32
 }
 
 impl Default for Blur {
     fn default() -> Self {
         Self {
+            sigma: 5.0,
         }
     }
 }
@@ -43,34 +45,56 @@ impl Socketed for Blur {
     }
 }
 
+const BLUR_DESCRIPTORS: &'static [OperatorDescriptor] = &[
+    OperatorDescriptor {
+        binding: 0,
+        descriptor: OperatorDescriptorUse::Uniforms,
+    },
+    OperatorDescriptor {
+        binding: 1,
+        descriptor: OperatorDescriptorUse::InputImage("in"),
+    },
+    OperatorDescriptor {
+        binding: 2,
+        descriptor: OperatorDescriptorUse::Sampler,
+    },
+    OperatorDescriptor {
+        binding: 3,
+        descriptor: OperatorDescriptorUse::IntermediateImage("tmp"),
+    },
+    OperatorDescriptor {
+        binding: 4,
+        descriptor: OperatorDescriptorUse::OutputImage("out"),
+    },
+];
+
 impl Shader for Blur {
     fn operator_passes(&self) -> Vec<OperatorPassDescription> {
-        vec![OperatorPassDescription::RunShader(OperatorShader {
-            spirv: shader!("blur"),
-            descriptors: &[
-                OperatorDescriptor {
-                    binding: 0,
-                    descriptor: OperatorDescriptorUse::Uniforms,
+        vec![
+            OperatorPassDescription::Synchronize(&[SynchronizeDescription::ToReadWrite("tmp")]),
+            OperatorPassDescription::RunShader(OperatorShader {
+                spirv: shader!("blur"),
+                descriptors: BLUR_DESCRIPTORS,
+                specialization: gfx_hal::spec_const_list!(0u32),
+                shape: OperatorShape::PerRowOrColumn {
+                    local_size: 64,
                 },
-                OperatorDescriptor {
-                    binding: 1,
-                    descriptor: OperatorDescriptorUse::InputImage("in"),
+            }),
+            OperatorPassDescription::Synchronize(&[SynchronizeDescription::ToReadWrite("tmp")]),
+            OperatorPassDescription::RunShader(OperatorShader {
+                spirv: shader!("blur"),
+                descriptors: BLUR_DESCRIPTORS,
+                specialization: gfx_hal::spec_const_list!(1u32),
+                shape: OperatorShape::PerRowOrColumn {
+                    local_size: 64,
                 },
-                OperatorDescriptor {
-                    binding: 2,
-                    descriptor: OperatorDescriptorUse::Sampler,
-                },
-                OperatorDescriptor {
-                    binding: 3,
-                    descriptor: OperatorDescriptorUse::OutputImage("out"),
-                },
-            ],
-            specialization: Specialization::default(),
-            shape: OperatorShape::PerPixel {
-                local_x: 8,
-                local_y: 8,
-            },
-        })]
+            }),
+        ]
+    }
+    fn intermediate_data(&self) -> HashMap<String, ImageType> {
+        hashmap! {
+            "tmp".to_string() => ImageType::Rgb,
+        }
     }
 }
 
@@ -81,6 +105,16 @@ impl OperatorParamBox for Blur {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 parameters: vec![
+                    Parameter {
+                        name: "sigma".to_string(),
+                        transmitter: Field(Blur::SIGMA.to_string()),
+                        control: Control::Slider {
+                            value: self.sigma,
+                            min: 1.,
+                            max: 256.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
                 ],
             }],
         }

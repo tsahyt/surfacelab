@@ -166,6 +166,7 @@ impl OperatorShader {
 pub enum SynchronizeDescription {
     ToWrite(&'static str),
     ToRead(&'static str),
+    ToReadWrite(&'static str),
 }
 
 /// Executing an operator on the GPU is done by running one or more passes.
@@ -253,6 +254,18 @@ where
                             image.barrier_to(
                                 &intermediates_locks[*name],
                                 gfx_hal::image::Access::SHADER_READ,
+                                gfx_hal::image::Layout::General,
+                            )
+                        }
+                        SynchronizeDescription::ToReadWrite(name) => {
+                            let image = intermediates
+                                .get(*name)
+                                .expect("Illegal intermediate image");
+
+                            image.barrier_to(
+                                &intermediates_locks[*name],
+                                gfx_hal::image::Access::SHADER_READ
+                                    | gfx_hal::image::Access::SHADER_WRITE,
                                 gfx_hal::image::Layout::General,
                             )
                         }

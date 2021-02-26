@@ -1,19 +1,94 @@
 #version 460
 
-layout(local_size_x = 8, local_size_y = 8) in;
+layout(local_size_x = 64) in;
+
+layout(constant_id = 0) const uint PASS_DIRECTION = 0;
+
+const uint PASS_ROW = 0;
+const uint PASS_COLUMN = 1;
 
 layout(set = 0, binding = 0) uniform Params {
-    float radius;
+    float sigma;
 };
 
-layout(set = 0, binding = 1) uniform texture2D t_Color1;
+layout(set = 0, binding = 1) uniform texture2D t_In;
 layout(set = 0, binding = 2) uniform sampler Sampler;
-layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
+layout(set = 0, binding = 3, rgba16f) uniform image2D t_Tmp;
+layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
+
+// Return the box size for a given sigma, a number of boxes, and the current box
+// index (0 .. n)
+int box_size(float sigma, int n, int i) {
+    float w_exact = sqrt(12.0 * sigma * sigma / float(n) + 1);
+    int w = int(floor(w_exact));
+    if(w % 2 == 0) { w--; };
+
+    float m_exact =
+        (12.0 * sigma * sigma - float(n) * w * w - 4.0 * float(n) * float(w) - 3.0 * float(n)) /
+        (- 4.0 * float(w) - 4.0);
+    int m = int(round(m_exact));
+
+    return i < m ? w : w + 2;
+}
+
+// Copy t_In to t_Tmp, row by row
+void row_copy() {
+    int y = int(gl_GlobalInvocationID.x);
+    for(int x = 0; x < imageSize(t_Tmp).x; ++x) {
+        ivec2 idx = ivec2(x, y);
+        ivec2 resolution = imageSize(t_Out);
+        vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+
+        vec4 color = texture(sampler2D(t_In, Sampler), uv);
+        imageStore(t_Tmp, idx, color);
+    }
+}
+
+// Perform the row pass on the intermediate image, i.e. blurring with constant y
+void row_pass() {
+    int y = int(gl_GlobalInvocationID.x);
+
+    for(int pass = 0; pass < 3; ++pass) {
+        int box_size = box_size(sigma, 3, pass);
+
+        for(int x = 0; x < imageSize(t_Tmp).x; ++x) {
+            imageStore(t_Tmp, ivec2(x, y), vec4(0., 0., 0., 1.));
+        }
+    }
+}
+
+// Copy t_Tmp to t_Out, column by column
+void column_copy() {
+    int x = int(gl_GlobalInvocationID.x);
+    for(int y = 0; y < imageSize(t_Tmp).y; ++y) {
+        ivec2 idx = ivec2(x, y);
+        vec4 color = imageLoad(t_Tmp, idx);
+        imageStore(t_Out, idx, color);
+    }
+}
+
+// Perform the column pass on the intermediate image, i.e. blurring with constant x.
+void column_pass() {
+    int x = int(gl_GlobalInvocationID.x);
+
+    for(int pass = 0; pass < 3; ++pass) {
+        int box_size = box_size(sigma, 3, pass);
+
+        for(int y = 0; y < imageSize(t_Tmp).y; ++y) {
+            imageStore(t_Tmp, ivec2(x, y), vec4(0., 0., 0., 1.));
+        }
+    }
+}
 
 void main() {
-    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    ivec2 resolution = imageSize(t_Out);
-    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
-
-    imageStore(t_Out, idx, vec4(0., 0., 0., 1.));
+    switch(PASS_DIRECTION) {
+        case 0:
+            row_copy();
+            row_pass();
+            return;
+        case 1:
+            column_pass();
+            column_copy();
+            return;
+    }
 }
