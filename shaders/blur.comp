@@ -6,6 +6,7 @@ layout(constant_id = 0) const uint PASS_DIRECTION = 0;
 
 const uint PASS_ROW = 0;
 const uint PASS_COLUMN = 1;
+const int PASSES = 3;
 
 layout(set = 0, binding = 0) uniform Params {
     float sigma;
@@ -48,16 +49,16 @@ void row_copy() {
 void row_pass() {
     int y = int(gl_GlobalInvocationID.x);
 
-    for(int pass = 0; pass < 3; ++pass) {
-        int r = box_size(sigma, 3, pass);
+    for(int pass = 0; pass < PASSES; ++pass) {
+        int r = box_size(sigma, PASSES, pass);
 
         for(int x = 0; x < imageSize(t_Tmp).x; ++x) {
             vec4 c = vec4(0.);
-            for(int k = -r; k < r; ++k) {
-                ivec2 idx = ivec2(mod(ivec2(x + k, y), imageSize(t_Tmp)));
+            for(int k = x - r; k < x + r + 1; k++) {
+                ivec2 idx = ivec2(k, y) % imageSize(t_Tmp);
                 c += imageLoad(t_Tmp, idx);
             }
-            imageStore(t_Tmp, ivec2(x, y), c / (r + r));
+            imageStore(t_Tmp, ivec2(x, y), c / (r + r + 1));
         }
     }
 }
@@ -76,16 +77,16 @@ void column_copy() {
 void column_pass() {
     int x = int(gl_GlobalInvocationID.x);
 
-    for(int pass = 0; pass < 3; ++pass) {
-        int r = box_size(sigma, 3, pass);
+    for(int pass = 0; pass < PASSES; ++pass) {
+        int r = box_size(sigma, PASSES, pass);
 
         for(int y = 0; y < imageSize(t_Tmp).y; ++y) {
             vec4 c = vec4(0.);
-            for(int k = -r; k < r; ++k) {
-                ivec2 idx = ivec2(mod(ivec2(x, y + k), imageSize(t_Tmp)));
+            for(int k = y - r; k < y + r + 1; k++) {
+                ivec2 idx = ivec2(x, k) % imageSize(t_Tmp);
                 c += imageLoad(t_Tmp, idx);
             }
-            imageStore(t_Tmp, ivec2(x, y), c / (r + r));
+            imageStore(t_Tmp, ivec2(x, y), c / (r + r + 1));
         }
     }
 }
