@@ -11,6 +11,7 @@ use strum_macros::*;
 use surfacelab_derive::*;
 
 pub mod blend;
+pub mod blur;
 pub mod checker;
 pub mod grayscale;
 pub mod hsv;
@@ -23,6 +24,7 @@ pub mod swizzle;
 pub mod transform;
 
 pub use blend::*;
+pub use blur::*;
 pub use checker::*;
 pub use grayscale::*;
 pub use hsv::*;
