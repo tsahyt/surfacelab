@@ -49,10 +49,15 @@ void row_pass() {
     int y = int(gl_GlobalInvocationID.x);
 
     for(int pass = 0; pass < 3; ++pass) {
-        int box_size = box_size(sigma, 3, pass);
+        int r = box_size(sigma, 3, pass);
 
         for(int x = 0; x < imageSize(t_Tmp).x; ++x) {
-            imageStore(t_Tmp, ivec2(x, y), vec4(0., 0., 0., 1.));
+            vec4 c = vec4(0.);
+            for(int k = -r; k < r; ++k) {
+                ivec2 idx = ivec2(mod(ivec2(x + k, y), imageSize(t_Tmp)));
+                c += imageLoad(t_Tmp, idx);
+            }
+            imageStore(t_Tmp, ivec2(x, y), c / (r + r));
         }
     }
 }
@@ -72,10 +77,15 @@ void column_pass() {
     int x = int(gl_GlobalInvocationID.x);
 
     for(int pass = 0; pass < 3; ++pass) {
-        int box_size = box_size(sigma, 3, pass);
+        int r = box_size(sigma, 3, pass);
 
         for(int y = 0; y < imageSize(t_Tmp).y; ++y) {
-            imageStore(t_Tmp, ivec2(x, y), vec4(0., 0., 0., 1.));
+            vec4 c = vec4(0.);
+            for(int k = -r; k < r; ++k) {
+                ivec2 idx = ivec2(mod(ivec2(x, y + k), imageSize(t_Tmp)));
+                c += imageLoad(t_Tmp, idx);
+            }
+            imageStore(t_Tmp, ivec2(x, y), c / (r + r));
         }
     }
 }
