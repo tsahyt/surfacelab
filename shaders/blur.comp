@@ -50,7 +50,7 @@ void row_pass() {
     int y = int(gl_GlobalInvocationID.x);
 
     for(int pass = 0; pass < PASSES; ++pass) {
-        int r = box_size(sigma, PASSES, pass);
+        int r = (box_size(sigma, PASSES, pass) - 1) / 2;
 
         for(int x = 0; x < imageSize(t_Tmp).x; ++x) {
             vec4 c = vec4(0.);
@@ -78,7 +78,7 @@ void column_pass() {
     int x = int(gl_GlobalInvocationID.x);
 
     for(int pass = 0; pass < PASSES; ++pass) {
-        int r = box_size(sigma, PASSES, pass);
+        int r = (box_size(sigma, PASSES, pass) - 1) / 2;
 
         for(int y = 0; y < imageSize(t_Tmp).y; ++y) {
             vec4 c = vec4(0.);
