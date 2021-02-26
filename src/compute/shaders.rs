@@ -344,9 +344,11 @@ pub enum FromSocketOr<T> {
     Independent(T),
 }
 
-/// Description of intermediate data in an Operator
+/// Description of intermediate data in an Operator. References sockets are
+/// assumed to be *outputs*.
 pub struct IntermediateDataDescription {
-    /// Image size to use for the intermediate image.
+    /// Image size to use for the intermediate image. Since all outputs have the
+    /// same size, the exact choice is irrelevant.
     pub size: FromSocketOr<u32>,
     /// Type of the intermediate image.
     pub ty: FromSocketOr<ImageType>,
