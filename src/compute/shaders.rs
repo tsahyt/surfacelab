@@ -176,7 +176,13 @@ pub enum SynchronizeDescription {
 /// Note that the Uniform descriptor passed into passes refers to the *same*
 /// uniform struct across *all* passes!
 pub enum OperatorPassDescription {
+    /// Run a shader as an operator pass
     RunShader(OperatorShader),
+    /// Copy input image to specified intermediate image. Pixel by pixel copy, assumes same format and size!
+    CopyInput(&'static str, &'static str),
+    /// Copy specified intermediate image to output. Pixel by pixel copy, assumes same format and size!
+    CopyOutput(&'static str, &'static str),
+    /// Synchronize according to description
     Synchronize(&'static [SynchronizeDescription]),
 }
 
@@ -325,6 +331,8 @@ where
                 })
             }
             OperatorPassDescription::Synchronize(desc) => Ok(Self::Synchronize(desc)),
+            OperatorPassDescription::CopyInput(_, _) => todo!(),
+            OperatorPassDescription::CopyOutput(_, _) => todo!(),
         }
     }
 }
