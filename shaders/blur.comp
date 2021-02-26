@@ -28,44 +28,59 @@ int box_size(float sigma) {
 // Perform the row passes on the intermediate image, i.e. blurring with constant y
 void row_passes() {
     int y = int(gl_GlobalInvocationID.x);
-
     int r = (box_size(sigma) - 1) / 2;
+    vec4 c = vec4(0.);
 
     // Pass 1, t_In -> t_Tmp1, sampled
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(k, y);
+        ivec2 resolution = imageSize(t_Out);
+        vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+
+        c += texture(sampler2D(t_In, Sampler), uv);
+    }
+
     for(int x = 0; x < imageSize(t_Tmp1).x; ++x) {
-        vec4 c = vec4(0.);
+        ivec2 resolution = imageSize(t_Out);
+        ivec2 idx = ivec2(x + r + 1, y);
+        vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+        c += texture(sampler2D(t_In, Sampler), uv);
 
-        for(int k = x - r; k < x + r + 1; k++) {
-            ivec2 idx = ivec2(k, y);
-            ivec2 resolution = imageSize(t_Out);
-            vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
-
-            c += texture(sampler2D(t_In, Sampler), uv);
-        }
+        idx = ivec2(x - r, y);
+        uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+        c -= texture(sampler2D(t_In, Sampler), uv);
 
         imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
     }
 
     // Pass 2, t_Tmp1 -> t_Tmp2
-    for(int x = 0; x < imageSize(t_Tmp2).x; ++x) {
-        vec4 c = vec4(0.);
+    c = vec4(0.);
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(k, y) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+    }
 
-        for(int k = x - r; k < x + r + 1; k++) {
-            ivec2 idx = ivec2(k, y) % imageSize(t_Tmp1);
-            c += imageLoad(t_Tmp1, idx);
-        }
+    for(int x = 0; x < imageSize(t_Tmp2).x; ++x) {
+        ivec2 idx = ivec2(x + r + 1, y) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+        idx = ivec2(x - r, y) % imageSize(t_Tmp1);
+        c -= imageLoad(t_Tmp1, idx);
 
         imageStore(t_Tmp2, ivec2(x, y), c / (r + r + 1));
     }
 
     // Pass 3, t_Tmp2 -> t_Tmp1
-    for(int x = 0; x < imageSize(t_Tmp1).x; ++x) {
-        vec4 c = vec4(0.);
+    c = vec4(0.);
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(k, y) % imageSize(t_Tmp2);
+        c += imageLoad(t_Tmp2, idx);
+    }
 
-        for(int k = x - r; k < x + r + 1; k++) {
-            ivec2 idx = ivec2(k, y) % imageSize(t_Tmp2);
-            c += imageLoad(t_Tmp2, idx);
-        }
+    for(int x = 0; x < imageSize(t_Tmp1).x; ++x) {
+        ivec2 idx = ivec2(x + r + 1, y) % imageSize(t_Tmp2);
+        c += imageLoad(t_Tmp2, idx);
+        idx = ivec2(x - r, y) % imageSize(t_Tmp2);
+        c -= imageLoad(t_Tmp2, idx);
 
         imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
     }
@@ -75,39 +90,51 @@ void row_passes() {
 void column_passes() {
     int x = int(gl_GlobalInvocationID.x);
     int r = (box_size(sigma) - 1) / 2;
+    vec4 c = vec4(0.);
 
     // Pass 1, t_Tmp1 -> t_Tmp2
-    for(int y = 0; y < imageSize(t_Tmp2).y; ++y) {
-        vec4 c = vec4(0.);
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(x, k) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+    }
 
-        for(int k = y - r; k < y + r + 1; k++) {
-            ivec2 idx = ivec2(x, k) % imageSize(t_Tmp1);
-            c += imageLoad(t_Tmp1, idx);
-        }
+    for(int y = 0; y < imageSize(t_Tmp2).y; ++y) {
+        ivec2 idx = ivec2(x, y + r + 1) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+        idx = ivec2(x, y - r) % imageSize(t_Tmp1);
+        c -= imageLoad(t_Tmp1, idx);
 
         imageStore(t_Tmp2, ivec2(x, y), c / (r + r + 1));
     }
 
     // Pass 2, t_Tmp2 -> t_Tmp1
-    for(int y = 0; y < imageSize(t_Tmp1).y; ++y) {
-        vec4 c = vec4(0.);
+    c = vec4(0.);
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(x, k) % imageSize(t_Tmp2);
+        c += imageLoad(t_Tmp2, idx);
+    }
 
-        for(int k = y - r; k < y + r + 1; k++) {
-            ivec2 idx = ivec2(x, k) % imageSize(t_Tmp2);
-            c += imageLoad(t_Tmp2, idx);
-        }
+    for(int y = 0; y < imageSize(t_Tmp1).y; ++y) {
+        ivec2 idx = ivec2(x, y + r + 1) % imageSize(t_Tmp2);
+        c += imageLoad(t_Tmp2, idx);
+        idx = ivec2(x, y - r) % imageSize(t_Tmp2);
+        c -= imageLoad(t_Tmp2, idx);
 
         imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
     }
 
     // Pass 3, t_Tmp1 -> t_Out
-    for(int y = 0; y < imageSize(t_Out).y; ++y) {
-        vec4 c = vec4(0.);
+    c = vec4(0.);
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(x, k) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+    }
 
-        for(int k = y - r; k < y + r + 1; k++) {
-            ivec2 idx = ivec2(x, k) % imageSize(t_Tmp1);
-            c += imageLoad(t_Tmp1, idx);
-        }
+    for(int y = 0; y < imageSize(t_Out).y; ++y) {
+        ivec2 idx = ivec2(x, y + r + 1) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+        idx = ivec2(x, y - r) % imageSize(t_Tmp1);
+        c -= imageLoad(t_Tmp1, idx);
 
         imageStore(t_Out, ivec2(x, y), c / (r + r + 1));
     }
