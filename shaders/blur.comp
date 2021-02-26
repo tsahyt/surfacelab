@@ -8,6 +8,7 @@ const uint PASS_ROW = 0;
 const uint PASS_COLUMN = 1;
 
 layout(set = 0, binding = 0) uniform Params {
+    uint quality;
     float sigma;
 };
 
@@ -17,9 +18,10 @@ layout(set = 0, binding = 3, rgba16f) uniform image2D t_Tmp1;
 layout(set = 0, binding = 4, rgba16f) uniform image2D t_Tmp2;
 layout(set = 0, binding = 5, rgba16f) uniform image2D t_Out;
 
-// Return the box size for a given sigma, assuming 3 blur passes.
+// Return the box size for a given sigma.
 int box_size(float sigma) {
-    float w_exact = sqrt(4 * sigma * sigma + 1.0);
+    float n = quality * 2 + 1;
+    float w_exact = sqrt(4 * sigma * sigma / n + 1.0);
     int w = int(floor(w_exact));
     if(w % 2 == 0) { w--; };
     return w;
@@ -53,36 +55,38 @@ void row_passes() {
         imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
     }
 
-    // Pass 2, t_Tmp1 -> t_Tmp2
-    c = vec4(0.);
-    for(int k = -r; k < r + 1; k++) {
-        ivec2 idx = ivec2(k, y) % imageSize(t_Tmp1);
-        c += imageLoad(t_Tmp1, idx);
-    }
+    for(uint q = 0; q < quality; ++q) {
+        // Pass 2, t_Tmp1 -> t_Tmp2
+        c = vec4(0.);
+        for(int k = -r; k < r + 1; k++) {
+            ivec2 idx = ivec2(k, y) % imageSize(t_Tmp1);
+            c += imageLoad(t_Tmp1, idx);
+        }
 
-    for(int x = 0; x < imageSize(t_Tmp2).x; ++x) {
-        ivec2 idx = ivec2(x + r + 1, y) % imageSize(t_Tmp1);
-        c += imageLoad(t_Tmp1, idx);
-        idx = ivec2(x - r, y) % imageSize(t_Tmp1);
-        c -= imageLoad(t_Tmp1, idx);
+        for(int x = 0; x < imageSize(t_Tmp2).x; ++x) {
+            ivec2 idx = ivec2(x + r + 1, y) % imageSize(t_Tmp1);
+            c += imageLoad(t_Tmp1, idx);
+            idx = ivec2(x - r, y) % imageSize(t_Tmp1);
+            c -= imageLoad(t_Tmp1, idx);
 
-        imageStore(t_Tmp2, ivec2(x, y), c / (r + r + 1));
-    }
+            imageStore(t_Tmp2, ivec2(x, y), c / (r + r + 1));
+        }
 
-    // Pass 3, t_Tmp2 -> t_Tmp1
-    c = vec4(0.);
-    for(int k = -r; k < r + 1; k++) {
-        ivec2 idx = ivec2(k, y) % imageSize(t_Tmp2);
-        c += imageLoad(t_Tmp2, idx);
-    }
+        // Pass 3, t_Tmp2 -> t_Tmp1
+        c = vec4(0.);
+        for(int k = -r; k < r + 1; k++) {
+            ivec2 idx = ivec2(k, y) % imageSize(t_Tmp2);
+            c += imageLoad(t_Tmp2, idx);
+        }
 
-    for(int x = 0; x < imageSize(t_Tmp1).x; ++x) {
-        ivec2 idx = ivec2(x + r + 1, y) % imageSize(t_Tmp2);
-        c += imageLoad(t_Tmp2, idx);
-        idx = ivec2(x - r, y) % imageSize(t_Tmp2);
-        c -= imageLoad(t_Tmp2, idx);
+        for(int x = 0; x < imageSize(t_Tmp1).x; ++x) {
+            ivec2 idx = ivec2(x + r + 1, y) % imageSize(t_Tmp2);
+            c += imageLoad(t_Tmp2, idx);
+            idx = ivec2(x - r, y) % imageSize(t_Tmp2);
+            c -= imageLoad(t_Tmp2, idx);
 
-        imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
+            imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
+        }
     }
 }
 
@@ -92,35 +96,37 @@ void column_passes() {
     int r = (box_size(sigma) - 1) / 2;
     vec4 c = vec4(0.);
 
-    // Pass 1, t_Tmp1 -> t_Tmp2
-    for(int k = -r; k < r + 1; k++) {
-        ivec2 idx = ivec2(x, k) % imageSize(t_Tmp1);
-        c += imageLoad(t_Tmp1, idx);
-    }
+    for(uint q = 0; q < quality; ++q) {
+        // Pass 1, t_Tmp1 -> t_Tmp2
+        for(int k = -r; k < r + 1; k++) {
+            ivec2 idx = ivec2(x, k) % imageSize(t_Tmp1);
+            c += imageLoad(t_Tmp1, idx);
+        }
 
-    for(int y = 0; y < imageSize(t_Tmp2).y; ++y) {
-        ivec2 idx = ivec2(x, y + r + 1) % imageSize(t_Tmp1);
-        c += imageLoad(t_Tmp1, idx);
-        idx = ivec2(x, y - r) % imageSize(t_Tmp1);
-        c -= imageLoad(t_Tmp1, idx);
+        for(int y = 0; y < imageSize(t_Tmp2).y; ++y) {
+            ivec2 idx = ivec2(x, y + r + 1) % imageSize(t_Tmp1);
+            c += imageLoad(t_Tmp1, idx);
+            idx = ivec2(x, y - r) % imageSize(t_Tmp1);
+            c -= imageLoad(t_Tmp1, idx);
 
-        imageStore(t_Tmp2, ivec2(x, y), c / (r + r + 1));
-    }
+            imageStore(t_Tmp2, ivec2(x, y), c / (r + r + 1));
+        }
 
-    // Pass 2, t_Tmp2 -> t_Tmp1
-    c = vec4(0.);
-    for(int k = -r; k < r + 1; k++) {
-        ivec2 idx = ivec2(x, k) % imageSize(t_Tmp2);
-        c += imageLoad(t_Tmp2, idx);
-    }
+        // Pass 2, t_Tmp2 -> t_Tmp1
+        c = vec4(0.);
+        for(int k = -r; k < r + 1; k++) {
+            ivec2 idx = ivec2(x, k) % imageSize(t_Tmp2);
+            c += imageLoad(t_Tmp2, idx);
+        }
 
-    for(int y = 0; y < imageSize(t_Tmp1).y; ++y) {
-        ivec2 idx = ivec2(x, y + r + 1) % imageSize(t_Tmp2);
-        c += imageLoad(t_Tmp2, idx);
-        idx = ivec2(x, y - r) % imageSize(t_Tmp2);
-        c -= imageLoad(t_Tmp2, idx);
+        for(int y = 0; y < imageSize(t_Tmp1).y; ++y) {
+            ivec2 idx = ivec2(x, y + r + 1) % imageSize(t_Tmp2);
+            c += imageLoad(t_Tmp2, idx);
+            idx = ivec2(x, y - r) % imageSize(t_Tmp2);
+            c -= imageLoad(t_Tmp2, idx);
 
-        imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
+            imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
+        }
     }
 
     // Pass 3, t_Tmp1 -> t_Out

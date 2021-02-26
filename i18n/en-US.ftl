@@ -107,3 +107,4 @@ shear = Shear
 rotation = Rotation
 
 sigma = Sigma
+quality = Quality

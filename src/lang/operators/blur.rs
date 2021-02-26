@@ -6,18 +6,43 @@ use crate::shader;
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum::VariantNames;
+use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
 #[repr(C)]
+#[derive(
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    ParameterField,
+    PartialEq,
+)]
+pub enum BlurQuality {
+    LowQuality = 0,
+    HighQuality = 1,
+}
+
+#[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Blur {
+    quality: BlurQuality,
     sigma: f32,
 }
 
 impl Default for Blur {
     fn default() -> Self {
-        Self { sigma: 5.0 }
+        Self {
+            quality: BlurQuality::HighQuality,
+            sigma: 5.0,
+        }
     }
 }
 
@@ -116,16 +141,30 @@ impl OperatorParamBox for Blur {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
-                parameters: vec![Parameter {
-                    name: "sigma".to_string(),
-                    transmitter: Field(Blur::SIGMA.to_string()),
-                    control: Control::Slider {
-                        value: self.sigma,
-                        min: 1.,
-                        max: 256.,
+                parameters: vec![
+                    Parameter {
+                        name: "quality".to_string(),
+                        transmitter: Field(Blur::QUALITY.to_string()),
+                        control: Control::Enum {
+                            selected: self.quality as usize,
+                            variants: BlurQuality::VARIANTS
+                                .iter()
+                                .map(|x| x.to_string())
+                                .collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
                     },
-                    expose_status: Some(ExposeStatus::Unexposed),
-                }],
+                    Parameter {
+                        name: "sigma".to_string(),
+                        transmitter: Field(Blur::SIGMA.to_string()),
+                        control: Control::Slider {
+                            value: self.sigma,
+                            min: 1.,
+                            max: 256.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                ],
             }],
         }
     }
