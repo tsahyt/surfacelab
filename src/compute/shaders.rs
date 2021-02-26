@@ -194,12 +194,15 @@ where
     B: gpu::Backend,
 {
     /// Fill the given command buffer with commands to execute this operator pass.
-    pub fn build_commands<'a>(
+    pub fn build_commands<'a, L>(
         &self,
         image_size: u32,
         intermediates: &'a HashMap<String, gpu::compute::Image<B>>,
+        intermediates_locks: &'a HashMap<String, L>,
         cmd_buffer: &mut B::CommandBuffer,
-    ) {
+    ) where
+        L: std::ops::Deref<Target = B::Image>,
+    {
         use gfx_hal::prelude::*;
         match self {
             Self::RunShader {
@@ -237,7 +240,7 @@ where
                                 .expect("Illegal intermediate image");
 
                             image.barrier_to(
-                                todo!(),
+                                &intermediates_locks[*name],
                                 gfx_hal::image::Access::SHADER_WRITE,
                                 gfx_hal::image::Layout::General,
                             )
@@ -248,7 +251,7 @@ where
                                 .expect("Illegal intermediate image");
 
                             image.barrier_to(
-                                todo!(),
+                                &intermediates_locks[*name],
                                 gfx_hal::image::Access::SHADER_READ,
                                 gfx_hal::image::Layout::General,
                             )

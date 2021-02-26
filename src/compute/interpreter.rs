@@ -32,6 +32,7 @@ pub enum InterpretationError {
     /// Call to unknown graph
     #[error("Call to unknown graph attempted")]
     UnknownCall,
+    /// Failed to find shader for operator
     #[error("Missing shader in shader library")]
     MissingShader,
 }
@@ -559,10 +560,10 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.sockets.get_image_size(res),
             inputs.values().copied(),
             outputs.values().copied(),
-            intermediates.values(),
-            |img_size, cmd_buffer| {
+            intermediates.iter(),
+            |img_size, intermediates_locks, cmd_buffer| {
                 for pass in passes {
-                    pass.build_commands(img_size, &intermediates, cmd_buffer);
+                    pass.build_commands(img_size, &intermediates, intermediates_locks, cmd_buffer);
                 }
             },
         );

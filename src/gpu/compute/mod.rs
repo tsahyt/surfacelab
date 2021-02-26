@@ -5,8 +5,10 @@ use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use smallvec::SmallVec;
 use std::borrow::Borrow;
+use std::collections::HashMap;
+use std::iter::FromIterator;
 use std::mem::ManuallyDrop;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 pub mod allocator;
 pub mod thumbnails;
@@ -324,7 +326,7 @@ where
     /// Runs compute pipelines given input and output images, the size of the
     /// output images, and a callback to fill the command buffer after
     /// initialization.
-    pub fn run_compute<'a, I, J, F: FnOnce(u32, &mut B::CommandBuffer)>(
+    pub fn run_compute<'a, I, J, F>(
         &mut self,
         image_size: u32,
         input_images: I,
@@ -333,7 +335,12 @@ where
         buffer_builder: F,
     ) where
         I: IntoIterator<Item = &'a Image<B>> + Clone,
-        J: IntoIterator<Item = &'a Image<B>> + Clone,
+        J: IntoIterator<Item = (&'a String, &'a Image<B>)> + Clone,
+        F: FnOnce(
+            u32,
+            &std::collections::HashMap<String, MutexGuard<B::Image>>,
+            &mut B::CommandBuffer,
+        ),
     {
         unsafe {
             let lock = self.gpu.lock().unwrap();
@@ -350,11 +357,12 @@ where
             .into_iter()
             .map(|i| i.get_raw().lock().unwrap())
             .collect();
-        let intermediate_locks: SmallVec<[_; 2]> = intermediate_images
-            .clone()
-            .into_iter()
-            .map(|i| i.get_raw().lock().unwrap())
-            .collect();
+        let intermediate_locks = HashMap::from_iter(
+            intermediate_images
+                .clone()
+                .into_iter()
+                .map(|(name, i)| (name.to_string(), i.get_raw().lock().unwrap())),
+        );
 
         let pre_barriers = {
             let input_barriers = input_images.into_iter().enumerate().map(|(k, i)| {
@@ -371,14 +379,13 @@ where
                     hal::image::Layout::General,
                 )
             });
-            let intermediate_barriers =
-                intermediate_images.into_iter().enumerate().map(|(k, i)| {
-                    i.barrier_to(
-                        &intermediate_locks[k],
-                        hal::image::Access::SHADER_WRITE | hal::image::Access::SHADER_READ,
-                        hal::image::Layout::General,
-                    )
-                });
+            let intermediate_barriers = intermediate_images.into_iter().map(|(n, i)| {
+                i.barrier_to(
+                    &intermediate_locks[n],
+                    hal::image::Access::SHADER_WRITE,
+                    hal::image::Layout::General,
+                )
+            });
             input_barriers
                 .chain(output_barriers)
                 .chain(intermediate_barriers)
@@ -392,7 +399,7 @@ where
                 hal::memory::Dependencies::empty(),
                 pre_barriers,
             );
-            buffer_builder(image_size, &mut command_buffer);
+            buffer_builder(image_size, &intermediate_locks, &mut command_buffer);
             command_buffer.finish();
             command_buffer
         };
