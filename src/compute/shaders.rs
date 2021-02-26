@@ -337,6 +337,21 @@ where
     }
 }
 
+/// Description element to take data from an existing socket or use an
+/// independent definition.
+pub enum FromSocketOr<T> {
+    FromSocket(&'static str),
+    Independent(T),
+}
+
+/// Description of intermediate data in an Operator
+pub struct IntermediateDataDescription {
+    /// Image size to use for the intermediate image.
+    pub size: FromSocketOr<u32>,
+    /// Type of the intermediate image.
+    pub ty: FromSocketOr<ImageType>,
+}
+
 /// A Shader is anything that can return a list of operator passes for itself. This
 /// trait is used to attach a GPU side implementation to an operator.
 #[enum_dispatch]
@@ -345,7 +360,7 @@ pub trait Shader {
     fn operator_passes(&self) -> Vec<OperatorPassDescription>;
 
     /// Return a hashmap describing all intermediate data by name. Defaults to empty.
-    fn intermediate_data(&self) -> HashMap<String, ImageType> {
+    fn intermediate_data(&self) -> HashMap<String, IntermediateDataDescription> {
         HashMap::new()
     }
 }
@@ -376,7 +391,7 @@ where
 
 struct ShaderData<B: gpu::Backend> {
     passes: Vec<OperatorPass<B>>,
-    intermediate_data: Vec<(String, ImageType)>,
+    intermediate_data: Vec<(String, IntermediateDataDescription)>,
 }
 
 /// The shader library holds relevant data for all (operator) shaders.
@@ -427,7 +442,7 @@ where
     pub fn intermediate_data_for(
         &self,
         op: &lang::AtomicOperator,
-    ) -> Option<&[(String, ImageType)]> {
+    ) -> Option<&[(String, IntermediateDataDescription)]> {
         self.shaders
             .get(op.default_name())
             .map(|x| x.intermediate_data.as_ref())

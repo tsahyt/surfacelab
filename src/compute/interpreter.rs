@@ -524,14 +524,27 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         }
 
         let mut intermediates = HashMap::new();
-        for (name, ty) in self
+        for (name, descr) in self
             .shader_library
             .intermediate_data_for(&op)
             .ok_or(InterpretationError::MissingShader)?
         {
+            use super::shaders::FromSocketOr;
+
+            let size = match descr.size {
+                FromSocketOr::FromSocket(_) => self.sockets.get_image_size(res),
+                FromSocketOr::Independent(s) => s,
+            };
+            let ty = match descr.ty {
+                FromSocketOr::FromSocket(s) => self
+                    .sockets
+                    .get_output_image_type(&res.node_socket(s))
+                    .expect("Invalid output socket"),
+                FromSocketOr::Independent(t) => t,
+            };
             let mut img = self
                 .gpu
-                .create_compute_image(self.sockets.get_image_size(res), *ty, false)
+                .create_compute_image(size, ty, false)
                 .expect("Failed to create intermediate image");
             img.ensure_alloc()
                 .expect("Failed to alloc intermediate image");

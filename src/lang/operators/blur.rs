@@ -96,10 +96,16 @@ impl Shader for Blur {
         ]
     }
 
-    fn intermediate_data(&self) -> HashMap<String, ImageType> {
+    fn intermediate_data(&self) -> HashMap<String, IntermediateDataDescription> {
         hashmap! {
-            "tmp1".to_string() => ImageType::Rgb,
-            "tmp2".to_string() => ImageType::Rgb,
+            "tmp1".to_string() => IntermediateDataDescription {
+                size: FromSocketOr::FromSocket("out"),
+                ty: FromSocketOr::FromSocket("out"),
+            },
+            "tmp2".to_string() => IntermediateDataDescription {
+                size: FromSocketOr::FromSocket("out"),
+                ty: FromSocketOr::FromSocket("out"),
+            },
         }
     }
 }
