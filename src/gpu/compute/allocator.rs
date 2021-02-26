@@ -13,7 +13,7 @@ pub const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRan
 };
 
 /// Memory allocation ID.
-type AllocId = u32;
+type AllocId = u64;
 
 /// A Chunk is a piece of VRAM of fixed size that can be allocated for some
 /// image. The size is hardcoded as `CHUNK_SIZE`.
