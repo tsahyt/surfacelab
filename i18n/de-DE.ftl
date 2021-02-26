@@ -105,3 +105,5 @@ inverted = Invertiert
 translation = Verschiebung
 shear = Scheren
 rotation = Rotation
+
+sigma = Sigma
