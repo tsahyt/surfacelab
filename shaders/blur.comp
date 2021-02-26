@@ -6,7 +6,6 @@ layout(constant_id = 0) const uint PASS_DIRECTION = 0;
 
 const uint PASS_ROW = 0;
 const uint PASS_COLUMN = 1;
-const int PASSES = 3;
 
 layout(set = 0, binding = 0) uniform Params {
     float sigma;
@@ -14,8 +13,9 @@ layout(set = 0, binding = 0) uniform Params {
 
 layout(set = 0, binding = 1) uniform texture2D t_In;
 layout(set = 0, binding = 2) uniform sampler Sampler;
-layout(set = 0, binding = 3, rgba16f) uniform image2D t_Tmp;
-layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
+layout(set = 0, binding = 3, rgba16f) uniform image2D t_Tmp1;
+layout(set = 0, binding = 4, rgba16f) uniform image2D t_Tmp2;
+layout(set = 0, binding = 5, rgba16f) uniform image2D t_Out;
 
 // Return the box size for a given sigma, a number of boxes, and the current box
 // index (0 .. n)
@@ -32,74 +32,105 @@ int box_size(float sigma, int n, int i) {
     return i < m ? w : w + 2;
 }
 
-// Copy t_In to t_Tmp, row by row
-void row_copy() {
-    int y = int(gl_GlobalInvocationID.x);
-    for(int x = 0; x < imageSize(t_Tmp).x; ++x) {
-        ivec2 idx = ivec2(x, y);
-        ivec2 resolution = imageSize(t_Out);
-        vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
-
-        vec4 color = texture(sampler2D(t_In, Sampler), uv);
-        imageStore(t_Tmp, idx, color);
-    }
-}
-
-// Perform the row pass on the intermediate image, i.e. blurring with constant y
-void row_pass() {
+// Perform the row passes on the intermediate image, i.e. blurring with constant y
+void row_passes() {
     int y = int(gl_GlobalInvocationID.x);
 
-    for(int pass = 0; pass < PASSES; ++pass) {
-        int r = (box_size(sigma, PASSES, pass) - 1) / 2;
+    int r = (box_size(sigma, 3, 0) - 1) / 2;
 
-        for(int x = 0; x < imageSize(t_Tmp).x; ++x) {
-            vec4 c = vec4(0.);
-            for(int k = x - r; k < x + r + 1; k++) {
-                ivec2 idx = ivec2(k, y) % imageSize(t_Tmp);
-                c += imageLoad(t_Tmp, idx);
-            }
-            imageStore(t_Tmp, ivec2(x, y), c / (r + r + 1));
+    // Pass 1, t_In -> t_Tmp1, sampled
+    for(int x = 0; x < imageSize(t_Tmp1).x; ++x) {
+        vec4 c = vec4(0.);
+
+        for(int k = x - r; k < x + r + 1; k++) {
+            ivec2 idx = ivec2(k, y);
+            ivec2 resolution = imageSize(t_Out);
+            vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+
+            c += texture(sampler2D(t_In, Sampler), uv);
         }
+
+        imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
+    }
+
+    r = (box_size(sigma, 3, 1) - 1) / 2;
+
+    // Pass 2, t_Tmp1 -> t_Tmp2
+    for(int x = 0; x < imageSize(t_Tmp2).x; ++x) {
+        vec4 c = vec4(0.);
+
+        for(int k = x - r; k < x + r + 1; k++) {
+            ivec2 idx = ivec2(k, y) % imageSize(t_Tmp1);
+            c += imageLoad(t_Tmp1, idx);
+        }
+
+        imageStore(t_Tmp2, ivec2(x, y), c / (r + r + 1));
+    }
+
+    r = (box_size(sigma, 3, 2) - 1) / 2;
+
+    // Pass 3, t_Tmp2 -> t_Tmp1
+    for(int x = 0; x < imageSize(t_Tmp1).x; ++x) {
+        vec4 c = vec4(0.);
+
+        for(int k = x - r; k < x + r + 1; k++) {
+            ivec2 idx = ivec2(k, y) % imageSize(t_Tmp2);
+            c += imageLoad(t_Tmp2, idx);
+        }
+
+        imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
     }
 }
 
-// Copy t_Tmp to t_Out, column by column
-void column_copy() {
+// Perform the column passes on the intermediate image, i.e. blurring with constant x.
+void column_passes() {
     int x = int(gl_GlobalInvocationID.x);
-    for(int y = 0; y < imageSize(t_Tmp).y; ++y) {
-        ivec2 idx = ivec2(x, y);
-        vec4 color = imageLoad(t_Tmp, idx);
-        imageStore(t_Out, idx, color);
-    }
-}
+    int r = (box_size(sigma, 3, 0) - 1) / 2;
 
-// Perform the column pass on the intermediate image, i.e. blurring with constant x.
-void column_pass() {
-    int x = int(gl_GlobalInvocationID.x);
+    // Pass 1, t_Tmp1 -> t_Tmp2
+    for(int y = 0; y < imageSize(t_Tmp2).y; ++y) {
+        vec4 c = vec4(0.);
 
-    for(int pass = 0; pass < PASSES; ++pass) {
-        int r = (box_size(sigma, PASSES, pass) - 1) / 2;
-
-        for(int y = 0; y < imageSize(t_Tmp).y; ++y) {
-            vec4 c = vec4(0.);
-            for(int k = y - r; k < y + r + 1; k++) {
-                ivec2 idx = ivec2(x, k) % imageSize(t_Tmp);
-                c += imageLoad(t_Tmp, idx);
-            }
-            imageStore(t_Tmp, ivec2(x, y), c / (r + r + 1));
+        for(int k = y - r; k < y + r + 1; k++) {
+            ivec2 idx = ivec2(x, k) % imageSize(t_Tmp1);
+            c += imageLoad(t_Tmp1, idx);
         }
+
+        imageStore(t_Tmp2, ivec2(x, y), c / (r + r + 1));
+    }
+
+    // Pass 2, t_Tmp2 -> t_Tmp1
+    for(int y = 0; y < imageSize(t_Tmp1).y; ++y) {
+        vec4 c = vec4(0.);
+
+        for(int k = y - r; k < y + r + 1; k++) {
+            ivec2 idx = ivec2(x, k) % imageSize(t_Tmp2);
+            c += imageLoad(t_Tmp2, idx);
+        }
+
+        imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
+    }
+
+    // Pass 3, t_Tmp1 -> t_Out
+    for(int y = 0; y < imageSize(t_Out).y; ++y) {
+        vec4 c = vec4(0.);
+
+        for(int k = y - r; k < y + r + 1; k++) {
+            ivec2 idx = ivec2(x, k) % imageSize(t_Tmp1);
+            c += imageLoad(t_Tmp1, idx);
+        }
+
+        imageStore(t_Out, ivec2(x, y), c / (r + r + 1));
     }
 }
 
 void main() {
     switch(PASS_DIRECTION) {
         case 0:
-            row_copy();
-            row_pass();
+            row_passes();
             return;
         case 1:
-            column_pass();
-            column_copy();
+            column_passes();
             return;
     }
 }
