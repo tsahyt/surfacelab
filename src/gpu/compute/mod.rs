@@ -543,54 +543,6 @@ where
             .expect("Failed to build CPU visible staging buffer")
             .build::<B>(&lock.device)?;
 
-        // // Create and allocate staging buffer in host readable memory.
-        // let mut buf = unsafe {
-        //     lock.device
-        //         .create_buffer(bytes, hal::buffer::Usage::TRANSFER_SRC)
-        // }
-        // .map_err(|_| UploadError::Creation)?;
-
-        // let buf_req = unsafe { lock.device.get_buffer_requirements(&buf) };
-        // let mem_type = lock
-        //     .memory_properties
-        //     .memory_types
-        //     .iter()
-        //     .enumerate()
-        //     .position(|(id, mem_type)| {
-        //         buf_req.type_mask & (1 << id) != 0
-        //             && mem_type
-        //                 .properties
-        //                 .contains(hal::memory::Properties::CPU_VISIBLE)
-        //     })
-        //     .unwrap()
-        //     .into();
-        // let mem = unsafe { lock.device.allocate_memory(mem_type, bytes) }
-        //     .map_err(|_| UploadError::Allocation)?;
-
-        // unsafe {
-        //     lock.device
-        //         .bind_buffer_memory(&mem, 0, &mut buf)
-        //         .map_err(|_| UploadError::BufferBind)?
-        // };
-
-        // // Upload image to staging buffer
-        // unsafe {
-        //     let mapping = lock
-        //         .device
-        //         .map_memory(
-        //             &mem,
-        //             hal::memory::Segment {
-        //                 offset: 0,
-        //                 size: Some(bytes),
-        //             },
-        //         )
-        //         .unwrap();
-        //     let u8s: &[u8] =
-        //         std::slice::from_raw_parts(buffer.as_ptr() as *const u8, buffer.len() * 2);
-        //     std::ptr::copy_nonoverlapping(u8s.as_ptr(), mapping, bytes as usize);
-        //     lock.device.unmap_memory(&mem);
-        // }
-
         // Reset fence
         unsafe {
             lock.device.reset_fence(&self.fence).unwrap();
