@@ -179,6 +179,7 @@ where
         })
     }
 
+    /// Create a new unallocated compute image
     pub fn create_compute_image(
         &self,
         size: u32,
@@ -231,6 +232,12 @@ where
             image,
             format,
         ))
+    }
+
+    /// Create a new temporary buffer in compute memory, with the given size.
+    /// The buffer is allocated.
+    pub fn create_compute_temp_buffer(&self, bytes: u32) -> Result<Image<B>, InitializationError> {
+        todo!()
     }
 
     /// Fill the uniform buffer with the given data. The data *must* fit into

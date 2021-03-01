@@ -392,3 +392,45 @@ where
         }
     }
 }
+
+/// Temporary buffers in compute memory. Contrary to images these buffers are
+/// *always* allocated, for as long as they live. They dealloc automatically on
+/// drop.
+pub struct TempBuffer<B: Backend> {
+    parent: Arc<Mutex<ComputeAllocator<B>>>,
+    raw: ManuallyDrop<B::Buffer>,
+    alloc: Alloc<B>,
+}
+
+impl<B> TempBuffer<B>
+where
+    B: Backend,
+{
+    pub fn new(parent: Arc<Mutex<ComputeAllocator<B>>>, raw: B::Buffer, alloc: Alloc<B>) -> Self {
+        Self {
+            parent,
+            raw: ManuallyDrop::new(raw),
+            alloc,
+        }
+    }
+
+    pub fn get_raw(&self) -> &B::Buffer {
+        &*self.raw
+    }
+}
+
+impl<B> Drop for TempBuffer<B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        let parent_lock = self.parent.lock().unwrap();
+        let gpu_lock = parent_lock.gpu.lock().unwrap();
+
+        unsafe {
+            gpu_lock
+                .device
+                .destroy_buffer(ManuallyDrop::take(&mut self.raw))
+        };
+    }
+}
