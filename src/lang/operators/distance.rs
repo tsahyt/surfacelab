@@ -58,15 +58,15 @@ const DISTANCE_DESCRIPTORS: &'static [OperatorDescriptor] = &[
     },
     OperatorDescriptor {
         binding: 3,
-        descriptor: OperatorDescriptorUse::IntermediateImage("tmp"),
+        descriptor: OperatorDescriptorUse::IntermediateBuffer("tmp"),
     },
     OperatorDescriptor {
         binding: 4,
-        descriptor: OperatorDescriptorUse::IntermediateImage("s"),
+        descriptor: OperatorDescriptorUse::IntermediateBuffer("s"),
     },
     OperatorDescriptor {
         binding: 5,
-        descriptor: OperatorDescriptorUse::IntermediateImage("t"),
+        descriptor: OperatorDescriptorUse::IntermediateBuffer("t"),
     },
     OperatorDescriptor {
         binding: 6,
@@ -100,17 +100,17 @@ impl Shader for Distance {
 
     fn intermediate_data(&self) -> HashMap<String, IntermediateDataDescription> {
         hashmap! {
-            "tmp".to_string() => IntermediateDataDescription {
-                size: FromSocketOr::FromSocket("out"),
-                ty: FromSocketOr::Independent(ImageType::Grayscale)
+            "tmp".to_string() => IntermediateDataDescription::Buffer {
+                dim: BufferDim::Square(FromSocketOr::FromSocket("out")),
+                element_width: 4,
             },
-            "s".to_string() => IntermediateDataDescription {
-                size: FromSocketOr::FromSocket("out"),
-                ty: FromSocketOr::Independent(ImageType::Grayscale)
+            "s".to_string() => IntermediateDataDescription::Buffer {
+                dim: BufferDim::Square(FromSocketOr::FromSocket("out")),
+                element_width: 4,
             },
-            "t".to_string() => IntermediateDataDescription {
-                size: FromSocketOr::FromSocket("out"),
-                ty: FromSocketOr::Independent(ImageType::Grayscale)
+            "t".to_string() => IntermediateDataDescription::Buffer {
+                dim: BufferDim::Square(FromSocketOr::FromSocket("out")),
+                element_width: 4,
             },
         }
     }

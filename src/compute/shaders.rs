@@ -16,8 +16,10 @@ pub enum OperatorDescriptorUse {
     InputImage(&'static str),
     /// Input images are compute results of the shader
     OutputImage(&'static str),
-    /// Intermediate images are used for temporary storages and persist between operator passes
+    /// Intermediate images are used for temporary storage and persist between operator passes
     IntermediateImage(&'static str),
+    /// Intermediate buffers are used for temporary storage of non-image data
+    IntermediateBuffer(&'static str),
     /// The sampler to use on input images
     Sampler,
     /// Uniform buffer
@@ -76,6 +78,18 @@ impl OperatorShader {
                 binding: desc.binding,
                 ty: gpu::DescriptorType::Image {
                     ty: gpu::ImageDescriptorType::Storage { read_only: false },
+                },
+                count: 1,
+                stage_flags: gpu::ShaderStageFlags::COMPUTE,
+                immutable_samplers: false,
+            },
+            OperatorDescriptorUse::IntermediateBuffer(..) => gpu::DescriptorSetLayoutBinding {
+                binding: desc.binding,
+                ty: gpu::DescriptorType::Buffer {
+                    ty: gpu::BufferDescriptorType::Storage { read_only: false },
+                    format: gpu::BufferDescriptorFormat::Structured {
+                        dynamic_offset: false,
+                    },
                 },
                 count: 1,
                 stage_flags: gpu::ShaderStageFlags::COMPUTE,
@@ -156,6 +170,12 @@ impl OperatorShader {
                         intermediates.get(name).unwrap().get_view().unwrap(),
                         gpu::Layout::General,
                     )],
+                },
+                OperatorDescriptorUse::IntermediateBuffer(name) => gpu::DescriptorSetWrite {
+                    set: desc_set,
+                    binding: desc.binding,
+                    array_offset: 0,
+                    descriptors: vec![gpu::Descriptor::Buffer(todo!(), gpu::SubRange::WHOLE)],
                 },
             })
     }
@@ -331,6 +351,12 @@ where
     }
 }
 
+/// Defines the dimensions of a buffer, counted in number of elements.
+pub enum BufferDim {
+    Square(FromSocketOr<usize>),
+    Vector(FromSocketOr<usize>),
+}
+
 /// Description element to take data from an existing socket or use an
 /// independent definition.
 pub enum FromSocketOr<T> {
@@ -340,12 +366,20 @@ pub enum FromSocketOr<T> {
 
 /// Description of intermediate data in an Operator. References sockets are
 /// assumed to be *outputs*.
-pub struct IntermediateDataDescription {
-    /// Image size to use for the intermediate image. Since all outputs have the
-    /// same size, the exact choice is irrelevant.
-    pub size: FromSocketOr<u32>,
-    /// Type of the intermediate image.
-    pub ty: FromSocketOr<ImageType>,
+pub enum IntermediateDataDescription {
+    Image {
+        /// Image size to use for the intermediate image. Since all outputs have the
+        /// same size, the exact choice is irrelevant.
+        size: FromSocketOr<u32>,
+        /// Type of the intermediate image.
+        ty: FromSocketOr<ImageType>,
+    },
+    Buffer {
+        /// Dimensions of the buffer
+        dim: BufferDim,
+        /// Element width in bytes
+        element_width: u8,
+    },
 }
 
 /// A Shader is anything that can return a list of operator passes for itself. This

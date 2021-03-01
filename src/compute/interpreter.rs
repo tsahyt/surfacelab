@@ -1,4 +1,4 @@
-use super::shaders::{ShaderLibrary, Uniforms};
+use super::shaders::{IntermediateDataDescription, ShaderLibrary, Uniforms};
 use super::sockets::*;
 use super::Linearization;
 use crate::{gpu, lang::*, util::*};
@@ -523,32 +523,39 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             );
         }
 
-        let mut intermediates = HashMap::new();
+        let mut intermediate_images = HashMap::new();
         for (name, descr) in self
             .shader_library
             .intermediate_data_for(&op)
             .ok_or(InterpretationError::MissingShader)?
         {
-            use super::shaders::FromSocketOr;
+            match descr {
+                IntermediateDataDescription::Image { size, ty } => {
+                    use super::shaders::FromSocketOr;
 
-            let size = match descr.size {
-                FromSocketOr::FromSocket(_) => self.sockets.get_image_size(res),
-                FromSocketOr::Independent(s) => s,
-            };
-            let ty = match descr.ty {
-                FromSocketOr::FromSocket(s) => self
-                    .sockets
-                    .get_output_image_type(&res.node_socket(s))
-                    .expect("Invalid output socket"),
-                FromSocketOr::Independent(t) => t,
-            };
-            let mut img = self
-                .gpu
-                .create_compute_image(size, ty, false)
-                .expect("Failed to create intermediate image");
-            img.ensure_alloc()
-                .expect("Failed to alloc intermediate image");
-            intermediates.insert(name.clone(), img);
+                    let size = match size {
+                        FromSocketOr::FromSocket(_) => self.sockets.get_image_size(res),
+                        FromSocketOr::Independent(s) => *s,
+                    };
+                    let ty = match ty {
+                        FromSocketOr::FromSocket(s) => self
+                            .sockets
+                            .get_output_image_type(&res.node_socket(s))
+                            .expect("Invalid output socket"),
+                        FromSocketOr::Independent(t) => *t,
+                    };
+                    let mut img = self
+                        .gpu
+                        .create_compute_image(size, ty, false)
+                        .expect("Failed to create intermediate image");
+                    img.ensure_alloc()
+                        .expect("Failed to alloc intermediate image");
+                    intermediate_images.insert(name.clone(), img);
+                }
+                _ => {
+                    unimplemented!()
+                }
+            }
         }
 
         // fill uniforms and execute operator passes
@@ -564,7 +571,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 self.gpu.sampler(),
                 &inputs,
                 &outputs,
-                &intermediates,
+                &intermediate_images,
             );
             self.gpu.write_descriptor_sets(writers);
         }
@@ -573,10 +580,15 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             self.sockets.get_image_size(res),
             inputs.values().copied(),
             outputs.values().copied(),
-            intermediates.iter(),
+            intermediate_images.iter(),
             |img_size, intermediates_locks, cmd_buffer| {
                 for pass in passes {
-                    pass.build_commands(img_size, &intermediates, intermediates_locks, cmd_buffer);
+                    pass.build_commands(
+                        img_size,
+                        &intermediate_images,
+                        intermediates_locks,
+                        cmd_buffer,
+                    );
                 }
             },
         );

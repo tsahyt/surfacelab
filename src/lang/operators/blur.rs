@@ -123,11 +123,11 @@ impl Shader for Blur {
 
     fn intermediate_data(&self) -> HashMap<String, IntermediateDataDescription> {
         hashmap! {
-            "tmp1".to_string() => IntermediateDataDescription {
+            "tmp1".to_string() => IntermediateDataDescription::Image {
                 size: FromSocketOr::FromSocket("out"),
                 ty: FromSocketOr::FromSocket("out"),
             },
-            "tmp2".to_string() => IntermediateDataDescription {
+            "tmp2".to_string() => IntermediateDataDescription::Image {
                 size: FromSocketOr::FromSocket("out"),
                 ty: FromSocketOr::FromSocket("out"),
             },
