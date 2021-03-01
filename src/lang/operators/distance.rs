@@ -11,24 +11,28 @@ use zerocopy::AsBytes;
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
-pub struct Distance {}
+pub struct Distance {
+    threshold: f32,
+}
 
 impl Default for Distance {
     fn default() -> Self {
-        Self {}
+        Self {
+            threshold: 0.5,
+        }
     }
 }
 
 impl Socketed for Distance {
     fn inputs(&self) -> HashMap<String, OperatorType> {
         hashmap! {
-            "in".to_string() => OperatorType::Polymorphic(0)
+            "in".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
         }
     }
 
     fn outputs(&self) -> HashMap<String, OperatorType> {
         hashmap! {
-            "out".to_string() => OperatorType::Polymorphic(0)
+            "out".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
         }
     }
 
@@ -41,7 +45,7 @@ impl Socketed for Distance {
     }
 }
 
-const BLUR_DESCRIPTORS: &'static [OperatorDescriptor] = &[
+const DISTANCE_DESCRIPTORS: &'static [OperatorDescriptor] = &[
     OperatorDescriptor {
         binding: 0,
         descriptor: OperatorDescriptorUse::Uniforms,
@@ -70,14 +74,14 @@ impl Shader for Distance {
             OperatorPassDescription::Synchronize(&[SynchronizeDescription::ToReadWrite("tmp1")]),
             OperatorPassDescription::RunShader(OperatorShader {
                 spirv: shader!("distance"),
-                descriptors: BLUR_DESCRIPTORS,
+                descriptors: DISTANCE_DESCRIPTORS,
                 specialization: gfx_hal::spec_const_list!(0u32),
                 shape: OperatorShape::PerRowOrColumn { local_size: 64 },
             }),
             OperatorPassDescription::Synchronize(&[SynchronizeDescription::ToRead("tmp1")]),
             OperatorPassDescription::RunShader(OperatorShader {
                 spirv: shader!("distance"),
-                descriptors: BLUR_DESCRIPTORS,
+                descriptors: DISTANCE_DESCRIPTORS,
                 specialization: gfx_hal::spec_const_list!(1u32),
                 shape: OperatorShape::PerRowOrColumn { local_size: 64 },
             }),
@@ -88,11 +92,7 @@ impl Shader for Distance {
         hashmap! {
             "tmp1".to_string() => IntermediateDataDescription {
                 size: FromSocketOr::FromSocket("out"),
-                ty: FromSocketOr::FromSocket("out"),
-            },
-            "tmp2".to_string() => IntermediateDataDescription {
-                size: FromSocketOr::FromSocket("out"),
-                ty: FromSocketOr::FromSocket("out"),
+                ty: FromSocketOr::Independent(ImageType::Grayscale)
             },
         }
     }
