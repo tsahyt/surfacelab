@@ -1,0 +1,37 @@
+#version 460
+
+layout(local_size_x = 64) in;
+
+layout(constant_id = 0) const uint PASS_DIRECTION = 0;
+
+const uint PASS_COLUMN = 0;
+const uint PASS_ROW = 1;
+
+layout(set = 0, binding = 0) uniform Params {
+    uint quality;
+    float sigma;
+};
+
+layout(set = 0, binding = 1) uniform texture2D t_In;
+layout(set = 0, binding = 2) uniform sampler Sampler;
+layout(set = 0, binding = 3, rgba16f) uniform image2D t_Tmp1;
+layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
+
+void column_pass() {
+
+}
+
+void row_pass() {
+
+}
+
+void main() {
+    switch(PASS_DIRECTION) {
+        case 0:
+            column_pass();
+            return;
+        case 1:
+            row_pass();
+            return;
+    }
+}
