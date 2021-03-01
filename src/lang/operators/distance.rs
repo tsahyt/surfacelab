@@ -17,9 +17,7 @@ pub struct Distance {
 
 impl Default for Distance {
     fn default() -> Self {
-        Self {
-            threshold: 0.5,
-        }
+        Self { threshold: 0.5 }
     }
 }
 
@@ -60,10 +58,18 @@ const DISTANCE_DESCRIPTORS: &'static [OperatorDescriptor] = &[
     },
     OperatorDescriptor {
         binding: 3,
-        descriptor: OperatorDescriptorUse::IntermediateImage("tmp1"),
+        descriptor: OperatorDescriptorUse::IntermediateImage("tmp"),
     },
     OperatorDescriptor {
         binding: 4,
+        descriptor: OperatorDescriptorUse::IntermediateImage("s"),
+    },
+    OperatorDescriptor {
+        binding: 5,
+        descriptor: OperatorDescriptorUse::IntermediateImage("t"),
+    },
+    OperatorDescriptor {
+        binding: 6,
         descriptor: OperatorDescriptorUse::OutputImage("out"),
     },
 ];
@@ -71,14 +77,18 @@ const DISTANCE_DESCRIPTORS: &'static [OperatorDescriptor] = &[
 impl Shader for Distance {
     fn operator_passes(&self) -> Vec<OperatorPassDescription> {
         vec![
-            OperatorPassDescription::Synchronize(&[SynchronizeDescription::ToReadWrite("tmp1")]),
+            OperatorPassDescription::Synchronize(&[SynchronizeDescription::ToReadWrite("tmp")]),
             OperatorPassDescription::RunShader(OperatorShader {
                 spirv: shader!("distance"),
                 descriptors: DISTANCE_DESCRIPTORS,
                 specialization: gfx_hal::spec_const_list!(0u32),
                 shape: OperatorShape::PerRowOrColumn { local_size: 64 },
             }),
-            OperatorPassDescription::Synchronize(&[SynchronizeDescription::ToRead("tmp1")]),
+            OperatorPassDescription::Synchronize(&[
+                SynchronizeDescription::ToRead("tmp"),
+                SynchronizeDescription::ToReadWrite("s"),
+                SynchronizeDescription::ToReadWrite("t"),
+            ]),
             OperatorPassDescription::RunShader(OperatorShader {
                 spirv: shader!("distance"),
                 descriptors: DISTANCE_DESCRIPTORS,
@@ -90,7 +100,15 @@ impl Shader for Distance {
 
     fn intermediate_data(&self) -> HashMap<String, IntermediateDataDescription> {
         hashmap! {
-            "tmp1".to_string() => IntermediateDataDescription {
+            "tmp".to_string() => IntermediateDataDescription {
+                size: FromSocketOr::FromSocket("out"),
+                ty: FromSocketOr::Independent(ImageType::Grayscale)
+            },
+            "s".to_string() => IntermediateDataDescription {
+                size: FromSocketOr::FromSocket("out"),
+                ty: FromSocketOr::Independent(ImageType::Grayscale)
+            },
+            "t".to_string() => IntermediateDataDescription {
                 size: FromSocketOr::FromSocket("out"),
                 ty: FromSocketOr::Independent(ImageType::Grayscale)
             },

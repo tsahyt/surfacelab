@@ -13,25 +13,27 @@ layout(set = 0, binding = 0) uniform Params {
 
 layout(set = 0, binding = 1) uniform texture2D t_In;
 layout(set = 0, binding = 2) uniform sampler Sampler;
-layout(set = 0, binding = 3, r32f) uniform image2D t_Tmp1;
-layout(set = 0, binding = 4, r32f) uniform image2D t_Out;
+layout(set = 0, binding = 3, r32f) uniform image2D t_Tmp;
+layout(set = 0, binding = 4, r32f) uniform image2D t_t;
+layout(set = 0, binding = 5, r32f) uniform image2D t_s;
+layout(set = 0, binding = 6, r32f) uniform image2D t_Out;
 
 bool in_set(ivec2 idx) {
-    vec2 uv = vec2(float(idx.x) / float(imageSize(t_Tmp1).x), float(idx.y) / float(imageSize(t_Tmp1).y));
+    vec2 uv = vec2(float(idx.x) / float(imageSize(t_Tmp).x), float(idx.y) / float(imageSize(t_Tmp).y));
     return texture(sampler2D(t_In, Sampler), uv).r > threshold;
 }
 
 // Perform column pass for the DT. This is Scan 1 and 2 in the original paper.
 void column_pass() {
     int x = int(gl_GlobalInvocationID.x);
-    int n = imageSize(t_Tmp1).x;
+    int n = imageSize(t_Tmp).x;
 
     // Scan 1
     float last = 0.;
     if(!in_set(ivec2(x, 0))) {
         last = float(n) * 2.;
     }
-    imageStore(t_Tmp1, ivec2(x, 0), vec4(last));
+    imageStore(t_Tmp, ivec2(x, 0), vec4(last));
 
     for(int y = 1; y < n; ++y) {
         if(in_set(ivec2(x, y))) {
@@ -39,34 +41,44 @@ void column_pass() {
         } else {
             last = 1.0 + last;
         }
-        imageStore(t_Tmp1, ivec2(x, y), vec4(last));
+        imageStore(t_Tmp, ivec2(x, y), vec4(last));
     }
 
     // Scan 2
     for(int y = n - 2; y >= 0; --y) {
-        float current = imageLoad(t_Tmp1, ivec2(x, y)).r;
+        float current = imageLoad(t_Tmp, ivec2(x, y)).r;
         if(last < current) {
             current = 1.0 + last;
-            imageStore(t_Tmp1, ivec2(x, y), vec4(current));
+            imageStore(t_Tmp, ivec2(x, y), vec4(current));
         }
         last = current;
     }
 }
 
-float edt_f() {
-    return 0.;
+float edt_f(float x, float i, float gi) {
+    return sqrt((x - i) * (x - i) + gi * gi);
 }
 
-float edt_sep() {
-    return 0.;
+int edt_sep(int i, int u, float gi, float gu) {
+    return (u * u - i * i + (int(gu * gu - gi * gi))) / (2 * (u - i));
 }
 
 void row_pass() {
     int y = int(gl_GlobalInvocationID.x);
+    int m = imageSize(t_Tmp).y;
 
-    for(int x = 0; x < imageSize(t_Out).x; ++x) {
-        float value = imageLoad(t_Tmp1, ivec2(x,y)).r / float(imageSize(t_Out).x);
-        imageStore(t_Out, ivec2(x, y), vec4(value));
+    int q = 0;
+
+    // Scan 3
+    for(int u = 1; u < m; ++u) {
+    }
+
+    // Scan 4
+    for(int u = m - 1; u >= 0; --u) {
+        imageStore(t_Out, ivec2(u, y), vec4(1337.0) / m);
+        if(u == 1337.0) {
+            q--;
+        }
     }
 }
 
