@@ -202,8 +202,10 @@ pub enum SynchronizeDescription {
 pub enum OperatorPassDescription {
     /// Run a shader as an operator pass
     RunShader(OperatorShader),
-    /// Synchronize according to description
-    Synchronize(&'static [SynchronizeDescription]),
+    /// Synchronize image according to description
+    SynchronizeImage(&'static [SynchronizeDescription]),
+    /// Synchronize buffer according to description
+    SynchronizeBuffer(&'static [SynchronizeDescription]),
 }
 
 /// A "compiled" operator pass holding the required GPU structures for execution.
@@ -213,7 +215,8 @@ pub enum OperatorPass<B: gpu::Backend> {
         pipeline: gpu::compute::ComputePipeline<B>,
         descriptors: B::DescriptorSet,
     },
-    Synchronize(&'static [SynchronizeDescription]),
+    SynchronizeImage(&'static [SynchronizeDescription]),
+    SynchronizeBuffer(&'static [SynchronizeDescription]),
 }
 
 impl<B> OperatorPass<B>
@@ -224,8 +227,9 @@ where
     pub fn build_commands<'a, L>(
         &self,
         image_size: u32,
-        intermediates: &'a HashMap<String, gpu::compute::Image<B>>,
-        intermediates_locks: &'a HashMap<String, L>,
+        intermediate_images: &'a HashMap<String, gpu::compute::Image<B>>,
+        intermediate_images_locks: &'a HashMap<String, L>,
+        intermediate_buffers: &'a HashMap<String, gpu::compute::TempBuffer<B>>,
         cmd_buffer: &mut B::CommandBuffer,
     ) where
         L: std::ops::Deref<Target = B::Image>,
@@ -255,44 +259,77 @@ where
                     }
                 });
             },
-            Self::Synchronize(descs) => unsafe {
+            Self::SynchronizeImage(descs) => unsafe {
                 cmd_buffer.pipeline_barrier(
                     gfx_hal::pso::PipelineStage::COMPUTE_SHADER
                         ..gfx_hal::pso::PipelineStage::COMPUTE_SHADER,
                     gfx_hal::memory::Dependencies::empty(),
                     descs.iter().map(|desc| match desc {
                         SynchronizeDescription::ToWrite(name) => {
-                            let image = intermediates
+                            let image = intermediate_images
                                 .get(*name)
                                 .expect("Illegal intermediate image");
 
                             image.barrier_to(
-                                &intermediates_locks[*name],
+                                &intermediate_images_locks[*name],
                                 gfx_hal::image::Access::SHADER_WRITE,
                                 gfx_hal::image::Layout::General,
                             )
                         }
                         SynchronizeDescription::ToRead(name) => {
-                            let image = intermediates
+                            let image = intermediate_images
                                 .get(*name)
                                 .expect("Illegal intermediate image");
 
                             image.barrier_to(
-                                &intermediates_locks[*name],
+                                &intermediate_images_locks[*name],
                                 gfx_hal::image::Access::SHADER_READ,
                                 gfx_hal::image::Layout::General,
                             )
                         }
                         SynchronizeDescription::ToReadWrite(name) => {
-                            let image = intermediates
+                            let image = intermediate_images
                                 .get(*name)
                                 .expect("Illegal intermediate image");
 
                             image.barrier_to(
-                                &intermediates_locks[*name],
+                                &intermediate_images_locks[*name],
                                 gfx_hal::image::Access::SHADER_READ
                                     | gfx_hal::image::Access::SHADER_WRITE,
                                 gfx_hal::image::Layout::General,
+                            )
+                        }
+                    }),
+                );
+            },
+            Self::SynchronizeBuffer(descs) => unsafe {
+                cmd_buffer.pipeline_barrier(
+                    gfx_hal::pso::PipelineStage::COMPUTE_SHADER
+                        ..gfx_hal::pso::PipelineStage::COMPUTE_SHADER,
+                    gfx_hal::memory::Dependencies::empty(),
+                    descs.iter().map(|desc| match desc {
+                        SynchronizeDescription::ToWrite(name) => {
+                            let buffer = intermediate_buffers
+                                .get(*name)
+                                .expect("Illegal intermediate buffer");
+
+                            buffer.barrier_to(gfx_hal::buffer::Access::SHADER_WRITE)
+                        }
+                        SynchronizeDescription::ToRead(name) => {
+                            let buffer = intermediate_buffers
+                                .get(*name)
+                                .expect("Illegal intermediate buffer");
+
+                            buffer.barrier_to(gfx_hal::buffer::Access::SHADER_READ)
+                        }
+                        SynchronizeDescription::ToReadWrite(name) => {
+                            let buffer = intermediate_buffers
+                                .get(*name)
+                                .expect("Illegal intermediate buffer");
+
+                            buffer.barrier_to(
+                                gfx_hal::buffer::Access::SHADER_WRITE
+                                    | gfx_hal::buffer::Access::SHADER_READ,
                             )
                         }
                     }),
@@ -327,7 +364,7 @@ where
                     intermediate_buffers,
                 )
                 .collect(),
-            OperatorPass::Synchronize(..) => Vec::new(),
+            _ => Vec::new(),
         }
     }
 
@@ -352,7 +389,8 @@ where
                     descriptors: desc_set,
                 })
             }
-            OperatorPassDescription::Synchronize(desc) => Ok(Self::Synchronize(desc)),
+            OperatorPassDescription::SynchronizeImage(desc) => Ok(Self::SynchronizeImage(desc)),
+            OperatorPassDescription::SynchronizeBuffer(desc) => Ok(Self::SynchronizeBuffer(desc)),
         }
     }
 }

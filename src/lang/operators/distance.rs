@@ -58,7 +58,7 @@ const DISTANCE_DESCRIPTORS: &'static [OperatorDescriptor] = &[
     },
     OperatorDescriptor {
         binding: 3,
-        descriptor: OperatorDescriptorUse::IntermediateBuffer("tmp"),
+        descriptor: OperatorDescriptorUse::IntermediateImage("g"),
     },
     OperatorDescriptor {
         binding: 4,
@@ -77,15 +77,15 @@ const DISTANCE_DESCRIPTORS: &'static [OperatorDescriptor] = &[
 impl Shader for Distance {
     fn operator_passes(&self) -> Vec<OperatorPassDescription> {
         vec![
-            OperatorPassDescription::Synchronize(&[SynchronizeDescription::ToReadWrite("tmp")]),
+            OperatorPassDescription::SynchronizeImage(&[SynchronizeDescription::ToReadWrite("g")]),
             OperatorPassDescription::RunShader(OperatorShader {
                 spirv: shader!("distance"),
                 descriptors: DISTANCE_DESCRIPTORS,
                 specialization: gfx_hal::spec_const_list!(0u32),
                 shape: OperatorShape::PerRowOrColumn { local_size: 64 },
             }),
-            OperatorPassDescription::Synchronize(&[
-                SynchronizeDescription::ToRead("tmp"),
+            OperatorPassDescription::SynchronizeImage(&[SynchronizeDescription::ToRead("g")]),
+            OperatorPassDescription::SynchronizeBuffer(&[
                 SynchronizeDescription::ToReadWrite("s"),
                 SynchronizeDescription::ToReadWrite("t"),
             ]),
@@ -100,9 +100,9 @@ impl Shader for Distance {
 
     fn intermediate_data(&self) -> HashMap<String, IntermediateDataDescription> {
         hashmap! {
-            "tmp".to_string() => IntermediateDataDescription::Buffer {
-                dim: BufferDim::Square(FromSocketOr::FromSocket("out")),
-                element_width: 4,
+            "g".to_string() => IntermediateDataDescription::Image {
+                size: FromSocketOr::FromSocket("out"),
+                ty: FromSocketOr::FromSocket("out"),
             },
             "s".to_string() => IntermediateDataDescription::Buffer {
                 dim: BufferDim::Square(FromSocketOr::FromSocket("out")),

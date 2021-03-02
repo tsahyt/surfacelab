@@ -98,7 +98,7 @@ const BLUR_DESCRIPTORS: &'static [OperatorDescriptor] = &[
 impl Shader for Blur {
     fn operator_passes(&self) -> Vec<OperatorPassDescription> {
         vec![
-            OperatorPassDescription::Synchronize(&[
+            OperatorPassDescription::SynchronizeImage(&[
                 SynchronizeDescription::ToReadWrite("tmp1"),
                 SynchronizeDescription::ToReadWrite("tmp2"),
             ]),
@@ -108,7 +108,7 @@ impl Shader for Blur {
                 specialization: gfx_hal::spec_const_list!(0u32),
                 shape: OperatorShape::PerRowOrColumn { local_size: 64 },
             }),
-            OperatorPassDescription::Synchronize(&[
+            OperatorPassDescription::SynchronizeImage(&[
                 SynchronizeDescription::ToReadWrite("tmp1"),
                 SynchronizeDescription::ToReadWrite("tmp2"),
             ]),

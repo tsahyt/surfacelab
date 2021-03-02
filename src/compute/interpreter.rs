@@ -606,6 +606,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                         img_size,
                         &intermediate_images,
                         intermediates_locks,
+                        &intermediate_buffers,
                         cmd_buffer,
                     );
                 }

@@ -14,8 +14,12 @@ layout(set = 0, binding = 0) uniform Params {
 layout(set = 0, binding = 1) uniform texture2D t_In;
 layout(set = 0, binding = 2) uniform sampler Sampler;
 layout(set = 0, binding = 3, r32f) uniform image2D t_Tmp;
-layout(set = 0, binding = 4, r32f) uniform image2D t_t;
-layout(set = 0, binding = 5, r32f) uniform image2D t_s;
+layout(set = 0, binding = 4) buffer tBuf {
+    int[] t;
+};
+layout(set = 0, binding = 5) buffer sBuf {
+    int[] s;
+};
 layout(set = 0, binding = 6, r32f) uniform image2D t_Out;
 
 bool in_set(ivec2 idx) {
@@ -65,7 +69,7 @@ int edt_sep(int i, int u, float gi, float gu) {
 
 void row_pass() {
     int y = int(gl_GlobalInvocationID.x);
-    int m = imageSize(t_Tmp).y;
+    int m = imageSize(t_Out).y;
 
     int q = 0;
 

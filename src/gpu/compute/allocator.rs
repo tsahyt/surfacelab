@@ -436,6 +436,7 @@ where
 /// drop.
 pub struct TempBuffer<B: Backend> {
     parent: Arc<Mutex<ComputeAllocator<B>>>,
+    access: Cell<hal::buffer::Access>,
     raw: ManuallyDrop<B::Buffer>,
     _alloc: Alloc<B>,
 }
@@ -472,6 +473,7 @@ where
 
         Ok(TempBuffer {
             parent: parent.clone(),
+            access: Cell::new(hal::buffer::Access::empty()),
             raw: ManuallyDrop::new(buffer),
             _alloc: Alloc {
                 parent: parent.clone(),
@@ -479,6 +481,19 @@ where
                 offset,
             },
         })
+    }
+
+    /// Create an appropriate image barrier transition to a specified Access and
+    /// Layout.
+    pub fn barrier_to<'a>(&'a self, access: hal::buffer::Access) -> hal::memory::Barrier<'a, B> {
+        let old_access = self.access.get();
+        self.access.set(access);
+        hal::memory::Barrier::Buffer {
+            states: (old_access)..(access),
+            target: &*self.raw,
+            families: None,
+            range: hal::buffer::SubRange::WHOLE,
+        }
     }
 
     pub fn get_raw(&self) -> &B::Buffer {
