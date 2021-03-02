@@ -1,4 +1,5 @@
 use crate::gpu::{Backend, InitializationError, GPU};
+use crate::lang;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use std::cell::{Cell, RefCell};
@@ -196,23 +197,60 @@ where
     B: Backend,
 {
     pub fn new(
+        device: &B::Device,
         parent: Arc<Mutex<ComputeAllocator<B>>>,
         size: u32,
-        px_width: u8,
-        raw: B::Image,
-        format: hal::format::Format,
-    ) -> Self {
-        Self {
+        ty: lang::ImageType,
+        transfer_dst: bool,
+    ) -> Result<Self, InitializationError> {
+        // Determine formats and sizes
+        let format = match ty {
+            lang::ImageType::Grayscale => hal::format::Format::R32Sfloat,
+
+            // We use Rgba16 internally on the GPU even though it wastes an
+            // entire 16 bit wide channel. The reason here is that the Vulkan
+            // spec does not require Rgb16 support. Many GPUs do support it but
+            // some may not, and thus requiring it would impose an arbitrary
+            // restriction. It might be possible to make this conditional on the
+            // specific GPU.
+            lang::ImageType::Rgb => hal::format::Format::Rgba16Sfloat,
+        };
+        let px_width = match format {
+            hal::format::Format::R32Sfloat => 4,
+            hal::format::Format::Rgba16Sfloat => 8,
+            _ => panic!("Unsupported compute image format!"),
+        };
+
+        // Create device image
+        let image = unsafe {
+            device.create_image(
+                hal::image::Kind::D2(size, size, 1, 1),
+                1,
+                format,
+                hal::image::Tiling::Optimal,
+                hal::image::Usage::SAMPLED
+                    | if !transfer_dst {
+                        hal::image::Usage::STORAGE
+                    } else {
+                        hal::image::Usage::TRANSFER_DST
+                    }
+                    | hal::image::Usage::TRANSFER_SRC,
+                hal::image::ViewCapabilities::empty(),
+            )
+        }
+        .map_err(|_| InitializationError::ResourceAcquisition("Compute Image"))?;
+
+        Ok(Self {
             parent,
             size,
             px_width,
-            raw: ManuallyDrop::new(Arc::new(Mutex::new(raw))),
+            raw: ManuallyDrop::new(Arc::new(Mutex::new(image))),
             layout: Cell::new(hal::image::Layout::Undefined),
             access: Cell::new(hal::image::Access::empty()),
             view: ManuallyDrop::new(None),
             alloc: None,
             format,
-        }
+        })
     }
 
     /// Bind this image to some region in the image memory.
@@ -399,19 +437,42 @@ where
 pub struct TempBuffer<B: Backend> {
     parent: Arc<Mutex<ComputeAllocator<B>>>,
     raw: ManuallyDrop<B::Buffer>,
-    alloc: Alloc<B>,
+    _alloc: Alloc<B>,
 }
 
 impl<B> TempBuffer<B>
 where
     B: Backend,
 {
-    pub fn new(parent: Arc<Mutex<ComputeAllocator<B>>>, raw: B::Buffer, alloc: Alloc<B>) -> Self {
-        Self {
-            parent,
-            raw: ManuallyDrop::new(raw),
-            alloc,
-        }
+    pub fn new(
+        device: &B::Device,
+        parent: Arc<Mutex<ComputeAllocator<B>>>,
+        bytes: u64,
+    ) -> Result<Self, InitializationError> {
+        let alloc_lock = parent.lock().unwrap();
+
+        let (offset, chunks) =
+            alloc_lock
+                .find_free_image_memory(bytes)
+                .ok_or(InitializationError::Allocation(
+                    "Failed to allocate for temp buffer",
+                ))?;
+        let mut buffer = unsafe { device.create_buffer(bytes, hal::buffer::Usage::STORAGE) }
+            .map_err(|_| InitializationError::ResourceAcquisition("Buffer"))?;
+        let alloc_id = alloc_lock.allocate_image_memory(&chunks);
+
+        unsafe { device.bind_buffer_memory(&alloc_lock.image_mem, offset, &mut buffer) }
+            .expect("Failed to bind buffer memory");
+
+        Ok(TempBuffer {
+            parent: parent.clone(),
+            raw: ManuallyDrop::new(buffer),
+            _alloc: Alloc {
+                parent: parent.clone(),
+                id: alloc_id,
+                offset,
+            },
+        })
     }
 
     pub fn get_raw(&self) -> &B::Buffer {

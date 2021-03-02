@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 pub mod allocator;
 pub mod thumbnails;
 
-pub use allocator::{Image, ImageError};
+pub use allocator::{Image, ImageError, TempBuffer};
 pub use thumbnails::ThumbnailIndex;
 
 use super::{
@@ -187,57 +187,17 @@ where
         transfer_dst: bool,
     ) -> Result<Image<B>, InitializationError> {
         let lock = self.gpu.lock().unwrap();
-
-        // Determine formats and sizes
-        let format = match ty {
-            lang::ImageType::Grayscale => hal::format::Format::R32Sfloat,
-
-            // We use Rgba16 internally on the GPU even though it wastes an
-            // entire 16 bit wide channel. The reason here is that the Vulkan
-            // spec does not require Rgb16 support. Many GPUs do support it but
-            // some may not, and thus requiring it would impose an arbitrary
-            // restriction. It might be possible to make this conditional on the
-            // specific GPU.
-            lang::ImageType::Rgb => hal::format::Format::Rgba16Sfloat,
-        };
-        let px_width = match format {
-            hal::format::Format::R32Sfloat => 4,
-            hal::format::Format::Rgba16Sfloat => 8,
-            _ => panic!("Unsupported compute image format!"),
-        };
-
-        // Create device image
-        let image = unsafe {
-            lock.device.create_image(
-                hal::image::Kind::D2(size, size, 1, 1),
-                1,
-                format,
-                hal::image::Tiling::Optimal,
-                hal::image::Usage::SAMPLED
-                    | if !transfer_dst {
-                        hal::image::Usage::STORAGE
-                    } else {
-                        hal::image::Usage::TRANSFER_DST
-                    }
-                    | hal::image::Usage::TRANSFER_SRC,
-                hal::image::ViewCapabilities::empty(),
-            )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Compute Image"))?;
-
-        Ok(Image::new(
-            self.allocator.clone(),
-            size,
-            px_width,
-            image,
-            format,
-        ))
+        Image::new(&lock.device, self.allocator.clone(), size, ty, transfer_dst)
     }
 
     /// Create a new temporary buffer in compute memory, with the given size.
     /// The buffer is allocated.
-    pub fn create_compute_temp_buffer(&self, bytes: u32) -> Result<Image<B>, InitializationError> {
-        todo!()
+    pub fn create_compute_temp_buffer(
+        &self,
+        bytes: u64,
+    ) -> Result<TempBuffer<B>, InitializationError> {
+        let lock = self.gpu.lock().unwrap();
+        TempBuffer::new(&lock.device, self.allocator.clone(), bytes)
     }
 
     /// Fill the uniform buffer with the given data. The data *must* fit into
