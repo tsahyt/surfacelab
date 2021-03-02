@@ -15,10 +15,10 @@ layout(set = 0, binding = 1) uniform texture2D t_In;
 layout(set = 0, binding = 2) uniform sampler Sampler;
 layout(set = 0, binding = 3, r32f) uniform image2D t_Tmp;
 layout(set = 0, binding = 4) buffer tBuf {
-    int[] t;
+    uint[] t;
 };
 layout(set = 0, binding = 5) buffer sBuf {
-    int[] s;
+    uint[] s;
 };
 layout(set = 0, binding = 6, r32f) uniform image2D t_Out;
 

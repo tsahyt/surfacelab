@@ -422,7 +422,7 @@ pub enum IntermediateDataDescription {
         /// Dimensions of the buffer
         dim: BufferDim,
         /// Element width in bytes
-        element_width: u8,
+        element_width: usize,
     },
 }
 
