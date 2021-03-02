@@ -86,7 +86,7 @@ where
 
     /// Find the first set of chunks of contiguous free memory that fits the
     /// requested number of bytes
-    pub fn find_free_image_memory(&self, bytes: u64) -> Option<(u64, Vec<usize>)> {
+    pub fn find_free_memory(&self, bytes: u64) -> Option<(u64, Vec<usize>)> {
         let request = bytes.max(Self::CHUNK_SIZE) / Self::CHUNK_SIZE;
         let mut free = Vec::with_capacity(request as usize);
         let mut offset = 0;
@@ -108,7 +108,7 @@ where
 
     /// Mark the given set of chunks as used. Assumes that the chunks were
     /// previously free!
-    pub fn allocate_image_memory(&self, chunks: &[usize]) -> AllocId {
+    pub fn allocate_memory(&self, chunks: &[usize]) -> AllocId {
         let alloc = self.allocs.get();
         for i in chunks {
             self.image_mem_chunks.borrow_mut()[*i].alloc = Some(alloc);
@@ -119,7 +119,7 @@ where
 
     /// Mark the given set of chunks as free. Memory freed here should no longer
     /// be used!
-    pub fn free_image_memory(&self, alloc: AllocId) {
+    pub fn free_memory(&self, alloc: AllocId) {
         for mut chunk in self
             .image_mem_chunks
             .borrow_mut()
@@ -161,8 +161,8 @@ where
 {
     /// Allocations will free on drop
     fn drop(&mut self) {
-        log::trace!("Release image memory for allocation {}", self.id);
-        self.parent.lock().unwrap().free_image_memory(self.id);
+        log::trace!("Release memory for allocation {}", self.id);
+        self.parent.lock().unwrap().free_memory(self.id);
     }
 }
 
@@ -316,9 +316,9 @@ where
         // Handle memory manager
         let bytes = self.size as u64 * self.size as u64 * self.px_width as u64;
         let (offset, chunks) = parent_lock
-            .find_free_image_memory(bytes)
+            .find_free_memory(bytes)
             .ok_or(ImageError::OutOfMemory)?;
-        let alloc = parent_lock.allocate_image_memory(&chunks);
+        let alloc = parent_lock.allocate_memory(&chunks);
 
         log::trace!(
             "Allocated memory for {}x{} image ({} bytes, id {})",
@@ -454,13 +454,13 @@ where
 
         let (offset, chunks) =
             alloc_lock
-                .find_free_image_memory(bytes)
+                .find_free_memory(bytes)
                 .ok_or(InitializationError::Allocation(
                     "Failed to allocate for temp buffer",
                 ))?;
         let mut buffer = unsafe { device.create_buffer(bytes, hal::buffer::Usage::STORAGE) }
             .map_err(|_| InitializationError::ResourceAcquisition("Buffer"))?;
-        let alloc_id = alloc_lock.allocate_image_memory(&chunks);
+        let alloc_id = alloc_lock.allocate_memory(&chunks);
 
         log::trace!(
             "Allocated memory for buffer ({} bytes, id {})",
