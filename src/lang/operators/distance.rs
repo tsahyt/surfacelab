@@ -122,7 +122,18 @@ impl OperatorParamBox for Distance {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
-                parameters: vec![],
+                parameters: vec![
+                    Parameter {
+                        name: "threshold".to_string(),
+                        transmitter: Field(Distance::THRESHOLD.to_string()),
+                        control: Control::Slider {
+                            value: self.threshold,
+                            min: 0.,
+                            max: 1.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                ],
             }],
         }
     }

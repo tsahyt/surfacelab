@@ -70,17 +70,51 @@ int edt_sep(int i, int u, float gi, float gu) {
 void row_pass() {
     int y = int(gl_GlobalInvocationID.x);
     int m = imageSize(t_Out).y;
+    int offset = y * m;
 
     int q = 0;
+    s[offset + 0] = 0;
+    t[offset + 0] = 0;
 
     // Scan 3
     for(int u = 1; u < m; ++u) {
+        while(q >= 0 &&
+              edt_f(t[offset + q], s[offset + q], imageLoad(t_Tmp, ivec2(s[offset + q], y)).r) >=
+              edt_f(t[offset + q], u, imageLoad(t_Tmp, ivec2(s[offset + u], y)).r)) {
+
+            q--;
+        }
+
+        if(q < 0) {
+            q = 0;
+            s[offset + 0] = u;
+        } else {
+            int w = edt_sep(
+                int(s[offset + q, y]),
+                u,
+                imageLoad(t_Tmp, ivec2(s[offset + q], y)).r,
+                imageLoad(t_Tmp, ivec2(u, y)).r) + 1;
+
+            if(w < m + 1) {
+                q++;
+                s[offset + q] = u;
+                s[offset + q] = w;
+            }
+        }
     }
 
     // Scan 4
     for(int u = m - 1; u >= 0; --u) {
-        imageStore(t_Out, ivec2(u, y), vec4(1337.0) / m);
-        if(u == 1337.0) {
+        float val = 0.;
+        if(u == s[offset + q]) {
+            val = imageLoad(t_Tmp, ivec2(u, y)).r;
+        } else {
+            val = edt_f(u, s[offset + q], imageLoad(t_Tmp, ivec2(s[offset + q], y)).r);
+        }
+
+        imageStore(t_Out, ivec2(u, y), vec4(val) / float(m));
+
+        if(q > 0 && u == t[offset + q]) {
             q--;
         }
     }
