@@ -1,4 +1,4 @@
-use super::shaders::{IntermediateDataDescription, ShaderLibrary, Uniforms};
+use super::shaders::{BufferDim, IntermediateDataDescription, ShaderLibrary, Uniforms};
 use super::sockets::*;
 use super::Linearization;
 use crate::{gpu, lang::*, util::*};
@@ -524,15 +524,16 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         }
 
         let mut intermediate_images = HashMap::new();
+        let mut intermediate_buffers = HashMap::new();
         for (name, descr) in self
             .shader_library
             .intermediate_data_for(&op)
             .ok_or(InterpretationError::MissingShader)?
         {
+            use super::shaders::FromSocketOr;
+
             match descr {
                 IntermediateDataDescription::Image { size, ty } => {
-                    use super::shaders::FromSocketOr;
-
                     let size = match size {
                         FromSocketOr::FromSocket(_) => self.sockets.get_image_size(res),
                         FromSocketOr::Independent(s) => *s,
@@ -552,8 +553,25 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                         .expect("Failed to alloc intermediate image");
                     intermediate_images.insert(name.clone(), img);
                 }
-                _ => {
-                    unimplemented!()
+                IntermediateDataDescription::Buffer { dim, element_width } => {
+                    let length = match dim {
+                        BufferDim::Square(square) => match square {
+                            FromSocketOr::FromSocket(_) => self.sockets.get_image_size(res).pow(2),
+                            FromSocketOr::Independent(s) => s.pow(2) as u32,
+                        },
+                        BufferDim::Vector(vector) => match vector {
+                            FromSocketOr::FromSocket(_) => self.sockets.get_image_size(res),
+                            FromSocketOr::Independent(s) => *s as u32,
+                        },
+                    };
+
+                    let bytes = length as u64 * *element_width as u64;
+                    let buffer = self
+                        .gpu
+                        .create_compute_temp_buffer(bytes)
+                        .expect("Failed to create intermediate buffer");
+
+                    intermediate_buffers.insert(name.clone(), buffer);
                 }
             }
         }
@@ -572,6 +590,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 &inputs,
                 &outputs,
                 &intermediate_images,
+                &intermediate_buffers,
             );
             self.gpu.write_descriptor_sets(writers);
         }

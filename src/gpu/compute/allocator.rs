@@ -461,6 +461,12 @@ where
             .map_err(|_| InitializationError::ResourceAcquisition("Buffer"))?;
         let alloc_id = alloc_lock.allocate_image_memory(&chunks);
 
+        log::trace!(
+            "Allocated memory for buffer ({} bytes, id {})",
+            bytes,
+            alloc_id,
+        );
+
         unsafe { device.bind_buffer_memory(&alloc_lock.image_mem, offset, &mut buffer) }
             .expect("Failed to bind buffer memory");
 

@@ -127,7 +127,8 @@ impl OperatorShader {
         sampler: &'a B::Sampler,
         inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
         outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
-        intermediates: &'a HashMap<String, gpu::compute::Image<B>>,
+        intermediate_images: &'a HashMap<String, gpu::compute::Image<B>>,
+        intermediate_buffers: &'a HashMap<String, gpu::compute::TempBuffer<B>>,
     ) -> impl Iterator<Item = gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
         self.descriptors
             .iter()
@@ -167,7 +168,7 @@ impl OperatorShader {
                     binding: desc.binding,
                     array_offset: 0,
                     descriptors: vec![gpu::Descriptor::Image(
-                        intermediates.get(name).unwrap().get_view().unwrap(),
+                        intermediate_images.get(name).unwrap().get_view().unwrap(),
                         gpu::Layout::General,
                     )],
                 },
@@ -175,7 +176,10 @@ impl OperatorShader {
                     set: desc_set,
                     binding: desc.binding,
                     array_offset: 0,
-                    descriptors: vec![gpu::Descriptor::Buffer(todo!(), gpu::SubRange::WHOLE)],
+                    descriptors: vec![gpu::Descriptor::Buffer(
+                        intermediate_buffers.get(name).unwrap().get_raw(),
+                        gpu::SubRange::WHOLE,
+                    )],
                 },
             })
     }
@@ -304,7 +308,8 @@ where
         sampler: &'a B::Sampler,
         inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
         outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
-        intermediates: &'a HashMap<String, gpu::compute::Image<B>>,
+        intermediate_images: &'a HashMap<String, gpu::compute::Image<B>>,
+        intermediate_buffers: &'a HashMap<String, gpu::compute::TempBuffer<B>>,
     ) -> Vec<gpu::DescriptorSetWrite<'a, B, Vec<gpu::Descriptor<'a, B>>>> {
         match self {
             OperatorPass::RunShader {
@@ -318,7 +323,8 @@ where
                     sampler,
                     inputs,
                     outputs,
-                    intermediates,
+                    intermediate_images,
+                    intermediate_buffers,
                 )
                 .collect(),
             OperatorPass::Synchronize(..) => Vec::new(),
