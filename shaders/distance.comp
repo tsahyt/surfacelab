@@ -108,7 +108,7 @@ int mdt_sep(int i, int u) {
         return - 32768;
     }
 
-    return int(gu - gi) + u + i / 2;
+    return (int(gu - gi) + u + i) / 2;
 }
 
 float cdt_f(int x, int i) {
@@ -180,7 +180,9 @@ void row_pass() {
 
     // Scan 4
     for(int u = m - 1; u >= 0; --u) {
-        float dt = dt_f(u, s[offset + q]) / exp(extent);
+        float dt = dt_f(u, s[offset + q]);
+        dt /= exp(extent);
+
         if(expand_mode != 0) {
             dt = 1. - dt;
         }
@@ -188,7 +190,7 @@ void row_pass() {
             dt = clamp(dt, 0., 1.);
         }
         imageStore(t_Out, ivec2(u, y), vec4(dt));
-        if(u == t[offset + q]) {
+        if(q > 0 && u == t[offset + q]) {
             q--;
         }
     }
