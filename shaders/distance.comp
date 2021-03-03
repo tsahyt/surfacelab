@@ -15,12 +15,14 @@ layout(set = 0, binding = 1) uniform texture2D t_In;
 layout(set = 0, binding = 2) uniform sampler Sampler;
 layout(set = 0, binding = 3, r32f) uniform image2D t_Tmp;
 layout(set = 0, binding = 4) buffer tBuf {
-    uint[] t;
+    int[] t;
 };
 layout(set = 0, binding = 5) buffer sBuf {
-    uint[] s;
+    int[] s;
 };
 layout(set = 0, binding = 6, r32f) uniform image2D t_Out;
+
+const float EPSILON = 0.0001;
 
 bool in_set(ivec2 idx) {
     vec2 uv = vec2(float(idx.x) / float(imageSize(t_Tmp).x), float(idx.y) / float(imageSize(t_Tmp).y));
@@ -59,11 +61,16 @@ void column_pass() {
     }
 }
 
-float edt_f(float x, float i, float gi) {
-    return sqrt((x - i) * (x - i) + gi * gi);
+float edt_f(int x, int i) {
+    int y = int(gl_GlobalInvocationID.x);
+    float gi = imageLoad(t_Tmp, ivec2(i, y)).r;
+    return sqrt(float((x - i) * (x - i)) + gi * gi);
 }
 
-int edt_sep(int i, int u, float gi, float gu) {
+int edt_sep(int i, int u) {
+    int y = int(gl_GlobalInvocationID.x);
+    float gi = imageLoad(t_Tmp, ivec2(i, y)).r;
+    float gu = imageLoad(t_Tmp, ivec2(u, y)).r;
     return (u * u - i * i + (int(gu * gu - gi * gi))) / (2 * (u - i));
 }
 
@@ -77,44 +84,28 @@ void row_pass() {
     t[offset + 0] = 0;
 
     // Scan 3
-    for(int u = 1; u < m; ++u) {
-        while(q >= 0 &&
-              edt_f(t[offset + q], s[offset + q], imageLoad(t_Tmp, ivec2(s[offset + q], y)).r) >=
-              edt_f(t[offset + q], u, imageLoad(t_Tmp, ivec2(s[offset + u], y)).r)) {
-
+    for(int u = 0; u < m; ++u) {
+        while(q >= 0 && edt_f(t[offset + q], s[offset + q]) > edt_f(t[offset + q], u) + EPSILON) {
             q--;
         }
-
         if(q < 0) {
             q = 0;
             s[offset + 0] = u;
         } else {
-            int w = edt_sep(
-                int(s[offset + q, y]),
-                u,
-                imageLoad(t_Tmp, ivec2(s[offset + q], y)).r,
-                imageLoad(t_Tmp, ivec2(u, y)).r) + 1;
-
-            if(w < m + 1) {
+            int w = 1 + edt_sep(s[offset + q], u);
+            if(w < m) {
                 q++;
                 s[offset + q] = u;
-                s[offset + q] = w;
+                t[offset + q] = w;
             }
         }
     }
 
     // Scan 4
     for(int u = m - 1; u >= 0; --u) {
-        float val = 0.;
-        if(u == s[offset + q]) {
-            val = imageLoad(t_Tmp, ivec2(u, y)).r;
-        } else {
-            val = edt_f(u, s[offset + q], imageLoad(t_Tmp, ivec2(s[offset + q], y)).r);
-        }
-
-        imageStore(t_Out, ivec2(u, y), vec4(val) / float(m));
-
-        if(q > 0 && u == t[offset + q]) {
+        float dt = edt_f(u, s[offset + q]);
+        imageStore(t_Out, ivec2(u, y), vec4(dt) / float(m));
+        if(u == t[offset + q]) {
             q--;
         }
     }

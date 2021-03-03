@@ -106,11 +106,11 @@ impl Shader for Distance {
             },
             "s".to_string() => IntermediateDataDescription::Buffer {
                 dim: BufferDim::Square(FromSocketOr::FromSocket("out")),
-                element_width: std::mem::size_of::<u32>(),
+                element_width: std::mem::size_of::<i32>(),
             },
             "t".to_string() => IntermediateDataDescription::Buffer {
                 dim: BufferDim::Square(FromSocketOr::FromSocket("out")),
-                element_width: std::mem::size_of::<u32>(),
+                element_width: std::mem::size_of::<i32>(),
             },
         }
     }
