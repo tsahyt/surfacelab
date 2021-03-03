@@ -8,8 +8,16 @@ const uint PASS_COLUMN = 0;
 const uint PASS_ROW = 1;
 
 layout(set = 0, binding = 0) uniform Params {
+    uint metric;
+    uint clamp_output;
+    uint expand_mode;
     float threshold;
+    float extent;
 };
+
+const uint METRIC_EUCLIDEAN = 0;
+const uint METRIC_MANHATTAN = 1;
+const uint METRIC_CHEBYSHEV = 2;
 
 layout(set = 0, binding = 1) uniform texture2D t_In;
 layout(set = 0, binding = 2) uniform sampler Sampler;
@@ -74,6 +82,67 @@ int edt_sep(int i, int u) {
     return (u * u - i * i + (int(gu * gu - gi * gi))) / (2 * (u - i));
 }
 
+float mdt_f(int x, int i) {
+    int y = int(gl_GlobalInvocationID.x);
+    float gi = imageLoad(t_Tmp, ivec2(i, y)).r;
+    return abs(x - i) + gi;
+}
+
+int mdt_sep(int i, int u) {
+    int y = int(gl_GlobalInvocationID.x);
+    float gi = imageLoad(t_Tmp, ivec2(i, y)).r;
+    float gu = imageLoad(t_Tmp, ivec2(u, y)).r;
+
+    if(gu >= gi + u - i + EPSILON) {
+        return 32768;
+    }
+    if(gi > gu + u - i + EPSILON) {
+        return - 32768;
+    }
+
+    return int(gu - gi) + u + i / 2;
+}
+
+float cdt_f(int x, int i) {
+    int y = int(gl_GlobalInvocationID.x);
+    float gi = imageLoad(t_Tmp, ivec2(i, y)).r;
+    return max(abs(x - i), gi);
+}
+
+int cdt_sep(int i, int u) {
+    int y = int(gl_GlobalInvocationID.x);
+    float gi = imageLoad(t_Tmp, ivec2(i, y)).r;
+    float gu = imageLoad(t_Tmp, ivec2(u, y)).r;
+
+    if(gi <= gu) {
+        return max(i + int(gu), (i + u) / 2);
+    } else {
+        return min(u - int(gi), (i + u) / 2);
+    }
+}
+
+float dt_f(int x, int i) {
+    switch(metric) {
+        case METRIC_EUCLIDEAN:
+            return edt_f(x, i);
+        case METRIC_MANHATTAN:
+            return mdt_f(x, i);
+        case METRIC_CHEBYSHEV:
+            return cdt_f(x, i);
+    }
+}
+
+int dt_sep(int i, int u) {
+    switch(metric) {
+        case METRIC_EUCLIDEAN:
+            return edt_sep(i, u);
+        case METRIC_MANHATTAN:
+            return mdt_sep(i, u);
+        case METRIC_CHEBYSHEV:
+            return cdt_sep(i, u);
+    }
+}
+
 void row_pass() {
     int y = int(gl_GlobalInvocationID.x);
     int m = imageSize(t_Out).y;
@@ -85,14 +154,14 @@ void row_pass() {
 
     // Scan 3
     for(int u = 0; u < m; ++u) {
-        while(q >= 0 && edt_f(t[offset + q], s[offset + q]) > edt_f(t[offset + q], u) + EPSILON) {
+        while(q >= 0 && dt_f(t[offset + q], s[offset + q]) > dt_f(t[offset + q], u) + EPSILON) {
             q--;
         }
         if(q < 0) {
             q = 0;
             s[offset + 0] = u;
         } else {
-            int w = 1 + edt_sep(s[offset + q], u);
+            int w = 1 + dt_sep(s[offset + q], u);
             if(w < m) {
                 q++;
                 s[offset + q] = u;
@@ -103,8 +172,14 @@ void row_pass() {
 
     // Scan 4
     for(int u = m - 1; u >= 0; --u) {
-        float dt = edt_f(u, s[offset + q]);
-        imageStore(t_Out, ivec2(u, y), vec4(dt) / float(m));
+        float dt = dt_f(u, s[offset + q]) / exp(extent);
+        if(expand_mode != 0) {
+            dt = 1. - dt;
+        }
+        if(clamp_output != 0) {
+            dt = clamp(dt, 0., 1.);
+        }
+        imageStore(t_Out, ivec2(u, y), vec4(dt));
         if(u == t[offset + q]) {
             q--;
         }
