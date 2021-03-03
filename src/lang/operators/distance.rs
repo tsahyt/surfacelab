@@ -32,9 +32,29 @@ pub enum DistanceMetric {
 }
 
 #[repr(C)]
+#[derive(
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    ParameterField,
+    PartialEq,
+)]
+pub enum DistanceBorderMode {
+    Closed = 0,
+    Open = 1,
+}
+
+#[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Distance {
     metric: DistanceMetric,
+    border_mode: DistanceBorderMode,
     clamp: ParameterBool,
     expand: ParameterBool,
     threshold: f32,
@@ -45,10 +65,11 @@ impl Default for Distance {
     fn default() -> Self {
         Self {
             metric: DistanceMetric::Euclidean,
+            border_mode: DistanceBorderMode::Closed,
             clamp: 0,
             expand: 0,
             threshold: 0.5,
-            extent: 32.0,
+            extent: 3.0,
         }
     }
 }
@@ -161,6 +182,18 @@ impl OperatorParamBox for Distance {
                         control: Control::Enum {
                             selected: self.metric as usize,
                             variants: DistanceMetric::VARIANTS
+                                .iter()
+                                .map(|x| x.to_string())
+                                .collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                    },
+                    Parameter {
+                        name: "border-mode".to_string(),
+                        transmitter: Field(Distance::BORDER_MODE.to_string()),
+                        control: Control::Enum {
+                            selected: self.border_mode as usize,
+                            variants: DistanceBorderMode::VARIANTS
                                 .iter()
                                 .map(|x| x.to_string())
                                 .collect(),

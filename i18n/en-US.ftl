@@ -113,3 +113,4 @@ expand = Expand
 metric = Distance Metric
 threshold = Threshold
 extent = Extent
+border-mode = Border Mode

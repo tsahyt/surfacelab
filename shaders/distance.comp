@@ -9,6 +9,7 @@ const uint PASS_ROW = 1;
 
 layout(set = 0, binding = 0) uniform Params {
     uint metric;
+    uint border_mode;
     uint clamp_output;
     uint expand_mode;
     float threshold;
@@ -18,6 +19,9 @@ layout(set = 0, binding = 0) uniform Params {
 const uint METRIC_EUCLIDEAN = 0;
 const uint METRIC_MANHATTAN = 1;
 const uint METRIC_CHEBYSHEV = 2;
+
+const uint BORDER_CLOSED = 0;
+const uint BORDER_OPEN = 1;
 
 layout(set = 0, binding = 1) uniform texture2D t_In;
 layout(set = 0, binding = 2) uniform sampler Sampler;
@@ -33,7 +37,11 @@ layout(set = 0, binding = 6, r32f) uniform image2D t_Out;
 const float EPSILON = 0.0001;
 
 bool in_set(ivec2 idx) {
-    vec2 uv = vec2(float(idx.x) / float(imageSize(t_Tmp).x), float(idx.y) / float(imageSize(t_Tmp).y));
+    ivec2 resolution = imageSize(t_Tmp);
+    if(border_mode == BORDER_CLOSED && (idx.x == 0 || idx.y == 0 || idx.x == resolution.x - 1 || idx.y == resolution.y - 1)) {
+        return true;
+    }
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
     return texture(sampler2D(t_In, Sampler), uv).r > threshold;
 }
 
