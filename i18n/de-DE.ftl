@@ -108,3 +108,8 @@ rotation = Rotation
 
 sigma = Sigma
 quality = Qualität
+
+expand = Ausdehnen
+metric = Distanzmetrik
+threshold = Schwellenwert
+extent = Ausdehnung

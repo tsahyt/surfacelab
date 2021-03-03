@@ -108,3 +108,8 @@ rotation = Rotation
 
 sigma = Sigma
 quality = Quality
+
+expand = Expand
+metric = Distance Metric
+threshold = Threshold
+extent = Extent
