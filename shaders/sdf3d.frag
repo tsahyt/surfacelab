@@ -92,7 +92,7 @@ float lod_by_distance(float d) {
 }
 
 vec2 plane_mapping(vec3 p) {
-    return p.xz / 4.;
+    return (p.xz / 4.) + .5;
 }
 
 vec2 sphere_mapping(vec3 p) {
@@ -104,7 +104,7 @@ vec2 sphere_mapping(vec3 p) {
 
 vec2 cylinder_mapping(vec3 p) {
     float u = - atan(p.x, p.z) / (2 * PI);
-    return vec2(3 * u, p.y / 4.);
+    return vec2(3 * u, p.y / 4.) + 0.5;
 }
 
 // Read the heightfield at a given texture coordinate
@@ -130,9 +130,9 @@ vec3 triplanar_albedo(vec3 p, vec3 n, float lod) {
     n = pow(abs(n), vec3(4.0));
     n = n / (n.x + n.y + n.z);
 
-    vec3 col_front = albedo(p.xy, lod);
-    vec3 col_side = albedo(p.zy, lod);
-    vec3 col_top = albedo(p.xz, lod);
+    vec3 col_front = albedo(p.xy + 0.5, lod);
+    vec3 col_side = albedo(p.zy + 0.5, lod);
+    vec3 col_top = albedo(p.xz + 0.5, lod);
 
     col_front *= n.b;
     col_side *= n.r;
@@ -155,9 +155,9 @@ float triplanar_roughness(vec3 p, vec3 n, float lod) {
     n = pow(abs(n), vec3(4.0));
     n = n / (n.x + n.y + n.z);
 
-    float col_front = roughness(p.xy, lod);
-    float col_side = roughness(p.zy, lod);
-    float col_top = roughness(p.xz, lod);
+    float col_front = roughness(p.xy + 0.5, lod);
+    float col_side = roughness(p.zy + 0.5, lod);
+    float col_top = roughness(p.xz + 0.5, lod);
 
     col_front *= n.b;
     col_side *= n.r;
@@ -180,9 +180,9 @@ float triplanar_metallic(vec3 p, vec3 n, float lod) {
     n = pow(abs(n), vec3(4.0));
     n = n / (n.x + n.y + n.z);
 
-    float col_front = metallic(p.xy, lod);
-    float col_side = metallic(p.zy, lod);
-    float col_top = metallic(p.xz, lod);
+    float col_front = metallic(p.xy + 0.5, lod);
+    float col_side = metallic(p.zy + 0.5, lod);
+    float col_top = metallic(p.xz + 0.5, lod);
 
     col_front *= n.b;
     col_side *= n.r;
@@ -227,9 +227,9 @@ float sdf(vec3 p, float lod) {
 
             p /= 2.;
 
-            float height_front = heightfield(p.xy, lod) * displacement_amount * n.b;
-            float height_side = heightfield(p.zy, lod) * displacement_amount * n.r;
-            float height_top = heightfield(p.xz, lod) * displacement_amount * n.g;
+            float height_front = heightfield(p.xy + 0.5, lod) * displacement_amount * n.b;
+            float height_side = heightfield(p.zy + 0.5, lod) * displacement_amount * n.r;
+            float height_top = heightfield(p.xz + 0.5, lod) * displacement_amount * n.g;
 
             height = height_front + height_side + height_top;
 
