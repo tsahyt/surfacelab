@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 pub mod allocator;
 pub mod thumbnails;
 
-pub use allocator::{Image, ImageError, TempBuffer};
+pub use allocator::{AllocatorError, Image, TempBuffer};
 pub use thumbnails::ThumbnailIndex;
 
 use super::{
@@ -185,17 +185,14 @@ where
         size: u32,
         ty: lang::ImageType,
         transfer_dst: bool,
-    ) -> Result<Image<B>, InitializationError> {
+    ) -> Result<Image<B>, AllocatorError> {
         let lock = self.gpu.lock().unwrap();
         Image::new(&lock.device, self.allocator.clone(), size, ty, transfer_dst)
     }
 
     /// Create a new temporary buffer in compute memory, with the given size.
     /// The buffer is allocated.
-    pub fn create_compute_temp_buffer(
-        &self,
-        bytes: u64,
-    ) -> Result<TempBuffer<B>, InitializationError> {
+    pub fn create_compute_temp_buffer(&self, bytes: u64) -> Result<TempBuffer<B>, AllocatorError> {
         let lock = self.gpu.lock().unwrap();
         TempBuffer::new(&lock.device, self.allocator.clone(), bytes)
     }

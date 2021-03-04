@@ -26,6 +26,25 @@ struct Chunk {
     alloc: Option<AllocId>,
 }
 
+#[derive(Debug, Error)]
+pub enum AllocatorError {
+    /// Failed to bind image to memory
+    #[error("Failed to bind image to memory")]
+    Bind(#[from] hal::device::BindError),
+    /// Failed to create an image view
+    #[error("Failed to create an image view")]
+    ViewCreation(#[from] hal::image::ViewCreationError),
+    /// Failed to create an image
+    #[error("Failed to create an image")]
+    ImageCreation(#[from] hal::image::CreationError),
+    /// Failed to create a buffer
+    #[error("Failed to create a buffer")]
+    BufferCreation(#[from] hal::buffer::CreationError),
+    /// Failed to find free memory for image
+    #[error("Unable to find free memory for image")]
+    OutOfMemory,
+}
+
 pub struct ComputeAllocator<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     allocs: Cell<AllocId>,
@@ -62,7 +81,7 @@ where
                         .properties
                         .contains(hal::memory::Properties::DEVICE_LOCAL)
                 })
-                .unwrap()
+                .expect("Unable to find device local memory for compute")
                 .into();
             lock.device
                 .allocate_memory(memory_type, Self::IMAGE_MEMORY_SIZE)
@@ -166,19 +185,6 @@ where
     }
 }
 
-#[derive(Debug, Error)]
-pub enum ImageError {
-    /// Failed to bind image to memory
-    #[error("Failed to bind image to memory")]
-    Bind,
-    /// Failed to create an image view
-    #[error("Failed to create an image view")]
-    ViewCreation,
-    /// Failed to find free memory for image
-    #[error("Unable to find free memory for image")]
-    OutOfMemory,
-}
-
 /// A compute image, which may or may not be allocated.
 pub struct Image<B: Backend> {
     parent: Arc<Mutex<ComputeAllocator<B>>>,
@@ -202,7 +208,7 @@ where
         size: u32,
         ty: lang::ImageType,
         transfer_dst: bool,
-    ) -> Result<Self, InitializationError> {
+    ) -> Result<Self, AllocatorError> {
         // Determine formats and sizes
         let format = match ty {
             lang::ImageType::Grayscale => hal::format::Format::R32Sfloat,
@@ -237,8 +243,7 @@ where
                     | hal::image::Usage::TRANSFER_SRC,
                 hal::image::ViewCapabilities::empty(),
             )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Compute Image"))?;
+        }?;
 
         Ok(Self {
             parent,
@@ -254,7 +259,7 @@ where
     }
 
     /// Bind this image to some region in the image memory.
-    fn bind_memory(&mut self, offset: u64) -> Result<(), ImageError> {
+    fn bind_memory(&mut self, offset: u64) -> Result<(), AllocatorError> {
         let mut raw_lock = self.raw.lock().unwrap();
         let parent_lock = self.parent.lock().unwrap();
         let gpu_lock = parent_lock.gpu.lock().unwrap();
@@ -263,8 +268,7 @@ where
             gpu_lock
                 .device
                 .bind_image_memory(&parent_lock.image_mem, offset, &mut raw_lock)
-        }
-        .map_err(|_| ImageError::Bind)?;
+        }?;
 
         // Create view once the image is bound
         let view = unsafe {
@@ -275,8 +279,7 @@ where
                 hal::format::Swizzle::NO,
                 COLOR_RANGE.clone(),
             )
-        }
-        .map_err(|_| ImageError::ViewCreation)?;
+        }?;
         unsafe {
             if let Some(view) = ManuallyDrop::take(&mut self.view) {
                 gpu_lock.device.destroy_image_view(view);
@@ -308,7 +311,7 @@ where
     }
 
     /// Allocate fresh memory to the image from the underlying memory pool in compute.
-    pub fn allocate_memory(&mut self) -> Result<(), ImageError> {
+    pub fn allocate_memory(&mut self) -> Result<(), AllocatorError> {
         debug_assert!(self.alloc.is_none());
 
         let parent_lock = self.parent.lock().unwrap();
@@ -317,7 +320,7 @@ where
         let bytes = self.size as u64 * self.size as u64 * self.px_width as u64;
         let (offset, chunks) = parent_lock
             .find_free_memory(bytes)
-            .ok_or(ImageError::OutOfMemory)?;
+            .ok_or(AllocatorError::OutOfMemory)?;
         let alloc = parent_lock.allocate_memory(&chunks);
 
         log::trace!(
@@ -350,7 +353,7 @@ where
 
     /// Ensures that the image is backed. If no memory is currently allocated to
     /// it, new memory will be allocated. May fail if out of memory!
-    pub fn ensure_alloc(&mut self) -> Result<(), ImageError> {
+    pub fn ensure_alloc(&mut self) -> Result<(), AllocatorError> {
         if self.alloc.is_none() {
             return self.allocate_memory();
         }
@@ -449,17 +452,13 @@ where
         device: &B::Device,
         parent: Arc<Mutex<ComputeAllocator<B>>>,
         bytes: u64,
-    ) -> Result<Self, InitializationError> {
+    ) -> Result<Self, AllocatorError> {
         let alloc_lock = parent.lock().unwrap();
 
-        let (offset, chunks) =
-            alloc_lock
-                .find_free_memory(bytes)
-                .ok_or(InitializationError::Allocation(
-                    "Failed to allocate for temp buffer",
-                ))?;
-        let mut buffer = unsafe { device.create_buffer(bytes, hal::buffer::Usage::STORAGE) }
-            .map_err(|_| InitializationError::ResourceAcquisition("Buffer"))?;
+        let (offset, chunks) = alloc_lock
+            .find_free_memory(bytes)
+            .ok_or(AllocatorError::OutOfMemory)?;
+        let mut buffer = unsafe { device.create_buffer(bytes, hal::buffer::Usage::STORAGE) }?;
         let alloc_id = alloc_lock.allocate_memory(&chunks);
 
         log::trace!(
@@ -468,8 +467,7 @@ where
             alloc_id,
         );
 
-        unsafe { device.bind_buffer_memory(&alloc_lock.image_mem, offset, &mut buffer) }
-            .expect("Failed to bind buffer memory");
+        unsafe { device.bind_buffer_memory(&alloc_lock.image_mem, offset, &mut buffer) }?;
 
         Ok(TempBuffer {
             parent: parent.clone(),

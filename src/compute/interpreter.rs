@@ -14,9 +14,9 @@ pub struct ExternalImage {
 
 #[derive(Debug, Error)]
 pub enum InterpretationError {
-    /// An error occurred regarding GPU Compute Images
-    #[error("An error occurred regarding GPU Compute Images")]
-    ImageError(#[from] gpu::compute::ImageError),
+    /// An error occurred regarding GPU compute memory
+    #[error("An error occurred regarding GPU compute memory")]
+    AllocatorError(#[from] gpu::compute::AllocatorError),
     /// An error occurred during uploading of an image
     #[error("An error occurred during uploading of an image")]
     UploadError(#[from] gpu::basic_mem::BasicBufferBuilderError),
@@ -545,12 +545,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                             .expect("Invalid output socket"),
                         FromSocketOr::Independent(t) => *t,
                     };
-                    let mut img = self
-                        .gpu
-                        .create_compute_image(size, ty, false)
-                        .expect("Failed to create intermediate image");
-                    img.ensure_alloc()
-                        .expect("Failed to alloc intermediate image");
+                    let mut img = self.gpu.create_compute_image(size, ty, false)?;
+                    img.ensure_alloc()?;
                     intermediate_images.insert(name.clone(), img);
                 }
                 IntermediateDataDescription::Buffer { dim, element_width } => {
@@ -566,10 +562,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                     };
 
                     let bytes = length as u64 * *element_width as u64;
-                    let buffer = self
-                        .gpu
-                        .create_compute_temp_buffer(bytes)
-                        .expect("Failed to create intermediate buffer");
+                    let buffer = self.gpu.create_compute_temp_buffer(bytes)?;
 
                     intermediate_buffers.insert(name.clone(), buffer);
                 }
@@ -730,13 +723,13 @@ where
             Ok(r) => Some(Ok((r, self.seq))),
 
             // Handle OOM
-            Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
+            Err(InterpretationError::AllocatorError(gpu::compute::AllocatorError::OutOfMemory)) => {
                 self.cleanup();
                 match self.interpret(&instruction, &substitutions) {
                     Ok(r) => Some(Ok((r, self.seq))),
-                    Err(InterpretationError::ImageError(gpu::compute::ImageError::OutOfMemory)) => {
-                        Some(Err(InterpretationError::HardOOM))
-                    }
+                    Err(InterpretationError::AllocatorError(
+                        gpu::compute::AllocatorError::OutOfMemory,
+                    )) => Some(Err(InterpretationError::HardOOM)),
                     Err(e) => Some(Err(e)),
                 }
             }
