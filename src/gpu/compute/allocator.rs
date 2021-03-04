@@ -1,4 +1,4 @@
-use crate::gpu::{Backend, InitializationError, GPU};
+use crate::gpu::{Backend, GPU};
 use crate::lang;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
@@ -65,7 +65,7 @@ where
     /// Number of chunks in the image memory region
     const N_CHUNKS: u64 = Self::IMAGE_MEMORY_SIZE / Self::CHUNK_SIZE;
 
-    pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, InitializationError> {
+    pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, hal::device::AllocationError> {
         let lock = gpu.lock().unwrap();
 
         // Preallocate a block of memory for compute images in device local
@@ -84,8 +84,7 @@ where
                 .expect("Unable to find device local memory for compute")
                 .into();
             lock.device
-                .allocate_memory(memory_type, Self::IMAGE_MEMORY_SIZE)
-                .map_err(|_| InitializationError::Allocation("Image Memory"))?
+                .allocate_memory(memory_type, Self::IMAGE_MEMORY_SIZE)?
         };
 
         Ok(Self {

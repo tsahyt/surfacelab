@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex, MutexGuard};
+use thiserror::Error;
 
 pub mod allocator;
 pub mod thumbnails;
@@ -17,8 +18,7 @@ pub use allocator::{AllocatorError, Image, TempBuffer};
 pub use thumbnails::ThumbnailIndex;
 
 use super::{
-    load_shader, Backend, DownloadError, InitializationError, PipelineError, Shader, ShaderType,
-    GPU,
+    load_shader, Backend, DownloadError, PipelineError, Shader, ShaderError, ShaderType, GPU,
 };
 
 /// GPU side compute component
@@ -42,6 +42,22 @@ pub struct GPUCompute<B: Backend> {
 
     // Sync
     fence: ManuallyDrop<B::Fence>,
+}
+
+#[derive(Debug, Error)]
+pub enum InitializationError {
+    #[error("Failed to initialize shader")]
+    ShaderError(#[from] ShaderError),
+    #[error("Out of memory encountered")]
+    OutOfMemory(#[from] hal::device::OutOfMemory),
+    #[error("Failed to build compute pipeline")]
+    PipelineCreation(#[from] hal::pso::CreationError),
+    #[error("Failed to build buffer")]
+    BufferCreation(#[from] BasicBufferBuilderError),
+    #[error("Error during memory allocation")]
+    AllocationError(#[from] hal::device::AllocationError),
+    #[error("Error during pipeline object allocation")]
+    PsoAllocationError(#[from] hal::pso::AllocationError),
 }
 
 impl<B> GPUCompute<B>
@@ -68,8 +84,7 @@ where
                 lock.queue_group.family,
                 hal::pool::CommandPoolCreateFlags::TRANSIENT,
             )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Command Pool"))?;
+        }?;
 
         // The uniform buffer is created once and shared across all compute
         // shaders, since only one is ever running at the same time. The size
@@ -91,9 +106,7 @@ where
                 .expect("Failed to find appropriate memory type for uniforms");
         }
 
-        let (uniform_buf, uniform_mem) = buffer_builder
-            .build::<B>(&lock.device)
-            .expect("Failed to build uniform buffer");
+        let (uniform_buf, uniform_mem) = buffer_builder.build::<B>(&lock.device)?;
 
         // Descriptor Pool. We need to set out resource limits here. Since we
         // keep descriptor sets around for each shader after creation, we need a
@@ -135,8 +148,7 @@ where
                 ],
                 DescriptorPoolCreateFlags::empty(),
             )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Descriptor Pool"))?;
+        }?;
 
         let fence = ManuallyDrop::new(lock.device.create_fence(false).unwrap());
 
@@ -146,8 +158,7 @@ where
                 hal::image::Filter::Linear,
                 hal::image::WrapMode::Tile,
             ))
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Sampler"))?;
+        }?;
 
         Ok(GPUCompute {
             gpu: gpu.clone(),
@@ -240,10 +251,9 @@ where
         let lock = self.gpu.lock().unwrap();
 
         // Layouts
-        let set_layout = unsafe { lock.device.create_descriptor_set_layout(bindings, &[]) }
-            .map_err(|_| InitializationError::ResourceAcquisition("Descriptor Set Layout"))?;
-        let pipeline_layout = unsafe { lock.device.create_pipeline_layout(Some(&set_layout), &[]) }
-            .map_err(|_| InitializationError::ResourceAcquisition("Pipeline Layout"))?;
+        let set_layout = unsafe { lock.device.create_descriptor_set_layout(bindings, &[]) }?;
+        let pipeline_layout =
+            unsafe { lock.device.create_pipeline_layout(Some(&set_layout), &[]) }?;
 
         let entry_point = hal::pso::EntryPoint {
             entry: "main",
@@ -257,8 +267,7 @@ where
                 &hal::pso::ComputePipelineDesc::new(entry_point, &pipeline_layout),
                 None,
             )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Pipeline"))?;
+        }?;
 
         Ok(ComputePipeline {
             raw: pipeline,
@@ -272,8 +281,7 @@ where
         &mut self,
         layout: &B::DescriptorSetLayout,
     ) -> Result<B::DescriptorSet, InitializationError> {
-        unsafe { self.descriptor_pool.allocate_set(layout) }
-            .map_err(|_| InitializationError::Allocation("Failed to allocate descriptor set"))
+        Ok(unsafe { self.descriptor_pool.allocate_set(layout) }?)
     }
 
     /// Specifying the parameters of a descriptor set write operation

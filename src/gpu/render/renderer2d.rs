@@ -1,5 +1,5 @@
-use super::{GPURender, Renderer};
-use crate::gpu::{Backend, InitializationError, GPU};
+use super::{GPURender, InitializationError, Renderer};
+use crate::gpu::{Backend, GPU};
 use crate::shader;
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;

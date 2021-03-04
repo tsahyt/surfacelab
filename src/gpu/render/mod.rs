@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use thiserror::Error;
 use zerocopy::AsBytes;
 
-use super::{Backend, InitializationError, PipelineError, GPU};
+use super::{Backend, PipelineError, GPU};
 
 pub mod brdf_lut;
 pub mod environment;
@@ -35,6 +35,24 @@ pub trait Renderer {
     fn fragment_shader() -> &'static [u8];
     fn set_resolution(&mut self, w: f32, h: f32);
     fn uniforms(&self) -> &[u8];
+}
+
+#[derive(Debug, Error)]
+pub enum InitializationError {
+    #[error("Failed to initialize shader")]
+    ShaderError(#[from] super::ShaderError),
+    #[error("Out of memory encountered")]
+    OutOfMemory(#[from] hal::device::OutOfMemory),
+    #[error("Error during memory allocation")]
+    AllocationError(#[from] hal::device::AllocationError),
+    #[error("Error during pipeline object allocation")]
+    PsoAllocationError(#[from] hal::pso::AllocationError),
+    #[error("Failed to build buffer")]
+    BufferCreation(#[from] BasicBufferBuilderError),
+    #[error("Failed to build image")]
+    ImageCreation(#[from] BasicImageBuilderError),
+    #[error("Failed to initialize render target")]
+    RenderTarget(#[from] super::RenderTargetError),
 }
 
 pub struct GPURender<B: Backend, U: Renderer> {
@@ -262,8 +280,7 @@ where
                 lock.queue_group.family,
                 hal::pool::CommandPoolCreateFlags::TRANSIENT,
             )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Command Pool"))?;
+        }?;
 
         let mut descriptor_pool = unsafe {
             use hal::pso::*;
@@ -300,8 +317,7 @@ where
                 ],
                 DescriptorPoolCreateFlags::empty(),
             )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Descriptor Pool"))?;
+        }?;
 
         // Main Rendering Data
         let main_set_layout = unsafe {
@@ -429,13 +445,9 @@ where
                 ],
                 &[],
             )
-        }
-        .map_err(|_| {
-            InitializationError::ResourceAcquisition("Render Main Descriptor Set Layout")
-        })?;
+        }?;
 
-        let main_descriptor_set = unsafe { descriptor_pool.allocate_set(&main_set_layout) }
-            .map_err(|_| InitializationError::ResourceAcquisition("Render Descriptor Set"))?;
+        let main_descriptor_set = unsafe { descriptor_pool.allocate_set(&main_set_layout) }?;
 
         let (main_render_pass, main_pipeline, main_pipeline_layout) = Self::make_render_pipeline(
             &lock.device,
@@ -480,15 +492,9 @@ where
                 ],
                 &[],
             )
-        }
-        .map_err(|_| {
-            InitializationError::ResourceAcquisition("Render Accumulation Descriptor Set Layout")
-        })?;
+        }?;
 
-        let accum_descriptor_set = unsafe { descriptor_pool.allocate_set(&accum_set_layout) }
-            .map_err(|_| {
-                InitializationError::ResourceAcquisition("Render Accumulation Descriptor Set")
-            })?;
+        let accum_descriptor_set = unsafe { descriptor_pool.allocate_set(&accum_set_layout) }?;
 
         let (accum_pipeline, accum_pipeline_layout) =
             Self::make_accum_pipeline(&lock.device, &accum_set_layout, ACCUM_SHADER)?;
@@ -510,8 +516,7 @@ where
                 hal::image::Filter::Linear,
                 hal::image::WrapMode::Tile,
             ))
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Sampler"))?;
+        }?;
 
         // Uniforms
         let mut buffer_builder = BasicBufferBuilder::new(&lock.memory_properties.memory_types);
@@ -530,20 +535,15 @@ where
                 .expect("Failed to find appropriate memory type for uniforms");
         }
 
-        let (uniform_buf, uniform_mem) = buffer_builder
-            .build::<B>(&lock.device)
-            .expect("Failed to build uniform buffer");
-        let (occupancy_buf, occupancy_mem) = buffer_builder
-            .build::<B>(&lock.device)
-            .expect("Failed to build uniform buffer");
+        let (uniform_buf, uniform_mem) = buffer_builder.build::<B>(&lock.device)?;
+        let (occupancy_buf, occupancy_mem) = buffer_builder.build::<B>(&lock.device)?;
 
         // Synchronization primitives
         let fence = lock.device.create_fence(true).unwrap();
         let tfence = lock.device.create_fence(false).unwrap();
 
         // Image slots
-        let image_slots = ImageSlots::new(&lock.device, &lock.memory_properties, image_size)
-            .expect("Failed to build image slots");
+        let image_slots = ImageSlots::new(&lock.device, &lock.memory_properties, image_size)?;
 
         Ok(GPURender {
             gpu: gpu.clone(),
@@ -622,8 +622,7 @@ where
             };
 
             unsafe { device.create_render_pass(&[attachment], &[subpass], &[]) }
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Pass"))?;
+        }?;
 
         // Pipeline
         let pipeline_layout = unsafe {
@@ -631,8 +630,7 @@ where
                 std::iter::once(set_layout),
                 &[(hal::pso::ShaderStageFlags::FRAGMENT, 0..8)],
             )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Pipeline Layout"))?;
+        }?;
 
         let object_specialization = hal::pso::Specialization {
             constants: Cow::Borrowed(&[hal::pso::SpecializationConstant { id: 0, range: 0..4 }]),
@@ -707,8 +705,7 @@ where
                 std::iter::once(set_layout),
                 &[(hal::pso::ShaderStageFlags::COMPUTE, 0..4)],
             )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Accum Pipeline Layout"))?;
+        }?;
 
         let shader_module = load_shader::<B>(device, accum_shader)?;
 

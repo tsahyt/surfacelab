@@ -65,22 +65,6 @@ where
 }
 
 #[derive(Debug, Error)]
-pub enum InitializationError {
-    #[error("Failed to acquire a resource during initialization")]
-    ResourceAcquisition(&'static str),
-    #[error("Failed to allocate memory")]
-    Allocation(&'static str),
-    #[error("Failed to bind memory to a resource")]
-    Bind,
-    #[error("Missing feature")]
-    MissingFeature(&'static str),
-    #[error("Failed to read SPIR-V for shader")]
-    ShaderSPIRV,
-    #[error("Failed to build shader module")]
-    ShaderModule,
-}
-
-#[derive(Debug, Error)]
 pub enum PipelineError {
     /// Failed to map Uniform Buffer into CPU space
     #[error("Failed to map Uniform Buffer into CPU space")]
@@ -100,17 +84,25 @@ pub enum DownloadError {
     Map,
 }
 
+#[derive(Debug, Error)]
+pub enum BootError {
+    #[error("Missing compute support on device")]
+    MissingComputeSupport,
+    #[error("Missing compute support on device")]
+    MissingGraphicsSupport,
+    #[error("Unsupported backend encountered")]
+    UnsupportedBackend,
+}
+
 /// Initialize the GPU, optionally headless. When headless is specified,
 /// no graphics capable family is required.
 ///
 /// TODO: Late creation of GPU to check for surface compatibility when not running headless
-pub fn initialize_gpu(
-    headless: bool,
-) -> Result<Arc<Mutex<GPU<back::Backend>>>, InitializationError> {
+pub fn initialize_gpu(headless: bool) -> Result<Arc<Mutex<GPU<back::Backend>>>, BootError> {
     log::info!("Initializing GPU");
 
-    let instance = back::Instance::create("surfacelab", 1)
-        .map_err(|_| InitializationError::ResourceAcquisition("Instance"))?;
+    let instance =
+        back::Instance::create("surfacelab", 1).map_err(|_| BootError::UnsupportedBackend)?;
     let adapter = instance
         .enumerate_adapters()
         .into_iter()
@@ -121,9 +113,9 @@ pub fn initialize_gpu(
             })
         })
         .ok_or(if headless {
-            InitializationError::MissingFeature("Compute")
+            BootError::MissingComputeSupport
         } else {
-            InitializationError::MissingFeature("Graphics")
+            BootError::MissingGraphicsSupport
         })?;
 
     let gpu = GPU::new(instance, adapter, headless);
@@ -171,15 +163,22 @@ where
     }
 }
 
+#[derive(Debug, Error)]
+pub enum ShaderError {
+    #[error("Error reading SPIR-V code for shader")]
+    SPIRVError,
+    #[error("Failed to create shader module for pipeline")]
+    ShaderModuleCreation(#[from] hal::device::ShaderError),
+}
+
 /// Convenience function for creating shader modules for SPIR-V bytecode.
 pub fn load_shader<B: Backend>(
     device: &B::Device,
     spirv: &'static [u8],
-) -> Result<B::ShaderModule, InitializationError> {
-    let loaded_spirv = hal::pso::read_spirv(std::io::Cursor::new(spirv))
-        .map_err(|_| InitializationError::ShaderSPIRV)?;
-    unsafe { device.create_shader_module(&loaded_spirv) }
-        .map_err(|_| InitializationError::ShaderModule)
+) -> Result<B::ShaderModule, ShaderError> {
+    let loaded_spirv =
+        hal::pso::read_spirv(std::io::Cursor::new(spirv)).map_err(|_| ShaderError::SPIRVError)?;
+    unsafe { device.create_shader_module(&loaded_spirv) }.map_err(|e| ShaderError::from(e))
 }
 
 impl<B> Drop for GPU<B>
@@ -189,6 +188,14 @@ where
     fn drop(&mut self) {
         log::info!("Dropping GPU")
     }
+}
+
+#[derive(Debug, Error)]
+pub enum RenderTargetError {
+    #[error("No suitable memory found for render target")]
+    MemoryType,
+    #[error("Failed to construct render target")]
+    Construction(#[from] basic_mem::BasicImageBuilderError),
 }
 
 pub struct RenderTarget<B: Backend> {
@@ -212,54 +219,22 @@ where
         samples: hal::image::NumSamples,
         compute_target: bool,
         dimensions: (u32, u32),
-    ) -> Result<Self, InitializationError> {
+    ) -> Result<Self, RenderTargetError> {
         let lock = gpu.lock().unwrap();
 
-        // Create Image
-        let mut image = unsafe {
-            lock.device.create_image(
-                hal::image::Kind::D2(dimensions.0, dimensions.1, 1, samples),
-                1,
-                format,
-                hal::image::Tiling::Optimal,
-                if compute_target {
+        let (image, memory, view) =
+            basic_mem::BasicImageBuilder::new(&lock.memory_properties.memory_types)
+                .size_2d_msaa(dimensions.0, dimensions.1, samples)
+                .format(format)
+                .tiling(hal::image::Tiling::Optimal)
+                .usage(if compute_target {
                     hal::image::Usage::SAMPLED | hal::image::Usage::STORAGE
                 } else {
                     hal::image::Usage::COLOR_ATTACHMENT | hal::image::Usage::SAMPLED
-                },
-                hal::image::ViewCapabilities::empty(),
-            )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Target Image"))?;
-
-        // Allocate and bind memory for image
-        let requirements = unsafe { lock.device.get_image_requirements(&image) };
-        let memory_type = lock
-            .memory_properties
-            .memory_types
-            .iter()
-            .position(|mem_type| {
-                mem_type
-                    .properties
-                    .contains(hal::memory::Properties::DEVICE_LOCAL)
-            })
-            .unwrap()
-            .into();
-        let memory = unsafe { lock.device.allocate_memory(memory_type, requirements.size) }
-            .map_err(|_| InitializationError::Allocation("Render Target Image"))?;
-        unsafe { lock.device.bind_image_memory(&memory, 0, &mut image) }
-            .map_err(|_| InitializationError::Bind)?;
-
-        let view = unsafe {
-            lock.device.create_image_view(
-                &image,
-                hal::image::ViewKind::D2,
-                format,
-                hal::format::Swizzle::NO,
-                COLOR_RANGE.clone(),
-            )
-        }
-        .map_err(|_| InitializationError::ResourceAcquisition("Render Target Image View"))?;
+                })
+                .memory_type(hal::memory::Properties::DEVICE_LOCAL)
+                .ok_or(RenderTargetError::MemoryType)?
+                .build::<B>(&lock.device)?;
 
         Ok(Self {
             gpu: gpu.clone(),

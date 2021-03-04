@@ -1,5 +1,5 @@
-use super::{GPURender, Renderer};
-use crate::gpu::{Backend, InitializationError, GPU};
+use super::{GPURender, InitializationError, Renderer};
+use crate::gpu::{Backend, GPU};
 use crate::lang::{LightType, ObjectType, ParameterBool};
 use crate::shader;
 use gfx_hal as hal;

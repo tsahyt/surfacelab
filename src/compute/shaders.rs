@@ -373,7 +373,7 @@ where
     pub fn from_description(
         description: OperatorPassDescription,
         gpu: &mut gpu::compute::GPUCompute<B>,
-    ) -> Result<Self, gpu::InitializationError> {
+    ) -> Result<Self, gpu::compute::InitializationError> {
         match description {
             OperatorPassDescription::RunShader(operator_shader) => {
                 let shader: gpu::Shader<B> = gpu.create_shader(operator_shader.spirv)?;
@@ -478,7 +478,9 @@ where
     B: gpu::Backend,
 {
     /// Initialize the shader library
-    pub fn new(gpu: &mut gpu::compute::GPUCompute<B>) -> Result<Self, gpu::InitializationError> {
+    pub fn new(
+        gpu: &mut gpu::compute::GPUCompute<B>,
+    ) -> Result<Self, gpu::compute::InitializationError> {
         log::info!("Initializing Shader Library");
         let mut shaders = HashMap::new();
 
