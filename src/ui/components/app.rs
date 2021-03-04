@@ -267,7 +267,7 @@ where
             NodeCollection::Graph(_) => self.update_node_graph(state, ui),
             NodeCollection::Layers(_) => self.update_layer_stack(state, ui),
         };
-        self.update_render_view(state, ui);
+        self.update_viewport(state, ui);
         self.update_parameter_section(state, ui);
         self.update_graph_section(state, ui);
         self.update_surface_section(state, ui);
@@ -439,12 +439,12 @@ where
         });
     }
 
-    // /// Updates a render view
-    fn update_render_view(&mut self, state: &mut widget::State<State>, ui: &mut UiCell) {
+    // /// Updates the viewport
+    fn update_viewport(&mut self, state: &mut widget::State<State>, ui: &mut UiCell) {
         use components::viewport;
 
         state.update(|state| {
-            viewport::Viewport::new(
+            viewport::Viewport::new_3d(
                 &self.app_data.language,
                 &self.app_data.sender,
                 &mut self.renderer,

@@ -2,12 +2,42 @@ use crate::broker::BrokerSender;
 use crate::lang::*;
 use crate::ui::{app_state::RenderImage, i18n::Language, widgets};
 
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use conrod_core::*;
 
+pub struct Viewport3D;
+
+pub struct Viewport2D;
+
+pub trait ViewportType {
+    fn build_params() -> ParamBoxDescription<RenderField>;
+    fn renderer_type() -> RendererType;
+}
+
+impl ViewportType for Viewport3D {
+    fn build_params() -> ParamBoxDescription<RenderField> {
+        ParamBoxDescription::render_parameters()
+    }
+
+    fn renderer_type() -> RendererType {
+        RendererType::Renderer3D
+    }
+}
+
+impl ViewportType for Viewport2D {
+    fn build_params() -> ParamBoxDescription<RenderField> {
+        ParamBoxDescription::render_parameters()
+    }
+
+    fn renderer_type() -> RendererType {
+        RendererType::Renderer2D
+    }
+}
+
 #[derive(WidgetCommon)]
-pub struct Viewport<'a, B: crate::gpu::Backend> {
+pub struct Viewport<'a, V, B: crate::gpu::Backend> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     language: &'a Language,
@@ -17,13 +47,14 @@ pub struct Viewport<'a, B: crate::gpu::Backend> {
     monitor_resolution: (u32, u32),
     event_buffer: Option<&'a [Arc<Lang>]>,
     style: Style,
+    _viewport_type: PhantomData<V>,
 }
 
-impl<'a, B> Viewport<'a, B>
+impl<'a, B> Viewport<'a, Viewport3D, B>
 where
     B: crate::gpu::Backend,
 {
-    pub fn new(
+    pub fn new_3d(
         language: &'a Language,
         sender: &'a BrokerSender<Lang>,
         renderer: &'a mut crate::gpu::ui::Renderer<B>,
@@ -38,9 +69,39 @@ where
             monitor_resolution: (1920, 1080),
             event_buffer: None,
             style: Style::default(),
+            _viewport_type: PhantomData,
         }
     }
+}
 
+impl<'a, B> Viewport<'a, Viewport2D, B>
+where
+    B: crate::gpu::Backend,
+{
+    pub fn new_2d(
+        language: &'a Language,
+        sender: &'a BrokerSender<Lang>,
+        renderer: &'a mut crate::gpu::ui::Renderer<B>,
+        image_map: &'a mut image::Map<crate::gpu::ui::Image<B>>,
+    ) -> Self {
+        Self {
+            common: widget::CommonBuilder::default(),
+            language,
+            sender,
+            renderer,
+            image_map,
+            monitor_resolution: (1920, 1080),
+            event_buffer: None,
+            style: Style::default(),
+            _viewport_type: PhantomData,
+        }
+    }
+}
+
+impl<'a, V, B> Viewport<'a, V, B>
+where
+    B: crate::gpu::Backend,
+{
     pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
         self.event_buffer = Some(buffer);
         self
@@ -78,8 +139,9 @@ pub struct State {
     render_image: RenderImage,
 }
 
-impl<'a, B> Widget for Viewport<'a, B>
+impl<'a, V, B> Widget for Viewport<'a, V, B>
 where
+    V: ViewportType,
     B: crate::gpu::Backend,
 {
     type State = State;
@@ -90,7 +152,7 @@ where
         State {
             ids: Ids::new(id_gen),
             modal: false,
-            parameters: ParamBoxDescription::render_parameters(),
+            parameters: V::build_params(),
             render_image: RenderImage::None,
         }
     }
@@ -173,7 +235,7 @@ where
                         renderer_id,
                         (self.monitor_resolution.0, self.monitor_resolution.1),
                         (w as u32, h as u32),
-                        RendererType::Renderer3D,
+                        V::renderer_type(),
                     )))
                     .expect("Error contacting renderer backend");
                 state.update(|state| state.render_image = RenderImage::Requested);
@@ -216,7 +278,7 @@ where
     }
 }
 
-impl<'a, B> Viewport<'a, B>
+impl<'a, V, B> Viewport<'a, V, B>
 where
     B: crate::gpu::Backend,
 {
