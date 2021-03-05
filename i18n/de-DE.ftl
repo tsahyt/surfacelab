@@ -90,9 +90,12 @@ to-max = Zu Max
 
 color = Farbe
 
+adjust-mode = Farbmodus
 hue = Farbe
 saturation = Sättigung
 value = Wert
+chroma = Chroma
+lightness = Helligkeit
 
 red-channel = Roter Kanal
 green-channel = Grüner Kanal
