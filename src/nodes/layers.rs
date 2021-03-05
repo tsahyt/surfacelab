@@ -1583,10 +1583,11 @@ impl super::NodeCollection for LayerStack {
             match l.layer_type {
                 LayerType::Fill => {
                     ParamBoxDescription::fill_layer_parameters(&l.operator, &l.output_sockets)
-                        .map_transmitters(|t| t.clone().into())
+                        .transmitters_into()
                 }
-                LayerType::Fx => ParamBoxDescription::fx_layer_parameters(&l.operator)
-                    .map_transmitters(|t| t.clone().into()),
+                LayerType::Fx => {
+                    ParamBoxDescription::fx_layer_parameters(&l.operator).transmitters_into()
+                }
             }
         } else {
             ParamBoxDescription::empty()

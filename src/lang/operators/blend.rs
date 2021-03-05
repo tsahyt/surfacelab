@@ -38,6 +38,21 @@ pub enum BlendMode {
     SmoothLighten,
 }
 
+fn sharpness_visibility() -> VisibilityFunction {
+    VisibilityFunction::new(|controls| {
+        controls.iter().any(|(n, c)| {
+            n == "blend-mode"
+                && match c {
+                    Control::Enum { selected, .. } => {
+                        (*selected == BlendMode::SmoothDarken as usize)
+                            || (*selected == BlendMode::SmoothLighten as usize)
+                    }
+                    _ => false,
+                }
+        })
+    })
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Blend {
@@ -162,7 +177,7 @@ impl OperatorParamBox for Blend {
                             max: 64.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::default(),
+                        visibility: sharpness_visibility(),
                     },
                 ],
             }],
@@ -286,7 +301,7 @@ impl OperatorParamBox for BlendMasked {
                             max: 64.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::default(),
+                        visibility: sharpness_visibility(),
                     },
                 ],
             }],

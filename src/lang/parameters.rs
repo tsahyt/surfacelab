@@ -568,28 +568,37 @@ where
         self.categories.len()
     }
 
+    /// Return an association vector of parameters with their controls.
+    pub fn controls(&self) -> Vec<(String, Control)> {
+        self.categories
+            .iter()
+            .flat_map(|cat| {
+                cat.parameters
+                    .iter()
+                    .map(|param| (param.name.clone(), param.control.clone()))
+            })
+            .collect()
+    }
+
     /// Map a function over each transmitter in the box. Essentially making the
     /// description a functor.
-    pub fn map_transmitters<Q: MessageWriter, F: Fn(&T) -> Q>(
-        self,
-        f: F,
-    ) -> ParamBoxDescription<Q> {
+    pub fn transmitters_into<Q: MessageWriter + From<T>>(mut self) -> ParamBoxDescription<Q> {
         ParamBoxDescription {
             box_title: self.box_title,
             categories: self
                 .categories
-                .iter()
-                .map(|cat| ParamCategory {
+                .drain(0..)
+                .map(|mut cat| ParamCategory {
                     name: cat.name,
                     parameters: cat
                         .parameters
-                        .iter()
+                        .drain(0..)
                         .map(|param| Parameter {
-                            name: param.name.to_owned(),
+                            name: param.name,
                             expose_status: param.expose_status,
-                            control: param.control.to_owned(),
-                            transmitter: f(&param.transmitter),
-                            visibility: VisibilityFunction::default(),
+                            control: param.control,
+                            transmitter: param.transmitter.into(),
+                            visibility: param.visibility,
                         })
                         .collect(),
                 })
@@ -1048,18 +1057,25 @@ pub struct Parameter<T: MessageWriter> {
     pub transmitter: T,
     pub control: Control,
     pub expose_status: Option<ExposeStatus>,
-    pub visibility: VisibilityFunction<T>,
+    pub visibility: VisibilityFunction,
 }
 
 #[derive(Clone)]
-pub struct VisibilityFunction<T: MessageWriter> {
-    inner: Arc<dyn Fn(&ParamBoxDescription<T>) -> bool + Send + Sync>,
+pub struct VisibilityFunction {
+    inner: Arc<dyn Fn(&[(String, Control)]) -> bool + Send + Sync>,
 }
 
-impl<T> Default for VisibilityFunction<T>
-where
-    T: MessageWriter,
-{
+impl VisibilityFunction {
+    pub fn new<F: Fn(&[(String, Control)]) -> bool + 'static + Send + Sync>(f: F) -> Self {
+        Self { inner: Arc::new(f) }
+    }
+
+    pub fn run(&self, data: &[(String, Control)]) -> bool {
+        (self.inner)(data)
+    }
+}
+
+impl Default for VisibilityFunction {
     fn default() -> Self {
         Self {
             inner: Arc::new(|_| true),
@@ -1067,10 +1083,7 @@ where
     }
 }
 
-impl<T> Debug for VisibilityFunction<T>
-where
-    T: MessageWriter,
-{
+impl Debug for VisibilityFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("VisibilityFunction")
     }
@@ -1078,10 +1091,7 @@ where
 
 /// We hold these truths to be self-evident, that all VisibilityFunctions are
 /// created equal.
-impl<T> PartialEq for VisibilityFunction<T>
-where
-    T: MessageWriter,
-{
+impl PartialEq for VisibilityFunction {
     fn eq(&self, _other: &Self) -> bool {
         true
     }

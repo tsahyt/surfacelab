@@ -233,7 +233,7 @@ impl NodeManager {
             .get(element.directory().unwrap())
             .expect("Unknown node collection")
             .element_param_box(element);
-        elbox.merge(opbox.map_transmitters(|t| t.clone().into()))
+        elbox.merge(opbox.transmitters_into())
     }
 
     /// Process an event from the application bus and dispatch the necessary
@@ -1061,7 +1061,7 @@ impl NodeManager {
                 response.push(Lang::GraphEvent(GraphEvent::ComplexOperatorUpdated(
                     node.clone(),
                     op_stub.clone(),
-                    elbox.merge(pbox.map_transmitters(|t| t.clone().into())),
+                    elbox.merge(pbox.transmitters_into()),
                 )));
 
                 // Update output images

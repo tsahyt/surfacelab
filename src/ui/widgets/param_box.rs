@@ -285,6 +285,9 @@ where
         let mut top_margin = 16.0;
         let mut label_count = 0;
         let mut control_idx = ControlCounts::default();
+
+        let controls = self.description.controls();
+
         for (j, category) in self.description.categories.iter_mut().enumerate() {
             widget::Text::new(&self.language.get_message(category.name))
                 .parent(id)
@@ -299,6 +302,11 @@ where
                 let label_id = state.labels[label_count];
                 let expose_id = state.exposes[label_count];
                 label_count += 1;
+
+                // Skip parameter if it's not visible under current conditions
+                if !parameter.visibility.run(&controls) {
+                    continue;
+                }
 
                 if let Some(expose_status) = parameter.expose_status {
                     for _press in icon_button(
