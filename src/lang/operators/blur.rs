@@ -153,6 +153,7 @@ impl OperatorParamBox for Blur {
                                 .collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "sigma".to_string(),
@@ -163,6 +164,7 @@ impl OperatorParamBox for Blur {
                             max: 256.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                 ],
             }],

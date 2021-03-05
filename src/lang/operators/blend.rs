@@ -131,6 +131,7 @@ impl OperatorParamBox for Blend {
                             variants: BlendMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "clamp".to_string(),
@@ -139,6 +140,7 @@ impl OperatorParamBox for Blend {
                             def: self.clamp_output == 1,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "mix".to_string(),
@@ -149,6 +151,7 @@ impl OperatorParamBox for Blend {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "sharpness".to_string(),
@@ -159,6 +162,7 @@ impl OperatorParamBox for Blend {
                             max: 64.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                 ],
             }],
@@ -262,6 +266,7 @@ impl OperatorParamBox for BlendMasked {
                             variants: BlendMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "clamp".to_string(),
@@ -270,6 +275,7 @@ impl OperatorParamBox for BlendMasked {
                             def: self.clamp_output == 1,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "sharpness".to_string(),
@@ -280,6 +286,7 @@ impl OperatorParamBox for BlendMasked {
                             max: 64.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                 ],
             }],

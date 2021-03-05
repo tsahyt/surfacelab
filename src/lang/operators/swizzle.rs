@@ -98,6 +98,7 @@ impl OperatorParamBox for Swizzle {
                             variants: channels.clone(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "green-channel".to_string(),
@@ -107,6 +108,7 @@ impl OperatorParamBox for Swizzle {
                             variants: channels.clone(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "blue-channel".to_string(),
@@ -116,6 +118,7 @@ impl OperatorParamBox for Swizzle {
                             variants: channels.clone(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                 ],
             }],

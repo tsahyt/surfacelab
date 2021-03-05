@@ -77,6 +77,7 @@ impl OperatorParamBox for Rgb {
                     transmitter: Field(Rgb::RGB.to_string()),
                     control: Control::RgbColor { value: self.rgb },
                     expose_status: Some(ExposeStatus::Unexposed),
+                    visibility: VisibilityFunction::default(),
                 }],
             }],
         }

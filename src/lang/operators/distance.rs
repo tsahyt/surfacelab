@@ -187,6 +187,7 @@ impl OperatorParamBox for Distance {
                                 .collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "border-mode".to_string(),
@@ -199,6 +200,7 @@ impl OperatorParamBox for Distance {
                                 .collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "clamp".to_string(),
@@ -207,6 +209,7 @@ impl OperatorParamBox for Distance {
                             def: self.clamp == 1,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "expand".to_string(),
@@ -215,6 +218,7 @@ impl OperatorParamBox for Distance {
                             def: self.expand == 1,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "threshold".to_string(),
@@ -225,6 +229,7 @@ impl OperatorParamBox for Distance {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "extent".to_string(),
@@ -235,6 +240,7 @@ impl OperatorParamBox for Distance {
                             max: 10.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                 ],
             }],

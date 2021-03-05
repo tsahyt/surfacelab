@@ -140,6 +140,7 @@ impl OperatorParamBox for Transform {
                             max: [1., 1.],
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "scale".to_string(),
@@ -150,6 +151,7 @@ impl OperatorParamBox for Transform {
                             max: [2., 2.],
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "shear".to_string(),
@@ -160,6 +162,7 @@ impl OperatorParamBox for Transform {
                             max: [1., 1.],
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "rotation".to_string(),
@@ -170,6 +173,7 @@ impl OperatorParamBox for Transform {
                             max: 360.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "tiling".to_string(),
@@ -178,6 +182,7 @@ impl OperatorParamBox for Transform {
                             def: self.tiling == 1,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                 ],
             }],

@@ -110,6 +110,7 @@ impl OperatorParamBox for Image {
                             },
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "color-space".to_string(),
@@ -122,6 +123,7 @@ impl OperatorParamBox for Image {
                                 .collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                 ],
             }],
@@ -239,6 +241,7 @@ impl OperatorParamBox for Output {
                             .collect(),
                     },
                     expose_status: None,
+                    visibility: VisibilityFunction::default(),
                 }],
             }],
         }
@@ -320,6 +323,7 @@ impl OperatorParamBox for Input {
                             .collect(),
                     },
                     expose_status: None,
+                    visibility: VisibilityFunction::default(),
                 }],
             }],
         }

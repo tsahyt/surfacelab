@@ -78,6 +78,7 @@ trait ExposedParameters: NodeCollection {
                         transmitter: Field(k.clone()),
                         control: v.control.clone(),
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     })
                     .collect(),
             }],

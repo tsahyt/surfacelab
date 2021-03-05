@@ -126,6 +126,7 @@ impl OperatorParamBox for Ramp {
                         steps: self.ramp.clone(),
                     },
                     expose_status: Some(ExposeStatus::Unexposed),
+                    visibility: VisibilityFunction::default(),
                 }],
             }],
         }

@@ -2,8 +2,8 @@ use super::resource::*;
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 /// A trait for things that have parameters. Parameters can be set from a field
 /// descriptor and some plain data. It is up to the implementation to interpret
@@ -589,6 +589,7 @@ where
                             expose_status: param.expose_status,
                             control: param.control.to_owned(),
                             transmitter: f(&param.transmitter),
+                            visibility: VisibilityFunction::default(),
                         })
                         .collect(),
                 })
@@ -676,6 +677,7 @@ impl ParamBoxDescription<ResourceField> {
                     .unwrap(),
             },
             expose_status: None,
+            visibility: VisibilityFunction::default(),
         }];
         if scalable {
             parameters.push(Parameter {
@@ -687,12 +689,14 @@ impl ParamBoxDescription<ResourceField> {
                     max: 16,
                 },
                 expose_status: None,
+                visibility: VisibilityFunction::default(),
             });
             parameters.push(Parameter {
                 name: "node-abs-size".to_string(),
                 transmitter: ResourceField::AbsoluteSize,
                 control: Control::Toggle { def: false },
                 expose_status: None,
+                visibility: VisibilityFunction::default(),
             });
         }
         ParamBoxDescription {
@@ -722,6 +726,7 @@ impl ParamBoxDescription<RenderField> {
                         },
                         transmitter: RenderField::SampleCount,
                         expose_status: None,
+                        visibility: VisibilityFunction::default(),
                     }],
                 },
                 ParamCategory {
@@ -740,6 +745,7 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::ObjectType,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                         Parameter {
                             name: "displacement-amount".to_string(),
@@ -750,6 +756,7 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::DisplacementAmount,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                         Parameter {
                             name: "tex-scale".to_string(),
@@ -760,6 +767,7 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::TextureScale,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                     ],
                 },
@@ -771,6 +779,7 @@ impl ParamBoxDescription<RenderField> {
                             control: Control::File { selected: None },
                             transmitter: RenderField::HDRI,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                         Parameter {
                             name: "hdri-strength".to_string(),
@@ -781,6 +790,7 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::EnvironmentStrength,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                         Parameter {
                             name: "hdri-blur".to_string(),
@@ -791,12 +801,14 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::EnvironmentBlur,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                         Parameter {
                             name: "ao".to_string(),
                             control: Control::Toggle { def: false },
                             transmitter: RenderField::AO,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                         Parameter {
                             name: "fog-strength".to_string(),
@@ -807,6 +819,7 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::FogStrength,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                     ],
                 },
@@ -821,6 +834,7 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::LightType,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                         Parameter {
                             name: "light-strength".to_string(),
@@ -831,12 +845,14 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::LightStrength,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                         Parameter {
                             name: "shadow".to_string(),
                             control: Control::Toggle { def: true },
                             transmitter: RenderField::Shadow,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                     ],
                 },
@@ -852,6 +868,7 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::FocalLength,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                         Parameter {
                             name: "aperture-size".to_string(),
@@ -862,6 +879,7 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::ApertureSize,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                         Parameter {
                             name: "focal-distance".to_string(),
@@ -872,6 +890,7 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::FocalDistance,
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
                     ],
                 },
@@ -894,6 +913,7 @@ impl ParamBoxDescription<GraphField> {
                     },
                     transmitter: GraphField::Name,
                     expose_status: None,
+                    visibility: VisibilityFunction::default(),
                 }],
             }],
         }
@@ -928,6 +948,7 @@ impl ParamBoxDescription<LayerField> {
                         },
                         transmitter: LayerField::ConnectOutput(chan),
                         expose_status: None,
+                        visibility: VisibilityFunction::default(),
                     })
                     .collect(),
             }],
@@ -958,6 +979,7 @@ impl ParamBoxDescription<LayerField> {
                             },
                             transmitter: LayerField::ConnectInput(input.to_owned()),
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         })
                         .collect(),
                 },
@@ -973,6 +995,7 @@ impl ParamBoxDescription<LayerField> {
                             },
                             transmitter: LayerField::ConnectOutput(chan),
                             expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         })
                         .collect(),
                 },
@@ -997,6 +1020,7 @@ impl ParamBoxDescription<SurfaceField> {
                     },
                     transmitter: SurfaceField::Resize,
                     expose_status: None,
+                    visibility: VisibilityFunction::default(),
                 }],
             }],
         }
@@ -1024,6 +1048,43 @@ pub struct Parameter<T: MessageWriter> {
     pub transmitter: T,
     pub control: Control,
     pub expose_status: Option<ExposeStatus>,
+    pub visibility: VisibilityFunction<T>,
+}
+
+#[derive(Clone)]
+pub struct VisibilityFunction<T: MessageWriter> {
+    inner: Arc<dyn Fn(&ParamBoxDescription<T>) -> bool + Send + Sync>,
+}
+
+impl<T> Default for VisibilityFunction<T>
+where
+    T: MessageWriter,
+{
+    fn default() -> Self {
+        Self {
+            inner: Arc::new(|_| true),
+        }
+    }
+}
+
+impl<T> Debug for VisibilityFunction<T>
+where
+    T: MessageWriter,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("VisibilityFunction")
+    }
+}
+
+/// We hold these truths to be self-evident, that all VisibilityFunctions are
+/// created equal.
+impl<T> PartialEq for VisibilityFunction<T>
+where
+    T: MessageWriter,
+{
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
 }
 
 /// Controls are used in ParamBoxDescription to hint at the frontend

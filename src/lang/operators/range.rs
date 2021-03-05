@@ -123,6 +123,7 @@ impl OperatorParamBox for Range {
                             variants: RangeMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "clamp".to_string(),
@@ -131,6 +132,7 @@ impl OperatorParamBox for Range {
                             def: self.clamp_output == 1,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "from-min".to_string(),
@@ -141,6 +143,7 @@ impl OperatorParamBox for Range {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "from-max".to_string(),
@@ -151,6 +154,7 @@ impl OperatorParamBox for Range {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "to-min".to_string(),
@@ -161,6 +165,7 @@ impl OperatorParamBox for Range {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "to-max".to_string(),
@@ -171,6 +176,7 @@ impl OperatorParamBox for Range {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                 ],
             }],

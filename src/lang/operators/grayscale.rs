@@ -120,6 +120,7 @@ impl OperatorParamBox for Grayscale {
                             .collect(),
                     },
                     expose_status: Some(ExposeStatus::Unexposed),
+                    visibility: VisibilityFunction::default(),
                 }],
             }],
         }

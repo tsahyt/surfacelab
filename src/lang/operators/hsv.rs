@@ -98,6 +98,7 @@ impl OperatorParamBox for Hsv {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "saturation".to_string(),
@@ -108,6 +109,7 @@ impl OperatorParamBox for Hsv {
                             max: 2.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "value".to_string(),
@@ -118,6 +120,7 @@ impl OperatorParamBox for Hsv {
                             max: 2.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                     Parameter {
                         name: "mix".to_string(),
@@ -128,6 +131,7 @@ impl OperatorParamBox for Hsv {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
                 ],
             }],
