@@ -87,6 +87,7 @@ from-min = From Min
 from-max = From Max
 to-min = To Min
 to-max = To Max
+steps = Steps
 
 color = Color
 
