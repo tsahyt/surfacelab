@@ -39,17 +39,13 @@ pub enum BlendMode {
 }
 
 fn sharpness_visibility() -> VisibilityFunction {
-    VisibilityFunction::new(|controls| {
-        controls.iter().any(|(n, c)| {
-            n == "blend-mode"
-                && match c {
-                    Control::Enum { selected, .. } => {
-                        (*selected == BlendMode::SmoothDarken as usize)
-                            || (*selected == BlendMode::SmoothLighten as usize)
-                    }
-                    _ => false,
-                }
-        })
+    VisibilityFunction::on_parameter("blend-mode", |c| {
+        if let Control::Enum { selected, .. } = c {
+            *selected == BlendMode::SmoothDarken as usize
+                || *selected == BlendMode::SmoothLighten as usize
+        } else {
+            false
+        }
     })
 }
 

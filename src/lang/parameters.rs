@@ -1066,12 +1066,19 @@ pub struct VisibilityFunction {
 }
 
 impl VisibilityFunction {
-    pub fn new<F: Fn(&[(String, Control)]) -> bool + 'static + Send + Sync>(f: F) -> Self {
+    pub fn from_raw<F: Fn(&[(String, Control)]) -> bool + 'static + Send + Sync>(f: F) -> Self {
         Self { inner: Arc::new(f) }
     }
 
     pub fn run(&self, data: &[(String, Control)]) -> bool {
         (self.inner)(data)
+    }
+
+    pub fn on_parameter<F: Fn(&Control) -> bool + 'static + Send + Sync>(
+        name: &'static str,
+        f: F,
+    ) -> Self {
+        Self::from_raw(move |cs| cs.iter().any(|(n, c)| if n == name { f(c) } else { false }))
     }
 }
 
