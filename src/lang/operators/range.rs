@@ -11,7 +11,7 @@ use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
-#[repr(C)]
+#[repr(u32)]
 #[derive(
     AsBytes,
     Clone,
@@ -26,9 +26,10 @@ use zerocopy::AsBytes;
     PartialEq,
 )]
 pub enum RangeMode {
-    Linear,
-    SmoothStep,
-    SmootherStep,
+    Linear = 0,
+    SmoothStep = 1,
+    SmootherStep = 2,
+    Stepped = 3,
 }
 
 #[repr(C)]
@@ -39,6 +40,7 @@ pub struct Range {
     pub from_max: f32,
     pub to_min: f32,
     pub to_max: f32,
+    pub steps: i32,
     pub clamp_output: ParameterBool,
 }
 
@@ -50,6 +52,7 @@ impl Default for Range {
             from_max: 1.0,
             to_min: 0.0,
             to_max: 1.0,
+            steps: 4,
             clamp_output: 1,
         }
     }
@@ -177,6 +180,23 @@ impl OperatorParamBox for Range {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                    },
+                    Parameter {
+                        name: "steps".to_string(),
+                        transmitter: Field(Range::STEPS.to_string()),
+                        control: Control::DiscreteSlider {
+                            value: self.steps,
+                            min: 1,
+                            max: 32,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter("range-mode", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                *selected == RangeMode::Stepped as usize
+                            } else {
+                                false
+                            }
+                        }),
                     },
                 ],
             }],

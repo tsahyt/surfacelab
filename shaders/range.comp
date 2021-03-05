@@ -8,6 +8,7 @@ layout(set = 0, binding = 0) uniform Params {
     float from_max;
     float to_min;
     float to_max;
+    int steps;
     uint clamp_output;
 };
 
@@ -15,9 +16,10 @@ layout(set = 0, binding = 1) uniform texture2D t_Color1;
 layout(set = 0, binding = 2) uniform sampler Sampler;
 layout(set = 0, binding = 3, r32f) uniform image2D t_Out;
 
-#define MODE_LINEAR 0
-#define MODE_SMOOTHSTEP 1
-#define MODE_SMOOTHERSTEP 2
+const uint MODE_LINEAR = 0;
+const uint MODE_SMOOTHSTEP = 1;
+const uint MODE_SMOOTHERSTEP = 2;
+const uint MODE_STEPPED = 3;
 
 float smootherstep(float start, float end, float t) {
    t = max(0.0, min(1.0, (t - start) / (end - start)));
@@ -40,13 +42,24 @@ float map_smootherstep(float value) {
         smootherstep(from_min, from_max, value);
 }
 
+float map_stepped(float value) {
+    float x = map_linear(value);
+    return x > 0 ? floor(x * (steps + 1)) / steps : 0.;
+}
+
 float map_range(float value) {
-    if (mode == MODE_LINEAR)
-        return map_linear(value);
-    else if (mode == MODE_SMOOTHSTEP)
-        return map_smoothstep(value);
-    else if (mode == MODE_SMOOTHERSTEP)
-        return map_smootherstep(value);
+    switch(mode) {
+        case MODE_LINEAR:
+            return map_linear(value);
+        case MODE_SMOOTHSTEP:
+            return map_smoothstep(value);
+        case MODE_SMOOTHERSTEP:
+            return map_smootherstep(value);
+        case MODE_STEPPED:
+            return map_stepped(value);
+    }
+
+    return 0.;
 }
 
 void main() {
