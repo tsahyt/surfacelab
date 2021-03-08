@@ -4,7 +4,7 @@ use crate::ui::{
     app_state::{LayerFilter, NodeCollection, NodeCollections},
     i18n::Language,
     util::*,
-    widgets::{layer_row, modal, tree},
+    widgets::{layer_row, modal, toolbar, tree},
 };
 
 use std::sync::Arc;
@@ -62,10 +62,8 @@ widget_ids! {
         modal,
         opacity,
         blend_mode,
-        new_fill,
-        new_fx,
-        new_mask,
-        delete,
+        main_toolbar,
+        context_toolbar,
         list,
     }
 }
@@ -74,6 +72,16 @@ pub struct State {
     ids: Ids,
     modal: Option<LayerFilter>,
     operators: Vec<Operator>,
+}
+
+pub enum MainTool {
+    NewFill,
+    NewFx,
+}
+
+pub enum ContextTool {
+    Delete,
+    NewMask,
 }
 
 impl<'a> Widget for LayerEditor<'a> {
@@ -105,30 +113,24 @@ impl<'a> Widget for LayerEditor<'a> {
             }
         }
 
-        for _press in icon_button(IconName::SOLID, self.style.icon_font.unwrap().unwrap())
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.)
-            .wh([32., 32.0])
-            .top_left_with_margin(8.0)
-            .parent(id)
-            .set(state.ids.new_fill, ui)
+        match toolbar::Toolbar::flow_right(&[
+            (IconName::SOLID, MainTool::NewFill),
+            (IconName::FX, MainTool::NewFx),
+        ])
+        .icon_font(self.style.icon_font.unwrap().unwrap())
+        .parent(id)
+        .w(64.0 + 8.0)
+        .h(32.0)
+        .top_left_with_margins(8.0, 0.0)
+        .set(state.ids.main_toolbar, ui)
         {
-            state.update(|state| state.modal = Some(LayerFilter::Layer(LayerType::Fill)));
-        }
-
-        for _press in icon_button(IconName::FX, self.style.icon_font.unwrap().unwrap())
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.)
-            .wh([32., 32.0])
-            .right(8.0)
-            .parent(id)
-            .set(state.ids.new_fx, ui)
-        {
-            state.update(|state| state.modal = Some(LayerFilter::Layer(LayerType::Fx)));
+            Some(MainTool::NewFill) => {
+                state.update(|state| state.modal = Some(LayerFilter::Layer(LayerType::Fill)));
+            }
+            Some(MainTool::NewFx) => {
+                state.update(|state| state.modal = Some(LayerFilter::Layer(LayerType::Fx)));
+            }
+            _ => {}
         }
 
         let active_collection = match self.graphs.get_active_collection_mut() {
@@ -147,50 +149,46 @@ impl<'a> Widget for LayerEditor<'a> {
                     ))
                 })
         {
-            for _press in icon_button(IconName::TRASH, self.style.icon_font.unwrap().unwrap())
-                .label_font_size(14)
-                .label_color(color::WHITE)
-                .color(color::DARK_CHARCOAL)
-                .border(0.)
-                .wh([32., 32.0])
-                .top_right_with_margin(8.0)
-                .parent(id)
-                .set(state.ids.delete, ui)
-            {
-                self.sender
-                    .send(if active_layer.is_mask {
-                        Lang::UserLayersEvent(UserLayersEvent::RemoveMask(
-                            active_layer.resource.clone(),
-                        ))
-                    } else {
-                        Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
-                            active_layer.resource.clone(),
-                        ))
-                    })
-                    .unwrap();
-            }
+            let mut context_tools = Vec::new();
+            context_tools.push((IconName::TRASH, ContextTool::Delete));
 
             if !is_base && !active_layer.is_mask {
-                for _press in icon_button(IconName::MASK, self.style.icon_font.unwrap().unwrap())
-                    .label_font_size(14)
-                    .label_color(color::WHITE)
-                    .color(color::DARK_CHARCOAL)
-                    .border(0.)
-                    .wh([32., 32.0])
-                    .left(8.0)
-                    .parent(id)
-                    .set(state.ids.new_mask, ui)
-                {
+                context_tools.push((IconName::MASK, ContextTool::NewMask));
+            }
+
+            match toolbar::Toolbar::flow_left(&context_tools)
+                .icon_font(self.style.icon_font.unwrap().unwrap())
+                .parent(id)
+                .w(64.0 + 8.0)
+                .h(32.0)
+                .top_right_with_margins(8.0, 0.0)
+                .set(state.ids.context_toolbar, ui)
+            {
+                Some(ContextTool::Delete) => {
+                    self.sender
+                        .send(if active_layer.is_mask {
+                            Lang::UserLayersEvent(UserLayersEvent::RemoveMask(
+                                active_layer.resource.clone(),
+                            ))
+                        } else {
+                            Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
+                                active_layer.resource.clone(),
+                            ))
+                        })
+                        .unwrap();
+                }
+                Some(ContextTool::NewMask) => {
                     state.update(|state| {
                         state.modal = Some(LayerFilter::Mask(active_layer.resource.clone()))
                     });
                 }
+                _ => {}
             }
 
             if let Some(new_selection) =
                 widget::DropDownList::new(BlendMode::VARIANTS, Some(active_layer.blend_mode))
                     .label_font_size(10)
-                    .down_from(state.ids.new_fill, 8.0)
+                    .top_left_with_margins(48.0, 8.0)
                     .padded_w_of(id, 8.0)
                     .h(16.0)
                     .parent(id)
@@ -230,10 +228,10 @@ impl<'a> Widget for LayerEditor<'a> {
             widget::DropDownList::new(BlendMode::VARIANTS, Some(0))
                 .enabled(false)
                 .label_font_size(10)
-                .down_from(state.ids.new_fill, 8.0)
+                .parent(id)
+                .top_left_with_margins(48.0, 8.0)
                 .padded_w_of(id, 8.0)
                 .h(16.0)
-                .parent(id)
                 .set(state.ids.blend_mode, ui);
 
             widget::Slider::new(1.0, 0.0, 1.0)
