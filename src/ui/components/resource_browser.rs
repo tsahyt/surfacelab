@@ -161,6 +161,12 @@ impl<'a> ResourceBrowser<'a> {
             Lang::LayersEvent(LayersEvent::LayersAdded(res, _)) => {
                 state.update(|state| state.tree.insert_graph(res.clone()));
             }
+            Lang::LayersEvent(LayersEvent::LayerPushed(res, _, _, _, _, _, _, _)) => {
+                state.update(|state| state.tree.insert_node(res.clone()));
+            }
+            Lang::LayersEvent(LayersEvent::LayerRemoved(res)) => {
+                state.update(|state| state.tree.remove_resource_and_children(res));
+            }
             _ => {}
         }
     }
