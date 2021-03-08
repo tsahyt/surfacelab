@@ -10,6 +10,7 @@ pub struct ResourceRow<'a> {
     style: Style,
     res_item: &'a ResourceTreeItem,
     expandable: bool,
+    active: bool,
     level: usize,
 }
 
@@ -20,12 +21,18 @@ impl<'a> ResourceRow<'a> {
             style: Style::default(),
             res_item,
             expandable: false,
+            active: false,
             level,
         }
     }
 
     pub fn expandable(mut self, expandable: bool) -> Self {
         self.expandable = expandable;
+        self
+    }
+
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
         self
     }
 
@@ -38,6 +45,11 @@ impl<'a> ResourceRow<'a> {
         self.style.level_indent = Some(indent);
         self
     }
+
+    pub fn selected_color(mut self, color: Color) -> Self {
+        self.style.selected_color = Some(color);
+        self
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
@@ -46,6 +58,8 @@ pub struct Style {
     icon_font: Option<Option<text::font::Id>>,
     #[conrod(default = "16.0")]
     level_indent: Option<Scalar>,
+    #[conrod(default = "color::YELLOW")]
+    selected_color: Option<Color>,
 }
 
 widget_ids! {
@@ -62,6 +76,7 @@ pub struct State {
 
 pub enum Event {
     ToggleExpanded,
+    Clicked,
 }
 
 impl<'a> Widget for ResourceRow<'a> {
@@ -130,12 +145,24 @@ impl<'a> Widget for ResourceRow<'a> {
 
         indent += 32.0;
 
+        let name_color = if self.active {
+            self.style
+                .selected_color
+                .unwrap_or(color::Color::Rgba(0.9, 0.4, 0.15, 1.0))
+        } else {
+            color::WHITE
+        };
+
         widget::Text::new(self.res_item.resource_string())
             .parent(args.id)
-            .color(color::WHITE)
+            .color(name_color)
             .font_size(10)
             .mid_left_with_margin(indent)
             .set(args.state.ids.resource_name, args.ui);
+
+        for _click in args.ui.widget_input(args.state.ids.resource_name).clicks() {
+            res = Some(Event::Clicked)
+        }
 
         res
     }

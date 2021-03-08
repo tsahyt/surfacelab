@@ -1,7 +1,7 @@
 use crate::broker::BrokerSender;
 use crate::lang::*;
 use crate::ui::{
-    app_state::ResourceTree,
+    app_state::{NodeCollections, ResourceTree},
     i18n::Language,
     widgets::{resource_row, tree},
 };
@@ -16,16 +16,22 @@ pub struct ResourceBrowser<'a> {
     common: widget::CommonBuilder,
     language: &'a Language,
     sender: &'a BrokerSender<Lang>,
+    graphs: &'a mut NodeCollections,
     event_buffer: Option<&'a [Arc<Lang>]>,
     style: Style,
 }
 
 impl<'a> ResourceBrowser<'a> {
-    pub fn new(language: &'a Language, sender: &'a BrokerSender<Lang>) -> Self {
+    pub fn new(
+        language: &'a Language,
+        sender: &'a BrokerSender<Lang>,
+        graphs: &'a mut NodeCollections,
+    ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             language,
             sender,
+            graphs,
             event_buffer: None,
             style: Style::default(),
         }
@@ -95,8 +101,14 @@ impl<'a> Widget for ResourceBrowser<'a> {
             let expandable = state.tree.expandable(&row.node_id);
             let data = state.tree.get_resource_info(&row.node_id);
 
+            let mut active = data.represents_resource(self.graphs.get_active());
+            if let Some(aelem) = self.graphs.get_active_element() {
+                active = active || data.represents_resource(aelem);
+            }
+
             let widget = resource_row::ResourceRow::new(&data, row.level)
                 .expandable(expandable)
+                .active(active)
                 .icon_font(self.style.icon_font.unwrap().unwrap())
                 .h(32.0);
 
@@ -109,6 +121,15 @@ impl<'a> Widget for ResourceBrowser<'a> {
                             .get_resource_info_mut(&row.node_id)
                             .toggle_expanded();
                     });
+                }
+                Some(resource_row::Event::Clicked) => {
+                    if let Some(collection) = data.get_resource() {
+                        self.graphs.set_active_collection(collection);
+                    }
+
+                    if let Some(node) = data.get_resource() {
+                        self.graphs.set_active_element(node);
+                    }
                 }
             }
         }

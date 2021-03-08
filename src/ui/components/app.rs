@@ -519,13 +519,17 @@ where
         use components::resource_browser;
 
         state.update(|state| {
-            resource_browser::ResourceBrowser::new(&self.app_data.language, &self.app_data.sender)
-                .event_buffer(self.event_buffer.unwrap())
-                .icon_font(self.style.icon_font.unwrap().unwrap())
-                .parent(state.ids.resources_canvas)
-                .wh_of(state.ids.resources_canvas)
-                .middle_of(state.ids.resources_canvas)
-                .set(state.ids.resource_browser, ui)
+            resource_browser::ResourceBrowser::new(
+                &self.app_data.language,
+                &self.app_data.sender,
+                &mut state.graphs,
+            )
+            .event_buffer(self.event_buffer.unwrap())
+            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .parent(state.ids.resources_canvas)
+            .wh_of(state.ids.resources_canvas)
+            .middle_of(state.ids.resources_canvas)
+            .set(state.ids.resource_browser, ui)
         });
     }
 }

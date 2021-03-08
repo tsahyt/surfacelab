@@ -270,4 +270,21 @@ impl Collection for Layers {
         let data = layer.data_mut();
         Some((&data.resource, &mut data.operator_pbox))
     }
+
+    fn active_resource(&self) -> Option<&Resource<r::Node>> {
+        let idx = self.active_element.as_ref()?;
+        let layer = self.layers.get(&idx).ok()?;
+        let data = layer.data();
+        Some(&data.resource)
+    }
+
+    fn set_active(&mut self, element: &Resource<r::Node>) {
+        if let Some(root) = self.layers.root_node_id() {
+            self.active_element = self
+                .layers
+                .traverse_pre_order_ids(root)
+                .unwrap()
+                .find(|i| &self.layers.get(i).unwrap().data().resource == element);
+        }
+    }
 }

@@ -179,7 +179,7 @@ impl<'a> Widget for TopBar<'a> {
                         graph.clone(),
                     )))
                     .unwrap();
-                self.graphs.set_active(graph);
+                self.graphs.set_active_collection(graph);
             }
         }
 

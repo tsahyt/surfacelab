@@ -17,10 +17,8 @@ impl ResourceCategory {
         match self {
             ResourceCategory::Graph => true,
             ResourceCategory::Node => true,
-            ResourceCategory::Socket => false,
             ResourceCategory::Image => true,
-            ResourceCategory::Input => false,
-            ResourceCategory::Output => false,
+            _ => false,
         }
     }
 }
@@ -109,6 +107,17 @@ impl ResourceTreeItem {
         match self {
             ResourceTreeItem::ResourceInfo(i) => Some(i.category()),
             ResourceTreeItem::Folder(_, _) => None,
+        }
+    }
+
+    /// Get a typed resource. This call will succeed if and only if the type
+    /// parameter T matches that of the resource used to build this info struct,
+    /// and the tree item is a resource info.
+    pub fn get_resource<T: 'static>(&self) -> Option<r::Resource<T>> {
+        if let Self::ResourceInfo(r) = self {
+            r.get_resource()
+        } else {
+            None
         }
     }
 }

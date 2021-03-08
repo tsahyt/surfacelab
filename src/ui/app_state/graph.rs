@@ -186,6 +186,16 @@ impl Collection for Graph {
         let node = self.graph.node_weight_mut(idx.clone())?;
         Some((&node.resource, &mut node.param_box))
     }
+
+    fn active_resource(&self) -> Option<&Resource<r::Node>> {
+        let idx = self.active_element.as_ref()?;
+        let node = self.graph.node_weight(idx.clone())?;
+        Some(&node.resource)
+    }
+
+    fn set_active(&mut self, element: &Resource<r::Node>) {
+        self.active_element = self.resources.get(element).cloned();
+    }
 }
 
 impl Default for Graph {

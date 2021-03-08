@@ -24,6 +24,8 @@ pub trait Collection {
     fn active_element(
         &mut self,
     ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)>;
+    fn active_resource(&self) -> Option<&Resource<r::Node>>;
+    fn set_active(&mut self, element: &Resource<r::Node>);
 }
 
 #[enum_dispatch(Collection)]
@@ -86,11 +88,33 @@ impl NodeCollections {
         }
     }
 
-    pub fn set_active(&mut self, collection: Resource<r::Graph>) {
+    pub fn get_active_element(&self) -> Option<&Resource<r::Node>> {
+        match &self.active_collection {
+            NodeCollection::Graph(g) => g.active_resource(),
+            NodeCollection::Layers(l) => l.active_resource(),
+        }
+    }
+
+    pub fn set_active_collection(&mut self, collection: Resource<r::Graph>) {
         self.collections
             .insert(self.active_resource.clone(), self.active_collection.clone());
         self.active_resource = collection;
         self.active_collection = self.collections.remove(&self.active_resource).unwrap();
+    }
+
+    /// Sets the currently active element in the collection of node collections.
+    /// This will *also* change the active collection if the supplied element is
+    /// not part of the currently active collection!
+    pub fn set_active_element(&mut self, node: Resource<r::Node>) {
+        let graph = node.node_graph();
+        if graph != self.active_resource {
+            self.set_active_collection(graph);
+        }
+
+        match &mut self.active_collection {
+            NodeCollection::Graph(g) => g.set_active(&node),
+            NodeCollection::Layers(l) => l.set_active(&node),
+        }
     }
 
     pub fn rename_collection(&mut self, from: &Resource<r::Graph>, to: &Resource<r::Graph>) {
