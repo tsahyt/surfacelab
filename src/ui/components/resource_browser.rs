@@ -153,6 +153,11 @@ impl<'a> Widget for ResourceBrowser<'a> {
                 }
                 Some(resource_row::Event::Clicked) => {
                     if let Some(collection) = data.get_resource() {
+                        self.sender
+                            .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
+                                collection.clone()
+                            )))
+                            .unwrap();
                         self.graphs.set_active_collection(collection);
                     }
 
