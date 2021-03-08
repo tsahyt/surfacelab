@@ -3,7 +3,8 @@ use crate::lang::*;
 use crate::ui::{
     app_state::{NodeCollections, ResourceTree},
     i18n::Language,
-    widgets::{resource_row, tree},
+    util::IconName,
+    widgets::{resource_row, toolbar, tree},
 };
 
 use std::sync::Arc;
@@ -56,6 +57,7 @@ pub struct Style {
 
 widget_ids! {
     pub struct Ids {
+        toolbar,
         tree
     }
 }
@@ -63,6 +65,11 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     tree: ResourceTree,
+}
+
+pub enum CollectionTool {
+    NewGraph,
+    NewStack,
 }
 
 impl<'a> Widget for ResourceBrowser<'a> {
@@ -90,10 +97,32 @@ impl<'a> Widget for ResourceBrowser<'a> {
             }
         }
 
+        match toolbar::Toolbar::flow_right(&[
+            (IconName::GRAPH, CollectionTool::NewGraph),
+            (IconName::LAYERS, CollectionTool::NewStack),
+        ])
+        .icon_font(self.style.icon_font.unwrap().unwrap())
+        .parent(args.id)
+        .h(32.0)
+        .top_left_with_margins(8.0, 0.0)
+        .set(state.ids.toolbar, ui)
+        {
+            Some(CollectionTool::NewGraph) => self
+                .sender
+                .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph))
+                .unwrap(),
+            Some(CollectionTool::NewStack) => self
+                .sender
+                .send(Lang::UserLayersEvent(UserLayersEvent::AddLayers))
+                .unwrap(),
+            _ => {}
+        }
+
         let (mut rows, scrollbar) = tree::Tree::new(state.tree.get_tree())
             .parent(id)
-            .middle_of(id)
-            .padded_wh_of(id, 8.0)
+            .mid_top_with_margin(40.0)
+            .padded_w_of(id, 8.0)
+            .h(ui.h_of(id).unwrap() - 48.0)
             .scrollbar_on_top()
             .set(state.ids.tree, ui);
 
