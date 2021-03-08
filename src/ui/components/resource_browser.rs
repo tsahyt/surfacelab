@@ -57,7 +57,7 @@ pub struct Style {
 
 widget_ids! {
     pub struct Ids {
-        toolbar,
+        main_toolbar,
         tree
     }
 }
@@ -105,7 +105,7 @@ impl<'a> Widget for ResourceBrowser<'a> {
         .parent(args.id)
         .h(32.0)
         .top_left_with_margins(8.0, 0.0)
-        .set(state.ids.toolbar, ui)
+        .set(state.ids.main_toolbar, ui)
         {
             Some(CollectionTool::NewGraph) => self
                 .sender

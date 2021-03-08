@@ -58,11 +58,6 @@ pub enum SurfaceTool {
     ExportSurface,
 }
 
-pub enum CollectionTool {
-    NewGraph,
-    NewStack,
-}
-
 impl<'a> Widget for TopBar<'a> {
     type State = Ids;
     type Style = Style;
@@ -156,27 +151,6 @@ impl<'a> Widget for TopBar<'a> {
                     .unwrap();
                 self.graphs.set_active_collection(graph);
             }
-        }
-
-        match toolbar::Toolbar::flow_left(&[
-            (IconName::GRAPH, CollectionTool::NewGraph),
-            (IconName::LAYERS, CollectionTool::NewStack),
-        ])
-        .icon_font(self.style.icon_font.unwrap().unwrap())
-        .parent(args.id)
-        .h(32.0)
-        .left(8.0)
-        .set(args.state.graph_tools, args.ui)
-        {
-            Some(CollectionTool::NewGraph) => self
-                .sender
-                .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph))
-                .unwrap(),
-            Some(CollectionTool::NewStack) => self
-                .sender
-                .send(Lang::UserLayersEvent(UserLayersEvent::AddLayers))
-                .unwrap(),
-            _ => {}
         }
     }
 }
