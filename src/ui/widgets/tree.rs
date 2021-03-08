@@ -82,7 +82,6 @@ pub struct Style {
 widget_ids! {
     struct Ids {
         list,
-        expanders[],
     }
 }
 
