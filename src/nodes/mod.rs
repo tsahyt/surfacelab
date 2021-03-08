@@ -190,7 +190,6 @@ struct NodeManager {
     active_graph: lang::Resource<lang::Graph>,
 }
 
-// FIXME: Changing output socket type after connection has already been made does not propagate type changes into preceeding polymorphic nodes!
 impl NodeManager {
     /// Initialize the node manager with default settings.
     pub fn new() -> Self {
