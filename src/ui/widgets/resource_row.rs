@@ -143,6 +143,10 @@ impl<'a> Widget for ResourceRow<'a> {
             .mid_left_with_margin(indent)
             .set(args.state.ids.icon, args.ui);
 
+        for _click in args.ui.widget_input(args.state.ids.icon).clicks() {
+            res = Some(Event::Clicked)
+        }
+
         indent += 32.0;
 
         let name_color = if self.active {
