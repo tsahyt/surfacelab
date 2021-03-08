@@ -804,7 +804,7 @@ impl ParamBoxDescription<RenderField> {
                         Parameter {
                             name: "hdri-blur".to_string(),
                             control: Control::Slider {
-                                value: 0.5,
+                                value: 3.0,
                                 min: 0.0,
                                 max: 6.0,
                             },

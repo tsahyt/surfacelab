@@ -61,7 +61,7 @@ impl Default for Uniforms {
             tex_scale: 1.,
             texel_size: 1. / 1024.,
             environment_strength: 1.0,
-            environment_blur: 0.5,
+            environment_blur: 3.0,
             light_type: LightType::PointLight,
             light_strength: 100.0,
             fog_strength: 0.0,
