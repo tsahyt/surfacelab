@@ -1,6 +1,6 @@
 use crate::broker::BrokerSender;
 use crate::lang::*;
-use crate::ui::{app_state::NodeCollections, i18n::Language, util::*};
+use crate::ui::{app_state::NodeCollections, i18n::Language, util::*, widgets::toolbar};
 
 use conrod_core::*;
 
@@ -45,14 +45,22 @@ pub struct Style {
 
 widget_ids! {
     pub struct Ids {
-        new_surface,
-        open_surface,
-        save_surface,
-        export_surface,
+        surface_tools,
+        graph_tools,
         graph_selector,
-        graph_add,
-        layers_add,
     }
+}
+
+pub enum SurfaceTool {
+    NewSurface,
+    OpenSurface,
+    SaveSurface,
+    ExportSurface,
+}
+
+pub enum CollectionTool {
+    NewGraph,
+    NewStack,
 }
 
 impl<'a> Widget for TopBar<'a> {
@@ -69,100 +77,66 @@ impl<'a> Widget for TopBar<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        for _press in icon_button(
-            IconName::FOLDER_PLUS,
-            self.style.icon_font.unwrap().unwrap(),
-        )
-        .label_font_size(14)
-        .label_color(color::WHITE)
-        .color(color::DARK_CHARCOAL)
-        .border(0.0)
-        .wh([32., 32.0])
-        .mid_left_with_margin(8.0)
+        match toolbar::Toolbar::flow_right(&[
+            (IconName::FOLDER_PLUS, SurfaceTool::NewSurface),
+            (IconName::FOLDER_OPEN, SurfaceTool::OpenSurface),
+            (IconName::CONTENT_SAVE, SurfaceTool::SaveSurface),
+            (IconName::EXPORT, SurfaceTool::ExportSurface),
+        ])
+        .icon_font(self.style.icon_font.unwrap().unwrap())
         .parent(args.id)
-        .set(args.state.new_surface, args.ui)
+        .h(32.0)
+        .middle()
+        .set(args.state.surface_tools, args.ui)
         {
-            self.sender
-                .send(Lang::UserIOEvent(UserIOEvent::NewSurface))
-                .unwrap();
-        }
-
-        for _press in icon_button(
-            IconName::FOLDER_OPEN,
-            self.style.icon_font.unwrap().unwrap(),
-        )
-        .label_font_size(14)
-        .label_color(color::WHITE)
-        .color(color::DARK_CHARCOAL)
-        .border(0.0)
-        .wh([32., 32.0])
-        .right(8.0)
-        .parent(args.id)
-        .set(args.state.open_surface, args.ui)
-        {
-            if let Ok(Some(path)) =
-                FileSelection::new(self.language.get_message("surface-file-select"))
-                    .title(self.language.get_message("surface-open-title"))
-                    .mode(FileSelectionMode::Open)
-                    .show()
-            {
+            Some(SurfaceTool::NewSurface) => {
                 self.sender
-                    .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
-                        std::path::PathBuf::from(path),
-                    )))
-                    .unwrap();
-                self.graphs.clear_all();
-            }
-        }
-
-        for _press in icon_button(
-            IconName::CONTENT_SAVE,
-            self.style.icon_font.unwrap().unwrap(),
-        )
-        .label_font_size(14)
-        .label_color(color::WHITE)
-        .color(color::DARK_CHARCOAL)
-        .border(0.0)
-        .wh([32., 32.0])
-        .right(8.0)
-        .parent(args.id)
-        .set(args.state.save_surface, args.ui)
-        {
-            if let Ok(Some(path)) =
-                FileSelection::new(self.language.get_message("surface-file-select"))
-                    .title(self.language.get_message("surface-save-title"))
-                    .mode(FileSelectionMode::Save)
-                    .show()
-            {
-                self.sender
-                    .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
-                        std::path::PathBuf::from(path),
-                    )))
+                    .send(Lang::UserIOEvent(UserIOEvent::NewSurface))
                     .unwrap();
             }
-        }
-
-        for _press in icon_button(IconName::EXPORT, self.style.icon_font.unwrap().unwrap())
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .right(8.0)
-            .parent(args.id)
-            .set(args.state.export_surface, args.ui)
-        {
-            if let Ok(Some(path)) =
-                FileSelection::new(self.language.get_message("base-name-select"))
-                    .title(self.language.get_message("surface-export-title"))
-                    .mode(FileSelectionMode::Save)
-                    .show()
-            {
-                let e_path = std::path::PathBuf::from(&path);
-                self.sender
-                    .send(Lang::UserIOEvent(UserIOEvent::RunExports(e_path)))
-                    .unwrap();
+            Some(SurfaceTool::OpenSurface) => {
+                if let Ok(Some(path)) =
+                    FileSelection::new(self.language.get_message("surface-file-select"))
+                        .title(self.language.get_message("surface-open-title"))
+                        .mode(FileSelectionMode::Open)
+                        .show()
+                {
+                    self.sender
+                        .send(Lang::UserIOEvent(UserIOEvent::OpenSurface(
+                            std::path::PathBuf::from(path),
+                        )))
+                        .unwrap();
+                    self.graphs.clear_all();
+                }
             }
+            Some(SurfaceTool::SaveSurface) => {
+                if let Ok(Some(path)) =
+                    FileSelection::new(self.language.get_message("surface-file-select"))
+                        .title(self.language.get_message("surface-save-title"))
+                        .mode(FileSelectionMode::Save)
+                        .show()
+                {
+                    self.sender
+                        .send(Lang::UserIOEvent(UserIOEvent::SaveSurface(
+                            std::path::PathBuf::from(path),
+                        )))
+                        .unwrap();
+                }
+            }
+            Some(SurfaceTool::ExportSurface) => {
+                if let Ok(Some(path)) =
+                    FileSelection::new(self.language.get_message("base-name-select"))
+                        .title(self.language.get_message("surface-export-title"))
+                        .mode(FileSelectionMode::Save)
+                        .show()
+                {
+                    let e_path = std::path::PathBuf::from(&path);
+                    self.sender
+                        .send(Lang::UserIOEvent(UserIOEvent::RunExports(e_path)))
+                        .unwrap();
+                }
+            }
+            _ => {}
         }
 
         if let Some(selection) =
@@ -171,6 +145,7 @@ impl<'a> Widget for TopBar<'a> {
                 .parent(args.id)
                 .mid_right_with_margin(8.0)
                 .w(256.0)
+                .h(32.0)
                 .set(args.state.graph_selector, args.ui)
         {
             if let Some(graph) = self.graphs.get_collection_resource(selection).cloned() {
@@ -183,34 +158,25 @@ impl<'a> Widget for TopBar<'a> {
             }
         }
 
-        for _press in icon_button(IconName::GRAPH, self.style.icon_font.unwrap().unwrap())
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .left(8.0)
-            .parent(args.id)
-            .set(args.state.graph_add, args.ui)
+        match toolbar::Toolbar::flow_left(&[
+            (IconName::GRAPH, CollectionTool::NewGraph),
+            (IconName::LAYERS, CollectionTool::NewStack),
+        ])
+        .icon_font(self.style.icon_font.unwrap().unwrap())
+        .parent(args.id)
+        .h(32.0)
+        .left(8.0)
+        .set(args.state.graph_tools, args.ui)
         {
-            self.sender
+            Some(CollectionTool::NewGraph) => self
+                .sender
                 .send(Lang::UserGraphEvent(UserGraphEvent::AddGraph))
-                .unwrap()
-        }
-
-        for _press in icon_button(IconName::LAYERS, self.style.icon_font.unwrap().unwrap())
-            .label_font_size(14)
-            .label_color(color::WHITE)
-            .color(color::DARK_CHARCOAL)
-            .border(0.0)
-            .wh([32., 32.0])
-            .left(8.0)
-            .parent(args.id)
-            .set(args.state.layers_add, args.ui)
-        {
-            self.sender
+                .unwrap(),
+            Some(CollectionTool::NewStack) => self
+                .sender
                 .send(Lang::UserLayersEvent(UserLayersEvent::AddLayers))
-                .unwrap()
+                .unwrap(),
+            _ => {}
         }
     }
 }

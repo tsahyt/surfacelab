@@ -1,7 +1,7 @@
 use conrod_core::*;
 
 /// Predefined icon names from icon font. Hardcoded for the font used.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct IconName(pub &'static str);
 
 impl IconName {
