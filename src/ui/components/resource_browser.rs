@@ -128,8 +128,7 @@ impl<'a> Widget for ResourceBrowser<'a> {
                     .mode(FileSelectionMode::Open)
                     .show()
                 {
-                    Ok(Some(path)) => {
-                    }
+                    Ok(Some(path)) => {}
                     Err(e) => log::error!("Error during file selection {}", e),
                     _ => {}
                 }

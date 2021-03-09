@@ -12,6 +12,7 @@ fn main() {
 
             // start threads
             let ui_thread = surfacelab::ui::start_ui_thread(&mut broker, gpu.clone());
+            let io_thread = surfacelab::io::start_io_thread(&mut broker);
             let nodes_thread = surfacelab::nodes::start_nodes_thread(&mut broker);
             let compute_thread =
                 surfacelab::compute::start_compute_thread(&mut broker, gpu.clone());
@@ -20,6 +21,7 @@ fn main() {
 
             // wait for threads
             ui_thread.join().unwrap();
+            io_thread.join().unwrap();
             nodes_thread.join().unwrap();
             compute_thread.join().unwrap();
             render_thread.join().unwrap();
