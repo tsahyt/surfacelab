@@ -1,6 +1,6 @@
 use crate::ui::app_state::resources::*;
 use crate::ui::util::*;
-use crate::ui::widgets::tree::Expandable;
+use crate::ui::widgets::{toolbar, tree::Expandable};
 use conrod_core::*;
 
 #[derive(WidgetCommon)]
@@ -67,6 +67,7 @@ widget_ids! {
         icon,
         resource_name,
         expander,
+        toolbar
     }
 }
 
@@ -77,6 +78,11 @@ pub struct State {
 pub enum Event {
     ToggleExpanded,
     Clicked,
+    DeleteRequested,
+}
+
+pub enum ContextAction {
+    Delete,
 }
 
 impl<'a> Widget for ResourceRow<'a> {
@@ -100,7 +106,9 @@ impl<'a> Widget for ResourceRow<'a> {
         let icon = match self.res_item {
             ResourceTreeItem::ResourceInfo(i) => match i.category() {
                 ResourceCategory::Graph => IconName::GRAPH,
+                ResourceCategory::Stack => IconName::LAYERS,
                 ResourceCategory::Node => IconName::NODE,
+                ResourceCategory::Layer => IconName::NODE,
                 ResourceCategory::Socket => IconName::SOCKET,
                 ResourceCategory::Image => IconName::IMAGE,
                 ResourceCategory::Input => IconName::INPUT,
@@ -166,6 +174,21 @@ impl<'a> Widget for ResourceRow<'a> {
 
         for _click in args.ui.widget_input(args.state.ids.resource_name).clicks() {
             res = Some(Event::Clicked)
+        }
+
+        if self.active {
+            match toolbar::Toolbar::flow_left(&[(IconName::TRASH, ContextAction::Delete)])
+                .icon_font(self.style.icon_font.unwrap().unwrap())
+                .button_size(16.0)
+                .icon_size(10)
+                .parent(args.id)
+                .mid_right_of(args.id)
+                .h(16.0)
+                .set(args.state.ids.toolbar, args.ui)
+            {
+                Some(ContextAction::Delete) => res = Some(Event::DeleteRequested),
+                None => {}
+            }
         }
 
         res

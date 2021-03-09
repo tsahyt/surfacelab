@@ -332,6 +332,8 @@ pub enum UserGraphEvent {
     ChangeGraph(Resource<Graph>),
     /// The user renames a graph from a resource to another resource
     RenameGraph(Resource<Graph>, Resource<Graph>),
+    /// The user seeks to delete a graph.
+    DeleteGraph(Resource<Graph>),
     /// The user asks for exposure of a given parameter, where the two strings
     /// represent (in order) the *graph field*, i.e. the field name to be used
     /// for the exposed parameter, and the *title*, i.e. the human readable name
@@ -353,6 +355,8 @@ pub enum UserGraphEvent {
 pub enum GraphEvent {
     /// A graph identified by this resource has been added to the system.
     GraphAdded(Resource<Graph>),
+    /// A graph has been removed from the system.
+    GraphRemoved(Resource<Graph>),
     /// A graph has been renamed from a resource to a resource.
     GraphRenamed(Resource<Graph>, Resource<Graph>),
     /// A node has been added inside of a graph, identified by a resource. The
@@ -422,6 +426,8 @@ pub enum LayerType {
 pub enum UserLayersEvent {
     /// The user requests a new layer stack.
     AddLayers,
+    /// The user requests deletion of a layer stack.
+    DeleteLayers(Resource<Graph>),
     /// The user seeks to push a new layer onto the layer stack, with a given
     /// type and operator.
     PushLayer(Resource<Graph>, LayerType, Operator),
@@ -462,6 +468,8 @@ pub enum UserLayersEvent {
 pub enum LayersEvent {
     /// A layer stack has been added to the system, with the given parent size.
     LayersAdded(Resource<Graph>, u32),
+    /// A layer stack has been removed from the system.
+    LayersRemoved(Resource<Graph>),
     /// A layer has been pushed onto a layer stack, with the goven resource and
     /// type. The fields describe the following, in order
     ///

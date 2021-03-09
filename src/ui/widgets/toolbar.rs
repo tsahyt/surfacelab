@@ -68,12 +68,26 @@ impl<'a, T, D> Toolbar<'a, T, D> {
         self.style.icon_font = Some(Some(font_id));
         self
     }
+
+    pub fn button_size(mut self, button_size: Scalar) -> Self {
+        self.style.button_size = Some(button_size);
+        self
+    }
+
+    pub fn icon_size(mut self, icon_size: FontSize) -> Self {
+        self.style.icon_size = Some(icon_size);
+        self
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
     #[conrod(default = "theme.font_id")]
     icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "32.0")]
+    button_size: Option<Scalar>,
+    #[conrod(default = "14")]
+    icon_size: Option<FontSize>,
 }
 
 widget_ids! {
@@ -109,6 +123,9 @@ where
 
         let widget::UpdateArgs { state, ui, id, .. } = args;
 
+        let size = self.style.button_size.unwrap_or(32.0);
+        let icon_size = self.style.icon_size.unwrap_or(14);
+
         state.update(|state| {
             let mut walker = state.ids.buttons.walk();
 
@@ -119,11 +136,11 @@ where
                 let button_id = walker.next(&mut state.ids.buttons, &mut id_gen);
 
                 let btn = icon_button(*tool, self.style.icon_font.unwrap().unwrap())
-                    .label_font_size(14)
+                    .label_font_size(icon_size)
                     .label_color(color::WHITE)
                     .color(color::DARK_CHARCOAL)
                     .border(0.0)
-                    .wh([32., 32.0])
+                    .wh([size, size])
                     .parent(id);
 
                 for _press in D::position_button(btn, offset).set(button_id, ui) {

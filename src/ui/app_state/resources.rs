@@ -5,7 +5,9 @@ use std::any::*;
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ResourceCategory {
     Graph,
+    Stack,
     Node,
+    Layer,
     Socket,
     Image,
     Input,
@@ -16,7 +18,9 @@ impl ResourceCategory {
     pub fn expandable(&self) -> bool {
         match self {
             ResourceCategory::Graph => true,
+            ResourceCategory::Stack => true,
             ResourceCategory::Node => true,
+            ResourceCategory::Layer => true,
             ResourceCategory::Image => true,
             _ => false,
         }
@@ -195,6 +199,16 @@ impl ResourceTree {
             .unwrap();
     }
 
+    pub fn insert_stack(&mut self, graph: r::Resource<r::Graph>) {
+        let rinfo = ResourceInfo::new(graph, ResourceCategory::Stack);
+        self.tree
+            .insert(
+                id_tree::Node::new(ResourceTreeItem::ResourceInfo(rinfo)),
+                id_tree::InsertBehavior::UnderNode(&self.graphs),
+            )
+            .unwrap();
+    }
+
     fn find_resource<T: 'static + PartialEq>(
         &self,
         res: &r::Resource<T>,
@@ -208,6 +222,20 @@ impl ResourceTree {
     pub fn insert_node(&mut self, node: r::Resource<r::Node>) {
         let parent = node.node_graph();
         let rinfo = ResourceInfo::new(node, ResourceCategory::Node);
+
+        if let Some(p) = self.find_resource(&parent) {
+            self.tree
+                .insert(
+                    id_tree::Node::new(ResourceTreeItem::ResourceInfo(rinfo)),
+                    id_tree::InsertBehavior::UnderNode(&p),
+                )
+                .unwrap();
+        }
+    }
+
+    pub fn insert_layer(&mut self, node: r::Resource<r::Node>) {
+        let parent = node.node_graph();
+        let rinfo = ResourceInfo::new(node, ResourceCategory::Layer);
 
         if let Some(p) = self.find_resource(&parent) {
             self.tree

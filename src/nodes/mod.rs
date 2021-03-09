@@ -523,6 +523,10 @@ impl NodeManager {
                     response.append(&mut self.update_complex_operators(&from, &operator));
                 }
             }
+            UserGraphEvent::DeleteGraph(res) => {
+                self.graphs.remove(res.path_str().unwrap());
+                response.push(Lang::GraphEvent(GraphEvent::GraphRemoved(res.clone())));
+            }
             UserGraphEvent::ExposeParameter(res, graph_field, title, control) => {
                 let op_stub = {
                     let graph = self
@@ -620,6 +624,10 @@ impl NodeManager {
                         )));
                     }
                 }
+            }
+            UserLayersEvent::DeleteLayers(res) => {
+                self.graphs.remove(res.path_str().unwrap());
+                response.push(Lang::LayersEvent(LayersEvent::LayersRemoved(res.clone())));
             }
             UserLayersEvent::PushLayer(graph_res, ty, op) => {
                 let op = self.complete_operator(op);
@@ -1074,8 +1082,7 @@ impl NodeManager {
     /// Run the linearization procedura on a graph.
     fn relinearize(&self, graph: &lang::Resource<lang::Graph>) -> Option<lang::Lang> {
         self.graphs
-            .get(graph.path_str().unwrap())
-            .unwrap()
+            .get(graph.path_str().unwrap())?
             .linearize(LinearizationMode::TopoSort)
             .map(|(instructions, last_use, force_points)| {
                 lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(

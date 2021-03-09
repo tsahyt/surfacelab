@@ -151,11 +151,25 @@ impl NodeCollections {
         );
     }
 
+    pub fn remove_graph(&mut self, graph: &Resource<r::Graph>) {
+        self.collections.remove(graph);
+        if &self.active_resource == graph {
+            self.set_active_collection(self.collections.keys().next().unwrap().clone());
+        }
+    }
+
     pub fn add_layers(&mut self, graph: Resource<r::Graph>) {
         self.collections.insert(
             graph.clone(),
             NodeCollection::Layers(layers::Layers::new(graph.file().unwrap())),
         );
+    }
+
+    pub fn remove_layers(&mut self, graph: &Resource<r::Graph>) {
+        self.collections.remove(graph);
+        if &self.active_resource == graph {
+            self.set_active_collection(self.collections.keys().next().unwrap().clone());
+        }
     }
 
     /// Get a list of collection names for displaying

@@ -308,6 +308,15 @@ where
             GraphEvent::GraphAdded(res) => {
                 state.update(|state| state.graphs.add_graph(res.clone()));
             }
+            GraphEvent::GraphRemoved(res) => {
+                state.update(|state| state.graphs.remove_graph(res));
+                self.app_data
+                    .sender
+                    .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
+                        state.graphs.get_active().clone(),
+                    )))
+                    .unwrap();
+            }
             GraphEvent::GraphRenamed(from, to) => {
                 state.update(|state| state.graphs.rename_collection(from, to));
             }
@@ -360,6 +369,15 @@ where
         match event {
             LayersEvent::LayersAdded(res, _) => {
                 state.update(|state| state.graphs.add_layers(res.clone()));
+            }
+            LayersEvent::LayersRemoved(res) => {
+                state.update(|state| state.graphs.remove_layers(res));
+                self.app_data
+                    .sender
+                    .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
+                        state.graphs.get_active().clone(),
+                    )))
+                    .unwrap();
             }
             LayersEvent::LayerPushed(res, ty, title, _, bmode, opacity, pbox, _) => {
                 let layer = Layer::layer(

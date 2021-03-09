@@ -1,7 +1,7 @@
 use crate::broker::BrokerSender;
 use crate::lang::*;
 use crate::ui::{
-    app_state::{NodeCollections, ResourceTree},
+    app_state::{NodeCollections, ResourceCategory, ResourceTree},
     i18n::Language,
     util::IconName,
     widgets::{resource_row, toolbar, tree},
@@ -155,7 +155,7 @@ impl<'a> Widget for ResourceBrowser<'a> {
                     if let Some(collection) = data.get_resource() {
                         self.sender
                             .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(
-                                collection.clone()
+                                collection.clone(),
                             )))
                             .unwrap();
                         self.graphs.set_active_collection(collection);
@@ -163,6 +163,47 @@ impl<'a> Widget for ResourceBrowser<'a> {
 
                     if let Some(node) = data.get_resource() {
                         self.graphs.set_active_element(node);
+                    }
+                }
+                Some(resource_row::Event::DeleteRequested) => {
+                    if let Some(collection) = data.get_resource() {
+                        match data.category() {
+                            Some(ResourceCategory::Graph) => {
+                                self.sender
+                                    .send(Lang::UserGraphEvent(UserGraphEvent::DeleteGraph(
+                                        collection.clone(),
+                                    )))
+                                    .unwrap();
+                            }
+                            Some(ResourceCategory::Stack) => {
+                                self.sender
+                                    .send(Lang::UserLayersEvent(UserLayersEvent::DeleteLayers(
+                                        collection.clone(),
+                                    )))
+                                    .unwrap();
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    if let Some(node) = data.get_resource() {
+                        match data.category() {
+                            Some(ResourceCategory::Node) => {
+                                self.sender
+                                    .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
+                                        node.clone(),
+                                    )))
+                                    .unwrap();
+                            }
+                            Some(ResourceCategory::Layer) => {
+                                self.sender
+                                    .send(Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
+                                        node.clone(),
+                                    )))
+                                    .unwrap();
+                            }
+                            _ => {}
+                        }
                     }
                 }
             }
@@ -180,6 +221,9 @@ impl<'a> ResourceBrowser<'a> {
             Lang::GraphEvent(GraphEvent::GraphAdded(res)) => {
                 state.update(|state| state.tree.insert_graph(res.clone()));
             }
+            Lang::GraphEvent(GraphEvent::GraphRemoved(res)) => {
+                state.update(|state| state.tree.remove_resource_and_children(res));
+            }
             Lang::GraphEvent(GraphEvent::GraphRenamed(from, to)) => {
                 state.update(|state| state.tree.rename_resource(from, to));
             }
@@ -193,10 +237,13 @@ impl<'a> ResourceBrowser<'a> {
                 state.update(|state| state.tree.rename_resource(from, to));
             }
             Lang::LayersEvent(LayersEvent::LayersAdded(res, _)) => {
-                state.update(|state| state.tree.insert_graph(res.clone()));
+                state.update(|state| state.tree.insert_stack(res.clone()));
+            }
+            Lang::LayersEvent(LayersEvent::LayersRemoved(res)) => {
+                state.update(|state| state.tree.remove_resource_and_children(res));
             }
             Lang::LayersEvent(LayersEvent::LayerPushed(res, _, _, _, _, _, _, _)) => {
-                state.update(|state| state.tree.insert_node(res.clone()));
+                state.update(|state| state.tree.insert_layer(res.clone()));
             }
             Lang::LayersEvent(LayersEvent::LayerRemoved(res)) => {
                 state.update(|state| state.tree.remove_resource_and_children(res));
