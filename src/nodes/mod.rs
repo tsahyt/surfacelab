@@ -524,8 +524,10 @@ impl NodeManager {
                 }
             }
             UserGraphEvent::DeleteGraph(res) => {
-                self.graphs.remove(res.path_str().unwrap());
-                response.push(Lang::GraphEvent(GraphEvent::GraphRemoved(res.clone())));
+                if self.graphs.len() > 1 {
+                    self.graphs.remove(res.path_str().unwrap());
+                    response.push(Lang::GraphEvent(GraphEvent::GraphRemoved(res.clone())));
+                }
             }
             UserGraphEvent::ExposeParameter(res, graph_field, title, control) => {
                 let op_stub = {
@@ -626,8 +628,10 @@ impl NodeManager {
                 }
             }
             UserLayersEvent::DeleteLayers(res) => {
-                self.graphs.remove(res.path_str().unwrap());
-                response.push(Lang::LayersEvent(LayersEvent::LayersRemoved(res.clone())));
+                if self.graphs.len() > 1 {
+                    self.graphs.remove(res.path_str().unwrap());
+                    response.push(Lang::LayersEvent(LayersEvent::LayersRemoved(res.clone())));
+                }
             }
             UserLayersEvent::PushLayer(graph_res, ty, op) => {
                 let op = self.complete_operator(op);
