@@ -170,15 +170,6 @@ impl Default for ResourceTree {
             .unwrap()
             .clone();
 
-        t.insert(
-            Node::new(ResourceTreeItem::ResourceInfo(ResourceInfo::new(
-                r::Resource::graph("base"),
-                ResourceCategory::Graph,
-            ))),
-            UnderNode(&graphs),
-        )
-        .unwrap();
-
         ResourceTree {
             tree: t,
             root,
@@ -189,6 +180,10 @@ impl Default for ResourceTree {
 }
 
 impl ResourceTree {
+    pub fn clear(&mut self) {
+        *self = ResourceTree::default();
+    }
+
     pub fn insert_graph(&mut self, graph: r::Resource<r::Graph>) {
         let rinfo = ResourceInfo::new(graph, ResourceCategory::Graph);
         self.tree

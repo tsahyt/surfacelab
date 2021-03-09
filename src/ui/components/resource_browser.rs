@@ -78,9 +78,12 @@ impl<'a> Widget for ResourceBrowser<'a> {
     type Event = ();
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
+        let mut tree = ResourceTree::default();
+        tree.insert_graph(Resource::graph("base"));
+
         State {
             ids: Ids::new(id_gen),
-            tree: ResourceTree::default(),
+            tree,
         }
     }
 
@@ -235,6 +238,9 @@ impl<'a> ResourceBrowser<'a> {
             }
             Lang::GraphEvent(GraphEvent::NodeRenamed(from, to)) => {
                 state.update(|state| state.tree.rename_resource(from, to));
+            }
+            Lang::GraphEvent(GraphEvent::Cleared) => {
+                state.update(|state| state.tree.clear());
             }
             Lang::LayersEvent(LayersEvent::LayersAdded(res, _)) => {
                 state.update(|state| state.tree.insert_stack(res.clone()));
