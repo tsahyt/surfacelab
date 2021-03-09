@@ -4,9 +4,11 @@ surface-tab = Surface
 
 surface-file-select = Select a surface file
 base-name-select = Select a base name
+image-select = Select an image file
 surface-open-title = Open Surface
 surface-save-title = Save Surface
 surface-export-title = Export Surface
+image-select-title = Import Image
 
 convert-to-graph = Convert to Graph
 exposed-parameters = Exposed Parameters

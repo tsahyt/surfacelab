@@ -53,6 +53,14 @@ impl Scheme for Socket {
 
 impl InGraph for Socket {}
 
+pub struct Image;
+
+impl Scheme for Image {
+    fn scheme_name() -> &'static str {
+        "img"
+    }
+}
+
 /// A Resource describes some thing in the system. This could refer to a node,
 /// or to a graph/layer stack, or to a socket of a node, or to a parameter, etc.
 ///
@@ -197,6 +205,17 @@ impl Resource<Socket> {
     pub fn socket_node(&self) -> Resource<Node> {
         Resource {
             resource_path: self.resource_path.clone(),
+            fragment: None,
+            phantom_data: std::marker::PhantomData,
+        }
+    }
+}
+
+impl Resource<Image> {
+    /// Constructor for an image resource
+    pub fn image<P: AsRef<Path>>(path: P) -> Self {
+        Self {
+            resource_path: path.as_ref().to_path_buf(),
             fragment: None,
             phantom_data: std::marker::PhantomData,
         }

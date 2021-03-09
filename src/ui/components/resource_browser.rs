@@ -11,6 +11,8 @@ use std::sync::Arc;
 
 use conrod_core::*;
 
+use dialog::{DialogBox, FileSelection, FileSelectionMode};
+
 #[derive(WidgetCommon)]
 pub struct ResourceBrowser<'a> {
     #[conrod(common_builder)]
@@ -70,6 +72,7 @@ pub struct State {
 pub enum CollectionTool {
     NewGraph,
     NewStack,
+    NewImage,
 }
 
 impl<'a> Widget for ResourceBrowser<'a> {
@@ -103,6 +106,7 @@ impl<'a> Widget for ResourceBrowser<'a> {
         match toolbar::Toolbar::flow_right(&[
             (IconName::GRAPH, CollectionTool::NewGraph),
             (IconName::LAYERS, CollectionTool::NewStack),
+            (IconName::IMAGE, CollectionTool::NewImage),
         ])
         .icon_font(self.style.icon_font.unwrap().unwrap())
         .parent(args.id)
@@ -118,6 +122,18 @@ impl<'a> Widget for ResourceBrowser<'a> {
                 .sender
                 .send(Lang::UserLayersEvent(UserLayersEvent::AddLayers))
                 .unwrap(),
+            Some(CollectionTool::NewImage) => {
+                match FileSelection::new(self.language.get_message("image-select"))
+                    .title(self.language.get_message("image-select-title"))
+                    .mode(FileSelectionMode::Open)
+                    .show()
+                {
+                    Ok(Some(path)) => {
+                    }
+                    Err(e) => log::error!("Error during file selection {}", e),
+                    _ => {}
+                }
+            }
             _ => {}
         }
 
