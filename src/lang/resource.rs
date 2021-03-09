@@ -53,9 +53,9 @@ impl Scheme for Socket {
 
 impl InGraph for Socket {}
 
-pub struct Image;
+pub struct Img;
 
-impl Scheme for Image {
+impl Scheme for Img {
     fn scheme_name() -> &'static str {
         "img"
     }
@@ -211,7 +211,7 @@ impl Resource<Socket> {
     }
 }
 
-impl Resource<Image> {
+impl Resource<Img> {
     /// Constructor for an image resource
     pub fn image<P: AsRef<Path>>(path: P) -> Self {
         Self {
