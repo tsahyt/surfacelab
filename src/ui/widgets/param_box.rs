@@ -1,5 +1,6 @@
 use super::color_picker::ColorPicker;
 use super::color_ramp::ColorRamp;
+use super::img_resource_editor::ImageResourceEditor;
 
 use crate::lang::*;
 use crate::ui::i18n::Language;
@@ -21,6 +22,7 @@ pub struct ControlCounts {
     pub rgb_colors: usize,
     pub enums: usize,
     pub files: usize,
+    pub imgs: usize,
     pub ramps: usize,
     pub toggles: usize,
     pub entries: usize,
@@ -58,6 +60,9 @@ where
                 }
                 Control::File { .. } => {
                     counts.files += 1;
+                }
+                Control::ImageResource { .. } => {
+                    counts.imgs += 1;
                 }
                 Control::Ramp { .. } => {
                     counts.ramps += 1;
@@ -145,6 +150,11 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .resize(counts.files, id_gen);
             state
                 .controls
+                .get_mut(&TypeId::of::<ImageResourceEditor>())
+                .unwrap()
+                .resize(counts.imgs, id_gen);
+            state
+                .controls
                 .get_mut(&TypeId::of::<widget::TextBox>())
                 .unwrap()
                 .resize(counts.entries, id_gen);
@@ -198,6 +208,12 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .unwrap()
                 .len()
                 < (counts.files)
+            || state
+                .controls
+                .get(&TypeId::of::<ImageResourceEditor>())
+                .unwrap()
+                .len()
+                < (counts.imgs)
             || state
                 .controls
                 .get(&TypeId::of::<widget::TextBox>())
@@ -258,6 +274,7 @@ where
                 TypeId::of::<ColorPicker<Hsv>>() => widget::id::List::new(),
                 TypeId::of::<ColorRamp>() => widget::id::List::new(),
                 TypeId::of::<widget::Button<widget::button::Flat>>() => widget::id::List::new(),
+                TypeId::of::<ImageResourceEditor>() => widget::id::List::new(),
                 TypeId::of::<widget::TextBox>() => widget::id::List::new(),
                 TypeId::of::<widget::Toggle>() => widget::id::List::new(),
             },
@@ -501,6 +518,9 @@ where
                             }
                         }
                         control_idx.files += 1;
+                    }
+                    Control::ImageResource { .. } => {
+                        control_idx.imgs += 1;
                     }
                     Control::Ramp { steps } => {
                         let control_id = state.controls.get(&TypeId::of::<ColorRamp>()).unwrap()

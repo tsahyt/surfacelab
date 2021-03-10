@@ -158,6 +158,7 @@ fn control_name(control: &Control) -> &'static str {
         Control::RgbColor { .. } => "rgb",
         Control::Enum { .. } => "list",
         Control::File { .. } => "file",
+        Control::ImageResource { .. } => "img",
         Control::Ramp { .. } => "ramp",
         Control::Toggle { .. } => "bool",
         Control::Entry { .. } => "text",
