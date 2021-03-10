@@ -972,7 +972,7 @@ pub enum Control {
         selected: Option<std::path::PathBuf>,
     },
     ImageResource {
-        selected: Resource<Img>,
+        selected: Option<Resource<Img>>,
     },
     Ramp {
         steps: Vec<[f32; 4]>,
@@ -1029,8 +1029,10 @@ impl Control {
             Self::XYPad { value, .. } => *value = <[f32; 2]>::from_data(data),
             Self::RgbColor { value } => *value = <[f32; 3]>::from_data(data),
             Self::Enum { selected, .. } => *selected = u32::from_data(data) as usize,
-            Self::File { selected } => *selected = Some(PathBuf::from_data(data)),
-            Self::ImageResource { selected } => *selected = <Resource<Img>>::from_data(data),
+            Self::File { selected } => *selected = <Option<PathBuf>>::from_data(data),
+            Self::ImageResource { selected } => {
+                *selected = <Option<Resource<Img>>>::from_data(data)
+            }
             Self::Ramp { steps } => {
                 *steps = data
                     .chunks(std::mem::size_of::<[f32; 4]>())

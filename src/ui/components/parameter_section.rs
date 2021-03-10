@@ -2,6 +2,9 @@ use crate::broker::BrokerSender;
 use crate::lang::*;
 use crate::ui::{i18n::Language, widgets};
 
+use std::collections::HashSet;
+use std::sync::Arc;
+
 use conrod_core::*;
 
 #[derive(WidgetCommon)]
@@ -12,6 +15,7 @@ pub struct ParameterSection<'a> {
     sender: &'a BrokerSender<Lang>,
     description: &'a mut ParamBoxDescription<MessageWriters>,
     resource: &'a Resource<Node>,
+    event_buffer: Option<&'a [Arc<Lang>]>,
     style: Style,
 }
 
@@ -28,12 +32,18 @@ impl<'a> ParameterSection<'a> {
             sender,
             description,
             resource,
+            event_buffer: None,
             style: Style::default(),
         }
     }
 
     pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
         self.style.icon_font = Some(Some(font_id));
+        self
+    }
+
+    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
+        self.event_buffer = Some(buffer);
         self
     }
 }
@@ -50,13 +60,21 @@ widget_ids! {
     }
 }
 
+pub struct State {
+    ids: Ids,
+    image_resources: HashSet<Resource<Img>>,
+}
+
 impl<'a> Widget for ParameterSection<'a> {
-    type State = Ids;
+    type State = State;
     type Style = Style;
     type Event = ();
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
-        Ids::new(id_gen)
+        State {
+            ids: Ids::new(id_gen),
+            image_resources: HashSet::new(),
+        }
     }
 
     fn style(&self) -> Self::Style {
@@ -64,12 +82,23 @@ impl<'a> Widget for ParameterSection<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        let widget::UpdateArgs { state, ui, id, .. } = args;
+
+        if let Some(ev_buf) = self.event_buffer {
+            for ev in ev_buf {
+                self.handle_event(state, ev);
+            }
+        }
+
+        let image_resources: Vec<_> = state.image_resources.iter().collect();
+
         for ev in widgets::param_box::ParamBox::new(self.description, self.resource, self.language)
-            .parent(args.id)
-            .w_of(args.id)
+            .image_resources(&image_resources)
+            .parent(id)
+            .w_of(id)
             .mid_top()
             .icon_font(self.style.icon_font.unwrap().unwrap())
-            .set(args.state.param_box, args.ui)
+            .set(state.ids.param_box, ui)
         {
             let resp = match ev {
                 widgets::param_box::Event::ChangeParameter(event) => event,
@@ -85,6 +114,19 @@ impl<'a> Widget for ParameterSection<'a> {
             };
 
             self.sender.send(resp).unwrap();
+        }
+    }
+}
+
+impl<'a> ParameterSection<'a> {
+    fn handle_event(&self, state: &mut widget::State<State>, event: &Lang) {
+        match event {
+            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res)) => {
+                state.update(|state| {
+                    state.image_resources.insert(res.clone());
+                });
+            }
+            _ => {}
         }
     }
 }

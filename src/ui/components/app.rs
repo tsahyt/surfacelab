@@ -490,6 +490,7 @@ where
                     description,
                     resource,
                 )
+                .event_buffer(self.event_buffer.unwrap())
                 .icon_font(self.style.icon_font.unwrap().unwrap())
                 .parent(state.ids.parameter_canvas)
                 .wh_of(state.ids.parameter_canvas)

@@ -92,6 +92,7 @@ pub struct ParamBox<'a, T: MessageWriter> {
     style: Style,
     description: &'a mut ParamBoxDescription<T>,
     language: &'a Language,
+    image_resources: &'a [&'a Resource<Img>],
 }
 
 impl<'a, T: MessageWriter> ParamBox<'a, T> {
@@ -106,6 +107,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
             description,
             resource,
             language,
+            image_resources: &[],
         }
     }
 
@@ -226,6 +228,11 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .unwrap()
                 .len()
                 < (counts.toggles)
+    }
+
+    pub fn image_resources(mut self, image_resources: &'a [&'a Resource<Img>]) -> Self {
+        self.image_resources = image_resources;
+        self
     }
 
     pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
@@ -519,7 +526,33 @@ where
                         }
                         control_idx.files += 1;
                     }
-                    Control::ImageResource { .. } => {
+                    Control::ImageResource { selected } => {
+                        let control_id = state
+                            .controls
+                            .get(&TypeId::of::<ImageResourceEditor>())
+                            .unwrap()[control_idx.imgs];
+
+                        if let Some(event) =
+                            ImageResourceEditor::new(self.image_resources, selected.clone())
+                                .padded_w_of(id, 16.0)
+                                .h(16.0)
+                                .set(control_id, ui)
+                        {
+                            use super::img_resource_editor;
+
+                            match event {
+                                img_resource_editor::Event::SelectResource(new_selected) => {
+                                    *selected = Some(new_selected.clone());
+                                    ev.push(Event::ChangeParameter(
+                                        parameter
+                                            .transmitter
+                                            .transmit(self.resource, &new_selected.to_data()),
+                                    ))
+                                }
+                                _ => {}
+                            }
+                        }
+
                         control_idx.imgs += 1;
                     }
                     Control::Ramp { steps } => {

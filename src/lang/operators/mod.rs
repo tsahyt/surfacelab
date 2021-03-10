@@ -95,7 +95,13 @@ impl OperatorParamBox for Image {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
-                parameters: vec![],
+                parameters: vec![Parameter {
+                    name: "image-resource".to_string(),
+                    transmitter: Field(Self::RESOURCE.to_string()),
+                    control: Control::ImageResource { selected: None },
+                    expose_status: Some(ExposeStatus::Unexposed),
+                    visibility: VisibilityFunction::default(),
+                }],
             }],
         }
     }
