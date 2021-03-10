@@ -23,7 +23,6 @@ use zerocopy::AsBytes;
     EnumString,
     Serialize,
     Deserialize,
-    ParameterField,
     PartialEq,
     UnsafeFromPrimitive,
 )]

@@ -40,29 +40,3 @@ pub fn derive_parameters(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 
     proc_macro::TokenStream::from(expanded)
 }
-
-
-#[proc_macro_derive(ParameterField)]
-pub fn derive_parameter_field(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
-
-    // TODO: Safety for enum conversion
-    let expanded = quote! {
-        impl ParameterField for #name {
-            fn from_data(data: &[u8]) -> Self {
-                unsafe { std::mem::transmute::<u32, Self>(u32::from_data(data)) }
-            }
-
-            fn to_data(&self) -> Vec<u8> {
-                (*self as u32).to_data()
-            }
-
-            fn data_length() -> usize {
-                std::mem::size_of::<#name>()
-            }
-        }
-    };
-
-    proc_macro::TokenStream::from(expanded)
-}

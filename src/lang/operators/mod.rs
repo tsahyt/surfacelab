@@ -135,16 +135,7 @@ impl OperatorParamBox for Image {
 /// generalized formats.
 #[repr(C)]
 #[derive(
-    PartialEq,
-    Clone,
-    Copy,
-    Debug,
-    EnumIter,
-    EnumVariantNames,
-    EnumString,
-    Serialize,
-    Deserialize,
-    ParameterField,
+    PartialEq, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString, Serialize, Deserialize,
 )]
 pub enum OutputType {
     Albedo,

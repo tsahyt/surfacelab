@@ -244,7 +244,6 @@ impl Instruction {
     Serialize,
     Deserialize,
     Hash,
-    ParameterField,
     EnumVariantNames,
 )]
 pub enum ImageType {
@@ -528,7 +527,7 @@ pub enum SurfaceEvent {
 pub type RendererID = u64;
 
 /// Light types supported by renderers.
-#[derive(AsBytes, Copy, Clone, Debug, ParameterField)]
+#[derive(AsBytes, Copy, Clone, Debug, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum LightType {
     PointLight = 0,
@@ -536,7 +535,7 @@ pub enum LightType {
 }
 
 /// Object types supported by the SDF 3D renderer
-#[derive(AsBytes, Copy, Clone, Debug, ParameterField)]
+#[derive(AsBytes, Copy, Clone, Debug, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum ObjectType {
     Plane = 0,
@@ -592,18 +591,7 @@ pub enum UserRenderEvent {
 
 /// Supported color spaces for (external) images.
 #[repr(u32)]
-#[derive(
-    Debug,
-    EnumVariantNames,
-    ParameterField,
-    PartialEq,
-    Eq,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    Hash,
-)]
+#[derive(Debug, EnumVariantNames, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Hash)]
 pub enum ColorSpace {
     Srgb,
     Linear,
@@ -821,9 +809,7 @@ impl MaterialChannel {
 }
 
 #[repr(u32)]
-#[derive(
-    Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, AsBytes, ParameterField,
-)]
+#[derive(Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, AsBytes)]
 pub enum ImageChannel {
     R,
     G,

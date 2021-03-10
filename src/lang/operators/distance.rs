@@ -22,7 +22,6 @@ use zerocopy::AsBytes;
     EnumString,
     Serialize,
     Deserialize,
-    ParameterField,
     PartialEq,
 )]
 pub enum DistanceMetric {
@@ -42,7 +41,6 @@ pub enum DistanceMetric {
     EnumString,
     Serialize,
     Deserialize,
-    ParameterField,
     PartialEq,
 )]
 pub enum DistanceBorderMode {
