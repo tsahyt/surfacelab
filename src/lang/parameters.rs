@@ -22,186 +22,23 @@ pub trait Parameters {
 pub type ParameterBool = u32;
 
 /// A ParameterField is a type that can be converted from/to data, with a given
-/// fixed size.
-pub trait ParameterField {
-    fn from_data(data: &[u8]) -> Self;
+/// fixed size. Specifically, anything that can be serialized and deserialized
+/// can be used as a parameter field using bincode.
+pub trait ParameterField<'a> {
+    fn from_data(data: &'a [u8]) -> Self;
     fn to_data(&self) -> Vec<u8>;
-    fn data_length() -> usize;
 }
 
-impl ParameterField for f32 {
-    fn from_data(data: &[u8]) -> Self {
-        let mut arr: [u8; 4] = Default::default();
-        arr.copy_from_slice(data);
-        f32::from_ne_bytes(arr)
-    }
-
-    fn to_data(&self) -> Vec<u8> {
-        self.to_ne_bytes().to_vec()
-    }
-
-    fn data_length() -> usize {
-        4
-    }
-}
-
-impl ParameterField for u32 {
-    fn from_data(data: &[u8]) -> Self {
-        let mut arr: [u8; 4] = Default::default();
-        arr.copy_from_slice(data);
-        u32::from_ne_bytes(arr)
-    }
-
-    fn to_data(&self) -> Vec<u8> {
-        self.to_ne_bytes().to_vec()
-    }
-
-    fn data_length() -> usize {
-        4
-    }
-}
-
-impl ParameterField for i32 {
-    fn from_data(data: &[u8]) -> Self {
-        let mut arr: [u8; 4] = Default::default();
-        arr.copy_from_slice(data);
-        i32::from_ne_bytes(arr)
-    }
-
-    fn to_data(&self) -> Vec<u8> {
-        self.to_ne_bytes().to_vec()
-    }
-
-    fn data_length() -> usize {
-        4
-    }
-}
-
-impl<T> ParameterField for [T; 2]
+impl<'a, T> ParameterField<'a> for T
 where
-    T: ParameterField + Copy,
+    T: serde::Serialize + serde::Deserialize<'a>,
 {
-    fn from_data(data: &[u8]) -> Self {
-        let cols: SmallVec<[T; 4]> = data.chunks(4).map(|z| T::from_data(z)).collect();
-        [cols[0], cols[1]]
+    fn from_data(data: &'a [u8]) -> Self {
+        bincode::deserialize(data).unwrap()
     }
 
     fn to_data(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        buf.extend_from_slice(&(self[0].to_data()));
-        buf.extend_from_slice(&(self[1].to_data()));
-        buf
-    }
-
-    fn data_length() -> usize {
-        T::data_length() * 2
-    }
-}
-
-impl<T> ParameterField for [T; 3]
-where
-    T: ParameterField + Copy,
-{
-    fn from_data(data: &[u8]) -> Self {
-        let cols: SmallVec<[T; 4]> = data.chunks(4).map(|z| T::from_data(z)).collect();
-        [cols[0], cols[1], cols[2]]
-    }
-
-    fn to_data(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        buf.extend_from_slice(&(self[0].to_data()));
-        buf.extend_from_slice(&(self[1].to_data()));
-        buf.extend_from_slice(&(self[2].to_data()));
-        buf
-    }
-
-    fn data_length() -> usize {
-        T::data_length() * 3
-    }
-}
-
-impl<T> ParameterField for [T; 4]
-where
-    T: ParameterField + Copy,
-{
-    fn from_data(data: &[u8]) -> Self {
-        let cols: SmallVec<[T; 4]> = data.chunks(4).map(|z| T::from_data(z)).collect();
-        [cols[0], cols[1], cols[2], cols[3]]
-    }
-
-    fn to_data(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        buf.extend_from_slice(&(self[0].to_data()));
-        buf.extend_from_slice(&(self[1].to_data()));
-        buf.extend_from_slice(&(self[2].to_data()));
-        buf.extend_from_slice(&(self[3].to_data()));
-        buf
-    }
-
-    fn data_length() -> usize {
-        T::data_length() * 4
-    }
-}
-
-impl<T, Q> ParameterField for (T, Q)
-where
-    T: ParameterField,
-    Q: ParameterField,
-{
-    fn to_data(&self) -> Vec<u8> {
-        let mut v = Vec::new();
-        v.extend(self.0.to_data().iter());
-        v.extend(self.1.to_data().iter());
-        v
-    }
-
-    fn from_data(data: &[u8]) -> Self {
-        debug_assert!(T::data_length() != 0);
-
-        let t_data = &data[0..T::data_length()];
-        let q_data = &data[T::data_length()..];
-        (T::from_data(t_data), Q::from_data(q_data))
-    }
-
-    fn data_length() -> usize {
-        T::data_length() + Q::data_length()
-    }
-}
-
-impl<T> ParameterField for Vec<T>
-where
-    T: ParameterField,
-{
-    fn to_data(&self) -> Vec<u8> {
-        self.iter().map(|c| c.to_data()).flatten().collect()
-    }
-
-    fn from_data(data: &[u8]) -> Self {
-        data.chunks(T::data_length())
-            .map(|c| T::from_data(c))
-            .collect()
-    }
-
-    fn data_length() -> usize {
-        0
-    }
-}
-
-/// Note that the PathBuf impl is somewhat pathological and it will break
-/// tuples when it is in the first position! This will trigger an assertion in
-/// the tuple impl in debug builds.
-impl ParameterField for PathBuf {
-    fn from_data(data: &[u8]) -> Self {
-        let path_str = unsafe { std::str::from_utf8_unchecked(&data) };
-        Path::new(path_str).to_path_buf()
-    }
-
-    fn to_data(&self) -> Vec<u8> {
-        self.to_str().unwrap().as_bytes().to_vec()
-    }
-
-    fn data_length() -> usize {
-        0
+        bincode::serialize(self).unwrap()
     }
 }
 
