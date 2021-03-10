@@ -410,6 +410,8 @@ pub enum GraphEvent {
     OutputRemoved(Resource<Node>, OutputType),
     /// *All* graphs have been cleared in the system.
     Cleared,
+    /// Loaded graphs have been serialized
+    Serialized(Vec<u8>),
 }
 
 /// Layers come in two types, as far as the user is concerned, Fill and FX.
@@ -865,6 +867,12 @@ pub enum RenderEvent {
     RendererRedrawn(RendererID),
 }
 
+/// Events from the IO component
+#[derive(Debug)]
+pub enum IOEvent {
+    NodeDataLoaded(Vec<u8>),
+}
+
 /// Master event type used by the application bus. This defines the common
 /// language of the application.
 #[derive(Debug)]
@@ -874,6 +882,7 @@ pub enum Lang {
     UserLayersEvent(UserLayersEvent),
     UserRenderEvent(UserRenderEvent),
     UserIOEvent(UserIOEvent),
+    IOEvent(IOEvent),
     UIEvent(UIEvent),
     GraphEvent(GraphEvent),
     LayersEvent(LayersEvent),

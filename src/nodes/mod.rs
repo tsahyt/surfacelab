@@ -247,6 +247,15 @@ impl NodeManager {
             Lang::UserGraphEvent(event) => Some(self.process_user_graph_event(event)),
             Lang::UserLayersEvent(event) => Some(self.process_user_layers_event(event)),
             Lang::UserIOEvent(event) => self.process_user_io_event(event),
+            Lang::IOEvent(IOEvent::NodeDataLoaded(data)) => {
+                let mut evs = self.deserialize(data).ok()?;
+                let mut response = vec![lang::Lang::GraphEvent(lang::GraphEvent::Cleared)];
+                response.append(&mut evs);
+                response.push(lang::Lang::GraphEvent(lang::GraphEvent::Recompute(
+                    self.active_graph.clone(),
+                )));
+                Some(response)
+            }
             _ => Some(vec![]),
         }
     }
@@ -954,24 +963,9 @@ impl NodeManager {
 
         match event {
             UserIOEvent::Quit => return None,
-            UserIOEvent::OpenSurface(path) => {
-                match self.open_surface(path) {
-                    Ok(mut evs) => {
-                        response.push(Lang::GraphEvent(GraphEvent::Cleared));
-                        response.append(&mut evs);
-
-                        // Automatically recompute on load
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                        )));
-                    }
-                    Err(e) => log::error!("{}", e),
-                }
-            }
-            UserIOEvent::SaveSurface(path) => {
-                if let Err(e) = self.save_surface(path) {
-                    log::error!("{}", e)
-                }
+            UserIOEvent::SaveSurface(_) => {
+                let data = self.serialize().ok()?;
+                response.push(lang::Lang::GraphEvent(lang::GraphEvent::Serialized(data)));
             }
             UserIOEvent::NewSurface => {
                 self.graphs.clear();
@@ -1023,6 +1017,7 @@ impl NodeManager {
                     )));
                 }
             }
+            _ => {}
         }
 
         Some(response)

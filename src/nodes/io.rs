@@ -3,48 +3,37 @@ use crate::nodes::{LinearizationMode, ManagedNodeCollection, NodeCollection, Nod
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fs::File;
-use std::path::Path;
 
 /// Struct defining a .surf file.
 #[derive(Debug, Serialize, Deserialize)]
-struct SurfaceFile<'a> {
+struct NodeData<'a> {
     parent_size: u32,
     export_specs: Cow<'a, HashMap<String, ExportSpec>>,
     graphs: Cow<'a, HashMap<String, ManagedNodeCollection>>,
 }
 
 impl NodeManager {
-    /// Save state of the node manager to a file.
-    pub fn save_surface<P: AsRef<Path> + std::fmt::Debug>(&self, path: P) -> Result<(), String> {
-        log::info!("Saving to {:?}", path);
-        let surf = SurfaceFile {
+    pub fn serialize(&self) -> Result<Vec<u8>, serde_cbor::Error> {
+        log::info!("Serializing node data");
+        let surf = NodeData {
             parent_size: self.parent_size,
             export_specs: Cow::Borrowed(&self.export_specs),
             graphs: Cow::Borrowed(&self.graphs),
         };
 
-        let output_file = File::create(path).map_err(|_| "Failed to open output file")?;
-        serde_cbor::to_writer(output_file, &surf).map_err(|e| format!("Saving failed with {}", e))
+        serde_cbor::ser::to_vec_packed(&surf)
     }
 
-    /// Load a surface file, replacing the current state of the node manager.
-    pub fn open_surface<P: AsRef<Path> + std::fmt::Debug>(
-        &mut self,
-        path: P,
-    ) -> Result<Vec<Lang>, String> {
-        log::info!("Opening from {:?}", path);
-        let input_file =
-            File::open(path).map_err(|e| format!("Failed to open input file {}", e))?;
-        let surf: SurfaceFile = serde_cbor::from_reader(input_file)
-            .map_err(|e| format!("Reading failed with {}", e))?;
+    pub fn deserialize(&mut self, data: &[u8]) -> Result<Vec<Lang>, serde_cbor::Error> {
+        log::info!("Deserializing node data");
+        let node_data: NodeData<'_> = serde_cbor::de::from_slice(data)?;
 
         // Rebuilding internal structures
-        self.graphs = surf.graphs.into_owned();
-        self.export_specs = surf.export_specs.into_owned();
-        self.parent_size = surf.parent_size;
+        self.graphs = node_data.graphs.into_owned();
+        self.export_specs = node_data.export_specs.into_owned();
+        self.parent_size = node_data.parent_size;
 
-        // Rebuild events for all graphs in the surface file
+        // Rebuild events for all graphs in the node data
         let mut events = Vec::new();
         for (name, graph) in self.graphs.iter() {
             let res = Resource::graph(&name);
