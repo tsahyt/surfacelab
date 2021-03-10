@@ -41,16 +41,13 @@ pub use transform::*;
 /// Image operator to include external images into a node graph
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Image {
-    pub path: std::path::PathBuf,
-    pub color_space: crate::lang::ColorSpace,
+    pub resource: crate::lang::Resource<crate::lang::Img>,
 }
 
 impl Default for Image {
-    /// By default, images use the sRGB colorspace
     fn default() -> Self {
         Self {
-            path: std::path::PathBuf::new(),
-            color_space: crate::lang::ColorSpace::Srgb,
+            resource: crate::lang::Resource::image(""),
         }
     }
 }
@@ -99,32 +96,6 @@ impl OperatorParamBox for Image {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 parameters: vec![
-                    Parameter {
-                        name: "image-path".to_string(),
-                        transmitter: Field(Self::PATH.to_string()),
-                        control: Control::File {
-                            selected: if self.path.file_name().is_none() {
-                                None
-                            } else {
-                                Some(self.path.to_owned())
-                            },
-                        },
-                        expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::default(),
-                    },
-                    Parameter {
-                        name: "color-space".to_string(),
-                        transmitter: Field(Self::COLOR_SPACE.to_string()),
-                        control: Control::Enum {
-                            selected: self.color_space as usize,
-                            variants: crate::lang::ColorSpace::VARIANTS
-                                .iter()
-                                .map(|x| x.to_string())
-                                .collect(),
-                        },
-                        expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::default(),
-                    },
                 ],
             }],
         }

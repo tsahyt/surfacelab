@@ -779,19 +779,20 @@ impl NodeCollection for NodeGraph {
 
         log::trace!("Parameter changed to {:?}", node_data.operator);
 
-        if let Operator::AtomicOperator(AtomicOperator::Image(Image { path, .. })) =
+        if let Operator::AtomicOperator(AtomicOperator::Image(Image { .. })) =
             &node_data.operator
         {
-            if let Ok((w, h)) = image::image_dimensions(path) {
-                let new_size = w.max(h) as i32;
-                if node_data.size != new_size {
-                    node_data.size = new_size;
-                    return Some(Lang::GraphEvent(GraphEvent::NodeResized(
-                        node_res,
-                        node_data.node_size(1),
-                    )));
-                }
-            }
+            // if let Ok((w, h)) = image::image_dimensions(path) {
+            //     let new_size = w.max(h) as i32;
+            //     if node_data.size != new_size {
+            //         node_data.size = new_size;
+            //         return Some(Lang::GraphEvent(GraphEvent::NodeResized(
+            //             node_res,
+            //             node_data.node_size(1),
+            //         )));
+            //     }
+            // }
+            todo!()
         }
 
         None

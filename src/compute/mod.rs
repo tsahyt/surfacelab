@@ -85,7 +85,7 @@ struct ComputeManager<B: gpu::Backend> {
     shader_library: shaders::ShaderLibrary<B>,
 
     /// Storage for external images
-    external_images: HashMap<(std::path::PathBuf, ColorSpace), Option<interpreter::ExternalImage>>,
+    external_images: HashMap<Resource<Img>, interpreter::ExternalImage>,
 
     /// Last known linearization of a graph
     linearizations: HashMap<Resource<Graph>, Rc<Linearization>>,

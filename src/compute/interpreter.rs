@@ -8,8 +8,15 @@ use std::rc::Rc;
 use std::time::Instant;
 use thiserror::Error;
 
+pub enum ExternalImageSource {
+    Packed,
+    Disk(std::path::PathBuf)
+}
+
 pub struct ExternalImage {
+    color_space: ColorSpace,
     buffer: Vec<u16>,
+    source: ExternalImageSource,
 }
 
 #[derive(Debug, Error)]
@@ -102,7 +109,7 @@ pub struct Interpreter<'a, B: gpu::Backend> {
     last_known: &'a mut HashMap<Resource<Node>, u64>,
 
     /// Storage for external images
-    external_images: &'a mut HashMap<(std::path::PathBuf, ColorSpace), Option<ExternalImage>>,
+    external_images: &'a mut HashMap<Resource<Img>, ExternalImage>,
 
     /// Reference to shader library
     shader_library: &'a ShaderLibrary<B>,
@@ -122,7 +129,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         gpu: &'a mut gpu::compute::GPUCompute<B>,
         sockets: &'a mut Sockets<B>,
         last_known: &'a mut HashMap<Resource<Node>, u64>,
-        external_images: &'a mut HashMap<(std::path::PathBuf, ColorSpace), Option<ExternalImage>>,
+        external_images: &'a mut HashMap<Resource<Img>, ExternalImage>,
         shader_library: &'a ShaderLibrary<B>,
         linearizations: &'a HashMap<Resource<Graph>, Rc<Linearization>>,
         seq: u64,
@@ -322,64 +329,64 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     fn execute_image(
         &mut self,
         res: &Resource<Node>,
-        path: &std::path::PathBuf,
-        color_space: ColorSpace,
+        image_res: &Resource<Img>,
     ) -> Result<(), InterpretationError> {
         log::trace!("Processing Image operator {}", res);
 
-        let parameter_hash = {
-            use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
+        // let parameter_hash = {
+        //     use std::collections::hash_map::DefaultHasher;
+        //     use std::hash::{Hash, Hasher};
 
-            let mut hasher = DefaultHasher::new();
-            path.hash(&mut hasher);
-            color_space.hash(&mut hasher);
-            hasher.finish()
-        };
-        match self.last_known.get(res) {
-            Some(hash) if *hash == parameter_hash && !self.sockets.get_force(&res) => {
-                log::trace!("Reusing cached image");
-                return Ok(());
-            }
-            _ => {}
-        };
+        //     let mut hasher = DefaultHasher::new();
+        //     path.hash(&mut hasher);
+        //     color_space.hash(&mut hasher);
+        //     hasher.finish()
+        // };
+        // match self.last_known.get(res) {
+        //     Some(hash) if *hash == parameter_hash && !self.sockets.get_force(&res) => {
+        //         log::trace!("Reusing cached image");
+        //         return Ok(());
+        //     }
+        //     _ => {}
+        // };
 
-        let start_time = Instant::now();
-        let image = self
-            .sockets
-            .get_output_image_mut(&res.node_socket("image"))
-            .expect("Trying to process missing socket");
+        // let start_time = Instant::now();
+        // let image = self
+        //     .sockets
+        //     .get_output_image_mut(&res.node_socket("image"))
+        //     .expect("Trying to process missing socket");
 
-        if let Some(external_image) = self
-            .external_images
-            .entry((path.clone(), color_space))
-            .or_insert_with(|| {
-                log::trace!("Loading external image {:?}", path);
-                let buf = match color_space {
-                    ColorSpace::Srgb => {
-                        load_rgba16f_image(path, f16_from_u8_gamma, f16_from_u16_gamma).ok()?
-                    }
-                    ColorSpace::Linear => {
-                        load_rgba16f_image(path, f16_from_u8, f16_from_u16).ok()?
-                    }
-                };
-                Some(ExternalImage { buffer: buf })
-            })
-        {
-            log::trace!("Uploading image to GPU");
-            image.ensure_alloc()?;
-            self.gpu.upload_image(&image, &external_image.buffer)?;
-            self.last_known.insert(res.clone(), parameter_hash);
-            self.sockets.set_output_image_updated(res, self.seq);
-            self.sockets
-                .update_timing_data(res, start_time.elapsed().as_secs_f64());
+        // if let Some(external_image) = self
+        //     .external_images
+        //     .entry((path.clone(), color_space))
+        //     .or_insert_with(|| {
+        //         log::trace!("Loading external image {:?}", path);
+        //         let buf = match color_space {
+        //             ColorSpace::Srgb => {
+        //                 load_rgba16f_image(path, f16_from_u8_gamma, f16_from_u16_gamma).ok()?
+        //             }
+        //             ColorSpace::Linear => {
+        //                 load_rgba16f_image(path, f16_from_u8, f16_from_u16).ok()?
+        //             }
+        //         };
+        //         Some(ExternalImage { buffer: buf })
+        //     })
+        // {
+        //     log::trace!("Uploading image to GPU");
+        //     image.ensure_alloc()?;
+        //     self.gpu.upload_image(&image, &external_image.buffer)?;
+        //     self.last_known.insert(res.clone(), parameter_hash);
+        //     self.sockets.set_output_image_updated(res, self.seq);
+        //     self.sockets
+        //         .update_timing_data(res, start_time.elapsed().as_secs_f64());
 
-            Ok(())
-        } else {
-            self.sockets
-                .update_timing_data(res, start_time.elapsed().as_secs_f64());
-            Err(InterpretationError::ExternalImageRead)
-        }
+        //     Ok(())
+        // } else {
+        //     self.sockets
+        //         .update_timing_data(res, start_time.elapsed().as_secs_f64());
+        //     Err(InterpretationError::ExternalImageRead)
+        // }
+        Ok(())
     }
 
     /// Execute an Input operator
@@ -672,8 +679,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 }
 
                 match op {
-                    AtomicOperator::Image(Image { path, color_space }) => {
-                        self.execute_image(res, &path, color_space)?;
+                    AtomicOperator::Image(Image { resource }) => {
+                        self.execute_image(res, &resource)?;
                     }
                     AtomicOperator::Input(..) => {
                         self.execute_input(res)?;

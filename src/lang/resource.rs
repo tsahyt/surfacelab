@@ -53,6 +53,7 @@ impl Scheme for Socket {
 
 impl InGraph for Socket {}
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Img;
 
 impl Scheme for Img {
