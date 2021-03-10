@@ -779,9 +779,7 @@ impl NodeCollection for NodeGraph {
 
         log::trace!("Parameter changed to {:?}", node_data.operator);
 
-        if let Operator::AtomicOperator(AtomicOperator::Image(Image { .. })) =
-            &node_data.operator
-        {
+        if let Operator::AtomicOperator(AtomicOperator::Image(Image { .. })) = &node_data.operator {
             // if let Ok((w, h)) = image::image_dimensions(path) {
             //     let new_size = w.max(h) as i32;
             //     if node_data.size != new_size {

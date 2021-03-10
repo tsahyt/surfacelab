@@ -323,6 +323,9 @@ where
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset(),
             Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset(),
+            Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {
+                response.push(self.add_image_resource(path))
+            }
             Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => {
                 self.export(export, *size, path)
             }
@@ -348,6 +351,21 @@ where
         self.sockets.clear(&mut self.gpu);
         self.external_images.clear();
         self.last_known.clear();
+    }
+
+    fn add_image_resource<P: AsRef<Path> + std::fmt::Debug>(&mut self, path: P) -> Lang {
+        let res = Resource::image(path.as_ref().file_name().unwrap());
+        log::debug!("Adding image resource from path {:?} as {}", path, res);
+
+        self.external_images.insert(
+            res.clone(),
+            interpreter::ExternalImage::new(
+                std::path::PathBuf::from(path.as_ref()),
+                ColorSpace::Srgb,
+            ),
+        );
+
+        Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res))
     }
 
     /// Export an image as given by the export specifications to a certain path.

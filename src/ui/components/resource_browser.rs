@@ -128,7 +128,12 @@ impl<'a> Widget for ResourceBrowser<'a> {
                     .mode(FileSelectionMode::Open)
                     .show()
                 {
-                    Ok(Some(path)) => {}
+                    Ok(Some(path)) => self
+                        .sender
+                        .send(Lang::UserIOEvent(UserIOEvent::AddImageResource(
+                            std::path::PathBuf::from(path),
+                        )))
+                        .unwrap(),
                     Err(e) => log::error!("Error during file selection {}", e),
                     _ => {}
                 }
@@ -268,6 +273,9 @@ impl<'a> ResourceBrowser<'a> {
             }
             Lang::LayersEvent(LayersEvent::LayerRemoved(res)) => {
                 state.update(|state| state.tree.remove_resource_and_children(res));
+            }
+            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res)) => {
+                state.update(|state| state.tree.insert_image(res.clone()));
             }
             _ => {}
         }

@@ -717,6 +717,8 @@ pub enum UserIOEvent {
     OpenSurface(PathBuf),
     /// The user requests saving the current surface to file.
     SaveSurface(PathBuf),
+    /// The user seeks to add an image resource from a file.
+    AddImageResource(PathBuf),
     /// The user requests setting the parent size.
     SetParentSize(u32),
     /// The user requests declaration of an export specification.
@@ -753,6 +755,8 @@ pub enum ComputeEvent {
     ThumbnailDestroyed(Resource<Node>),
     /// The system has the given thumbnail for the given node.
     ThumbnailUpdated(Resource<Node>),
+    /// An image resource has been registered
+    ImageResourceAdded(Resource<Img>),
 }
 
 /// Type of renderer.

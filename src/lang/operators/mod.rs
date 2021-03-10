@@ -95,8 +95,7 @@ impl OperatorParamBox for Image {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
-                parameters: vec![
-                ],
+                parameters: vec![],
             }],
         }
     }

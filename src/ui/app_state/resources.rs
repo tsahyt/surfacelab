@@ -242,6 +242,17 @@ impl ResourceTree {
         }
     }
 
+    pub fn insert_image(&mut self, image: r::Resource<r::Img>) {
+        let rinfo = ResourceInfo::new(image, ResourceCategory::Image);
+
+        self.tree
+            .insert(
+                id_tree::Node::new(ResourceTreeItem::ResourceInfo(rinfo)),
+                id_tree::InsertBehavior::UnderNode(&self.images),
+            )
+            .unwrap();
+    }
+
     pub fn remove_resource_and_children<T: 'static + PartialEq>(&mut self, res: &r::Resource<T>) {
         if let Some(n) = self.find_resource(res) {
             self.tree

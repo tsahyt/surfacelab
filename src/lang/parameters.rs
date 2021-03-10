@@ -42,20 +42,6 @@ where
     }
 }
 
-impl<T> ParameterField for Resource<T> {
-    fn from_data(data: &[u8]) -> Self {
-        todo!()
-    }
-
-    fn to_data(&self) -> Vec<u8> {
-        todo!()
-    }
-
-    fn data_length() -> usize {
-        todo!()
-    }
-}
-
 /// A GraphParameter is some exposed parameter of a node graph/layer stack. Each
 /// such parameter references some (atomic) parameter inside the graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]

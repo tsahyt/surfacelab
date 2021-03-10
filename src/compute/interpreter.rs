@@ -2,6 +2,7 @@ use super::shaders::{BufferDim, IntermediateDataDescription, ShaderLibrary, Unif
 use super::sockets::*;
 use super::Linearization;
 use crate::{gpu, lang::*, util::*};
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::rc::Rc;
@@ -9,14 +10,57 @@ use std::time::Instant;
 use thiserror::Error;
 
 pub enum ExternalImageSource {
-    Packed,
-    Disk(std::path::PathBuf)
+    Packed(image::DynamicImage),
+    Disk(std::path::PathBuf),
+}
+
+impl ExternalImageSource {
+    pub fn get_image(&self) -> Result<Cow<image::DynamicImage>, image::ImageError> {
+        match self {
+            Self::Packed(img) => Ok(Cow::Borrowed(img)),
+            Self::Disk(path) => Ok(Cow::Owned(image::open(path)?)),
+        }
+    }
 }
 
 pub struct ExternalImage {
     color_space: ColorSpace,
-    buffer: Vec<u16>,
+    buffer: Option<Vec<u16>>,
     source: ExternalImageSource,
+}
+
+impl ExternalImage {
+    /// Create a new external image from disk with a given color space.
+    pub fn new(path: std::path::PathBuf, color_space: ColorSpace) -> Self {
+        Self {
+            color_space,
+            buffer: None,
+            source: ExternalImageSource::Disk(path),
+        }
+    }
+
+    /// Ensure that the internal buffer is filled, according to the set source
+    /// and color space. Returns a reference to the buffer on success.
+    pub fn ensure_loaded(&mut self) -> Result<&[u16], image::ImageError> {
+        if self.buffer.is_some() {
+            return Ok(self.buffer.as_ref().unwrap());
+        }
+
+        let img = self.source.get_image()?;
+        let buf = match self.color_space {
+            ColorSpace::Srgb => load_rgba16f_image(&img, f16_from_u8_gamma, f16_from_u16_gamma),
+            ColorSpace::Linear => load_rgba16f_image(&img, f16_from_u8, f16_from_u16),
+        };
+
+        self.buffer = Some(buf);
+        Ok(self.buffer.as_ref().unwrap())
+    }
+
+    /// Reset the color space of this image. This will free the internal buffer.
+    pub fn color_space(&mut self, color_space: ColorSpace) {
+        self.buffer = None;
+        self.color_space = color_space;
+    }
 }
 
 #[derive(Debug, Error)]
@@ -42,6 +86,9 @@ pub enum InterpretationError {
     /// Failed to find shader for operator
     #[error("Missing shader in shader library")]
     MissingShader,
+    /// Failed to load external image
+    #[error("Failed to load external image")]
+    ExternalImage(#[from] image::ImageError),
 }
 
 #[derive(Debug)]
@@ -333,60 +380,45 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     ) -> Result<(), InterpretationError> {
         log::trace!("Processing Image operator {}", res);
 
-        // let parameter_hash = {
-        //     use std::collections::hash_map::DefaultHasher;
-        //     use std::hash::{Hash, Hasher};
+        let parameter_hash = {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
 
-        //     let mut hasher = DefaultHasher::new();
-        //     path.hash(&mut hasher);
-        //     color_space.hash(&mut hasher);
-        //     hasher.finish()
-        // };
-        // match self.last_known.get(res) {
-        //     Some(hash) if *hash == parameter_hash && !self.sockets.get_force(&res) => {
-        //         log::trace!("Reusing cached image");
-        //         return Ok(());
-        //     }
-        //     _ => {}
-        // };
+            let mut hasher = DefaultHasher::new();
+            image_res.hash(&mut hasher);
+            hasher.finish()
+        };
+        match self.last_known.get(res) {
+            Some(hash) if *hash == parameter_hash && !self.sockets.get_force(&res) => {
+                log::trace!("Reusing cached image");
+                return Ok(());
+            }
+            _ => {}
+        };
 
-        // let start_time = Instant::now();
-        // let image = self
-        //     .sockets
-        //     .get_output_image_mut(&res.node_socket("image"))
-        //     .expect("Trying to process missing socket");
+        let start_time = Instant::now();
+        let image = self
+            .sockets
+            .get_output_image_mut(&res.node_socket("image"))
+            .expect("Trying to process missing socket");
 
-        // if let Some(external_image) = self
-        //     .external_images
-        //     .entry((path.clone(), color_space))
-        //     .or_insert_with(|| {
-        //         log::trace!("Loading external image {:?}", path);
-        //         let buf = match color_space {
-        //             ColorSpace::Srgb => {
-        //                 load_rgba16f_image(path, f16_from_u8_gamma, f16_from_u16_gamma).ok()?
-        //             }
-        //             ColorSpace::Linear => {
-        //                 load_rgba16f_image(path, f16_from_u8, f16_from_u16).ok()?
-        //             }
-        //         };
-        //         Some(ExternalImage { buffer: buf })
-        //     })
-        // {
-        //     log::trace!("Uploading image to GPU");
-        //     image.ensure_alloc()?;
-        //     self.gpu.upload_image(&image, &external_image.buffer)?;
-        //     self.last_known.insert(res.clone(), parameter_hash);
-        //     self.sockets.set_output_image_updated(res, self.seq);
-        //     self.sockets
-        //         .update_timing_data(res, start_time.elapsed().as_secs_f64());
+        if let Some(external_image) = self.external_images.get_mut(image_res) {
+            log::trace!("Uploading image to GPU");
+            image.ensure_alloc()?;
 
-        //     Ok(())
-        // } else {
-        //     self.sockets
-        //         .update_timing_data(res, start_time.elapsed().as_secs_f64());
-        //     Err(InterpretationError::ExternalImageRead)
-        // }
-        Ok(())
+            self.gpu
+                .upload_image(&image, external_image.ensure_loaded()?)?;
+            self.last_known.insert(res.clone(), parameter_hash);
+            self.sockets.set_output_image_updated(res, self.seq);
+            self.sockets
+                .update_timing_data(res, start_time.elapsed().as_secs_f64());
+
+            Ok(())
+        } else {
+            self.sockets
+                .update_timing_data(res, start_time.elapsed().as_secs_f64());
+            Err(InterpretationError::ExternalImageRead)
+        }
     }
 
     /// Execute an Input operator
@@ -757,17 +789,15 @@ where
     }
 }
 
-/// Load an image from a path into a u16 buffer with f16 encoding, using the
+/// Load an image from a dynamic image into a u16 buffer with f16 encoding, using the
 /// provided sampling functions. Those functions can be used to alter each
 /// sample if necessary, e.g. to perform gamma correction.
-fn load_rgba16f_image<P: AsRef<std::path::Path>, F: Fn(u8) -> u16, G: Fn(u16) -> u16>(
-    path: P,
+fn load_rgba16f_image<F: Fn(u8) -> u16, G: Fn(u16) -> u16>(
+    img: &image::DynamicImage,
     sample8: F,
     sample16: G,
-) -> Result<Vec<u16>, String> {
+) -> Vec<u16> {
     use image::GenericImageView;
-
-    let img = image::open(path).map_err(|e| format!("Failed to read image: {}", e))?;
 
     let mut loaded: Vec<u16> = Vec::with_capacity(img.width() as usize * img.height() as usize * 4);
 
@@ -852,5 +882,5 @@ fn load_rgba16f_image<P: AsRef<std::path::Path>, F: Fn(u8) -> u16, G: Fn(u16) ->
         }
     }
 
-    Ok(loaded)
+    loaded
 }
