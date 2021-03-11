@@ -2,9 +2,6 @@ use crate::broker::BrokerSender;
 use crate::lang::*;
 use crate::ui::{i18n::Language, widgets};
 
-use std::collections::HashSet;
-use std::sync::Arc;
-
 use conrod_core::*;
 
 #[derive(WidgetCommon)]
@@ -15,7 +12,7 @@ pub struct ParameterSection<'a> {
     sender: &'a BrokerSender<Lang>,
     description: &'a mut ParamBoxDescription<MessageWriters>,
     resource: &'a Resource<Node>,
-    event_buffer: Option<&'a [Arc<Lang>]>,
+    image_resources: &'a [Resource<Img>],
     style: Style,
 }
 
@@ -32,7 +29,7 @@ impl<'a> ParameterSection<'a> {
             sender,
             description,
             resource,
-            event_buffer: None,
+            image_resources: &[],
             style: Style::default(),
         }
     }
@@ -42,8 +39,8 @@ impl<'a> ParameterSection<'a> {
         self
     }
 
-    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
-        self.event_buffer = Some(buffer);
+    pub fn image_resources(mut self, image_resources: &'a [Resource<Img>]) -> Self {
+        self.image_resources = image_resources;
         self
     }
 }
@@ -62,7 +59,6 @@ widget_ids! {
 
 pub struct State {
     ids: Ids,
-    image_resources: HashSet<Resource<Img>>,
 }
 
 impl<'a> Widget for ParameterSection<'a> {
@@ -73,7 +69,6 @@ impl<'a> Widget for ParameterSection<'a> {
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         State {
             ids: Ids::new(id_gen),
-            image_resources: HashSet::new(),
         }
     }
 
@@ -84,16 +79,8 @@ impl<'a> Widget for ParameterSection<'a> {
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let widget::UpdateArgs { state, ui, id, .. } = args;
 
-        if let Some(ev_buf) = self.event_buffer {
-            for ev in ev_buf {
-                self.handle_event(state, ev);
-            }
-        }
-
-        let image_resources: Vec<_> = state.image_resources.iter().collect();
-
         for ev in widgets::param_box::ParamBox::new(self.description, self.resource, self.language)
-            .image_resources(&image_resources)
+            .image_resources(&self.image_resources)
             .parent(id)
             .w_of(id)
             .mid_top()
@@ -114,19 +101,6 @@ impl<'a> Widget for ParameterSection<'a> {
             };
 
             self.sender.send(resp).unwrap();
-        }
-    }
-}
-
-impl<'a> ParameterSection<'a> {
-    fn handle_event(&self, state: &mut widget::State<State>, event: &Lang) {
-        match event {
-            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res)) => {
-                state.update(|state| {
-                    state.image_resources.insert(res.clone());
-                });
-            }
-            _ => {}
         }
     }
 }

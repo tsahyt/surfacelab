@@ -132,6 +132,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     graphs: NodeCollections,
+    image_resources: Vec<Resource<Img>>,
 }
 
 impl<'a, B> Widget for Application<'a, B>
@@ -146,6 +147,7 @@ where
         State {
             ids: Ids::new(id_gen),
             graphs: NodeCollections::new(),
+            image_resources: Vec::new(),
         }
     }
 
@@ -295,6 +297,12 @@ where
                     if let Some(id) = state.graphs.unregister_thumbnail(&res) {
                         self.app_data.image_map.remove(id);
                     }
+                });
+            }
+            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res)) => {
+                dbg!("updating");
+                state.update(|state| {
+                    state.image_resources.push(res.clone());
                 });
             }
             Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),
@@ -490,7 +498,7 @@ where
                     description,
                     resource,
                 )
-                .event_buffer(self.event_buffer.unwrap())
+                .image_resources(&state.image_resources)
                 .icon_font(self.style.icon_font.unwrap().unwrap())
                 .parent(state.ids.parameter_canvas)
                 .wh_of(state.ids.parameter_canvas)

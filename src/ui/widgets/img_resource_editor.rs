@@ -6,12 +6,12 @@ pub struct ImageResourceEditor<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     style: Style,
-    img_resources: &'a [&'a Resource<Img>],
+    img_resources: &'a [Resource<Img>],
     resource: Option<Resource<Img>>,
 }
 
 impl<'a> ImageResourceEditor<'a> {
-    pub fn new(img_resources: &'a [&'a Resource<Img>], resource: Option<Resource<Img>>) -> Self {
+    pub fn new(img_resources: &'a [Resource<Img>], resource: Option<Resource<Img>>) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
@@ -64,7 +64,7 @@ impl<'a> Widget for ImageResourceEditor<'a> {
         let idx = self
             .img_resources
             .iter()
-            .position(|z| Some(*z) == self.resource.as_ref());
+            .position(|z| Some(z) == self.resource.as_ref());
 
         if let Some(new_selection) = widget::DropDownList::new(&resources, idx)
             .label_font_size(10)

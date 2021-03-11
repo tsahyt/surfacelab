@@ -92,7 +92,7 @@ pub struct ParamBox<'a, T: MessageWriter> {
     style: Style,
     description: &'a mut ParamBoxDescription<T>,
     language: &'a Language,
-    image_resources: &'a [&'a Resource<Img>],
+    image_resources: &'a [Resource<Img>],
 }
 
 impl<'a, T: MessageWriter> ParamBox<'a, T> {
@@ -230,7 +230,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 < (counts.toggles)
     }
 
-    pub fn image_resources(mut self, image_resources: &'a [&'a Resource<Img>]) -> Self {
+    pub fn image_resources(mut self, image_resources: &'a [Resource<Img>]) -> Self {
         self.image_resources = image_resources;
         self
     }
