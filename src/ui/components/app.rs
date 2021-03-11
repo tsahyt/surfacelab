@@ -300,7 +300,6 @@ where
                 });
             }
             Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res)) => {
-                dbg!("updating");
                 state.update(|state| {
                     state.image_resources.push(res.clone());
                 });

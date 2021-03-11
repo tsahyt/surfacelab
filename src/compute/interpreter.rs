@@ -26,6 +26,7 @@ impl ExternalImageSource {
 pub struct ExternalImage {
     color_space: ColorSpace,
     buffer: Option<Vec<u16>>,
+    dim: u32,
     source: ExternalImageSource,
 }
 
@@ -35,25 +36,31 @@ impl ExternalImage {
         Self {
             color_space,
             buffer: None,
+            dim: 0,
             source: ExternalImageSource::Disk(path),
         }
     }
 
     /// Ensure that the internal buffer is filled, according to the set source
-    /// and color space. Returns a reference to the buffer on success.
-    pub fn ensure_loaded(&mut self) -> Result<&[u16], image::ImageError> {
-        if self.buffer.is_some() {
-            return Ok(self.buffer.as_ref().unwrap());
+    /// and color space. Returns a reference to the buffer on success, as well
+    /// as the image size.
+    pub fn ensure_loaded(&mut self) -> Result<(&[u16], u32), image::ImageError> {
+        use image::GenericImageView;
+
+        if self.buffer.is_none() {
+            let img = self.source.get_image()?;
+            let dim = img.width().max(img.height());
+
+            let buf = match self.color_space {
+                ColorSpace::Srgb => load_rgba16f_image(&img, f16_from_u8_gamma, f16_from_u16_gamma),
+                ColorSpace::Linear => load_rgba16f_image(&img, f16_from_u8, f16_from_u16),
+            };
+
+            self.buffer = Some(buf);
+            self.dim = dim;
         }
 
-        let img = self.source.get_image()?;
-        let buf = match self.color_space {
-            ColorSpace::Srgb => load_rgba16f_image(&img, f16_from_u8_gamma, f16_from_u16_gamma),
-            ColorSpace::Linear => load_rgba16f_image(&img, f16_from_u8, f16_from_u16),
-        };
-
-        self.buffer = Some(buf);
-        Ok(self.buffer.as_ref().unwrap())
+        Ok((self.buffer.as_ref().unwrap(), self.dim))
     }
 
     /// Reset the color space of this image. This will free the internal buffer.
@@ -397,17 +404,23 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         };
 
         let start_time = Instant::now();
-        let image = self
-            .sockets
-            .get_output_image_mut(&res.node_socket("image"))
-            .expect("Trying to process missing socket");
-
         if let Some(external_image) = self.external_images.get_mut(image_res) {
             log::trace!("Uploading image to GPU");
+            let (buf, size) = external_image.ensure_loaded()?;
+            let socket_res = res.node_socket("image");
+
+            // Resize socket if necessary
+            if self.sockets.resize(&res, size) {
+                self.sockets.reinit_output_images(&res, self.gpu, size);
+            }
+
+            let image = self
+                .sockets
+                .get_output_image_mut(&socket_res)
+                .expect("Trying to process missing socket");
             image.ensure_alloc()?;
 
-            self.gpu
-                .upload_image(&image, external_image.ensure_loaded()?)?;
+            self.gpu.upload_image(&image, buf)?;
             self.last_known.insert(res.clone(), parameter_hash);
             self.sockets.set_output_image_updated(res, self.seq);
             self.sockets

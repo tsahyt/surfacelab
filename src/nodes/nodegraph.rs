@@ -92,9 +92,9 @@ impl Node {
     /// Obtain the absolute size of a node, dependent on parent size and size
     /// settings of the node.
     pub fn node_size(&self, parent: u32) -> u32 {
-        // Image operators are special in sizing, storing an actually absolute size
+        // Image operators are special in sizing and are handled by the compute component
         if let Operator::AtomicOperator(AtomicOperator::Image(..)) = self.operator {
-            return self.size.max(32) as u32;
+            return 1;
         }
 
         // All other "absolute sizes" are powers of two
@@ -773,25 +773,10 @@ impl NodeCollection for NodeGraph {
         let field = resource.fragment().unwrap();
 
         let node = self.indices.get_by_left(&res.to_string())?;
-        let node_res = self.node_resource(node);
         let node_data = self.graph.node_weight_mut(*node).unwrap();
         node_data.operator.set_parameter(field, data);
 
         log::trace!("Parameter changed to {:?}", node_data.operator);
-
-        if let Operator::AtomicOperator(AtomicOperator::Image(Image { .. })) = &node_data.operator {
-            // if let Ok((w, h)) = image::image_dimensions(path) {
-            //     let new_size = w.max(h) as i32;
-            //     if node_data.size != new_size {
-            //         node_data.size = new_size;
-            //         return Some(Lang::GraphEvent(GraphEvent::NodeResized(
-            //             node_res,
-            //             node_data.node_size(1),
-            //         )));
-            //     }
-            // }
-            todo!()
-        }
 
         None
     }
