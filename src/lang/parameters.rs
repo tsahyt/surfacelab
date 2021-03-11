@@ -204,7 +204,7 @@ impl MessageWriter for ResourceField {
         match self {
             Self::Name => {
                 let mut res_new = resource.clone();
-                res_new.rename_file(unsafe { std::str::from_utf8_unchecked(&data) });
+                res_new.rename_file(&String::from_data(data));
                 super::Lang::UserNodeEvent(super::UserNodeEvent::RenameNode(
                     resource.clone(),
                     res_new,
@@ -1000,18 +1000,9 @@ impl Control {
             Self::Enum { selected, .. } => (*selected as u32).to_data(),
             Self::File { selected } => selected.to_data(),
             Self::ImageResource { selected } => selected.to_data(),
-            Self::Ramp { steps } => {
-                let mut buf = Vec::new();
-                for step in steps.iter() {
-                    buf.extend_from_slice(&step[0].to_ne_bytes());
-                    buf.extend_from_slice(&step[1].to_ne_bytes());
-                    buf.extend_from_slice(&step[2].to_ne_bytes());
-                    buf.extend_from_slice(&step[3].to_ne_bytes());
-                }
-                buf
-            }
+            Self::Ramp { steps } => steps.to_data(),
             Self::Toggle { def } => (if *def { 1 as u32 } else { 0 as u32 }).to_data(),
-            Self::Entry { value } => value.as_bytes().to_vec(),
+            Self::Entry { value } => value.to_data(),
             Self::ChannelMap {
                 enabled, selected, ..
             } => (
@@ -1033,26 +1024,9 @@ impl Control {
             Self::ImageResource { selected } => {
                 *selected = <Option<Resource<Img>>>::from_data(data)
             }
-            Self::Ramp { steps } => {
-                *steps = data
-                    .chunks(std::mem::size_of::<[f32; 4]>())
-                    .map(|chunk| {
-                        let fields: Vec<f32> = chunk
-                            .chunks(4)
-                            .map(|z| {
-                                let mut arr: [u8; 4] = Default::default();
-                                arr.copy_from_slice(z);
-                                f32::from_ne_bytes(arr)
-                            })
-                            .collect();
-                        [fields[0], fields[1], fields[2], fields[3]]
-                    })
-                    .collect()
-            }
+            Self::Ramp { steps } => *steps = <Vec<[f32; 4]>>::from_data(data),
             Self::Toggle { def } => *def = u32::from_data(data) == 1,
-            Self::Entry { value } => {
-                *value = unsafe { std::str::from_utf8_unchecked(data) }.to_owned()
-            }
+            Self::Entry { value } => *value = String::from_data(data),
             Self::ChannelMap {
                 enabled, selected, ..
             } => {

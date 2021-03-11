@@ -606,16 +606,10 @@ where
                                 }
                             }
 
-                            let mut buf = Vec::new();
-                            for step in steps.iter() {
-                                buf.extend_from_slice(&step[0].to_ne_bytes());
-                                buf.extend_from_slice(&step[1].to_ne_bytes());
-                                buf.extend_from_slice(&step[2].to_ne_bytes());
-                                buf.extend_from_slice(&step[3].to_ne_bytes());
-                            }
-
                             ev.push(Event::ChangeParameter(
-                                parameter.transmitter.transmit(self.resource, &buf),
+                                parameter
+                                    .transmitter
+                                    .transmit(self.resource, &steps.to_data()),
                             ))
                         }
                         control_idx.ramps += 1;
@@ -654,7 +648,7 @@ where
                                     ev.push(Event::ChangeParameter(
                                         parameter
                                             .transmitter
-                                            .transmit(self.resource, &value.as_bytes().to_vec()),
+                                            .transmit(self.resource, &value.to_data()),
                                     ));
                                 }
                             }
