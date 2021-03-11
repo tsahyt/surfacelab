@@ -719,6 +719,8 @@ pub enum UserIOEvent {
     SaveSurface(PathBuf),
     /// The user seeks to add an image resource from a file.
     AddImageResource(PathBuf),
+    /// The user seeks to set the colorspace of an image.
+    SetImageColorSpace(Resource<Img>, ColorSpace),
     /// The user requests setting the parent size.
     SetParentSize(u32),
     /// The user requests declaration of an export specification.
@@ -756,7 +758,7 @@ pub enum ComputeEvent {
     /// The system has the given thumbnail for the given node.
     ThumbnailUpdated(Resource<Node>),
     /// An image resource has been registered
-    ImageResourceAdded(Resource<Img>),
+    ImageResourceAdded(Resource<Img>, ColorSpace),
 }
 
 /// Type of renderer.

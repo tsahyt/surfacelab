@@ -64,6 +64,7 @@ parent-size = Parent Size
 
 basic-parameters = Basic Parameters
 
+image-resource = Image Resource
 image-path = Image Path
 color-space = Color Space
 

@@ -132,7 +132,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     graphs: NodeCollections,
-    image_resources: Vec<Resource<Img>>,
+    image_resources: Vec<(Resource<Img>, ColorSpace)>,
 }
 
 impl<'a, B> Widget for Application<'a, B>
@@ -299,9 +299,9 @@ where
                     }
                 });
             }
-            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res)) => {
+            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, cs)) => {
                 state.update(|state| {
-                    state.image_resources.push(res.clone());
+                    state.image_resources.push((res.clone(), *cs));
                 });
             }
             Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),

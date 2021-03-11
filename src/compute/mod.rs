@@ -327,6 +327,11 @@ where
             Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {
                 response.push(self.add_image_resource(path))
             }
+            Lang::UserIOEvent(UserIOEvent::SetImageColorSpace(res, cs)) => {
+                if let Some(img) = self.external_images.get_mut(res) {
+                    img.color_space(*cs);
+                }
+            }
             Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => {
                 self.export(export, *size, path)
             }
@@ -366,7 +371,7 @@ where
             ),
         );
 
-        Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res))
+        Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, ColorSpace::Srgb))
     }
 
     /// Export an image as given by the export specifications to a certain path.

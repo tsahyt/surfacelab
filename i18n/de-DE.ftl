@@ -64,6 +64,7 @@ parent-size = Oberflächendimensionen
 
 basic-parameters = Basisparameter
 
+image-resource = Bildresource
 image-path = Pfad
 color-space = Farbraum
 

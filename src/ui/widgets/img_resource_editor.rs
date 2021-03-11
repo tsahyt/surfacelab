@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::lang::resource::*;
+use crate::lang::{resource::*, ColorSpace};
 use crate::ui::{i18n::Language, util::*};
 use conrod_core::*;
 use dialog::{DialogBox, FileSelection, FileSelectionMode};
@@ -10,14 +10,14 @@ pub struct ImageResourceEditor<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     style: Style,
-    img_resources: &'a [Resource<Img>],
+    img_resources: &'a [(Resource<Img>, ColorSpace)],
     language: &'a Language,
     resource: Option<Resource<Img>>,
 }
 
 impl<'a> ImageResourceEditor<'a> {
     pub fn new(
-        img_resources: &'a [Resource<Img>],
+        img_resources: &'a [(Resource<Img>, ColorSpace)],
         resource: Option<Resource<Img>>,
         language: &'a Language,
     ) -> Self {
@@ -44,8 +44,9 @@ pub struct Style {
 
 widget_ids! {
     pub struct Ids {
-        dropdown,
+        resource,
         add_button,
+        color_space,
     }
 }
 
@@ -56,6 +57,7 @@ pub struct State {
 pub enum Event<'a> {
     AddFromFile(PathBuf),
     SelectResource(&'a Resource<Img>),
+    SetColorSpace(ColorSpace),
 }
 
 impl<'a> Widget for ImageResourceEditor<'a> {
@@ -78,11 +80,15 @@ impl<'a> Widget for ImageResourceEditor<'a> {
 
         let widget::UpdateArgs { id, ui, state, .. } = args;
 
-        let resources: Vec<_> = self.img_resources.iter().map(|x| x.to_string()).collect();
+        let resources: Vec<_> = self
+            .img_resources
+            .iter()
+            .map(|(x, _)| x.to_string())
+            .collect();
         let idx = self
             .img_resources
             .iter()
-            .position(|z| Some(z) == self.resource.as_ref());
+            .position(|z| Some(&z.0) == self.resource.as_ref());
 
         if let Some(new_selection) = widget::DropDownList::new(&resources, idx)
             .label_font_size(10)
@@ -90,9 +96,9 @@ impl<'a> Widget for ImageResourceEditor<'a> {
             .parent(id)
             .mid_left_of(id)
             .padded_w_of(id, 16.0)
-            .set(state.ids.dropdown, ui)
+            .set(state.ids.resource, ui)
         {
-            res = Some(Event::SelectResource(&self.img_resources[new_selection]));
+            res = Some(Event::SelectResource(&self.img_resources[new_selection].0));
         }
 
         for _press in icon_button(
