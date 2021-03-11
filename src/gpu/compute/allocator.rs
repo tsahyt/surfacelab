@@ -482,7 +482,7 @@ where
 
     /// Create an appropriate image barrier transition to a specified Access and
     /// Layout.
-    pub fn barrier_to<'a>(&'a self, access: hal::buffer::Access) -> hal::memory::Barrier<'a, B> {
+    pub fn barrier_to(&'_ self, access: hal::buffer::Access) -> hal::memory::Barrier<'_, B> {
         let old_access = self.access.get();
         self.access.set(access);
         hal::memory::Barrier::Buffer {

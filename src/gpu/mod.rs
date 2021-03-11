@@ -178,7 +178,7 @@ pub fn load_shader<B: Backend>(
 ) -> Result<B::ShaderModule, ShaderError> {
     let loaded_spirv =
         hal::pso::read_spirv(std::io::Cursor::new(spirv)).map_err(|_| ShaderError::SPIRVError)?;
-    unsafe { device.create_shader_module(&loaded_spirv) }.map_err(|e| ShaderError::from(e))
+    unsafe { device.create_shader_module(&loaded_spirv) }.map_err(ShaderError::from)
 }
 
 impl<B> Drop for GPU<B>

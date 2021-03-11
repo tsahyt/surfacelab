@@ -34,6 +34,12 @@ pub struct IOManager {
     save_path: Option<PathBuf>,
 }
 
+impl Default for IOManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IOManager {
     pub fn new() -> Self {
         Self {

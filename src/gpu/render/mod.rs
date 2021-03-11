@@ -525,9 +525,12 @@ where
             .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM);
 
         // Pick memory type for buffer builder for AMD/Nvidia
-        if let None = buffer_builder.memory_type(
-            hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
-        ) {
+        if buffer_builder
+            .memory_type(
+                hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+            )
+            .is_none()
+        {
             buffer_builder
                 .memory_type(
                     hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,

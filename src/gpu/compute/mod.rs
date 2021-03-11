@@ -6,7 +6,6 @@ use gfx_hal::prelude::*;
 use smallvec::SmallVec;
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::iter::FromIterator;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex, MutexGuard};
 use thiserror::Error;
@@ -96,9 +95,12 @@ where
             .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM);
 
         // Pick memory type for buffer builder for AMD/Nvidia
-        if let None = buffer_builder.memory_type(
-            hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
-        ) {
+        if buffer_builder
+            .memory_type(
+                hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+            )
+            .is_none()
+        {
             buffer_builder
                 .memory_type(
                     hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
@@ -329,12 +331,11 @@ where
             .into_iter()
             .map(|i| i.get_raw().lock().unwrap())
             .collect();
-        let intermediate_locks = HashMap::from_iter(
-            intermediate_images
-                .clone()
-                .into_iter()
-                .map(|(name, i)| (name.to_string(), i.get_raw().lock().unwrap())),
-        );
+        let intermediate_locks: HashMap<_, _> = intermediate_images
+            .clone()
+            .into_iter()
+            .map(|(name, i)| (name.to_string(), i.get_raw().lock().unwrap()))
+            .collect();
 
         let pre_barriers = {
             let input_barriers = input_images.into_iter().enumerate().map(|(k, i)| {

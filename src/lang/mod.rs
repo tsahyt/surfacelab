@@ -183,10 +183,10 @@ impl Operator {
     /// outputs greater than 0 that can be interpreted as grayscale images.
     pub fn is_mask(&self) -> bool {
         self.inputs().len() <= 1
-            && self.outputs().values().any(|t| match t {
-                OperatorType::Monomorphic(ImageType::Rgb) => false,
-                _ => true,
-            })
+            && self
+                .outputs()
+                .values()
+                .any(|t| !matches!(t, OperatorType::Monomorphic(ImageType::Rgb)))
     }
 }
 
@@ -220,10 +220,7 @@ pub enum Instruction {
 
 impl Instruction {
     pub fn is_execution_step(&self) -> bool {
-        match self {
-            Self::Execute(..) | Self::Call(..) => true,
-            _ => false,
-        }
+        matches!(self, Self::Execute(..) | Self::Call(..))
     }
 }
 

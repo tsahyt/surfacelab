@@ -183,13 +183,13 @@ impl Collection for Graph {
         &mut self,
     ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)> {
         let idx = self.active_element.as_ref()?;
-        let node = self.graph.node_weight_mut(idx.clone())?;
+        let node = self.graph.node_weight_mut(*idx)?;
         Some((&node.resource, &mut node.param_box))
     }
 
     fn active_resource(&self) -> Option<&Resource<r::Node>> {
         let idx = self.active_element.as_ref()?;
-        let node = self.graph.node_weight(idx.clone())?;
+        let node = self.graph.node_weight(*idx)?;
         Some(&node.resource)
     }
 

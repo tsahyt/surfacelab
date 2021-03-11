@@ -636,7 +636,7 @@ where
                             *value = !*value;
                             ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
                                 self.resource,
-                                &(if *value { 1 as u32 } else { 0 as u32 }).to_data(),
+                                &(if *value { 1_u32 } else { 0_u32 }).to_data(),
                             )));
                         }
                         control_idx.toggles += 1;
@@ -687,10 +687,7 @@ where
                             ev.push(Event::ChangeParameter(
                                 parameter.transmitter.transmit(
                                     self.resource,
-                                    &(
-                                        (if *enabled { 1 as u32 } else { 0 as u32 }),
-                                        (*selected as u32),
-                                    )
+                                    &((if *enabled { 1_u32 } else { 0_u32 }), (*selected as u32))
                                         .to_data(),
                                 ),
                             ));
@@ -707,10 +704,7 @@ where
                             ev.push(Event::ChangeParameter(
                                 parameter.transmitter.transmit(
                                     self.resource,
-                                    &(
-                                        (if *enabled { 1 as u32 } else { 0 as u32 }),
-                                        (*selected as u32),
-                                    )
+                                    &((if *enabled { 1_u32 } else { 0_u32 }), (*selected as u32))
                                         .to_data(),
                                 ),
                             ));

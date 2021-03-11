@@ -3,7 +3,6 @@ use super::node;
 use conrod_core::*;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::iter::FromIterator;
 
 const STANDARD_NODE_SIZE: f64 = 128.0;
 const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
@@ -217,17 +216,21 @@ impl<'a> Graph<'a> {
             .button(input::MouseButton::Left)
         {
             state.update(|state| {
-                let selected = HashSet::from_iter(self.graph.node_indices().filter_map(|idx| {
-                    if state.selection.geometry_contains(
-                        state
-                            .camera
-                            .transform(self.graph.node_weight(idx).unwrap().position),
-                    ) {
-                        Some(*state.node_ids.get(&idx).unwrap())
-                    } else {
-                        None
-                    }
-                }));
+                let selected: HashSet<_> = self
+                    .graph
+                    .node_indices()
+                    .filter_map(|idx| {
+                        if state.selection.geometry_contains(
+                            state
+                                .camera
+                                .transform(self.graph.node_weight(idx).unwrap().position),
+                        ) {
+                            Some(*state.node_ids.get(&idx).unwrap())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
                 state.selection.set_selection(selected);
                 state.selection.finish();
             })
@@ -281,8 +284,16 @@ impl<'a> Widget for Graph<'a> {
 
     fn init_state(&self, mut id_gen: widget::id::Generator) -> Self::State {
         State {
-            node_ids: HashMap::from_iter(self.graph.node_indices().map(|idx| (idx, id_gen.next()))),
-            edge_ids: HashMap::from_iter(self.graph.edge_indices().map(|idx| (idx, id_gen.next()))),
+            node_ids: self
+                .graph
+                .node_indices()
+                .map(|idx| (idx, id_gen.next()))
+                .collect(),
+            edge_ids: self
+                .graph
+                .edge_indices()
+                .map(|idx| (idx, id_gen.next()))
+                .collect(),
             ids: Ids::new(id_gen),
             camera: Camera::default(),
             selection: Selection::default(),

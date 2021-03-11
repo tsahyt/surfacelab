@@ -115,7 +115,7 @@ impl OperatorParamBox for Swizzle {
                         transmitter: Field(Swizzle::CHANNEL_B.to_string()),
                         control: Control::Enum {
                             selected: self.channel_b as usize,
-                            variants: channels.clone(),
+                            variants: channels,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),

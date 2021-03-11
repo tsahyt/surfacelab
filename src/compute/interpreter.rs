@@ -155,7 +155,7 @@ impl StackFrame {
                 .or_insert_with(|| vec![s.clone()]);
         }
 
-        let instructions = VecDeque::from_iter(linearization.instructions.iter().cloned());
+        let instructions: VecDeque<_> = linearization.instructions.iter().cloned().collect();
         if instructions.is_empty() {
             return None;
         }
@@ -163,7 +163,7 @@ impl StackFrame {
         Some(Self {
             step: 0,
             instructions,
-            linearization: linearization.clone(),
+            linearization,
             substitutions_map: Rc::new(substitutions_map),
             start_time: Instant::now(),
             caller,
@@ -370,7 +370,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         debug_assert!(self
             .sockets
             .get_output_image(&from)
-            .or(self.sockets.get_input_image(&from))
+            .or_else(|| self.sockets.get_input_image(&from))
             .unwrap()
             .is_backed());
 

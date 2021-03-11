@@ -2,9 +2,6 @@ use crate::lang::*;
 use conrod_core::*;
 use smallvec::SmallVec;
 use std::collections::HashMap;
-use std::iter::FromIterator;
-
-// TODO: Scale socket placement and size with camera
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SelectionState {
@@ -98,20 +95,22 @@ impl State {
             .values()
             .copied()
             .chain(std::iter::repeat_with(|| id_gen.next()));
-        self.input_sockets =
-            HashMap::from_iter(inputs.iter().zip(input_ids).map(|(s, i)| (s.0.clone(), i)));
+        self.input_sockets = inputs
+            .iter()
+            .zip(input_ids)
+            .map(|(s, i)| (s.0.clone(), i))
+            .collect();
 
         let output_ids = self
             .output_sockets
             .values()
             .copied()
             .chain(std::iter::repeat_with(|| id_gen.next()));
-        self.output_sockets = HashMap::from_iter(
-            outputs
-                .iter()
-                .zip(output_ids)
-                .map(|(s, i)| (s.0.clone(), i)),
-        );
+        self.output_sockets = outputs
+            .iter()
+            .zip(output_ids)
+            .map(|(s, i)| (s.0.clone(), i))
+            .collect();
 
         self.sockets_hash = hash_sockets(inputs, outputs);
     }
@@ -170,12 +169,16 @@ impl<'a> Widget for Node<'a> {
 
     fn init_state(&self, mut id_gen: widget::id::Generator) -> Self::State {
         State {
-            input_sockets: HashMap::from_iter(
-                self.inputs.iter().map(|(k, _)| (k.clone(), id_gen.next())),
-            ),
-            output_sockets: HashMap::from_iter(
-                self.outputs.iter().map(|(k, _)| (k.clone(), id_gen.next())),
-            ),
+            input_sockets: self
+                .inputs
+                .iter()
+                .map(|(k, _)| (k.clone(), id_gen.next()))
+                .collect(),
+            output_sockets: self
+                .outputs
+                .iter()
+                .map(|(k, _)| (k.clone(), id_gen.next()))
+                .collect(),
             sockets_hash: hash_sockets(self.inputs, self.outputs),
             ids: Ids::new(id_gen),
         }

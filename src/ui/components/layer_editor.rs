@@ -149,8 +149,7 @@ impl<'a> Widget for LayerEditor<'a> {
                     ))
                 })
         {
-            let mut context_tools = Vec::new();
-            context_tools.push((IconName::TRASH, ContextTool::Delete));
+            let mut context_tools = vec![(IconName::TRASH, ContextTool::Delete)];
 
             if !is_base && !active_layer.is_mask {
                 context_tools.push((IconName::MASK, ContextTool::NewMask));

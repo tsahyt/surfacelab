@@ -136,9 +136,12 @@ where
             .usage(hal::buffer::Usage::VERTEX);
 
         // Pick memory type for buffer builder for AMD/Nvidia
-        if let None = buffer_builder.memory_type(
-            hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
-        ) {
+        if buffer_builder
+            .memory_type(
+                hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+            )
+            .is_none()
+        {
             buffer_builder
                 .memory_type(
                     hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
@@ -170,9 +173,12 @@ where
             .usage(hal::buffer::Usage::VERTEX);
 
         // Pick memory type for buffer builder for AMD/Nvidia
-        if let None = buffer_builder.memory_type(
-            hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
-        ) {
+        if buffer_builder
+            .memory_type(
+                hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+            )
+            .is_none()
+        {
             buffer_builder
                 .memory_type(
                     hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
@@ -297,9 +303,12 @@ where
             .usage(i::Usage::TRANSFER_DST | i::Usage::SAMPLED);
 
         // Pick memory type for buffer builder for AMD/Nvidia
-        if let None = image_builder.memory_type(
-            hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
-        ) {
+        if image_builder
+            .memory_type(
+                hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+            )
+            .is_none()
+        {
             image_builder
                 .memory_type(
                     hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
@@ -1044,8 +1053,8 @@ where
     }
 
     /// Fill the internal mesh from the primitives
-    pub fn fill<'a, P: conrod_core::render::PrimitiveWalker>(
-        &'a mut self,
+    pub fn fill<P: conrod_core::render::PrimitiveWalker>(
+        &mut self,
         image_map: &conrod_core::image::Map<Image<B>>,
         viewport: [f32; 4],
         dpi_factor: f64,

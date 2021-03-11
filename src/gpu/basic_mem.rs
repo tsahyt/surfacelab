@@ -59,7 +59,7 @@ impl<'a> BasicImageBuilder<'a> {
 
     pub fn size_cube(&mut self, side: u32) -> &mut Self {
         self.kind = hal::image::Kind::D2(side, side, 6, 1);
-        self.view_caps = self.view_caps | hal::image::ViewCapabilities::KIND_CUBE;
+        self.view_caps |= hal::image::ViewCapabilities::KIND_CUBE;
         self.range.layers = 0..6;
         self
     }
@@ -94,6 +94,7 @@ impl<'a> BasicImageBuilder<'a> {
         Some(self)
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn build<B: hal::Backend>(
         &self,
         device: &B::Device,

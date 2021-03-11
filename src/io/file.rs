@@ -42,6 +42,12 @@ pub struct SurfaceFileBuilder {
     pub compute_data: Option<Vec<u8>>,
 }
 
+impl Default for SurfaceFileBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SurfaceFileBuilder {
     pub fn new() -> Self {
         Self {

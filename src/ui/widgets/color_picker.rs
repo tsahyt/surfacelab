@@ -284,7 +284,7 @@ fn color_strip<F: Fn(f64) -> color::Rgba>(
     height: f64,
     color: F,
 ) -> Vec<Triangle<ColoredPoint>> {
-    let mut tris = Vec::with_capacity((2 as usize).pow(k as u32 + 1));
+    let mut tris = Vec::with_capacity((2_usize).pow(k as u32 + 1));
     let step = 1.0 / (k as f64).exp2();
     let mut x: f64 = 0.0;
 
@@ -293,7 +293,7 @@ fn color_strip<F: Fn(f64) -> color::Rgba>(
     let left = -width / 2.0;
     let right = width / 2.0;
 
-    for _ in 0..(2 as u16).pow(k as _) {
+    for _ in 0..(2_u16).pow(k as _) {
         // Current color
         let c = color(x);
 
@@ -348,7 +348,7 @@ fn color_rect<F: Fn(f64, f64) -> color::Rgba>(
     height: f64,
     color: F,
 ) -> Vec<Triangle<ColoredPoint>> {
-    let mut tris = Vec::with_capacity((4 as usize).pow(k as _) * 2);
+    let mut tris = Vec::with_capacity((4_usize).pow(k as _) * 2);
     let step = 1.0 / (k as f64).exp2();
     let mut x: f64;
     let mut y: f64 = 0.0;
@@ -356,9 +356,9 @@ fn color_rect<F: Fn(f64, f64) -> color::Rgba>(
     let rect_bottom = -height / 2.0;
     let rect_left = -width / 2.0;
 
-    for _ in 0..(2 as u16).pow(k as _) {
+    for _ in 0..(2_u16).pow(k as _) {
         x = 0.0;
-        for _ in 0..(2 as u16).pow(k as _) {
+        for _ in 0..(2_u16).pow(k as _) {
             let c_bl = color(x, y);
             let c_br = color(x + step, y);
             let c_tl = color(x, y + step);

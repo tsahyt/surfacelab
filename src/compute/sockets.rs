@@ -101,6 +101,15 @@ impl<B: gpu::Backend> Default for SocketData<B> {
 /// anywhere, and are not required to be in the same graph.
 pub struct Sockets<B: gpu::Backend>(HashMap<Resource<Node>, SocketData<B>>);
 
+impl<B> Default for Sockets<B>
+where
+    B: gpu::Backend,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<B> Sockets<B>
 where
     B: gpu::Backend,
@@ -154,7 +163,9 @@ where
 
     /// Ensure the node is known
     pub fn ensure_node_exists(&mut self, res: &Resource<Node>, size: u32) -> &mut SocketData<B> {
-        self.0.entry(res.clone()).or_insert(SocketData::new(size))
+        self.0
+            .entry(res.clone())
+            .or_insert_with(|| SocketData::new(size))
     }
 
     /// Ensure the node described by the resource has a thumbnail image

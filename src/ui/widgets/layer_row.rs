@@ -173,10 +173,7 @@ impl<'a> Widget for LayerRow<'a> {
             .ui
             .widget_input(args.state.ids.title)
             .events()
-            .filter(|ev| match ev {
-                event::Widget::DoubleClick(_) => true,
-                _ => false,
-            })
+            .filter(|ev| matches!(ev, event::Widget::DoubleClick(_)))
         {
             args.state.update(|state| state.editing_title = true)
         }

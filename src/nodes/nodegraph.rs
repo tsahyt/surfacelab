@@ -62,10 +62,10 @@ impl Node {
         Node {
             position: (0.0, 0.0),
             size: 0,
-            absolute_size: match operator {
-                Operator::AtomicOperator(AtomicOperator::Image(..)) => true,
-                _ => false,
-            },
+            absolute_size: matches!(
+                operator,
+                Operator::AtomicOperator(AtomicOperator::Image(..))
+            ),
             type_variables: HashMap::new(),
             operator,
         }
@@ -171,10 +171,9 @@ impl NodeGraph {
 
     /// Obtain an iterator over all node resources in the graph
     pub fn nodes(&self) -> impl Iterator<Item = Resource<r::Node>> + '_ {
-        self.graph.node_indices().map(move |idx| {
-            let res = self.node_resource(&idx);
-            res
-        })
+        self.graph
+            .node_indices()
+            .map(move |idx| self.node_resource(&idx))
     }
 
     /// Obtain an iterator over all connections in the graph
@@ -256,7 +255,7 @@ impl NodeGraph {
         let node = *self
             .indices
             .get_by_left(&resource.to_string())
-            .ok_or(NodeGraphError::NodeNotFound(resource.to_string()))?;
+            .ok_or_else(|| NodeGraphError::NodeNotFound(resource.to_string()))?;
 
         log::trace!(
             "Removing node with identifier {:?}, indexed {:?}",
@@ -336,11 +335,11 @@ impl NodeGraph {
         let source_idx = *self
             .indices
             .get_by_left(&source_node.to_string())
-            .ok_or(NodeGraphError::NodeNotFound(source_node.to_string()))?;
+            .ok_or_else(|| NodeGraphError::NodeNotFound(source_node.to_string()))?;
         let sink_idx = *self
             .indices
             .get_by_left(&sink_node.to_string())
-            .ok_or(NodeGraphError::NodeNotFound(sink_node.to_string()))?;
+            .ok_or_else(|| NodeGraphError::NodeNotFound(sink_node.to_string()))?;
 
         // Check that source and to are two different nodes
         if source_node == sink_node {
@@ -424,7 +423,7 @@ impl NodeGraph {
         let sink_path = *self
             .indices
             .get_by_left(&sink_node.to_string())
-            .ok_or(NodeGraphError::NodeNotFound(sink_node.to_string()))?;
+            .ok_or_else(|| NodeGraphError::NodeNotFound(sink_node.to_string()))?;
         let sink = self.node_resource(&sink_path).node_socket(sink_socket);
 
         let mut resp = Vec::new();
@@ -486,7 +485,7 @@ impl NodeGraph {
         let path = *self
             .indices
             .get_by_left(&node.to_string())
-            .ok_or(NodeGraphError::NodeNotFound(node.to_string()))?;
+            .ok_or_else(|| NodeGraphError::NodeNotFound(node.to_string()))?;
         let node_res = self.node_resource(&path);
 
         let node_data = self.graph.node_weight_mut(path).unwrap();
@@ -515,7 +514,7 @@ impl NodeGraph {
         let path = self
             .indices
             .get_by_left(&socket_node.to_string())
-            .ok_or(NodeGraphError::NodeNotFound(socket_node.to_string()))?;
+            .ok_or_else(|| NodeGraphError::NodeNotFound(socket_node.to_string()))?;
         let node = self.graph.node_weight(*path).unwrap();
         match node.monomorphic_type(&socket_name) {
             Ok(t) => Ok(OperatorType::Monomorphic(t)),
@@ -596,17 +595,20 @@ impl ExposedParameters for NodeGraph {
 
 impl NodeCollection for NodeGraph {
     fn inputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {
-        HashMap::from_iter(self.graph.node_indices().filter_map(|idx| {
-            let node = self.graph.node_weight(idx).unwrap();
-            let res = self.node_resource(&idx);
-            match &node.operator {
-                Operator::AtomicOperator(AtomicOperator::Input(inp)) => Some((
-                    res.file().unwrap().to_string(),
-                    (*inp.outputs().get("data").unwrap(), res.clone()),
-                )),
-                _ => None,
-            }
-        }))
+        self.graph
+            .node_indices()
+            .filter_map(|idx| {
+                let node = self.graph.node_weight(idx).unwrap();
+                let res = self.node_resource(&idx);
+                match &node.operator {
+                    Operator::AtomicOperator(AtomicOperator::Input(inp)) => Some((
+                        res.file().unwrap().to_string(),
+                        (*inp.outputs().get("data").unwrap(), res.clone()),
+                    )),
+                    _ => None,
+                }
+            })
+            .collect()
     }
 
     fn outputs(&self) -> HashMap<String, (OperatorType, Resource<r::Node>)> {

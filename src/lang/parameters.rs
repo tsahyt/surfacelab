@@ -1000,15 +1000,11 @@ impl Control {
             Self::File { selected } => selected.to_data(),
             Self::ImageResource { selected } => selected.to_data(),
             Self::Ramp { steps } => steps.to_data(),
-            Self::Toggle { def } => (if *def { 1 as u32 } else { 0 as u32 }).to_data(),
+            Self::Toggle { def } => (if *def { 1_u32 } else { 0_u32 }).to_data(),
             Self::Entry { value } => value.to_data(),
             Self::ChannelMap {
                 enabled, selected, ..
-            } => (
-                (if *enabled { 1 as u32 } else { 0 as u32 }),
-                (*selected as u32),
-            )
-                .to_data(),
+            } => ((if *enabled { 1_u32 } else { 0_u32 }), (*selected as u32)).to_data(),
         }
     }
 

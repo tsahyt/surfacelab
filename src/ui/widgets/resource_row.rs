@@ -177,17 +177,17 @@ impl<'a> Widget for ResourceRow<'a> {
         }
 
         if self.active {
-            match toolbar::Toolbar::flow_left(&[(IconName::TRASH, ContextAction::Delete)])
-                .icon_font(self.style.icon_font.unwrap().unwrap())
-                .button_size(16.0)
-                .icon_size(10)
-                .parent(args.id)
-                .mid_right_of(args.id)
-                .h(16.0)
-                .set(args.state.ids.toolbar, args.ui)
+            if let Some(ContextAction::Delete) =
+                toolbar::Toolbar::flow_left(&[(IconName::TRASH, ContextAction::Delete)])
+                    .icon_font(self.style.icon_font.unwrap().unwrap())
+                    .button_size(16.0)
+                    .icon_size(10)
+                    .parent(args.id)
+                    .mid_right_of(args.id)
+                    .h(16.0)
+                    .set(args.state.ids.toolbar, args.ui)
             {
-                Some(ContextAction::Delete) => res = Some(Event::DeleteRequested),
-                None => {}
+                res = Some(Event::DeleteRequested);
             }
         }
 

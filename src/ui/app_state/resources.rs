@@ -16,14 +16,10 @@ pub enum ResourceCategory {
 
 impl ResourceCategory {
     pub fn expandable(&self) -> bool {
-        match self {
-            ResourceCategory::Graph => true,
-            ResourceCategory::Stack => true,
-            ResourceCategory::Node => true,
-            ResourceCategory::Layer => true,
-            ResourceCategory::Image => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::Graph | Self::Stack | Self::Node | Self::Layer | Self::Image
+        )
     }
 }
 
@@ -160,15 +156,13 @@ impl Default for ResourceTree {
                 Node::new(ResourceTreeItem::Folder("Graphs".to_owned(), true)),
                 UnderNode(&root),
             )
-            .unwrap()
-            .clone();
+            .unwrap();
         let images = t
             .insert(
                 Node::new(ResourceTreeItem::Folder("Images".to_owned(), true)),
                 UnderNode(&root),
             )
-            .unwrap()
-            .clone();
+            .unwrap();
 
         ResourceTree {
             tree: t,

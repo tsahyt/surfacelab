@@ -34,31 +34,19 @@ pub enum ColorAdjustMode {
 
 impl ColorAdjustMode {
     fn has_saturation(self) -> bool {
-        match self {
-            Self::HCL => false,
-            _ => true,
-        }
+        !matches!(self, Self::HCL)
     }
 
     fn has_value(self) -> bool {
-        match self {
-            Self::HSV => true,
-            _ => false,
-        }
+        matches!(self, Self::HSV)
     }
 
     fn has_lightness(self) -> bool {
-        match self {
-            Self::HSV => false,
-            _ => true,
-        }
+        !matches!(self, Self::HSV)
     }
 
     fn has_chroma(self) -> bool {
-        match self {
-            Self::HCL => true,
-            _ => false,
-        }
+        matches!(self, Self::HCL)
     }
 }
 
