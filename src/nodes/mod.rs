@@ -1001,6 +1001,12 @@ impl NodeManager {
                     self.export_specs.insert(to.clone(), spec);
                 }
             }
+            UserIOEvent::SetImageColorSpace(_, _) => {
+                // Color space changes should trigger a recompute of the current graph.
+                response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                    self.active_graph.clone(),
+                )));
+            }
             UserIOEvent::RunExports(base) => {
                 for (name, spec) in self.export_specs.iter() {
                     let mut path = base.clone();

@@ -65,8 +65,15 @@ impl ExternalImage {
 
     /// Reset the color space of this image. This will free the internal buffer.
     pub fn color_space(&mut self, color_space: ColorSpace) {
-        self.buffer = None;
-        self.color_space = color_space;
+        if color_space != self.color_space {
+            self.buffer = None;
+            self.color_space = color_space;
+        }
+    }
+
+    /// Determines whether this image requires (re)loading
+    pub fn needs_loading(&self) -> bool {
+        self.buffer.is_none()
     }
 }
 
@@ -396,7 +403,15 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             hasher.finish()
         };
         match self.last_known.get(res) {
-            Some(hash) if *hash == parameter_hash && !self.sockets.get_force(&res) => {
+            Some(hash)
+                if *hash == parameter_hash
+                    && !self.sockets.get_force(&res)
+                    && !self
+                        .external_images
+                        .get(image_res)
+                        .map(|i| i.needs_loading())
+                        .unwrap_or(false) =>
+            {
                 log::trace!("Reusing cached image");
                 return Ok(());
             }

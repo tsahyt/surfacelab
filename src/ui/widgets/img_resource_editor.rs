@@ -92,9 +92,9 @@ impl<'a> Widget for ImageResourceEditor<'a> {
 
         if let Some(new_selection) = widget::DropDownList::new(&resources, idx)
             .label_font_size(10)
-            .h_of(id)
+            .h(16.0)
             .parent(id)
-            .mid_left_of(id)
+            .top_left_of(id)
             .padded_w_of(id, 16.0)
             .set(state.ids.resource, ui)
         {
@@ -106,7 +106,7 @@ impl<'a> Widget for ImageResourceEditor<'a> {
             self.style.icon_font.unwrap().unwrap(),
         )
         .parent(id)
-        .mid_right_of(id)
+        .top_right_of(id)
         .label_font_size(12)
         .border(0.)
         .color(color::DARK_CHARCOAL)
@@ -122,6 +122,27 @@ impl<'a> Widget for ImageResourceEditor<'a> {
                 Ok(Some(path)) => res = Some(Event::AddFromFile(PathBuf::from(path))),
                 Err(e) => log::error!("Error during file selection {}", e),
                 _ => {}
+            }
+        }
+
+        let cs_idx = match idx.map(|i| self.img_resources[i].1) {
+            Some(ColorSpace::Srgb) => Some(0),
+            Some(ColorSpace::Linear) => Some(1),
+            None => None,
+        };
+
+        if let Some(new_selection) = widget::DropDownList::new(&["sRGB", "Linear"], cs_idx)
+            .label_font_size(10)
+            .parent(id)
+            .mid_bottom_of(id)
+            .h(16.0)
+            .w_of(id)
+            .set(state.ids.color_space, ui)
+        {
+            match new_selection {
+                0 => res = Some(Event::SetColorSpace(ColorSpace::Srgb)),
+                1 => res = Some(Event::SetColorSpace(ColorSpace::Linear)),
+                _ => unreachable!(),
             }
         }
 

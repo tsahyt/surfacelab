@@ -304,6 +304,11 @@ where
                     state.image_resources.push((res.clone(), *cs));
                 });
             }
+            Lang::UserIOEvent(UserIOEvent::SetImageColorSpace(res, cs)) => state.update(|state| {
+                if let Some(img) = state.image_resources.iter_mut().find(|(r, _)| r == res) {
+                    img.1 = *cs;
+                }
+            }),
             Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),
             Lang::LayersEvent(ev) => self.handle_layers_event(state, ev),
             _ => {}

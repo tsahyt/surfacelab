@@ -539,7 +539,7 @@ where
                         )
                         .icon_font(self.style.icon_font.unwrap().unwrap())
                         .padded_w_of(id, 16.0)
-                        .h(16.0)
+                        .h(40.0)
                         .set(control_id, ui)
                         {
                             use super::img_resource_editor;
