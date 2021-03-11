@@ -15,7 +15,6 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::*;
 use strum_macros::*;
-use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
 pub use operators::*;

@@ -3,7 +3,7 @@ use crate::gpu::{basic_mem::*, load_shader};
 use crate::shader;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
-use image::hdr;
+use image::codecs::hdr;
 use std::mem::ManuallyDrop;
 use std::path::Path;
 use std::sync::{Arc, Mutex};

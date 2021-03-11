@@ -1,8 +1,7 @@
 use super::resource::*;
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
-use smallvec::SmallVec;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 /// A trait for things that have parameters. Parameters can be set from a field

@@ -1,5 +1,4 @@
 use serde_derive::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::fs::File;
 use std::path::Path;
 use thiserror::Error;
