@@ -1,6 +1,9 @@
 use super::parameters::*;
 use super::socketed::*;
-use crate::compute::shaders::*;
+use crate::{
+    compute::shaders::*,
+    lang::{Img, Resource},
+};
 
 use maplit::hashmap;
 use serde_derive::{Deserialize, Serialize};
@@ -41,14 +44,12 @@ pub use transform::*;
 /// Image operator to include external images into a node graph
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Image {
-    pub resource: crate::lang::Resource<crate::lang::Img>,
+    pub resource: Option<Resource<Img>>,
 }
 
 impl Default for Image {
     fn default() -> Self {
-        Self {
-            resource: crate::lang::Resource::image(""),
-        }
+        Self { resource: None }
     }
 }
 
@@ -98,7 +99,9 @@ impl OperatorParamBox for Image {
                 parameters: vec![Parameter {
                     name: "image-resource".to_string(),
                     transmitter: Field(Self::RESOURCE.to_string()),
-                    control: Control::ImageResource { selected: None },
+                    control: Control::ImageResource {
+                        selected: self.resource.clone(),
+                    },
                     expose_status: Some(ExposeStatus::Unexposed),
                     visibility: VisibilityFunction::default(),
                 }],

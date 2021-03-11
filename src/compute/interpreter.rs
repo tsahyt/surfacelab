@@ -749,7 +749,10 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
                 match op {
                     AtomicOperator::Image(Image { resource }) => {
-                        self.execute_image(res, &resource)?;
+                        self.execute_image(
+                            res,
+                            &resource.ok_or(InterpretationError::ExternalImageRead)?,
+                        )?;
                     }
                     AtomicOperator::Input(..) => {
                         self.execute_input(res)?;
