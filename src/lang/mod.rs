@@ -759,8 +759,12 @@ pub enum ComputeEvent {
     ThumbnailDestroyed(Resource<Node>),
     /// The system has the given thumbnail for the given node.
     ThumbnailUpdated(Resource<Node>),
-    /// An image resource has been registered
-    ImageResourceAdded(Resource<Img>, ColorSpace),
+    /// An image resource has been registered. The bool describes whether the resource is packed.
+    ImageResourceAdded(Resource<Img>, ColorSpace, bool),
+    /// Image colorspace has been changed.
+    ImageColorSpaceSet(Resource<Img>, ColorSpace),
+    /// Image has been packed
+    ImagePacked(Resource<Img>),
     /// Compute data has been serialized
     Serialized(Vec<u8>),
 }

@@ -81,6 +81,7 @@ where
                     evs.push(Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(
                         resource.clone(),
                         color_space,
+                        false,
                     )));
                     self.external_images
                         .insert(resource, ExternalImage::new(path, color_space));
@@ -93,6 +94,7 @@ where
                     evs.push(Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(
                         resource.clone(),
                         color_space,
+                        true,
                     )));
                     let image = image::load_from_memory_with_format(&data, image::ImageFormat::Png)
                         .expect("Error deserializing packed image");

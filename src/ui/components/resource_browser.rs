@@ -274,7 +274,7 @@ impl<'a> ResourceBrowser<'a> {
             Lang::LayersEvent(LayersEvent::LayerRemoved(res)) => {
                 state.update(|state| state.tree.remove_resource_and_children(res));
             }
-            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, _)) => {
+            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, _, _)) => {
                 state.update(|state| state.tree.insert_image(res.clone()));
             }
             _ => {}

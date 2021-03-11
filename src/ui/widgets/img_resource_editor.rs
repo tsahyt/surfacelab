@@ -10,14 +10,14 @@ pub struct ImageResourceEditor<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     style: Style,
-    img_resources: &'a [(Resource<Img>, ColorSpace)],
+    img_resources: &'a [(Resource<Img>, ColorSpace, bool)],
     language: &'a Language,
     resource: Option<Resource<Img>>,
 }
 
 impl<'a> ImageResourceEditor<'a> {
     pub fn new(
-        img_resources: &'a [(Resource<Img>, ColorSpace)],
+        img_resources: &'a [(Resource<Img>, ColorSpace, bool)],
         resource: Option<Resource<Img>>,
         language: &'a Language,
     ) -> Self {
@@ -85,7 +85,7 @@ impl<'a> Widget for ImageResourceEditor<'a> {
         let resources: Vec<_> = self
             .img_resources
             .iter()
-            .map(|(x, _)| x.to_string())
+            .map(|(x, _, _)| x.to_string())
             .collect();
         let idx = self
             .img_resources
@@ -127,10 +127,17 @@ impl<'a> Widget for ImageResourceEditor<'a> {
             }
         }
 
+        let is_packed = idx.map(|i| self.img_resources[i].2).unwrap_or(false);
+
         for _press in icon_button(
-            IconName::PACKAGE_CLOSED,
+            if is_packed {
+                IconName::PACKAGE_CLOSED
+            } else {
+                IconName::PACKAGE_OPEN
+            },
             self.style.icon_font.unwrap().unwrap(),
         )
+        .enabled(!is_packed)
         .parent(id)
         .left_from(state.ids.add_button, 4.)
         .label_font_size(12)

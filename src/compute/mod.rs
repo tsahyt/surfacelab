@@ -335,11 +335,16 @@ where
             Lang::UserIOEvent(UserIOEvent::SetImageColorSpace(res, cs)) => {
                 if let Some(img) = self.external_images.get_mut(res) {
                     img.color_space(*cs);
+                    response.push(Lang::ComputeEvent(ComputeEvent::ImageColorSpaceSet(
+                        res.clone(),
+                        *cs,
+                    )));
                 }
             }
             Lang::UserIOEvent(UserIOEvent::PackImage(res)) => {
                 if let Some(img) = self.external_images.get_mut(res) {
                     img.pack().ok()?;
+                    response.push(Lang::ComputeEvent(ComputeEvent::ImagePacked(res.clone())));
                 }
             }
             Lang::IOEvent(IOEvent::ComputeDataLoaded(data)) => {
@@ -373,6 +378,7 @@ where
         self.last_known.clear();
     }
 
+    /// Adds an (unpacked) image resource from a path.
     fn add_image_resource<P: AsRef<Path> + std::fmt::Debug>(&mut self, path: P) -> Lang {
         let res = Resource::image(path.as_ref().file_name().unwrap());
         log::debug!("Adding image resource from path {:?} as {}", path, res);
@@ -385,7 +391,11 @@ where
             ),
         );
 
-        Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, ColorSpace::Srgb))
+        Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(
+            res,
+            ColorSpace::Srgb,
+            false,
+        ))
     }
 
     /// Export an image as given by the export specifications to a certain path.

@@ -12,7 +12,7 @@ pub struct ParameterSection<'a> {
     sender: &'a BrokerSender<Lang>,
     description: &'a mut ParamBoxDescription<MessageWriters>,
     resource: &'a Resource<Node>,
-    image_resources: &'a [(Resource<Img>, ColorSpace)],
+    image_resources: &'a [(Resource<Img>, ColorSpace, bool)],
     style: Style,
 }
 
@@ -39,7 +39,10 @@ impl<'a> ParameterSection<'a> {
         self
     }
 
-    pub fn image_resources(mut self, image_resources: &'a [(Resource<Img>, ColorSpace)]) -> Self {
+    pub fn image_resources(
+        mut self,
+        image_resources: &'a [(Resource<Img>, ColorSpace, bool)],
+    ) -> Self {
         self.image_resources = image_resources;
         self
     }

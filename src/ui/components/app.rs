@@ -132,7 +132,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     graphs: NodeCollections,
-    image_resources: Vec<(Resource<Img>, ColorSpace)>,
+    image_resources: Vec<(Resource<Img>, ColorSpace, bool)>,
 }
 
 impl<'a, B> Widget for Application<'a, B>
@@ -299,14 +299,21 @@ where
                     }
                 });
             }
-            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, cs)) => {
+            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, cs, packed)) => {
                 state.update(|state| {
-                    state.image_resources.push((res.clone(), *cs));
+                    state.image_resources.push((res.clone(), *cs, *packed));
                 });
             }
-            Lang::UserIOEvent(UserIOEvent::SetImageColorSpace(res, cs)) => state.update(|state| {
-                if let Some(img) = state.image_resources.iter_mut().find(|(r, _)| r == res) {
-                    img.1 = *cs;
+            Lang::ComputeEvent(ComputeEvent::ImageColorSpaceSet(res, cs)) => {
+                state.update(|state| {
+                    if let Some(img) = state.image_resources.iter_mut().find(|(r, _, _)| r == res) {
+                        img.1 = *cs;
+                    }
+                })
+            }
+            Lang::ComputeEvent(ComputeEvent::ImagePacked(res)) => state.update(|state| {
+                if let Some(img) = state.image_resources.iter_mut().find(|(r, _, _)| r == res) {
+                    img.2 = true;
                 }
             }),
             Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),
