@@ -24,10 +24,10 @@ impl ExternalImageSource {
 }
 
 pub struct ExternalImage {
-    color_space: ColorSpace,
+    pub color_space: ColorSpace,
     buffer: Option<Vec<u16>>,
     dim: u32,
-    source: ExternalImageSource,
+    pub source: ExternalImageSource,
 }
 
 impl ExternalImage {
@@ -38,6 +38,15 @@ impl ExternalImage {
             buffer: None,
             dim: 0,
             source: ExternalImageSource::Disk(path),
+        }
+    }
+
+    pub fn new_packed(image: image::DynamicImage, color_space: ColorSpace) -> Self {
+        Self {
+            color_space,
+            buffer: None,
+            dim: 0,
+            source: ExternalImageSource::Packed(image),
         }
     }
 

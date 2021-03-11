@@ -50,7 +50,8 @@ impl IOManager {
                 response.append(&mut self.open_surface(path))
             }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(path)) => self.save_surface(path),
-            Lang::GraphEvent(GraphEvent::Serialized(data)) => self.add_graph_data(data),
+            Lang::GraphEvent(GraphEvent::Serialized(data)) => self.write_graph_data(data),
+            Lang::ComputeEvent(ComputeEvent::Serialized(data)) => self.write_compute_data(data),
             _ => {}
         }
 
@@ -61,8 +62,12 @@ impl IOManager {
         let mut response = Vec::new();
 
         match file::SurfaceFile::open(path) {
-            Ok(file::SurfaceFile { node_data }) => {
+            Ok(file::SurfaceFile {
+                node_data,
+                compute_data,
+            }) => {
                 response.push(Lang::IOEvent(IOEvent::NodeDataLoaded(node_data)));
+                response.push(Lang::IOEvent(IOEvent::ComputeDataLoaded(compute_data)));
             }
             Err(e) => log::error!("{}", e),
         }
@@ -75,9 +80,17 @@ impl IOManager {
         self.file_builder = Some(file::SurfaceFileBuilder::new());
     }
 
-    fn add_graph_data(&mut self, data: &[u8]) {
+    fn write_graph_data(&mut self, data: &[u8]) {
         if let Some(fb) = &mut self.file_builder {
             fb.node_data(data);
+        }
+
+        self.attempt_write().unwrap();
+    }
+
+    fn write_compute_data(&mut self, data: &[u8]) {
+        if let Some(fb) = &mut self.file_builder {
+            fb.compute_data(data);
         }
 
         self.attempt_write().unwrap();

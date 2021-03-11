@@ -8,6 +8,7 @@ use thiserror::Error;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SurfaceFile {
     pub node_data: Vec<u8>,
+    pub compute_data: Vec<u8>,
 }
 
 #[derive(Debug, Error)]
@@ -39,15 +40,19 @@ impl SurfaceFile {
 
 pub struct SurfaceFileBuilder {
     pub node_data: Option<Vec<u8>>,
+    pub compute_data: Option<Vec<u8>>,
 }
 
 impl SurfaceFileBuilder {
     pub fn new() -> Self {
-        Self { node_data: None }
+        Self {
+            node_data: None,
+            compute_data: None,
+        }
     }
 
     pub fn buildable(&self) -> bool {
-        self.node_data.is_some()
+        self.node_data.is_some() && self.compute_data.is_some()
     }
 
     pub fn node_data(&mut self, node_data: &[u8]) -> &mut Self {
@@ -55,9 +60,15 @@ impl SurfaceFileBuilder {
         self
     }
 
+    pub fn compute_data(&mut self, compute_data: &[u8]) -> &mut Self {
+        self.compute_data = Some(compute_data.to_vec());
+        self
+    }
+
     pub fn build(self) -> Option<SurfaceFile> {
         Some(SurfaceFile {
             node_data: self.node_data?,
+            compute_data: self.compute_data?,
         })
     }
 }

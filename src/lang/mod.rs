@@ -759,6 +759,8 @@ pub enum ComputeEvent {
     ThumbnailUpdated(Resource<Node>),
     /// An image resource has been registered
     ImageResourceAdded(Resource<Img>, ColorSpace),
+    /// Compute data has been serialized
+    Serialized(Vec<u8>),
 }
 
 /// Type of renderer.
@@ -863,6 +865,7 @@ pub enum RenderEvent {
 #[derive(Debug)]
 pub enum IOEvent {
     NodeDataLoaded(Vec<u8>),
+    ComputeDataLoaded(Vec<u8>),
 }
 
 /// Master event type used by the application bus. This defines the common

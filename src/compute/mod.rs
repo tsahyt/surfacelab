@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub mod interpreter;
+pub mod io;
 pub mod shaders;
 pub mod sockets;
 
@@ -323,6 +324,10 @@ where
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset(),
+            Lang::UserIOEvent(UserIOEvent::SaveSurface(..)) => {
+                let data = self.serialize().ok()?;
+                response.push(Lang::ComputeEvent(ComputeEvent::Serialized(data)));
+            }
             Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset(),
             Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {
                 response.push(self.add_image_resource(path))
@@ -331,6 +336,10 @@ where
                 if let Some(img) = self.external_images.get_mut(res) {
                     img.color_space(*cs);
                 }
+            }
+            Lang::IOEvent(IOEvent::ComputeDataLoaded(data)) => {
+                let mut evs = self.deserialize(data).ok()?;
+                response.append(&mut evs);
             }
             Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => {
                 self.export(export, *size, path)

@@ -13,6 +13,7 @@ struct NodeData<'a> {
 }
 
 impl NodeManager {
+    /// Serialize contained data into plain old data
     pub fn serialize(&self) -> Result<Vec<u8>, serde_cbor::Error> {
         log::info!("Serializing node data");
         let surf = NodeData {
@@ -24,6 +25,7 @@ impl NodeManager {
         serde_cbor::ser::to_vec_packed(&surf)
     }
 
+    /// Deserialize plain old data into self
     pub fn deserialize(&mut self, data: &[u8]) -> Result<Vec<Lang>, serde_cbor::Error> {
         log::info!("Deserializing node data");
         let node_data: NodeData<'_> = serde_cbor::de::from_slice(data)?;
