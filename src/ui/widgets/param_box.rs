@@ -550,7 +550,7 @@ where
                                     ev.push(Event::ChangeParameter(
                                         parameter
                                             .transmitter
-                                            .transmit(self.resource, &new_selected.to_data()),
+                                            .transmit(self.resource, &selected.to_data()),
                                     ))
                                 }
                                 img_resource_editor::Event::AddFromFile(path) => {
