@@ -532,11 +532,15 @@ where
                             .get(&TypeId::of::<ImageResourceEditor>())
                             .unwrap()[control_idx.imgs];
 
-                        if let Some(event) =
-                            ImageResourceEditor::new(self.image_resources, selected.clone())
-                                .padded_w_of(id, 16.0)
-                                .h(16.0)
-                                .set(control_id, ui)
+                        if let Some(event) = ImageResourceEditor::new(
+                            self.image_resources,
+                            selected.clone(),
+                            self.language,
+                        )
+                        .icon_font(self.style.icon_font.unwrap().unwrap())
+                        .padded_w_of(id, 16.0)
+                        .h(16.0)
+                        .set(control_id, ui)
                         {
                             use super::img_resource_editor;
 
@@ -549,7 +553,11 @@ where
                                             .transmit(self.resource, &new_selected.to_data()),
                                     ))
                                 }
-                                _ => {}
+                                img_resource_editor::Event::AddFromFile(path) => {
+                                    ev.push(Event::ChangeParameter(Lang::UserIOEvent(
+                                        UserIOEvent::AddImageResource(path),
+                                    )))
+                                }
                             }
                         }
 
