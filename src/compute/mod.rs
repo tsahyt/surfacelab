@@ -337,6 +337,11 @@ where
                     img.color_space(*cs);
                 }
             }
+            Lang::UserIOEvent(UserIOEvent::PackImage(res)) => {
+                if let Some(img) = self.external_images.get_mut(res) {
+                    img.pack().ok()?;
+                }
+            }
             Lang::IOEvent(IOEvent::ComputeDataLoaded(data)) => {
                 let mut evs = self.deserialize(data).ok()?;
                 response.append(&mut evs);

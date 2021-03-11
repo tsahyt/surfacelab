@@ -21,6 +21,16 @@ impl ExternalImageSource {
             Self::Disk(path) => Ok(Cow::Owned(image::open(path)?)),
         }
     }
+
+    pub fn pack(&mut self) -> Result<(), image::ImageError> {
+        match self {
+            Self::Packed(..) => Ok(()),
+            Self::Disk(path) => {
+                *self = Self::Packed(image::open(path)?);
+                Ok(())
+            }
+        }
+    }
 }
 
 pub struct ExternalImage {
@@ -83,6 +93,10 @@ impl ExternalImage {
     /// Determines whether this image requires (re)loading
     pub fn needs_loading(&self) -> bool {
         self.buffer.is_none()
+    }
+
+    pub fn pack(&mut self) -> Result<(), image::ImageError> {
+        self.source.pack()
     }
 }
 

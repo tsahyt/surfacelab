@@ -47,6 +47,7 @@ widget_ids! {
         resource,
         add_button,
         color_space,
+        pack_button,
     }
 }
 
@@ -58,6 +59,7 @@ pub enum Event<'a> {
     AddFromFile(PathBuf),
     SelectResource(&'a Resource<Img>),
     SetColorSpace(ColorSpace),
+    PackImage,
 }
 
 impl<'a> Widget for ImageResourceEditor<'a> {
@@ -95,7 +97,7 @@ impl<'a> Widget for ImageResourceEditor<'a> {
             .h(16.0)
             .parent(id)
             .top_left_of(id)
-            .padded_w_of(id, 16.0)
+            .padded_w_of(id, 24.0)
             .set(state.ids.resource, ui)
         {
             res = Some(Event::SelectResource(&self.img_resources[new_selection].0));
@@ -123,6 +125,22 @@ impl<'a> Widget for ImageResourceEditor<'a> {
                 Err(e) => log::error!("Error during file selection {}", e),
                 _ => {}
             }
+        }
+
+        for _press in icon_button(
+            IconName::PACKAGE_CLOSED,
+            self.style.icon_font.unwrap().unwrap(),
+        )
+        .parent(id)
+        .left_from(state.ids.add_button, 4.)
+        .label_font_size(12)
+        .border(0.)
+        .color(color::DARK_CHARCOAL)
+        .label_color(color::WHITE)
+        .wh([20., 16.])
+        .set(state.ids.pack_button, ui)
+        {
+            res = Some(Event::PackImage);
         }
 
         let cs_idx = match idx.map(|i| self.img_resources[i].1) {

@@ -565,6 +565,13 @@ where
                                         )))
                                     }
                                 }
+                                img_resource_editor::Event::PackImage => {
+                                    if let Some(res) = selected {
+                                        ev.push(Event::ChangeParameter(Lang::UserIOEvent(
+                                            UserIOEvent::PackImage(res.clone()),
+                                        )))
+                                    }
+                                }
                             }
                         }
 

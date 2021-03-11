@@ -31,6 +31,8 @@ impl IconName {
     pub const DOWN: IconName = IconName("\u{f035d}");
     pub const LEFT: IconName = IconName("\u{f035e}");
     pub const RIGHT: IconName = IconName("\u{f035f}");
+    pub const PACKAGE_OPEN: IconName = IconName("\u{f03d6}");
+    pub const PACKAGE_CLOSED: IconName = IconName("\u{f03d7}");
 }
 
 /// Create an icon button, i.e. a button with an icon in it. Uses an IconName

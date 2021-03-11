@@ -721,6 +721,8 @@ pub enum UserIOEvent {
     AddImageResource(PathBuf),
     /// The user seeks to set the colorspace of an image.
     SetImageColorSpace(Resource<Img>, ColorSpace),
+    /// The user requests packing of an image.
+    PackImage(Resource<Img>),
     /// The user requests setting the parent size.
     SetParentSize(u32),
     /// The user requests declaration of an export specification.
