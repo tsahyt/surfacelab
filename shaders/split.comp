@@ -1,0 +1,20 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform texture2D t_In;
+layout(set = 0, binding = 1) uniform sampler Sampler;
+layout(set = 0, binding = 2, r32f) uniform image2D t_Red;
+layout(set = 0, binding = 3, r32f) uniform image2D t_Green;
+layout(set = 0, binding = 4, r32f) uniform image2D t_Blue;
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_Red);
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+    vec3 rgb = texture(sampler2D(t_In, Sampler), uv).rgb;
+
+    imageStore(t_Red, idx, vec4(vec3(rgb.r), 1.));
+    imageStore(t_Green, idx, vec4(vec3(rgb.g), 1.));
+    imageStore(t_Blue, idx, vec4(vec3(rgb.b), 1.));
+}

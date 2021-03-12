@@ -24,6 +24,7 @@ pub mod perlin_noise;
 pub mod ramp;
 pub mod range;
 pub mod rgb;
+pub mod split_merge;
 pub mod swizzle;
 pub mod transform;
 
@@ -38,6 +39,7 @@ pub use perlin_noise::*;
 pub use ramp::*;
 pub use range::*;
 pub use rgb::*;
+pub use split_merge::*;
 pub use swizzle::*;
 pub use transform::*;
 
