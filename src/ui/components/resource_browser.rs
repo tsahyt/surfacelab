@@ -260,7 +260,10 @@ impl<'a> ResourceBrowser<'a> {
                 state.update(|state| state.tree.rename_resource(from, to));
             }
             Lang::GraphEvent(GraphEvent::Cleared) => {
-                state.update(|state| state.tree.clear());
+                state.update(|state| state.tree.clear_graphs());
+            }
+            Lang::ComputeEvent(ComputeEvent::Cleared) => {
+                state.update(|state| state.tree.clear_images());
             }
             Lang::LayersEvent(LayersEvent::LayersAdded(res, _)) => {
                 state.update(|state| state.tree.insert_stack(res.clone()));

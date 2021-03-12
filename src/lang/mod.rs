@@ -768,6 +768,8 @@ pub enum ComputeEvent {
     ImagePacked(Resource<Img>),
     /// Compute data has been serialized
     Serialized(Vec<u8>),
+    /// Compute data has been cleared,
+    Cleared,
 }
 
 /// Type of renderer.

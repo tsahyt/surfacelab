@@ -323,12 +323,18 @@ where
                 _ => {}
             },
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
-            Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset(),
+            Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => {
+                self.reset();
+                response.push(Lang::ComputeEvent(ComputeEvent::Cleared));
+            }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(..)) => {
                 let data = self.serialize().ok()?;
                 response.push(Lang::ComputeEvent(ComputeEvent::Serialized(data)));
             }
-            Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset(),
+            Lang::UserIOEvent(UserIOEvent::NewSurface) => {
+                self.reset();
+                response.push(Lang::ComputeEvent(ComputeEvent::Cleared))
+            }
             Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {
                 response.push(self.add_image_resource(path))
             }

@@ -174,8 +174,14 @@ impl Default for ResourceTree {
 }
 
 impl ResourceTree {
-    pub fn clear(&mut self) {
-        *self = ResourceTree::default();
+    pub fn clear_graphs(&mut self) {
+        self.remove_children_of(&self.graphs.clone())
+            .expect("Malformed resource tree");
+    }
+
+    pub fn clear_images(&mut self) {
+        self.remove_children_of(&self.images.clone())
+            .expect("Malformed resource tree");
     }
 
     pub fn insert_graph(&mut self, graph: r::Resource<r::Graph>) {
@@ -253,6 +259,17 @@ impl ResourceTree {
                 .remove_node(n, id_tree::RemoveBehavior::DropChildren)
                 .unwrap();
         }
+    }
+
+    fn remove_children_of(&mut self, node: &id_tree::NodeId) -> Result<(), id_tree::NodeIdError> {
+        let children: Vec<_> = self.tree.children_ids(node)?.cloned().collect();
+
+        for child in children {
+            self.tree
+                .remove_node(child, id_tree::RemoveBehavior::DropChildren)?;
+        }
+
+        Ok(())
     }
 
     pub fn rename_resource<T: 'static + PartialEq + r::Scheme>(
