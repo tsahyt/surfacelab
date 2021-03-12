@@ -513,18 +513,11 @@ where
                                     ev.push(Event::ChangeParameter(
                                         parameter
                                             .transmitter
-                                            .transmit(self.resource, path.as_bytes()),
+                                            .transmit(self.resource, &selected.to_data()),
                                     ));
                                 }
                                 Err(e) => log::error!("Error during file selection {}", e),
                                 _ => {}
-                            }
-
-                            if let Some(file) = selected {
-                                let buf = file.to_str().unwrap().as_bytes().to_vec();
-                                ev.push(Event::ChangeParameter(
-                                    parameter.transmitter.transmit(self.resource, &buf),
-                                ));
                             }
                         }
                         control_idx.files += 1;

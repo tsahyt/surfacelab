@@ -354,7 +354,7 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
-            Lang::UserRenderEvent(UserRenderEvent::LoadHDRI(id, path)) => {
+            Lang::UserRenderEvent(UserRenderEvent::LoadHDRI(id, Some(path))) => {
                 self.load_hdri(*id, path);
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));

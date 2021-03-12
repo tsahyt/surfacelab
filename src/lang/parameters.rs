@@ -332,7 +332,7 @@ impl MessageWriter for RenderField {
             )),
             RenderField::HDRI => super::Lang::UserRenderEvent(super::UserRenderEvent::LoadHDRI(
                 *renderer,
-                PathBuf::from_data(data),
+                <Option<PathBuf>>::from_data(data),
             )),
             RenderField::FocalLength => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::FocalLength(*renderer, f32::from_data(data)),
@@ -968,7 +968,7 @@ pub enum Control {
         variants: Vec<String>,
     },
     File {
-        selected: Option<std::path::PathBuf>,
+        selected: Option<PathBuf>,
     },
     ImageResource {
         selected: Option<Resource<Img>>,

@@ -578,7 +578,7 @@ pub enum UserRenderEvent {
     /// The user requests enabling/disabling ambient occlusion calculation
     SetAO(RendererID, ParameterBool),
     /// The user seeks to load a new HDRi from file
-    LoadHDRI(RendererID, PathBuf),
+    LoadHDRI(RendererID, Option<PathBuf>),
     /// The user requests setting the object type to be rendered
     ObjectType(RendererID, ObjectType),
     /// The user requests setting the sample count
