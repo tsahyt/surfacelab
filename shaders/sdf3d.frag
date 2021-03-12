@@ -6,9 +6,10 @@ layout(location = 0) out vec4 outColor;
 layout(constant_id = 0) const uint OBJECT_TYPE = 1;
 
 const uint OBJECT_TYPE_PLANE = 0;
-const uint OBJECT_TYPE_CUBE = 1;
-const uint OBJECT_TYPE_SPHERE = 2;
-const uint OBJECT_TYPE_CYLINDER = 3;
+const uint OBJECT_TYPE_FINITEPLANE = 1;
+const uint OBJECT_TYPE_CUBE = 2;
+const uint OBJECT_TYPE_SPHERE = 3;
+const uint OBJECT_TYPE_CYLINDER = 4;
 
 layout(set = 0, binding = 0) uniform sampler s_Texture;
 
@@ -214,6 +215,7 @@ float sdf(vec3 p, float lod) {
     float height = 0.;
     switch (OBJECT_TYPE) {
         case OBJECT_TYPE_PLANE:
+        case OBJECT_TYPE_FINITEPLANE:
             height = heightfield(plane_mapping(p), lod) * displacement_amount;
             float planeDist = p.y;
             return planeDist - height;
@@ -274,6 +276,7 @@ vec2 intsBox(vec3 ro, vec3 rd, vec3 boxSize)
 vec2 outer_bound(vec3 ro, vec3 rd, float d) {
     switch (OBJECT_TYPE) {
         case OBJECT_TYPE_PLANE:
+        case OBJECT_TYPE_FINITEPLANE:
             return vec2(- (ro.y - d) / rd.y);
         case OBJECT_TYPE_CUBE:
             return intsBox(ro, rd, vec3(1. + d));
@@ -563,6 +566,7 @@ vec3 render(vec3 ro, vec3 rd) {
 
     switch (OBJECT_TYPE) {
         case OBJECT_TYPE_PLANE:
+        case OBJECT_TYPE_FINITEPLANE:
             albedo_ = albedo(plane_mapping(p), lod_by_distance(d));
             metallic_ = metallic(plane_mapping(p), lod_by_distance(d));
             roughness_ = roughness(plane_mapping(p), lod_by_distance(d));
@@ -605,7 +609,12 @@ vec3 render(vec3 ro, vec3 rd) {
 
     // View Falloff
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
-    col = mix(world, col, smoothstep(10., 9., length(p)));
+    if(OBJECT_TYPE == OBJECT_TYPE_FINITEPLANE) {
+        vec2 d = abs(p.xz);
+        col = mix(col, world, step(2., max(d.x, d.y)));
+    } else {
+        col = mix(world, col, smoothstep(10., 9., distance(ro, p)));
+    }
 
     return col;
 }

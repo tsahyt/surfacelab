@@ -535,9 +535,10 @@ pub enum LightType {
 #[repr(u32)]
 pub enum ObjectType {
     Plane = 0,
-    Cube = 1,
-    Sphere = 2,
-    Cylinder = 3,
+    FinitePlane = 1,
+    Cube = 2,
+    Sphere = 3,
+    Cylinder = 4,
 }
 
 /// Events concerning renderer operation triggered by the user.

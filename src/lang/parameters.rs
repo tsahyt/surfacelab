@@ -580,9 +580,10 @@ impl ParamBoxDescription<RenderField> {
                         Parameter {
                             name: "object-type".to_string(),
                             control: Control::Enum {
-                                selected: 1,
+                                selected: 2,
                                 variants: vec![
                                     "Plane".to_string(),
+                                    "Finite Plane".to_string(),
                                     "Cube".to_string(),
                                     "Sphere".to_string(),
                                     "Cylinder".to_string(),
