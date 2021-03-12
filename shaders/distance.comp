@@ -181,6 +181,8 @@ void row_pass() {
     // Scan 4
     for(int u = m - 1; u >= 0; --u) {
         float dt = dt_f(u, s[offset + q]);
+        dt /= imageSize(t_Out).x;
+        dt *= 1024.0;
         dt /= exp(extent);
 
         if(expand_mode != 0) {
