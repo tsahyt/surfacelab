@@ -64,26 +64,17 @@ impl<'a, T> Toolbar<'a, T, FlowLeft> {
 }
 
 impl<'a, T, D> Toolbar<'a, T, D> {
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
-    }
-
-    pub fn button_size(mut self, button_size: Scalar) -> Self {
-        self.style.button_size = Some(button_size);
-        self
-    }
-
-    pub fn icon_size(mut self, icon_size: FontSize) -> Self {
-        self.style.icon_size = Some(icon_size);
-        self
+    builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub button_size { style.button_size = Some(Scalar) }
+        pub icon_size { style.icon_size = Some(FontSize) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
     #[conrod(default = "32.0")]
     button_size: Option<Scalar>,
     #[conrod(default = "14")]
@@ -121,21 +112,26 @@ where
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let mut res = None;
 
-        let widget::UpdateArgs { state, ui, id, .. } = args;
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
 
-        let size = self.style.button_size.unwrap_or(32.0);
-        let icon_size = self.style.icon_size.unwrap_or(14);
+        let size = style.button_size(&ui.theme);
+        let icon_size = style.icon_size(&ui.theme);
 
         state.update(|state| {
             let mut walker = state.ids.buttons.walk();
-
             let mut offset = 8.0;
 
             for (tool, answer) in self.tools {
                 let mut id_gen = ui.widget_id_generator();
                 let button_id = walker.next(&mut state.ids.buttons, &mut id_gen);
 
-                let btn = icon_button(*tool, self.style.icon_font.unwrap().unwrap())
+                let btn = icon_button(*tool, style.icon_font(&ui.theme))
                     .label_font_size(icon_size)
                     .label_color(color::WHITE)
                     .color(color::DARK_CHARCOAL)

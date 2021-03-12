@@ -34,24 +34,16 @@ impl<'a> ParameterSection<'a> {
         }
     }
 
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
-    }
-
-    pub fn image_resources(
-        mut self,
-        image_resources: &'a [(Resource<Img>, ColorSpace, bool)],
-    ) -> Self {
-        self.image_resources = image_resources;
-        self
+    builder_methods! {
+        pub image_resources { image_resources = &'a [(Resource<Img>, ColorSpace, bool)] }
+        pub icon_font { style.icon_font = Some(text::font::Id) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
 }
 
 widget_ids! {
@@ -80,14 +72,20 @@ impl<'a> Widget for ParameterSection<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { state, ui, id, .. } = args;
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
 
         for ev in widgets::param_box::ParamBox::new(self.description, self.resource, self.language)
             .image_resources(&self.image_resources)
             .parent(id)
             .w_of(id)
             .mid_top()
-            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .icon_font(style.icon_font(&ui.theme))
             .set(state.ids.param_box, ui)
         {
             let resp = match ev {

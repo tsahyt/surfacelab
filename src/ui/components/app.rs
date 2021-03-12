@@ -65,33 +65,21 @@ where
         }
     }
 
-    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
-        self.event_buffer = Some(buffer);
-        self
+    builder_methods! {
+        pub event_buffer { event_buffer = Some(&'a [Arc<Lang>]) }
+        pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub text_font { style.text_font = Some(text::font::Id) }
+        pub panel_color { style.panel_color = Some(Color) }
+        pub panel_gap { style.panel_gap = Some(Scalar) }
     }
-
-    /// A method for specifying the `Font` used for displaying text.
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
-    }
-
-    /// A method for specifying the `Font` used for displaying text.
-    pub fn text_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.text_font = Some(Some(font_id));
-        self
-    }
-
-    builder_method!(pub panel_color { style.panel_color = Some(Color) });
-    builder_method!(pub panel_gap { style.panel_gap = Some(Scalar) });
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    pub icon_font: Option<Option<text::font::Id>>,
-    #[conrod(default = "theme.font_id")]
-    pub text_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    pub icon_font: Option<text::font::Id>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    pub text_font: Option<text::font::Id>,
     #[conrod(default = "theme.background_color")]
     pub panel_color: Option<color::Color>,
     #[conrod(default = "theme.border_width")]
@@ -156,7 +144,9 @@ where
     }
 
     fn update(mut self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { state, ui, .. } = args;
+        let widget::UpdateArgs {
+            state, ui, style, ..
+        } = args;
 
         if let Some(ev_buf) = self.event_buffer {
             for ev in ev_buf {
@@ -169,34 +159,37 @@ where
             NodeCollection::Layers(_) => Some(384.0),
         };
 
+        let panel_color = style.panel_color(&ui.theme);
+        let panel_gap = style.panel_gap(&ui.theme);
+
         // Main canvasses
         widget::Canvas::new()
             .border(0.0)
-            .color(self.style.panel_color.unwrap())
+            .color(panel_color)
             .flow_right(&[
                 (
                     state.ids.main_canvas,
                     widget::Canvas::new()
-                        .border(self.style.panel_gap.unwrap())
-                        .color(self.style.panel_color.unwrap())
+                        .border(panel_gap)
+                        .color(panel_color)
                         .flow_down(&[
                             (
                                 state.ids.top_bar_canvas,
                                 widget::Canvas::new()
-                                    .color(self.style.panel_color.unwrap())
-                                    .border(self.style.panel_gap.unwrap())
+                                    .color(panel_color)
+                                    .border(panel_gap)
                                     .length(48.0),
                             ),
                             (
                                 state.ids.main_inner_canvas,
                                 widget::Canvas::new()
-                                    .color(self.style.panel_color.unwrap())
-                                    .border(self.style.panel_gap.unwrap())
+                                    .color(panel_color)
+                                    .border(panel_gap)
                                     .flow_right(&[
                                         (state.ids.edit_canvas, {
                                             let mut w = widget::Canvas::new()
-                                                .color(self.style.panel_color.unwrap())
-                                                .border(self.style.panel_gap.unwrap());
+                                                .color(panel_color)
+                                                .border(panel_gap);
                                             if let Some(x) = edit_width {
                                                 w = w.length(x);
                                             }
@@ -205,8 +198,8 @@ where
                                         (
                                             state.ids.drawing_canvas,
                                             widget::Canvas::new()
-                                                .color(self.style.panel_color.unwrap())
-                                                .border(self.style.panel_gap.unwrap()),
+                                                .color(panel_color)
+                                                .border(panel_gap),
                                         ),
                                     ]),
                             ),
@@ -215,22 +208,22 @@ where
                 (
                     state.ids.sidebar_canvas,
                     widget::Canvas::new()
-                        .border(self.style.panel_gap.unwrap())
-                        .color(self.style.panel_color.unwrap())
+                        .border(panel_gap)
+                        .color(panel_color)
                         .length(384.0)
                         .flow_down(&[
                             (
                                 state.ids.settings_canvas,
                                 widget::Canvas::new()
-                                    .border(self.style.panel_gap.unwrap())
-                                    .color(self.style.panel_color.unwrap())
+                                    .border(panel_gap)
+                                    .color(panel_color)
                                     .length_weight(0.66),
                             ),
                             (
                                 state.ids.resources_canvas,
                                 widget::Canvas::new()
-                                    .border(self.style.panel_gap.unwrap())
-                                    .color(self.style.panel_color.unwrap())
+                                    .border(panel_gap)
+                                    .color(panel_color)
                                     .length_weight(0.33),
                             ),
                         ]),
@@ -253,27 +246,27 @@ where
                 &self.app_data.language.get_message("surface-tab"),
             ),
         ])
-        .color(self.style.panel_color.unwrap())
+        .color(panel_color)
         .label_color(color::WHITE)
         .label_font_size(10)
         .bar_thickness(48.0)
-        .border(self.style.panel_gap.unwrap())
+        .border(panel_gap)
         .parent(state.ids.settings_canvas)
         .wh_of(state.ids.settings_canvas)
         .middle()
         .set(state.ids.sidebar_tabs, ui);
 
         // Call update functions for each part of the UI
-        self.update_top_bar(state, ui);
+        self.update_top_bar(state, ui, style);
         match state.graphs.get_active_collection() {
             NodeCollection::Graph(_) => self.update_node_graph(state, ui),
-            NodeCollection::Layers(_) => self.update_layer_stack(state, ui),
+            NodeCollection::Layers(_) => self.update_layer_stack(state, ui, style),
         };
-        self.update_viewport(state, ui);
-        self.update_parameter_section(state, ui);
-        self.update_graph_section(state, ui);
-        self.update_surface_section(state, ui);
-        self.update_resource_browser(state, ui);
+        self.update_viewport(state, ui, style);
+        self.update_parameter_section(state, ui, style);
+        self.update_graph_section(state, ui, style);
+        self.update_surface_section(state, ui, style);
+        self.update_resource_browser(state, ui, style);
     }
 }
 
@@ -321,6 +314,7 @@ where
             _ => {}
         }
     }
+
     /// Handle Graph Events
     fn handle_graph_event(&self, state: &mut widget::State<State>, event: &GraphEvent) {
         match event {
@@ -425,8 +419,9 @@ where
             }
         }
     }
+
     /// Updates the top bar
-    fn update_top_bar(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
+    fn update_top_bar(&self, state: &mut widget::State<State>, ui: &mut UiCell, style: &Style) {
         use components::top_bar;
 
         state.update(|state| {
@@ -435,7 +430,7 @@ where
                 &self.app_data.sender,
                 &mut state.graphs,
             )
-            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .icon_font(style.icon_font(&ui.theme))
             .parent(state.ids.top_bar_canvas)
             .wh_of(state.ids.top_bar_canvas)
             .middle_of(state.ids.top_bar_canvas)
@@ -458,7 +453,7 @@ where
     }
 
     // /// Updates the layer stack widget
-    fn update_layer_stack(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
+    fn update_layer_stack(&self, state: &mut widget::State<State>, ui: &mut UiCell, style: &Style) {
         use components::layer_editor;
 
         state.update(|state| {
@@ -468,7 +463,7 @@ where
                 &mut state.graphs,
             )
             .event_buffer(self.event_buffer.unwrap())
-            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .icon_font(style.icon_font(&ui.theme))
             .parent(state.ids.edit_canvas)
             .wh_of(state.ids.edit_canvas)
             .middle_of(state.ids.edit_canvas)
@@ -477,7 +472,12 @@ where
     }
 
     // /// Updates the viewport
-    fn update_viewport(&mut self, state: &mut widget::State<State>, ui: &mut UiCell) {
+    fn update_viewport(
+        &mut self,
+        state: &mut widget::State<State>,
+        ui: &mut UiCell,
+        style: &Style,
+    ) {
         use components::viewport;
 
         state.update(|state| {
@@ -488,7 +488,7 @@ where
                 &mut self.app_data.image_map,
             )
             .event_buffer(self.event_buffer.unwrap())
-            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .icon_font(style.icon_font(&ui.theme))
             .monitor_resolution(self.app_data.monitor_resolution)
             .parent(state.ids.drawing_canvas)
             .wh_of(state.ids.drawing_canvas)
@@ -498,7 +498,12 @@ where
     }
 
     /// Updates the parameter section of the sidebar
-    fn update_parameter_section(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
+    fn update_parameter_section(
+        &self,
+        state: &mut widget::State<State>,
+        ui: &mut UiCell,
+        style: &Style,
+    ) {
         use components::parameter_section;
 
         state.update(|state| {
@@ -510,7 +515,7 @@ where
                     resource,
                 )
                 .image_resources(&state.image_resources)
-                .icon_font(self.style.icon_font.unwrap().unwrap())
+                .icon_font(style.icon_font(&ui.theme))
                 .parent(state.ids.parameter_canvas)
                 .wh_of(state.ids.parameter_canvas)
                 .middle_of(state.ids.parameter_canvas)
@@ -520,7 +525,12 @@ where
     }
 
     /// Updates the graph section of the sidebar
-    fn update_graph_section(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
+    fn update_graph_section(
+        &self,
+        state: &mut widget::State<State>,
+        ui: &mut UiCell,
+        style: &Style,
+    ) {
         use components::graph_section;
 
         state.update(|state| {
@@ -529,7 +539,7 @@ where
                 &self.app_data.sender,
                 &mut state.graphs,
             )
-            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .icon_font(style.icon_font(&ui.theme))
             .parent(state.ids.graph_settings_canvas)
             .wh_of(state.ids.graph_settings_canvas)
             .middle_of(state.ids.graph_settings_canvas)
@@ -538,13 +548,18 @@ where
     }
 
     /// Updates the surface section of the sidebar
-    fn update_surface_section(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
+    fn update_surface_section(
+        &self,
+        state: &mut widget::State<State>,
+        ui: &mut UiCell,
+        style: &Style,
+    ) {
         use components::surface_section;
 
         state.update(|state| {
             surface_section::SurfaceSection::new(&self.app_data.language, &self.app_data.sender)
                 .event_buffer(self.event_buffer.unwrap())
-                .icon_font(self.style.icon_font.unwrap().unwrap())
+                .icon_font(style.icon_font(&ui.theme))
                 .parent(state.ids.surface_settings_canvas)
                 .wh_of(state.ids.surface_settings_canvas)
                 .middle_of(state.ids.surface_settings_canvas)
@@ -553,7 +568,12 @@ where
     }
 
     /// Updates the resource browser
-    fn update_resource_browser(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
+    fn update_resource_browser(
+        &self,
+        state: &mut widget::State<State>,
+        ui: &mut UiCell,
+        style: &Style,
+    ) {
         use components::resource_browser;
 
         state.update(|state| {
@@ -563,7 +583,7 @@ where
                 &mut state.graphs,
             )
             .event_buffer(self.event_buffer.unwrap())
-            .icon_font(self.style.icon_font.unwrap().unwrap())
+            .icon_font(style.icon_font(&ui.theme))
             .parent(state.ids.resources_canvas)
             .wh_of(state.ids.resources_canvas)
             .middle_of(state.ids.resources_canvas)

@@ -30,9 +30,8 @@ impl<'a> NodeEditor<'a> {
         }
     }
 
-    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
-        self.event_buffer = Some(buffer);
-        self
+    builder_methods! {
+        pub event_buffer { event_buffer = Some(&'a [Arc<Lang>]) }
     }
 }
 

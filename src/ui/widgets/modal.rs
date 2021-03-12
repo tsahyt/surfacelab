@@ -27,9 +27,8 @@ impl<W> Modal<W> {
         }
     }
 
-    pub fn padding(mut self, padding: Scalar) -> Self {
-        self.style.padding = Some(padding);
-        self
+    builder_methods! {
+        pub padding { style.padding = Some(Scalar) }
     }
 }
 
@@ -91,7 +90,7 @@ where
         let ev = self
             .widget
             .middle_of(args.state.canvas)
-            .padded_wh_of(args.state.canvas, self.style.padding.unwrap_or(256.0))
+            .padded_wh_of(args.state.canvas, args.style.padding(&args.ui.theme))
             .set(args.state.widget, args.ui);
 
         Event::ChildEvent((ev, args.state.widget))

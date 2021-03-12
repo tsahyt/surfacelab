@@ -30,16 +30,15 @@ impl<'a> ImageResourceEditor<'a> {
         }
     }
 
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
+    builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
 }
 
 widget_ids! {
@@ -80,7 +79,13 @@ impl<'a> Widget for ImageResourceEditor<'a> {
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let mut res = None;
 
-        let widget::UpdateArgs { id, ui, state, .. } = args;
+        let widget::UpdateArgs {
+            id,
+            ui,
+            state,
+            style,
+            ..
+        } = args;
 
         let resources: Vec<_> = self
             .img_resources
@@ -103,18 +108,15 @@ impl<'a> Widget for ImageResourceEditor<'a> {
             res = Some(Event::SelectResource(&self.img_resources[new_selection].0));
         }
 
-        for _press in icon_button(
-            IconName::FOLDER_OPEN,
-            self.style.icon_font.unwrap().unwrap(),
-        )
-        .parent(id)
-        .top_right_of(id)
-        .label_font_size(12)
-        .border(0.)
-        .color(color::DARK_CHARCOAL)
-        .label_color(color::WHITE)
-        .wh([20., 16.])
-        .set(state.ids.add_button, ui)
+        for _press in icon_button(IconName::FOLDER_OPEN, style.icon_font(&ui.theme))
+            .parent(id)
+            .top_right_of(id)
+            .label_font_size(12)
+            .border(0.)
+            .color(color::DARK_CHARCOAL)
+            .label_color(color::WHITE)
+            .wh([20., 16.])
+            .set(state.ids.add_button, ui)
         {
             match FileSelection::new(self.language.get_message("image-select"))
                 .title(self.language.get_message("image-select-title"))
@@ -135,7 +137,7 @@ impl<'a> Widget for ImageResourceEditor<'a> {
             } else {
                 IconName::PACKAGE_OPEN
             },
-            self.style.icon_font.unwrap().unwrap(),
+            style.icon_font(&ui.theme),
         )
         .enabled(!is_packed)
         .parent(id)

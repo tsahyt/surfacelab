@@ -26,36 +26,19 @@ impl<'a> ResourceRow<'a> {
         }
     }
 
-    pub fn expandable(mut self, expandable: bool) -> Self {
-        self.expandable = expandable;
-        self
-    }
-
-    pub fn active(mut self, active: bool) -> Self {
-        self.active = active;
-        self
-    }
-
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
-    }
-
-    pub fn level_indent(mut self, indent: Scalar) -> Self {
-        self.style.level_indent = Some(indent);
-        self
-    }
-
-    pub fn selected_color(mut self, color: Color) -> Self {
-        self.style.selected_color = Some(color);
-        self
+    builder_methods! {
+        pub expandable { expandable = bool }
+        pub active { active = bool }
+        pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub level_indent { style.level_indent = Some(Scalar) }
+        pub selected_color { style.selected_color = Some(Color) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
     #[conrod(default = "16.0")]
     level_indent: Option<Scalar>,
     #[conrod(default = "color::YELLOW")]
@@ -101,6 +84,13 @@ impl<'a> Widget for ResourceRow<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        let widget::UpdateArgs {
+            id,
+            ui,
+            state,
+            style,
+            ..
+        } = args;
         let mut res = None;
 
         let icon = match self.res_item {
@@ -117,7 +107,7 @@ impl<'a> Widget for ResourceRow<'a> {
             ResourceTreeItem::Folder(_, _) => IconName::FOLDER,
         };
 
-        let mut indent = self.level as f64 * self.style.level_indent.unwrap_or(16.0);
+        let mut indent = self.level as f64 * style.level_indent(&ui.theme);
 
         if self.expandable {
             for _click in icon_button(
@@ -126,7 +116,7 @@ impl<'a> Widget for ResourceRow<'a> {
                 } else {
                     IconName::RIGHT
                 },
-                self.style.icon_font.unwrap().unwrap(),
+                style.icon_font(&ui.theme),
             )
             .color(color::TRANSPARENT)
             .label_font_size(14)
@@ -134,8 +124,8 @@ impl<'a> Widget for ResourceRow<'a> {
             .border(0.0)
             .w_h(32.0, 32.0)
             .mid_left_with_margin(indent)
-            .parent(args.id)
-            .set(args.state.ids.expander, args.ui)
+            .parent(id)
+            .set(state.ids.expander, ui)
             {
                 res = Some(Event::ToggleExpanded);
             }
@@ -147,11 +137,11 @@ impl<'a> Widget for ResourceRow<'a> {
             .parent(args.id)
             .color(color::WHITE)
             .font_size(14)
-            .font_id(self.style.icon_font.unwrap().unwrap())
+            .font_id(style.icon_font(&ui.theme))
             .mid_left_with_margin(indent)
-            .set(args.state.ids.icon, args.ui);
+            .set(state.ids.icon, ui);
 
-        for _click in args.ui.widget_input(args.state.ids.icon).clicks() {
+        for _click in ui.widget_input(state.ids.icon).clicks() {
             res = Some(Event::Clicked)
         }
 
@@ -170,22 +160,22 @@ impl<'a> Widget for ResourceRow<'a> {
             .color(name_color)
             .font_size(10)
             .mid_left_with_margin(indent)
-            .set(args.state.ids.resource_name, args.ui);
+            .set(state.ids.resource_name, ui);
 
-        for _click in args.ui.widget_input(args.state.ids.resource_name).clicks() {
+        for _click in ui.widget_input(state.ids.resource_name).clicks() {
             res = Some(Event::Clicked)
         }
 
         if self.active {
             if let Some(ContextAction::Delete) =
                 toolbar::Toolbar::flow_left(&[(IconName::TRASH, ContextAction::Delete)])
-                    .icon_font(self.style.icon_font.unwrap().unwrap())
+                    .icon_font(style.icon_font(&ui.theme))
                     .button_size(16.0)
                     .icon_size(10)
                     .parent(args.id)
                     .mid_right_of(args.id)
                     .h(16.0)
-                    .set(args.state.ids.toolbar, args.ui)
+                    .set(state.ids.toolbar, ui)
             {
                 res = Some(Event::DeleteRequested);
             }

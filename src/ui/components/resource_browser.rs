@@ -40,21 +40,16 @@ impl<'a> ResourceBrowser<'a> {
         }
     }
 
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
-    }
-
-    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
-        self.event_buffer = Some(buffer);
-        self
+    builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub event_buffer { event_buffer = Some(&'a [Arc<Lang>]) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
 }
 
 widget_ids! {
@@ -95,7 +90,13 @@ impl<'a> Widget for ResourceBrowser<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { state, ui, id, .. } = args;
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
 
         if let Some(ev_buf) = self.event_buffer {
             for ev in ev_buf {
@@ -108,7 +109,7 @@ impl<'a> Widget for ResourceBrowser<'a> {
             (IconName::LAYERS, CollectionTool::NewStack),
             (IconName::IMAGE, CollectionTool::NewImage),
         ])
-        .icon_font(self.style.icon_font.unwrap().unwrap())
+        .icon_font(style.icon_font(&ui.theme))
         .parent(args.id)
         .h(32.0)
         .top_left_with_margins(8.0, 0.0)
@@ -161,7 +162,7 @@ impl<'a> Widget for ResourceBrowser<'a> {
             let widget = resource_row::ResourceRow::new(&data, row.level)
                 .expandable(expandable)
                 .active(active)
-                .icon_font(self.style.icon_font.unwrap().unwrap())
+                .icon_font(style.icon_font(&ui.theme))
                 .h(32.0);
 
             match row.item.set(widget, ui) {

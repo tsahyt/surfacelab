@@ -40,21 +40,16 @@ impl<'a> LayerEditor<'a> {
         }
     }
 
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
-    }
-
-    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
-        self.event_buffer = Some(buffer);
-        self
+    builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub event_buffer { event_buffer = Some(&'a [Arc<Lang>]) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
 }
 
 widget_ids! {
@@ -105,7 +100,13 @@ impl<'a> Widget for LayerEditor<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { state, ui, id, .. } = args;
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
 
         if let Some(ev_buf) = self.event_buffer {
             for ev in ev_buf {
@@ -117,7 +118,7 @@ impl<'a> Widget for LayerEditor<'a> {
             (IconName::SOLID, MainTool::NewFill),
             (IconName::FX, MainTool::NewFx),
         ])
-        .icon_font(self.style.icon_font.unwrap().unwrap())
+        .icon_font(style.icon_font(&ui.theme))
         .parent(id)
         .w(64.0 + 8.0)
         .h(32.0)
@@ -156,7 +157,7 @@ impl<'a> Widget for LayerEditor<'a> {
             }
 
             match toolbar::Toolbar::flow_left(&context_tools)
-                .icon_font(self.style.icon_font.unwrap().unwrap())
+                .icon_font(style.icon_font(&ui.theme))
                 .parent(id)
                 .w(64.0 + 8.0)
                 .h(32.0)
@@ -270,7 +271,7 @@ impl<'a> Widget for LayerEditor<'a> {
             )
             .toggleable(toggleable)
             .expandable(expandable)
-            .icon_font(self.style.icon_font.unwrap().unwrap());
+            .icon_font(style.icon_font(&ui.theme));
 
             if let Some(event) = row.item.set(widget, ui) {
                 match event {

@@ -150,10 +150,8 @@ where
         self
     }
 
-    /// The color of the `Scrollbar`.
-    pub fn scrollbar_color(mut self, color: Color) -> Self {
-        self.style.scrollbar_color = Some(color);
-        self
+    builder_method! {
+        pub scrollbar_color { style.scrollbar_color = Some(Color) }
     }
 }
 

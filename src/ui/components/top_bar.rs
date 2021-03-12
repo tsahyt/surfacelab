@@ -31,16 +31,15 @@ impl<'a> TopBar<'a> {
         }
     }
 
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
+    builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
 }
 
 widget_ids! {
@@ -78,7 +77,7 @@ impl<'a> Widget for TopBar<'a> {
             (IconName::CONTENT_SAVE, SurfaceTool::SaveSurface),
             (IconName::EXPORT, SurfaceTool::ExportSurface),
         ])
-        .icon_font(self.style.icon_font.unwrap().unwrap())
+        .icon_font(args.style.icon_font(&args.ui.theme))
         .parent(args.id)
         .h(32.0)
         .middle()

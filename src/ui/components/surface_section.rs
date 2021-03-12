@@ -31,21 +31,16 @@ impl<'a> SurfaceSection<'a> {
         }
     }
 
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
-    }
-
-    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
-        self.event_buffer = Some(buffer);
-        self
+    builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub event_buffer { event_buffer = Some(&'a [Arc<Lang>]) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
 }
 
 widget_ids! {
@@ -83,7 +78,13 @@ impl<'a> Widget for SurfaceSection<'a> {
     }
 
     fn update(mut self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { state, ui, id, .. } = args;
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
 
         if let Some(ev_buf) = self.event_buffer {
             for ev in ev_buf {
@@ -111,7 +112,7 @@ impl<'a> Widget for SurfaceSection<'a> {
             .font_size(12)
             .set(state.ids.export_label, ui);
 
-        for _ev in icon_button(IconName::PLUS, self.style.icon_font.unwrap().unwrap())
+        for _ev in icon_button(IconName::PLUS, style.icon_font(&ui.theme))
             .parent(id)
             .top_right_with_margins(96.0, 16.0)
             .border(0.)

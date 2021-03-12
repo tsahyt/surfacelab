@@ -29,16 +29,15 @@ impl<'a> GraphSection<'a> {
         }
     }
 
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
+    builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
 }
 
 widget_ids! {
@@ -134,7 +133,7 @@ impl<'a> Widget for GraphSection<'a> {
                 &mut exposed_params[row.i].1,
                 &self.language,
             )
-            .icon_font(self.style.icon_font.unwrap().unwrap());
+            .icon_font(args.style.icon_font(&args.ui.theme));
 
             if let Some(ev) = row.set(widget, args.ui) {
                 match ev {

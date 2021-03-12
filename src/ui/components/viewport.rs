@@ -102,26 +102,17 @@ impl<'a, V, B> Viewport<'a, V, B>
 where
     B: crate::gpu::Backend,
 {
-    pub fn event_buffer(mut self, buffer: &'a [Arc<Lang>]) -> Self {
-        self.event_buffer = Some(buffer);
-        self
-    }
-
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
-    }
-
-    pub fn monitor_resolution(mut self, resolution: (u32, u32)) -> Self {
-        self.monitor_resolution = resolution;
-        self
+    builder_methods! {
+        pub event_buffer { event_buffer = Some(&'a [Arc<Lang>]) }
+        pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub monitor_resolution { monitor_resolution = (u32, u32) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
 }
 
 widget_ids! {
@@ -164,7 +155,13 @@ where
     fn update(mut self, args: widget::UpdateArgs<Self>) -> Self::Event {
         use widgets::render_view;
 
-        let widget::UpdateArgs { state, ui, id, .. } = args;
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
 
         if let Some(ev_buf) = self.event_buffer {
             for ev in ev_buf {
@@ -262,7 +259,7 @@ where
                     .parent(id)
                     .w_of(id)
                     .mid_top()
-                    .icon_font(self.style.icon_font.unwrap().unwrap())
+                    .icon_font(style.icon_font(&ui.theme))
                     .set(state.ids.parameters, ui)
                     {
                         if let param_box::Event::ChangeParameter(lang) = ev {

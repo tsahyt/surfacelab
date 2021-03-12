@@ -230,24 +230,16 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 < (counts.toggles)
     }
 
-    pub fn image_resources(
-        mut self,
-        image_resources: &'a [(Resource<Img>, ColorSpace, bool)],
-    ) -> Self {
-        self.image_resources = image_resources;
-        self
-    }
-
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
+    builder_methods! {
+        pub image_resources { image_resources = &'a [(Resource<Img>, ColorSpace, bool)] }
+        pub icon_font { style.icon_font = Some(text::font::Id) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
 }
 
 #[derive(Clone, Debug)]
@@ -297,7 +289,13 @@ where
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { state, ui, id, .. } = args;
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
         let mut ev = Vec::new();
 
         // Ensure we have enough ids, allocate more if necessary by resizing the
@@ -341,7 +339,7 @@ where
                             ExposeStatus::Unexposed => IconName::EXPOSE,
                             ExposeStatus::Exposed => IconName::UNEXPOSE,
                         },
-                        self.style.icon_font.unwrap().unwrap(),
+                        style.icon_font(&ui.theme),
                     )
                     .parent(id)
                     .border(0.)
@@ -533,7 +531,7 @@ where
                             selected.clone(),
                             self.language,
                         )
-                        .icon_font(self.style.icon_font.unwrap().unwrap())
+                        .icon_font(style.icon_font(&ui.theme))
                         .padded_w_of(id, 16.0)
                         .h(40.0)
                         .set(control_id, ui)

@@ -25,26 +25,17 @@ impl<'a> LayerRow<'a> {
         }
     }
 
-    pub fn icon_font(mut self, font_id: text::font::Id) -> Self {
-        self.style.icon_font = Some(Some(font_id));
-        self
-    }
-
-    pub fn toggleable(mut self, toggleable: bool) -> Self {
-        self.toggleable = toggleable;
-        self
-    }
-
-    pub fn expandable(mut self, expandable: bool) -> Self {
-        self.expandable = expandable;
-        self
+    builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub toggleable { toggleable = bool }
+        pub expandable { expandable = bool }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "theme.font_id")]
-    icon_font: Option<Option<text::font::Id>>,
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
 }
 
 widget_ids! {
@@ -113,7 +104,7 @@ impl<'a> Widget for LayerRow<'a> {
                 } else {
                     util::IconName::EYEOFF
                 },
-                self.style.icon_font.unwrap().unwrap(),
+                args.style.icon_font(&args.ui.theme),
             )
             .color(color::TRANSPARENT)
             .label_font_size(10)
@@ -178,7 +169,7 @@ impl<'a> Widget for LayerRow<'a> {
             args.state.update(|state| state.editing_title = true)
         }
 
-        for _click in util::icon_button(util::IconName::UP, self.style.icon_font.unwrap().unwrap())
+        for _click in util::icon_button(util::IconName::UP, args.style.icon_font(&args.ui.theme))
             .color(color::TRANSPARENT)
             .label_font_size(10)
             .label_color(color::WHITE)
@@ -191,16 +182,15 @@ impl<'a> Widget for LayerRow<'a> {
             event = Some(Event::MoveUp);
         }
 
-        for _click in
-            util::icon_button(util::IconName::DOWN, self.style.icon_font.unwrap().unwrap())
-                .color(color::TRANSPARENT)
-                .label_font_size(10)
-                .label_color(color::WHITE)
-                .border(0.0)
-                .w_h(16.0, 16.0)
-                .bottom_right_with_margin(8.0)
-                .parent(args.id)
-                .set(args.state.ids.move_down, args.ui)
+        for _click in util::icon_button(util::IconName::DOWN, args.style.icon_font(&args.ui.theme))
+            .color(color::TRANSPARENT)
+            .label_font_size(10)
+            .label_color(color::WHITE)
+            .border(0.0)
+            .w_h(16.0, 16.0)
+            .bottom_right_with_margin(8.0)
+            .parent(args.id)
+            .set(args.state.ids.move_down, args.ui)
         {
             event = Some(Event::MoveDown);
         }
@@ -208,7 +198,7 @@ impl<'a> Widget for LayerRow<'a> {
         widget::Text::new(self.layer.icon.0)
             .color(color::WHITE)
             .font_size(14)
-            .font_id(self.style.icon_font.unwrap().unwrap())
+            .font_id(args.style.icon_font(&args.ui.theme))
             .mid_right_with_margin(32.0)
             .parent(args.id)
             .set(args.state.ids.layer_type, args.ui);
@@ -224,7 +214,7 @@ impl<'a> Widget for LayerRow<'a> {
                 } else {
                     util::IconName::RIGHT
                 },
-                self.style.icon_font.unwrap().unwrap(),
+                args.style.icon_font(&args.ui.theme),
             )
             .color(color::TRANSPARENT)
             .label_font_size(14)
