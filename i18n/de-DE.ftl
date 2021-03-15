@@ -121,3 +121,5 @@ metric = Distanzmetrik
 threshold = Schwellenwert
 extent = Ausdehnung
 border-mode = Randmodus
+
+smooth-edge = Kantenglättung

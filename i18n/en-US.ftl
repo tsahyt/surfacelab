@@ -121,3 +121,5 @@ metric = Distance Metric
 threshold = Threshold
 extent = Extent
 border-mode = Border Mode
+
+smooth-edge = Edge Smoothing

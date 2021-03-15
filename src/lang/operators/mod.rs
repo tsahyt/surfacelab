@@ -26,6 +26,7 @@ pub mod range;
 pub mod rgb;
 pub mod split_merge;
 pub mod swizzle;
+pub mod threshold;
 pub mod transform;
 
 pub use blend::*;
@@ -41,6 +42,7 @@ pub use range::*;
 pub use rgb::*;
 pub use split_merge::*;
 pub use swizzle::*;
+pub use threshold::*;
 pub use transform::*;
 
 /// Image operator to include external images into a node graph

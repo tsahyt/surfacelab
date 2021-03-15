@@ -1,0 +1,36 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    uint smooth_edge;
+    float threshold;
+};
+
+layout(set = 0, binding = 1) uniform texture2D t_Color1;
+layout(set = 0, binding = 2) uniform sampler Sampler;
+layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_Out);
+
+    float new = 0.;
+
+    if(smooth_edge != 0) {
+        for(int x = -1; x <= 1; ++x) {
+            for(int y = -1; y <= 1; ++y) {
+                vec2 uv = vec2(float(idx.x + x) / float(resolution.x), float(idx.y + y) / float(resolution.y));
+                float value = texture(sampler2D(t_Color1, Sampler), uv).r;
+                new += step(threshold, value);
+            }
+        }
+        new /= 9.;
+    } else {
+        vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+        float value = texture(sampler2D(t_Color1, Sampler), uv).r;
+        new = step(threshold, value);
+    }
+
+    imageStore(t_Out, idx, vec4(vec3(new), 1.));
+}
