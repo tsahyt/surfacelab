@@ -23,8 +23,10 @@ pub mod ui;
 
 pub const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     aspects: hal::format::Aspects::COLOR,
-    levels: 0..1,
-    layers: 0..1,
+    level_start: 0,
+    level_count: Some(1),
+    layer_start: 0,
+    layer_count: Some(1),
 };
 
 // TODO: more finegrained concurrency model for GPU
@@ -177,7 +179,7 @@ pub fn load_shader<B: Backend>(
     spirv: &'static [u8],
 ) -> Result<B::ShaderModule, ShaderError> {
     let loaded_spirv =
-        hal::pso::read_spirv(std::io::Cursor::new(spirv)).map_err(|_| ShaderError::SPIRVError)?;
+        gfx_auxil::read_spirv(std::io::Cursor::new(spirv)).map_err(|_| ShaderError::SPIRVError)?;
     unsafe { device.create_shader_module(&loaded_spirv) }.map_err(ShaderError::from)
 }
 

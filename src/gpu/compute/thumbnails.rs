@@ -7,8 +7,10 @@ use std::sync::{Arc, Mutex};
 
 const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     aspects: hal::format::Aspects::COLOR,
-    levels: 0..1,
-    layers: 0..1,
+    level_start: 0,
+    level_count: Some(1),
+    layer_start: 0,
+    layer_count: Some(1),
 };
 
 /// An index into the thumbnail cache

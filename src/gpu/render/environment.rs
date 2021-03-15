@@ -40,16 +40,20 @@ pub struct EnvironmentMaps<B: Backend> {
 
 const CUBE_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     aspects: hal::format::Aspects::COLOR,
-    levels: 0..1,
-    layers: 0..6,
+    layer_count: Some(6),
+    level_start: 0,
+    level_count: Some(1),
+    layer_start: 0,
 };
 
 const MIP_LEVELS: u8 = 6;
 
 const CUBE_MIP_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     aspects: hal::format::Aspects::COLOR,
-    levels: 0..MIP_LEVELS,
-    layers: 0..6,
+    layer_count: Some(6),
+    level_count: Some(MIP_LEVELS),
+    level_start: 0,
+    layer_start: 0,
 };
 
 #[derive(Debug, Error)]
@@ -516,8 +520,10 @@ where
                     hal::format::Swizzle::NO,
                     hal::image::SubresourceRange {
                         aspects: hal::format::Aspects::COLOR,
-                        levels: level..level + 1,
-                        layers: 0..6,
+                        level_start: level,
+                        level_count: Some(1),
+                        layer_count: Some(6),
+                        ..Default::default()
                     },
                 )
             }?;

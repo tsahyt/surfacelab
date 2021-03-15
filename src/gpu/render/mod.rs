@@ -191,8 +191,10 @@ pub const MIP_LEVELS: u8 = 8;
 
 pub const IMG_SLOT_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     aspects: hal::format::Aspects::COLOR,
-    levels: 0..MIP_LEVELS,
-    layers: 0..1,
+    level_count: Some(MIP_LEVELS),
+    level_start: 0,
+    layer_start: 0,
+    layer_count: Some(1),
 };
 
 impl<B> ImageSlot<B>
@@ -645,31 +647,34 @@ where
             let fs_module = load_shader::<B>(device, fragment_shader)?;
 
             let pipeline = {
-                let shader_entries = hal::pso::GraphicsShaderSet {
-                    vertex: hal::pso::EntryPoint {
-                        entry: "main",
-                        module: &vs_module,
-                        specialization: hal::pso::Specialization::default(),
-                    },
-                    hull: None,
-                    domain: None,
-                    geometry: None,
-                    fragment: Some(hal::pso::EntryPoint {
-                        entry: "main",
-                        module: &fs_module,
-                        specialization: object_specialization,
-                    }),
-                };
-
                 let subpass = hal::pass::Subpass {
                     index: 0,
                     main_pass: &render_pass,
                 };
 
                 let mut pipeline_desc = hal::pso::GraphicsPipelineDesc::new(
-                    shader_entries,
-                    hal::pso::Primitive::TriangleList,
+                    hal::pso::PrimitiveAssemblerDesc::Vertex {
+                        buffers: &[],
+                        attributes: &[],
+                        input_assembler: hal::pso::InputAssemblerDesc {
+                            primitive: hal::pso::Primitive::TriangleList,
+                            with_adjacency: false,
+                            restart_index: None,
+                        },
+                        vertex: hal::pso::EntryPoint {
+                            entry: "main",
+                            module: &vs_module,
+                            specialization: hal::pso::Specialization::default(),
+                        },
+                        tessellation: None,
+                        geometry: None,
+                    },
                     hal::pso::Rasterizer::FILL,
+                    Some(hal::pso::EntryPoint {
+                        entry: "main",
+                        module: &fs_module,
+                        specialization: object_specialization,
+                    }),
                     &pipeline_layout,
                     subpass,
                 );
@@ -1226,8 +1231,8 @@ where
                         families: None,
                         range: hal::image::SubresourceRange {
                             aspects: hal::format::Aspects::COLOR,
-                            levels: 0..image_slot.mip_levels,
-                            layers: 0..1,
+                            level_count: Some(image_slot.mip_levels),
+                            ..Default::default()
                         },
                     },
                 ],

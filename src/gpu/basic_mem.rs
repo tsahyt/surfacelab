@@ -41,8 +41,7 @@ impl<'a> BasicImageBuilder<'a> {
             view_caps: hal::image::ViewCapabilities::empty(),
             range: hal::image::SubresourceRange {
                 aspects: hal::format::Aspects::COLOR,
-                levels: 0..1,
-                layers: 0..1,
+                ..Default::default()
             },
         }
     }
@@ -60,7 +59,7 @@ impl<'a> BasicImageBuilder<'a> {
     pub fn size_cube(&mut self, side: u32) -> &mut Self {
         self.kind = hal::image::Kind::D2(side, side, 6, 1);
         self.view_caps |= hal::image::ViewCapabilities::KIND_CUBE;
-        self.range.layers = 0..6;
+        self.range.layer_count = Some(6);
         self
     }
 
@@ -81,7 +80,7 @@ impl<'a> BasicImageBuilder<'a> {
 
     pub fn mip_levels(&mut self, mip_levels: u8) -> &mut Self {
         self.mip_levels = mip_levels;
-        self.range.levels = 0..mip_levels;
+        self.range.level_count = Some(mip_levels);
         self
     }
 
