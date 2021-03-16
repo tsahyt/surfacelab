@@ -86,6 +86,8 @@ impl<'a> Widget for ParameterSection<'a> {
             .w_of(id)
             .mid_top()
             .icon_font(style.icon_font(&ui.theme))
+            .text_size(10)
+            .text_color(color::WHITE)
             .set(state.ids.param_box, ui)
         {
             let resp = match ev {

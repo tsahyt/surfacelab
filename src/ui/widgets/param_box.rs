@@ -233,6 +233,8 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
     builder_methods! {
         pub image_resources { image_resources = &'a [(Resource<Img>, ColorSpace, bool)] }
         pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub text_size { style.text_size = Some(FontSize) }
+        pub text_color { style.text_color = Some(Color) }
     }
 }
 
@@ -240,6 +242,10 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
 pub struct Style {
     #[conrod(default = "theme.font_id.unwrap()")]
     icon_font: Option<text::font::Id>,
+    #[conrod(default = "theme.font_size_small")]
+    text_size: Option<FontSize>,
+    #[conrod(default = "theme.label_color")]
+    text_color: Option<Color>,
 }
 
 #[derive(Clone, Debug)]
@@ -316,7 +322,7 @@ where
         for (j, category) in self.description.categories.iter_mut().enumerate() {
             widget::Text::new(&self.language.get_message(category.name))
                 .parent(id)
-                .color(color::WHITE)
+                .color(style.text_color(&ui.theme))
                 .font_size(12)
                 .mid_top_with_margin(top_margin)
                 .set(state.categories[j], ui);
@@ -343,8 +349,8 @@ where
                     )
                     .parent(id)
                     .border(0.)
-                    .color(color::DARK_CHARCOAL)
-                    .label_color(color::WHITE)
+                    .color(color::TRANSPARENT)
+                    .label_color(style.text_color(&ui.theme))
                     .top_right_with_margins(top_margin, 16.0)
                     .label_font_size(12)
                     .wh([20.0, 16.0])
@@ -362,8 +368,8 @@ where
 
                 widget::Text::new(&self.language.get_message(&parameter.name))
                     .parent(id)
-                    .color(color::WHITE)
-                    .font_size(10)
+                    .color(style.text_color(&ui.theme))
+                    .font_size(style.text_size(&ui.theme))
                     .top_left_with_margins(top_margin, 16.0)
                     .set(label_id, ui);
 
@@ -375,7 +381,7 @@ where
                             .unwrap()[control_idx.sliders + control_idx.discrete_sliders];
                         if let Some(new) = widget::Slider::new(*value, *min, *max)
                             .label(&format!("{:.2}", *value))
-                            .label_font_size(10)
+                            .label_font_size(style.text_size(&ui.theme))
                             .padded_w_of(id, 16.0)
                             .h(16.0)
                             .set(control_id, ui)
@@ -399,7 +405,7 @@ where
                         if let Some(new) =
                             widget::Slider::new(*value as f32, *min as f32, *max as f32)
                                 .label(&format!("{}", *value))
-                                .label_font_size(10)
+                                .label_font_size(style.text_size(&ui.theme))
                                 .padded_w_of(id, 16.0)
                                 .h(16.0)
                                 .set(control_id, ui)
@@ -424,9 +430,9 @@ where
                         if let Some((new_x, new_y)) =
                             widget::XYPad::new(value[0], min[0], max[0], value[1], min[1], max[1])
                                 .color(color::DARK_CHARCOAL)
-                                .label_color(color::WHITE)
-                                .label_font_size(10)
-                                .value_font_size(10)
+                                .label_color(style.text_color(&ui.theme))
+                                .label_font_size(style.text_size(&ui.theme))
+                                .value_font_size(style.text_size(&ui.theme))
                                 .line_thickness(1.0)
                                 .padded_w_of(id, 16.0)
                                 .h(256.0)
@@ -471,7 +477,7 @@ where
                             .unwrap()[control_idx.enums];
                         if let Some(new_selection) =
                             widget::DropDownList::new(variants, Some(*selected))
-                                .label_font_size(10)
+                                .label_font_size(style.text_size(&ui.theme))
                                 .padded_w_of(id, 16.0)
                                 .h(16.0)
                                 .set(control_id, ui)
@@ -496,7 +502,7 @@ where
                         };
                         for _click in widget::Button::new()
                             .label(btn_text)
-                            .label_font_size(10)
+                            .label_font_size(style.text_size(&ui.theme))
                             .padded_w_of(id, 16.0)
                             .h(16.0)
                             .set(control_id, ui)
@@ -532,6 +538,8 @@ where
                             self.language,
                         )
                         .icon_font(style.icon_font(&ui.theme))
+                        .text_size(style.text_size(&ui.theme))
+                        .text_color(style.text_color(&ui.theme))
                         .padded_w_of(id, 16.0)
                         .h(40.0)
                         .set(control_id, ui)
@@ -638,7 +646,7 @@ where
                             .get(&TypeId::of::<widget::TextBox>())
                             .unwrap()[control_idx.entries];
                         for event in widget::TextBox::new(value)
-                            .font_size(10)
+                            .font_size(style.text_size(&ui.theme))
                             .padded_w_of(id, 16.0)
                             .h(16.0)
                             .set(control_id, ui)
@@ -686,7 +694,7 @@ where
 
                         if let Some(new_selection) =
                             widget::DropDownList::new(sockets, Some(*selected))
-                                .label_font_size(10)
+                                .label_font_size(style.text_size(&ui.theme))
                                 .right(8.0)
                                 .padded_w_of(id, 32.0)
                                 .h(16.0)

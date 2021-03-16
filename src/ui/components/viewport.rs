@@ -260,6 +260,8 @@ where
                     .w_of(id)
                     .mid_top()
                     .icon_font(style.icon_font(&ui.theme))
+                    .text_size(10)
+                    .text_color(color::WHITE)
                     .set(state.ids.parameters, ui)
                     {
                         if let param_box::Event::ChangeParameter(lang) = ev {

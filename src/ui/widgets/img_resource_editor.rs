@@ -32,6 +32,8 @@ impl<'a> ImageResourceEditor<'a> {
 
     builder_methods! {
         pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub text_size { style.text_size = Some(FontSize) }
+        pub text_color { style.text_color = Some(Color) }
     }
 }
 
@@ -39,6 +41,10 @@ impl<'a> ImageResourceEditor<'a> {
 pub struct Style {
     #[conrod(default = "theme.font_id.unwrap()")]
     icon_font: Option<text::font::Id>,
+    #[conrod(default = "theme.font_size_small")]
+    text_size: Option<FontSize>,
+    #[conrod(default = "theme.label_color")]
+    text_color: Option<Color>,
 }
 
 widget_ids! {
@@ -98,7 +104,7 @@ impl<'a> Widget for ImageResourceEditor<'a> {
             .position(|z| Some(&z.0) == self.resource.as_ref());
 
         if let Some(new_selection) = widget::DropDownList::new(&resources, idx)
-            .label_font_size(10)
+            .label_font_size(style.text_size(&ui.theme))
             .h(16.0)
             .parent(id)
             .top_left_of(id)
@@ -111,10 +117,10 @@ impl<'a> Widget for ImageResourceEditor<'a> {
         for _press in icon_button(IconName::FOLDER_OPEN, style.icon_font(&ui.theme))
             .parent(id)
             .top_right_of(id)
-            .label_font_size(12)
+            .label_font_size(style.text_size(&ui.theme) + 2)
             .border(0.)
-            .color(color::DARK_CHARCOAL)
-            .label_color(color::WHITE)
+            .color(color::TRANSPARENT)
+            .label_color(style.text_color(&ui.theme))
             .wh([20., 16.])
             .set(state.ids.add_button, ui)
         {
@@ -142,10 +148,10 @@ impl<'a> Widget for ImageResourceEditor<'a> {
         .enabled(!is_packed)
         .parent(id)
         .left_from(state.ids.add_button, 4.)
-        .label_font_size(12)
+        .label_font_size(style.text_size(&ui.theme) + 2)
         .border(0.)
-        .color(color::DARK_CHARCOAL)
-        .label_color(color::WHITE)
+        .color(color::TRANSPARENT)
+        .label_color(style.text_color(&ui.theme))
         .wh([20., 16.])
         .set(state.ids.pack_button, ui)
         {
@@ -159,7 +165,7 @@ impl<'a> Widget for ImageResourceEditor<'a> {
         };
 
         if let Some(new_selection) = widget::DropDownList::new(&["sRGB", "Linear"], cs_idx)
-            .label_font_size(10)
+            .label_font_size(style.text_size(&ui.theme))
             .parent(id)
             .mid_bottom_of(id)
             .h(16.0)

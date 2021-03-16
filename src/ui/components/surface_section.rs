@@ -97,6 +97,8 @@ impl<'a> Widget for SurfaceSection<'a> {
                 .parent(id)
                 .w_of(id)
                 .mid_top()
+                .text_color(color::WHITE)
+                .text_size(10)
                 .set(state.ids.param_box, ui)
             {
                 if let param_box::Event::ChangeParameter(event) = ev {
