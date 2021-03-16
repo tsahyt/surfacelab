@@ -32,6 +32,9 @@ impl<'a> ResourceRow<'a> {
         pub icon_font { style.icon_font = Some(text::font::Id) }
         pub level_indent { style.level_indent = Some(Scalar) }
         pub selected_color { style.selected_color = Some(Color) }
+        pub icon_size { style.icon_size = Some(FontSize) }
+        pub text_size { style.text_size = Some(FontSize) }
+        pub color { style.color = Some(Color) }
     }
 }
 
@@ -39,10 +42,16 @@ impl<'a> ResourceRow<'a> {
 pub struct Style {
     #[conrod(default = "theme.font_id.unwrap()")]
     icon_font: Option<text::font::Id>,
+    #[conrod(default = "theme.font_size_medium")]
+    icon_size: Option<FontSize>,
+    #[conrod(default = "theme.font_size_small")]
+    text_size: Option<FontSize>,
     #[conrod(default = "16.0")]
     level_indent: Option<Scalar>,
     #[conrod(default = "color::YELLOW")]
     selected_color: Option<Color>,
+    #[conrod(default = "theme.label_color")]
+    color: Option<Color>,
 }
 
 widget_ids! {
@@ -119,8 +128,8 @@ impl<'a> Widget for ResourceRow<'a> {
                 style.icon_font(&ui.theme),
             )
             .color(color::TRANSPARENT)
-            .label_font_size(14)
-            .label_color(color::WHITE)
+            .label_color(style.color(&ui.theme))
+            .label_font_size(style.icon_size(&ui.theme))
             .border(0.0)
             .w_h(32.0, 32.0)
             .mid_left_with_margin(indent)
@@ -135,8 +144,8 @@ impl<'a> Widget for ResourceRow<'a> {
 
         widget::Text::new(icon.0)
             .parent(args.id)
-            .color(color::WHITE)
-            .font_size(14)
+            .color(style.color(&ui.theme))
+            .font_size(style.icon_size(&ui.theme))
             .font_id(style.icon_font(&ui.theme))
             .mid_left_with_margin(indent)
             .set(state.ids.icon, ui);
@@ -148,17 +157,15 @@ impl<'a> Widget for ResourceRow<'a> {
         indent += 32.0;
 
         let name_color = if self.active {
-            self.style
-                .selected_color
-                .unwrap_or(color::Color::Rgba(0.9, 0.4, 0.15, 1.0))
+            style.selected_color(&ui.theme)
         } else {
-            color::WHITE
+            style.color(&ui.theme)
         };
 
         widget::Text::new(self.res_item.resource_string())
             .parent(args.id)
             .color(name_color)
-            .font_size(10)
+            .font_size(style.text_size(&ui.theme))
             .mid_left_with_margin(indent)
             .set(state.ids.resource_name, ui);
 
@@ -170,8 +177,10 @@ impl<'a> Widget for ResourceRow<'a> {
             if let Some(ContextAction::Delete) =
                 toolbar::Toolbar::flow_left(&[(IconName::TRASH, ContextAction::Delete)])
                     .icon_font(style.icon_font(&ui.theme))
+                    .icon_color(style.color(&ui.theme))
+                    .button_color(color::TRANSPARENT)
                     .button_size(16.0)
-                    .icon_size(10)
+                    .icon_size(style.text_size(&ui.theme))
                     .parent(args.id)
                     .mid_right_of(args.id)
                     .h(16.0)

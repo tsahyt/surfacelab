@@ -110,6 +110,8 @@ impl<'a> Widget for ResourceBrowser<'a> {
             (IconName::IMAGE, CollectionTool::NewImage),
         ])
         .icon_font(style.icon_font(&ui.theme))
+        .icon_color(color::WHITE)
+        .button_color(color::DARK_CHARCOAL)
         .parent(args.id)
         .h(32.0)
         .top_left_with_margins(8.0, 0.0)
@@ -163,6 +165,10 @@ impl<'a> Widget for ResourceBrowser<'a> {
                 .expandable(expandable)
                 .active(active)
                 .icon_font(style.icon_font(&ui.theme))
+                .icon_size(14)
+                .text_size(10)
+                .selected_color(color::Color::Rgba(0.9, 0.4, 0.15, 1.0))
+                .color(color::WHITE)
                 .h(32.0);
 
             match row.item.set(widget, ui) {

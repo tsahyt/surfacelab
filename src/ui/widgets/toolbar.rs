@@ -68,6 +68,8 @@ impl<'a, T, D> Toolbar<'a, T, D> {
         pub icon_font { style.icon_font = Some(text::font::Id) }
         pub button_size { style.button_size = Some(Scalar) }
         pub icon_size { style.icon_size = Some(FontSize) }
+        pub icon_color { style.icon_color = Some(Color) }
+        pub button_color { style.button_color = Some(Color) }
     }
 }
 
@@ -79,6 +81,10 @@ pub struct Style {
     button_size: Option<Scalar>,
     #[conrod(default = "14")]
     icon_size: Option<FontSize>,
+    #[conrod(default = "theme.label_color")]
+    icon_color: Option<Color>,
+    #[conrod(default = "theme.shape_color")]
+    button_color: Option<Color>,
 }
 
 widget_ids! {
@@ -133,8 +139,8 @@ where
 
                 let btn = icon_button(*tool, style.icon_font(&ui.theme))
                     .label_font_size(icon_size)
-                    .label_color(color::WHITE)
-                    .color(color::DARK_CHARCOAL)
+                    .label_color(style.icon_color(&ui.theme))
+                    .color(style.button_color(&ui.theme))
                     .border(0.0)
                     .wh([size, size])
                     .parent(id);
@@ -143,7 +149,7 @@ where
                     res = Some(answer)
                 }
 
-                offset += 40.0;
+                offset += 8.0 + size;
             }
         });
 

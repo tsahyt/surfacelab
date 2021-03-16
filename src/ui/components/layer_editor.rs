@@ -119,6 +119,8 @@ impl<'a> Widget for LayerEditor<'a> {
             (IconName::FX, MainTool::NewFx),
         ])
         .icon_font(style.icon_font(&ui.theme))
+        .icon_color(color::WHITE)
+        .button_color(color::DARK_CHARCOAL)
         .parent(id)
         .w(64.0 + 8.0)
         .h(32.0)
@@ -158,6 +160,8 @@ impl<'a> Widget for LayerEditor<'a> {
 
             match toolbar::Toolbar::flow_left(&context_tools)
                 .icon_font(style.icon_font(&ui.theme))
+                .icon_color(color::WHITE)
+                .button_color(color::DARK_CHARCOAL)
                 .parent(id)
                 .w(64.0 + 8.0)
                 .h(32.0)

@@ -78,6 +78,8 @@ impl<'a> Widget for TopBar<'a> {
             (IconName::EXPORT, SurfaceTool::ExportSurface),
         ])
         .icon_font(args.style.icon_font(&args.ui.theme))
+        .icon_color(color::WHITE)
+        .button_color(color::DARK_CHARCOAL)
         .parent(args.id)
         .h(32.0)
         .middle()
