@@ -29,7 +29,7 @@ impl Socketed for DirectionalWarp {
     fn inputs(&self) -> HashMap<String, OperatorType> {
         hashmap! {
             "in".to_string() => OperatorType::Polymorphic(0),
-            "dir".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+            "intensity".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
         }
     }
 
@@ -63,7 +63,7 @@ impl Shader for DirectionalWarp {
                 },
                 OperatorDescriptor {
                     binding: 2,
-                    descriptor: OperatorDescriptorUse::InputImage("dir"),
+                    descriptor: OperatorDescriptorUse::InputImage("intensity"),
                 },
                 OperatorDescriptor {
                     binding: 3,
