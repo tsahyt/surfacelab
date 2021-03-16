@@ -122,7 +122,7 @@ vec3 hcl2rgb(vec3 hcl)
         float h = hcl.x;
         float c = hcl.y;
         float l = hcl.z * HCL_MAX_L;
-        float q = exp((1.0 - c / (2.0 * l)) * (HCL_GAMMA / HCL_Y0));
+        float q = exp((1.0 - clamp(c / (2.0 * l), 0., 1.)) * (HCL_GAMMA / HCL_Y0));
         float u = (2.0 * l - c) / (2.0 * q - 1.0);
         float v = c / q;
         float a = (h + min(fract(2.0 * h) / 4.0, fract(- 2.0 * h) / 8.0)) * PI * 2.0;
