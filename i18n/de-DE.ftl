@@ -123,3 +123,6 @@ extent = Ausdehnung
 border-mode = Randmodus
 
 smooth-edge = Kantenglättung
+
+intensity = Intensität
+angle = Winkel

@@ -123,3 +123,6 @@ extent = Extent
 border-mode = Border Mode
 
 smooth-edge = Edge Smoothing
+
+intensity = Intensity
+angle = Angle
