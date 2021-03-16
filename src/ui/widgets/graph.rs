@@ -390,7 +390,11 @@ impl<'a> Widget for Graph<'a> {
                 &node.outputs,
                 &node.title,
             )
+            .title_color(color::LIGHT_CHARCOAL)
+            .title_size(14)
             .selected(selection_state)
+            .active_color(Color::Rgba(0.9, 0.4, 0.15, 1.0))
+            .selection_color(Color::Rgba(0.9, 0.8, 0.15, 1.0))
             .parent(id)
             .xy_relative_to(id, state.camera.transform(node.position))
             .thumbnail(node.thumbnail)

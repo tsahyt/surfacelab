@@ -25,7 +25,18 @@ pub struct Node<'a> {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
-pub struct Style {}
+pub struct Style {
+    #[conrod(default = "theme.label_color")]
+    title_color: Option<Color>,
+    #[conrod(default = "theme.font_size_medium")]
+    title_size: Option<FontSize>,
+    #[conrod(default = "theme.border_color")]
+    border_color: Option<Color>,
+    #[conrod(default = "color::ORANGE")]
+    active_color: Option<Color>,
+    #[conrod(default = "color::YELLOW")]
+    selection_color: Option<Color>,
+}
 
 #[derive(Clone, Debug)]
 pub enum Event {
@@ -62,9 +73,13 @@ impl<'a> Node<'a> {
         self
     }
 
-    pub fn selected(mut self, selected: SelectionState) -> Self {
-        self.selected = selected;
-        self
+    builder_methods! {
+        pub selected { selected = SelectionState }
+        pub title_color { style.title_color = Some(Color) }
+        pub title_size { style.title_size = Some(FontSize) }
+        pub border_color { style.border_color = Some(Color) }
+        pub active_color { style.active_color = Some(Color) }
+        pub selection_color { style.selection_color = Some(Color) }
     }
 }
 
@@ -189,45 +204,52 @@ impl<'a> Widget for Node<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let state = args.state;
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            rect,
+            ..
+        } = args;
 
         if hash_sockets(self.inputs, self.outputs) != state.sockets_hash {
-            let mut id_gen = args.ui.widget_id_generator();
+            let mut id_gen = ui.widget_id_generator();
             state.update(|state| {
                 state.renew_sockets(&mut id_gen, self.inputs, self.outputs);
             })
         }
         let mut evs = SmallVec::new();
 
-        widget::BorderedRectangle::new(args.rect.dim())
-            .parent(args.id)
+        widget::BorderedRectangle::new(rect.dim())
+            .parent(id)
             .border(3.0)
             .border_color(match self.selected {
-                SelectionState::Active => color::Color::Rgba(0.9, 0.4, 0.15, 1.0),
-                SelectionState::Selected => color::Color::Rgba(0.9, 0.8, 0.15, 1.0),
-                _ => color::BLACK,
+                SelectionState::Active => style.active_color(&ui.theme),
+                SelectionState::Selected => style.selection_color(&ui.theme),
+                _ => style.border_color(&ui.theme),
             })
             .color(color::CHARCOAL)
             .middle()
-            .graphics_for(args.id)
-            .set(state.ids.rectangle, args.ui);
+            .graphics_for(id)
+            .set(state.ids.rectangle, ui);
 
         widget::Text::new(self.title)
-            .parent(args.id)
-            .color(color::LIGHT_CHARCOAL)
-            .graphics_for(args.id)
-            .font_size(14)
+            .parent(id)
+            .color(style.title_color(&ui.theme))
+            .graphics_for(id)
+            .font_size(style.title_size(&ui.theme))
             .mid_top()
             .up(2.0)
-            .set(state.ids.title, args.ui);
+            .set(state.ids.title, ui);
 
         if let Some(thumbnail) = self.thumbnail {
             widget::Image::new(thumbnail)
                 .parent(state.ids.rectangle)
                 .middle()
                 .padded_wh_of(state.ids.rectangle, 8.0)
-                .graphics_for(args.id)
-                .set(state.ids.thumbnail, args.ui);
+                .graphics_for(id)
+                .set(state.ids.thumbnail, ui);
         }
 
         let mut margin = 16.0;
@@ -239,13 +261,12 @@ impl<'a> Widget for Node<'a> {
                 .color(operator_type_color(ty, self.type_variables))
                 .parent(state.ids.rectangle)
                 .top_left_with_margins(margin, 0.0)
-                .set(w_id, args.ui);
+                .set(w_id, ui);
 
-            let middle = args.ui.xy_of(w_id).unwrap();
+            let middle = ui.xy_of(w_id).unwrap();
 
             evs.extend(
-                args.ui
-                    .widget_input(w_id)
+                ui.widget_input(w_id)
                     .drags()
                     .button(input::MouseButton::Left)
                     .map(|x| {
@@ -260,15 +281,13 @@ impl<'a> Widget for Node<'a> {
             );
 
             evs.extend(
-                args.ui
-                    .widget_input(w_id)
+                ui.widget_input(w_id)
                     .releases()
                     .map(|_| Event::SocketRelease(self.node_id)),
             );
 
             evs.extend(
-                args.ui
-                    .widget_input(w_id)
+                ui.widget_input(w_id)
                     .presses()
                     .mouse()
                     .button(input::MouseButton::Right)
@@ -287,13 +306,12 @@ impl<'a> Widget for Node<'a> {
                 .color(operator_type_color(ty, self.type_variables))
                 .parent(state.ids.rectangle)
                 .top_right_with_margins(margin, 0.0)
-                .set(w_id, args.ui);
+                .set(w_id, ui);
 
-            let middle = args.ui.xy_of(w_id).unwrap();
+            let middle = ui.xy_of(w_id).unwrap();
 
             evs.extend(
-                args.ui
-                    .widget_input(w_id)
+                ui.widget_input(w_id)
                     .drags()
                     .button(input::MouseButton::Left)
                     .map(|x| {
@@ -308,8 +326,7 @@ impl<'a> Widget for Node<'a> {
             );
 
             evs.extend(
-                args.ui
-                    .widget_input(w_id)
+                ui.widget_input(w_id)
                     .releases()
                     .map(|_| Event::SocketRelease(self.node_id)),
             );
@@ -319,16 +336,14 @@ impl<'a> Widget for Node<'a> {
 
         // Node Dragging
         evs.extend(
-            args.ui
-                .widget_input(args.id)
+            ui.widget_input(id)
                 .drags()
                 .button(input::MouseButton::Left)
                 .map(|x| Event::NodeDrag(x.delta_xy)),
         );
 
         evs.extend(
-            args.ui
-                .widget_input(args.id)
+            ui.widget_input(id)
                 .presses()
                 .key()
                 .filter(|press| press.key == input::Key::X)
