@@ -521,6 +521,8 @@ impl<'a> Widget for Graph<'a> {
             .thickness(style.edge_thickness(&ui.theme))
             .color(style.edge_color(&ui.theme))
             .parent(id)
+            .middle()
+            .graphics_for(id)
             .depth(1.0)
             .set(*w_id, ui);
         }
@@ -556,7 +558,9 @@ impl<'a> Widget for Graph<'a> {
             )
             .thickness(style.edge_thickness(&ui.theme))
             .color(style.edge_drag_color(&ui.theme))
-            .pattern(widget::point_path::Pattern::Dashed)
+            .graphics_for(id)
+            .pattern(widget::point_path::Pattern::Dotted)
+            .middle()
             .parent(id)
             .depth(1.0)
             .set(state.ids.floating_noodle, ui);
