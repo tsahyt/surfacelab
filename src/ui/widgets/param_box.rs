@@ -349,7 +349,7 @@ where
                     )
                     .parent(id)
                     .border(0.)
-                    .color(color::TRANSPARENT)
+                    .color(color::DARK_CHARCOAL)
                     .label_color(style.text_color(&ui.theme))
                     .top_right_with_margins(top_margin, 16.0)
                     .label_font_size(12)
