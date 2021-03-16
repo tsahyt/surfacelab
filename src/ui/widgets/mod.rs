@@ -1,3 +1,4 @@
+pub mod bezier;
 pub mod color_picker;
 pub mod color_ramp;
 pub mod export_row;

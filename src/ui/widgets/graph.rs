@@ -511,13 +511,18 @@ impl<'a> Widget for Graph<'a> {
                     .expect("Missing sink socket for drawing")
                     .xy();
 
-            widget::Line::abs(from_pos, to_pos)
-                .color(style.edge_color(&ui.theme))
-                .thickness(style.edge_thickness(&ui.theme))
-                .parent(id)
-                .depth(1.0)
-                .middle()
-                .set(*w_id, ui);
+            let dist = (from_pos[0] - to_pos[0]).abs();
+            super::bezier::Bezier::new(
+                from_pos,
+                [from_pos[0] + dist / 2., from_pos[1]],
+                to_pos,
+                [to_pos[0] - dist / 2., to_pos[1]],
+            )
+            .thickness(style.edge_thickness(&ui.theme))
+            .color(style.edge_color(&ui.theme))
+            .parent(id)
+            .depth(1.0)
+            .set(*w_id, ui);
         }
 
         // Draw selection rectangle if actively selecting
@@ -542,13 +547,19 @@ impl<'a> Widget for Graph<'a> {
 
         // Draw floating noodle if currently drawing a connection
         if let Some(ConnectionDraw { from, to, .. }) = &state.connection_draw {
-            widget::Line::abs(*from, *to)
-                .color(style.edge_drag_color(&ui.theme))
-                .thickness(style.edge_thickness(&ui.theme))
-                .parent(id)
-                .depth(1.0)
-                .middle()
-                .set(state.ids.floating_noodle, ui);
+            let dist = (from[0] - to[0]).abs();
+            super::bezier::Bezier::new(
+                *from,
+                [from[0] + dist / 2., from[1]],
+                *to,
+                [to[0] - dist / 2., to[1]],
+            )
+            .thickness(style.edge_thickness(&ui.theme))
+            .color(style.edge_drag_color(&ui.theme))
+            .pattern(widget::point_path::Pattern::Dashed)
+            .parent(id)
+            .depth(1.0)
+            .set(state.ids.floating_noodle, ui);
         }
 
         // Trigger Add Modal
