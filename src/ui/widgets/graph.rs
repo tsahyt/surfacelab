@@ -151,6 +151,16 @@ pub struct Style {
     edge_drag_color: Option<Color>,
     #[conrod(default = "color::LIGHT_BLUE")]
     select_rect_color: Option<Color>,
+    #[conrod(default = "theme.label_color")]
+    node_title_color: Option<Color>,
+    #[conrod(default = "theme.font_size_medium")]
+    node_title_size: Option<FontSize>,
+    #[conrod(default = "theme.border_color")]
+    node_border_color: Option<Color>,
+    #[conrod(default = "color::ORANGE")]
+    node_active_color: Option<Color>,
+    #[conrod(default = "color::YELLOW")]
+    node_selection_color: Option<Color>,
 }
 
 widget_ids! {
@@ -288,6 +298,11 @@ impl<'a> Graph<'a> {
         pub edge_thickness { style.edge_thickness = Some(Scalar) }
         pub edge_drag_color { style.edge_drag_color = Some(Color) }
         pub select_rect_color { style.select_rect_color = Some(Color) }
+        pub node_title_color { style.node_title_color = Some(Color) }
+        pub node_title_size { style.node_title_size = Some(FontSize) }
+        pub node_border_color { style.node_border_color = Some(Color) }
+        pub node_active_color { style.node_active_color = Some(Color) }
+        pub node_selection_color { style.node_selection_color = Some(Color) }
     }
 }
 
@@ -412,11 +427,11 @@ impl<'a> Widget for Graph<'a> {
                 &node.outputs,
                 &node.title,
             )
-            .title_color(color::LIGHT_CHARCOAL)
-            .title_size(14)
+            .title_color(style.node_title_color(&ui.theme))
+            .title_size(style.node_title_size(&ui.theme))
             .selected(selection_state)
-            .active_color(Color::Rgba(0.9, 0.4, 0.15, 1.0))
-            .selection_color(Color::Rgba(0.9, 0.8, 0.15, 1.0))
+            .active_color(style.node_active_color(&ui.theme))
+            .selection_color(style.node_selection_color(&ui.theme))
             .parent(id)
             .xy_relative_to(id, state.camera.transform(node.position))
             .thumbnail(node.thumbnail)

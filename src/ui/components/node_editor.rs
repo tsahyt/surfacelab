@@ -87,6 +87,10 @@ impl<'a> Widget for NodeEditor<'a> {
             .expect("Node Graph UI built for non-graph");
 
         for event in graph::Graph::new(&collection.graph)
+            .node_title_color(color::LIGHT_CHARCOAL)
+            .node_title_size(14)
+            .node_active_color(Color::Rgba(0.9, 0.4, 0.15, 1.0))
+            .node_selection_color(Color::Rgba(0.9, 0.8, 0.15, 1.0))
             .parent(id)
             .wh_of(id)
             .middle()
