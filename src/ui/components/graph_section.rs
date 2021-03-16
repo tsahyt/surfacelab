@@ -135,7 +135,10 @@ impl<'a> Widget for GraphSection<'a> {
                 &mut exposed_params[row.i].1,
                 &self.language,
             )
-            .icon_font(args.style.icon_font(&args.ui.theme));
+            .icon_font(args.style.icon_font(&args.ui.theme))
+            .icon_size(12)
+            .text_size(10)
+            .ctrl_size(16);
 
             if let Some(ev) = row.set(widget, args.ui) {
                 match ev {

@@ -24,6 +24,9 @@ impl<'a> ExposedParamRow<'a> {
 
     builder_methods! {
         pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub icon_size { style.icon_size = Some(FontSize) }
+        pub text_size { style.text_size = Some(FontSize) }
+        pub ctrl_size { style.ctrl_size = Some(FontSize) }
     }
 }
 
@@ -31,6 +34,12 @@ impl<'a> ExposedParamRow<'a> {
 pub struct Style {
     #[conrod(default = "theme.font_id.unwrap()")]
     icon_font: Option<text::font::Id>,
+    #[conrod(default = "theme.font_size_small")]
+    icon_size: Option<FontSize>,
+    #[conrod(default = "theme.font_size_small")]
+    text_size: Option<FontSize>,
+    #[conrod(default = "theme.font_size_large")]
+    ctrl_size: Option<FontSize>,
 }
 
 widget_ids! {
@@ -65,50 +74,58 @@ impl<'a> Widget for ExposedParamRow<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
+
         let mut ev = None;
 
-        for _press in icon_button(IconName::UNEXPOSE, args.style.icon_font(&args.ui.theme))
-            .parent(args.id)
+        for _press in icon_button(IconName::UNEXPOSE, style.icon_font(&ui.theme))
+            .parent(id)
             .border(0.)
             .color(color::DARK_CHARCOAL)
             .label_color(color::WHITE)
             .top_left()
             .wh([20.0, 16.0])
-            .label_font_size(12)
-            .set(args.state.unexpose_button, args.ui)
+            .label_font_size(style.icon_size(&ui.theme))
+            .set(state.unexpose_button, ui)
         {
             ev = Some(Event::ConcealParameter)
         }
 
         widget::Text::new(&self.param.parameter.to_string())
-            .parent(args.id)
-            .font_size(10)
+            .parent(id)
+            .font_size(style.text_size(&ui.theme))
             .right(8.0)
             .color(color::WHITE)
-            .set(args.state.resource, args.ui);
+            .set(state.resource, ui);
 
         widget::Text::new(control_name(&self.param.control))
-            .parent(args.id)
-            .font_size(14)
+            .parent(id)
+            .font_size(style.ctrl_size(&ui.theme))
             .top_right()
             .color(color::GRAY)
-            .set(args.state.control, args.ui);
+            .set(state.control, ui);
 
         widget::Text::new(&self.language.get_message("exposed-field"))
-            .parent(args.id)
+            .parent(id)
             .top_left_with_margin(32.0)
-            .font_size(10)
+            .font_size(style.text_size(&ui.theme))
             .down(16.0)
             .color(color::WHITE)
-            .set(args.state.field_label, args.ui);
+            .set(state.field_label, ui);
 
         for event in widget::TextBox::new(&self.param.graph_field)
-            .parent(args.id)
-            .font_size(10)
+            .parent(id)
+            .font_size(style.text_size(&ui.theme))
             .down(16.0)
-            .padded_w_of(args.id, 16.0)
+            .padded_w_of(id, 16.0)
             .h(16.0)
-            .set(args.state.field, args.ui)
+            .set(state.field, ui)
         {
             match event {
                 widget::text_box::Event::Update(new) => {
@@ -121,19 +138,19 @@ impl<'a> Widget for ExposedParamRow<'a> {
         }
 
         widget::Text::new(&self.language.get_message("exposed-title"))
-            .parent(args.id)
-            .font_size(10)
+            .parent(id)
+            .font_size(style.text_size(&ui.theme))
             .down(16.0)
             .color(color::WHITE)
-            .set(args.state.title_label, args.ui);
+            .set(state.title_label, ui);
 
         for event in widget::TextBox::new(&self.param.title)
-            .parent(args.id)
-            .font_size(10)
+            .parent(id)
+            .font_size(style.text_size(&ui.theme))
             .down(16.0)
-            .padded_w_of(args.id, 16.0)
+            .padded_w_of(id, 16.0)
             .h(16.0)
-            .set(args.state.title, args.ui)
+            .set(state.title, ui)
         {
             match event {
                 widget::text_box::Event::Update(new) => {
