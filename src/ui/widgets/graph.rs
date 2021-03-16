@@ -142,7 +142,16 @@ pub struct Graph<'a> {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
-pub struct Style {}
+pub struct Style {
+    #[conrod(default = "color::LIGHT_GRAY")]
+    edge_color: Option<Color>,
+    #[conrod(default = "3.0")]
+    edge_thickness: Option<Scalar>,
+    #[conrod(default = "color::DARK_RED")]
+    edge_drag_color: Option<Color>,
+    #[conrod(default = "color::LIGHT_BLUE")]
+    select_rect_color: Option<Color>,
+}
 
 widget_ids! {
     #[derive(Clone)]
@@ -273,6 +282,13 @@ impl<'a> Graph<'a> {
             })
             .next()
     }
+
+    builder_methods! {
+        pub edge_color { style.edge_color = Some(Color) }
+        pub edge_thickness { style.edge_thickness = Some(Scalar) }
+        pub edge_drag_color { style.edge_drag_color = Some(Color) }
+        pub select_rect_color { style.select_rect_color = Some(Color) }
+    }
 }
 
 type Events = VecDeque<Event>;
@@ -306,7 +322,13 @@ impl<'a> Widget for Graph<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { id, state, ui, .. } = args;
+        let widget::UpdateArgs {
+            id,
+            state,
+            ui,
+            style,
+            ..
+        } = args;
         let mut evs = VecDeque::new();
 
         // We collect the new nodes into a SmallVec that will spill after 4
@@ -475,8 +497,8 @@ impl<'a> Widget for Graph<'a> {
                     .xy();
 
             widget::Line::abs(from_pos, to_pos)
-                .color(color::LIGHT_GREY)
-                .thickness(3.0)
+                .color(style.edge_color(&ui.theme))
+                .thickness(style.edge_thickness(&ui.theme))
                 .parent(id)
                 .depth(1.0)
                 .middle()
@@ -498,16 +520,16 @@ impl<'a> Widget for Graph<'a> {
                     ],
                 )
                 .parent(id)
-                .color(color::Color::Rgba(0.9, 0.8, 0.15, 0.2))
-                .border_color(color::Color::Rgba(0.9, 0.8, 0.15, 1.0))
+                .color(style.select_rect_color(&ui.theme).alpha(0.2))
+                .border_color(style.select_rect_color(&ui.theme))
                 .set(state.ids.selection_rect, ui);
         }
 
         // Draw floating noodle if currently drawing a connection
         if let Some(ConnectionDraw { from, to, .. }) = &state.connection_draw {
             widget::Line::abs(*from, *to)
-                .color(color::DARK_RED)
-                .thickness(3.0)
+                .color(style.edge_drag_color(&ui.theme))
+                .thickness(style.edge_thickness(&ui.theme))
                 .parent(id)
                 .depth(1.0)
                 .middle()
