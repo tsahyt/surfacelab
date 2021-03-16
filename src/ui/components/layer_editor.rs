@@ -275,6 +275,9 @@ impl<'a> Widget for LayerEditor<'a> {
             )
             .toggleable(toggleable)
             .expandable(expandable)
+            .color(color::WHITE)
+            .icon_size(10)
+            .icon_size_large(14)
             .icon_font(style.icon_font(&ui.theme));
 
             if let Some(event) = row.item.set(widget, ui) {

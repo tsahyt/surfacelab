@@ -26,9 +26,14 @@ impl<'a> LayerRow<'a> {
     }
 
     builder_methods! {
-        pub icon_font { style.icon_font = Some(text::font::Id) }
         pub toggleable { toggleable = bool }
         pub expandable { expandable = bool }
+        pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub icon_size { style.icon_size = Some(FontSize) }
+        pub icon_size_large { style.icon_size_large = Some(FontSize) }
+        pub title_size { style.title_size = Some(FontSize) }
+        pub color { style.color = Some(Color) }
+        pub selection_color { style.selection_color = Some(Color) }
     }
 }
 
@@ -36,6 +41,16 @@ impl<'a> LayerRow<'a> {
 pub struct Style {
     #[conrod(default = "theme.font_id.unwrap()")]
     icon_font: Option<text::font::Id>,
+    #[conrod(default = "theme.font_size_small")]
+    icon_size: Option<FontSize>,
+    #[conrod(default = "theme.font_size_medium")]
+    icon_size_large: Option<FontSize>,
+    #[conrod(default = "theme.font_size_small")]
+    title_size: Option<FontSize>,
+    #[conrod(default = "theme.label_color")]
+    color: Option<Color>,
+    #[conrod(default = "Color::Rgba(0.9, 0.4, 0.15, 1.0)")]
+    selection_color: Option<Color>,
 }
 
 widget_ids! {
@@ -83,9 +98,17 @@ impl<'a> Widget for LayerRow<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            rect,
+            ..
+        } = args;
         let mut event = None;
 
-        widget::Rectangle::fill([args.rect.w(), args.rect.h()])
+        widget::Rectangle::fill([rect.w(), rect.h()])
             .color(color::rgba(
                 0.,
                 0.,
@@ -93,9 +116,9 @@ impl<'a> Widget for LayerRow<'a> {
                 if self.layer.is_mask { 0.25 } else { 0.0 },
             ))
             .middle()
-            .parent(args.id)
-            .graphics_for(args.id)
-            .set(args.state.ids.background, args.ui);
+            .parent(id)
+            .graphics_for(id)
+            .set(state.ids.background, ui);
 
         if self.toggleable {
             for _press in util::icon_button(
@@ -104,16 +127,16 @@ impl<'a> Widget for LayerRow<'a> {
                 } else {
                     util::IconName::EYEOFF
                 },
-                args.style.icon_font(&args.ui.theme),
+                style.icon_font(&ui.theme),
             )
             .color(color::TRANSPARENT)
-            .label_font_size(10)
-            .label_color(color::WHITE)
+            .label_font_size(style.icon_size(&ui.theme))
+            .label_color(style.color(&ui.theme))
             .border(0.0)
             .w_h(32.0, 32.0)
             .mid_left_with_margin(8.0)
-            .parent(args.id)
-            .set(args.state.ids.visibility_button, args.ui)
+            .parent(id)
+            .set(state.ids.visibility_button, ui)
             {
                 event = Some(Event::ToggleEnabled);
             }
@@ -123,19 +146,19 @@ impl<'a> Widget for LayerRow<'a> {
             widget::Image::new(image_id)
                 .w_h(32.0, 32.0)
                 .top_left_with_margins(8.0, 48.0)
-                .parent(args.id)
-                .graphics_for(args.id)
-                .set(args.state.ids.thumbnail, args.ui);
+                .parent(id)
+                .graphics_for(id)
+                .set(state.ids.thumbnail, ui);
         }
 
-        if args.state.editing_title {
+        if state.editing_title {
             for ev in widget::TextBox::new(&self.layer.title)
-                .font_size(10)
+                .font_size(style.title_size(&ui.theme))
                 .mid_left_with_margin(88.0)
-                .parent(args.id)
+                .parent(id)
                 .h(16.0)
-                .w(args.rect.w() - 128.0)
-                .set(args.state.ids.title_edit, args.ui)
+                .w(rect.w() - 128.0)
+                .set(state.ids.title_edit, ui)
             {
                 match ev {
                     widget::text_box::Event::Update(new) => {
@@ -143,67 +166,66 @@ impl<'a> Widget for LayerRow<'a> {
                         self.layer.title = new
                     }
                     widget::text_box::Event::Enter => {
-                        args.state.update(|state| state.editing_title = false)
+                        state.update(|state| state.editing_title = false)
                     }
                 }
             }
         } else {
             widget::Text::new(&self.layer.title)
                 .color(if self.active {
-                    color::Color::Rgba(0.9, 0.4, 0.15, 1.0)
+                    style.selection_color(&ui.theme)
                 } else {
-                    color::WHITE
+                    style.color(&ui.theme)
                 })
-                .font_size(12)
+                .font_size(style.title_size(&ui.theme))
                 .mid_left_with_margin(88.0)
-                .parent(args.id)
-                .set(args.state.ids.title, args.ui);
+                .parent(id)
+                .set(state.ids.title, ui);
         }
 
-        for _dblclick in args
-            .ui
-            .widget_input(args.state.ids.title)
+        for _dblclick in ui
+            .widget_input(state.ids.title)
             .events()
             .filter(|ev| matches!(ev, event::Widget::DoubleClick(_)))
         {
-            args.state.update(|state| state.editing_title = true)
+            state.update(|state| state.editing_title = true)
         }
 
-        for _click in util::icon_button(util::IconName::UP, args.style.icon_font(&args.ui.theme))
+        for _click in util::icon_button(util::IconName::UP, style.icon_font(&ui.theme))
             .color(color::TRANSPARENT)
-            .label_font_size(10)
-            .label_color(color::WHITE)
+            .label_font_size(style.icon_size(&ui.theme))
+            .label_color(style.color(&ui.theme))
             .border(0.0)
             .w_h(16.0, 16.0)
             .top_right_with_margin(8.0)
-            .parent(args.id)
-            .set(args.state.ids.move_up, args.ui)
+            .parent(id)
+            .set(state.ids.move_up, ui)
         {
             event = Some(Event::MoveUp);
         }
 
-        for _click in util::icon_button(util::IconName::DOWN, args.style.icon_font(&args.ui.theme))
+        for _click in util::icon_button(util::IconName::DOWN, style.icon_font(&ui.theme))
             .color(color::TRANSPARENT)
-            .label_font_size(10)
-            .label_color(color::WHITE)
+            .label_font_size(style.icon_size(&ui.theme))
+            .label_color(style.color(&ui.theme))
             .border(0.0)
             .w_h(16.0, 16.0)
             .bottom_right_with_margin(8.0)
-            .parent(args.id)
-            .set(args.state.ids.move_down, args.ui)
+            .parent(id)
+            .set(state.ids.move_down, ui)
         {
             event = Some(Event::MoveDown);
         }
 
         widget::Text::new(self.layer.icon.0)
-            .color(color::WHITE)
-            .font_size(14)
-            .font_id(args.style.icon_font(&args.ui.theme))
+            .color(style.color(&ui.theme))
+            .font_size(style.icon_size_large(&ui.theme))
+            .font_id(style.icon_font(&ui.theme))
             .mid_right_with_margin(32.0)
-            .parent(args.id)
-            .set(args.state.ids.layer_type, args.ui);
+            .parent(id)
+            .set(state.ids.layer_type, ui);
 
-        for _click in args.ui.widget_input(args.id).clicks() {
+        for _click in ui.widget_input(id).clicks() {
             event = Some(Event::ActiveElement);
         }
 
@@ -214,16 +236,16 @@ impl<'a> Widget for LayerRow<'a> {
                 } else {
                     util::IconName::RIGHT
                 },
-                args.style.icon_font(&args.ui.theme),
+                style.icon_font(&ui.theme),
             )
             .color(color::TRANSPARENT)
-            .label_font_size(14)
-            .label_color(color::WHITE)
+            .label_font_size(style.icon_size_large(&ui.theme))
+            .label_color(style.color(&ui.theme))
             .border(0.0)
             .w_h(32.0, 32.0)
             .mid_right_with_margin(64.0)
-            .parent(args.id)
-            .set(args.state.ids.expander_button, args.ui)
+            .parent(id)
+            .set(state.ids.expander_button, ui)
             {
                 event = Some(Event::ToggleExpanded);
             }
