@@ -615,7 +615,7 @@ vec3 render(vec3 ro, vec3 rd) {
             col = mix(col, world, step(2., max(d.x, d.y)));
             break;
         case OBJECT_TYPE_PLANE:
-            col = mix(world, col, smoothstep(10., 9., distance(ro, p)));
+            col = mix(world, col, smoothstep(10., 9., distance(center.xyz, p)));
             break;
         default:
             col = mix(world, col, smoothstep(10., 9., length(p)));
