@@ -12,7 +12,7 @@ layout(push_constant) uniform constants_t {
 
 const float PI = 3.14159265359;
 const vec2 invAtan = vec2(0.1591, 0.3183);
-const uint samples = 1024;
+const uint samples = 2048;
 
 vec2 sample_spherical_map(vec3 v)
 {
@@ -84,43 +84,43 @@ vec3 importance_sample_ggx(vec2 xi, vec3 n, float roughness)
     return normalize(vec);
 }
 
-float specular_d(float roughness, float noh) {
-    float r2 = roughness * roughness;
-    float noh2 = noh * noh;
-
-    float a = 1.0 / (PI * r2 * pow(noh, 4.));
-    float b = exp((noh - 1.) / r2 * noh2);
-
-    return a * b;
+float pdf_ggx(float noh, float hov, float roughness) {
+    float a = roughness * roughness * roughness;
+    float b = (a - 1.0) * noh * noh + 1;
+    float D = a / (PI * b * b);
+    return (D * noh / (4.0 * hov)) + 0.0001;
 }
 
-vec3 filter_environment(vec3 n) {
-    vec3 r = n;
+
+vec3 filter_environment(vec3 r) {
+    vec3 n = r;
     vec3 v = r;
 
     float total_weight = 0.0;
     vec3 prefiltered_color = vec3(0.0);
 
+    vec2 tex_size = vec2(textureSize(sampler2D(equirect, Sampler), 0));
+    float size = max(tex_size.x, tex_size.y);
+
     for(uint i = 0; i < samples; ++i) {
         vec2 xi = hammersley(i, samples);
         vec3 h = importance_sample_ggx(xi, n, constants.roughness);
-        vec3 l = normalize(2.0 * dot(v, h) * h - v);
+        vec3 l = 2.0 * dot(v, h) * h - v;
 
-        float nol = max(dot(n, l), 0.);
-        float noh = max(dot(n, h), 0.);
+        float nol = clamp(dot(n, l), 0., 1.);
+        float noh = clamp(dot(n, h), 0., 1.);
+        float hov = clamp(dot(h, v), 0., 1.);
 
-        if(nol > 0.0)
+        if(nol > 0.)
         {
-            float dh = specular_d(constants.roughness, noh);
-            float pdf = dh / (3. * noh);
+            float pdf = pdf_ggx(noh, hov, constants.roughness);
 
-            vec2 tex_size = vec2(textureSize(sampler2D(equirect, Sampler), 0));
-            float solid_angle_texel = 4. * PI / (tex_size.x * tex_size.y);
-            float solid_angle_sample = 1.0 / (samples * pdf);
-            float lod = 0.5 * log2(solid_angle_sample / solid_angle_texel);
+            float solid_angle_texel = 4. * PI / (size * size);
+            float solid_angle_sample = 1.0 / (samples * pdf + 0.001);
+            float lod = log2(solid_angle_sample / solid_angle_texel);
 
-            vec2 equirect_uv = sample_spherical_map(l);
-            prefiltered_color += textureLod(sampler2D(equirect, Sampler), equirect_uv, lod).rgb * nol;
+            vec3 sample_color = textureLod(sampler2D(equirect, Sampler), sample_spherical_map(l), lod).rgb;
+            prefiltered_color += sample_color * nol;
             total_weight += nol;
         }
     }

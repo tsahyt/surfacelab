@@ -62,6 +62,8 @@ vec3 sample_hemisphere(float phi, float theta, vec3 n)
 
 vec3 irradiance(vec3 direction) {
     vec4 irradiance = vec4(0.);
+    vec2 tex_size = vec2(textureSize(sampler2D(equirect, Sampler), 0));
+    float size = max(tex_size.x, tex_size.y);
 
     for(float phi = 0.0; phi < 2.0 * PI; phi += sample_delta) {
         for(float theta = 0.0; theta < 0.5 * PI; theta += sample_delta) {
@@ -70,11 +72,9 @@ vec3 irradiance(vec3 direction) {
 
             vec3 l = normalize(2.0 * dot(direction, sample_vector) * sample_vector - direction);
             float pdf = max(0., dot(direction, l) * INV_PI);
-
-            vec2 tex_size = vec2(textureSize(sampler2D(equirect, Sampler), 0));
-            float solid_angle_texel = 4. * PI / (tex_size.x * tex_size.y);
+            float solid_angle_texel = 4. * PI / (size * size);
             float solid_angle_sample = 1.0 / (sample_count * pdf);
-            float lod = 0.5 * log2(solid_angle_sample / solid_angle_texel);
+            float lod = log2(solid_angle_sample / solid_angle_texel);
 
             irradiance.rgb += textureLod(sampler2D(equirect, Sampler), equirect_uv, lod).rgb * sin(theta) * cos(theta);
             irradiance.w += 1.0;
