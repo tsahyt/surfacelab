@@ -9,7 +9,9 @@ layout(set = 0, binding = 2, rgba32f) uniform imageCube cube;
 const float PI = 3.14159265359;
 const float INV_PI = 1.0 / PI;
 const vec2 invAtan = vec2(0.1591, 0.3183);
-const uint samples = 2048;
+
+const float sample_delta = 0.025;
+const float sample_count = (PI / sample_delta) * (0.5 * PI / sample_delta);
 
 vec2 sample_spherical_map(vec3 v)
 {
@@ -40,35 +42,15 @@ vec3 convert_cube_uv_to_xyz(int index, vec2 uv)
   }
 }
 
-float radical_inverse_vdc(uint bits)
-{
-    bits = (bits << 16u) | (bits >> 16u);
-    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
-}
-
-
-vec2 hammersley(uint i, uint N)
-{
-    return vec2(float(i)/float(N), radical_inverse_vdc(i));
-}
-
 // Calculate importance sample from low discrepancy 2D data and the normal
 // orienting the hemisphere
-vec3 importance_sample_diffuse(vec2 xi, vec3 n)
+vec3 sample_hemisphere(float phi, float theta, vec3 n)
 {
-    float cos_theta = 1.0 - xi.y;
-    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-    float phi = 2.0 * PI * xi.x;
-
     // spherical coordinates to cartesian coordinates
     vec3 h;
-    h.x = sin_theta * cos(phi);
-    h.y = sin_theta * sin(phi);
-    h.z = cos_theta;
+    h.x = sin(theta) * cos(phi);
+    h.y = sin(theta) * sin(phi);
+    h.z = cos(theta);
 
     // tangent-space vector to world-space sample vector
     vec3 up = abs(n.z) < 0.999 ? vec3(0., 0. ,1.) : vec3(1., 0., 0.);
@@ -81,28 +63,25 @@ vec3 importance_sample_diffuse(vec2 xi, vec3 n)
 vec3 irradiance(vec3 direction) {
     vec4 irradiance = vec4(0.);
 
-    for(int i = 0; i < samples; i++) {
-        vec2 xi = hammersley(i, samples);
-        vec3 sample_vector = importance_sample_diffuse(xi, direction);
-        vec2 equirect_uv = sample_spherical_map(sample_vector);
+    for(float phi = 0.0; phi < 2.0 * PI; phi += sample_delta) {
+        for(float theta = 0.0; theta < 0.5 * PI; theta += sample_delta) {
+            vec3 sample_vector = sample_hemisphere(phi, theta, direction);
+            vec2 equirect_uv = sample_spherical_map(sample_vector);
 
-        vec3 l = normalize(2.0 * dot(direction, sample_vector) * sample_vector - direction);
-        float nol = clamp(dot(direction, l), 0., 1.);
-
-        if(nol > 0.) {
+            vec3 l = normalize(2.0 * dot(direction, sample_vector) * sample_vector - direction);
             float pdf = max(0., dot(direction, l) * INV_PI);
 
             vec2 tex_size = vec2(textureSize(sampler2D(equirect, Sampler), 0));
             float solid_angle_texel = 4. * PI / (tex_size.x * tex_size.y);
-            float solid_angle_sample = 1.0 / (samples * pdf);
+            float solid_angle_sample = 1.0 / (sample_count * pdf);
             float lod = 0.5 * log2(solid_angle_sample / solid_angle_texel);
 
-            irradiance.rgb += textureLod(sampler2D(equirect, Sampler), equirect_uv, lod).rgb;
+            irradiance.rgb += textureLod(sampler2D(equirect, Sampler), equirect_uv, lod).rgb * sin(theta) * cos(theta);
             irradiance.w += 1.0;
         }
     }
 
-    return irradiance.rgb / irradiance.w;
+    return PI * irradiance.rgb / sample_count;
 }
 
 void main() {
