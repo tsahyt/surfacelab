@@ -195,7 +195,11 @@ where
                 .size_2d(metadata.width, metadata.height)
                 .format(Self::FORMAT)
                 .mip_levels(EQUIRECT_MIP_LEVELS)
-                .usage(hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST | hal::image::Usage::TRANSFER_SRC)
+                .usage(
+                    hal::image::Usage::SAMPLED
+                        | hal::image::Usage::TRANSFER_DST
+                        | hal::image::Usage::TRANSFER_SRC,
+                )
                 .memory_type(hal::memory::Properties::DEVICE_LOCAL)
                 .unwrap()
                 .build::<B>(&lock.device)?;
@@ -228,7 +232,7 @@ where
                         level_start: 0,
                         level_count: Some(EQUIRECT_MIP_LEVELS),
                         ..Default::default()
-                    }
+                    },
                 }],
             );
             command_buffer.copy_buffer_to_image(
@@ -258,7 +262,10 @@ where
                     hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::TRANSFER,
                     hal::memory::Dependencies::empty(),
                     &[hal::memory::Barrier::Image {
-                        states: (hal::image::Access::TRANSFER_WRITE, hal::image::Layout::TransferDstOptimal)
+                        states: (
+                            hal::image::Access::TRANSFER_WRITE,
+                            hal::image::Layout::TransferDstOptimal,
+                        )
                             ..(
                                 hal::image::Access::TRANSFER_READ,
                                 hal::image::Layout::TransferSrcOptimal,
@@ -270,7 +277,7 @@ where
                             level_start: level - 1,
                             level_count: Some(1),
                             ..Default::default()
-                        }
+                        },
                     }],
                 );
                 command_buffer.blit_image(
@@ -306,42 +313,43 @@ where
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
-                &[hal::memory::Barrier::Image {
-                    states: (
-                        hal::image::Access::TRANSFER_WRITE,
-                        hal::image::Layout::TransferSrcOptimal,
-                    )
-                        ..(
-                            hal::image::Access::SHADER_READ,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        ),
-                    target: &equirect_image,
-                    families: None,
-                    range: hal::image::SubresourceRange {
-                        aspects: hal::format::Aspects::COLOR,
-                        level_start: 0,
-                        level_count: Some(EQUIRECT_MIP_LEVELS - 1),
-                        ..Default::default()
-                    }
-                },
-                hal::memory::Barrier::Image {
-                    states: (
-                        hal::image::Access::TRANSFER_READ,
-                        hal::image::Layout::TransferDstOptimal,
-                    )
-                        ..(
-                            hal::image::Access::SHADER_READ,
-                            hal::image::Layout::ShaderReadOnlyOptimal,
-                        ),
-                    target: &equirect_image,
-                    families: None,
-                    range: hal::image::SubresourceRange {
-                        aspects: hal::format::Aspects::COLOR,
-                        level_start: EQUIRECT_MIP_LEVELS - 1,
-                        level_count: Some(1),
-                        ..Default::default()
-                    }
-                }
+                &[
+                    hal::memory::Barrier::Image {
+                        states: (
+                            hal::image::Access::TRANSFER_WRITE,
+                            hal::image::Layout::TransferSrcOptimal,
+                        )
+                            ..(
+                                hal::image::Access::SHADER_READ,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            ),
+                        target: &equirect_image,
+                        families: None,
+                        range: hal::image::SubresourceRange {
+                            aspects: hal::format::Aspects::COLOR,
+                            level_start: 0,
+                            level_count: Some(EQUIRECT_MIP_LEVELS - 1),
+                            ..Default::default()
+                        },
+                    },
+                    hal::memory::Barrier::Image {
+                        states: (
+                            hal::image::Access::TRANSFER_READ,
+                            hal::image::Layout::TransferDstOptimal,
+                        )
+                            ..(
+                                hal::image::Access::SHADER_READ,
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            ),
+                        target: &equirect_image,
+                        families: None,
+                        range: hal::image::SubresourceRange {
+                            aspects: hal::format::Aspects::COLOR,
+                            level_start: EQUIRECT_MIP_LEVELS - 1,
+                            level_count: Some(1),
+                            ..Default::default()
+                        },
+                    },
                 ],
             );
             command_buffer.finish();
