@@ -592,6 +592,8 @@ pub enum UserRenderEvent {
     ObjectType(RendererID, ObjectType),
     /// The user requests setting the sample count
     SampleCount(RendererID, u32),
+    /// The user requests resetting of the camera position
+    CenterCamera(RendererID),
 }
 
 /// Supported color spaces for (external) images.

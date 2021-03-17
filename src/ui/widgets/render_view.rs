@@ -28,6 +28,7 @@ pub enum Event {
     Pan(f32, f32),
     LightPan(f32, f32),
     Zoom(f32),
+    CenterCamera,
     OpenModal,
 }
 
@@ -133,6 +134,12 @@ impl Widget for RenderView {
                     ..
                 }) => {
                     return Some(Event::OpenModal);
+                }
+                event::Widget::Release(event::Release {
+                    button: event::Button::Keyboard(input::Key::Period),
+                    ..
+                }) => {
+                    return Some(Event::CenterCamera);
                 }
                 _ => {}
             }

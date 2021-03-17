@@ -68,6 +68,12 @@ where
         )
     }
 
+    /// Set the camera center in absolute coordinates
+    pub fn set_center(&mut self, x: f32, y: f32) {
+        self.view.pan[0] = x;
+        self.view.pan[1] = y;
+    }
+
     /// Pan the camera in x and y directions
     pub fn pan_camera(&mut self, x: f32, y: f32) {
         self.view.pan[0] += x;

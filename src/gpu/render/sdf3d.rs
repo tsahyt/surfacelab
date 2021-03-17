@@ -148,6 +148,12 @@ where
         self.view.theta += theta;
     }
 
+    /// Set the camera center in absolute coordinates
+    pub fn set_center(&mut self, x: f32, y: f32) {
+        self.view.center[0] = x;
+        self.view.center[2] = y;
+    }
+
     /// Pan the camera given screen space input deltas
     pub fn pan_camera(&mut self, x: f32, y: f32) {
         let point = (self.view.theta.cos(), self.view.theta.sin());

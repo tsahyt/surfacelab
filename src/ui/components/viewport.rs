@@ -221,7 +221,13 @@ where
                     Some(render_view::Event::OpenModal) => {
                         state.update(|state| state.modal = true);
                     }
-                    _ => {}
+                    Some(render_view::Event::CenterCamera) => self
+                        .sender
+                        .send(Lang::UserRenderEvent(UserRenderEvent::CenterCamera(
+                            renderer_id,
+                        )))
+                        .unwrap(),
+                    None => {}
                 }
             }
             RenderImage::None => {

@@ -377,6 +377,9 @@ where
             Lang::UserRenderEvent(UserRenderEvent::SampleCount(id, samples)) => {
                 self.set_sample_count(*id, *samples as usize);
             }
+            Lang::UserRenderEvent(UserRenderEvent::CenterCamera(id)) => {
+                self.center_camera(*id);
+            }
             _ => {}
         }
 
@@ -654,6 +657,16 @@ where
             if let ManagedRenderer::RendererSDF3D(r) = &mut r.gpu {
                 r.load_environment(path).unwrap();
             }
+            r.reset_sampling();
+        }
+    }
+
+    pub fn center_camera(&mut self, renderer_id: RendererID) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            match &mut r.gpu {
+                ManagedRenderer::RendererSDF3D(r) => r.set_center(0., 0.),
+                ManagedRenderer::Renderer2D(r) => r.set_center(0., 0.),
+            };
             r.reset_sampling();
         }
     }
