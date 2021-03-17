@@ -29,6 +29,7 @@ pub mod split_merge;
 pub mod swizzle;
 pub mod threshold;
 pub mod transform;
+pub mod value;
 
 pub use blend::*;
 pub use blur::*;
@@ -46,6 +47,7 @@ pub use split_merge::*;
 pub use swizzle::*;
 pub use threshold::*;
 pub use transform::*;
+pub use value::*;
 
 /// Image operator to include external images into a node graph
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
