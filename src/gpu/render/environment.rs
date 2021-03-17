@@ -48,6 +48,8 @@ const CUBE_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRa
 
 const MIP_LEVELS: u8 = 6;
 
+const EQUIRECT_MIP_LEVELS: u8 = 8;
+
 const CUBE_MIP_COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
     aspects: hal::format::Aspects::COLOR,
     layer_count: Some(6),
@@ -192,7 +194,8 @@ where
             BasicImageBuilder::new(&lock.memory_properties.memory_types)
                 .size_2d(metadata.width, metadata.height)
                 .format(Self::FORMAT)
-                .usage(hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST)
+                .mip_levels(EQUIRECT_MIP_LEVELS)
+                .usage(hal::image::Usage::SAMPLED | hal::image::Usage::TRANSFER_DST | hal::image::Usage::TRANSFER_SRC)
                 .memory_type(hal::memory::Properties::DEVICE_LOCAL)
                 .unwrap()
                 .build::<B>(&lock.device)?;
@@ -220,7 +223,12 @@ where
                         ),
                     target: &equirect_image,
                     families: None,
-                    range: super::super::COLOR_RANGE,
+                    range: hal::image::SubresourceRange {
+                        aspects: hal::format::Aspects::COLOR,
+                        level_start: 0,
+                        level_count: Some(EQUIRECT_MIP_LEVELS),
+                        ..Default::default()
+                    }
                 }],
             );
             command_buffer.copy_buffer_to_image(
@@ -244,12 +252,81 @@ where
                     },
                 }),
             );
+            // Create mip maps for equirect image
+            for level in 1..EQUIRECT_MIP_LEVELS {
+                command_buffer.pipeline_barrier(
+                    hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::TRANSFER,
+                    hal::memory::Dependencies::empty(),
+                    &[hal::memory::Barrier::Image {
+                        states: (hal::image::Access::TRANSFER_WRITE, hal::image::Layout::TransferDstOptimal)
+                            ..(
+                                hal::image::Access::TRANSFER_READ,
+                                hal::image::Layout::TransferSrcOptimal,
+                            ),
+                        target: &equirect_image,
+                        families: None,
+                        range: hal::image::SubresourceRange {
+                            aspects: hal::format::Aspects::COLOR,
+                            level_start: level - 1,
+                            level_count: Some(1),
+                            ..Default::default()
+                        }
+                    }],
+                );
+                command_buffer.blit_image(
+                    &equirect_image,
+                    hal::image::Layout::TransferSrcOptimal,
+                    &equirect_image,
+                    hal::image::Layout::TransferDstOptimal,
+                    hal::image::Filter::Linear,
+                    std::iter::once(hal::command::ImageBlit {
+                        src_subresource: hal::image::SubresourceLayers {
+                            aspects: hal::format::Aspects::COLOR,
+                            level: level - 1,
+                            layers: 0..1,
+                        },
+                        src_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                            x: metadata.width as i32 >> (level - 1),
+                            y: metadata.height as i32 >> (level - 1),
+                            z: 1,
+                        },
+                        dst_subresource: hal::image::SubresourceLayers {
+                            aspects: hal::format::Aspects::COLOR,
+                            level,
+                            layers: 0..1,
+                        },
+                        dst_bounds: hal::image::Offset { x: 0, y: 0, z: 0 }..hal::image::Offset {
+                            x: metadata.width as i32 >> level,
+                            y: metadata.height as i32 >> level,
+                            z: 1,
+                        },
+                    }),
+                );
+            }
             command_buffer.pipeline_barrier(
                 hal::pso::PipelineStage::TRANSFER..hal::pso::PipelineStage::COMPUTE_SHADER,
                 hal::memory::Dependencies::empty(),
                 &[hal::memory::Barrier::Image {
                     states: (
                         hal::image::Access::TRANSFER_WRITE,
+                        hal::image::Layout::TransferSrcOptimal,
+                    )
+                        ..(
+                            hal::image::Access::SHADER_READ,
+                            hal::image::Layout::ShaderReadOnlyOptimal,
+                        ),
+                    target: &equirect_image,
+                    families: None,
+                    range: hal::image::SubresourceRange {
+                        aspects: hal::format::Aspects::COLOR,
+                        level_start: 0,
+                        level_count: Some(EQUIRECT_MIP_LEVELS - 1),
+                        ..Default::default()
+                    }
+                },
+                hal::memory::Barrier::Image {
+                    states: (
+                        hal::image::Access::TRANSFER_READ,
                         hal::image::Layout::TransferDstOptimal,
                     )
                         ..(
@@ -258,8 +335,14 @@ where
                         ),
                     target: &equirect_image,
                     families: None,
-                    range: super::super::COLOR_RANGE,
-                }],
+                    range: hal::image::SubresourceRange {
+                        aspects: hal::format::Aspects::COLOR,
+                        level_start: EQUIRECT_MIP_LEVELS - 1,
+                        level_count: Some(1),
+                        ..Default::default()
+                    }
+                }
+                ],
             );
             command_buffer.finish();
 
