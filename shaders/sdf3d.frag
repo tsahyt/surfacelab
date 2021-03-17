@@ -609,11 +609,16 @@ vec3 render(vec3 ro, vec3 rd) {
 
     // View Falloff
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
-    if(OBJECT_TYPE == OBJECT_TYPE_FINITEPLANE) {
-        vec2 d = abs(p.xz);
-        col = mix(col, world, step(2., max(d.x, d.y)));
-    } else {
-        col = mix(world, col, smoothstep(10., 9., distance(ro, p)));
+    switch(OBJECT_TYPE) {
+        case OBJECT_TYPE_FINITEPLANE:
+            vec2 d = abs(p.xz);
+            col = mix(col, world, step(2., max(d.x, d.y)));
+            break;
+        case OBJECT_TYPE_PLANE:
+            col = mix(world, col, smoothstep(10., 9., distance(ro, p)));
+            break;
+        default:
+            col = mix(world, col, smoothstep(10., 9., length(p)));
     }
 
     return col;
