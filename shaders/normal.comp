@@ -44,16 +44,18 @@ vec3 normal_sobel(ivec2 texel) {
     vec3 hill = vec3(1., 2., 1.);
     vec3 slope = vec3(1., 0., - 1.);
 
-    float gX = dot(hill, slope * neighborhood) * strength;
-    float gY = dot(slope, hill * neighborhood) * strength;
-    float gZ = sqrt(1.0 - (gX * gX + gY * gY));
+    float strength_ = strength * (imageSize(t_Out).x / 1024);
 
-    return normalize(vec3(gX, gY, 1));
+    float gX = dot(hill, slope * neighborhood);
+    float gY = dot(slope, hill * neighborhood);
+    float gZ = 1.0 / strength_;
+
+    return normalize(vec3(gX, gY, gZ));
 }
 
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    vec3 normal = normal_sobel(idx);
+    vec3 normal = strength > 0. ? normal_sobel(idx) : vec3(0., 0., 1.);
     normal = vec3(normal.rg * 0.5 + 0.5, normal.b);
     imageStore(t_Out, idx, vec4(normal, 1.));
 }
