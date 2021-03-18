@@ -323,13 +323,13 @@ vec3 normal(vec3 p, vec3 tangent_normal, float s, float lod) {
                                 sdf(p - e.yxy, lod),
                                 sdf(p - e.yyx, lod)));
 
-    vec3 tangent = abs(world_normal.y) > 0.999 ?
+    vec3 tangent = abs(world_normal.y) > 0.9999999 ?
         vec3(1., 0., 0.) :
         normalize(cross(vec3(0., 1., 0.), world_normal));
     vec3 bitangent = normalize(cross(world_normal, tangent));
     mat3 tbn = mat3(tangent, bitangent, world_normal);
 
-    return tbn * tangent_normal;
+    return normalize(tbn * tangent_normal);
 }
 
 // --- Ray Marching
