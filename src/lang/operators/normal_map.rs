@@ -86,7 +86,7 @@ impl OperatorParamBox for NormalMap {
                     control: Control::Slider {
                         value: self.strength,
                         min: 0.,
-                        max: 2.,
+                        max: 10.,
                     },
                     expose_status: Some(ExposeStatus::Unexposed),
                     visibility: VisibilityFunction::default(),
