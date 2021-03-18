@@ -124,7 +124,7 @@ vec3 albedo(vec2 p, float lod) {
     if(has_albedo != 0) {
         return textureLod(sampler2D(t_Albedo, s_Texture), p / tex_scale, lod).rgb;
     } else {
-        return vec3(0.75);
+        return vec3(0.5);
     }
 }
 
@@ -191,6 +191,30 @@ float triplanar_metallic(vec3 p, vec3 n, float lod) {
     col_top *= n.g;
 
     return col_front + col_side + col_top;
+}
+
+vec3 normal_map(vec2 p, float lod) {
+    if(has_normal != 0) {
+        vec3 n = textureLod(sampler2D(t_Normal, s_Texture), p / tex_scale, lod).rgb;
+        return normalize(n * 2. - 1.);
+    } else {
+        return vec3(0., 0., 1.);
+    }
+}
+
+vec3 triplanar_normal_map(vec3 p, vec3 n, float lod) {
+    n = pow(abs(n), vec3(4.0));
+    n = n / (n.x + n.y + n.z);
+
+    vec3 nrm_front = normal_map(-p.xy + 0.5, lod);
+    vec3 nrm_side = normal_map(-p.zy + 0.5, lod);
+    vec3 nrm_top = normal_map(-p.xz + 0.5, lod);
+
+    nrm_front *= n.b;
+    nrm_side *= n.r;
+    nrm_top *= n.g;
+
+    return nrm_front + nrm_side + nrm_top;
 }
 
 float sdBox(vec3 p, vec3 b)
@@ -291,13 +315,21 @@ vec2 outer_bound(vec3 ro, vec3 rd, float d) {
 }
 
 // Get normals from SDF
-vec3 normal(vec3 p, float s, float lod) {
+vec3 normal(vec3 p, vec3 tangent_normal, float s, float lod) {
     float d = sdf(p, lod);
     vec2 e = vec2(s, 0);
-    return normalize(d -
-                     vec3(sdf(p - e.xyy, lod),
-                          sdf(p - e.yxy, lod),
-                          sdf(p - e.yyx, lod)));
+    vec3 world_normal = normalize(d -
+                            vec3(sdf(p - e.xyy, lod),
+                                sdf(p - e.yxy, lod),
+                                sdf(p - e.yyx, lod)));
+
+    vec3 tangent = abs(world_normal.y) > 0.999 ?
+        vec3(1., 0., 0.) :
+        normalize(cross(vec3(0., 1., 0.), world_normal));
+    vec3 bitangent = normalize(cross(world_normal, tangent));
+    mat3 tbn = mat3(tangent, bitangent, world_normal);
+
+    return tbn * tangent_normal;
 }
 
 // --- Ray Marching
@@ -565,10 +597,10 @@ vec3 render(vec3 ro, vec3 rd) {
     if (d == INFINITY) { return world; }
 
     vec3 p = ro + rd * d;
-    vec3 n = normal(p, max(texel_size, world_space_sample_size(d)), lod_by_distance(d));
 
     // Texture fetching
     vec3 albedo_;
+    vec3 normal_;
     float metallic_;
     float roughness_;
 
@@ -578,24 +610,30 @@ vec3 render(vec3 ro, vec3 rd) {
             albedo_ = albedo(plane_mapping(p), lod_by_distance(d));
             metallic_ = metallic(plane_mapping(p), lod_by_distance(d));
             roughness_ = roughness(plane_mapping(p), lod_by_distance(d));
+            normal_ = normal_map(plane_mapping(p), lod_by_distance(d));
             break;
         case OBJECT_TYPE_CUBE:
             vec3 nprime = cubeNormal(p, 0.9);
             albedo_ = triplanar_albedo(p / 2., nprime, lod_by_distance(d));
             metallic_ = triplanar_metallic(p / 2., nprime, lod_by_distance(d));
             roughness_ = triplanar_roughness(p / 2., nprime, lod_by_distance(d));
+            normal_ = triplanar_normal_map(p / 2., nprime, lod_by_distance(d));
             break;
         case OBJECT_TYPE_SPHERE:
             albedo_ = albedo(sphere_mapping(p), lod_by_distance(d));
             metallic_ = metallic(sphere_mapping(p), lod_by_distance(d));
             roughness_ = roughness(sphere_mapping(p), lod_by_distance(d));
+            normal_ = normal_map(sphere_mapping(p), lod_by_distance(d));
             break;
         case OBJECT_TYPE_CYLINDER:
             albedo_ = albedo(cylinder_mapping(p), lod_by_distance(d));
             metallic_ = metallic(cylinder_mapping(p), lod_by_distance(d));
             roughness_ = roughness(cylinder_mapping(p), lod_by_distance(d));
+            normal_ = normal_map(cylinder_mapping(p), lod_by_distance(d));
             break;
     }
+
+    vec3 n = normal(p, normal_, max(texel_size, world_space_sample_size(d)), lod_by_distance(d));
 
     // Lights
     vec3 f0 = vec3(0.04);
