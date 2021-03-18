@@ -27,7 +27,7 @@ void main() {
     vec3 detail = texture(sampler2D(t_Detail, Sampler), uv).rgb;
 
     vec3 nrm = normal_blend(base, detail);
-    nrm = mix(base * 2. - 1., nrm, mix_factor);
+    nrm = normalize(mix(base * 2. - 1., nrm, mix_factor));
     nrm = vec3(nrm.rg * 0.5 + 0.5, nrm.b);
 
     imageStore(t_Out, idx, vec4(nrm, 1.));
