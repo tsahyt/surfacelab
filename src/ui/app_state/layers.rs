@@ -210,6 +210,52 @@ impl Collection for Layers {
         &mut self.param_box
     }
 
+    fn expose_parameter(&mut self, param: GraphParameter) {
+        let node = param.parameter.parameter_node();
+        let node_id = self
+            .layers
+            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+            .unwrap()
+            .find(|i| &self.layers.get(i).unwrap().data().resource == &node)
+            .expect("Unknown layer");
+        let pbox = &mut self
+            .layers
+            .get_mut(&node_id)
+            .unwrap()
+            .data_mut()
+            .operator_pbox;
+        pbox.set_expose_status(
+            param.parameter.fragment().unwrap(),
+            Some(ExposeStatus::Exposed),
+        );
+
+        self.exposed_parameters
+            .push((param.graph_field.clone(), param));
+    }
+
+    fn conceal_parameter(&mut self, field: &str) {
+        if let Some(idx) = self.exposed_parameters.iter().position(|x| x.0 == field) {
+            let (_, param) = self.exposed_parameters.remove(idx);
+            let node = param.parameter.parameter_node();
+            let node_id = self
+                .layers
+                .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+                .unwrap()
+                .find(|i| &self.layers.get(i).unwrap().data().resource == &node)
+                .expect("Unknown layer");
+            let pbox = &mut self
+                .layers
+                .get_mut(&node_id)
+                .unwrap()
+                .data_mut()
+                .operator_pbox;
+            pbox.set_expose_status(
+                param.parameter.fragment().unwrap(),
+                Some(ExposeStatus::Unexposed),
+            );
+        }
+    }
+
     fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
         if let Some(root) = self.layers.root_node_id() {
             if let Some(node_id) = self

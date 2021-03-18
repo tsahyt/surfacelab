@@ -404,6 +404,17 @@ where
         self.categories.len()
     }
 
+    pub fn set_expose_status(
+        &mut self,
+        parameter_name: &str,
+        expose_status: Option<ExposeStatus>,
+    ) -> Option<()> {
+        self.parameters_mut()
+            .find(|p| p.name == parameter_name)?
+            .expose_status = expose_status;
+        Some(())
+    }
+
     /// Return an association vector of parameters with their controls.
     pub fn controls(&self) -> Vec<(String, Control)> {
         self.categories

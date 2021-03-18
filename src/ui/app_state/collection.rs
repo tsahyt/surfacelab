@@ -13,6 +13,8 @@ pub trait Collection {
     fn rename_collection(&mut self, to: &Resource<r::Graph>);
     fn exposed_parameters(&mut self) -> &mut Vec<(String, GraphParameter)>;
     fn collection_parameters(&mut self) -> &mut ParamBoxDescription<GraphField>;
+    fn expose_parameter(&mut self, param: GraphParameter);
+    fn conceal_parameter(&mut self, field: &str);
     fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id);
     fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id>;
     fn update_complex_operator(
@@ -400,9 +402,7 @@ impl NodeCollections {
     /// parameters to display.
     pub fn parameter_exposed(&mut self, graph: &Resource<r::Graph>, param: GraphParameter) {
         if let Some(target) = self.target_collection_from_collection(graph) {
-            target
-                .exposed_parameters()
-                .push((param.graph_field.clone(), param));
+            target.expose_parameter(param);
         }
     }
 
@@ -410,12 +410,7 @@ impl NodeCollections {
     /// parameters to display.
     pub fn parameter_concealed(&mut self, graph: &Resource<r::Graph>, field: &str) {
         if let Some(target) = self.target_collection_from_collection(graph) {
-            let idx = target
-                .exposed_parameters()
-                .iter()
-                .position(|x| x.0 == field)
-                .expect("Tried to remove unknown parameter");
-            target.exposed_parameters().remove(idx);
+            target.conceal_parameter(field);
         }
     }
 
