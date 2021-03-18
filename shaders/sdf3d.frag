@@ -512,7 +512,6 @@ vec3 environment(vec3 n, vec3 rd, vec3 f0, vec3 albedo, float roughness, float m
     vec3 refl_color = textureLod(samplerCube(environment_map, s_Texture), r, roughness * MAX_REFLECTION_LOD).rgb;
     vec3 f = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
     vec2 env_brdf = texture(sampler2D(brdf_lut, s_Texture), lut_coords_ltc(max(dot(n, -rd), 0.0), roughness)).rg;
-    // return vec3(env_brdf, 0.);
     vec3 specular = refl_color * (f * env_brdf.x + env_brdf.y);
 
     return (kD * diffuse + specular) * ao * environment_strength;
