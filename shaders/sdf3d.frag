@@ -75,6 +75,7 @@ const float SURF_DIST = .0002;
 const float TEX_MIDLEVEL = .5;
 
 const float MAX_REFLECTION_LOD = 5.0;
+const float LUT_SIZE = 64.;
 
 // TODO: Include texture scale in mip mapping considerations for performance gain
 
@@ -491,6 +492,13 @@ vec3 light(vec3 p, vec3 n, vec3 rd, vec3 f0, float d, vec3 albedo, float metalli
     return (kD * albedo / PI + specular) * radiance * ndotl * shadow;
 }
 
+// Scale and bias coordinates, for correct filtered lookup
+vec2 lut_coords_ltc(float cosTheta, float roughness)
+{
+    vec2 coords = vec2(roughness, sqrt(1.0 - cosTheta));
+    return coords * (LUT_SIZE - 1.0) / LUT_SIZE + 0.5 / LUT_SIZE;
+}
+
 vec3 environment(vec3 n, vec3 rd, vec3 f0, vec3 albedo, float roughness, float metallic, float ao) {
     // Diffuse
     vec3 kS = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
@@ -503,7 +511,8 @@ vec3 environment(vec3 n, vec3 rd, vec3 f0, vec3 albedo, float roughness, float m
     vec3 r = reflect(rd, n);
     vec3 refl_color = textureLod(samplerCube(environment_map, s_Texture), r, roughness * MAX_REFLECTION_LOD).rgb;
     vec3 f = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
-    vec2 env_brdf = texture(sampler2D(brdf_lut, s_Texture), vec2(max(dot(n, -rd), 0.0), roughness)).rg;
+    vec2 env_brdf = texture(sampler2D(brdf_lut, s_Texture), lut_coords_ltc(max(dot(n, -rd), 0.0), roughness)).rg;
+    // return vec3(env_brdf, 0.);
     vec3 specular = refl_color * (f * env_brdf.x + env_brdf.y);
 
     return (kD * diffuse + specular) * ao * environment_strength;
