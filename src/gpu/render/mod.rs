@@ -270,7 +270,7 @@ where
             find_folder::Search::KidsThenParents(3, 5)
                 .for_folder("assets")
                 .unwrap()
-                .join("quarry_01_2k.hdr"),
+                .join("artist_workshop_2k.hdr"),
         )
         .unwrap();
 
