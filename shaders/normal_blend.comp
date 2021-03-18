@@ -1,0 +1,34 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    float mix_factor;
+};
+
+layout(set = 0, binding = 1) uniform texture2D t_Base;
+layout(set = 0, binding = 2) uniform texture2D t_Detail;
+layout(set = 0, binding = 3) uniform sampler Sampler;
+layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
+
+vec3 normal_blend(vec3 n1, vec3 n2)
+{
+    n1 = n1 * vec3(  2.,  2., 2.) + vec3(- 1., - 1.,  0.);
+    n2 = n2 * vec3(- 2.,- 2., 2.) + vec3(  1.,   1., - 1.);
+
+    return n1 * dot(n1, n2) / n1.z - n2;
+}
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_Out);
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+    vec3 base = texture(sampler2D(t_Base, Sampler), uv).rgb;
+    vec3 detail = texture(sampler2D(t_Detail, Sampler), uv).rgb;
+
+    vec3 nrm = normal_blend(base, detail);
+    nrm = mix(base * 2. - 1., nrm, mix_factor);
+    nrm = vec3(nrm.rg * 0.5 + 0.5, nrm.b);
+
+    imageStore(t_Out, idx, vec4(nrm, 1.));
+}
