@@ -96,7 +96,7 @@ impl OperatorParamBox for DirectionalWarp {
                         control: Control::Slider {
                             value: self.intensity,
                             min: 0.,
-                            max: 10.,
+                            max: 2.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
