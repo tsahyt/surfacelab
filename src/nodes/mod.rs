@@ -656,6 +656,7 @@ impl NodeManager {
                     let mut sockets = ls.layer_sockets(&res);
                     let mut blend_sockets = ls.blend_sockets(&res);
                     let pbox = self.element_param_box(&op, &res);
+                    let size = op.size_request().unwrap_or(self.parent_size);
 
                     response.push(Lang::LayersEvent(LayersEvent::LayerPushed(
                         res,
@@ -665,7 +666,7 @@ impl NodeManager {
                         BlendMode::Mix,
                         1.0,
                         pbox,
-                        self.parent_size,
+                        size,
                     )));
                     response.extend(sockets.drain(0..).map(|(s, t, e)| {
                         Lang::GraphEvent(GraphEvent::OutputSocketAdded(s, t, e, self.parent_size))

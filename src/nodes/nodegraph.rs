@@ -92,9 +92,8 @@ impl Node {
     /// Obtain the absolute size of a node, dependent on parent size and size
     /// settings of the node.
     pub fn node_size(&self, parent: u32) -> u32 {
-        // Image operators are special in sizing and are handled by the compute component
-        if let Operator::AtomicOperator(AtomicOperator::Image(..)) = self.operator {
-            return 1;
+        if let Some(request) = self.operator.size_request() {
+            return request;
         }
 
         // All other "absolute sizes" are powers of two
@@ -931,8 +930,14 @@ impl NodeCollection for NodeGraph {
             .copied()
         {
             let node = self.graph.node_weight(idx).expect("Corrupted node graph");
-            ParamBoxDescription::node_parameters(element, !node.operator.external_data())
-                .transmitters_into()
+            ParamBoxDescription::node_parameters(
+                element,
+                !node.operator.external_data()
+                    && node.operator.size_request().is_none()
+                    && !node.operator.is_output()
+                    && !node.operator.is_input(),
+            )
+            .transmitters_into()
         } else {
             ParamBoxDescription::empty()
         }

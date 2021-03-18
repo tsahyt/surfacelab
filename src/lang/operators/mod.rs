@@ -85,6 +85,13 @@ impl Socketed for Image {
     fn external_data(&self) -> bool {
         true
     }
+
+    // Image operators are special in sizing and are handled by the compute
+    // component. The size requests instructs the node manager to size the node.
+    // The compute manager will pick the appropriate size on upload.
+    fn size_request(&self) -> Option<u32> {
+        Some(1)
+    }
 }
 
 /// Image is special and doesn't have uniforms. Therefore the output is empty

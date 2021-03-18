@@ -39,6 +39,10 @@ impl Socketed for Value {
     fn title(&self) -> &str {
         "Value"
     }
+
+    fn size_request(&self) -> Option<u32> {
+        Some(32)
+    }
 }
 
 impl Shader for Value {

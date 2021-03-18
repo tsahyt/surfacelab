@@ -41,6 +41,10 @@ impl Socketed for Rgb {
     fn title(&self) -> &str {
         "RGB Color"
     }
+
+    fn size_request(&self) -> Option<u32> {
+        Some(32)
+    }
 }
 
 impl Shader for Rgb {

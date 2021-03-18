@@ -75,6 +75,11 @@ pub trait Socketed {
             .filter_map(|x| TypeVariable::try_from(*x).ok())
             .collect()
     }
+
+    /// The Socketed has a specific size request. This is always an absolute size!
+    fn size_request(&self) -> Option<u32> {
+        None
+    }
 }
 
 pub fn type_variable_from_socket_iter<'a, I: IntoIterator<Item = &'a (String, OperatorType)>>(
