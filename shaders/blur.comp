@@ -20,6 +20,7 @@ layout(set = 0, binding = 5, rgba16f) uniform image2D t_Out;
 
 // Return the box size for a given sigma.
 int box_size(float sigma) {
+    sigma *= imageSize(t_Out).x / 1024;
     float n = quality * 2 + 1;
     float w_exact = sqrt(4 * sigma * sigma / n + 1.0);
     int w = int(floor(w_exact));
