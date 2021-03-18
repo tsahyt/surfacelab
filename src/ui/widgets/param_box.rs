@@ -357,11 +357,14 @@ where
                     .set(expose_id, ui)
                     {
                         if let Some(field) = parameter.transmitter.as_field().map(|x| x.0.clone()) {
-                            ev.push(Event::ExposeParameter(
-                                field,
-                                parameter.name.clone(),
-                                parameter.control.clone(),
-                            ));
+                            ev.push(match &expose_status {
+                                ExposeStatus::Unexposed => Event::ExposeParameter(
+                                    field,
+                                    parameter.name.clone(),
+                                    parameter.control.clone(),
+                                ),
+                                ExposeStatus::Exposed => Event::ConcealParameter(field),
+                            });
                         }
                     }
                 }
