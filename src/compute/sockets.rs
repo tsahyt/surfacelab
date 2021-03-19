@@ -199,7 +199,7 @@ where
         self.0.get(res).and_then(|s| s.thumbnail.as_ref())
     }
 
-    /// Insert a new output socket
+    /// Insert a new output socket. Will drop the old socket if it already exists.
     pub fn add_output_socket(
         &mut self,
         res: &Resource<Socket>,

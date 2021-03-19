@@ -554,7 +554,7 @@ pub struct Layer {
     /// Type of layer
     layer_type: LayerType,
     /// Type variables for the operator of this layer
-    type_variables: HashMap<TypeVariable, ImageType>
+    type_variables: HashMap<TypeVariable, ImageType>,
 }
 
 impl From<Operator> for Layer {
@@ -562,17 +562,25 @@ impl From<Operator> for Layer {
         Self {
             name: "new.layer".to_owned(),
             title: source.title().to_owned(),
-            input_sockets: HashMap::from_iter(
-                source
-                    .inputs()
-                    .drain()
-                    .map(|(k, _)| (k, MaterialChannel::Displacement)),
-            ),
+            input_sockets: source
+                .inputs()
+                .iter()
+                .map(|(k, _)| (k.clone(), MaterialChannel::Displacement))
+                .collect(),
             output_sockets: HashMap::new(),
             blend_options: LayerBlendOptions::default(),
-            operator: source,
             layer_type: LayerType::Fx,
-            type_variables: HashMap::new(),
+            type_variables: source
+                .inputs()
+                .drain()
+                .filter_map(|(_, t)| match t {
+                    OperatorType::Polymorphic(v) => {
+                        Some((v, MaterialChannel::Displacement.to_image_type()))
+                    }
+                    _ => None,
+                })
+                .collect(),
+            operator: source,
         }
     }
 }
@@ -677,6 +685,17 @@ impl Layer {
 
     pub fn remove_mask(&mut self, mask: &Resource<Node>) -> Option<Mask> {
         self.blend_options.mask.remove_mask(mask)
+    }
+
+    /// Set a type variable on this layer, returning all affected sockets. Since
+    /// the layer doesn't know its own resource, the sockets are returned as
+    /// strings.
+    ///
+    /// May fail if the given socket cannot be found
+    pub fn set_type_variable(&mut self, socket: &str, ty: ImageType) -> Option<Vec<String>> {
+        let variable = self.operator.type_variable_from_socket(socket)?;
+        self.type_variables.insert(variable, ty);
+        Some(self.operator.sockets_by_type_variable(variable))
     }
 
     /// Determine the number of graph "layers" taken up by this layer, for use
@@ -856,7 +875,16 @@ impl LayerStack {
             l.operator
                 .outputs()
                 .iter()
-                .map(|(s, t)| (layer.node_socket(s), *t, l.operator.external_data()))
+                .map(|(s, t)| {
+                    (
+                        layer.node_socket(s),
+                        l.operator
+                            .monomorphic_type(s, &l.type_variables)
+                            .map(|x| OperatorType::Monomorphic(x))
+                            .unwrap_or(*t),
+                        l.operator.external_data(),
+                    )
+                })
                 .collect()
         } else {
             Vec::new()
@@ -942,15 +970,28 @@ impl LayerStack {
         }
     }
 
-    /// Define an input for a layer and socket from material channel
-    pub fn set_input(&mut self, layer_socket: &Resource<Socket>, channel: MaterialChannel) {
+    /// Define an input for a layer and socket from material channel. Returns a
+    /// vector of sockets that had their types changed as a result.
+    pub fn set_input(
+        &mut self,
+        layer_socket: &Resource<Socket>,
+        channel: MaterialChannel,
+    ) -> Vec<(Resource<Socket>, ImageType)> {
         if let Some(idx) = self.resources.get(layer_socket.file().unwrap()) {
             let l = &mut self.layers[*idx];
             if let LayerType::Fx = l.layer_type {
                 l.input_sockets
                     .insert(layer_socket.fragment().unwrap().to_owned(), channel);
+                let ty = channel.to_image_type();
+                return l
+                    .set_type_variable(layer_socket.fragment().unwrap(), ty)
+                    .unwrap()
+                    .iter()
+                    .map(|s| (layer_socket.socket_node().node_socket(s), ty))
+                    .collect();
             }
         }
+        return vec![];
     }
 
     /// Toggle the visibility of an output channel

@@ -813,7 +813,11 @@ impl NodeManager {
                 {
                     log::debug!("Set {} input to {}", socket_res, channel,);
 
-                    ls.set_input(socket_res, *channel);
+                    response.extend(ls.set_input(socket_res, *channel).drain(0..).map(
+                        |(socket, ty)| {
+                            Lang::GraphEvent(GraphEvent::SocketMonomorphized(socket, ty))
+                        },
+                    ));
 
                     if let Some(linearize) = self.relinearize(&self.active_graph) {
                         response.push(linearize);
