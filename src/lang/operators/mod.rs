@@ -17,7 +17,6 @@ pub mod blend;
 pub mod blur;
 pub mod checker;
 pub mod color_adjust;
-pub mod directional_warp;
 pub mod distance;
 pub mod grayscale;
 pub mod normal_blend;
@@ -31,12 +30,12 @@ pub mod swizzle;
 pub mod threshold;
 pub mod transform;
 pub mod value;
+pub mod warp;
 
 pub use blend::*;
 pub use blur::*;
 pub use checker::*;
 pub use color_adjust::*;
-pub use directional_warp::*;
 pub use distance::*;
 pub use grayscale::*;
 pub use normal_blend::*;
@@ -50,6 +49,7 @@ pub use swizzle::*;
 pub use threshold::*;
 pub use transform::*;
 pub use value::*;
+pub use warp::*;
 
 /// Image operator to include external images into a node graph
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]

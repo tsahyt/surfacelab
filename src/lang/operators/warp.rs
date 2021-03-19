@@ -11,12 +11,12 @@ use zerocopy::AsBytes;
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
-pub struct DirectionalWarp {
+pub struct Warp {
     pub intensity: f32,
     pub angle: f32,
 }
 
-impl Default for DirectionalWarp {
+impl Default for Warp {
     fn default() -> Self {
         Self {
             intensity: 1.,
@@ -25,7 +25,7 @@ impl Default for DirectionalWarp {
     }
 }
 
-impl Socketed for DirectionalWarp {
+impl Socketed for Warp {
     fn inputs(&self) -> HashMap<String, OperatorType> {
         hashmap! {
             "in".to_string() => OperatorType::Polymorphic(0),
@@ -40,18 +40,18 @@ impl Socketed for DirectionalWarp {
     }
 
     fn default_name(&self) -> &str {
-        "directional.warp"
+        "warp"
     }
 
     fn title(&self) -> &str {
-        "Directional Warp"
+        "Warp"
     }
 }
 
-impl Shader for DirectionalWarp {
+impl Shader for Warp {
     fn operator_passes(&self) -> Vec<OperatorPassDescription> {
         vec![OperatorPassDescription::RunShader(OperatorShader {
-            spirv: shader!("directional_warp"),
+            spirv: shader!("warp"),
             descriptors: &[
                 OperatorDescriptor {
                     binding: 0,
@@ -83,7 +83,7 @@ impl Shader for DirectionalWarp {
     }
 }
 
-impl OperatorParamBox for DirectionalWarp {
+impl OperatorParamBox for Warp {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
@@ -92,7 +92,7 @@ impl OperatorParamBox for DirectionalWarp {
                 parameters: vec![
                     Parameter {
                         name: "intensity".to_string(),
-                        transmitter: Field(DirectionalWarp::INTENSITY.to_string()),
+                        transmitter: Field(Warp::INTENSITY.to_string()),
                         control: Control::Slider {
                             value: self.intensity,
                             min: 0.,
@@ -103,7 +103,7 @@ impl OperatorParamBox for DirectionalWarp {
                     },
                     Parameter {
                         name: "angle".to_string(),
-                        transmitter: Field(DirectionalWarp::ANGLE.to_string()),
+                        transmitter: Field(Warp::ANGLE.to_string()),
                         control: Control::Slider {
                             value: self.angle,
                             min: 0.,
