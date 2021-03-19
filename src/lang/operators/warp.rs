@@ -4,14 +4,43 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
+use num_enum::UnsafeFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum::VariantNames;
+use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
+
+#[repr(u32)]
+#[derive(
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    UnsafeFromPrimitive,
+)]
+pub enum WarpMode {
+    Push = 0,
+    Directional = 1,
+}
+
+impl WarpMode {
+    fn has_angle(&self) -> bool {
+        matches!(self, Self::Directional)
+    }
+}
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Warp {
+    pub mode: WarpMode,
     pub intensity: f32,
     pub angle: f32,
 }
@@ -19,6 +48,7 @@ pub struct Warp {
 impl Default for Warp {
     fn default() -> Self {
         Self {
+            mode: WarpMode::Push,
             intensity: 1.,
             angle: 0.,
         }
@@ -91,6 +121,16 @@ impl OperatorParamBox for Warp {
                 name: "basic-parameters",
                 parameters: vec![
                     Parameter {
+                        name: "mode".to_string(),
+                        transmitter: Field(Warp::MODE.to_string()),
+                        control: Control::Enum {
+                            selected: self.mode as usize,
+                            variants: WarpMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                    },
+                    Parameter {
                         name: "intensity".to_string(),
                         transmitter: Field(Warp::INTENSITY.to_string()),
                         control: Control::Slider {
@@ -110,7 +150,13 @@ impl OperatorParamBox for Warp {
                             max: std::f32::consts::TAU,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::default(),
+                        visibility: VisibilityFunction::on_parameter("mode", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                unsafe { WarpMode::from_unchecked(*selected as u32) }.has_angle()
+                            } else {
+                                false
+                            }
+                        }),
                     },
                 ],
             }],

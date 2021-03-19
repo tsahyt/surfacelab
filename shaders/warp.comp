@@ -3,23 +3,90 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform Params {
+    uint mode;
     float intensity;
     float angle;
 };
+
+const uint MODE_PUSH = 0;
+const uint MODE_DIRECTIONAL = 1;
 
 layout(set = 0, binding = 1) uniform texture2D t_Input;
 layout(set = 0, binding = 2) uniform texture2D t_Strength;
 layout(set = 0, binding = 3) uniform sampler Sampler;
 layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
 
+// vec2 calc_slope(vec2 uv, vec2 stp)
+// {
+//     vec3 sl = vec3(0.0);
+//     sl.x = texture(sampler2D(t_Strength, Sampler), uv + vec2(0., stp.y)).r;
+//     sl.y = texture(sampler2D(t_Strength, Sampler), uv + vec2(- stp.x, - 0.5 * stp.y)).r;
+//     sl.z = texture(sampler2D(t_Strength, Sampler), uv + vec2(stp.x, - 0.5 * stp.y)).r;
+
+//     return vec2(
+//         sl.z - sl.y,
+//         dot(sl, vec3(1, - 0.5, - 0.5))
+//     );
+// }
+//
+
+float fetch_height(ivec2 texel) {
+    ivec2 resolution = imageSize(t_Out);
+    vec2 uv = vec2(float(texel.x) / float(resolution.x), float(texel.y) / float(resolution.y));
+    return textureLod(sampler2D(t_Strength, Sampler), uv, 0).r;
+}
+
+// Calculate the image gradient at the specified texel using the Sobel operator.
+vec2 gradient(ivec2 texel) {
+    int d = 1;
+
+    mat3 neighborhood =
+        mat3(fetch_height(texel + ivec2(-d,-d)),
+             fetch_height(texel + ivec2(0 ,-d)),
+             fetch_height(texel + ivec2(d ,-d)),
+             fetch_height(texel + ivec2(-d, 0)),
+             fetch_height(texel + ivec2(0 , 0)),
+             fetch_height(texel + ivec2(d , 0)),
+             fetch_height(texel + ivec2(-d, d)),
+             fetch_height(texel + ivec2(0 , d)),
+             fetch_height(texel + ivec2( d, d)));
+
+    vec3 hill = vec3(1., 2., 1.);
+    vec3 slope = vec3(1., 0., - 1.);
+
+    float gX = dot(hill, slope * neighborhood);
+    float gY = dot(slope, hill * neighborhood);
+
+    return vec2(gX, gY);
+}
+
+vec4 push(ivec2 idx, vec2 uv) {
+    vec2 warp = gradient(idx);
+    float scaled_intensity = intensity * (imageSize(t_Out).x / 1024.);
+    return texture(sampler2D(t_Input, Sampler), uv + warp * scaled_intensity);
+}
+
+vec4 directional(vec2 uv) {
+    vec2 direction = normalize(vec2(cos(angle), sin(angle)));
+    float dist = abs(texture(sampler2D(t_Strength, Sampler), uv).r) - 0.5;
+    return texture(sampler2D(t_Input, Sampler), uv + direction * intensity * dist);
+}
+
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     ivec2 resolution = imageSize(t_Out);
     vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
 
-    vec2 direction = normalize(vec2(cos(angle), sin(angle)));
-    float dist = abs(texture(sampler2D(t_Strength, Sampler), uv).r) - 0.5;
-    vec4 color = texture(sampler2D(t_Input, Sampler), uv + direction * intensity * dist);
+    vec4 res;
 
-    imageStore(t_Out, idx, color);
+    switch(mode) {
+        case MODE_PUSH:
+            res = push(idx, uv);
+            break;
+        case MODE_DIRECTIONAL:
+            res = directional(uv);
+            break;
+    }
+
+    imageStore(t_Out, idx, res);
 }
