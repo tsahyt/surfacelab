@@ -45,6 +45,8 @@ shadow = Shadow
 camera = Camera
 focal-length = Focal Length
 aperture-size = Aperture
+aperture-blades = Blades
+aperture-rotation = Aperture Rotation
 focal-distance = Focal Distance
 
 node = Node

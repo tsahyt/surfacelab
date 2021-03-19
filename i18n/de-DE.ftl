@@ -45,6 +45,8 @@ shadow = Schatten
 camera = Kamera
 focal-length = Brennweite
 aperture-size = Blendenöffnung
+aperture-blades = Blendenöffnungsklingen
+aperture-rotation = Blendenöffnungsrotation
 focal-distance = Scharfstellung
 
 node = Knoten
