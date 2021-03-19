@@ -198,10 +198,11 @@ where
                             // right away, otherwise creation needs to be delayed
                             // until the type is known.
                             log::trace!(
-                                "Adding monomorphic socket {}, {} external data, size {}",
+                                "Adding monomorphic socket {}, {} external data, size {}, type {}",
                                 res,
                                 if *external_data { "with" } else { "without" },
-                                size
+                                size,
+                                ty
                             );
                             let img = self
                                 .gpu

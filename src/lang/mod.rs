@@ -279,6 +279,7 @@ impl Instruction {
     Clone,
     Copy,
     Debug,
+    Display,
     Serialize,
     Deserialize,
     Hash,
