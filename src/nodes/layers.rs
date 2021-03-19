@@ -24,6 +24,10 @@ type InputMap = HashMap<String, MaterialChannel>;
 ///
 /// Masks are thus single-channel layers. When blending mask layers, there is no
 /// way to apply a mask into the blend, i.e. masks cannot be "recursive".
+///
+/// For compute purposes, *all* sockets of any mask layer will always carry a
+/// grayscale type, in particular this means that all polymorphic sockets will
+/// be monomorphized thusly, regardless of circumstances.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Mask {
     /// Human readable name of the mask
@@ -549,6 +553,8 @@ pub struct Layer {
     blend_options: LayerBlendOptions,
     /// Type of layer
     layer_type: LayerType,
+    /// Type variables for the operator of this layer
+    type_variables: HashMap<TypeVariable, ImageType>
 }
 
 impl From<Operator> for Layer {
@@ -566,6 +572,7 @@ impl From<Operator> for Layer {
             blend_options: LayerBlendOptions::default(),
             operator: source,
             layer_type: LayerType::Fx,
+            type_variables: HashMap::new(),
         }
     }
 }

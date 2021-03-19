@@ -713,18 +713,18 @@ impl NodeManager {
                             pbox,
                             self.parent_size,
                         )));
-                        response.extend(sockets.drain(0..).map(|(s, t, e)| {
+                        response.extend(sockets.drain(0..).map(|(s, _, e)| {
                             Lang::GraphEvent(GraphEvent::OutputSocketAdded(
-                                s,
-                                t,
+                                s.clone(),
+                                OperatorType::Monomorphic(ImageType::Grayscale),
                                 e,
                                 self.parent_size,
                             ))
                         }));
-                        response.extend(blend_sockets.drain(0..).map(|(s, t)| {
+                        response.extend(blend_sockets.drain(0..).map(|(s, _)| {
                             Lang::GraphEvent(GraphEvent::OutputSocketAdded(
                                 s,
-                                t,
+                                OperatorType::Monomorphic(ImageType::Grayscale),
                                 false,
                                 self.parent_size,
                             ))
