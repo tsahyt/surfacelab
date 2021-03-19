@@ -29,14 +29,6 @@ pub type Connection = (Resource<r::Socket>, Resource<r::Socket>);
 /// A vector of resource tuples describing connections between sockets.
 pub type Connections = Vec<Connection>;
 
-#[derive(Error, Debug)]
-pub enum MonomorphizationError {
-    #[error("Socket missing in node")]
-    MissingSocket,
-    #[error("Monomorphization of polymorphic socket attempted")]
-    PolymorphicSocket(TypeVariable),
-}
-
 /// A single node in the graph. Nodes each have exactly one operator that they
 /// correspond to. They are connected in the graph with edges that denote the
 /// sockets that are being connected.
@@ -68,24 +60,6 @@ impl Node {
             ),
             type_variables: HashMap::new(),
             operator,
-        }
-    }
-
-    /// Obtain the monomorphic type of a socket if possible.
-    pub fn monomorphic_type(&self, socket: &str) -> Result<ImageType, MonomorphizationError> {
-        let ty = self
-            .operator
-            .inputs()
-            .get(socket)
-            .cloned()
-            .or_else(|| self.operator.outputs().get(socket).cloned())
-            .ok_or(MonomorphizationError::MissingSocket)?;
-        match ty {
-            OperatorType::Polymorphic(p) => match self.type_variables.get(&p) {
-                Some(x) => Ok(*x),
-                _ => Err(MonomorphizationError::PolymorphicSocket(p)),
-            },
-            OperatorType::Monomorphic(x) => Ok(x),
         }
     }
 
@@ -515,7 +489,10 @@ impl NodeGraph {
             .get_by_left(&socket_node.to_string())
             .ok_or_else(|| NodeGraphError::NodeNotFound(socket_node.to_string()))?;
         let node = self.graph.node_weight(*path).unwrap();
-        match node.monomorphic_type(&socket_name) {
+        match node
+            .operator
+            .monomorphic_type(&socket_name, &node.type_variables)
+        {
             Ok(t) => Ok(OperatorType::Monomorphic(t)),
             Err(MonomorphizationError::PolymorphicSocket(v)) => Ok(OperatorType::Polymorphic(v)),
             Err(e) => Err(NodeGraphError::MonomorphizationError(e)),

@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::*;
 use strum_macros::*;
+use thiserror::Error;
 use zerocopy::AsBytes;
 
 pub use operators::*;
@@ -173,6 +174,14 @@ pub enum Operator {
     ComplexOperator(ComplexOperator),
 }
 
+#[derive(Error, Debug)]
+pub enum MonomorphizationError {
+    #[error("Socket missing in node")]
+    MissingSocket,
+    #[error("Monomorphization of polymorphic socket attempted")]
+    PolymorphicSocket(TypeVariable),
+}
+
 impl Operator {
     /// Cast to atomic operator if possible.
     pub fn as_atomic(&self) -> Option<&AtomicOperator> {
@@ -199,6 +208,27 @@ impl Operator {
                 .outputs()
                 .values()
                 .any(|t| !matches!(t, OperatorType::Monomorphic(ImageType::Rgb)))
+    }
+
+    /// Obtain the monomorphic type of a socket if possible.
+    pub fn monomorphic_type(
+        &self,
+        socket: &str,
+        type_vars: &HashMap<TypeVariable, ImageType>,
+    ) -> Result<ImageType, MonomorphizationError> {
+        let ty = self
+            .inputs()
+            .get(socket)
+            .cloned()
+            .or_else(|| self.outputs().get(socket).cloned())
+            .ok_or(MonomorphizationError::MissingSocket)?;
+        match ty {
+            OperatorType::Polymorphic(p) => match type_vars.get(&p) {
+                Some(x) => Ok(*x),
+                _ => Err(MonomorphizationError::PolymorphicSocket(p)),
+            },
+            OperatorType::Monomorphic(x) => Ok(x),
+        }
     }
 }
 
