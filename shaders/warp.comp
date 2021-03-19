@@ -9,26 +9,13 @@ layout(set = 0, binding = 0) uniform Params {
 };
 
 const uint MODE_PUSH = 0;
-const uint MODE_DIRECTIONAL = 1;
+const uint MODE_PULL = 1;
+const uint MODE_DIRECTIONAL = 2;
 
 layout(set = 0, binding = 1) uniform texture2D t_Input;
 layout(set = 0, binding = 2) uniform texture2D t_Strength;
 layout(set = 0, binding = 3) uniform sampler Sampler;
 layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
-
-// vec2 calc_slope(vec2 uv, vec2 stp)
-// {
-//     vec3 sl = vec3(0.0);
-//     sl.x = texture(sampler2D(t_Strength, Sampler), uv + vec2(0., stp.y)).r;
-//     sl.y = texture(sampler2D(t_Strength, Sampler), uv + vec2(- stp.x, - 0.5 * stp.y)).r;
-//     sl.z = texture(sampler2D(t_Strength, Sampler), uv + vec2(stp.x, - 0.5 * stp.y)).r;
-
-//     return vec2(
-//         sl.z - sl.y,
-//         dot(sl, vec3(1, - 0.5, - 0.5))
-//     );
-// }
-//
 
 float fetch_height(ivec2 texel) {
     ivec2 resolution = imageSize(t_Out);
@@ -61,8 +48,14 @@ vec2 gradient(ivec2 texel) {
 }
 
 vec4 push(ivec2 idx, vec2 uv) {
+    vec2 warp = - gradient(idx);
+    float scaled_intensity = intensity * (imageSize(t_Out).x / 1024.) * 2.;
+    return texture(sampler2D(t_Input, Sampler), uv + warp * scaled_intensity);
+}
+
+vec4 pull(ivec2 idx, vec2 uv) {
     vec2 warp = gradient(idx);
-    float scaled_intensity = intensity * (imageSize(t_Out).x / 1024.);
+    float scaled_intensity = intensity * (imageSize(t_Out).x / 1024.) * 2.;
     return texture(sampler2D(t_Input, Sampler), uv + warp * scaled_intensity);
 }
 
@@ -82,6 +75,9 @@ void main() {
     switch(mode) {
         case MODE_PUSH:
             res = push(idx, uv);
+            break;
+        case MODE_PULL:
+            res = pull(idx, uv);
             break;
         case MODE_DIRECTIONAL:
             res = directional(uv);

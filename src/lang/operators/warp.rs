@@ -28,7 +28,8 @@ use zerocopy::AsBytes;
 )]
 pub enum WarpMode {
     Push = 0,
-    Directional = 1,
+    Pull = 1,
+    Directional = 2,
 }
 
 impl WarpMode {
