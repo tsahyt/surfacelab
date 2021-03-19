@@ -669,7 +669,7 @@ impl NodeManager {
                         size,
                     )));
                     response.extend(sockets.drain(0..).map(|(s, t, e)| {
-                        Lang::GraphEvent(GraphEvent::OutputSocketAdded(s, t, e, self.parent_size))
+                        Lang::GraphEvent(GraphEvent::OutputSocketAdded(s, t, e, size))
                     }));
                     response.extend(blend_sockets.drain(0..).map(|(s, t)| {
                         Lang::GraphEvent(GraphEvent::OutputSocketAdded(
