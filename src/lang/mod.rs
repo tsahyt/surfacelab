@@ -594,6 +594,10 @@ pub enum UserRenderEvent {
     FocalLength(RendererID, f32),
     /// The user requests setting the aperture size
     ApertureSize(RendererID, f32),
+    /// The user requests setting the number of aperture blades
+    ApertureBlades(RendererID, i32),
+    /// The user requests setting the aperture rotation
+    ApertureRotation(RendererID, f32),
     /// The user requests setting the focal distance
     FocalDistance(RendererID, f32),
     /// The user requests enabling/disabling shadow calculation

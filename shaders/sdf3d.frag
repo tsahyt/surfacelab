@@ -27,6 +27,8 @@ layout(set = 0, binding = 2) uniform Camera {
     vec2 resolution;
     float focal_length;
     float aperture_size;
+    int aperture_blades;
+    float aperture_rotation;
     float focal_distance;
 
     float phi;
@@ -555,6 +557,37 @@ vec2 concentric_sample_disk(vec2 uv) {
     return vec2(r * cos(theta), r * sin(theta));
 }
 
+vec2 regular_polygon_sample(float corners, float rotation, vec2 uv) {
+    float u = uv.x;
+    float v = uv.y;
+    float corner = floor(u * corners);
+    u = u * corners - corner;
+
+    // uniform sampled triangle weights
+    u = sqrt(u);
+    v = v * u;
+    u = 1.0 - u;
+
+    // point in triangle
+    float angle = PI / corners;
+    vec2 p = vec2((u + v) * cos(angle), (u - v) * sin(angle));
+
+    rotation += corner * 2.0f * angle;
+
+    float cr = cos(rotation);
+    float sr = sin(rotation);
+
+    return vec2(cr * p.x - sr * p.y, sr * p.x + cr * p.y);
+}
+
+vec2 aperture_sample(vec2 uv) {
+    if(aperture_blades == 0) {
+        return concentric_sample_disk(uv);
+    } else {
+        return regular_polygon_sample(aperture_blades, aperture_rotation, uv);
+    }
+}
+
 vec3 camera(vec3 p, vec3 look_at, vec2 uv, float focal_length, float focal_dist, float lens_radius, out vec3 ro) {
     // Basis of camera space in world space coordinates
     vec3 forward = normalize(look_at - p);
@@ -566,7 +599,7 @@ vec3 camera(vec3 p, vec3 look_at, vec2 uv, float focal_length, float focal_dist,
     vec3 crd = vec3(uv.x, uv.y, focal_length);
 
     if (lens_radius > 0.) {
-        vec2 lens_uv = concentric_sample_disk(constants.sample_offset) * lens_radius;
+        vec2 lens_uv = aperture_sample(constants.sample_offset) * lens_radius;
         float ft = focal_dist / crd.z;
         vec3 pf = crd * ft;
 

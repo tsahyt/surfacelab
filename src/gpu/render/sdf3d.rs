@@ -24,6 +24,8 @@ pub struct Uniforms {
     resolution: [f32; 2],
     focal_length: f32,
     aperture_size: f32,
+    aperture_blades: i32,
+    aperture_rotation: f32,
     focal_distance: f32,
 
     phi: f32,
@@ -53,6 +55,8 @@ impl Default for Uniforms {
             light_pos: [0., 3., 0., 0.],
             focal_length: 1.0,
             aperture_size: 0.0,
+            aperture_blades: 6,
+            aperture_rotation: 0.,
             focal_distance: 5.0,
             phi: 1.,
             theta: 1.,
@@ -230,6 +234,16 @@ where
     /// Set the camera aperture size
     pub fn set_aperture_size(&mut self, aperture_size: f32) {
         self.view.aperture_size = aperture_size;
+    }
+
+    /// Set the camera aperture rotation
+    pub fn set_aperture_rotation(&mut self, aperture_rotation: f32) {
+        self.view.aperture_rotation = aperture_rotation;
+    }
+
+    /// Set the camera aperture blade count
+    pub fn set_aperture_blades(&mut self, aperture_blades: i32) {
+        self.view.aperture_blades = aperture_blades;
     }
 
     /// Set the camera focal distance

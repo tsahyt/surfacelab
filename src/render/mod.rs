@@ -379,6 +379,16 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
+            Lang::UserRenderEvent(UserRenderEvent::ApertureBlades(id, blades)) => {
+                self.set_aperture_blades(*id, *blades);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::ApertureRotation(id, rot)) => {
+                self.set_aperture_rotation(*id, *rot);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
             Lang::UserRenderEvent(UserRenderEvent::SampleCount(id, samples)) => {
                 self.set_sample_count(*id, *samples as usize);
             }
@@ -663,6 +673,20 @@ where
     pub fn set_aperture_size(&mut self, renderer_id: RendererID, aperture_size: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.update_sdf3d(|r| r.set_aperture_size(aperture_size));
+            r.reset_sampling();
+        }
+    }
+
+    pub fn set_aperture_blades(&mut self, renderer_id: RendererID, aperture_blades: i32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_aperture_blades(aperture_blades));
+            r.reset_sampling();
+        }
+    }
+
+    pub fn set_aperture_rotation(&mut self, renderer_id: RendererID, aperture_rotation: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_aperture_rotation(aperture_rotation));
             r.reset_sampling();
         }
     }

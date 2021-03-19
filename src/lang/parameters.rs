@@ -291,6 +291,8 @@ pub enum RenderField {
     HDRI,
     FocalLength,
     ApertureSize,
+    ApertureBlades,
+    ApertureRotation,
     FocalDistance,
     ObjectType,
     ToneMap,
@@ -340,6 +342,12 @@ impl MessageWriter for RenderField {
             ),
             RenderField::ApertureSize => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::ApertureSize(*renderer, f32::from_data(data)),
+            ),
+            RenderField::ApertureBlades => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::ApertureBlades(*renderer, i32::from_data(data)),
+            ),
+            RenderField::ApertureRotation => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::ApertureRotation(*renderer, f32::from_data(data)),
             ),
             RenderField::FocalDistance => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::FocalDistance(*renderer, f32::from_data(data)),
@@ -757,6 +765,28 @@ impl ParamBoxDescription<RenderField> {
                                 max: 0.1,
                             },
                             transmitter: RenderField::ApertureSize,
+                            expose_status: None,
+                            visibility: VisibilityFunction::default(),
+                        },
+                        Parameter {
+                            name: "aperture-blades".to_string(),
+                            control: Control::DiscreteSlider {
+                                value: 6,
+                                min: 0,
+                                max: 12,
+                            },
+                            transmitter: RenderField::ApertureBlades,
+                            expose_status: None,
+                            visibility: VisibilityFunction::default(),
+                        },
+                        Parameter {
+                            name: "aperture-rotation".to_string(),
+                            control: Control::Slider {
+                                value: 0.0,
+                                min: 0.0,
+                                max: std::f32::consts::TAU,
+                            },
+                            transmitter: RenderField::ApertureRotation,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
                         },
