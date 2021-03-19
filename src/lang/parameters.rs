@@ -591,7 +591,7 @@ impl ParamBoxDescription<RenderField> {
                             name: "sample-count".to_string(),
                             control: Control::DiscreteSlider {
                                 value: 24,
-                                min: 1,
+                                min: 0,
                                 max: 256,
                             },
                             transmitter: RenderField::SampleCount,

@@ -494,8 +494,8 @@ where
     pub fn set_sample_count(&mut self, renderer_id: RendererID, samples: usize) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             let previous = r.max_samples;
-            r.max_samples = samples;
-            r.samples_to_go = samples.saturating_sub(previous);
+            r.max_samples = if samples == 0 { usize::MAX } else { samples };
+            r.samples_to_go = r.max_samples.saturating_sub(previous);
         }
     }
 
