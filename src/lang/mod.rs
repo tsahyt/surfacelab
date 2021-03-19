@@ -553,6 +553,16 @@ pub enum ObjectType {
     Cylinder = 4,
 }
 
+/// Tonemapping operators for renderer
+#[derive(AsBytes, Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(u32)]
+pub enum ToneMap {
+    Reinhard = 0,
+    ReinhardJodie = 1,
+    Hable = 2,
+    Aces = 3,
+}
+
 /// Events concerning renderer operation triggered by the user.
 #[derive(Debug)]
 pub enum UserRenderEvent {
@@ -594,6 +604,8 @@ pub enum UserRenderEvent {
     LoadHDRI(RendererID, Option<PathBuf>),
     /// The user requests setting the object type to be rendered
     ObjectType(RendererID, ObjectType),
+    /// The user requests changing the tone mapping operator
+    ToneMap(RendererID, ToneMap),
     /// The user requests setting the sample count
     SampleCount(RendererID, u32),
     /// The user requests resetting of the camera position

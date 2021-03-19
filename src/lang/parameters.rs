@@ -293,6 +293,7 @@ pub enum RenderField {
     ApertureSize,
     FocalDistance,
     ObjectType,
+    ToneMap,
     SampleCount,
 }
 
@@ -346,6 +347,10 @@ impl MessageWriter for RenderField {
             RenderField::ObjectType => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::ObjectType(*renderer, super::ObjectType::from_data(data)),
             ),
+            RenderField::ToneMap => super::Lang::UserRenderEvent(super::UserRenderEvent::ToneMap(
+                *renderer,
+                super::ToneMap::from_data(data),
+            )),
             RenderField::SampleCount => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::SampleCount(*renderer, u32::from_data(data)),
             ),
@@ -573,17 +578,34 @@ impl ParamBoxDescription<RenderField> {
             categories: vec![
                 ParamCategory {
                     name: "renderer",
-                    parameters: vec![Parameter {
-                        name: "sample-count".to_string(),
-                        control: Control::DiscreteSlider {
-                            value: 24,
-                            min: 1,
-                            max: 256,
+                    parameters: vec![
+                        Parameter {
+                            name: "sample-count".to_string(),
+                            control: Control::DiscreteSlider {
+                                value: 24,
+                                min: 1,
+                                max: 256,
+                            },
+                            transmitter: RenderField::SampleCount,
+                            expose_status: None,
+                            visibility: VisibilityFunction::default(),
                         },
-                        transmitter: RenderField::SampleCount,
-                        expose_status: None,
-                        visibility: VisibilityFunction::default(),
-                    }],
+                        Parameter {
+                            name: "tone-map".to_string(),
+                            control: Control::Enum {
+                                selected: 0,
+                                variants: vec![
+                                    "Reinhard".to_string(),
+                                    "Reinhard-Jodie".to_string(),
+                                    "Hable Filmic".to_string(),
+                                    "ACES".to_string(),
+                                ],
+                            },
+                            transmitter: RenderField::ToneMap,
+                            expose_status: None,
+                            visibility: VisibilityFunction::default(),
+                        },
+                    ],
                 },
                 ParamCategory {
                     name: "geometry",

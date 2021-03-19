@@ -27,6 +27,7 @@ opacity = Opacity
 
 renderer = Renderer
 sample-count = Sample Count
+tone-map = Tone Mapping Operator
 geometry = Geometry
 object-type = Object Type
 displacement-amount = Displacement Amount

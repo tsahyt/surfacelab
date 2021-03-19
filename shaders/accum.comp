@@ -8,7 +8,60 @@ layout(set = 0, binding = 2, rgba16f) uniform image2D out_image;
 
 layout(push_constant) uniform constants_t {
     float current_sample;
+    uint tone_map;
 } constants;
+
+const uint TONE_MAP_REINHARD = 0;
+const uint TONE_MAP_REINHARD_JODIE = 1;
+const uint TONE_MAP_HABLE = 2;
+const uint TONE_MAP_ACES = 3;
+
+vec3 reinhard_simple(vec3 v) {
+    return v / (1.0 + v);
+}
+
+vec3 reinhard_jodie(vec3 v)
+{
+    // Luminance calculation
+    float l = dot(v, vec3(0.2126, 0.7152, 0.0722));
+    vec3 tv = v / (1.0 + v);
+    return mix(v / (1.0 + l), tv, tv);
+}
+
+vec3 hable_tonemap_partial(vec3 x)
+{
+    float a = 0.15f;
+    float b = 0.50f;
+    float c = 0.10f;
+    float d = 0.20f;
+    float e = 0.02f;
+    float f = 0.30f;
+
+    return ((x * (a * x + c * b) + d * e) / (x * (a * x + b) + d * f)) - e / f;
+}
+
+vec3 hable_filmic(vec3 v)
+{
+    float exposure_bias = 2.0f;
+    vec3 curr = hable_tonemap_partial(v * exposure_bias);
+
+    vec3 w = vec3(11.2f);
+    vec3 white_scale = vec3(1.0f) / hable_tonemap_partial(w);
+
+    return curr * white_scale;
+}
+
+
+vec3 aces_approx(vec3 v) {
+    v *= 0.6;
+    float a = 2.51;
+    float b = 0.03;
+    float c = 2.43;
+    float d = 0.59;
+    float e = 0.14;
+
+    return clamp((v * (a * v + b)) / (v * (c * v + d) + e), 0.0, 1.0);
+}
 
 void main() {
     ivec2 resolution = imageSize(out_image);
@@ -17,8 +70,22 @@ void main() {
 
     col /= constants.current_sample;
 
-    // Light Transform
-    col /= (col + vec3(1.));
+    // Tonemap and Gamma
+    switch(constants.tone_map) {
+        case TONE_MAP_REINHARD:
+            col = reinhard_simple(col);
+            break;
+        case TONE_MAP_REINHARD_JODIE:
+            col = reinhard_jodie(col);
+            break;
+        case TONE_MAP_HABLE:
+            col = hable_filmic(col);
+            break;
+        case TONE_MAP_ACES:
+            col = aces_approx(col);
+            break;
+    }
+
     col = pow(col, vec3(1. / 1.2));
 
     imageStore(out_image, idx, vec4(col, 1.));

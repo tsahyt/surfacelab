@@ -1,6 +1,6 @@
 use super::RenderTarget;
 use crate::gpu::{basic_mem::*, load_shader};
-use crate::lang::ObjectType;
+use crate::lang::{ObjectType, ToneMap};
 use crate::shader;
 use crate::util::HaltonSequence2D;
 
@@ -65,6 +65,7 @@ pub struct GPURender<B: Backend, U: Renderer> {
     render_target: RenderTarget<B>,
     accum_target: RenderTarget<B>,
     current_sample: usize,
+    tone_map: ToneMap,
 
     // Uniforms
     view: U,
@@ -562,6 +563,7 @@ where
             render_target,
             accum_target,
             current_sample: 0,
+            tone_map: ToneMap::Reinhard,
 
             view,
 
@@ -711,7 +713,7 @@ where
         let pipeline_layout = unsafe {
             device.create_pipeline_layout(
                 std::iter::once(set_layout),
-                &[(hal::pso::ShaderStageFlags::COMPUTE, 0..4)],
+                &[(hal::pso::ShaderStageFlags::COMPUTE, 0..8)],
             )
         }?;
 
@@ -1129,9 +1131,10 @@ where
                 cmd_buffer.push_compute_constants(
                     &self.accum_pipeline_layout,
                     0,
-                    &[u32::from_ne_bytes(
-                        ((self.current_sample + 1) as f32).to_ne_bytes(),
-                    )],
+                    &[
+                        u32::from_ne_bytes(((self.current_sample + 1) as f32).to_ne_bytes()),
+                        self.tone_map as u32,
+                    ],
                 );
                 cmd_buffer.dispatch([self.viewport.rect.w as u32, self.viewport.rect.h as u32, 1]);
                 cmd_buffer.pipeline_barrier(
@@ -1339,6 +1342,10 @@ where
             EnvironmentMaps::from_file(self.gpu.clone(), IRRADIANCE_SIZE, SPECMAP_SIZE, path)?;
         self.environment_maps = new_env;
         Ok(())
+    }
+
+    pub fn set_tone_map(&mut self, tone_map: ToneMap) {
+        self.tone_map = tone_map;
     }
 }
 

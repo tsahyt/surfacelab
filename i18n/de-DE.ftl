@@ -27,6 +27,7 @@ opacity = Deckkraft
 
 renderer = Renderer
 sample-count = Sampleanzahl
+tone-map = Tone Mapping Operator
 geometry = Geometrie
 object-type = Objekttyp
 displacement-amount = Displacementstärke

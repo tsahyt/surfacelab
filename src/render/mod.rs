@@ -309,6 +309,11 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
+            Lang::UserRenderEvent(UserRenderEvent::ToneMap(id, tone_map)) => {
+                self.set_tone_map(*id, *tone_map);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
             Lang::UserRenderEvent(UserRenderEvent::DisplacementAmount(id, displ)) => {
                 self.set_displacement_amount(*id, *displ);
                 self.redraw(*id);
@@ -564,6 +569,16 @@ where
                 r.switch_object_type(object_type)
                     .expect("Failed to switch object type")
             });
+            r.reset_sampling();
+        }
+    }
+
+    pub fn set_tone_map(&mut self, renderer_id: RendererID, tone_map: ToneMap) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            match &mut r.gpu {
+                ManagedRenderer::RendererSDF3D(x) => x.set_tone_map(tone_map),
+                ManagedRenderer::Renderer2D(x) => x.set_tone_map(tone_map),
+            }
             r.reset_sampling();
         }
     }
