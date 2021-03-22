@@ -695,7 +695,25 @@ impl Layer {
     pub fn set_type_variable(&mut self, socket: &str, ty: ImageType) -> Option<Vec<String>> {
         let variable = self.operator.type_variable_from_socket(socket)?;
         self.type_variables.insert(variable, ty);
+
         Some(self.operator.sockets_by_type_variable(variable))
+    }
+
+    /// Disable all output channels that do not typecheck
+    pub fn type_sanitize_outputs(&mut self) -> Vec<MaterialChannel> {
+        let operator = &self.operator;
+        let sockets = &mut self.output_sockets;
+        let type_vars = &self.type_variables;
+
+        sockets
+            .drain_filter(|chan, socket| {
+                operator
+                    .monomorphic_type(socket, &type_vars)
+                    .map(|ty| !chan.legal_for(OperatorType::Monomorphic(ty)))
+                    .unwrap_or(false)
+            })
+            .map(|(c, _)| c)
+            .collect()
     }
 
     /// Determine the number of graph "layers" taken up by this layer, for use
@@ -992,6 +1010,15 @@ impl LayerStack {
             }
         }
         return vec![];
+    }
+
+    pub fn type_sanitize_layer(&mut self, layer: &Resource<Node>) -> Vec<MaterialChannel> {
+        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
+            let l = &mut self.layers[*idx];
+            l.type_sanitize_outputs()
+        } else {
+            vec![]
+        }
     }
 
     /// Toggle the visibility of an output channel

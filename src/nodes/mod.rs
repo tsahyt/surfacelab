@@ -818,6 +818,16 @@ impl NodeManager {
                             Lang::GraphEvent(GraphEvent::SocketMonomorphized(socket, ty))
                         },
                     ));
+                    response.extend(
+                        ls.type_sanitize_layer(&socket_res.socket_node())
+                            .drain(0..)
+                            .map(|chan| {
+                                Lang::LayersEvent(LayersEvent::OutputUnset(
+                                    socket_res.socket_node(),
+                                    chan,
+                                ))
+                            }),
+                    );
 
                     if let Some(linearize) = self.relinearize(&self.active_graph) {
                         response.push(linearize);

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::lang::resource as r;
 use crate::lang::*;
 
@@ -88,6 +86,10 @@ impl Layer {
         self.operator_pbox = param_box;
     }
 
+    pub fn unset_output(&mut self, chan: MaterialChannel) {
+        dbg!(chan);
+    }
+
     pub fn toggle_expanded(&mut self) {
         if !self.is_mask {
             self.expanded = !self.expanded;
@@ -129,6 +131,37 @@ impl Layers {
 
     pub fn expandable(&self, node: &id_tree::NodeId) -> bool {
         self.layers.children(node).expect("Invalid node").count() > 0
+    }
+
+    pub fn unset_output(
+        &mut self,
+        layer: &Resource<r::Node>,
+        channel: MaterialChannel,
+    ) -> Option<()> {
+        let node_id = self
+            .layers
+            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+            .unwrap()
+            .find(|i| &self.layers.get(i).unwrap().data().resource == layer)?;
+        let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+        let chans = layer
+            .operator_pbox
+            .categories
+            .iter_mut()
+            .find(|c| c.name == "output-channels")?;
+
+        for param in chans.parameters.iter_mut() {
+            match &mut param.control {
+                Control::ChannelMap { enabled, chan, .. } => {
+                    if *chan == channel {
+                        *enabled = false;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Some(())
     }
 
     /// Set type (variable) for a socket. May return None if no such socket can

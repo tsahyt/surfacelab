@@ -531,6 +531,8 @@ pub enum LayersEvent {
         ParamBoxDescription<MessageWriters>,
         u32,
     ),
+    /// The specified channel output for a given layer has been disabled.
+    OutputUnset(Resource<Node>, MaterialChannel),
     /// A layer or mask has been removed.
     LayerRemoved(Resource<Node>),
     /// A mask has been pushed for a layer in a stack. Fields are similar to

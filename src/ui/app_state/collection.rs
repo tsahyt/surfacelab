@@ -339,6 +339,13 @@ impl NodeCollections {
         }
     }
 
+    /// Unset a material output of a layer. NOP for graphs.
+    pub fn unset_output(&mut self, res: &Resource<Node>, channel: MaterialChannel) {
+        if let Some(target) = self.target_layers_from_node(res) {
+            target.unset_output(res, channel);
+        }
+    }
+
     /// Remove a node from a graph. This is a NOP for layers.
     pub fn remove_node(&mut self, node: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&node) {

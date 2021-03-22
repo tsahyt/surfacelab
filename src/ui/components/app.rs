@@ -403,6 +403,9 @@ where
                 );
                 state.update(|state| state.graphs.push_layer(layer));
             }
+            LayersEvent::OutputUnset(res, chan) => {
+                state.update(|state| state.graphs.unset_output(res, *chan));
+            }
             LayersEvent::LayerRemoved(res) => {
                 state.update(|state| state.graphs.remove_layer(res));
             }

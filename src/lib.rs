@@ -2,6 +2,7 @@
 #![feature(cell_update)]
 #![feature(drain_filter)]
 #![feature(exact_size_is_empty)]
+#![feature(hash_drain_filter)]
 
 pub mod broker;
 pub mod compute;
