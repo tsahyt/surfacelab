@@ -691,7 +691,7 @@ impl Layer {
     /// the layer doesn't know its own resource, the sockets are returned as
     /// strings.
     ///
-    /// May fail if the given socket cannot be found
+    /// May fail if the given socket cannot be found or has no type variable.
     pub fn set_type_variable(&mut self, socket: &str, ty: ImageType) -> Option<Vec<String>> {
         let variable = self.operator.type_variable_from_socket(socket)?;
         self.type_variables.insert(variable, ty);
@@ -1003,8 +1003,8 @@ impl LayerStack {
                 let ty = channel.to_image_type();
                 return l
                     .set_type_variable(layer_socket.fragment().unwrap(), ty)
-                    .unwrap()
                     .iter()
+                    .flatten()
                     .map(|s| (layer_socket.socket_node().node_socket(s), ty))
                     .collect();
             }

@@ -61,7 +61,7 @@ graph-name = Graphname
 layer = Layer
 output-channels = Outputkanäle
 input-channels = Inputkanäle
-layer-type-mismatch = Von Layerkonfiguration nicht unterstützt
+layer-type-mismatch = Kein passender Sockel gefunden
 
 surface-attributes = Oberflächenattribute
 parent-size = Oberflächendimensionen
