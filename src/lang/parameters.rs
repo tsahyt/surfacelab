@@ -1,4 +1,4 @@
-use super::resource::*;
+use super::{resource::*, ImageType, OperatorType};
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -830,6 +830,28 @@ impl ParamBoxDescription<GraphField> {
 }
 
 impl ParamBoxDescription<LayerField> {
+    /// Create a vector of monomorphized output sockets for an operator, with
+    /// all polymorphic types set to grayscale.
+    fn sockets<T: super::Socketed>(operator: &T) -> Vec<(String, OperatorType)> {
+        use itertools::Itertools;
+        operator
+            .outputs()
+            .iter()
+            .sorted()
+            .map(|(x, y)| {
+                (
+                    x.clone(),
+                    match *y {
+                        OperatorType::Monomorphic(_) => *y,
+                        OperatorType::Polymorphic(_) => {
+                            OperatorType::Monomorphic(ImageType::Grayscale)
+                        }
+                    },
+                )
+            })
+            .collect()
+    }
+
     /// Construct a parameter box for a fill layer.
     pub fn fill_layer_parameters<T: super::Socketed>(
         operator: &T,
@@ -847,13 +869,14 @@ impl ParamBoxDescription<LayerField> {
                         name: chan.to_string(),
                         control: Control::ChannelMap {
                             enabled: output_sockets.contains_key(&chan),
+                            chan,
                             selected: operator
                                 .outputs()
                                 .keys()
                                 .sorted()
                                 .position(|x| Some(x) == output_sockets.get(&chan))
                                 .unwrap_or(0),
-                            sockets: operator.outputs().keys().sorted().cloned().collect(),
+                            sockets: Self::sockets(operator),
                         },
                         transmitter: LayerField::ConnectOutput(chan),
                         expose_status: None,
@@ -899,8 +922,9 @@ impl ParamBoxDescription<LayerField> {
                             name: chan.to_string(),
                             control: Control::ChannelMap {
                                 enabled: false,
+                                chan,
                                 selected: 0,
-                                sockets: operator.outputs().keys().sorted().cloned().collect(),
+                                sockets: Self::sockets(operator),
                             },
                             transmitter: LayerField::ConnectOutput(chan),
                             expose_status: None,
@@ -1048,8 +1072,9 @@ pub enum Control {
     },
     ChannelMap {
         enabled: bool,
+        chan: super::MaterialChannel,
         selected: usize,
-        sockets: Vec<String>,
+        sockets: Vec<(String, OperatorType)>,
     },
 }
 

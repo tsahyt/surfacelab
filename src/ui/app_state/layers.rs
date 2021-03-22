@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::lang::resource as r;
 use crate::lang::*;
 
@@ -127,6 +129,38 @@ impl Layers {
 
     pub fn expandable(&self, node: &id_tree::NodeId) -> bool {
         self.layers.children(node).expect("Invalid node").count() > 0
+    }
+
+    /// Set type (variable) for a socket. May return None if no such socket can
+    /// be found, or the parameter box does not have a channel map, e.g. for Masks
+    pub fn set_type_variable(&mut self, socket: &Resource<r::Socket>, ty: ImageType) -> Option<()> {
+        let layer = socket.socket_node();
+        let socket_name = socket.fragment().unwrap();
+
+        let node_id = self
+            .layers
+            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+            .unwrap()
+            .find(|i| &self.layers.get(i).unwrap().data().resource == &layer)?;
+        let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+        let chans = layer
+            .operator_pbox
+            .categories
+            .iter_mut()
+            .find(|c| c.name == "output-channels")?;
+
+        for param in chans.parameters.iter_mut() {
+            match &mut param.control {
+                Control::ChannelMap { sockets, .. } => {
+                    for s in sockets.iter_mut().filter(|s| s.0 == socket_name) {
+                        s.1 = OperatorType::Monomorphic(ty);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Some(())
     }
 
     pub fn move_up(&mut self, layer: &Resource<r::Node>) {

@@ -870,6 +870,13 @@ impl MaterialChannel {
         }
     }
 
+    pub fn legal_for(self, ty: OperatorType) -> bool {
+        match ty {
+            OperatorType::Monomorphic(ty) => self.to_image_type() == ty,
+            OperatorType::Polymorphic(_) => true,
+        }
+    }
+
     /// Short name of a material channel.
     pub fn short_name(&self) -> &'static str {
         match self {

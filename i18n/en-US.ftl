@@ -61,6 +61,7 @@ graph-name = Graph Name
 layer = Layer
 output-channels = Output Channels
 input-channels = Input Channels
+layer-type-mismatch = Unsupported Layer Configuration
 
 surface-attributes = Surface Attributes
 parent-size = Parent Size

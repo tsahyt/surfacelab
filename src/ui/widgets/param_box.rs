@@ -114,6 +114,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
     fn resize_ids(&self, state: &mut widget::State<'_, State>, id_gen: &mut widget::id::Generator) {
         state.update(|state| {
             state.labels.resize(self.description.len(), id_gen);
+            state.messages.resize(self.description.len(), id_gen);
             state.exposes.resize(self.description.len(), id_gen);
             state
                 .categories
@@ -172,7 +173,6 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
         let counts = ControlCounts::from(&*self.description);
 
         state.labels.len() < self.description.len()
-            || state.exposes.len() < self.description.len()
             || state.categories.len() < self.description.categories()
             || state
                 .controls
@@ -251,6 +251,7 @@ pub struct Style {
 #[derive(Clone, Debug)]
 pub struct State {
     labels: widget::id::List,
+    messages: widget::id::List,
     exposes: widget::id::List,
     controls: HashMap<TypeId, widget::id::List>,
     categories: widget::id::List,
@@ -274,6 +275,7 @@ where
     fn init_state(&self, _id_gen: widget::id::Generator) -> Self::State {
         State {
             labels: widget::id::List::new(),
+            messages: widget::id::List::new(),
             exposes: widget::id::List::new(),
             controls: hashmap! {
                 TypeId::of::<widget::Slider<f32>>() => widget::id::List::new(),
@@ -315,6 +317,7 @@ where
         // Build widgets for each parameter
         let mut top_margin = 16.0;
         let mut label_count = 0;
+        let mut message_count = 0;
         let mut control_idx = ControlCounts::default();
 
         let controls = self.description.controls();
@@ -331,8 +334,10 @@ where
 
             for parameter in category.parameters.iter_mut() {
                 let label_id = state.labels[label_count];
+                let message_id = state.messages[message_count];
                 let expose_id = state.exposes[label_count];
                 label_count += 1;
+                message_count += 1;
 
                 // Skip parameter if it's not visible under current conditions
                 if !parameter.visibility.run(&controls) {
@@ -669,6 +674,7 @@ where
                     }
                     Control::ChannelMap {
                         enabled,
+                        chan,
                         selected,
                         sockets,
                     } => {
@@ -679,42 +685,68 @@ where
                             .controls
                             .get(&TypeId::of::<widget::DropDownList<String>>())
                             .unwrap()[control_idx.enums];
+                        let legal_sockets: Vec<_> = sockets
+                            .iter()
+                            .filter_map(|(x, ty)| if chan.legal_for(*ty) { Some(x) } else { None })
+                            .collect();
 
-                        for _press in widget::Toggle::new(*enabled)
-                            .w(16.0)
-                            .h(16.0)
-                            .set(toggle_id, ui)
-                        {
-                            *enabled = !*enabled;
-                            ev.push(Event::ChangeParameter(
-                                parameter.transmitter.transmit(
-                                    self.resource,
-                                    &((if *enabled { 1_u32 } else { 0_u32 }), (*selected as u32))
-                                        .to_data(),
-                                ),
-                            ));
-                        }
-
-                        if let Some(new_selection) =
-                            widget::DropDownList::new(sockets, Some(*selected))
-                                .label_font_size(style.text_size(&ui.theme))
-                                .right(8.0)
-                                .padded_w_of(id, 32.0)
+                        if legal_sockets.is_empty() {
+                            widget::Text::new(&self.language.get_message("layer-type-mismatch"))
+                                .parent(id)
+                                .color(style.text_color(&ui.theme).alpha(0.5))
+                                .font_size(style.text_size(&ui.theme))
+                                .set(message_id, ui);
+                        } else {
+                            for _press in widget::Toggle::new(*enabled)
+                                .enabled(!legal_sockets.is_empty())
+                                .w(16.0)
                                 .h(16.0)
-                                .set(enum_id, ui)
-                        {
-                            ev.push(Event::ChangeParameter(
-                                parameter.transmitter.transmit(
-                                    self.resource,
-                                    &((if *enabled { 1_u32 } else { 0_u32 }), (*selected as u32))
-                                        .to_data(),
-                                ),
-                            ));
-                            *selected = new_selection;
-                        }
+                                .set(toggle_id, ui)
+                            {
+                                *enabled = !*enabled;
+                                ev.push(Event::ChangeParameter(
+                                    parameter.transmitter.transmit(
+                                        self.resource,
+                                        &(
+                                            (if *enabled { 1_u32 } else { 0_u32 }),
+                                            (*selected as u32),
+                                        )
+                                            .to_data(),
+                                    ),
+                                ));
+                            }
 
-                        control_idx.toggles += 1;
-                        control_idx.enums += 1;
+                            if let Some(new_selection) = widget::DropDownList::new(
+                                &legal_sockets,
+                                if legal_sockets.is_empty() {
+                                    None
+                                } else {
+                                    Some(*selected)
+                                },
+                            )
+                            .enabled(!legal_sockets.is_empty())
+                            .label_font_size(style.text_size(&ui.theme))
+                            .right(8.0)
+                            .padded_w_of(id, 32.0)
+                            .h(16.0)
+                            .set(enum_id, ui)
+                            {
+                                ev.push(Event::ChangeParameter(
+                                    parameter.transmitter.transmit(
+                                        self.resource,
+                                        &(
+                                            (if *enabled { 1_u32 } else { 0_u32 }),
+                                            (*selected as u32),
+                                        )
+                                            .to_data(),
+                                    ),
+                                ));
+                                *selected = new_selection;
+                            }
+
+                            control_idx.toggles += 1;
+                            control_idx.enums += 1;
+                        }
                     }
                 }
 

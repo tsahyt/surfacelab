@@ -61,6 +61,7 @@ graph-name = Graphname
 layer = Layer
 output-channels = Outputkanäle
 input-channels = Inputkanäle
+layer-type-mismatch = Von Layerkonfiguration nicht unterstützt
 
 surface-attributes = Oberflächenattribute
 parent-size = Oberflächendimensionen

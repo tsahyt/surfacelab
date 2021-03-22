@@ -353,23 +353,30 @@ impl NodeCollections {
         }
     }
 
-    /// Monomorphize a socket in a graph. This is a NOP for layers.
+    /// Monomorphize a socket in a graph.
     pub fn monomorphize_socket(&mut self, socket: &Resource<r::Socket>, ty: ImageType) {
         let node = socket.socket_node();
 
-        if let Some(target) = self.target_graph_from_node(&node) {
-            let idx = target.resources.get(&node).unwrap();
-            let node = target.graph.node_weight_mut(*idx).unwrap();
-            let var = type_variable_from_socket_iter(
-                node.inputs.iter().chain(node.outputs.iter()),
-                socket.fragment().unwrap(),
-            )
-            .unwrap();
-            node.set_type_variable(var, Some(ty))
+        match self.target_collection_from_node(&node) {
+            Some(NodeCollection::Graph(target)) => {
+                let idx = target.resources.get(&node).unwrap();
+                let node = target.graph.node_weight_mut(*idx).unwrap();
+                let var = type_variable_from_socket_iter(
+                    node.inputs.iter().chain(node.outputs.iter()),
+                    socket.fragment().unwrap(),
+                )
+                .unwrap();
+                node.set_type_variable(var, Some(ty))
+            }
+            Some(NodeCollection::Layers(target)) => {
+                target.set_type_variable(socket, ty);
+            }
+            None => {}
         }
     }
 
-    /// Demonomorphize a socket in a graph. This is a NOP for layers.
+    /// Demonomorphize a socket in a graph. This is a NOP for layers, since
+    /// layers never have open input sockets.
     pub fn demonomorphize_socket(&mut self, socket: &Resource<r::Socket>) {
         let node = socket.socket_node();
 
