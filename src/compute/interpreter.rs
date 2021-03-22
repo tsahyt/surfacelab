@@ -251,7 +251,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         let mut response = Vec::new();
         let updated = self
             .sockets
-            .get_output_image_updated(&node)
+            .get_output_image_updated(socket)
             .expect("Missing sequence for socket");
         if updated == self.seq {
             log::trace!("Generating thumbnail for {}", socket);
@@ -296,7 +296,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         let uniform_hash = op.parameter_hash();
         let op_seq = self
             .sockets
-            .get_output_image_updated(res)
+            .get_any_output_updated(res)
             .expect("Missing sequence for operator");
         let inputs_updated = op.inputs().iter().any(|(socket, _)| {
             let socket_res = res.node_socket(&socket);
@@ -323,7 +323,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                     .unwrap_or(0);
 
                 self.sockets
-                    .set_output_image_updated(res, self.seq.min(inner_seq));
+                    .set_all_outputs_updated(res, self.seq.min(inner_seq));
 
                 return Ok(());
             }
@@ -374,10 +374,10 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             .unwrap()
             .is_backed());
 
-        let to_seq = self.sockets.get_output_image_updated(&to.socket_node());
+        let to_seq = self.sockets.get_output_image_updated(to);
         let from_seq = self
             .sockets
-            .get_output_image_updated(&from.socket_node())
+            .get_output_image_updated(from)
             .or_else(|| self.sockets.get_input_image_updated(from));
 
         if to_seq >= from_seq && !self.sockets.get_force(&to.socket_node()) {
@@ -402,8 +402,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .expect("Unable to find source image for copy");
 
             self.gpu.copy_image(from_image, to_image);
-            self.sockets
-                .set_output_image_updated(&to.socket_node(), self.seq);
+            self.sockets.set_output_image_updated(to, self.seq);
         }
 
         Ok(())
@@ -460,7 +459,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
             self.gpu.upload_image(&image, buf)?;
             self.last_known.insert(res.clone(), parameter_hash);
-            self.sockets.set_output_image_updated(res, self.seq);
+            self.sockets.set_all_outputs_updated(res, self.seq);
             self.sockets
                 .update_timing_data(res, start_time.elapsed().as_secs_f64());
 
@@ -573,7 +572,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         let uniform_hash = op.uniform_hash();
         let op_seq = self
             .sockets
-            .get_output_image_updated(res)
+            .get_any_output_updated(res)
             .expect("Missing sequence for operator");
         let inputs_updated = op.inputs().iter().any(|(socket, _)| {
             let socket_res = res.node_socket(&socket);
@@ -697,7 +696,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         );
 
         self.last_known.insert(res.clone(), uniform_hash);
-        self.sockets.set_output_image_updated(res, self.seq);
+        self.sockets.set_all_outputs_updated(res, self.seq);
         self.sockets
             .update_timing_data(res, start_time.elapsed().as_secs_f64());
 

@@ -348,14 +348,16 @@ where
     }
 
     /// Obtain when the output image was last updated
-    pub fn get_output_image_updated(&self, node: &Resource<Node>) -> Option<u64> {
+    pub fn get_output_image_updated(&self, res: &Resource<Socket>) -> Option<u64> {
         self.0
-            .get(&node)
-            .unwrap()
+            .get(&res.socket_node())?
             .typed_outputs
-            .values()
+            .get((&res).fragment()?)
             .map(|x| x.seq)
-            .max()
+    }
+
+    pub fn get_any_output_updated(&self, res: &Resource<Node>) -> Option<u64> {
+        self.0.get(res)?.typed_outputs.values().map(|x| x.seq).max()
     }
 
     /// Obtain whether a node must be forced
@@ -376,8 +378,20 @@ where
     }
 
     /// Set when the output image was last updated
-    pub fn set_output_image_updated(&mut self, node: &Resource<Node>, updated: u64) {
-        for img in self.0.get_mut(&node).unwrap().typed_outputs.values_mut() {
+    pub fn set_output_image_updated(&mut self, socket: &Resource<Socket>, updated: u64) {
+        for img in self
+            .0
+            .get_mut(&socket.socket_node())
+            .and_then(|xs| xs.typed_outputs.get_mut(socket.fragment().unwrap()))
+        {
+            img.seq = updated;
+            img.force = false;
+        }
+    }
+
+    /// Set when the all output images on this group were last updated
+    pub fn set_all_outputs_updated(&mut self, node: &Resource<Node>, updated: u64) {
+        for img in self.0.get_mut(node).unwrap().typed_outputs.values_mut() {
             img.seq = updated;
             img.force = false;
         }
