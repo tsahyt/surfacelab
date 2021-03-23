@@ -33,18 +33,9 @@ pub fn start_compute_thread<B: gpu::Backend>(
             .spawn(move || {
                 let mut compute_mgr = ComputeManager::new(gpu);
                 for event in receiver {
-                    match compute_mgr.process_event(event) {
+                    match compute_mgr.process_event(event, &sender) {
                         None => break,
-                        Some(response) => {
-                            for ev in response {
-                                if let Err(e) = sender.send(ev) {
-                                    log::error!(
-                                        "Compute lost connection to application bus! {}",
-                                        e
-                                    );
-                                }
-                            }
-                        }
+                        _ => {}
                     }
                 }
 
@@ -120,8 +111,11 @@ where
     }
 
     /// Process one event from the application bus
-    pub fn process_event(&mut self, event: Arc<Lang>) -> Option<Vec<Lang>> {
-        let mut response = Vec::new();
+    pub fn process_event(
+        &mut self,
+        event: Arc<Lang>,
+        sender: &broker::BrokerSender<Lang>,
+    ) -> Option<()> {
         match &*event {
             Lang::LayersEvent(event) => match event {
                 LayersEvent::LayerPushed(res, _, _, _, _, _, _, size) => {
@@ -163,7 +157,9 @@ where
                         .remove_all_for_node(res, &mut self.gpu)
                         .drain(0..)
                     {
-                        response.push(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(socket)))
+                        sender
+                            .send(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(socket)))
+                            .unwrap();
                     }
 
                     for channel in MaterialChannel::iter() {
@@ -180,7 +176,9 @@ where
                             .remove_all_for_node(res, &mut self.gpu)
                             .drain(0..)
                         {
-                            response.push(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(socket)))
+                            sender
+                                .send(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(socket)))
+                                .unwrap();
                         }
                     }
                 }
@@ -218,10 +216,12 @@ where
                                 *size,
                                 *external_data,
                             );
-                            response.push(Lang::ComputeEvent(ComputeEvent::SocketCreated(
-                                res.clone(),
-                                *ty,
-                            )));
+                            sender
+                                .send(Lang::ComputeEvent(ComputeEvent::SocketCreated(
+                                    res.clone(),
+                                    *ty,
+                                )))
+                                .unwrap();
                         }
                         OperatorType::Polymorphic(_) => {
                             self.sockets
@@ -238,7 +238,9 @@ where
                         .remove_all_for_node(res, &mut self.gpu)
                         .drain(0..)
                     {
-                        response.push(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(socket)))
+                        sender
+                            .send(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(socket)))
+                            .unwrap();
                     }
                 }
                 GraphEvent::NodeRenamed(from, to) => self.rename(from, to),
@@ -282,7 +284,7 @@ where
                             }
                             Ok((r, s)) => {
                                 for ev in r {
-                                    response.push(Lang::ComputeEvent(ev))
+                                    sender.send(Lang::ComputeEvent(ev)).unwrap();
                                 }
                                 self.seq = s;
                             }
@@ -299,10 +301,12 @@ where
                         // size should also already be known!
                         self.sockets
                             .add_output_socket(res, Some((img, *ty)), size, false);
-                        response.push(Lang::ComputeEvent(ComputeEvent::SocketCreated(
-                            res.clone(),
-                            *ty,
-                        )));
+                        sender
+                            .send(Lang::ComputeEvent(ComputeEvent::SocketCreated(
+                                res.clone(),
+                                *ty,
+                            )))
+                            .unwrap();
                     }
                 }
                 GraphEvent::SocketDemonomorphized(res) => {
@@ -311,10 +315,14 @@ where
                         self.sockets.remove_image(res);
                         let node = res.socket_node();
                         self.sockets.clear_thumbnail(&node, &mut self.gpu);
-                        response.push(Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(node)));
-                        response.push(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(
-                            res.clone(),
-                        )));
+                        sender
+                            .send(Lang::ComputeEvent(ComputeEvent::ThumbnailDestroyed(node)))
+                            .unwrap();
+                        sender
+                            .send(Lang::ComputeEvent(ComputeEvent::SocketDestroyed(
+                                res.clone(),
+                            )))
+                            .unwrap();
                     }
                 }
                 GraphEvent::GraphRenamed(from, to) => {
@@ -326,37 +334,48 @@ where
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => {
                 self.reset();
-                response.push(Lang::ComputeEvent(ComputeEvent::Cleared));
+                sender
+                    .send(Lang::ComputeEvent(ComputeEvent::Cleared))
+                    .unwrap();
             }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(..)) => {
                 let data = self.serialize().ok()?;
-                response.push(Lang::ComputeEvent(ComputeEvent::Serialized(data)));
+                sender
+                    .send(Lang::ComputeEvent(ComputeEvent::Serialized(data)))
+                    .unwrap();
             }
             Lang::UserIOEvent(UserIOEvent::NewSurface) => {
                 self.reset();
-                response.push(Lang::ComputeEvent(ComputeEvent::Cleared))
+                sender
+                    .send(Lang::ComputeEvent(ComputeEvent::Cleared))
+                    .unwrap();
             }
             Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {
-                response.push(self.add_image_resource(path))
+                sender.send(self.add_image_resource(path)).unwrap();
             }
             Lang::UserIOEvent(UserIOEvent::SetImageColorSpace(res, cs)) => {
                 if let Some(img) = self.external_images.get_mut(res) {
                     img.color_space(*cs);
-                    response.push(Lang::ComputeEvent(ComputeEvent::ImageColorSpaceSet(
-                        res.clone(),
-                        *cs,
-                    )));
+                    sender
+                        .send(Lang::ComputeEvent(ComputeEvent::ImageColorSpaceSet(
+                            res.clone(),
+                            *cs,
+                        )))
+                        .unwrap();
                 }
             }
             Lang::UserIOEvent(UserIOEvent::PackImage(res)) => {
                 if let Some(img) = self.external_images.get_mut(res) {
                     img.pack().ok()?;
-                    response.push(Lang::ComputeEvent(ComputeEvent::ImagePacked(res.clone())));
+                    sender
+                        .send(Lang::ComputeEvent(ComputeEvent::ImagePacked(res.clone())))
+                        .unwrap();
                 }
             }
             Lang::IOEvent(IOEvent::ComputeDataLoaded(data)) => {
-                let mut evs = self.deserialize(data).ok()?;
-                response.append(&mut evs);
+                for ev in self.deserialize(data).ok()? {
+                    sender.send(ev).unwrap();
+                }
             }
             Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => {
                 self.export(export, *size, path)
@@ -364,7 +383,7 @@ where
             _ => {}
         }
 
-        Some(response)
+        Some(())
     }
 
     /// Rename a node
