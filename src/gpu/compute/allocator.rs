@@ -199,6 +199,8 @@ pub struct Image<B: Backend> {
     format: hal::format::Format,
 }
 
+/// Equality on images is defined as pointer equality of the underlying raw
+/// images. As such it won't catch multiple images using the same allocation!
 impl<B> PartialEq for Image<B>
 where
     B: Backend,
@@ -210,6 +212,7 @@ where
 
 impl<B> Eq for Image<B> where B: Backend {}
 
+/// Hash on images is defined on underlying pointers.
 impl<B> std::hash::Hash for Image<B>
 where
     B: Backend,
