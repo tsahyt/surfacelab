@@ -142,8 +142,8 @@ where
     /// Vacate an image from a renderer
     pub fn vacate_image(&mut self, image_use: crate::lang::OutputType) {
         match self {
-            ManagedRenderer::RendererSDF3D(r) => r.vacate_image(image_use),
-            ManagedRenderer::Renderer2D(r) => r.vacate_image(image_use),
+            ManagedRenderer::RendererSDF3D(r) => r.image_slots.vacate(image_use),
+            ManagedRenderer::Renderer2D(r) => r.image_slots.vacate(image_use),
         }
     }
 }

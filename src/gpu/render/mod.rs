@@ -91,7 +91,7 @@ pub struct GPURender<B: Backend, U: Renderer> {
     occupancy_memory: ManuallyDrop<B::Memory>,
     uniform_buffer: ManuallyDrop<B::Buffer>,
     uniform_memory: ManuallyDrop<B::Memory>,
-    image_slots: ImageSlots<B>,
+    pub image_slots: ImageSlots<B>,
     environment_maps: EnvironmentMaps<B>,
     image_size: u32,
 
@@ -147,13 +147,49 @@ impl<B: Backend> ImageSlots<B> {
             )?,
         })
     }
+
+    /// Vacate a texture, making it inaccessible for the shader.
+    ///
+    /// This does not modify any GPU memory, it merely marks the slot as
+    /// unoccupied in the occupancy uniforms.
+    pub fn vacate(&mut self, image_use: crate::lang::OutputType) {
+        let slot = match image_use {
+            crate::lang::OutputType::Displacement => &mut self.displacement,
+            crate::lang::OutputType::Albedo => &mut self.albedo,
+            crate::lang::OutputType::Roughness => &mut self.roughness,
+            crate::lang::OutputType::Normal => &mut self.normal,
+            crate::lang::OutputType::Metallic => &mut self.metallic,
+            _ => return,
+        };
+
+        slot.occupied = false;
+    }
+
+    /// Build the SlotOccupancy uniform from the stored image slots.
+    pub fn occupancy(&self) -> SlotOccupancy {
+        fn from_bool(x: bool) -> u32 {
+            if x {
+                1
+            } else {
+                0
+            }
+        }
+
+        SlotOccupancy {
+            albedo: from_bool(self.albedo.occupied),
+            roughness: from_bool(self.roughness.occupied),
+            normal: from_bool(self.normal.occupied),
+            displacement: from_bool(self.displacement.occupied),
+            metallic: from_bool(self.metallic.occupied),
+        }
+    }
 }
 
 /// Uniform struct to pass to the shader to make decisions on what to render and
 /// where to use defaults. The u32s encode boolean values for use in shaders.
 #[derive(AsBytes)]
 #[repr(C)]
-struct SlotOccupancy {
+pub struct SlotOccupancy {
     albedo: u32,
     roughness: u32,
     normal: u32,
@@ -781,25 +817,6 @@ where
         Ok(())
     }
 
-    /// Build the SlotOccupancy uniform from the stored image slots.
-    fn build_occupancy(&self) -> SlotOccupancy {
-        fn from_bool(x: bool) -> u32 {
-            if x {
-                1
-            } else {
-                0
-            }
-        }
-
-        SlotOccupancy {
-            albedo: from_bool(self.image_slots.albedo.occupied),
-            roughness: from_bool(self.image_slots.roughness.occupied),
-            normal: from_bool(self.image_slots.normal.occupied),
-            displacement: from_bool(self.image_slots.displacement.occupied),
-            metallic: from_bool(self.image_slots.metallic.occupied),
-        }
-    }
-
     /// Fill the uniform buffers
     fn fill_uniforms(
         &self,
@@ -854,7 +871,7 @@ where
         {
             let lock = self.gpu.lock().unwrap();
 
-            let occupancy = self.build_occupancy();
+            let occupancy = self.image_slots.occupancy();
             let uniforms = self.view.uniforms();
             self.fill_uniforms(&lock.device, occupancy.as_bytes(), uniforms)
                 .map_err(|_| RenderError::UniformFill)?;
@@ -1313,23 +1330,6 @@ where
         unsafe {
             self.command_pool.free(Some(cmd_buffer));
         }
-    }
-
-    /// Vacate a texture, making it inaccessible for the shader.
-    ///
-    /// This does not modify any GPU memory, it merely marks the slot as
-    /// unoccupied in the occupancy uniforms.
-    pub fn vacate_image(&mut self, image_use: crate::lang::OutputType) {
-        let image_slot = match image_use {
-            crate::lang::OutputType::Displacement => &mut self.image_slots.displacement,
-            crate::lang::OutputType::Albedo => &mut self.image_slots.albedo,
-            crate::lang::OutputType::Roughness => &mut self.image_slots.roughness,
-            crate::lang::OutputType::Normal => &mut self.image_slots.normal,
-            crate::lang::OutputType::Metallic => &mut self.image_slots.metallic,
-            _ => return,
-        };
-
-        image_slot.occupied = false;
     }
 
     /// Load a new environment from a HDRi file.
