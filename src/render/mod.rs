@@ -507,13 +507,20 @@ where
         image_size: i32,
         output_type: OutputType,
     ) {
+        log::trace!("Transferring output image for {:?}", output_type);
+
         for r in self.renderers.values_mut() {
-            if let Some(img) = image.clone().to::<B>().and_then(|i| i.upgrade()) {
-                {
-                    let lock = img.lock().unwrap();
-                    r.transfer_image(&lock, layout, access, image_size, output_type);
+            match image.clone().to::<B>().and_then(|i| i.upgrade()) {
+                Some(img) => {
+                    {
+                        let lock = img.lock().unwrap();
+                        r.transfer_image(&lock, layout, access, image_size, output_type);
+                    }
+                    r.reset_sampling();
                 }
-                r.reset_sampling();
+                None => {
+                    log::warn!("Failed to acquire output image for transfer!");
+                }
             }
         }
     }
