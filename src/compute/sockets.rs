@@ -41,7 +41,7 @@ where
 
 /// Per "node" socket data. Note that we don't really have a notion of node here
 /// in the compute component, but this still very closely corresponds to that.
-pub struct SocketData<B: gpu::Backend> {
+pub struct SocketGroup<B: gpu::Backend> {
     /// Output sockets always map to an image, which may or may not be
     /// allocated, and a counter determining in which execution the image was
     /// most recently updated. Additionally the image type is stored such that
@@ -67,7 +67,7 @@ pub struct SocketData<B: gpu::Backend> {
     thumbnail: Option<gpu::compute::ThumbnailIndex>,
 }
 
-impl<B: gpu::Backend> SocketData<B> {
+impl<B: gpu::Backend> SocketGroup<B> {
     /// Update timing information
     pub fn update_time_ema(&mut self, seconds: f64) {
         self.time_ema.update(seconds);
@@ -78,7 +78,7 @@ impl<B: gpu::Backend> SocketData<B> {
         );
     }
 
-    /// Construct a new empty SocketData with a given output size
+    /// Construct a new empty SocketGroup with a given output size
     pub fn new(size: u32) -> Self {
         Self {
             typed_outputs: HashMap::new(),
@@ -91,7 +91,7 @@ impl<B: gpu::Backend> SocketData<B> {
     }
 }
 
-impl<B: gpu::Backend> Default for SocketData<B> {
+impl<B: gpu::Backend> Default for SocketGroup<B> {
     fn default() -> Self {
         Self::new(1024)
     }
@@ -99,7 +99,7 @@ impl<B: gpu::Backend> Default for SocketData<B> {
 
 /// Mapping to associate socket data to each node as required. Nodes can be from
 /// anywhere, and are not required to be in the same graph.
-pub struct Sockets<B: gpu::Backend>(HashMap<Resource<Node>, SocketData<B>>);
+pub struct Sockets<B: gpu::Backend>(HashMap<Resource<Node>, SocketGroup<B>>);
 
 impl<B> Default for Sockets<B>
 where
@@ -162,10 +162,10 @@ where
     }
 
     /// Ensure the node is known
-    pub fn ensure_node_exists(&mut self, res: &Resource<Node>, size: u32) -> &mut SocketData<B> {
+    pub fn ensure_node_exists(&mut self, res: &Resource<Node>, size: u32) -> &mut SocketGroup<B> {
         self.0
             .entry(res.clone())
-            .or_insert_with(|| SocketData::new(size))
+            .or_insert_with(|| SocketGroup::new(size))
     }
 
     /// Ensure the node described by the resource has a thumbnail image
