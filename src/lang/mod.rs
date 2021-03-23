@@ -200,6 +200,15 @@ impl Operator {
         }
     }
 
+    /// Returns the graph called by the operator if and only if this is a
+    /// complex operator.
+    pub fn graph(&self) -> Option<&Resource<Graph>> {
+        match self {
+            Operator::AtomicOperator(_) => None,
+            Operator::ComplexOperator(o) => Some(&o.graph),
+        }
+    }
+
     /// A mask is any operator that has one input or less, and some number of
     /// outputs greater than 0 that can be interpreted as grayscale images.
     pub fn is_mask(&self) -> bool {

@@ -42,6 +42,7 @@ pub struct Style {
 pub enum Event {
     NodeDrag([f64; 2]),
     NodeDelete,
+    NodeEnter,
     SocketDrag(Point, Point),
     SocketClear(String),
     SocketRelease(petgraph::graph::NodeIndex),
@@ -342,12 +343,16 @@ impl<'a> Widget for Node<'a> {
                 .map(|x| Event::NodeDrag(x.delta_xy)),
         );
 
+        // Key events
         evs.extend(
             ui.widget_input(id)
                 .presses()
                 .key()
-                .filter(|press| press.key == input::Key::X)
-                .map(|_| Event::NodeDelete),
+                .filter_map(|press| match press.key {
+                    input::Key::X => Some(Event::NodeDelete),
+                    input::Key::Tab => Some(Event::NodeEnter),
+                    _ => None,
+                }),
         );
 
         evs

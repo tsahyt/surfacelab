@@ -86,6 +86,8 @@ impl<'a> Widget for NodeEditor<'a> {
             .as_graph_mut()
             .expect("Node Graph UI built for non-graph");
 
+        let mut collection_change = None;
+
         for event in graph::Graph::new(&collection.graph)
             .node_title_color(color::LIGHT_CHARCOAL)
             .node_title_size(14)
@@ -135,6 +137,9 @@ impl<'a> Widget for NodeEditor<'a> {
                         )))
                         .unwrap();
                 }
+                graph::Event::NodeEnter(idx) => {
+                    collection_change = collection.graph.node_weight(idx).unwrap().callee.clone();
+                }
                 graph::Event::SocketClear(idx, socket) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
@@ -154,6 +159,13 @@ impl<'a> Widget for NodeEditor<'a> {
                     state.update(|state| state.add_modal = Some(pt));
                 }
             }
+        }
+
+        if let Some(g) = collection_change {
+            self.graphs.set_active_collection(g.clone());
+            self.sender
+                .send(Lang::UserGraphEvent(UserGraphEvent::ChangeGraph(g)))
+                .unwrap();
         }
 
         if let Some(insertion_pt) = state.add_modal {

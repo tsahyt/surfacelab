@@ -192,6 +192,7 @@ pub enum Event {
     ),
     SocketClear(petgraph::graph::NodeIndex, String),
     NodeDelete(petgraph::graph::NodeIndex),
+    NodeEnter(petgraph::graph::NodeIndex),
     ActiveElement(petgraph::graph::NodeIndex),
     AddModal(Point),
 }
@@ -447,6 +448,9 @@ impl<'a> Widget for Graph<'a> {
                     }
                     node::Event::NodeDelete => {
                         evs.push_back(Event::NodeDelete(idx));
+                    }
+                    node::Event::NodeEnter => {
+                        evs.push_back(Event::NodeEnter(idx));
                     }
                     node::Event::SocketDrag(from, to) => {
                         state.update(|state| {

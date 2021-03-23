@@ -18,6 +18,7 @@ pub struct Graph {
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeData {
     pub resource: Resource<Node>,
+    pub callee: Option<Resource<r::Graph>>,
     pub thumbnail: Option<image::Id>,
     pub position: Point,
     pub title: String,
@@ -49,6 +50,7 @@ impl NodeData {
         let title = operator.title().to_owned();
         Self {
             resource,
+            callee: operator.graph().cloned(),
             title,
             inputs,
             outputs,
@@ -75,6 +77,7 @@ impl NodeData {
         outputs.sort();
         self.outputs = outputs;
         self.title = operator.title().to_owned();
+        self.callee = operator.graph().cloned();
 
         self.param_box = param_box;
     }
