@@ -1187,7 +1187,6 @@ where
     ///
     /// Blitting is performed once per MIP level of the image slot, such that
     /// the MIP hierarchy is created.
-    // TODO: Ugly seams on images smaller than the render image
     pub fn transfer_image(
         &mut self,
         source: &B::Image,

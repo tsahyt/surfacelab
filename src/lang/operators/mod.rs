@@ -166,7 +166,6 @@ impl Default for Output {
 }
 
 impl Socketed for Output {
-    // TODO: unify output types with monomorphization, to solve coloring and thumbnail situation
     fn inputs(&self) -> HashMap<String, OperatorType> {
         hashmap! {
             "data".to_string() => match self.output_type {

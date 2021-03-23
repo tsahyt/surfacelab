@@ -29,7 +29,6 @@ pub const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRan
     layer_count: Some(1),
 };
 
-// TODO: more finegrained concurrency model for GPU
 pub struct GPU<B: Backend> {
     instance: B::Instance,
     device: B::Device,
@@ -98,8 +97,6 @@ pub enum BootError {
 
 /// Initialize the GPU, optionally headless. When headless is specified,
 /// no graphics capable family is required.
-///
-/// TODO: Late creation of GPU to check for surface compatibility when not running headless
 pub fn initialize_gpu(headless: bool) -> Result<Arc<Mutex<GPU<back::Backend>>>, BootError> {
     log::info!("Initializing GPU");
 

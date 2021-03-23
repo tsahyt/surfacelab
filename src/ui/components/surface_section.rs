@@ -196,7 +196,6 @@ impl<'a> Widget for SurfaceSection<'a> {
                     updated_spec = true;
                 }
                 Some(export_row::Event::Rename(new)) => {
-                    // TODO: renaming two specs to the same name causes discrepancies with the backend
                     self.sender
                         .send(Lang::UserIOEvent(UserIOEvent::RenameExport(
                             state.export_entries[row.i].0.clone(),

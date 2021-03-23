@@ -1575,7 +1575,6 @@ impl super::NodeCollection for LayerStack {
 
             let params = complex.parameters.clone();
             updated.push((layer.to_owned(), params));
-            // TODO: find a way to avoid this clone
         }
 
         (

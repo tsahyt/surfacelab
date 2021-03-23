@@ -485,7 +485,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         Ok(())
     }
 
-    /// Execute an Output operatoro
+    /// Execute an Output operator
     ///
     /// Requires the socket to exist and be backed.
     fn execute_output(&mut self, op: &Output, res: &Resource<Node>) -> Vec<ComputeEvent> {
