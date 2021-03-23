@@ -814,7 +814,6 @@ where
             .pop_front()
             .expect("Found empty stack frame");
         let substitutions = frame.substitutions_map.clone();
-        frame.step += 1;
 
         let response = match self.interpret(&instruction, &substitutions) {
             Ok(r) => Some(Ok((r, self.seq))),
@@ -832,6 +831,10 @@ where
             }
             Err(e) => Some(Err(e)),
         };
+
+        if instruction.is_execution_step() {
+            self.execution_stack.last_mut()?.step += 1;
+        }
 
         // Pop frame if we're done here
         if self.execution_stack.last()?.instructions.is_empty() {

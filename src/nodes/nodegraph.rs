@@ -684,8 +684,6 @@ impl NodeCollection for NodeGraph {
                     let res = self.node_resource(&nx);
 
                     if !use_points.contains_key(&res) || mode == LinearizationMode::FullTraversal {
-                        step += 1;
-
                         match &node.operator {
                             Operator::AtomicOperator(op) => {
                                 traversal.push(Instruction::Execute(res.clone(), op.to_owned()));
@@ -727,6 +725,8 @@ impl NodeCollection for NodeGraph {
                         let to = to_node.node_socket(&sink);
                         traversal.push(Instruction::Move(from, to));
                     }
+
+                    step += 1;
                 }
                 Action::Use(idx) => {
                     use_points

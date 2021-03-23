@@ -63,6 +63,7 @@ pub struct Linearization {
 
 impl Linearization {
     pub fn retention_set_at(&self, step: usize) -> impl Iterator<Item = &Resource<Node>> {
+        dbg!(step, &self.use_points);
         self.use_points.iter().filter_map(move |(r, up)| {
             if up.last >= step && up.creation <= step {
                 Some(r)
