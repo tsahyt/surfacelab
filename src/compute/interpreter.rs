@@ -2,6 +2,7 @@ use super::shaders::{BufferDim, IntermediateDataDescription, ShaderLibrary, Unif
 use super::sockets::*;
 use super::Linearization;
 use crate::{gpu, lang::*, util::*};
+use itertools::Itertools;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
@@ -594,23 +595,27 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         let start_time = Instant::now();
 
         // Get inputs and outputs
-        let mut inputs = HashMap::new();
-        for socket in op.inputs().keys() {
-            let socket_res = res.node_socket(&socket);
-            inputs.insert(
-                socket.clone(),
-                self.sockets.get_input_image(&socket_res).unwrap(),
-            );
-        }
-
-        let mut outputs = HashMap::new();
-        for socket in op.outputs().keys() {
-            let socket_res = res.node_socket(&socket);
-            outputs.insert(
-                socket.clone(),
-                self.sockets.get_output_image(&socket_res).unwrap(),
-            );
-        }
+        let sockets = &self.sockets;
+        let inputs: HashMap<_, _> = op
+            .inputs()
+            .keys()
+            .map(|socket| {
+                (
+                    socket.clone(),
+                    sockets.get_input_image(&res.node_socket(&socket)).unwrap(),
+                )
+            })
+            .collect();
+        let outputs: HashMap<_, _> = op
+            .outputs()
+            .keys()
+            .map(|socket| {
+                (
+                    socket.clone(),
+                    sockets.get_output_image(&res.node_socket(&socket)).unwrap(),
+                )
+            })
+            .collect();
 
         let mut intermediate_images = HashMap::new();
         let mut intermediate_buffers = HashMap::new();
@@ -624,7 +629,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             match descr {
                 IntermediateDataDescription::Image { size, ty } => {
                     let size = match size {
-                        FromSocketOr::FromSocket(_) => self.sockets.get_image_size(res),
+                        FromSocketOr::FromSocket(_) => sockets.get_image_size(res),
                         FromSocketOr::Independent(s) => *s,
                     };
                     let ty = match ty {
@@ -641,11 +646,11 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 IntermediateDataDescription::Buffer { dim, element_width } => {
                     let length = match dim {
                         BufferDim::Square(square) => match square {
-                            FromSocketOr::FromSocket(_) => self.sockets.get_image_size(res).pow(2),
+                            FromSocketOr::FromSocket(_) => sockets.get_image_size(res).pow(2),
                             FromSocketOr::Independent(s) => s.pow(2) as u32,
                         },
                         BufferDim::Vector(vector) => match vector {
-                            FromSocketOr::FromSocket(_) => self.sockets.get_image_size(res),
+                            FromSocketOr::FromSocket(_) => sockets.get_image_size(res),
                             FromSocketOr::Independent(s) => *s as u32,
                         },
                     };
@@ -678,8 +683,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         }
 
         self.gpu.run_compute(
-            self.sockets.get_image_size(res),
-            inputs.values().copied(),
+            sockets.get_image_size(res),
+            inputs.values().unique().copied(),
             outputs.values().copied(),
             intermediate_images.iter(),
             |img_size, intermediates_locks, cmd_buffer| {

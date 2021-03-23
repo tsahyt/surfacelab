@@ -199,6 +199,26 @@ pub struct Image<B: Backend> {
     format: hal::format::Format,
 }
 
+impl<B> PartialEq for Image<B>
+where
+    B: Backend,
+{
+    fn eq(&self, other: &Image<B>) -> bool {
+        Arc::ptr_eq(&self.raw, &other.raw)
+    }
+}
+
+impl<B> Eq for Image<B> where B: Backend {}
+
+impl<B> std::hash::Hash for Image<B>
+where
+    B: Backend,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.raw).hash(state);
+    }
+}
+
 impl<B> Image<B>
 where
     B: Backend,

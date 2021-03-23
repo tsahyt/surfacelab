@@ -300,16 +300,19 @@ where
     /// Runs compute pipelines given input and output images, the size of the
     /// output images, and a callback to fill the command buffer after
     /// initialization.
-    pub fn run_compute<'a, I, J, F>(
+    ///
+    /// Assumes all images to be unique!
+    pub fn run_compute<'a, I, O, J, F>(
         &mut self,
         image_size: u32,
         input_images: I,
-        output_images: I,
+        output_images: O,
         intermediate_images: J,
         buffer_builder: F,
     ) where
-        I: IntoIterator<Item = &'a Image<B>> + Clone,
-        J: IntoIterator<Item = (&'a String, &'a Image<B>)> + Clone,
+        I: Iterator<Item = &'a Image<B>> + Clone,
+        O: Iterator<Item = &'a Image<B>> + Clone,
+        J: Iterator<Item = (&'a String, &'a Image<B>)> + Clone,
         F: FnOnce(
             u32,
             &std::collections::HashMap<String, MutexGuard<B::Image>>,
@@ -323,36 +326,33 @@ where
 
         let input_locks: SmallVec<[_; 6]> = input_images
             .clone()
-            .into_iter()
             .map(|i| i.get_raw().lock().unwrap())
             .collect();
         let output_locks: SmallVec<[_; 2]> = output_images
             .clone()
-            .into_iter()
             .map(|i| i.get_raw().lock().unwrap())
             .collect();
         let intermediate_locks: HashMap<_, _> = intermediate_images
             .clone()
-            .into_iter()
             .map(|(name, i)| (name.to_string(), i.get_raw().lock().unwrap()))
             .collect();
 
         let pre_barriers = {
-            let input_barriers = input_images.into_iter().enumerate().map(|(k, i)| {
+            let input_barriers = input_images.enumerate().map(|(k, i)| {
                 i.barrier_to(
                     &input_locks[k],
                     hal::image::Access::SHADER_READ,
                     hal::image::Layout::ShaderReadOnlyOptimal,
                 )
             });
-            let output_barriers = output_images.into_iter().enumerate().map(|(k, i)| {
+            let output_barriers = output_images.enumerate().map(|(k, i)| {
                 i.barrier_to(
                     &output_locks[k],
                     hal::image::Access::SHADER_WRITE,
                     hal::image::Layout::General,
                 )
             });
-            let intermediate_barriers = intermediate_images.into_iter().map(|(n, i)| {
+            let intermediate_barriers = intermediate_images.map(|(n, i)| {
                 i.barrier_to(
                     &intermediate_locks[n],
                     hal::image::Access::SHADER_WRITE,
