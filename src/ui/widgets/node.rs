@@ -38,6 +38,12 @@ pub struct Style {
     selection_color: Option<Color>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum SocketType {
+    Source,
+    Sink,
+}
+
 #[derive(Clone, Debug)]
 pub enum Event {
     NodeDrag([f64; 2]),
@@ -45,7 +51,7 @@ pub enum Event {
     NodeEnter,
     SocketDrag(Point, Point),
     SocketClear(String),
-    SocketRelease(petgraph::graph::NodeIndex),
+    SocketRelease(petgraph::graph::NodeIndex, SocketType),
 }
 
 impl<'a> Node<'a> {
@@ -272,11 +278,11 @@ impl<'a> Widget for Node<'a> {
                     .button(input::MouseButton::Left)
                     .map(|x| {
                         Event::SocketDrag(
-                            middle,
                             [
                                 middle[0] + x.total_delta_xy[0],
                                 middle[1] + x.total_delta_xy[1],
                             ],
+                            middle,
                         )
                     }),
             );
@@ -284,7 +290,7 @@ impl<'a> Widget for Node<'a> {
             evs.extend(
                 ui.widget_input(w_id)
                     .releases()
-                    .map(|_| Event::SocketRelease(self.node_id)),
+                    .map(|_| Event::SocketRelease(self.node_id, SocketType::Sink)),
             );
 
             evs.extend(
@@ -329,7 +335,7 @@ impl<'a> Widget for Node<'a> {
             evs.extend(
                 ui.widget_input(w_id)
                     .releases()
-                    .map(|_| Event::SocketRelease(self.node_id)),
+                    .map(|_| Event::SocketRelease(self.node_id, SocketType::Source)),
             );
 
             margin += 32.0;

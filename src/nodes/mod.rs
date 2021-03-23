@@ -362,11 +362,7 @@ impl NodeManager {
                 debug_assert_eq!(graph, to.directory().unwrap());
 
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
-                    match graph
-                        .connect_sockets(from_node, from_socket, to_node, to_socket)
-                        .or_else(|_| {
-                            graph.connect_sockets(to_node, to_socket, from_node, from_socket)
-                        }) {
+                    match graph.connect_sockets(from_node, from_socket, to_node, to_socket) {
                         Ok(mut res) => {
                             response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
                                 from.clone(),

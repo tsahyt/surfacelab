@@ -457,12 +457,9 @@ impl<'a> Widget for Graph<'a> {
                             state.connection_draw = Some(ConnectionDraw { from, to })
                         });
                     }
-                    node::Event::SocketRelease(nid) => {
+                    node::Event::SocketRelease(nid, node::SocketType::Source) => {
                         if let Some(draw) = &state.connection_draw {
                             if let Some(target) = self.find_target_socket(ui, state, draw.to) {
-                                // This is available above, but we recreate it
-                                // because this allows sidestepping the borrow
-                                // checker.
                                 let w_id = state.node_ids.get(&nid).unwrap();
                                 evs.push_back(Event::ConnectionDrawn(
                                     nid,
@@ -471,6 +468,22 @@ impl<'a> Widget for Graph<'a> {
                                         .to_string(),
                                     target.0,
                                     target.1,
+                                ))
+                            }
+                        }
+                        state.update(|state| {
+                            state.connection_draw = None;
+                        });
+                    }
+                    node::Event::SocketRelease(nid, node::SocketType::Sink) => {
+                        if let Some(draw) = &state.connection_draw {
+                            if let Some(target) = self.find_target_socket(ui, state, draw.from) {
+                                let w_id = state.node_ids.get(&nid).unwrap();
+                                evs.push_back(Event::ConnectionDrawn(
+                                    target.0,
+                                    target.1,
+                                    nid,
+                                    node::target_socket(ui, *w_id, draw.to).unwrap().to_string(),
                                 ))
                             }
                         }
