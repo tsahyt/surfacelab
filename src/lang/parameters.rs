@@ -268,7 +268,7 @@ impl MessageWriter for GraphField {
 
     fn transmit(&self, resource: &Resource<Graph>, data: &[u8]) -> super::Lang {
         let mut res_new = resource.clone();
-        res_new.rename_file(unsafe { std::str::from_utf8_unchecked(&data) });
+        res_new.rename_file(&String::from_data(data));
         super::Lang::UserGraphEvent(super::UserGraphEvent::RenameGraph(
             resource.clone(),
             res_new,
