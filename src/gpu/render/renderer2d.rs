@@ -57,13 +57,11 @@ where
         gpu: &Arc<Mutex<GPU<B>>>,
         monitor_dimensions: (u32, u32),
         viewport_dimensions: (u32, u32),
-        image_size: u32,
     ) -> Result<Self, InitializationError> {
         Self::new(
             gpu,
             monitor_dimensions,
             viewport_dimensions,
-            image_size,
             Uniforms::default(),
         )
     }

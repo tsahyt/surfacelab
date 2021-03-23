@@ -91,9 +91,7 @@ pub struct GPURender<B: Backend, U: Renderer> {
     occupancy_memory: ManuallyDrop<B::Memory>,
     uniform_buffer: ManuallyDrop<B::Buffer>,
     uniform_memory: ManuallyDrop<B::Memory>,
-    pub image_slots: ImageSlots<B>,
     environment_maps: EnvironmentMaps<B>,
-    image_size: u32,
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
@@ -315,7 +313,6 @@ where
         gpu: &Arc<Mutex<GPU<B>>>,
         monitor_dimensions: (u32, u32),
         viewport_dimensions: (u32, u32),
-        image_size: u32,
         view: U,
     ) -> Result<Self, InitializationError> {
         log::info!("Obtaining GPU Render Resources");
@@ -338,7 +335,6 @@ where
                 .join("artist_workshop_2k.hdr"),
         )
         .unwrap();
-        let image_slots = ImageSlots::new(gpu.clone(), image_size)?;
 
         let lock = gpu.lock().unwrap();
         log::debug!("Using render format {:?}", Self::FINAL_FORMAT);
@@ -644,9 +640,7 @@ where
 
             sampler: ManuallyDrop::new(sampler),
 
-            image_slots,
             environment_maps,
-            image_size: 1024,
 
             occupancy_buffer: ManuallyDrop::new(occupancy_buf),
             occupancy_memory: ManuallyDrop::new(occupancy_mem),
@@ -804,12 +798,6 @@ where
         Ok((pipeline, pipeline_layout))
     }
 
-    /// Recreate all image slots with a new given size. This resets all images!
-    pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), BasicImageBuilderError> {
-        self.image_slots = ImageSlots::new(self.gpu.clone(), image_size)?;
-        Ok(())
-    }
-
     /// Set the viewport dimensions.
     pub fn set_viewport_dimensions(&mut self, width: u32, height: u32) {
         self.viewport = hal::pso::Viewport {
@@ -887,14 +875,14 @@ where
     }
 
     /// Render a single frame
-    pub fn render(&mut self) -> Result<(), RenderError> {
+    pub fn render(&mut self, image_slots: &ImageSlots<B>) -> Result<(), RenderError> {
         // Wait on previous fence to make sure the last frame has been rendered.
         self.synchronize_at_fence()?;
 
         {
             let lock = self.gpu.lock().unwrap();
 
-            let occupancy = self.image_slots.occupancy();
+            let occupancy = image_slots.occupancy();
             let uniforms = self.view.uniforms();
             self.fill_uniforms(&lock.device, occupancy.as_bytes(), uniforms)
                 .map_err(|_| RenderError::UniformFill)?;
@@ -948,7 +936,7 @@ where
                             binding: 3,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                &*self.image_slots.displacement.view,
+                                &*image_slots.displacement.view,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -957,7 +945,7 @@ where
                             binding: 4,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                &*self.image_slots.albedo.view,
+                                &*image_slots.albedo.view,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -966,7 +954,7 @@ where
                             binding: 5,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                &*self.image_slots.normal.view,
+                                &*image_slots.normal.view,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -975,7 +963,7 @@ where
                             binding: 6,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                &*self.image_slots.roughness.view,
+                                &*image_slots.roughness.view,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -984,7 +972,7 @@ where
                             binding: 7,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                &*self.image_slots.metallic.view,
+                                &*image_slots.metallic.view,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -1063,7 +1051,7 @@ where
                                     hal::image::Access::SHADER_READ,
                                     hal::image::Layout::ShaderReadOnlyOptimal,
                                 ),
-                            target: &*self.image_slots.displacement.image,
+                            target: &*image_slots.displacement.image,
                             families: None,
                             range: IMG_SLOT_RANGE.clone(),
                         },
@@ -1073,7 +1061,7 @@ where
                                     hal::image::Access::SHADER_READ,
                                     hal::image::Layout::ShaderReadOnlyOptimal,
                                 ),
-                            target: &*self.image_slots.albedo.image,
+                            target: &*image_slots.albedo.image,
                             families: None,
                             range: IMG_SLOT_RANGE.clone(),
                         },
@@ -1083,7 +1071,7 @@ where
                                     hal::image::Access::SHADER_READ,
                                     hal::image::Layout::ShaderReadOnlyOptimal,
                                 ),
-                            target: &*self.image_slots.normal.image,
+                            target: &*image_slots.normal.image,
                             families: None,
                             range: IMG_SLOT_RANGE.clone(),
                         },
@@ -1093,7 +1081,7 @@ where
                                     hal::image::Access::SHADER_READ,
                                     hal::image::Layout::ShaderReadOnlyOptimal,
                                 ),
-                            target: &*self.image_slots.roughness.image,
+                            target: &*image_slots.roughness.image,
                             families: None,
                             range: IMG_SLOT_RANGE.clone(),
                         },
@@ -1103,7 +1091,7 @@ where
                                     hal::image::Access::SHADER_READ,
                                     hal::image::Layout::ShaderReadOnlyOptimal,
                                 ),
-                            target: &*self.image_slots.metallic.image,
+                            target: &*image_slots.metallic.image,
                             families: None,
                             range: IMG_SLOT_RANGE.clone(),
                         },
@@ -1218,7 +1206,9 @@ where
         self.accum_target.image_view()
     }
 
-    /// Transfer an external (usually compute) image to an image slot.
+    /// Transfer an external (usually compute) image to an image slot in the
+    /// ImageSlots struct passed in. This allows hijacking the command buffers
+    /// of this renderer to fulfil this task on externally held images.
     ///
     /// This is done by *blitting* the source image, since there is a potential
     /// format conversion going on in the process. The image slot has the same
@@ -1229,6 +1219,7 @@ where
     /// the MIP hierarchy is created.
     pub fn transfer_image(
         &mut self,
+        image_slots: &mut ImageSlots<B>,
         source: &B::Image,
         source_layout: hal::image::Layout,
         source_access: hal::image::Access,
@@ -1236,11 +1227,11 @@ where
         image_use: crate::lang::OutputType,
     ) {
         let image_slot = match image_use {
-            crate::lang::OutputType::Displacement => &mut self.image_slots.displacement,
-            crate::lang::OutputType::Albedo => &mut self.image_slots.albedo,
-            crate::lang::OutputType::Roughness => &mut self.image_slots.roughness,
-            crate::lang::OutputType::Normal => &mut self.image_slots.normal,
-            crate::lang::OutputType::Metallic => &mut self.image_slots.metallic,
+            crate::lang::OutputType::Displacement => &mut image_slots.displacement,
+            crate::lang::OutputType::Albedo => &mut image_slots.albedo,
+            crate::lang::OutputType::Roughness => &mut image_slots.roughness,
+            crate::lang::OutputType::Normal => &mut image_slots.normal,
+            crate::lang::OutputType::Metallic => &mut image_slots.metallic,
             _ => return,
         };
 

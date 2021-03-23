@@ -7,6 +7,7 @@ use std::time::Instant;
 use strum::IntoEnumIterator;
 
 const DEFAULT_SAMPLES: usize = 24;
+const DEFAULT_IMAGE_SIZE: u32 = 1024;
 const TIMING_DECAY: f64 = 0.85;
 
 /// Start the render thread. This thread manages renderers.
@@ -87,10 +88,10 @@ where
     }
 
     /// Instruct GPU to render a frame
-    pub fn render(&mut self) {
+    pub fn render(&mut self, image_slots: &gpu::render::ImageSlots<B>) {
         match self {
-            ManagedRenderer::RendererSDF3D(r) => r.render(),
-            ManagedRenderer::Renderer2D(r) => r.render(),
+            ManagedRenderer::RendererSDF3D(r) => r.render(image_slots),
+            ManagedRenderer::Renderer2D(r) => r.render(image_slots),
         }
         .expect("Rendering failed")
     }
@@ -103,15 +104,6 @@ where
         }
     }
 
-    /// Recreate all image slots with a given size.
-    pub fn recreate_image_slots(&mut self, image_size: u32) {
-        match self {
-            ManagedRenderer::RendererSDF3D(r) => r.recreate_image_slots(image_size),
-            ManagedRenderer::Renderer2D(r) => r.recreate_image_slots(image_size),
-        }
-        .expect("Failed to resize images in renderer");
-    }
-
     /// Resize the viewport dimensions in the renderer
     pub fn set_viewport_dimensions(&mut self, width: u32, height: u32) {
         match self {
@@ -120,9 +112,11 @@ where
         }
     }
 
-    /// Transfer an image to a renderer
+    /// Hijack GPU structures of renderer to transfer image. See GPU side
+    /// documentation for more details.
     pub fn transfer_image(
         &mut self,
+        image_slots: &mut gpu::render::ImageSlots<B>,
         source: &B::Image,
         source_layout: gfx_hal::image::Layout,
         source_access: gfx_hal::image::Access,
@@ -130,20 +124,22 @@ where
         image_use: crate::lang::OutputType,
     ) {
         match self {
-            ManagedRenderer::RendererSDF3D(r) => {
-                r.transfer_image(source, source_layout, source_access, source_size, image_use)
-            }
-            ManagedRenderer::Renderer2D(r) => {
-                r.transfer_image(source, source_layout, source_access, source_size, image_use)
-            }
-        }
-    }
-
-    /// Vacate an image from a renderer
-    pub fn vacate_image(&mut self, image_use: crate::lang::OutputType) {
-        match self {
-            ManagedRenderer::RendererSDF3D(r) => r.image_slots.vacate(image_use),
-            ManagedRenderer::Renderer2D(r) => r.image_slots.vacate(image_use),
+            ManagedRenderer::RendererSDF3D(r) => r.transfer_image(
+                image_slots,
+                source,
+                source_layout,
+                source_access,
+                source_size,
+                image_use,
+            ),
+            ManagedRenderer::Renderer2D(r) => r.transfer_image(
+                image_slots,
+                source,
+                source_layout,
+                source_access,
+                source_size,
+                image_use,
+            ),
         }
     }
 }
@@ -202,6 +198,7 @@ where
 /// identifier by their RendererID.
 struct RenderManager<B: gpu::Backend> {
     gpu: Arc<Mutex<gpu::GPU<B>>>,
+    image_slots: gpu::render::ImageSlots<B>,
     renderers: HashMap<RendererID, Renderer<B>>,
 }
 
@@ -211,8 +208,11 @@ where
 {
     /// Spawn a new render manager. No renderers will be registered after creation.
     pub fn new(gpu: Arc<Mutex<gpu::GPU<B>>>) -> Self {
+        let image_slots = gpu::render::ImageSlots::new(gpu.clone(), DEFAULT_IMAGE_SIZE)
+            .expect("Failed to build image slots");
         RenderManager {
             gpu,
+            image_slots,
             renderers: HashMap::new(),
         }
     }
@@ -415,7 +415,6 @@ where
                         &self.gpu,
                         monitor_dimensions,
                         viewport_dimensions,
-                        1024,
                     )
                     .map_err(|e| format!("{:?}", e))?,
                 ),
@@ -427,7 +426,6 @@ where
                         &self.gpu,
                         monitor_dimensions,
                         viewport_dimensions,
-                        1024,
                     )
                     .map_err(|e| format!("{:?}", e))?,
                 ),
@@ -436,7 +434,7 @@ where
         };
 
         let now = Instant::now();
-        renderer.render();
+        renderer.render(&self.image_slots);
         renderer
             .frametime_ema
             .update(now.elapsed().as_micros() as f64);
@@ -453,7 +451,7 @@ where
     pub fn redraw_all(&mut self) {
         for r in self.renderers.values_mut() {
             let now = Instant::now();
-            r.render();
+            r.render(&self.image_slots);
             r.frametime_ema.update(now.elapsed().as_micros() as f64);
             r.samples_to_go = r.samples_to_go.saturating_sub(1);
         }
@@ -469,7 +467,7 @@ where
     pub fn redraw(&mut self, renderer_id: RendererID) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             let now = Instant::now();
-            r.render();
+            r.render(&self.image_slots);
             r.frametime_ema.update(now.elapsed().as_micros() as f64);
             r.samples_to_go = r.samples_to_go.saturating_sub(1);
         } else {
@@ -478,10 +476,9 @@ where
     }
 
     pub fn resize_images(&mut self, new_size: u32) {
-        for r in self.renderers.values_mut() {
-            r.recreate_image_slots(new_size);
-            r.reset_sampling();
-        }
+        let image_slots = gpu::render::ImageSlots::new(self.gpu.clone(), new_size)
+            .expect("Failed to build image slots");
+        self.image_slots = image_slots;
     }
 
     pub fn resize(&mut self, renderer_id: RendererID, width: u32, height: u32) {
@@ -509,26 +506,32 @@ where
     ) {
         log::trace!("Transferring output image for {:?}", output_type);
 
-        for r in self.renderers.values_mut() {
+        if let Some(r) = self.renderers.values_mut().next() {
             match image.clone().to::<B>().and_then(|i| i.upgrade()) {
                 Some(img) => {
-                    {
-                        let lock = img.lock().unwrap();
-                        r.transfer_image(&lock, layout, access, image_size, output_type);
-                    }
-                    r.reset_sampling();
+                    let image_lock = img.lock().unwrap();
+                    r.transfer_image(
+                        &mut self.image_slots,
+                        &image_lock,
+                        layout,
+                        access,
+                        image_size,
+                        output_type,
+                    );
                 }
                 None => {
                     log::warn!("Failed to acquire output image for transfer!");
                 }
             }
         }
+
+        for r in self.renderers.values_mut() {
+            r.reset_sampling();
+        }
     }
 
     pub fn disconnect_output(&mut self, output_type: OutputType) {
-        for r in self.renderers.values_mut() {
-            r.vacate_image(output_type);
-        }
+        self.image_slots.vacate(output_type);
     }
 
     pub fn rotate_camera(&mut self, renderer_id: RendererID, phi: f32, theta: f32) {

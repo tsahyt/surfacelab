@@ -37,7 +37,6 @@ layout(set = 0, binding = 2) uniform Camera {
 
     float displacement_amount;
     float tex_scale;
-    float texel_size;
 
     float environment_strength;
     float environment_blur;
@@ -666,7 +665,7 @@ vec3 render(vec3 ro, vec3 rd) {
             break;
     }
 
-    vec3 n = normal(p, normal_, max(texel_size, world_space_sample_size(d)), lod_by_distance(d));
+    vec3 n = normal(p, normal_, world_space_sample_size(d), lod_by_distance(d));
 
     // Lights
     vec3 f0 = vec3(0.04);

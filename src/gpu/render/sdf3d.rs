@@ -34,7 +34,6 @@ pub struct Uniforms {
 
     displacement: f32,
     tex_scale: f32,
-    texel_size: f32,
 
     environment_strength: f32,
     environment_blur: f32,
@@ -63,7 +62,6 @@ impl Default for Uniforms {
             rad: 6.,
             displacement: 0.1,
             tex_scale: 1.,
-            texel_size: 1. / 1024.,
             environment_strength: 1.0,
             environment_blur: 3.0,
             light_type: LightType::PointLight,
@@ -102,13 +100,11 @@ where
         gpu: &Arc<Mutex<GPU<B>>>,
         monitor_dimensions: (u32, u32),
         viewport_dimensions: (u32, u32),
-        image_size: u32,
     ) -> Result<Self, InitializationError> {
         Self::new(
             gpu,
             monitor_dimensions,
             viewport_dimensions,
-            image_size,
             Uniforms::default(),
         )
     }
@@ -188,7 +184,6 @@ where
     /// Update the texture scale to be rendered
     pub fn set_texture_scale(&mut self, scale: f32) {
         self.view.tex_scale = scale;
-        self.view.texel_size = scale / self.image_size as f32;
     }
 
     /// Set the light type to be rendered
