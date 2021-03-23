@@ -101,6 +101,7 @@ pub struct GPURender<B: Backend, U: Renderer> {
 }
 
 pub struct ImageSlots<B: Backend> {
+    gpu: Arc<Mutex<GPU<B>>>,
     albedo: ImageSlot<B>,
     roughness: ImageSlot<B>,
     normal: ImageSlot<B>,
@@ -109,12 +110,13 @@ pub struct ImageSlots<B: Backend> {
 }
 
 impl<B: Backend> ImageSlots<B> {
-    pub fn new(
-        device: &B::Device,
-        memory_properties: &hal::adapter::MemoryProperties,
-        image_size: u32,
-    ) -> Result<Self, BasicImageBuilderError> {
+    pub fn new(gpu: Arc<Mutex<GPU<B>>>, image_size: u32) -> Result<Self, BasicImageBuilderError> {
+        let lock = gpu.lock().unwrap();
+        let device = &lock.device;
+        let memory_properties = &lock.memory_properties;
+
         Ok(Self {
+            gpu: gpu.clone(),
             albedo: ImageSlot::new(
                 device,
                 memory_properties,
@@ -182,6 +184,32 @@ impl<B: Backend> ImageSlots<B> {
             displacement: from_bool(self.displacement.occupied),
             metallic: from_bool(self.metallic.occupied),
         }
+    }
+}
+
+impl<B> Drop for ImageSlots<B>
+where
+    B: Backend,
+{
+    fn drop(&mut self) {
+        log::trace!("Releasing Image Slots");
+
+        let lock = self.gpu.lock().unwrap();
+
+        fn free_slot<B: Backend>(device: &B::Device, slot: &mut ImageSlot<B>) {
+            unsafe {
+                device.free_memory(ManuallyDrop::take(&mut slot.memory));
+                device.destroy_image_view(ManuallyDrop::take(&mut slot.view));
+                device.destroy_image(ManuallyDrop::take(&mut slot.image));
+            }
+        }
+
+        // Destroy Image Slots
+        free_slot(&lock.device, &mut self.albedo);
+        free_slot(&lock.device, &mut self.roughness);
+        free_slot(&lock.device, &mut self.normal);
+        free_slot(&lock.device, &mut self.displacement);
+        free_slot(&lock.device, &mut self.metallic);
     }
 }
 
@@ -310,6 +338,7 @@ where
                 .join("artist_workshop_2k.hdr"),
         )
         .unwrap();
+        let image_slots = ImageSlots::new(gpu.clone(), image_size)?;
 
         let lock = gpu.lock().unwrap();
         log::debug!("Using render format {:?}", Self::FINAL_FORMAT);
@@ -584,9 +613,6 @@ where
         let fence = lock.device.create_fence(true).unwrap();
         let tfence = lock.device.create_fence(false).unwrap();
 
-        // Image slots
-        let image_slots = ImageSlots::new(&lock.device, &lock.memory_properties, image_size)?;
-
         Ok(GPURender {
             gpu: gpu.clone(),
             command_pool: ManuallyDrop::new(command_pool),
@@ -780,10 +806,7 @@ where
 
     /// Recreate all image slots with a new given size. This resets all images!
     pub fn recreate_image_slots(&mut self, image_size: u32) -> Result<(), BasicImageBuilderError> {
-        let lock = self.gpu.lock().unwrap();
-        self.image_size = image_size;
-        self.image_slots = ImageSlots::new(&lock.device, &lock.memory_properties, image_size)?;
-
+        self.image_slots = ImageSlots::new(self.gpu.clone(), image_size)?;
         Ok(())
     }
 
@@ -1361,21 +1384,6 @@ where
         log::info!("Releasing GPU Render resources");
 
         let lock = self.gpu.lock().unwrap();
-
-        fn free_slot<B: Backend>(device: &B::Device, slot: &mut ImageSlot<B>) {
-            unsafe {
-                device.free_memory(ManuallyDrop::take(&mut slot.memory));
-                device.destroy_image_view(ManuallyDrop::take(&mut slot.view));
-                device.destroy_image(ManuallyDrop::take(&mut slot.image));
-            }
-        }
-
-        // Destroy Image Slots
-        free_slot(&lock.device, &mut self.image_slots.albedo);
-        free_slot(&lock.device, &mut self.image_slots.roughness);
-        free_slot(&lock.device, &mut self.image_slots.normal);
-        free_slot(&lock.device, &mut self.image_slots.displacement);
-        free_slot(&lock.device, &mut self.image_slots.metallic);
 
         unsafe {
             lock.device
