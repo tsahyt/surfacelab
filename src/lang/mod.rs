@@ -352,7 +352,9 @@ pub enum UserNodeEvent {
     NewNode(Resource<Graph>, Operator, (f64, f64)),
     /// The user requests the removal of a given node.
     RemoveNode(Resource<Node>),
-    /// The user requests a connection between the two sockets.
+    /// The user requests a connection between the two sockets. Requires the
+    /// first socket to be the source and the second to be the sink, i.e. order
+    /// matters!
     ConnectSockets(Resource<Socket>, Resource<Socket>),
     /// The user requests the disconnection of the given sink socket.
     DisconnectSinkSocket(Resource<Socket>),
@@ -435,7 +437,8 @@ pub enum GraphEvent {
         ComplexOperator,
         ParamBoxDescription<MessageWriters>,
     ),
-    /// Two sockets have been connected.
+    /// Two sockets have been connected. The first socket is the source, the
+    /// second the sink.
     ConnectedSockets(Resource<Socket>, Resource<Socket>),
     /// Two sockets have been disconnected from each other.
     DisconnectedSockets(Resource<Socket>, Resource<Socket>),
