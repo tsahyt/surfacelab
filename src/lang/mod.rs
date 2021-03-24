@@ -273,6 +273,13 @@ impl Instruction {
     pub fn is_execution_step(&self) -> bool {
         matches!(self, Self::Execute(..) | Self::Call(..))
     }
+
+    pub fn is_call_skippable(&self) -> bool {
+        matches!(
+            self,
+            Self::Execute(_, AtomicOperator::Output { .. }) | Self::Thumbnail(..)
+        )
+    }
 }
 
 /// Enum describing the types of images in the system. Images can be either RGB

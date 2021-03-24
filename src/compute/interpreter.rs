@@ -156,7 +156,12 @@ impl StackFrame {
                 .or_insert_with(|| vec![s.clone()]);
         }
 
-        let instructions: VecDeque<_> = linearization.instructions.iter().cloned().collect();
+        let instructions: VecDeque<_> = linearization
+            .instructions
+            .iter()
+            .filter(|i| caller.is_none() || !i.is_call_skippable())
+            .cloned()
+            .collect();
         if instructions.is_empty() {
             return None;
         }
