@@ -85,6 +85,9 @@ struct ComputeManager<B: gpu::Backend> {
     /// Number of executions, kept for cache invalidation
     seq: u64,
 
+    /// Current system-wide parent size
+    parent_size: u32,
+
     /// The Compute Manager remembers the hash of the last executed set of
     /// uniforms for each resource. On the next execution this is checked, and
     /// if no changes happen, execution can be skipped entirely.
@@ -106,6 +109,7 @@ where
             external_images: HashMap::new(),
             linearizations: HashMap::new(),
             seq: 0,
+            parent_size: 1024,
             last_known: HashMap::new(),
         }
     }
@@ -275,6 +279,7 @@ where
                         &self.linearizations,
                         self.seq,
                         graph,
+                        self.parent_size,
                     );
 
                     for step_response in interpreter {
@@ -354,6 +359,9 @@ where
                 sender
                     .send(Lang::ComputeEvent(ComputeEvent::Cleared))
                     .unwrap();
+            }
+            Lang::UserIOEvent(UserIOEvent::SetParentSize(size)) => {
+                self.parent_size = *size;
             }
             Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {
                 sender.send(self.add_image_resource(path)).unwrap();

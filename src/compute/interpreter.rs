@@ -137,6 +137,7 @@ struct StackFrame {
     substitutions_map: Rc<HashMap<Resource<Node>, Vec<ParamSubstitution>>>,
     start_time: Instant,
     caller: Option<Resource<Node>>,
+    frame_size: u32,
 }
 
 impl StackFrame {
@@ -144,6 +145,7 @@ impl StackFrame {
         linearization: Rc<Linearization>,
         substitutions: I,
         caller: Option<Resource<Node>>,
+        frame_size: u32,
     ) -> Option<Self>
     where
         I: Iterator<Item = &'a ParamSubstitution>,
@@ -173,6 +175,7 @@ impl StackFrame {
             substitutions_map: Rc::new(substitutions_map),
             start_time: Instant::now(),
             caller,
+            frame_size,
         })
     }
 
@@ -212,6 +215,9 @@ pub struct Interpreter<'a, B: gpu::Backend> {
 
     /// Callstack for complex operator calls
     execution_stack: Vec<StackFrame>,
+
+    /// Parent size
+    parent_size: u32,
 }
 
 impl<'a, B: gpu::Backend> Interpreter<'a, B> {
@@ -224,12 +230,17 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         linearizations: &'a HashMap<Resource<Graph>, Rc<Linearization>>,
         seq: u64,
         graph: &Resource<Graph>,
+        parent_size: u32,
     ) -> Self {
         let linearization = linearizations.get(graph).expect("Unknown graph").clone();
-        let execution_stack =
-            std::iter::once(StackFrame::new(linearization, std::iter::empty(), None))
-                .flatten()
-                .collect();
+        let execution_stack = std::iter::once(StackFrame::new(
+            linearization,
+            std::iter::empty(),
+            None,
+            parent_size,
+        ))
+        .flatten()
+        .collect();
 
         Self {
             gpu,
@@ -240,6 +251,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             linearizations,
             seq: seq + 1,
             execution_stack,
+            parent_size,
         }
     }
 
@@ -352,6 +364,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .clone(),
             op.parameters.values(),
             Some(res.clone()),
+            self.parent_size,
         ) {
             self.execution_stack.push(frame);
         }
