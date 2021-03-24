@@ -270,7 +270,7 @@ where
                     );
                 }
                 GraphEvent::Recompute(graph) => {
-                    let interpreter = interpreter::Interpreter::new(
+                    match interpreter::Interpreter::new(
                         &mut self.gpu,
                         &mut self.sockets,
                         &mut self.last_known,
@@ -280,23 +280,28 @@ where
                         self.seq,
                         graph,
                         self.parent_size,
-                    );
-
-                    for step_response in interpreter {
-                        match step_response {
-                            Err(e) => {
-                                log::error!("Error during compute interpretation: {:?}", e);
-                                log::error!("Aborting compute!");
-                                break;
-                            }
-                            Ok((r, s)) => {
-                                for ev in r {
-                                    sender.send(Lang::ComputeEvent(ev)).unwrap();
+                    ) {
+                        Ok(interpreter) =>
+                            for step_response in interpreter {
+                                match step_response {
+                                    Err(e) => {
+                                        log::error!("Error during compute interpretation: {:?}", e);
+                                        log::error!("Aborting compute!");
+                                        break;
+                                    }
+                                    Ok((r, s)) => {
+                                        for ev in r {
+                                            sender.send(Lang::ComputeEvent(ev)).unwrap();
+                                        }
+                                        self.seq = s;
+                                    }
                                 }
-                                self.seq = s;
-                            }
+                            },
+                        Err(e) => {
+                            log::error!("Error building compute interpreter: {:?}", e);
                         }
                     }
+
                 }
                 GraphEvent::SocketMonomorphized(res, ty) => {
                     if self.sockets.is_known_output(res) {

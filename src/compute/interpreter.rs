@@ -231,8 +231,11 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         seq: u64,
         graph: &Resource<Graph>,
         parent_size: u32,
-    ) -> Self {
-        let linearization = linearizations.get(graph).expect("Unknown graph").clone();
+    ) -> Result<Self, InterpretationError> {
+        let linearization = linearizations
+            .get(graph)
+            .ok_or(InterpretationError::UnknownCall)?
+            .clone();
         let execution_stack = std::iter::once(StackFrame::new(
             linearization,
             std::iter::empty(),
@@ -242,7 +245,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         .flatten()
         .collect();
 
-        Self {
+        Ok(Self {
             gpu,
             sockets,
             last_known,
@@ -252,7 +255,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             seq: seq + 1,
             execution_stack,
             parent_size,
-        }
+        })
     }
 
     /// Execute a thumbnail instruction.
