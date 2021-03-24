@@ -317,6 +317,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     /// backed by GPU images to make them ready for copying.
     fn execute_call(
         &mut self,
+        frame_size: u32,
         res: &Resource<Node>,
         op: &ComplexOperator,
     ) -> Result<(), InterpretationError> {
@@ -358,6 +359,13 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             }
             _ => {}
         };
+
+        // Ensure socket group is well sized
+        let op_size = self.sockets.get_image_size_mut(res);
+        if op_size.ensure_allocation_size(self.parent_size, frame_size) {
+            let new_size = op_size.allocation_size();
+            self.sockets.reinit_output_images(res, self.gpu, new_size);
+        }
 
         let size = self.sockets.get_image_size(res).allocation_size();
 
@@ -583,10 +591,18 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     /// Will skip execution if not required.
     fn execute_atomic_operator(
         &mut self,
+        frame_size: u32,
         op: &AtomicOperator,
         res: &Resource<Node>,
     ) -> Result<(), InterpretationError> {
         log::trace!("Executing operator {:?} of {}", op, res);
+
+        // Ensure socket group is well sized
+        let op_size = self.sockets.get_image_size_mut(res);
+        if op_size.ensure_allocation_size(self.parent_size, frame_size) {
+            let new_size = op_size.allocation_size();
+            self.sockets.reinit_output_images(res, self.gpu, new_size);
+        }
 
         // Ensure output images are allocated
         for (socket, _) in op.outputs().iter() {
@@ -786,6 +802,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     /// Interpret a single instruction, given a substitution map
     fn interpret(
         &mut self,
+        frame_size: u32,
         instr: &Instruction,
         substitutions: &HashMap<Resource<Node>, Vec<ParamSubstitution>>,
     ) -> Result<Vec<ComputeEvent>, InterpretationError> {
@@ -822,12 +839,12 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                         }
                     }
                     _ => {
-                        self.execute_atomic_operator(&op, res)?;
+                        self.execute_atomic_operator(frame_size, &op, res)?;
                     }
                 }
             }
             Instruction::Call(res, op) => {
-                self.execute_call(res, op)?;
+                self.execute_call(frame_size, res, op)?;
             }
             Instruction::Copy(from, to) => {
                 self.execute_copy(from, to)?;
@@ -850,19 +867,20 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         let frame = self.execution_stack.last_mut()?;
+        let frame_size = frame.frame_size;
         let instruction = frame
             .instructions
             .pop_front()
             .expect("Found empty stack frame");
         let substitutions = frame.substitutions_map.clone();
 
-        let response = match self.interpret(&instruction, &substitutions) {
+        let response = match self.interpret(frame_size, &instruction, &substitutions) {
             Ok(r) => Some(Ok((r, self.seq))),
 
             // Handle OOM
             Err(InterpretationError::AllocatorError(gpu::compute::AllocatorError::OutOfMemory)) => {
                 self.cleanup();
-                match self.interpret(&instruction, &substitutions) {
+                match self.interpret(frame_size, &instruction, &substitutions) {
                     Ok(r) => Some(Ok((r, self.seq))),
                     Err(InterpretationError::AllocatorError(
                         gpu::compute::AllocatorError::OutOfMemory,

@@ -45,7 +45,8 @@ pub struct GroupSize {
     /// user through settings and parent size.
     pub ideal: u32,
 
-    /// The currently allocated size, if any.
+    /// The currently allocated size, if any. If not set, assume the size to
+    /// allocate this image is the ideal size.
     pub allocated: Option<u32>,
 
     /// Whether the group can be scaled or not. False in the case of absolutely
@@ -57,6 +58,23 @@ impl GroupSize {
     /// Return the size to be used for new allocations in this group.
     pub fn allocation_size(&self) -> u32 {
         self.allocated.unwrap_or(self.ideal)
+    }
+
+    /// Ensures the allocation size of this image is in accordance with the size
+    /// settings for the given parent and frame sizes, i.e. the ratio between
+    /// the ideal and the parent size is the same as between the allocation size
+    /// and the frame size if group is scalable.
+    ///
+    /// Will return true if a discrepancy is found and has been corrected
+    pub fn ensure_allocation_size(&mut self, parent_size: u32, frame_size: u32) -> bool {
+        let ratio_ideal = self.ideal as f64 / parent_size as f64;
+        let ratio_alloc = self.allocation_size() as f64 / frame_size as f64;
+        if self.scalable && ratio_ideal != ratio_alloc {
+            self.allocated = Some((ratio_ideal * frame_size as f64) as u32);
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -450,6 +468,11 @@ where
     /// Get the size of the images associated with this node
     pub fn get_image_size(&self, res: &Resource<Node>) -> &GroupSize {
         &self.0.get(&res).unwrap().size
+    }
+
+    /// Get the size of the images associated with this node, mutably
+    pub fn get_image_size_mut(&mut self, res: &Resource<Node>) -> &mut GroupSize {
+        &mut self.0.get_mut(&res).unwrap().size
     }
 
     pub fn get_input_resource(&self, res: &Resource<Socket>) -> Option<&Resource<Socket>> {

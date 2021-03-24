@@ -281,7 +281,7 @@ where
                         graph,
                         self.parent_size,
                     ) {
-                        Ok(interpreter) =>
+                        Ok(interpreter) => {
                             for step_response in interpreter {
                                 match step_response {
                                     Err(e) => {
@@ -296,12 +296,12 @@ where
                                         self.seq = s;
                                     }
                                 }
-                            },
+                            }
+                        }
                         Err(e) => {
                             log::error!("Error building compute interpreter: {:?}", e);
                         }
                     }
-
                 }
                 GraphEvent::SocketMonomorphized(res, ty) => {
                     if self.sockets.is_known_output(res) {
