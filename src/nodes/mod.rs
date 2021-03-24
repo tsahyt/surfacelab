@@ -448,6 +448,9 @@ impl NodeManager {
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
                     if let Some(r) = graph.resize_node(node, Some(*size), None, self.parent_size) {
                         response.push(r);
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                            self.active_graph.clone(),
+                        )));
                     };
                 }
             }
@@ -458,6 +461,9 @@ impl NodeManager {
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
                     if let Some(r) = graph.resize_node(node, None, Some(*abs), self.parent_size) {
                         response.push(r);
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                            self.active_graph.clone(),
+                        )));
                     };
                 }
             }
@@ -1000,9 +1006,6 @@ impl NodeManager {
                 }
 
                 // Recompute on size change
-                if let Some(linearize) = self.relinearize(&self.active_graph) {
-                    response.push(linearize);
-                }
                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                     self.active_graph.clone(),
                 )));

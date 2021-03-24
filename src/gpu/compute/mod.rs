@@ -577,12 +577,8 @@ where
     }
 
     /// Copy data between images. This assumes that both images are already allocated!
-    ///
-    /// Requires both images to use the same format and size!
     pub fn copy_image(&mut self, from: &Image<B>, to: &Image<B>) {
         debug_assert!(from.is_backed() && to.is_backed());
-        debug_assert!(from.get_format() == to.get_format());
-        debug_assert!(from.get_size() == to.get_size());
 
         let mut lock = self.gpu.lock().unwrap();
 
@@ -610,28 +606,32 @@ where
                     ),
                 ],
             );
-            cmd_buffer.copy_image(
+            cmd_buffer.blit_image(
                 &from_lock,
                 from.get_layout(),
                 &to_lock,
                 to.get_layout(),
-                &[hal::command::ImageCopy {
+                hal::image::Filter::Nearest,
+                &[hal::command::ImageBlit {
                     src_subresource: hal::image::SubresourceLayers {
                         aspects: hal::format::Aspects::COLOR,
                         level: 0,
                         layers: 0..1,
                     },
-                    src_offset: hal::image::Offset::ZERO,
+                    src_bounds: hal::image::Offset::ZERO..hal::image::Offset {
+                        x: from.get_size() as _,
+                        y: from.get_size() as _,
+                        z: 1,
+                    },
                     dst_subresource: hal::image::SubresourceLayers {
                         aspects: hal::format::Aspects::COLOR,
                         level: 0,
                         layers: 0..1,
                     },
-                    dst_offset: hal::image::Offset::ZERO,
-                    extent: hal::image::Extent {
-                        width: from.get_size(),
-                        height: from.get_size(),
-                        depth: 1,
+                    dst_bounds: hal::image::Offset::ZERO..hal::image::Offset {
+                        x: to.get_size() as _,
+                        y: to.get_size() as _,
+                        z: 1,
                     },
                 }],
             );

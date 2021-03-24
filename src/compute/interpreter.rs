@@ -381,6 +381,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         from: &Resource<Socket>,
         to: &Resource<Socket>,
     ) -> Result<(), InterpretationError> {
+        // Potentially too restrictive, because it always runs even when the
+        // copy will be skipped anyway.
         debug_assert!(self
             .sockets
             .get_output_image(&from)
