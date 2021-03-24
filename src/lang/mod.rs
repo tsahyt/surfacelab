@@ -109,9 +109,6 @@ pub struct ComplexOperator {
 
     /// Parameter substitutions performed on this operator
     pub parameters: HashMap<String, ParamSubstitution>,
-
-    /// Image size to use for this operator
-    pub size: OperatorSize,
 }
 
 impl ComplexOperator {
@@ -126,7 +123,6 @@ impl ComplexOperator {
             outputs: HashMap::new(),
             graph,
             parameters: HashMap::new(),
-            size: OperatorSize::RelativeToParent(0),
         }
     }
 

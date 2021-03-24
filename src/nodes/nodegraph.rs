@@ -516,8 +516,6 @@ impl NodeGraph {
         &mut self,
         node: &str,
         size: OperatorSize,
-        // size: Option<i32>,
-        // absolute: Option<bool>,
         parent_size: u32,
     ) -> Option<Lang> {
         let idx = self.indices.get_by_left(&node.to_string())?;
@@ -801,6 +799,8 @@ impl NodeCollection for NodeGraph {
         (updated, evs)
     }
 
+    /// Resize all nodes according to a new parent size, creating appropriate
+    /// resize events.
     fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
         self.graph
             .node_indices()
@@ -890,7 +890,7 @@ impl NodeCollection for NodeGraph {
             let node = self.graph.node_weight(idx).expect("Corrupted node graph");
             ParamBoxDescription::node_parameters(
                 element,
-                    node.operator.size_request().is_none()
+                node.operator.size_request().is_none()
                     && !node.operator.is_output()
                     && !node.operator.is_input(),
             )

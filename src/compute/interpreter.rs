@@ -359,6 +359,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             _ => {}
         };
 
+        let size = self.sockets.get_image_size(res).allocation_size();
+
         // Push call onto stack
         if let Some(frame) = StackFrame::new(
             self.linearizations
@@ -367,7 +369,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .clone(),
             op.parameters.values(),
             Some(res.clone()),
-            self.parent_size,
+            size,
         ) {
             self.execution_stack.push(frame);
         }
