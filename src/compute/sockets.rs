@@ -39,6 +39,27 @@ where
     }
 }
 
+/// Sizing parameters of a socket group.
+pub struct GroupSize {
+    /// The ideal size of the sockets, corresponds to the size requested by the
+    /// user through settings and parent size.
+    pub ideal: u32,
+
+    /// The currently allocated size, if any.
+    pub allocated: Option<u32>,
+
+    /// Whether the group can be scaled or not. False in the case of absolutely
+    /// sized nodes.
+    pub scalable: bool,
+}
+
+impl GroupSize {
+    /// Return the size to be used for new allocations in this group.
+    pub fn allocation_size(&self) -> u32 {
+        self.allocated.unwrap_or(self.ideal)
+    }
+}
+
 /// Per "node" socket data. Note that we don't really have a notion of node here
 /// in the compute component, but this still very closely corresponds to that.
 pub struct SocketGroup<B: gpu::Backend> {
@@ -53,7 +74,7 @@ pub struct SocketGroup<B: gpu::Backend> {
     known_outputs: HashSet<String>,
 
     /// The image size of output images for sockets managed here.
-    output_size: u32,
+    size: GroupSize,
 
     /// Input sockets only map to the output sockets they are connected to
     inputs: HashMap<String, Resource<Socket>>,
@@ -86,7 +107,11 @@ impl<B: gpu::Backend> SocketGroup<B> {
         Self {
             typed_outputs: HashMap::new(),
             known_outputs: HashSet::new(),
-            output_size: size,
+            size: GroupSize {
+                ideal: size,
+                allocated: None,
+                scalable: true,
+            },
             inputs: HashMap::new(),
             time_ema: EMA::new(TIMING_DECAY),
             thumbnail: None,
@@ -268,7 +293,7 @@ where
             .get_mut(node)
             .expect("Trying to free images from unknown node");
         for out in sockets.typed_outputs.values_mut() {
-            out.reinit_image(gpu, sockets.output_size)
+            out.reinit_image(gpu, sockets.size.ideal)
         }
     }
 
@@ -423,8 +448,8 @@ where
     }
 
     /// Get the size of the images associated with this node
-    pub fn get_image_size(&self, res: &Resource<Node>) -> u32 {
-        self.0.get(&res).unwrap().output_size
+    pub fn get_image_size(&self, res: &Resource<Node>) -> &GroupSize {
+        &self.0.get(&res).unwrap().size
     }
 
     pub fn get_input_resource(&self, res: &Resource<Socket>) -> Option<&Resource<Socket>> {
@@ -443,8 +468,8 @@ where
     pub fn resize(&mut self, res: &Resource<Node>, new_size: u32) -> bool {
         let mut resized = false;
         if let Some(x) = self.0.get_mut(res) {
-            resized = x.output_size != new_size;
-            x.output_size = new_size;
+            resized = x.size.ideal != new_size;
+            x.size.ideal = new_size;
         }
         resized
     }

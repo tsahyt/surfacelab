@@ -533,13 +533,15 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             gpu::BrokerImage::from::<B>(image.get_raw()),
             image.get_layout(),
             image.get_access(),
-            self.sockets.get_image_size(
-                &self
-                    .sockets
-                    .get_input_resource(&socket_res)
-                    .unwrap()
-                    .socket_node(),
-            ),
+            self.sockets
+                .get_image_size(
+                    &self
+                        .sockets
+                        .get_input_resource(&socket_res)
+                        .unwrap()
+                        .socket_node(),
+                )
+                .allocation_size(),
             output_type,
         )];
 
@@ -644,7 +646,9 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             match descr {
                 IntermediateDataDescription::Image { size, ty } => {
                     let size = match size {
-                        FromSocketOr::FromSocket(_) => sockets.get_image_size(res),
+                        FromSocketOr::FromSocket(_) => {
+                            sockets.get_image_size(res).allocation_size()
+                        }
                         FromSocketOr::Independent(s) => *s,
                     };
                     let ty = match ty {
@@ -661,11 +665,15 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 IntermediateDataDescription::Buffer { dim, element_width } => {
                     let length = match dim {
                         BufferDim::Square(square) => match square {
-                            FromSocketOr::FromSocket(_) => sockets.get_image_size(res).pow(2),
+                            FromSocketOr::FromSocket(_) => {
+                                sockets.get_image_size(res).allocation_size().pow(2)
+                            }
                             FromSocketOr::Independent(s) => s.pow(2) as u32,
                         },
                         BufferDim::Vector(vector) => match vector {
-                            FromSocketOr::FromSocket(_) => sockets.get_image_size(res),
+                            FromSocketOr::FromSocket(_) => {
+                                sockets.get_image_size(res).allocation_size()
+                            }
                             FromSocketOr::Independent(s) => *s as u32,
                         },
                     };
@@ -698,7 +706,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         }
 
         self.gpu.run_compute(
-            sockets.get_image_size(res),
+            sockets.get_image_size(res).allocation_size(),
             inputs.values().unique().copied(),
             outputs.values().copied(),
             intermediate_images.iter(),
