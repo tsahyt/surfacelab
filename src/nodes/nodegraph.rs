@@ -40,10 +40,8 @@ pub struct Node {
     operator: Operator,
     /// Node position, stored here such that it can be retrieved from a file
     position: (f64, f64),
-    /// Whether absolute size should be used for this node
-    absolute_size: bool,
-    /// The image size of the node, either relative or absolute
-    size: i32,
+    /// Operator size of this node, possibly overridden by size request.
+    size: OperatorSize,
     /// Type variables of this node, with their assignments
     type_variables: HashMap<TypeVariable, ImageType>,
 }
@@ -53,11 +51,7 @@ impl Node {
     pub fn new(operator: Operator) -> Self {
         Node {
             position: (0.0, 0.0),
-            size: 0,
-            absolute_size: matches!(
-                operator,
-                Operator::AtomicOperator(AtomicOperator::Image(..))
-            ),
+            size: OperatorSize::RelativeToParent(0),
             type_variables: HashMap::new(),
             operator,
         }
@@ -70,19 +64,15 @@ impl Node {
             return request;
         }
 
-        // All other "absolute sizes" are powers of two
-        if self.absolute_size {
-            if self.size > 0 {
-                2 << self.size as i16
-            } else {
-                2 >> -self.size as i16
+        match self.size {
+            OperatorSize::RelativeToParent(s) => {
+                if s > 0 {
+                    parent << s as i16
+                } else {
+                    parent >> -s as i16
+                }
             }
-        }
-        // Otherwise the size is relative to parent
-        else if self.size > 0 {
-            parent << self.size as i16
-        } else {
-            parent >> -self.size as i16
+            OperatorSize::AbsoluteSize(s) => 2 >> s as i16,
         }
         .clamp(32, 16384) as u32
     }
@@ -525,20 +515,15 @@ impl NodeGraph {
     pub fn resize_node(
         &mut self,
         node: &str,
-        size: Option<i32>,
-        absolute: Option<bool>,
+        size: OperatorSize,
+        // size: Option<i32>,
+        // absolute: Option<bool>,
         parent_size: u32,
     ) -> Option<Lang> {
         let idx = self.indices.get_by_left(&node.to_string())?;
         let mut node = self.graph.node_weight_mut(*idx).unwrap();
 
-        if let Some(s) = size {
-            node.size = s;
-        }
-
-        if let Some(a) = absolute {
-            node.absolute_size = a;
-        }
+        node.size = size;
 
         let new_size = node.node_size(parent_size);
 
@@ -821,14 +806,10 @@ impl NodeCollection for NodeGraph {
             .node_indices()
             .filter_map(|idx| {
                 self.graph.node_weight(idx).and_then(|x| {
-                    if !x.absolute_size {
-                        Some(Lang::GraphEvent(GraphEvent::NodeResized(
-                            self.node_resource(&idx),
-                            x.node_size(parent_size),
-                        )))
-                    } else {
-                        None
-                    }
+                    Some(Lang::GraphEvent(GraphEvent::NodeResized(
+                        self.node_resource(&idx),
+                        x.node_size(parent_size),
+                    )))
                 })
             })
             .collect()

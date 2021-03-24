@@ -85,6 +85,12 @@ impl AtomicOperator {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum OperatorSize {
+    RelativeToParent(i32),
+    AbsoluteSize(u32),
+}
+
 /// Complex operators are operators that are created through another graph or
 /// layer stack with inputs and outputs.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -103,6 +109,9 @@ pub struct ComplexOperator {
 
     /// Parameter substitutions performed on this operator
     pub parameters: HashMap<String, ParamSubstitution>,
+
+    /// Image size to use for this operator
+    pub size: OperatorSize,
 }
 
 impl ComplexOperator {
@@ -117,6 +126,7 @@ impl ComplexOperator {
             outputs: HashMap::new(),
             graph,
             parameters: HashMap::new(),
+            size: OperatorSize::RelativeToParent(0),
         }
     }
 
