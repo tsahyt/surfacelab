@@ -2,7 +2,7 @@ use crate::gpu::{Backend, GPU};
 use crate::lang;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
@@ -51,7 +51,7 @@ pub struct ComputeAllocator<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     allocs: Cell<AllocId>,
     image_mem: ManuallyDrop<B::Memory>,
-    image_mem_chunks: RefCell<Vec<Chunk>>,
+    image_mem_chunks: Vec<Chunk>,
 }
 
 impl<B> ComputeAllocator<B>
@@ -93,14 +93,12 @@ where
             gpu: gpu.clone(),
             allocs: Cell::new(0),
             image_mem: ManuallyDrop::new(image_mem),
-            image_mem_chunks: RefCell::new(
-                (0..Self::N_CHUNKS)
-                    .map(|id| Chunk {
-                        offset: Self::CHUNK_SIZE * id,
-                        alloc: None,
-                    })
-                    .collect(),
-            ),
+            image_mem_chunks: (0..Self::N_CHUNKS)
+                .map(|id| Chunk {
+                    offset: Self::CHUNK_SIZE * id,
+                    alloc: None,
+                })
+                .collect(),
         })
     }
 
@@ -111,7 +109,7 @@ where
         let mut free = Vec::with_capacity(request as usize);
         let mut offset = 0;
 
-        for (i, chunk) in self.image_mem_chunks.borrow().iter().enumerate() {
+        for (i, chunk) in self.image_mem_chunks.iter().enumerate() {
             if chunk.alloc.is_none() {
                 free.push(i);
                 if free.len() == request as usize {
@@ -128,10 +126,10 @@ where
 
     /// Mark the given set of chunks as used. Assumes that the chunks were
     /// previously free!
-    pub fn allocate_memory(&self, chunks: &[usize]) -> AllocId {
+    pub fn allocate_memory(&mut self, chunks: &[usize]) -> AllocId {
         let alloc = self.allocs.get();
         for i in chunks {
-            self.image_mem_chunks.borrow_mut()[*i].alloc = Some(alloc);
+            self.image_mem_chunks[*i].alloc = Some(alloc);
         }
         self.allocs.set(alloc.wrapping_add(1));
         alloc
@@ -139,10 +137,9 @@ where
 
     /// Mark the given set of chunks as free. Memory freed here should no longer
     /// be used!
-    pub fn free_memory(&self, alloc: AllocId) {
+    pub fn free_memory(&mut self, alloc: AllocId) {
         for mut chunk in self
             .image_mem_chunks
-            .borrow_mut()
             .iter_mut()
             .filter(|c| c.alloc == Some(alloc))
         {
@@ -338,7 +335,7 @@ where
     pub fn allocate_memory(&mut self) -> Result<(), AllocatorError> {
         debug_assert!(self.alloc.is_none());
 
-        let parent_lock = self.parent.lock().unwrap();
+        let mut parent_lock = self.parent.lock().unwrap();
 
         // Handle memory manager
         let bytes = self.size as u64 * self.size as u64 * self.px_width as u64;
@@ -477,7 +474,7 @@ where
         parent: Arc<Mutex<ComputeAllocator<B>>>,
         bytes: u64,
     ) -> Result<Self, AllocatorError> {
-        let alloc_lock = parent.lock().unwrap();
+        let mut alloc_lock = parent.lock().unwrap();
 
         let (offset, chunks) = alloc_lock
             .find_free_memory(bytes)
