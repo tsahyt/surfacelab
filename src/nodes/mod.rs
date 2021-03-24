@@ -251,9 +251,6 @@ impl NodeManager {
                 let mut evs = self.deserialize(data).ok()?;
                 let mut response = vec![lang::Lang::GraphEvent(lang::GraphEvent::Cleared)];
                 response.append(&mut evs);
-                response.push(lang::Lang::GraphEvent(lang::GraphEvent::Recompute(
-                    self.active_graph.clone(),
-                )));
                 Some(response)
             }
             _ => Some(vec![]),
