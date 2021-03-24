@@ -890,8 +890,7 @@ impl NodeCollection for NodeGraph {
             let node = self.graph.node_weight(idx).expect("Corrupted node graph");
             ParamBoxDescription::node_parameters(
                 element,
-                !node.operator.external_data()
-                    && node.operator.size_request().is_none()
+                    node.operator.size_request().is_none()
                     && !node.operator.is_output()
                     && !node.operator.is_input(),
             )
