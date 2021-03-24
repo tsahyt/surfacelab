@@ -491,6 +491,12 @@ impl NodeManager {
                     response.push(instrs);
                 }
                 self.active_graph = res.clone();
+                if let Some(instrs) = self.relinearize(&self.active_graph) {
+                    response.push(instrs);
+                    response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                        self.active_graph.clone(),
+                    )));
+                }
             }
             UserGraphEvent::RenameGraph(from, to) => {
                 if let Some(mut graph) = self.graphs.remove(from.path().to_str().unwrap()) {

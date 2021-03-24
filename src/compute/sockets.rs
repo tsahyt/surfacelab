@@ -65,6 +65,9 @@ pub struct SocketGroup<B: gpu::Backend> {
 
     /// Optional thumbnail for the "node".
     thumbnail: Option<gpu::compute::ThumbnailIndex>,
+
+    /// Thumbnail related sequence number
+    thumbnail_seq: u64,
 }
 
 impl<B: gpu::Backend> SocketGroup<B> {
@@ -87,6 +90,7 @@ impl<B: gpu::Backend> SocketGroup<B> {
             inputs: HashMap::new(),
             time_ema: EMA::new(TIMING_DECAY),
             thumbnail: None,
+            thumbnail_seq: 0,
         }
     }
 }
@@ -183,6 +187,18 @@ where
             }
         }
         false
+    }
+
+    /// Get thumbnail sequence number for this socket group.
+    pub fn get_thumbnail_updated(&self, res: &Resource<Node>) -> Option<u64> {
+        self.0.get(&res).map(|x| x.thumbnail_seq)
+    }
+
+    /// Set the thumbnail seq number
+    pub fn set_thumbnail_updated(&mut self, res: &Resource<Node>, updated: u64) {
+        if let Some(s) = self.0.get_mut(&res) {
+            s.thumbnail_seq = updated;
+        }
     }
 
     /// Return the thumbnail for the given node

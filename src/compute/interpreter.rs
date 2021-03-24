@@ -249,17 +249,22 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     /// socket to be valid, allocated, and containing proper data!
     ///
     /// The thumbnail generation will only happen if the output socket has been
-    /// updated in the current seq step.
+    /// updated after the last recorded thumbnail update.
     fn execute_thumbnail(&mut self, socket: &Resource<Socket>) -> Vec<ComputeEvent> {
         debug_assert!(self.sockets.get_output_image(&socket).unwrap().is_backed());
 
         let node = socket.socket_node();
         let mut response = Vec::new();
-        let updated = self
+
+        let thumbnail_updated = self
+            .sockets
+            .get_thumbnail_updated(&node)
+            .expect("Missing sequence for thumbnail");
+        let socket_updated = self
             .sockets
             .get_output_image_updated(socket)
             .expect("Missing sequence for socket");
-        if updated == self.seq {
+        if thumbnail_updated <= socket_updated {
             log::trace!("Generating thumbnail for {}", socket);
             let ty = self
                 .sockets
@@ -274,12 +279,15 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .get_output_image(socket)
                 .expect("Missing output image for socket");
             self.gpu.generate_thumbnail(image, thumbnail);
+
             if new {
                 response.push(ComputeEvent::ThumbnailCreated(
                     node.clone(),
                     gpu::BrokerImageView::from::<B>(self.gpu.view_thumbnail(thumbnail)),
                 ));
             }
+
+            self.sockets.set_thumbnail_updated(&node, self.seq);
             response.push(ComputeEvent::ThumbnailUpdated(node.clone()));
         } else {
             log::trace!("Skipping thumbnail generation");
