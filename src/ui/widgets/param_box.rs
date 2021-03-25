@@ -775,6 +775,8 @@ where
                         let control_id = state.controls.get(&TypeId::of::<SizeControl>()).unwrap()
                             [control_idx.sizes];
                         let mut ctrl = SizeControl::new(*size)
+                            .text_size(style.text_size(&ui.theme))
+                            .color(style.text_color(&ui.theme))
                             .allow_relative(*allow_relative)
                             .parent(id)
                             .padded_w_of(id, 16.0)

@@ -25,11 +25,18 @@ impl SizeControl {
     builder_methods! {
         pub parent_size { parent_size = Some(u32) }
         pub allow_relative { allow_relative = bool }
+        pub text_size { style.text_size = Some(FontSize) }
+        pub color { style.color = Some(Color) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
-pub struct Style {}
+pub struct Style {
+    #[conrod(default = "theme.font_size_small")]
+    text_size: Option<FontSize>,
+    #[conrod(default = "theme.label_color")]
+    color: Option<Color>,
+}
 
 widget_ids! {
     pub struct Ids {
@@ -66,7 +73,7 @@ impl Widget for SizeControl {
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let mut ev = None;
-        let widget::UpdateArgs { ui, id, state, .. } = args;
+        let widget::UpdateArgs { ui, id, state, style, .. } = args;
 
         match self.size {
             OperatorSize::RelativeToParent(s) => {
@@ -76,8 +83,8 @@ impl Widget for SizeControl {
                     .mid_left_of(id)
                     .wh([32., 16.])
                     .label("Abs")
-                    .label_font_size(10)
-                    .color(color::WHITE)
+                    .label_font_size(style.text_size(&ui.theme))
+                    .color(style.color(&ui.theme))
                     .set(state.ids.absolute_toggle, ui)
                 {
                     ev = Some(Event::ToAbsolute);
@@ -103,7 +110,7 @@ impl Widget for SizeControl {
                 if let Some(new) =
                     widget::Slider::new(s_ as f32, lower_limit as f32, upper_limit as f32)
                         .label(&lbl)
-                        .label_font_size(10)
+                        .label_font_size(style.text_size(&ui.theme))
                         .padded_w_of(id, 20.)
                         .right(8.)
                         .h(16.)
@@ -122,8 +129,8 @@ impl Widget for SizeControl {
                         .mid_left_of(id)
                         .wh([32., 16.])
                         .label("Abs")
-                        .label_font_size(10)
-                        .color(color::WHITE)
+                        .label_font_size(style.text_size(&ui.theme))
+                        .color(style.color(&ui.theme))
                         .set(state.ids.absolute_toggle, ui)
                     {
                         ev = Some(Event::ToRelative)
@@ -134,7 +141,7 @@ impl Widget for SizeControl {
 
                 let mut ctrl = widget::Slider::new(s as f32, 32., 16384.)
                     .label(&lbl)
-                    .label_font_size(10)
+                    .label_font_size(style.text_size(&ui.theme))
                     .h(16.);
 
                 if self.allow_relative {
