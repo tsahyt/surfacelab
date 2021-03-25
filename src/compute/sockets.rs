@@ -488,11 +488,12 @@ where
     }
 
     /// Resize outputs
-    pub fn resize(&mut self, res: &Resource<Node>, new_size: u32) -> bool {
+    pub fn resize(&mut self, res: &Resource<Node>, new_size: u32, scalable: bool) -> bool {
         let mut resized = false;
         if let Some(x) = self.0.get_mut(res) {
-            resized = x.size.ideal != new_size;
+            resized = x.size.ideal != new_size || x.size.scalable != scalable;
             x.size.ideal = new_size;
+            x.size.scalable = scalable;
         }
         resized
     }

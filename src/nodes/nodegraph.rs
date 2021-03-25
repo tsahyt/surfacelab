@@ -76,6 +76,10 @@ impl Node {
         }
         .clamp(32, 16384) as u32
     }
+
+    pub fn absolutely_sized(&self) -> bool {
+        matches!(self.size, OperatorSize::AbsoluteSize(..))
+    }
 }
 
 #[derive(Error, Debug)]
@@ -524,10 +528,12 @@ impl NodeGraph {
         node.size = size;
 
         let new_size = node.node_size(parent_size);
+        let scalable = node.operator.scalable() && !node.absolutely_sized();
 
         Some(Lang::GraphEvent(GraphEvent::NodeResized(
             self.node_resource(idx),
             new_size,
+            scalable,
         )))
     }
 
@@ -809,6 +815,7 @@ impl NodeCollection for NodeGraph {
                     Some(Lang::GraphEvent(GraphEvent::NodeResized(
                         self.node_resource(&idx),
                         x.node_size(parent_size),
+                        x.operator.scalable() && !x.absolutely_sized(),
                     )))
                 })
             })
@@ -888,13 +895,8 @@ impl NodeCollection for NodeGraph {
             .copied()
         {
             let node = self.graph.node_weight(idx).expect("Corrupted node graph");
-            ParamBoxDescription::node_parameters(
-                element,
-                node.operator.size_request().is_none()
-                    && !node.operator.is_output()
-                    && !node.operator.is_input(),
-            )
-            .transmitters_into()
+            ParamBoxDescription::node_parameters(element, node.operator.scalable())
+                .transmitters_into()
         } else {
             ParamBoxDescription::empty()
         }

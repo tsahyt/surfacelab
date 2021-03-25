@@ -489,7 +489,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             let socket_res = res.node_socket("image");
 
             // Resize socket if necessary
-            if self.sockets.resize(&res, size) {
+            if self.sockets.resize(&res, size, false) {
                 self.sockets.reinit_output_images(&res, self.gpu, size);
             }
 

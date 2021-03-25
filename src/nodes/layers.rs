@@ -1588,7 +1588,7 @@ impl super::NodeCollection for LayerStack {
 
     fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
         self.all_resources()
-            .map(|res| Lang::GraphEvent(GraphEvent::NodeResized(res, parent_size)))
+            .map(|res| Lang::GraphEvent(GraphEvent::NodeResized(res, parent_size, true)))
             .collect()
     }
 

@@ -250,8 +250,8 @@ where
                     }
                 }
                 GraphEvent::NodeRenamed(from, to) => self.rename(from, to),
-                GraphEvent::NodeResized(res, new_size) => {
-                    if self.sockets.resize(res, *new_size as u32) {
+                GraphEvent::NodeResized(res, new_size, scalable) => {
+                    if self.sockets.resize(res, *new_size as u32, *scalable) {
                         self.sockets
                             .reinit_output_images(res, &self.gpu, *new_size as u32);
                     }

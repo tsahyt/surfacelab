@@ -245,6 +245,11 @@ impl Operator {
             OperatorType::Monomorphic(x) => Ok(x),
         }
     }
+
+    /// Determine whether an operator is scalable or not
+    pub fn scalable(&self) -> bool {
+        self.size_request().is_none() && !self.is_output() && !self.is_input()
+    }
 }
 
 /// A linearization is an executable form of a graph, typically some sort of
@@ -441,8 +446,9 @@ pub enum GraphEvent {
     NodeRemoved(Resource<Node>),
     /// A node has been renamed/moved from a resource to a resource.
     NodeRenamed(Resource<Node>, Resource<Node>),
-    /// A node has been resized to the new given size.
-    NodeResized(Resource<Node>, u32),
+    /// A node has been resized to the new given size. The bool indicates
+    /// whether the size is scalable.
+    NodeResized(Resource<Node>, u32, bool),
     /// A complex operator has been updated in the system, and is now
     /// represented by the given parameters.
     ComplexOperatorUpdated(
