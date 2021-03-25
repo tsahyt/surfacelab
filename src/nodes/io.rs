@@ -1,4 +1,6 @@
-use crate::lang::{ExportSpec, GraphEvent, Lang, LayersEvent, Resource, UserGraphEvent};
+use crate::lang::{
+    ExportSpec, GraphEvent, Lang, LayersEvent, Resource, SurfaceEvent, UserGraphEvent,
+};
 use crate::nodes::{LinearizationMode, ManagedNodeCollection, NodeCollection, NodeManager};
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -37,6 +39,11 @@ impl NodeManager {
 
         // Rebuild events for all graphs in the node data
         let mut events = Vec::new();
+
+        events.push(Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(
+            self.parent_size,
+        )));
+
         for (name, graph) in self.graphs.iter() {
             let res = Resource::graph(&name);
             events.push(match graph {

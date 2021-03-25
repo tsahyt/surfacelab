@@ -229,6 +229,13 @@ impl<'a> SurfaceSection<'a> {
             Lang::SurfaceEvent(SurfaceEvent::ExportSpecLoaded(name, spec)) => {
                 state.update(|state| state.export_entries.push((name.clone(), spec.clone())));
             }
+            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
+                state.update(|state| {
+                    state.parameters.categories[0].parameters[0]
+                        .control
+                        .set_value(&OperatorSize::AbsoluteSize(*size).to_data())
+                });
+            }
             Lang::GraphEvent(GraphEvent::Cleared) => {
                 state.update(|state| {
                     state.export_entries.clear();

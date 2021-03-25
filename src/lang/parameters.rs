@@ -528,8 +528,9 @@ where
 }
 
 impl ParamBoxDescription<ResourceField> {
-    /// Construct a parameter box for node metadata.
-    pub fn node_parameters(res: &Resource<Node>, scalable: bool) -> Self {
+    /// Construct a parameter box for node metadata. The node is considered
+    /// scalable if and only if a size is supplied.
+    pub fn node_parameters(res: &Resource<Node>, size: Option<OperatorSize>) -> Self {
         let mut parameters = vec![Parameter {
             name: "node-resource".to_string(),
             transmitter: ResourceField::Name,
@@ -544,12 +545,12 @@ impl ParamBoxDescription<ResourceField> {
             expose_status: None,
             visibility: VisibilityFunction::default(),
         }];
-        if scalable {
+        if let Some(op_size) = size {
             parameters.push(Parameter {
                 name: "node-size".to_string(),
                 transmitter: ResourceField::Size,
                 control: Control::Size {
-                    size: OperatorSize::RelativeToParent(0),
+                    size: op_size,
                     allow_relative: true,
                 },
                 expose_status: None,

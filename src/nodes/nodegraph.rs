@@ -885,8 +885,15 @@ impl NodeCollection for NodeGraph {
             .copied()
         {
             let node = self.graph.node_weight(idx).expect("Corrupted node graph");
-            ParamBoxDescription::node_parameters(element, node.operator.scalable())
-                .transmitters_into()
+            ParamBoxDescription::node_parameters(
+                element,
+                if node.operator.scalable() {
+                    Some(node.size)
+                } else {
+                    None
+                },
+            )
+            .transmitters_into()
         } else {
             ParamBoxDescription::empty()
         }

@@ -607,9 +607,10 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         // Ensure output images are allocated
         for (socket, _) in op.outputs().iter() {
             let socket_res = res.node_socket(&socket);
+            debug_assert!(self.sockets.get_output_image(&socket_res).is_some());
             self.sockets
                 .get_output_image_mut(&socket_res)
-                .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
+                .unwrap()
                 .ensure_alloc()?;
         }
 
