@@ -11,6 +11,7 @@ pub mod node;
 pub mod param_box;
 pub mod render_view;
 pub mod resource_row;
+pub mod size_control;
 pub mod tabs;
 pub mod toolbar;
 pub mod tree;
