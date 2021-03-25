@@ -7,6 +7,7 @@ pub struct SizeControl {
     common: widget::CommonBuilder,
     style: Style,
     size: OperatorSize,
+    parent_size: Option<u32>,
 }
 
 impl SizeControl {
@@ -14,11 +15,14 @@ impl SizeControl {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
+            parent_size: None,
             size,
         }
     }
 
-    builder_methods! {}
+    builder_methods! {
+        pub parent_size { parent_size = Some(u32) }
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
@@ -75,13 +79,30 @@ impl Widget for SizeControl {
                     ev = Some(Event::ToAbsolute);
                 }
 
-                if let Some(new) = widget::Slider::new(s as f32, -6., 6.)
-                    .label(&format!("{} x {}", s, s))
-                    .label_font_size(10)
-                    .padded_w_of(id, 20.)
-                    .right(8.)
-                    .h(16.)
-                    .set(state.ids.relative_slider, ui)
+                let lbl = if let Some(parent) = self.parent_size {
+                    let s_abs = self.size.absolute(parent);
+                    format!("{} × {} (Relative {})", s_abs, s_abs, s)
+                } else {
+                    format!("Relative {}", s)
+                };
+
+                let lower_limit = self
+                    .parent_size
+                    .map(|x| 5 - (x as f32).log(2.) as i32)
+                    .unwrap_or(-6);
+                let upper_limit = self
+                    .parent_size
+                    .map(|x| 14 - (x as f32).log(2.) as i32)
+                    .unwrap_or(6);
+
+                if let Some(new) =
+                    widget::Slider::new(s as f32, lower_limit as f32, upper_limit as f32)
+                        .label(&lbl)
+                        .label_font_size(10)
+                        .padded_w_of(id, 20.)
+                        .right(8.)
+                        .h(16.)
+                        .set(state.ids.relative_slider, ui)
                 {
                     let new = new as i32;
                     if new != s {

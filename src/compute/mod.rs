@@ -365,7 +365,7 @@ where
                     .send(Lang::ComputeEvent(ComputeEvent::Cleared))
                     .unwrap();
             }
-            Lang::UserIOEvent(UserIOEvent::SetParentSize(size)) => {
+            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
                 self.parent_size = *size;
             }
             Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {

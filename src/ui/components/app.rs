@@ -121,6 +121,7 @@ pub struct State {
     ids: Ids,
     graphs: NodeCollections,
     image_resources: Vec<(Resource<Img>, ColorSpace, bool)>,
+    parent_size: u32,
 }
 
 impl<'a, B> Widget for Application<'a, B>
@@ -136,6 +137,7 @@ where
             ids: Ids::new(id_gen),
             graphs: NodeCollections::new(),
             image_resources: Vec::new(),
+            parent_size: 1024,
         }
     }
 
@@ -311,6 +313,9 @@ where
             }),
             Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),
             Lang::LayersEvent(ev) => self.handle_layers_event(state, ev),
+            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(s)) => {
+                state.update(|state| state.parent_size = *s);
+            }
             _ => {}
         }
     }
@@ -516,6 +521,7 @@ where
                     &self.app_data.sender,
                     description,
                     resource,
+                    state.parent_size,
                 )
                 .image_resources(&state.image_resources)
                 .icon_font(style.icon_font(&ui.theme))

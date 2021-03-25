@@ -101,6 +101,28 @@ impl OperatorSize {
 
         Self::AbsoluteSize(pow2.max(mul3k))
     }
+
+    /// Convert relative size to absolute, given a parent size.
+    pub fn to_abs(self, parent_size: u32) -> Self {
+        match self {
+            OperatorSize::RelativeToParent(s) => Self::AbsoluteSize(if s > 0 {
+                parent_size << s as i16
+            } else {
+                parent_size >> -s as i16
+            }),
+            s => s,
+        }
+    }
+
+    /// Get this size as an absolute size, given a parent size, clamped to 32
+    /// and 16384.
+    pub fn absolute(self, parent_size: u32) -> u32 {
+        match self.to_abs(parent_size) {
+            OperatorSize::AbsoluteSize(s) => s,
+            _ => unreachable!(),
+        }
+        .clamp(32, 16384)
+    }
 }
 
 /// Complex operators are operators that are created through another graph or
@@ -603,6 +625,8 @@ pub enum SurfaceEvent {
     ExportImage(ExportSpec, u32, PathBuf),
     /// The system reports having loaded an export specification with a given name.
     ExportSpecLoaded(String, ExportSpec),
+    /// The parent size has been set
+    ParentSizeSet(u32),
 }
 
 /// Renderers are indexed by an ID, internally merely a `u64`.

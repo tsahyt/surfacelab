@@ -253,7 +253,7 @@ where
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset_all(),
             Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset_all(),
-            Lang::UserIOEvent(UserIOEvent::SetParentSize(new_size)) => {
+            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(new_size)) => {
                 self.resize_images(*new_size)
             }
             Lang::UIEvent(UIEvent::RendererRequested(id, monitor_size, view_size, ty)) => {

@@ -993,6 +993,7 @@ impl NodeManager {
                 }
 
                 // Recompute on size change
+                response.push(Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(*size)));
                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                     self.active_graph.clone(),
                 )));

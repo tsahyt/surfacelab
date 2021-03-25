@@ -98,6 +98,7 @@ pub struct ParamBox<'a, T: MessageWriter> {
     description: &'a mut ParamBoxDescription<T>,
     language: &'a Language,
     image_resources: &'a [(Resource<Img>, ColorSpace, bool)],
+    parent_size: Option<u32>,
 }
 
 impl<'a, T: MessageWriter> ParamBox<'a, T> {
@@ -113,6 +114,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
             resource,
             language,
             image_resources: &[],
+            parent_size: None,
         }
     }
 
@@ -247,6 +249,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
     }
 
     builder_methods! {
+        pub parent_size { parent_size = Some(u32) }
         pub image_resources { image_resources = &'a [(Resource<Img>, ColorSpace, bool)] }
         pub icon_font { style.icon_font = Some(text::font::Id) }
         pub text_size { style.text_size = Some(FontSize) }
@@ -768,11 +771,13 @@ where
                     Control::Size { size } => {
                         let control_id = state.controls.get(&TypeId::of::<SizeControl>()).unwrap()
                             [control_idx.sizes];
-                        for event in SizeControl::new(*size)
-                            .padded_w_of(id, 16.0)
-                            .h(16.0)
-                            .set(control_id, ui)
-                        {
+                        let mut ctrl = SizeControl::new(*size).padded_w_of(id, 16.0).h(16.0);
+
+                        if let Some(ps) = self.parent_size {
+                            ctrl = ctrl.parent_size(ps);
+                        }
+
+                        for event in ctrl.set(control_id, ui) {
                             use super::size_control;
                             match event {
                                 size_control::Event::ToAbsolute => {

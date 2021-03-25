@@ -64,17 +64,7 @@ impl Node {
             return request;
         }
 
-        match self.size {
-            OperatorSize::RelativeToParent(s) => {
-                if s > 0 {
-                    parent << s as i16
-                } else {
-                    parent >> -s as i16
-                }
-            }
-            OperatorSize::AbsoluteSize(s) => s,
-        }
-        .clamp(32, 16384) as u32
+        self.size.absolute(parent)
     }
 
     pub fn absolutely_sized(&self) -> bool {

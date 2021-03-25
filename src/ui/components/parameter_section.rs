@@ -13,6 +13,7 @@ pub struct ParameterSection<'a> {
     description: &'a mut ParamBoxDescription<MessageWriters>,
     resource: &'a Resource<Node>,
     image_resources: &'a [(Resource<Img>, ColorSpace, bool)],
+    parent_size: u32,
     style: Style,
 }
 
@@ -22,6 +23,7 @@ impl<'a> ParameterSection<'a> {
         sender: &'a BrokerSender<Lang>,
         description: &'a mut ParamBoxDescription<MessageWriters>,
         resource: &'a Resource<Node>,
+        parent_size: u32,
     ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
@@ -29,6 +31,7 @@ impl<'a> ParameterSection<'a> {
             sender,
             description,
             resource,
+            parent_size,
             image_resources: &[],
             style: Style::default(),
         }
@@ -82,6 +85,7 @@ impl<'a> Widget for ParameterSection<'a> {
 
         for ev in widgets::param_box::ParamBox::new(self.description, self.resource, self.language)
             .image_resources(&self.image_resources)
+            .parent_size(self.parent_size)
             .parent(id)
             .w_of(id)
             .mid_top()
