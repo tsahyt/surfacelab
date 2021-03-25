@@ -73,7 +73,13 @@ impl Widget for SizeControl {
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
         let mut ev = None;
-        let widget::UpdateArgs { ui, id, state, style, .. } = args;
+        let widget::UpdateArgs {
+            ui,
+            id,
+            state,
+            style,
+            ..
+        } = args;
 
         match self.size {
             OperatorSize::RelativeToParent(s) => {
@@ -139,10 +145,11 @@ impl Widget for SizeControl {
 
                 let lbl = format!("{} x {}", s, s);
 
-                let mut ctrl = widget::Slider::new(s as f32, 32., 16384.)
-                    .label(&lbl)
-                    .label_font_size(style.text_size(&ui.theme))
-                    .h(16.);
+                let mut ctrl =
+                    widget::Slider::new((s as f32).log(2.), 32_f32.log(2.), 16384_f32.log(2.))
+                        .label(&lbl)
+                        .label_font_size(style.text_size(&ui.theme))
+                        .h(16.);
 
                 if self.allow_relative {
                     ctrl = ctrl.padded_w_of(id, 20.).right(8.);
@@ -151,7 +158,7 @@ impl Widget for SizeControl {
                 }
 
                 if let Some(new) = ctrl.set(state.ids.absolute_slider, ui) {
-                    let new = OperatorSize::abs_nearest(new);
+                    let new = OperatorSize::abs_nearest(2_f32.powf(new));
                     if new != self.size {
                         ev = Some(Event::NewSize(new));
                     }
