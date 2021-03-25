@@ -166,6 +166,7 @@ pub struct Style {
 widget_ids! {
     #[derive(Clone)]
     pub struct Ids {
+        grid,
         selection_rect,
         floating_noodle
     }
@@ -383,6 +384,14 @@ impl<'a> Widget for Graph<'a> {
 
         // Update selection
         self.rect_selection_handling(ui, state, id);
+
+        // Create Grid
+        super::grid::Grid::new()
+            .wh_of(id)
+            .middle()
+            .parent(id)
+            .graphics_for(id)
+            .set(state.ids.grid, ui);
 
         let mut node_drags: SmallVec<[_; 4]> = SmallVec::new();
 
