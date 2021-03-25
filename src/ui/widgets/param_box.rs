@@ -768,10 +768,17 @@ where
                             control_idx.enums += 1;
                         }
                     }
-                    Control::Size { size } => {
+                    Control::Size {
+                        size,
+                        allow_relative,
+                    } => {
                         let control_id = state.controls.get(&TypeId::of::<SizeControl>()).unwrap()
                             [control_idx.sizes];
-                        let mut ctrl = SizeControl::new(*size).padded_w_of(id, 16.0).h(16.0);
+                        let mut ctrl = SizeControl::new(*size)
+                            .allow_relative(*allow_relative)
+                            .parent(id)
+                            .padded_w_of(id, 16.0)
+                            .h(16.0);
 
                         if let Some(ps) = self.parent_size {
                             ctrl = ctrl.parent_size(ps);

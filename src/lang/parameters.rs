@@ -373,7 +373,7 @@ impl MessageWriter for SurfaceField {
 
     fn transmit(&self, _resource: &Self::Resource, data: &[u8]) -> super::Lang {
         super::Lang::UserIOEvent(super::UserIOEvent::SetParentSize(
-            u32::from_data(data) * 1024,
+            OperatorSize::from_data(data).absolute(1024),
         ))
     }
 }
@@ -550,6 +550,7 @@ impl ParamBoxDescription<ResourceField> {
                 transmitter: ResourceField::Size,
                 control: Control::Size {
                     size: OperatorSize::RelativeToParent(0),
+                    allow_relative: true,
                 },
                 expose_status: None,
                 visibility: VisibilityFunction::default(),
@@ -933,10 +934,9 @@ impl ParamBoxDescription<SurfaceField> {
                 name: "surface-attributes",
                 parameters: vec![Parameter {
                     name: "parent-size".to_string(),
-                    control: Control::DiscreteSlider {
-                        value: 1,
-                        min: 1,
-                        max: 4,
+                    control: Control::Size {
+                        size: OperatorSize::AbsoluteSize(1024),
+                        allow_relative: false,
                     },
                     transmitter: SurfaceField::Resize,
                     expose_status: None,
@@ -1065,6 +1065,7 @@ pub enum Control {
     },
     Size {
         size: OperatorSize,
+        allow_relative: bool,
     },
 }
 
@@ -1084,7 +1085,7 @@ impl Control {
             Self::ChannelMap {
                 enabled, selected, ..
             } => ((if *enabled { 1_u32 } else { 0_u32 }), (*selected as u32)).to_data(),
-            Self::Size { size } => size.to_data(),
+            Self::Size { size, .. } => size.to_data(),
         }
     }
 
@@ -1109,7 +1110,7 @@ impl Control {
                 *enabled = n_enabled == 1;
                 *selected = n_selected as usize;
             }
-            Self::Size { size } => *size = OperatorSize::from_data(data),
+            Self::Size { size, .. } => *size = OperatorSize::from_data(data),
         }
     }
 }

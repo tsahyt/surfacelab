@@ -7,6 +7,7 @@ pub struct SizeControl {
     common: widget::CommonBuilder,
     style: Style,
     size: OperatorSize,
+    allow_relative: bool,
     parent_size: Option<u32>,
 }
 
@@ -16,12 +17,14 @@ impl SizeControl {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
             parent_size: None,
+            allow_relative: true,
             size,
         }
     }
 
     builder_methods! {
         pub parent_size { parent_size = Some(u32) }
+        pub allow_relative { allow_relative = bool }
     }
 }
 
@@ -67,6 +70,7 @@ impl Widget for SizeControl {
 
         match self.size {
             OperatorSize::RelativeToParent(s) => {
+                debug_assert!(self.allow_relative);
                 for _click in widget::Toggle::new(false)
                     .parent(id)
                     .mid_left_of(id)
@@ -112,26 +116,34 @@ impl Widget for SizeControl {
                 }
             }
             OperatorSize::AbsoluteSize(s) => {
-                for _click in widget::Toggle::new(true)
-                    .parent(id)
-                    .mid_left_of(id)
-                    .wh([32., 16.])
-                    .label("Abs")
-                    .label_font_size(10)
-                    .color(color::WHITE)
-                    .set(state.ids.absolute_toggle, ui)
-                {
-                    ev = Some(Event::ToRelative)
+                if self.allow_relative {
+                    for _click in widget::Toggle::new(true)
+                        .parent(id)
+                        .mid_left_of(id)
+                        .wh([32., 16.])
+                        .label("Abs")
+                        .label_font_size(10)
+                        .color(color::WHITE)
+                        .set(state.ids.absolute_toggle, ui)
+                    {
+                        ev = Some(Event::ToRelative)
+                    }
                 }
 
-                if let Some(new) = widget::Slider::new(s as f32, 32., 16384.)
-                    .label(&format!("{} x {}", s, s))
+                let lbl = format!("{} x {}", s, s);
+
+                let mut ctrl = widget::Slider::new(s as f32, 32., 16384.)
+                    .label(&lbl)
                     .label_font_size(10)
-                    .padded_w_of(id, 20.)
-                    .right(8.)
-                    .h(16.)
-                    .set(state.ids.absolute_slider, ui)
-                {
+                    .h(16.);
+
+                if self.allow_relative {
+                    ctrl = ctrl.padded_w_of(id, 20.).right(8.);
+                } else {
+                    ctrl = ctrl.w_of(id).mid_left_of(id);
+                }
+
+                if let Some(new) = ctrl.set(state.ids.absolute_slider, ui) {
                     let new = OperatorSize::abs_nearest(new);
                     if new != self.size {
                         ev = Some(Event::NewSize(new));
