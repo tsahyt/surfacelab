@@ -72,7 +72,7 @@ impl Node {
                     parent >> -s as i16
                 }
             }
-            OperatorSize::AbsoluteSize(s) => 2 >> s as i16,
+            OperatorSize::AbsoluteSize(s) => s,
         }
         .clamp(32, 16384) as u32
     }

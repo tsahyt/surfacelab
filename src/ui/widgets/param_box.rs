@@ -775,7 +775,7 @@ where
                         {
                             use super::size_control;
                             match event {
-                                size_control::Event::SetAbsolute => {
+                                size_control::Event::ToAbsolute => {
                                     *size = OperatorSize::AbsoluteSize(1024);
                                     ev.push(Event::ChangeParameter(
                                         parameter
@@ -783,12 +783,20 @@ where
                                             .transmit(self.resource, &size.to_data()),
                                     ));
                                 }
-                                size_control::Event::SetRelative => {
+                                size_control::Event::ToRelative => {
                                     *size = OperatorSize::RelativeToParent(0);
                                     ev.push(Event::ChangeParameter(
                                         parameter
                                             .transmitter
                                             .transmit(self.resource, &size.to_data()),
+                                    ));
+                                }
+                                size_control::Event::NewSize(new) => {
+                                    *size = new;
+                                    ev.push(Event::ChangeParameter(
+                                        parameter
+                                            .transmitter
+                                            .transmit(self.resource, &new.to_data()),
                                     ));
                                 }
                             }

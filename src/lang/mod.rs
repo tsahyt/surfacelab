@@ -91,6 +91,18 @@ pub enum OperatorSize {
     AbsoluteSize(u32),
 }
 
+impl OperatorSize {
+    /// Create an absolute size from a float by snapping to the nearest "normal"
+    /// texture size. Normal here means powers of two *or* multiples of 3k up to
+    /// 12k.
+    pub fn abs_nearest(val: f32) -> Self {
+        let pow2 = 2_u32.pow(val.log(2.).floor().max(5.) as u32);
+        let mul3k = (val as u32 / 3072).min(4) * 3072;
+
+        Self::AbsoluteSize(pow2.max(mul3k))
+    }
+}
+
 /// Complex operators are operators that are created through another graph or
 /// layer stack with inputs and outputs.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

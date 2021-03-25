@@ -37,8 +37,9 @@ pub struct State {
 }
 
 pub enum Event {
-    SetAbsolute,
-    SetRelative,
+    ToAbsolute,
+    ToRelative,
+    NewSize(OperatorSize),
 }
 
 impl Widget for SizeControl {
@@ -64,17 +65,55 @@ impl Widget for SizeControl {
             OperatorSize::RelativeToParent(s) => {
                 for _click in widget::Toggle::new(false)
                     .parent(id)
+                    .mid_left_of(id)
+                    .wh([32., 16.])
+                    .label("Abs")
+                    .label_font_size(10)
+                    .color(color::WHITE)
                     .set(state.ids.absolute_toggle, ui)
                 {
-                    ev = Some(Event::SetAbsolute);
+                    ev = Some(Event::ToAbsolute);
+                }
+
+                if let Some(new) = widget::Slider::new(s as f32, -6., 6.)
+                    .label(&format!("{} x {}", s, s))
+                    .label_font_size(10)
+                    .padded_w_of(id, 20.)
+                    .right(8.)
+                    .h(16.)
+                    .set(state.ids.relative_slider, ui)
+                {
+                    let new = new as i32;
+                    if new != s {
+                        ev = Some(Event::NewSize(OperatorSize::RelativeToParent(new)));
+                    }
                 }
             }
             OperatorSize::AbsoluteSize(s) => {
                 for _click in widget::Toggle::new(true)
                     .parent(id)
+                    .mid_left_of(id)
+                    .wh([32., 16.])
+                    .label("Abs")
+                    .label_font_size(10)
+                    .color(color::WHITE)
                     .set(state.ids.absolute_toggle, ui)
                 {
-                    ev = Some(Event::SetRelative)
+                    ev = Some(Event::ToRelative)
+                }
+
+                if let Some(new) = widget::Slider::new(s as f32, 32., 16384.)
+                    .label(&format!("{} x {}", s, s))
+                    .label_font_size(10)
+                    .padded_w_of(id, 20.)
+                    .right(8.)
+                    .h(16.)
+                    .set(state.ids.absolute_slider, ui)
+                {
+                    let new = OperatorSize::abs_nearest(new);
+                    if new != self.size {
+                        ev = Some(Event::NewSize(new));
+                    }
                 }
             }
         }
