@@ -179,5 +179,6 @@ fn control_name(control: &Control) -> &'static str {
         Control::Toggle { .. } => "bool",
         Control::Entry { .. } => "text",
         Control::ChannelMap { .. } => "chn",
+        Control::Size { .. } => "size",
     }
 }

@@ -1,6 +1,7 @@
 use super::color_picker::ColorPicker;
 use super::color_ramp::ColorRamp;
 use super::img_resource_editor::ImageResourceEditor;
+use super::size_control::SizeControl;
 
 use crate::lang::*;
 use crate::ui::i18n::Language;
@@ -26,6 +27,7 @@ pub struct ControlCounts {
     pub ramps: usize,
     pub toggles: usize,
     pub entries: usize,
+    pub sizes: usize,
 }
 
 /// Get control counts from a parameter box description
@@ -76,6 +78,9 @@ where
                 Control::ChannelMap { .. } => {
                     counts.enums += 1;
                     counts.toggles += 1;
+                }
+                Control::Size { .. } => {
+                    counts.sizes += 1;
                 }
             }
         }
@@ -166,6 +171,11 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .get_mut(&TypeId::of::<widget::Toggle>())
                 .unwrap()
                 .resize(counts.toggles, id_gen);
+            state
+                .controls
+                .get_mut(&TypeId::of::<SizeControl>())
+                .unwrap()
+                .resize(counts.sizes, id_gen);
         })
     }
 
@@ -228,6 +238,12 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .unwrap()
                 .len()
                 < (counts.toggles)
+            || state
+                .controls
+                .get(&TypeId::of::<SizeControl>())
+                .unwrap()
+                .len()
+                < (counts.sizes)
     }
 
     builder_methods! {
@@ -287,6 +303,7 @@ where
                 TypeId::of::<ImageResourceEditor>() => widget::id::List::new(),
                 TypeId::of::<widget::TextBox>() => widget::id::List::new(),
                 TypeId::of::<widget::Toggle>() => widget::id::List::new(),
+                TypeId::of::<SizeControl>() => widget::id::List::new(),
             },
             categories: widget::id::List::new(),
         }
@@ -747,6 +764,36 @@ where
                             control_idx.toggles += 1;
                             control_idx.enums += 1;
                         }
+                    }
+                    Control::Size { size } => {
+                        let control_id = state.controls.get(&TypeId::of::<SizeControl>()).unwrap()
+                            [control_idx.sizes];
+                        for event in SizeControl::new(*size)
+                            .padded_w_of(id, 16.0)
+                            .h(16.0)
+                            .set(control_id, ui)
+                        {
+                            use super::size_control;
+                            match event {
+                                size_control::Event::SetAbsolute => {
+                                    *size = OperatorSize::AbsoluteSize(1024);
+                                    ev.push(Event::ChangeParameter(
+                                        parameter
+                                            .transmitter
+                                            .transmit(self.resource, &size.to_data()),
+                                    ));
+                                }
+                                size_control::Event::SetRelative => {
+                                    *size = OperatorSize::RelativeToParent(0);
+                                    ev.push(Event::ChangeParameter(
+                                        parameter
+                                            .transmitter
+                                            .transmit(self.resource, &size.to_data()),
+                                    ));
+                                }
+                            }
+                        }
+                        control_idx.sizes += 1;
                     }
                 }
 

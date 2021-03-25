@@ -446,32 +446,13 @@ impl NodeManager {
                 let graph = res.directory().unwrap();
 
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
-                    if let Some(r) = graph.resize_node(
-                        node,
-                        OperatorSize::RelativeToParent(*size),
-                        self.parent_size,
-                    ) {
+                    if let Some(r) = graph.resize_node(node, *size, self.parent_size) {
                         response.push(r);
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
                         )));
                     };
                 }
-            }
-            UserNodeEvent::OutputSizeAbsolute(res, abs) => {
-                // Will need changes to the frontend and language to make this nice, disabled for now
-                unimplemented!()
-                // let node = res.file().unwrap();
-                // let graph = res.directory().unwrap();
-
-                // if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
-                //     if let Some(r) = graph.resize_node(node, Some(*abs), self.parent_size) {
-                //         response.push(r);
-                //         response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                //             self.active_graph.clone(),
-                //         )));
-                //     };
-                // }
             }
         }
 

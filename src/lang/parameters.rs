@@ -1,4 +1,4 @@
-use super::{resource::*, ImageType, OperatorType};
+use super::{resource::*, ImageType, OperatorSize, OperatorType};
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -193,7 +193,6 @@ impl MessageWriter for Field {
 pub enum ResourceField {
     Name,
     Size,
-    AbsoluteSize,
 }
 
 impl MessageWriter for ResourceField {
@@ -211,11 +210,8 @@ impl MessageWriter for ResourceField {
             }
             Self::Size => super::Lang::UserNodeEvent(super::UserNodeEvent::OutputSizeChange(
                 resource.clone(),
-                i32::from_data(data),
+                OperatorSize::from_data(data),
             )),
-            Self::AbsoluteSize => super::Lang::UserNodeEvent(
-                super::UserNodeEvent::OutputSizeAbsolute(resource.clone(), data != [0]),
-            ),
         }
     }
 }
@@ -552,21 +548,12 @@ impl ParamBoxDescription<ResourceField> {
             parameters.push(Parameter {
                 name: "node-size".to_string(),
                 transmitter: ResourceField::Size,
-                control: Control::DiscreteSlider {
-                    value: 0,
-                    min: -16,
-                    max: 16,
+                control: Control::Size {
+                    size: OperatorSize::RelativeToParent(0),
                 },
                 expose_status: None,
                 visibility: VisibilityFunction::default(),
-            });
-            parameters.push(Parameter {
-                name: "node-abs-size".to_string(),
-                transmitter: ResourceField::AbsoluteSize,
-                control: Control::Toggle { def: false },
-                expose_status: None,
-                visibility: VisibilityFunction::default(),
-            });
+            })
         }
         ParamBoxDescription {
             box_title: "node-attributes".to_string(),
@@ -1076,6 +1063,9 @@ pub enum Control {
         selected: usize,
         sockets: Vec<(String, OperatorType)>,
     },
+    Size {
+        size: OperatorSize,
+    },
 }
 
 impl Control {
@@ -1094,6 +1084,7 @@ impl Control {
             Self::ChannelMap {
                 enabled, selected, ..
             } => ((if *enabled { 1_u32 } else { 0_u32 }), (*selected as u32)).to_data(),
+            Self::Size { size } => size.to_data(),
         }
     }
 
@@ -1118,6 +1109,7 @@ impl Control {
                 *enabled = n_enabled == 1;
                 *selected = n_selected as usize;
             }
+            Self::Size { size } => *size = OperatorSize::from_data(data),
         }
     }
 }

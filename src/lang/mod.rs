@@ -383,9 +383,7 @@ pub enum UserNodeEvent {
     /// The user renames a node from a resource to another resource.
     RenameNode(Resource<Node>, Resource<Node>),
     /// The user changes the output size of the given node
-    OutputSizeChange(Resource<Node>, i32),
-    /// The user sets the absolute size property of a node
-    OutputSizeAbsolute(Resource<Node>, bool),
+    OutputSizeChange(Resource<Node>, OperatorSize),
 }
 
 /// Events concerning graph operation triggered by the user, such as adding,

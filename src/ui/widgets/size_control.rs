@@ -1,3 +1,4 @@
+use crate::lang::OperatorSize;
 use conrod_core::*;
 
 #[derive(WidgetCommon)]
@@ -5,26 +6,29 @@ pub struct SizeControl {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     style: Style,
+    size: OperatorSize,
 }
 
 impl SizeControl {
-    pub fn new() -> Self {
+    pub fn new(size: OperatorSize) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
+            size,
         }
     }
 
-    builder_methods! {
-    }
+    builder_methods! {}
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
-pub struct Style {
-}
+pub struct Style {}
 
 widget_ids! {
     pub struct Ids {
+        absolute_toggle,
+        relative_slider,
+        absolute_slider,
     }
 }
 
@@ -33,6 +37,8 @@ pub struct State {
 }
 
 pub enum Event {
+    SetAbsolute,
+    SetRelative,
 }
 
 impl Widget for SizeControl {
@@ -51,6 +57,28 @@ impl Widget for SizeControl {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        None
+        let mut ev = None;
+        let widget::UpdateArgs { ui, id, state, .. } = args;
+
+        match self.size {
+            OperatorSize::RelativeToParent(s) => {
+                for _click in widget::Toggle::new(false)
+                    .parent(id)
+                    .set(state.ids.absolute_toggle, ui)
+                {
+                    ev = Some(Event::SetAbsolute);
+                }
+            }
+            OperatorSize::AbsoluteSize(s) => {
+                for _click in widget::Toggle::new(true)
+                    .parent(id)
+                    .set(state.ids.absolute_toggle, ui)
+                {
+                    ev = Some(Event::SetRelative)
+                }
+            }
+        }
+
+        ev
     }
 }
