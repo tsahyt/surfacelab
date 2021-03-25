@@ -387,6 +387,8 @@ impl<'a> Widget for Graph<'a> {
 
         // Create Grid
         super::grid::Grid::new()
+            .zoom(state.camera.zoom)
+            .pan(state.camera.position)
             .wh_of(id)
             .middle()
             .parent(id)
