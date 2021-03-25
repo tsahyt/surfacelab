@@ -79,13 +79,6 @@ impl Widget for SizeControl {
                     ev = Some(Event::ToAbsolute);
                 }
 
-                let lbl = if let Some(parent) = self.parent_size {
-                    let s_abs = self.size.absolute(parent);
-                    format!("{} × {} (Relative {})", s_abs, s_abs, s)
-                } else {
-                    format!("Relative {}", s)
-                };
-
                 let lower_limit = self
                     .parent_size
                     .map(|x| 5 - (x as f32).log(2.) as i32)
@@ -94,9 +87,17 @@ impl Widget for SizeControl {
                     .parent_size
                     .map(|x| 14 - (x as f32).log(2.) as i32)
                     .unwrap_or(6);
+                let s_ = s.clamp(lower_limit, upper_limit) as f32;
+
+                let lbl = if let Some(parent) = self.parent_size {
+                    let s_abs = self.size.absolute(parent);
+                    format!("{} × {} (Relative {})", s_abs, s_abs, s_)
+                } else {
+                    format!("Relative {}", s_)
+                };
 
                 if let Some(new) =
-                    widget::Slider::new(s as f32, lower_limit as f32, upper_limit as f32)
+                    widget::Slider::new(s_ as f32, lower_limit as f32, upper_limit as f32)
                         .label(&lbl)
                         .label_font_size(10)
                         .padded_w_of(id, 20.)
