@@ -57,7 +57,7 @@ pub struct GroupSize {
 impl GroupSize {
     /// Return the size to be used for new allocations in this group.
     pub fn allocation_size(&self) -> u32 {
-        self.allocated.unwrap_or(self.ideal).max(32)
+        self.allocated.unwrap_or(self.ideal).max(32).min(16384)
     }
 
     /// Ensures the allocation size of this image is in accordance with the size
