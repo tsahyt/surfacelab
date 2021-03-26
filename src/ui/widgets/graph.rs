@@ -104,8 +104,12 @@ impl Selection {
         self.rect = None
     }
 
-    pub fn set_selection(&mut self, selection: HashSet<widget::Id>) {
-        self.set = selection;
+    pub fn set_selection(&mut self, mut selection: HashSet<widget::Id>, adding: bool) {
+        if adding {
+            self.set.extend(selection.drain());
+        } else {
+            self.set = selection;
+        }
         self.set_active(None);
     }
 
@@ -231,11 +235,11 @@ impl<'a> Graph<'a> {
             })
         }
 
-        for _release in ui
+        for release in ui
             .widget_input(id)
             .releases()
             .mouse()
-            .button(input::MouseButton::Left)
+            .filter(|mr| mr.button == input::MouseButton::Left)
         {
             state.update(|state| {
                 let selected: HashSet<_> = self
@@ -253,7 +257,9 @@ impl<'a> Graph<'a> {
                         }
                     })
                     .collect();
-                state.selection.set_selection(selected);
+                state
+                    .selection
+                    .set_selection(selected, release.modifiers == input::ModifierKey::SHIFT);
                 state.selection.finish();
             })
         }
