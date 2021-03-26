@@ -695,10 +695,10 @@ impl NodeGraph {
             )));
         }
 
-        for (output, sink_node, sink_socket, _) in outputs {
+        for (output, sink_node, sink_socket, ty) in outputs {
             evs.push(Lang::GraphEvent(GraphEvent::OutputSocketAdded(
                 complex_res.node_socket(&output),
-                OperatorType::Monomorphic(ImageType::Grayscale),
+                OperatorType::from(ty),
                 true,
                 parent_size,
             )));
