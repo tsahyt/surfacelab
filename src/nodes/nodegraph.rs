@@ -575,6 +575,7 @@ impl NodeGraph {
             let (new_node, _) = new.new_node(&rnode.operator, parent_size);
             new.resize_node(&new_node, rnode.size, parent_size);
             new.position_node(&new_node, rnode.position.0, rnode.position.1);
+            new.rename_node(&new_node, node);
 
             complex_pos.0 += rnode.position.0;
             complex_pos.1 += rnode.position.1;
@@ -598,6 +599,7 @@ impl NodeGraph {
             match new.connect_sockets(source_node, source_socket, sink_node, sink_socket) {
                 Ok(_) => {}
                 Err(NodeGraphError::NodeNotFound(missing)) => {
+                    dbg!(&missing);
                     if missing == source_node {
                         let (new_input, _) = new.new_node(
                             &Operator::AtomicOperator(AtomicOperator::Input(Input::default())),
