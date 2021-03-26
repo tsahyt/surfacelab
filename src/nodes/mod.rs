@@ -490,6 +490,7 @@ impl NodeManager {
                 }
 
                 if let Some((g, mut evs)) = new_graph {
+                    // Insert new graph
                     let sub_instructions = g.linearize(LinearizationMode::TopoSort);
                     let sub_graph_res = g.graph_resource();
                     self.graphs.insert(
@@ -500,6 +501,14 @@ impl NodeManager {
                     response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphAdded(
                         sub_graph_res.clone(),
                     )));
+
+                    // Rebuild parameter boxes for node added events before publishing
+                    for ev in evs.iter_mut() {
+                        if let Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pbox, _, _)) = ev {
+                            *pbox = self.element_param_box(&op, res)
+                        }
+                    }
+
                     response.append(&mut evs);
 
                     // Publish subgraph linearization
