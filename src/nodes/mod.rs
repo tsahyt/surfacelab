@@ -318,7 +318,7 @@ impl NodeManager {
 
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
                     match graph.remove_node(node) {
-                        Ok((ty, removed_conns, co_change)) => {
+                        Ok((node, removed_conns, co_change)) => {
                             response = removed_conns
                                 .iter()
                                 .map(|c| {
@@ -329,10 +329,17 @@ impl NodeManager {
                                 })
                                 .collect();
                             response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(res.clone())));
-                            if let Some(ty) = ty {
+                            if let nodegraph::Node {
+                                operator:
+                                    Operator::AtomicOperator(AtomicOperator::Output(Output {
+                                        output_type,
+                                    })),
+                                ..
+                            } = node
+                            {
                                 response.push(Lang::GraphEvent(GraphEvent::OutputRemoved(
                                     res.clone(),
-                                    ty,
+                                    output_type,
                                 )))
                             }
 

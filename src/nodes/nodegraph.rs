@@ -37,7 +37,7 @@ pub type Connections = Vec<Connection>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
     /// Node operator
-    operator: Operator,
+    pub operator: Operator,
     /// Node position, stored here such that it can be retrieved from a file
     position: (f64, f64),
     /// Operator size of this node, possibly overridden by size request.
@@ -193,19 +193,16 @@ impl NodeGraph {
         (node_id, size)
     }
 
-    /// Remove a node with the given Resource if it exists. Returns the type of
-    /// output if the node was an output, a list of connections that have been
-    /// removed, as well as a boolean determining whether the complex operators
-    /// associated with this graph require updating, type of output if the node
-    /// was an output, a list of connections that have been removed, as well as
-    /// a boolean determining whether the complex operators associated with this
-    /// graph require updating
+    /// Remove a node with the given Resource if it exists. Returns the node, a
+    /// list of connections that have been removed, as well as a boolean
+    /// determining whether the complex operators associated with this graph
+    /// require updating.
     ///
     /// **Errors** if the node does not exist.
     pub fn remove_node(
         &mut self,
         resource: &str,
-    ) -> Result<(Option<OutputType>, Connections, bool), NodeGraphError> {
+    ) -> Result<(Node, Connections, bool), NodeGraphError> {
         use petgraph::visit::EdgeRef;
 
         let mut co_change = false;
@@ -224,12 +221,10 @@ impl NodeGraph {
 
         // Remove from output vector
         let operator = &self.graph.node_weight(node).unwrap().operator;
-        let mut output_type = None;
         match operator {
-            Operator::AtomicOperator(AtomicOperator::Output(Output { output_type: ty })) => {
+            Operator::AtomicOperator(AtomicOperator::Output(Output { .. })) => {
                 self.outputs.remove(&node);
                 co_change = true;
-                output_type = Some(*ty)
             }
             Operator::AtomicOperator(AtomicOperator::Input(..)) => {
                 co_change = true;
@@ -261,7 +256,7 @@ impl NodeGraph {
         let last = self.indices.get_by_right(&last_idx).unwrap().to_owned();
 
         // Remove node
-        self.graph.remove_node(node);
+        let node_data = self.graph.remove_node(node).unwrap();
         self.indices.remove_by_left(&resource.to_string());
 
         // Reindex last node
@@ -273,7 +268,7 @@ impl NodeGraph {
             }
         }
 
-        Ok((output_type, es, co_change))
+        Ok((node_data, es, co_change))
     }
 
     /// Connect two sockets in the node graph. If there is already a connection
@@ -554,8 +549,7 @@ impl NodeGraph {
     {
         let new = Self::new(name);
 
-        for node in nodes {
-        }
+        for node in nodes {}
 
         (new, vec![])
     }
