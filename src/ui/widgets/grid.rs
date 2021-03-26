@@ -29,7 +29,7 @@ impl Grid {
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
 pub struct Style {
-    #[conrod(default = "32")]
+    #[conrod(default = "16")]
     minor_ticks: Option<u32>,
     #[conrod(default = "128")]
     major_ticks: Option<u32>,
@@ -113,34 +113,44 @@ fn build_triangles_for(
     let major_ticks = style.major_ticks(theme) as f64;
 
     let wh = area.w_h();
+    let wh2 = [wh.0 / 2., wh.1 / 2.];
     let bl = area.bottom_left();
+    let mid = [bl[0] + wh.0 / 2., bl[1] + wh.1 / 2.];
 
     // Vertical gridlines
-    let vertical_count = (wh.0 / minor_ticks) as i32;
-    for i in 0..vertical_count {
+    let vertical_count = (wh2[0] / (minor_ticks * zoom)) as i32;
+    for i in -vertical_count..vertical_count {
         let x = ((-pan[0] / minor_ticks).ceil() + i as f64) * minor_ticks;
-        let thickness = if x % major_ticks == 0. { 2. } else { 0.25 };
+        let thickness = if x % major_ticks == 0. { 2. } else { 0.25 } * zoom;
+        if thickness < 0.1 {
+            continue;
+        }
+
         let line = triangles(
-            [x + bl[0] + pan[0], 0. + bl[1]],
-            [x + bl[0] + pan[0], wh.1 + bl[1]],
+            [(x + pan[0]) * zoom, -wh2[1]],
+            [(x + pan[0]) * zoom, wh2[1]],
             thickness,
         );
-        tris.push(line[0]);
-        tris.push(line[1]);
+        tris.push(line[0].add(mid));
+        tris.push(line[1].add(mid));
     }
 
     // Horizontal gridlines
-    let horizontal_count = (wh.1 / minor_ticks) as i32;
-    for i in 0..horizontal_count {
+    let horizontal_count = (wh2[1] / (minor_ticks * zoom)) as i32;
+    for i in -horizontal_count..horizontal_count {
         let y = ((-pan[1] / minor_ticks).ceil() + i as f64) * minor_ticks;
-        let thickness = if y % major_ticks == 0. { 2. } else { 0.25 };
+        let thickness = if y % major_ticks == 0. { 2. } else { 0.25 } * zoom;
+        if thickness < 0.1 {
+            continue;
+        }
+
         let line = triangles(
-            [0. + bl[0], y + bl[1] + pan[1]],
-            [wh.0 + bl[0], y + bl[1] + pan[1]],
+            [-wh2[0], (y + pan[1]) * zoom],
+            [wh2[0], (y + pan[1]) * zoom],
             thickness,
         );
-        tris.push(line[0]);
-        tris.push(line[1]);
+        tris.push(line[0].add(mid));
+        tris.push(line[1].add(mid));
     }
 
     tris
