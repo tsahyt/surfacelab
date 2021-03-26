@@ -546,7 +546,7 @@ impl<'a> Widget for Graph<'a> {
                 to_pos,
                 [to_pos[0] - dist / 2., to_pos[1]],
             )
-            .thickness(style.edge_thickness(&ui.theme))
+            .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.))
             .color(style.edge_color(&ui.theme))
             .parent(id)
             .middle()
@@ -584,7 +584,7 @@ impl<'a> Widget for Graph<'a> {
                 *to,
                 [to[0] - dist / 2., to[1]],
             )
-            .thickness(style.edge_thickness(&ui.theme))
+            .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 6.))
             .color(style.edge_drag_color(&ui.theme))
             .graphics_for(id)
             .pattern(widget::point_path::Pattern::Dotted)
