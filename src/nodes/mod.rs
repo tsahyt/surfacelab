@@ -271,6 +271,7 @@ impl NodeManager {
                 {
                     // Add node to graph
                     let (node_id, size) = graph.new_node(&op, self.parent_size);
+                    graph.position_node(&node_id, pos.0, pos.1);
                     let resource = Resource::node(
                         [graph_name, &node_id]
                             .iter()
@@ -526,8 +527,6 @@ impl NodeManager {
                         )));
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(graph_res)));
                     }
-
-                    dbg!(&response);
                 }
             }
         }

@@ -558,8 +558,8 @@ impl NodeGraph {
         let mut evs = vec![];
         let mut conns = vec![];
 
+        let mut complex_pos = (0., 0.);
         let nodes_count = nodes.clone().count() as f64;
-        let mut complex_pos: Option<(f64, f64)> = None;
 
         // Move nodes to new graph and record positions for later
         for node in nodes {
@@ -576,20 +576,12 @@ impl NodeGraph {
             new.resize_node(&new_node, rnode.size, parent_size);
             new.position_node(&new_node, rnode.position.0, rnode.position.1);
 
-            match complex_pos {
-                Some(mut cpos) => {
-                    cpos.0 += rnode.position.0;
-                    cpos.1 += rnode.position.1;
-                }
-                None => {
-                    complex_pos = Some(rnode.position);
-                }
-            }
+            complex_pos.0 += rnode.position.0;
+            complex_pos.1 += rnode.position.1;
 
             conns.append(&mut rconns);
         }
 
-        let mut complex_pos = complex_pos.unwrap();
         complex_pos.0 /= nodes_count;
         complex_pos.1 /= nodes_count;
 
