@@ -478,16 +478,56 @@ impl NodeManager {
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) =
                     self.graphs.get_mut(graph_res.path_str().unwrap())
                 {
-                    new_graph = Some(graph.extract(&name, ress.iter().map(|r| r.file().unwrap())));
+                    match graph.extract(
+                        &name,
+                        self.parent_size,
+                        ress.iter().map(|r| r.file().unwrap()),
+                    ) {
+                        Ok(x) => new_graph = Some(x),
+                        Err(e) => log::error!("{}", e),
+                    }
                 }
 
                 if let Some((g, mut evs)) = new_graph {
+                    let sub_instructions = g.linearize(LinearizationMode::TopoSort);
+                    let sub_graph_res = g.graph_resource();
                     self.graphs.insert(
-                        g.graph_resource().path_str().unwrap().to_string(),
+                        sub_graph_res.path_str().unwrap().to_string(),
                         ManagedNodeCollection::NodeGraph(g),
                     );
 
+                    response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphAdded(
+                        sub_graph_res.clone(),
+                    )));
                     response.append(&mut evs);
+
+                    // Publish subgraph linearization
+                    if let Some((instrs, last_use, force_points)) = sub_instructions {
+                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                            sub_graph_res.clone(),
+                            instrs,
+                            last_use,
+                            force_points,
+                        )));
+                    }
+
+                    // Relinearize the original graph and recompute
+                    if let Some((instrs, last_use, force_points)) = self
+                        .graphs
+                        .get_mut(graph_res.path_str().unwrap())
+                        .unwrap()
+                        .linearize(LinearizationMode::TopoSort)
+                    {
+                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                            graph_res.clone(),
+                            instrs,
+                            last_use,
+                            force_points,
+                        )));
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(graph_res)));
+                    }
+
+                    dbg!(&response);
                 }
             }
         }

@@ -84,7 +84,7 @@ pub enum SocketTypeError {
 pub enum NodeGraphError {
     #[error("Socket type error")]
     ConnectionTypeError(#[from] SocketTypeError),
-    #[error("Node not found")]
+    #[error("Node not found: {0}")]
     NodeNotFound(String),
     #[error("Socket not found")]
     SocketNotFound(String),
@@ -543,15 +543,170 @@ impl NodeGraph {
     ///
     /// Along with the new graph, a vector of events is yielded, describing the
     /// transformation of *this* graph and construction of the *new* graph.
-    pub fn extract<'a, I>(&self, name: &str, nodes: I) -> (Self, Vec<Lang>)
+    ///
+    /// The iterator is assumed to be nonempty!
+    pub fn extract<'a, I>(
+        &mut self,
+        name: &str,
+        parent_size: u32,
+        nodes: I,
+    ) -> Result<(Self, Vec<Lang>), NodeGraphError>
     where
-        I: Iterator<Item = &'a str>,
+        I: Iterator<Item = &'a str> + Clone,
     {
-        let new = Self::new(name);
+        let mut new = Self::new(name);
+        let mut evs = vec![];
+        let mut conns = vec![];
 
-        for node in nodes {}
+        let nodes_count = nodes.clone().count() as f64;
+        let mut complex_pos: Option<(f64, f64)> = None;
 
-        (new, vec![])
+        // Move nodes to new graph and record positions for later
+        for node in nodes {
+            let (rnode, mut rconns, _) = self.remove_node(node)?;
+
+            evs.extend(rconns.iter().map(|c| {
+                Lang::GraphEvent(GraphEvent::DisconnectedSockets(c.0.clone(), c.1.clone()))
+            }));
+            evs.push(Lang::GraphEvent(GraphEvent::NodeRemoved(Resource::node(
+                [&self.name, node].iter().collect::<std::path::PathBuf>(),
+            ))));
+
+            let (new_node, _) = new.new_node(&rnode.operator, parent_size);
+            new.resize_node(&new_node, rnode.size, parent_size);
+            new.position_node(&new_node, rnode.position.0, rnode.position.1);
+
+            match complex_pos {
+                Some(mut cpos) => {
+                    cpos.0 += rnode.position.0;
+                    cpos.1 += rnode.position.1;
+                }
+                None => {
+                    complex_pos = Some(rnode.position);
+                }
+            }
+
+            conns.append(&mut rconns);
+        }
+
+        let mut complex_pos = complex_pos.unwrap();
+        complex_pos.0 /= nodes_count;
+        complex_pos.1 /= nodes_count;
+
+        // Rebuild all connections and log any required inputs and outputs
+        let mut inputs = vec![];
+        let mut outputs = vec![];
+
+        for conn in conns {
+            let source_node = conn.0.file().unwrap();
+            let source_socket = conn.0.fragment().unwrap();
+            let sink_node = conn.1.file().unwrap();
+            let sink_socket = conn.1.fragment().unwrap();
+
+            match new.connect_sockets(source_node, source_socket, sink_node, sink_socket) {
+                Ok(_) => {}
+                Err(NodeGraphError::NodeNotFound(missing)) => {
+                    if missing == source_node {
+                        let (new_input, _) = new.new_node(
+                            &Operator::AtomicOperator(AtomicOperator::Input(Input::default())),
+                            parent_size,
+                        );
+                        new.connect_sockets(&new_input, "data", sink_node, sink_socket)?;
+                        inputs.push((
+                            new_input,
+                            source_node.to_string(),
+                            source_socket.to_string(),
+                        ));
+                    } else if missing == sink_node {
+                        let (new_output, _) = new.new_node(
+                            &Operator::AtomicOperator(AtomicOperator::Output(Output::default())),
+                            parent_size,
+                        );
+                        new.connect_sockets(source_node, source_socket, &new_output, "data")?;
+                        outputs.push((new_output, sink_node.to_string(), sink_socket.to_string()));
+                    } else {
+                        return Err(NodeGraphError::NodeNotFound(missing));
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+
+        evs.append(&mut new.rebuild_events(parent_size));
+
+        // Create Complex Operator in stead of the old nodes
+        let complex_op = Operator::ComplexOperator({
+            let mut co = ComplexOperator::new(Resource::graph(name));
+            co.inputs = inputs
+                .iter()
+                .map(|(input_node, _, _)| {
+                    (
+                        input_node.clone(),
+                        (
+                            OperatorType::Monomorphic(ImageType::Grayscale),
+                            new.graph_resource().graph_node(input_node),
+                        ),
+                    )
+                })
+                .collect();
+            co.outputs = outputs
+                .iter()
+                .map(|(output_node, _, _)| {
+                    (
+                        output_node.clone(),
+                        (
+                            OperatorType::Monomorphic(ImageType::Grayscale),
+                            new.graph_resource().graph_node(output_node),
+                        ),
+                    )
+                })
+                .collect();
+            co
+        });
+        let (complex_node, _) = self.new_node(&complex_op, parent_size);
+        let complex_res = self.graph_resource().graph_node(&complex_node);
+        let complex_pbox = self.element_param_box(&complex_res).merge(
+            new.param_box_description(complex_op.title().to_owned())
+                .transmitters_into(),
+        );
+        self.position_node(&complex_node, complex_pos.0, complex_pos.1);
+
+        evs.push(Lang::GraphEvent(GraphEvent::NodeAdded(
+            complex_res.clone(),
+            complex_op,
+            complex_pbox,
+            Some(complex_pos),
+            parent_size,
+        )));
+
+        // Redo the input/output connections, create output sockets
+        for (input, source_node, source_socket) in inputs {
+            self.connect_sockets(&source_node, &source_socket, &complex_node, &input)?;
+            evs.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                self.graph_resource()
+                    .graph_node(&source_node)
+                    .node_socket(&source_socket),
+                complex_res.node_socket(&input),
+            )));
+        }
+
+        for (output, sink_node, sink_socket) in outputs {
+            evs.push(Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                complex_res.node_socket(&output),
+                OperatorType::Monomorphic(ImageType::Grayscale),
+                true,
+                parent_size,
+            )));
+            self.connect_sockets(&complex_node, &output, &sink_node, &sink_socket)?;
+            evs.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                complex_res.node_socket(&output),
+                self.graph_resource()
+                    .graph_node(&sink_node)
+                    .node_socket(&sink_socket),
+            )));
+        }
+
+        Ok((new, evs))
     }
 }
 

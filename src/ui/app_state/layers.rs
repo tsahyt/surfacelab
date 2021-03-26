@@ -87,7 +87,7 @@ impl Layer {
     }
 
     pub fn unset_output(&mut self, chan: MaterialChannel) {
-        dbg!(chan);
+        todo!()
     }
 
     pub fn toggle_expanded(&mut self) {
