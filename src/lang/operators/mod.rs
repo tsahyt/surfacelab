@@ -143,6 +143,24 @@ pub enum OutputType {
     Rgb,
 }
 
+impl From<ImageType> for OutputType {
+    fn from(t: ImageType) -> Self {
+        match t {
+            ImageType::Grayscale => OutputType::Value,
+            ImageType::Rgb => OutputType::Rgb,
+        }
+    }
+}
+
+impl From<OperatorType> for OutputType {
+    fn from(source: OperatorType) -> Self {
+        match source {
+            OperatorType::Monomorphic(i) => Self::from(i),
+            OperatorType::Polymorphic(_) => OutputType::Value,
+        }
+    }
+}
+
 impl Default for OutputType {
     fn default() -> Self {
         OutputType::Value
@@ -237,7 +255,7 @@ impl OperatorParamBox for Output {
 /// Input nodes are used to gather inputs for complex operators.
 #[derive(Clone, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Input {
-    input_type: ImageType,
+    pub input_type: ImageType,
 }
 
 impl Default for Input {

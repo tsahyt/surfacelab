@@ -599,10 +599,15 @@ impl NodeGraph {
             match new.connect_sockets(source_node, source_socket, sink_node, sink_socket) {
                 Ok(_) => {}
                 Err(NodeGraphError::NodeNotFound(missing)) => {
-                    dbg!(&missing);
                     if missing == source_node {
+                        let ty = new.socket_type(sink_node, sink_socket)?;
                         let (new_input, _) = new.new_node(
-                            &Operator::AtomicOperator(AtomicOperator::Input(Input::default())),
+                            &Operator::AtomicOperator(AtomicOperator::Input(Input {
+                                input_type: match ty {
+                                    OperatorType::Monomorphic(t) => t,
+                                    OperatorType::Polymorphic(_) => ImageType::Grayscale,
+                                },
+                            })),
                             parent_size,
                         );
                         new.connect_sockets(&new_input, "data", sink_node, sink_socket)?;
@@ -610,14 +615,23 @@ impl NodeGraph {
                             new_input,
                             source_node.to_string(),
                             source_socket.to_string(),
+                            ty,
                         ));
                     } else if missing == sink_node {
+                        let ty = new.socket_type(source_node, source_socket)?;
                         let (new_output, _) = new.new_node(
-                            &Operator::AtomicOperator(AtomicOperator::Output(Output::default())),
+                            &Operator::AtomicOperator(AtomicOperator::Output(Output {
+                                output_type: OutputType::from(ty),
+                            })),
                             parent_size,
                         );
                         new.connect_sockets(source_node, source_socket, &new_output, "data")?;
-                        outputs.push((new_output, sink_node.to_string(), sink_socket.to_string()));
+                        outputs.push((
+                            new_output,
+                            sink_node.to_string(),
+                            sink_socket.to_string(),
+                            ty,
+                        ));
                     } else {
                         return Err(NodeGraphError::NodeNotFound(missing));
                     }
@@ -633,11 +647,11 @@ impl NodeGraph {
             let mut co = ComplexOperator::new(Resource::graph(name));
             co.inputs = inputs
                 .iter()
-                .map(|(input_node, _, _)| {
+                .map(|(input_node, _, _, ty)| {
                     (
                         input_node.clone(),
                         (
-                            OperatorType::Monomorphic(ImageType::Grayscale),
+                            OperatorType::from(*ty),
                             new.graph_resource().graph_node(input_node),
                         ),
                     )
@@ -645,13 +659,10 @@ impl NodeGraph {
                 .collect();
             co.outputs = outputs
                 .iter()
-                .map(|(output_node, _, _)| {
+                .map(|(output_node, _, _, ty)| {
                     (
                         output_node.clone(),
-                        (
-                            OperatorType::Monomorphic(ImageType::Grayscale),
-                            new.graph_resource().graph_node(output_node),
-                        ),
+                        (*ty, new.graph_resource().graph_node(output_node)),
                     )
                 })
                 .collect();
@@ -674,7 +685,7 @@ impl NodeGraph {
         )));
 
         // Redo the input/output connections, create output sockets
-        for (input, source_node, source_socket) in inputs {
+        for (input, source_node, source_socket, _) in inputs {
             self.connect_sockets(&source_node, &source_socket, &complex_node, &input)?;
             evs.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
                 self.graph_resource()
@@ -684,7 +695,7 @@ impl NodeGraph {
             )));
         }
 
-        for (output, sink_node, sink_socket) in outputs {
+        for (output, sink_node, sink_socket, _) in outputs {
             evs.push(Lang::GraphEvent(GraphEvent::OutputSocketAdded(
                 complex_res.node_socket(&output),
                 OperatorType::Monomorphic(ImageType::Grayscale),

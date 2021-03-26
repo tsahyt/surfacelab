@@ -372,6 +372,12 @@ pub enum OperatorType {
     Polymorphic(TypeVariable),
 }
 
+impl From<ImageType> for OperatorType {
+    fn from(source: ImageType) -> Self {
+        Self::Monomorphic(source)
+    }
+}
+
 /// Get the monomorphic type if possible. Will fail on polymorphic types.
 impl TryFrom<OperatorType> for ImageType {
     type Error = &'static str;
