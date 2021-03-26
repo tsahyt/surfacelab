@@ -322,6 +322,9 @@ impl NodeGraph {
             return Err(NodeGraphError::InvalidConnection);
         }
 
+        // Disconnect sink
+        response.append(&mut self.disconnect_sink_socket(sink_node, sink_socket)?);
+
         // Handle type checking/inference
         let source_type = self.socket_type(source_node, source_socket).unwrap();
         let sink_type = self.socket_type(sink_node, sink_socket).unwrap();
