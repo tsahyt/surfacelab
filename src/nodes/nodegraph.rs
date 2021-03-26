@@ -539,6 +539,26 @@ impl NodeGraph {
                 .edges_directed(idx, petgraph::EdgeDirection::Incoming)
                 .count()
     }
+
+    /// Extract the nodes determined by the iterator and construct a new graph
+    /// from them. Edges going into or out of the subgraph will be terminated
+    /// with inputs and outputs in the new graph respectively. Finally, the
+    /// extracted nodes will be replaced by a new complex operator. The new
+    /// graph will have the given name.
+    ///
+    /// Along with the new graph, a vector of events is yielded, describing the
+    /// transformation of *this* graph and construction of the *new* graph.
+    pub fn extract<'a, I>(&self, name: &str, nodes: I) -> (Self, Vec<Lang>)
+    where
+        I: Iterator<Item = &'a str>,
+    {
+        let new = Self::new(name);
+
+        for node in nodes {
+        }
+
+        (new, vec![])
+    }
 }
 
 impl ExposedParameters for NodeGraph {

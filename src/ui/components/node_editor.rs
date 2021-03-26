@@ -158,6 +158,15 @@ impl<'a> Widget for NodeEditor<'a> {
                 graph::Event::AddModal(pt) => {
                     state.update(|state| state.add_modal = Some(pt));
                 }
+                graph::Event::Extract(mut idxs) => {
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::Extract(
+                            idxs.drain(0..)
+                                .map(|i| collection.graph.node_weight(i).unwrap().resource.clone())
+                                .collect(),
+                        )))
+                        .unwrap();
+                }
             }
         }
 

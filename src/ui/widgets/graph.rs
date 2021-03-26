@@ -51,7 +51,7 @@ impl Default for Camera {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Selection {
     rect: Option<(Point, Point)>,
     set: HashSet<widget::Id>,
@@ -196,6 +196,7 @@ pub enum Event {
     NodeEnter(petgraph::graph::NodeIndex),
     ActiveElement(petgraph::graph::NodeIndex),
     AddModal(Point),
+    Extract(Vec<petgraph::graph::NodeIndex>),
 }
 
 impl<'a> Graph<'a> {
@@ -310,6 +311,11 @@ impl<'a> Graph<'a> {
 
 type Events = VecDeque<Event>;
 
+enum SelectionOperation {
+    Delete,
+    Extract,
+}
+
 impl<'a> Widget for Graph<'a> {
     type State = State;
     type Style = Style;
@@ -397,12 +403,19 @@ impl<'a> Widget for Graph<'a> {
 
         let mut node_drags: SmallVec<[_; 4]> = SmallVec::new();
 
-        // Handle deletion events
-        let delete_trigger = ui
+        // Handle selection operation events
+        let selection_op = ui
             .widget_input(id)
             .presses()
             .key()
-            .any(|x| x.key == input::Key::X);
+            .filter_map(|x| match x.key {
+                input::Key::X => Some(SelectionOperation::Delete),
+                input::Key::E => Some(SelectionOperation::Extract),
+                _ => None,
+            })
+            .next();
+
+        let mut extract_ids = vec![];
 
         // Build a node for each known index
         for idx in self.graph.node_indices() {
@@ -508,8 +521,16 @@ impl<'a> Widget for Graph<'a> {
                 }
             }
 
-            if delete_trigger && selection_state != node::SelectionState::None {
+            if matches!(selection_op, Some(SelectionOperation::Delete))
+                && selection_state != node::SelectionState::None
+            {
                 evs.push_back(Event::NodeDelete(idx));
+            }
+
+            if matches!(selection_op, Some(SelectionOperation::Extract))
+                && selection_state != node::SelectionState::None
+            {
+                extract_ids.push(idx);
             }
         }
 
@@ -601,6 +622,11 @@ impl<'a> Widget for Graph<'a> {
                 .button(input::MouseButton::Right)
                 .map(|c| Event::AddModal(state.camera.inv_transform(c.xy))),
         );
+
+        // Handle extraction events
+        if !extract_ids.is_empty() {
+            evs.push_back(Event::Extract(extract_ids));
+        }
 
         evs
     }

@@ -454,6 +454,35 @@ impl NodeManager {
                     };
                 }
             }
+            UserNodeEvent::Extract(ress) => {
+                use itertools::Itertools;
+
+                debug_assert!(!ress.is_empty());
+                debug_assert!(ress.iter().map(|r| r.node_graph()).dedup().count() == 1);
+
+                let graph_res = ress[0].node_graph();
+                let mut new_graph = None;
+
+                let name = (0..)
+                    .map(|i| format!("unnamed.{}", i))
+                    .find(|n| !self.graphs.contains_key(n))
+                    .unwrap();
+
+                if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                    self.graphs.get_mut(graph_res.path_str().unwrap())
+                {
+                    new_graph = Some(graph.extract(&name, ress.iter().map(|r| r.file().unwrap())));
+                }
+
+                if let Some((g, mut evs)) = new_graph {
+                    self.graphs.insert(
+                        g.graph_resource().path_str().unwrap().to_string(),
+                        ManagedNodeCollection::NodeGraph(g),
+                    );
+
+                    response.append(&mut evs);
+                }
+            }
         }
 
         response
