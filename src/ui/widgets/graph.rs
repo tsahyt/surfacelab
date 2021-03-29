@@ -618,7 +618,8 @@ impl<'a> Widget for Graph<'a> {
                 }
                 Some(DragOperation::Moving(delta, tmp_snap)) => {
                     let w_id = state.node_ids.get(&idx).unwrap().clone();
-                    state.update(|state| state.selection.drag(&w_id, delta));
+                    state
+                        .update(|state| state.selection.drag(&w_id, state.camera.inv_scale(delta)));
                     if let Some(pos) = state.selection.drag_pos(&w_id) {
                         evs.push_back(Event::NodeDrag(idx, pos[0], pos[1], tmp_snap))
                     }
