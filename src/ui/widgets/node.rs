@@ -46,7 +46,7 @@ pub enum SocketType {
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    NodeDrag([f64; 2]),
+    NodeDrag([f64; 2], bool),
     NodeDelete,
     NodeEnter,
     SocketDrag(Point, Point),
@@ -320,7 +320,7 @@ impl<'a> Widget for Node<'a> {
             evs.extend(
                 ui.widget_input(w_id)
                     .drags()
-                    .button(input::MouseButton::Left)
+                    .left()
                     .map(|x| {
                         Event::SocketDrag(
                             middle,
@@ -342,12 +342,13 @@ impl<'a> Widget for Node<'a> {
         }
 
         // Node Dragging
-        evs.extend(
-            ui.widget_input(id)
-                .drags()
-                .button(input::MouseButton::Left)
-                .map(|x| Event::NodeDrag(x.delta_xy)),
-        );
+        let drag_delta = ui.widget_input(id)
+            .drags()
+            .left()
+            .fold(([0., 0.], false), |([x, y], s), z| ([x + z.delta_xy[0], y + z.delta_xy[1]], s || z.modifiers == input::ModifierKey::CTRL));
+        if drag_delta.0 != [0., 0.] {
+            evs.push(Event::NodeDrag(drag_delta.0, drag_delta.1));
+        }
 
         // Key events
         evs.extend(

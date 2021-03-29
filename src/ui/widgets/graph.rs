@@ -188,7 +188,7 @@ pub struct State {
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    NodeDrag(petgraph::graph::NodeIndex, Scalar, Scalar),
+    NodeDrag(petgraph::graph::NodeIndex, Scalar, Scalar, bool),
     ConnectionDrawn(
         petgraph::graph::NodeIndex,
         String,
@@ -409,7 +409,7 @@ impl<'a> Widget for Graph<'a> {
             .graphics_for(id)
             .set(state.ids.grid, ui);
 
-        let mut node_drags: SmallVec<[_; 4]> = SmallVec::new();
+        let mut node_drag = None;
 
         // Handle selection operation events
         let selection_op = ui
@@ -476,8 +476,8 @@ impl<'a> Widget for Graph<'a> {
             .set(w_id, ui)
             {
                 match ev {
-                    node::Event::NodeDrag(delta) => {
-                        node_drags.push(state.camera.inv_scale(delta));
+                    node::Event::NodeDrag(delta, tmp_snap) => {
+                        node_drag = Some((state.camera.inv_scale(delta), tmp_snap));
                     }
                     node::Event::NodeDelete => {
                         evs.push_back(Event::NodeDelete(idx));
@@ -549,10 +549,10 @@ impl<'a> Widget for Graph<'a> {
         // Dragging of nodes processed separately to apply operation to the
         // entire selection set
         for idx in self.graph.node_indices() {
-            for [x, y] in node_drags.iter() {
+            if let Some(([x, y], tmp_snap)) = node_drag {
                 let w_id = state.node_ids.get(&idx).unwrap();
                 if state.selection.is_selected(*w_id) {
-                    evs.push_back(Event::NodeDrag(idx, *x, *y));
+                    evs.push_back(Event::NodeDrag(idx, x, y, tmp_snap));
                 }
             }
         }
