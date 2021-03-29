@@ -260,10 +260,11 @@ impl<'a> Widget for Node<'a> {
             .set(state.ids.title, ui);
 
         if let Some(thumbnail) = self.thumbnail {
+            let thumbnail_size = rect.w() - (8. * zoom) * 2.;
             widget::Image::new(thumbnail)
                 .parent(state.ids.rectangle)
                 .middle()
-                .padded_wh_of(state.ids.rectangle, 8.0 * zoom)
+                .wh([thumbnail_size, thumbnail_size])
                 .graphics_for(id)
                 .set(state.ids.thumbnail, ui);
         }

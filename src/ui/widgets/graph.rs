@@ -509,6 +509,8 @@ impl<'a> Widget for Graph<'a> {
                 node::SelectionState::None
             };
 
+            let socket_count = node.inputs.len().max(node.outputs.len());
+
             for ev in node::Node::new(
                 idx,
                 &node.type_variables,
@@ -526,7 +528,7 @@ impl<'a> Widget for Graph<'a> {
             .thumbnail(node.thumbnail)
             .wh([
                 STANDARD_NODE_SIZE * state.camera.zoom,
-                STANDARD_NODE_SIZE * state.camera.zoom,
+                node_height(socket_count, 16., 8.) * state.camera.zoom,
             ])
             .zoom(state.camera.zoom)
             .set(w_id, ui)
@@ -723,4 +725,9 @@ impl<'a> Widget for Graph<'a> {
 
         evs
     }
+}
+
+fn node_height(socket_count: usize, socket_size: f64, min_skip: f64) -> f64 {
+    let n = socket_count as f64;
+    (2. * n * min_skip + socket_size * n).max(STANDARD_NODE_SIZE)
 }
