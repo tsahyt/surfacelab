@@ -268,9 +268,16 @@ impl<'a> Widget for Node<'a> {
                 .set(state.ids.thumbnail, ui);
         }
 
-        let mut margin = 16.0 * zoom;
+        let margin_initial = 16. * zoom;
+
+        let margin_skip =
+            calculate_margin_skip(self.inputs.len(), margin_initial, socket_size[1], rect.h());
+
+        let mut margin = margin_initial;
 
         for (input, ty) in self.inputs.iter() {
+            margin += margin_skip;
+
             let w_id = state.input_sockets.get(input).copied().unwrap();
             widget::BorderedRectangle::new(socket_size)
                 .border(border_width)
@@ -310,12 +317,18 @@ impl<'a> Widget for Node<'a> {
                     .map(|_| Event::SocketClear(input.clone())),
             );
 
-            margin += 32.0 * zoom;
+            margin += socket_size[1];
+            margin += margin_skip;
         }
 
-        margin = 16.0 * zoom;
+        margin = margin_initial;
+
+        let margin_skip =
+            calculate_margin_skip(self.outputs.len(), margin_initial, socket_size[1], rect.h());
 
         for (output, ty) in self.outputs.iter() {
+            margin += margin_skip;
+
             let w_id = state.output_sockets.get(output).copied().unwrap();
             widget::BorderedRectangle::new(socket_size)
                 .border(border_width)
@@ -342,7 +355,8 @@ impl<'a> Widget for Node<'a> {
                     .map(|_| Event::SocketRelease(self.node_id, SocketType::Source)),
             );
 
-            margin += 32.0 * zoom;
+            margin += socket_size[1];
+            margin += margin_skip;
         }
 
         // Node Dragging
@@ -402,4 +416,11 @@ fn operator_type_color(
             },
         },
     }
+}
+
+fn calculate_margin_skip(sockets: usize, margin: f64, socket_height: f64, node_height: f64) -> f64 {
+    let a = node_height - 2. * margin;
+    let n = sockets as f64;
+
+    (a - n * socket_height) / (2. * n)
 }
