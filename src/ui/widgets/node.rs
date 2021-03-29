@@ -36,6 +36,8 @@ pub struct Style {
     active_color: Option<Color>,
     #[conrod(default = "color::YELLOW")]
     selection_color: Option<Color>,
+    #[conrod(default = "1.")]
+    zoom: Option<f64>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -89,6 +91,7 @@ impl<'a> Node<'a> {
         pub border_color { style.border_color = Some(Color) }
         pub active_color { style.active_color = Some(Color) }
         pub selection_color { style.selection_color = Some(Color) }
+        pub zoom { style.zoom = Some(f64) }
     }
 }
 
@@ -230,9 +233,13 @@ impl<'a> Widget for Node<'a> {
         }
         let mut evs = SmallVec::new();
 
+        let zoom = style.zoom(&ui.theme);
+        let border_width = zoom * 3.0;
+        let socket_size = [16.0 * zoom, 16.0 * zoom];
+
         widget::BorderedRectangle::new(rect.dim())
             .parent(id)
-            .border(3.0)
+            .border(border_width)
             .border_color(match self.selected {
                 SelectionState::Active => style.active_color(&ui.theme),
                 SelectionState::Selected => style.selection_color(&ui.theme),
@@ -256,17 +263,17 @@ impl<'a> Widget for Node<'a> {
             widget::Image::new(thumbnail)
                 .parent(state.ids.rectangle)
                 .middle()
-                .padded_wh_of(state.ids.rectangle, 8.0)
+                .padded_wh_of(state.ids.rectangle, 8.0 * zoom)
                 .graphics_for(id)
                 .set(state.ids.thumbnail, ui);
         }
 
-        let mut margin = 16.0;
+        let mut margin = 16.0 * zoom;
 
         for (input, ty) in self.inputs.iter() {
             let w_id = state.input_sockets.get(input).copied().unwrap();
-            widget::BorderedRectangle::new([16.0, 16.0])
-                .border(3.0)
+            widget::BorderedRectangle::new(socket_size)
+                .border(border_width)
                 .color(operator_type_color(ty, self.type_variables))
                 .parent(state.ids.rectangle)
                 .top_left_with_margins(margin, 0.0)
@@ -303,15 +310,15 @@ impl<'a> Widget for Node<'a> {
                     .map(|_| Event::SocketClear(input.clone())),
             );
 
-            margin += 32.0;
+            margin += 32.0 * zoom;
         }
 
-        margin = 16.0;
+        margin = 16.0 * zoom;
 
         for (output, ty) in self.outputs.iter() {
             let w_id = state.output_sockets.get(output).copied().unwrap();
-            widget::BorderedRectangle::new([16.0, 16.0])
-                .border(3.0)
+            widget::BorderedRectangle::new(socket_size)
+                .border(border_width)
                 .color(operator_type_color(ty, self.type_variables))
                 .parent(state.ids.rectangle)
                 .top_right_with_margins(margin, 0.0)
@@ -335,7 +342,7 @@ impl<'a> Widget for Node<'a> {
                     .map(|_| Event::SocketRelease(self.node_id, SocketType::Source)),
             );
 
-            margin += 32.0;
+            margin += 32.0 * zoom;
         }
 
         // Node Dragging
@@ -353,7 +360,7 @@ impl<'a> Widget for Node<'a> {
             evs.push(Event::NodeDragMotion(drag_delta.0, drag_delta.1));
         }
 
-        for press in ui.widget_input(id).presses().mouse().left() {
+        for _press in ui.widget_input(id).presses().mouse().left() {
             evs.push(Event::NodeDragStart);
         }
 

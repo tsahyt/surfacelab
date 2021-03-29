@@ -528,6 +528,7 @@ impl<'a> Widget for Graph<'a> {
                 STANDARD_NODE_SIZE * state.camera.zoom,
                 STANDARD_NODE_SIZE * state.camera.zoom,
             ])
+            .zoom(state.camera.zoom)
             .set(w_id, ui)
             {
                 match ev {
