@@ -201,6 +201,7 @@ pub enum Event {
     ActiveElement(petgraph::graph::NodeIndex),
     AddModal(Point),
     Extract(Vec<petgraph::graph::NodeIndex>),
+    AlignNodes(Vec<petgraph::graph::NodeIndex>),
 }
 
 impl<'a> Graph<'a> {
@@ -320,6 +321,7 @@ type Events = VecDeque<Event>;
 enum SelectionOperation {
     Delete,
     Extract,
+    Align,
 }
 
 impl<'a> Widget for Graph<'a> {
@@ -414,14 +416,15 @@ impl<'a> Widget for Graph<'a> {
             .widget_input(id)
             .presses()
             .key()
-            .filter_map(|x| match x.key {
+            .find_map(|x| match x.key {
                 input::Key::X => Some(SelectionOperation::Delete),
                 input::Key::E => Some(SelectionOperation::Extract),
+                input::Key::A => Some(SelectionOperation::Align),
                 _ => None,
-            })
-            .next();
+            });
 
         let mut extract_ids = vec![];
+        let mut align_ids = vec![];
 
         // Build a node for each known index
         for idx in self.graph.node_indices() {
@@ -527,16 +530,19 @@ impl<'a> Widget for Graph<'a> {
                 }
             }
 
-            if matches!(selection_op, Some(SelectionOperation::Delete))
-                && selection_state != node::SelectionState::None
-            {
-                evs.push_back(Event::NodeDelete(idx));
-            }
-
-            if matches!(selection_op, Some(SelectionOperation::Extract))
-                && selection_state != node::SelectionState::None
-            {
-                extract_ids.push(idx);
+            if selection_state != node::SelectionState::None {
+                match selection_op {
+                    Some(SelectionOperation::Delete) => {
+                        evs.push_back(Event::NodeDelete(idx));
+                    }
+                    Some(SelectionOperation::Extract) => {
+                        extract_ids.push(idx);
+                    }
+                    Some(SelectionOperation::Align) => {
+                        align_ids.push(idx);
+                    }
+                    _ => {}
+                }
             }
         }
 
@@ -632,6 +638,11 @@ impl<'a> Widget for Graph<'a> {
         // Handle extraction events
         if !extract_ids.is_empty() {
             evs.push_back(Event::Extract(extract_ids));
+        }
+
+        // Handle align operation
+        if !align_ids.is_empty() {
+            evs.push_back(Event::AlignNodes(align_ids));
         }
 
         evs

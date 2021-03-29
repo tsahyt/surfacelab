@@ -167,6 +167,16 @@ impl<'a> Widget for NodeEditor<'a> {
                         )))
                         .unwrap();
                 }
+                graph::Event::AlignNodes(idxs) => {
+                    for (res, pos) in collection.align_nodes(&idxs) {
+                        self.sender
+                            .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
+                                res.clone(),
+                                pos,
+                            )))
+                            .unwrap();
+                    }
+                }
             }
         }
 

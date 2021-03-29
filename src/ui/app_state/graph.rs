@@ -118,6 +118,46 @@ impl Graph {
     pub fn resources_mut(&mut self) -> &mut HashMap<Resource<r::Node>, petgraph::graph::NodeIndex> {
         &mut self.resources
     }
+
+    /// Align given nodes in the graph on a best guess basis, returning
+    /// resources and new positions
+    pub fn align_nodes(
+        &mut self,
+        nodes: &[petgraph::graph::NodeIndex],
+    ) -> Vec<(Resource<Node>, (f64, f64))> {
+        use statrs::statistics::Statistics;
+
+        let poss = nodes
+            .iter()
+            .filter_map(|idx| self.graph.node_weight(*idx))
+            .map(|n| n.position);
+        let var_x = poss.clone().map(|x| x[0]).variance();
+        let var_y = poss.clone().map(|x| x[1]).variance();
+
+        if var_y > var_x {
+            let mean_x = poss.clone().map(|x| x[0]).mean();
+            for idx in nodes.iter() {
+                if let Some(n) = self.graph.node_weight_mut(*idx) {
+                    n.position[0] = mean_x;
+                }
+            }
+        } else {
+            let mean_y = poss.clone().map(|x| x[1]).mean();
+            for idx in nodes.iter() {
+                if let Some(n) = self.graph.node_weight_mut(*idx) {
+                    n.position[1] = mean_y;
+                }
+            }
+        }
+
+        nodes
+            .iter()
+            .filter_map(|idx| {
+                let n = self.graph.node_weight(*idx)?;
+                Some((n.resource.clone(), (n.position[0], n.position[1])))
+            })
+            .collect()
+    }
 }
 
 impl Collection for Graph {
