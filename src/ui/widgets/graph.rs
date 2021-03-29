@@ -2,7 +2,7 @@ use super::node;
 
 use conrod_core::*;
 use smallvec::SmallVec;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 
 const STANDARD_NODE_SIZE: f64 = 128.0;
 const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
@@ -52,9 +52,24 @@ impl Default for Camera {
 }
 
 #[derive(Clone, Debug)]
+struct Selected {
+    drag_start: Option<Point>,
+    drag_delta: Option<Point>,
+}
+
+impl Default for Selected {
+    fn default() -> Self {
+        Self {
+            drag_start: None,
+            drag_delta: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Selection {
     rect: Option<(Point, Point)>,
-    set: HashSet<widget::Id>,
+    set: HashMap<widget::Id, Selected>,
     active: Option<widget::Id>,
 }
 
@@ -62,7 +77,7 @@ impl Default for Selection {
     fn default() -> Self {
         Self {
             rect: None,
-            set: HashSet::new(),
+            set: HashMap::new(),
             active: None,
         }
     }
@@ -74,7 +89,7 @@ impl Selection {
     }
 
     pub fn add(&mut self, widget_id: widget::Id) {
-        self.set.insert(widget_id);
+        self.set.insert(widget_id, Selected::default());
     }
 
     pub fn get_geometry(&mut self) -> Option<(Point, Point)> {
@@ -87,7 +102,7 @@ impl Selection {
                 self.set.clear();
             }
 
-            self.set.insert(wid);
+            self.set.insert(wid, Selected::default());
         }
         self.active = widget_id;
     }
@@ -104,17 +119,20 @@ impl Selection {
         self.rect = None
     }
 
-    pub fn set_selection(&mut self, mut selection: HashSet<widget::Id>, adding: bool) {
+    pub fn set_selection<I>(&mut self, selection: I, adding: bool)
+    where
+        I: Iterator<Item = widget::Id>,
+    {
         if adding {
-            self.set.extend(selection.drain());
+            self.set.extend(selection.map(|x| (x, Selected::default())));
         } else {
-            self.set = selection;
+            self.set = selection.map(|x| (x, Selected::default())).collect();
         }
         self.set_active(None);
     }
 
     pub fn is_selected(&self, id: widget::Id) -> bool {
-        self.set.contains(&id)
+        self.set.get(&id).is_some()
     }
 
     pub fn geometry_contains(&self, point: Point) -> bool {
@@ -128,6 +146,38 @@ impl Selection {
 
     pub fn is_empty(&self) -> bool {
         self.set.is_empty()
+    }
+
+    pub fn start_drag(&mut self, widget_id: &widget::Id, pos: Point) {
+        if let Some(selected) = self.set.get_mut(widget_id) {
+            selected.drag_start = Some(pos);
+            selected.drag_delta = Some([0., 0.]);
+        }
+    }
+
+    pub fn drag(&mut self, widget_id: &widget::Id, delta: Point) {
+        if let Some(selected) = self.set.get_mut(widget_id) {
+            selected.drag_delta = selected
+                .drag_delta
+                .map(|[x, y]| [x + delta[0], y + delta[1]]);
+        }
+    }
+
+    pub fn drag_pos(&self, widget_id: &widget::Id) -> Option<Point> {
+        if let Some(selected) = self.set.get(widget_id) {
+            selected
+                .drag_start
+                .and_then(|[px, py]| selected.drag_delta.map(|[dx, dy]| [px + dx, py + dy]))
+        } else {
+            None
+        }
+    }
+
+    pub fn stop_drag(&mut self, widget_id: &widget::Id) {
+        if let Some(selected) = self.set.get_mut(widget_id) {
+            selected.drag_start = None;
+            selected.drag_delta = None;
+        }
     }
 }
 
@@ -243,7 +293,7 @@ impl<'a> Graph<'a> {
             .filter(|mr| mr.button == input::MouseButton::Left)
         {
             state.update(|state| {
-                let selected: HashSet<_> = self
+                let mut selected: Vec<_> = self
                     .graph
                     .node_indices()
                     .filter_map(|idx| {
@@ -258,9 +308,10 @@ impl<'a> Graph<'a> {
                         }
                     })
                     .collect();
-                state
-                    .selection
-                    .set_selection(selected, release.modifiers == input::ModifierKey::SHIFT);
+                state.selection.set_selection(
+                    selected.drain(0..),
+                    release.modifiers == input::ModifierKey::SHIFT,
+                );
                 state.selection.finish();
             })
         }
@@ -293,14 +344,11 @@ impl<'a> Graph<'a> {
         state: &State,
         drop_point: Point,
     ) -> Option<(petgraph::graph::NodeIndex, String)> {
-        self.graph
-            .node_indices()
-            .filter_map(|idx| {
-                let w_id = state.node_ids.get(&idx)?;
-                let socket = super::node::target_socket(ui, *w_id, drop_point)?;
-                Some((idx, socket.to_string()))
-            })
-            .next()
+        self.graph.node_indices().find_map(|idx| {
+            let w_id = state.node_ids.get(&idx)?;
+            let socket = super::node::target_socket(ui, *w_id, drop_point)?;
+            Some((idx, socket.to_string()))
+        })
     }
 
     builder_methods! {
@@ -322,6 +370,13 @@ enum SelectionOperation {
     Delete,
     Extract,
     Align,
+}
+
+#[derive(Debug)]
+enum DragOperation {
+    Starting,
+    Moving(Point, bool),
+    Drop,
 }
 
 impl<'a> Widget for Graph<'a> {
@@ -409,7 +464,7 @@ impl<'a> Widget for Graph<'a> {
             .graphics_for(id)
             .set(state.ids.grid, ui);
 
-        let mut node_drag = None;
+        let mut drag_operation = None;
 
         // Handle selection operation events
         let selection_op = ui
@@ -476,8 +531,14 @@ impl<'a> Widget for Graph<'a> {
             .set(w_id, ui)
             {
                 match ev {
-                    node::Event::NodeDrag(delta, tmp_snap) => {
-                        node_drag = Some((state.camera.inv_scale(delta), tmp_snap));
+                    node::Event::NodeDragStart => {
+                        drag_operation = Some(DragOperation::Starting);
+                    }
+                    node::Event::NodeDragMotion(delta, tmp_snap) => {
+                        drag_operation = Some(DragOperation::Moving(delta, tmp_snap));
+                    }
+                    node::Event::NodeDragStop => {
+                        drag_operation = Some(DragOperation::Drop);
                     }
                     node::Event::NodeDelete => {
                         evs.push_back(Event::NodeDelete(idx));
@@ -549,11 +610,24 @@ impl<'a> Widget for Graph<'a> {
         // Dragging of nodes processed separately to apply operation to the
         // entire selection set
         for idx in self.graph.node_indices() {
-            if let Some(([x, y], tmp_snap)) = node_drag {
-                let w_id = state.node_ids.get(&idx).unwrap();
-                if state.selection.is_selected(*w_id) {
-                    evs.push_back(Event::NodeDrag(idx, x, y, tmp_snap));
+            match drag_operation {
+                Some(DragOperation::Starting) => {
+                    let w_id = state.node_ids.get(&idx).unwrap().clone();
+                    let pos = self.graph.node_weight(idx).unwrap().position;
+                    state.update(|state| state.selection.start_drag(&w_id, pos));
                 }
+                Some(DragOperation::Moving(delta, tmp_snap)) => {
+                    let w_id = state.node_ids.get(&idx).unwrap().clone();
+                    state.update(|state| state.selection.drag(&w_id, delta));
+                    if let Some(pos) = state.selection.drag_pos(&w_id) {
+                        evs.push_back(Event::NodeDrag(idx, pos[0], pos[1], tmp_snap))
+                    }
+                }
+                Some(DragOperation::Drop) => {
+                    let w_id = state.node_ids.get(&idx).unwrap().clone();
+                    state.update(|state| state.selection.stop_drag(&w_id));
+                }
+                None => {}
             }
         }
 

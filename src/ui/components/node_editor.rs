@@ -101,8 +101,9 @@ impl<'a> Widget for NodeEditor<'a> {
             match event {
                 graph::Event::NodeDrag(idx, x, y, tmp_snap) => {
                     let mut node = collection.graph.node_weight_mut(idx).unwrap();
-                    node.position[0] += x;
-                    node.position[1] += y;
+
+                    node.position[0] = x;
+                    node.position[1] = y;
 
                     if tmp_snap {
                         node.position[0] = (node.position[0] / 32.).round() * 32.;

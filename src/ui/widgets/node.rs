@@ -46,7 +46,9 @@ pub enum SocketType {
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    NodeDrag([f64; 2], bool),
+    NodeDragStart,
+    NodeDragMotion(Point, bool),
+    NodeDragStop,
     NodeDelete,
     NodeEnter,
     SocketDrag(Point, Point),
@@ -317,20 +319,15 @@ impl<'a> Widget for Node<'a> {
 
             let middle = ui.xy_of(w_id).unwrap();
 
-            evs.extend(
-                ui.widget_input(w_id)
-                    .drags()
-                    .left()
-                    .map(|x| {
-                        Event::SocketDrag(
-                            middle,
-                            [
-                                middle[0] + x.total_delta_xy[0],
-                                middle[1] + x.total_delta_xy[1],
-                            ],
-                        )
-                    }),
-            );
+            evs.extend(ui.widget_input(w_id).drags().left().map(|x| {
+                Event::SocketDrag(
+                    middle,
+                    [
+                        middle[0] + x.total_delta_xy[0],
+                        middle[1] + x.total_delta_xy[1],
+                    ],
+                )
+            }));
 
             evs.extend(
                 ui.widget_input(w_id)
@@ -342,12 +339,26 @@ impl<'a> Widget for Node<'a> {
         }
 
         // Node Dragging
-        let drag_delta = ui.widget_input(id)
-            .drags()
-            .left()
-            .fold(([0., 0.], false), |([x, y], s), z| ([x + z.delta_xy[0], y + z.delta_xy[1]], s || z.modifiers == input::ModifierKey::CTRL));
+        let drag_delta =
+            ui.widget_input(id)
+                .drags()
+                .left()
+                .fold(([0., 0.], false), |([x, y], snap), z| {
+                    (
+                        [x + z.delta_xy[0], y + z.delta_xy[1]],
+                        snap || z.modifiers == input::ModifierKey::CTRL,
+                    )
+                });
         if drag_delta.0 != [0., 0.] {
-            evs.push(Event::NodeDrag(drag_delta.0, drag_delta.1));
+            evs.push(Event::NodeDragMotion(drag_delta.0, drag_delta.1));
+        }
+
+        for press in ui.widget_input(id).presses().mouse().left() {
+            evs.push(Event::NodeDragStart);
+        }
+
+        for _release in ui.widget_input(id).releases().mouse().left() {
+            evs.push(Event::NodeDragStop);
         }
 
         // Key events
