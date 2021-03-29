@@ -10,6 +10,8 @@ use std::rc::Rc;
 use std::time::Instant;
 use thiserror::Error;
 
+const STACK_LIMIT: usize = 256;
+
 pub enum ExternalImageSource {
     Packed(image::DynamicImage),
     Disk(std::path::PathBuf),
@@ -127,6 +129,9 @@ pub enum InterpretationError {
     /// Failed to load external image
     #[error("Failed to load external image")]
     ExternalImage(#[from] image::ImageError),
+    /// Stack size limit reached during execution, likely the result of recursion
+    #[error("Stack limit reached")]
+    StackLimitReached,
 }
 
 #[derive(Debug)]
@@ -867,6 +872,10 @@ where
     type Item = Result<(Vec<ComputeEvent>, u64), InterpretationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.execution_stack.len() > STACK_LIMIT {
+            return Some(Err(InterpretationError::StackLimitReached));
+        }
+
         let frame = self.execution_stack.last_mut()?;
         let frame_size = frame.frame_size;
         let instruction = frame
