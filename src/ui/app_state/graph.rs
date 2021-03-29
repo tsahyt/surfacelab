@@ -121,6 +121,9 @@ impl Graph {
 
     /// Align given nodes in the graph on a best guess basis, returning
     /// resources and new positions
+    ///
+    /// It does so by calculating the variance in X and Y directions separately,
+    /// and aligning in whichever axis the variance is currently minimal.
     pub fn align_nodes(
         &mut self,
         nodes: &[petgraph::graph::NodeIndex],
