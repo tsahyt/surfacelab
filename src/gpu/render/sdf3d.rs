@@ -4,6 +4,7 @@ use crate::lang::{LightType, ObjectType, ParameterBool};
 use crate::shader;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
+use serde_derive::{Deserialize, Serialize};
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
@@ -15,7 +16,7 @@ static MAIN_FRAGMENT_SHADER_3D: &[u8] = shader!("sdf3d");
 /// with real displacement. Designed for temporal multisampling
 pub type RendererSDF3D<B> = GPURender<B, Uniforms>;
 
-#[derive(AsBytes, Debug)]
+#[derive(AsBytes, Debug, Serialize, Deserialize)]
 #[repr(C)]
 /// Uniforms for a 3D Renderer
 pub struct Uniforms {
@@ -88,6 +89,15 @@ impl Renderer for Uniforms {
 
     fn uniforms(&self) -> &[u8] {
         self.as_bytes()
+    }
+
+    fn serialize(&self) -> Result<Vec<u8>, serde_cbor::Error> {
+        serde_cbor::ser::to_vec(self)
+    }
+
+    fn deserialize(&mut self, data: &[u8]) -> Result<(), serde_cbor::Error> {
+        *self = serde_cbor::de::from_slice(data)?;
+        Ok(())
     }
 }
 

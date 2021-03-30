@@ -63,6 +63,13 @@ impl<B> ManagedRenderer<B>
 where
     B: gpu::Backend,
 {
+    pub fn serialize_settings(&self) -> Result<Vec<u8>, serde_cbor::Error> {
+        match self {
+            ManagedRenderer::RendererSDF3D(r) => r.serialize_settings(),
+            ManagedRenderer::Renderer2D(r) => r.serialize_settings(),
+        }
+    }
+
     /// Run update function on an SDF 3D renderer. A NOP for all other types
     pub fn update_sdf3d<F: Fn(&mut gpu::render::RendererSDF3D<B>) -> ()>(&mut self, f: F) {
         match self {

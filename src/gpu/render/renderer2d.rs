@@ -1,6 +1,7 @@
 use super::{GPURender, InitializationError, Renderer};
 use crate::gpu::{Backend, GPU};
 use crate::shader;
+use serde_derive::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
 
@@ -10,7 +11,7 @@ static MAIN_FRAGMENT_SHADER_2D: &[u8] = shader!("renderer2d");
 /// A 2D renderer displaying a "top down" view on the texture channel.
 pub type Renderer2D<B> = GPURender<B, Uniforms>;
 
-#[derive(AsBytes, Debug)]
+#[derive(AsBytes, Debug, Serialize, Deserialize)]
 #[repr(C)]
 /// Uniforms for a 2D Renderer
 pub struct Uniforms {
@@ -46,6 +47,15 @@ impl Renderer for Uniforms {
 
     fn uniforms(&self) -> &[u8] {
         self.as_bytes()
+    }
+
+    fn serialize(&self) -> Result<Vec<u8>, serde_cbor::Error> {
+        serde_cbor::ser::to_vec(self)
+    }
+
+    fn deserialize(&mut self, data: &[u8]) -> Result<(), serde_cbor::Error> {
+        *self = serde_cbor::de::from_slice(data)?;
+        Ok(())
     }
 }
 

@@ -24,6 +24,7 @@ static PREFILTER_SHADER: &[u8] = shader!("filter_env");
 /// 3. Preconvolved BRDF LUT, also for specular IBL
 pub struct EnvironmentMaps<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
+    path: std::path::PathBuf,
 
     irradiance_image: ManuallyDrop<B::Image>,
     irradiance_view: ManuallyDrop<B::ImageView>,
@@ -91,6 +92,7 @@ where
         gpu: Arc<Mutex<GPU<B>>>,
         irradiance_size: usize,
         spec_size: usize,
+        path: std::path::PathBuf,
     ) -> Result<Self, EnvironmentError> {
         let lock = gpu.lock().unwrap();
 
@@ -129,6 +131,7 @@ where
 
         Ok(Self {
             gpu,
+            path,
             irradiance_image: ManuallyDrop::new(irradiance_image),
             irradiance_memory: ManuallyDrop::new(irradiance_memory),
             irradiance_view: ManuallyDrop::new(irradiance_view),
@@ -153,7 +156,7 @@ where
         use std::io::BufReader;
 
         // Initialize
-        let env_maps = Self::init(gpu, irradiance_size, spec_size)?;
+        let env_maps = Self::init(gpu, irradiance_size, spec_size, path.as_ref().into())?;
 
         // Read data from file
         let start_io = Instant::now();
@@ -810,6 +813,11 @@ where
     /// Obtain view on the filtered spec map of this environment
     pub fn spec_view(&self) -> &B::ImageView {
         &*self.spec_view
+    }
+
+    /// Obtain the path this environment was built from
+    pub fn path(&self) -> &std::path::PathBuf {
+        &self.path
     }
 }
 

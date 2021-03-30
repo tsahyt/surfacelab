@@ -6,6 +6,7 @@ use crate::util::HaltonSequence2D;
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
+use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
@@ -35,6 +36,8 @@ pub trait Renderer {
     fn fragment_shader() -> &'static [u8];
     fn set_resolution(&mut self, w: f32, h: f32);
     fn uniforms(&self) -> &[u8];
+    fn serialize(&self) -> Result<Vec<u8>, serde_cbor::Error>;
+    fn deserialize(&mut self, data: &[u8]) -> Result<(), serde_cbor::Error>;
 }
 
 #[derive(Debug, Error)]
@@ -298,6 +301,11 @@ pub enum RenderError {
     UniformFill,
     #[error("Render fence timed out")]
     FenceTimeout,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RendererSettings {
+    view_data: Vec<u8>,
 }
 
 impl<B, U> GPURender<B, U>
@@ -650,6 +658,18 @@ where
             complete_fence: ManuallyDrop::new(fence),
             transfer_fence: ManuallyDrop::new(tfence),
         })
+    }
+
+    pub fn serialize_settings(&self) -> Result<Vec<u8>, serde_cbor::Error> {
+        serde_cbor::ser::to_vec(&RendererSettings {
+            view_data: self.view.serialize()?,
+        })
+    }
+
+    pub fn deserialize_settings(&mut self, data: &[u8]) -> Result<(), serde_cbor::Error> {
+        let settings: RendererSettings = serde_cbor::de::from_slice(data)?;
+        self.view.deserialize(&settings.view_data)?;
+        Ok(())
     }
 
     /// Create the render pipeline for this renderer

@@ -1015,6 +1015,8 @@ pub enum RenderEvent {
     RendererAdded(RendererID, crate::gpu::BrokerImageView),
     /// The specified renderer has been redrawn.
     RendererRedrawn(RendererID),
+    /// Render settings have been serialized.
+    Serialized(Vec<u8>),
 }
 
 /// Events from the IO component
@@ -1024,6 +1026,8 @@ pub enum IOEvent {
     NodeDataLoaded(Vec<u8>),
     /// Compute Data has been loaded by the IO component
     ComputeDataLoaded(Vec<u8>),
+    /// Render Settings have been loaded by the IO component
+    RenderSettingsLoaded(Vec<u8>),
 }
 
 /// Events from the scheduler

@@ -8,6 +8,7 @@ use thiserror::Error;
 pub struct SurfaceFile {
     pub node_data: Vec<u8>,
     pub compute_data: Vec<u8>,
+    pub render_settings: Vec<u8>,
 }
 
 #[derive(Debug, Error)]
@@ -40,6 +41,7 @@ impl SurfaceFile {
 pub struct SurfaceFileBuilder {
     pub node_data: Option<Vec<u8>>,
     pub compute_data: Option<Vec<u8>>,
+    pub render_settings: Option<Vec<u8>>,
 }
 
 impl Default for SurfaceFileBuilder {
@@ -53,6 +55,7 @@ impl SurfaceFileBuilder {
         Self {
             node_data: None,
             compute_data: None,
+            render_settings: None,
         }
     }
 
@@ -70,10 +73,16 @@ impl SurfaceFileBuilder {
         self
     }
 
+    pub fn render_settings(&mut self, render_settings: &[u8]) -> &mut Self {
+        self.render_settings = Some(render_settings.to_vec());
+        self
+    }
+
     pub fn build(self) -> Option<SurfaceFile> {
         Some(SurfaceFile {
             node_data: self.node_data?,
             compute_data: self.compute_data?,
+            render_settings: self.render_settings?,
         })
     }
 }

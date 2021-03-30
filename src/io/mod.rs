@@ -93,9 +93,11 @@ impl IOManager {
             Ok(file::SurfaceFile {
                 node_data,
                 compute_data,
+                render_settings,
             }) => {
                 response.push(Lang::IOEvent(IOEvent::NodeDataLoaded(node_data)));
                 response.push(Lang::IOEvent(IOEvent::ComputeDataLoaded(compute_data)));
+                response.push(Lang::IOEvent(IOEvent::RenderSettingsLoaded(render_settings)));
             }
             Err(e) => log::error!("{}", e),
         }
