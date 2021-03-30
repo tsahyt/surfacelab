@@ -71,12 +71,15 @@ impl IOManager {
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
                 response.append(&mut self.open_surface(path))
             }
-            Lang::ScheduleEvent(ScheduleEvent::Autosave) => {
-                log::debug!("Autosave requested by schedule");
-            }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(path)) => self.save_surface(path),
             Lang::GraphEvent(GraphEvent::Serialized(data)) => self.write_graph_data(data),
             Lang::ComputeEvent(ComputeEvent::Serialized(data)) => self.write_compute_data(data),
+            Lang::ScheduleEvent(ScheduleEvent::Autosave) => {
+                log::debug!("Autosave requested by schedule");
+                response.push(Lang::UserIOEvent(UserIOEvent::SaveSurface(
+                    "autosave.surf".into(),
+                )));
+            }
             _ => {}
         }
 
