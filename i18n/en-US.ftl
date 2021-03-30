@@ -128,6 +128,7 @@ border-mode = Border Mode
 
 smooth-edge = Edge Smoothing
 
+warp-mode = Warp Mode
 intensity = Intensity
 angle = Angle
 

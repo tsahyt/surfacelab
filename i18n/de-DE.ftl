@@ -128,6 +128,7 @@ border-mode = Randmodus
 
 smooth-edge = Kantenglättung
 
+warp-mode = Warp Modus
 intensity = Intensität
 angle = Winkel
 

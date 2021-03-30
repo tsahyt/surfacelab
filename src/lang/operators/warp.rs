@@ -122,7 +122,7 @@ impl OperatorParamBox for Warp {
                 name: "basic-parameters",
                 parameters: vec![
                     Parameter {
-                        name: "mode".to_string(),
+                        name: "warp-mode".to_string(),
                         transmitter: Field(Warp::MODE.to_string()),
                         control: Control::Enum {
                             selected: self.mode as usize,
@@ -151,7 +151,7 @@ impl OperatorParamBox for Warp {
                             max: std::f32::consts::TAU,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("mode", |c| {
+                        visibility: VisibilityFunction::on_parameter("warp-mode", |c| {
                             if let Control::Enum { selected, .. } = c {
                                 unsafe { WarpMode::from_unchecked(*selected as u32) }.has_angle()
                             } else {
