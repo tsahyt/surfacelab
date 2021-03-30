@@ -72,7 +72,14 @@ where
 
     pub fn deserialize_settings(&mut self, data: &[u8]) -> Result<(), serde_cbor::Error> {
         match self {
-            ManagedRenderer::RendererSDF3D(r) => r.deserialize_settings(data),
+            ManagedRenderer::RendererSDF3D(r) => {
+                r.deserialize_settings(data)?;
+                if let Some(ot) = r.object_type() {
+                    r.switch_object_type(ot)
+                        .expect("Failed to update object type");
+                }
+                Ok(())
+            }
             ManagedRenderer::Renderer2D(r) => r.deserialize_settings(data),
         }
     }
@@ -268,7 +275,11 @@ where
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset_all(),
             Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset_all(),
             Lang::IOEvent(IOEvent::RenderSettingsLoaded(data)) => {
-                self.renderers.values_mut().next()?.deserialize_settings(data).ok()?;
+                self.renderers
+                    .values_mut()
+                    .next()?
+                    .deserialize_settings(data)
+                    .ok()?;
             }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(..)) => {
                 let data = self.renderers.values().next()?.serialize_settings().ok()?;

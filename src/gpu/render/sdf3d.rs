@@ -111,12 +111,14 @@ where
         monitor_dimensions: (u32, u32),
         viewport_dimensions: (u32, u32),
     ) -> Result<Self, InitializationError> {
-        Self::new(
+        let mut renderer = Self::new(
             gpu,
             monitor_dimensions,
             viewport_dimensions,
             Uniforms::default(),
-        )
+        )?;
+        renderer.object_type = Some(ObjectType::Cube);
+        Ok(renderer)
     }
 
     /// Switch the object type to be displayed. This function recreates the
@@ -125,6 +127,9 @@ where
         &mut self,
         object_type: ObjectType,
     ) -> Result<(), InitializationError> {
+        // Store in uniforms for serialization/deserialization purposes
+        self.object_type = Some(object_type);
+
         let lock = self.gpu.lock().unwrap();
 
         let (main_render_pass, main_pipeline, main_pipeline_layout) = Self::make_render_pipeline(

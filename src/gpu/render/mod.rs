@@ -70,8 +70,9 @@ pub struct GPURender<B: Backend, U: Renderer> {
     current_sample: usize,
     tone_map: ToneMap,
 
-    // Uniforms
+    // Uniforms and specific/optional data
     view: U,
+    object_type: Option<ObjectType>,
 
     // Rendering Data
     halton_sampler: HaltonSequence2D,
@@ -306,6 +307,8 @@ pub enum RenderError {
 #[derive(Debug, Serialize, Deserialize)]
 struct RendererSettings {
     view_data: Vec<u8>,
+    tone_map: ToneMap,
+    object_type: Option<ObjectType>,
 }
 
 impl<B, U> GPURender<B, U>
@@ -632,6 +635,7 @@ where
             tone_map: ToneMap::Reinhard,
 
             view,
+            object_type: None,
 
             halton_sampler: HaltonSequence2D::default(),
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
@@ -660,15 +664,23 @@ where
         })
     }
 
+    pub fn object_type(&self) -> Option<ObjectType> {
+        self.object_type
+    }
+
     pub fn serialize_settings(&self) -> Result<Vec<u8>, serde_cbor::Error> {
         serde_cbor::ser::to_vec(&RendererSettings {
             view_data: self.view.serialize()?,
+            tone_map: self.tone_map,
+            object_type: self.object_type,
         })
     }
 
     pub fn deserialize_settings(&mut self, data: &[u8]) -> Result<(), serde_cbor::Error> {
         let settings: RendererSettings = serde_cbor::de::from_slice(data)?;
         self.view.deserialize(&settings.view_data)?;
+        self.tone_map = settings.tone_map;
+        self.object_type = settings.object_type;
         Ok(())
     }
 
