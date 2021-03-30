@@ -74,6 +74,7 @@ impl IOManager {
             Lang::UserIOEvent(UserIOEvent::SaveSurface(path)) => self.save_surface(path),
             Lang::GraphEvent(GraphEvent::Serialized(data)) => self.write_graph_data(data),
             Lang::ComputeEvent(ComputeEvent::Serialized(data)) => self.write_compute_data(data),
+            Lang::RenderEvent(RenderEvent::Serialized(data)) => self.write_render_settings(data),
             Lang::ScheduleEvent(ScheduleEvent::Autosave) => {
                 log::debug!("Autosave requested by schedule");
                 response.push(Lang::UserIOEvent(UserIOEvent::SaveSurface(
@@ -97,7 +98,9 @@ impl IOManager {
             }) => {
                 response.push(Lang::IOEvent(IOEvent::NodeDataLoaded(node_data)));
                 response.push(Lang::IOEvent(IOEvent::ComputeDataLoaded(compute_data)));
-                response.push(Lang::IOEvent(IOEvent::RenderSettingsLoaded(render_settings)));
+                response.push(Lang::IOEvent(IOEvent::RenderSettingsLoaded(
+                    render_settings,
+                )));
             }
             Err(e) => log::error!("{}", e),
         }
@@ -121,6 +124,14 @@ impl IOManager {
     fn write_compute_data(&mut self, data: &[u8]) {
         if let Some(fb) = &mut self.file_builder {
             fb.compute_data(data);
+        }
+
+        self.attempt_write().unwrap();
+    }
+
+    fn write_render_settings(&mut self, data: &[u8]) {
+        if let Some(fb) = &mut self.file_builder {
+            fb.render_settings(data);
         }
 
         self.attempt_write().unwrap();

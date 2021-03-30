@@ -260,6 +260,10 @@ where
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset_all(),
             Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset_all(),
+            Lang::UserIOEvent(UserIOEvent::SaveSurface(..)) => {
+                let data = self.renderers.values().next()?.serialize_settings().ok()?;
+                response.push(Lang::RenderEvent(RenderEvent::Serialized(data)));
+            }
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(new_size)) => {
                 self.resize_images(*new_size)
             }

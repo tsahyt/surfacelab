@@ -60,7 +60,7 @@ impl SurfaceFileBuilder {
     }
 
     pub fn buildable(&self) -> bool {
-        self.node_data.is_some() && self.compute_data.is_some()
+        self.node_data.is_some() && self.compute_data.is_some() && self.render_settings.is_some()
     }
 
     pub fn node_data(&mut self, node_data: &[u8]) -> &mut Self {
