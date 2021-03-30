@@ -15,6 +15,7 @@ pub fn start_io_thread(broker: &mut broker::Broker<Lang>) -> thread::JoinHandle<
             log::info!("Starting IO manager");
 
             let mut io_manager = IOManager::new();
+            let _scheduler = scheduler_setup(sender.clone());
 
             for event in receiver {
                 let res = io_manager.process_event(&event);
@@ -27,6 +28,21 @@ pub fn start_io_thread(broker: &mut broker::Broker<Lang>) -> thread::JoinHandle<
             disconnector.disconnect();
         })
         .expect("Failed to start IO manager thread!")
+}
+
+fn scheduler_setup(sender: broker::BrokerSender<Lang>) -> clokwerk::ScheduleHandle {
+    use clokwerk::*;
+    use enclose::*;
+
+    let sender_arc = std::sync::Arc::new(sender);
+    let mut scheduler = Scheduler::new();
+
+    scheduler
+        .every(2.minutes())
+        .run(enclose!((sender_arc => sender) move ||
+                      sender.send(Lang::ScheduleEvent(ScheduleEvent::Autosave)).unwrap()));
+
+    scheduler.watch_thread(std::time::Duration::from_secs(1))
 }
 
 pub struct IOManager {
@@ -54,6 +70,9 @@ impl IOManager {
         match event {
             Lang::UserIOEvent(UserIOEvent::OpenSurface(path)) => {
                 response.append(&mut self.open_surface(path))
+            }
+            Lang::ScheduleEvent(ScheduleEvent::Autosave) => {
+                log::debug!("Autosave requested by schedule");
             }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(path)) => self.save_surface(path),
             Lang::GraphEvent(GraphEvent::Serialized(data)) => self.write_graph_data(data),

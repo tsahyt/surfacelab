@@ -1020,8 +1020,17 @@ pub enum RenderEvent {
 /// Events from the IO component
 #[derive(Debug)]
 pub enum IOEvent {
+    /// Node Data has been loaded by the IO component
     NodeDataLoaded(Vec<u8>),
+    /// Compute Data has been loaded by the IO component
     ComputeDataLoaded(Vec<u8>),
+}
+
+/// Events from the scheduler
+#[derive(Debug)]
+pub enum ScheduleEvent {
+    /// Autosave schedule reached
+    Autosave,
 }
 
 /// Master event type used by the application bus. This defines the common
@@ -1040,4 +1049,5 @@ pub enum Lang {
     SurfaceEvent(SurfaceEvent),
     ComputeEvent(ComputeEvent),
     RenderEvent(RenderEvent),
+    ScheduleEvent(ScheduleEvent),
 }
