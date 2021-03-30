@@ -867,22 +867,6 @@ impl LayerStack {
         Resource::node(&format!("{}/output.{}", self.name, channel.short_name(),))
     }
 
-    /// Get a list of all layer resources, including blend nodes
-    pub fn all_resources(&self) -> impl Iterator<Item = Resource<Node>> + '_ {
-        self.layers
-            .iter()
-            .map(move |layer| {
-                layer
-                    .get_blend_options()
-                    .channels
-                    .iter()
-                    .map(|channel| self.blend_resource(layer, channel))
-                    .chain(std::iter::once(self.layer_resource(layer)))
-                    .collect::<Vec<_>>()
-            })
-            .flatten()
-    }
-
     /// Return all output sockets of the given layer
     pub fn layer_sockets(
         &self,
@@ -1587,9 +1571,50 @@ impl super::NodeCollection for LayerStack {
     }
 
     fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
-        self.all_resources()
-            .map(|res| Lang::GraphEvent(GraphEvent::NodeResized(res, parent_size, true)))
-            .collect()
+        let mut evs = vec![];
+        for layer in &self.layers {
+            // Main Layer
+            evs.push(Lang::GraphEvent(GraphEvent::NodeResized(
+                self.layer_resource(layer),
+                layer
+                    .operator()
+                    .size_request()
+                    .map(|s| OperatorSize::AbsoluteSize(s))
+                    .unwrap_or_default()
+                    .absolute(parent_size),
+                layer.operator().scalable(),
+            )));
+
+            // Blends
+            for channel in layer.get_blend_options().channels.iter() {
+                evs.push(Lang::GraphEvent(GraphEvent::NodeResized(
+                    self.blend_resource(layer, channel),
+                    parent_size,
+                    true,
+                )));
+            }
+
+            // Mask Stack
+            for mask in layer.get_masks().iter() {
+                evs.push(Lang::GraphEvent(GraphEvent::NodeResized(
+                    self.mask_resource(mask),
+                    mask.operator
+                        .size_request()
+                        .map(|s| OperatorSize::AbsoluteSize(s))
+                        .unwrap_or_default()
+                        .absolute(parent_size),
+                    mask.operator.scalable(),
+                )));
+
+                evs.push(Lang::GraphEvent(GraphEvent::NodeResized(
+                    self.mask_blend_resource(mask),
+                    parent_size,
+                    true,
+                )));
+            }
+        }
+
+        evs
     }
 
     fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {

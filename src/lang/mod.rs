@@ -93,6 +93,12 @@ pub enum OperatorSize {
     AbsoluteSize(u32),
 }
 
+impl Default for OperatorSize {
+    fn default() -> Self {
+        Self::RelativeToParent(0)
+    }
+}
+
 impl OperatorSize {
     /// Create an absolute size from a float by snapping to the nearest "normal"
     /// texture size. Normal here means powers of two *or* multiples of 3k up to
