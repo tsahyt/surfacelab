@@ -132,11 +132,15 @@ pub enum InterpretationError {
     /// Stack size limit reached during execution, likely the result of recursion
     #[error("Stack limit reached")]
     StackLimitReached,
+    /// Recursion detected during execution
+    #[error("Recursion detected during execution")]
+    RecursionDetected,
 }
 
 #[derive(Debug)]
 struct StackFrame {
     step: usize,
+    graph: Resource<Graph>,
     instructions: VecDeque<Instruction>,
     linearization: Rc<Linearization>,
     substitutions_map: Rc<HashMap<Resource<Node>, Vec<ParamSubstitution>>>,
@@ -147,6 +151,7 @@ struct StackFrame {
 
 impl StackFrame {
     pub fn new<'a, I>(
+        graph: Resource<Graph>,
         linearization: Rc<Linearization>,
         substitutions: I,
         caller: Option<Resource<Node>>,
@@ -175,6 +180,7 @@ impl StackFrame {
 
         Some(Self {
             step: 0,
+            graph,
             instructions,
             linearization,
             substitutions_map: Rc::new(substitutions_map),
@@ -242,6 +248,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             .ok_or(InterpretationError::UnknownCall)?
             .clone();
         let execution_stack = std::iter::once(StackFrame::new(
+            graph.clone(),
             linearization,
             std::iter::empty(),
             None,
@@ -376,6 +383,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
         // Push call onto stack
         if let Some(frame) = StackFrame::new(
+            op.graph.clone(),
             self.linearizations
                 .get(&op.graph)
                 .ok_or(InterpretationError::UnknownCall)?
@@ -384,6 +392,15 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             Some(res.clone()),
             size,
         ) {
+            if self
+                .execution_stack
+                .iter()
+                .find(|frame| frame.graph == op.graph)
+                .is_some()
+            {
+                return Err(InterpretationError::RecursionDetected);
+            }
+
             self.execution_stack.push(frame);
         }
         self.seq += 1;
