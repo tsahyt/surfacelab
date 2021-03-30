@@ -96,7 +96,14 @@ impl Renderer for Uniforms {
     }
 
     fn deserialize(&mut self, data: &[u8]) -> Result<(), serde_cbor::Error> {
+        // Get all the fields that must remain the same
+        let res = self.resolution;
+
+        // Get settings from slice
         *self = serde_cbor::de::from_slice(data)?;
+
+        // Write back fields
+        self.resolution = res;
         Ok(())
     }
 }
