@@ -135,7 +135,8 @@ where
                             channel.short_name()
                         );
                         blend_node.rename_file(&new_name);
-                        self.sockets.ensure_node_exists(&blend_node, *size);
+                        self.sockets
+                            .ensure_node_exists(&blend_node, self.parent_size);
                     }
                 }
                 LayersEvent::MaskPushed(_, res, _, _, _, _, _, size) => {
