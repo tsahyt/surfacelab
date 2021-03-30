@@ -130,3 +130,6 @@ smooth-edge = Edge Smoothing
 
 intensity = Intensity
 angle = Angle
+
+spread-distance = Distance
+spread-samples = Samples

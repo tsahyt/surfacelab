@@ -1,0 +1,48 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    float dist;
+    int samples;
+};
+
+layout(set = 0, binding = 1) uniform texture2D t_In;
+layout(set = 0, binding = 2) uniform sampler Sampler;
+layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
+
+const float PI = 3.141592654;
+
+vec3 hash(uvec3 x)
+{
+    const uint k = 1103515245U;
+    x = ((x >> 8U)^x.yzx) * k;
+    x = ((x >> 8U)^x.yzx) * k;
+    x = ((x >> 8U)^x.yzx) * k;
+
+    return vec3(x)*(1.0/float(0xffffffffU));
+}
+
+vec2 concentric_sample_disk(vec2 uv) {
+    float r = sqrt(uv.x);
+    float theta = 2.0 * PI * uv.y;
+    return vec2(r * cos(theta), r * sin(theta));
+}
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_Out);
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+
+    vec4 col = vec4(0.);
+
+    for(int i = 0; i < samples; ++i) {
+        vec3 smp = hash(uvec3(i, idx.x, idx.y));
+        vec2 offset = concentric_sample_disk(smp.xy) * dist;
+        col += texture(sampler2D(t_In, Sampler), uv + offset);
+    }
+
+    col /= samples;
+
+    imageStore(t_Out, idx, col);
+}

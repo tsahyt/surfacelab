@@ -130,3 +130,6 @@ smooth-edge = Kantenglättung
 
 intensity = Intensität
 angle = Winkel
+
+spread-distance = Distanz
+spread-samples = Abtastpunkte
