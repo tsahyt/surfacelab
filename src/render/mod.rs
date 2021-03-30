@@ -70,6 +70,13 @@ where
         }
     }
 
+    pub fn deserialize_settings(&mut self, data: &[u8]) -> Result<(), serde_cbor::Error> {
+        match self {
+            ManagedRenderer::RendererSDF3D(r) => r.deserialize_settings(data),
+            ManagedRenderer::Renderer2D(r) => r.deserialize_settings(data),
+        }
+    }
+
     /// Run update function on an SDF 3D renderer. A NOP for all other types
     pub fn update_sdf3d<F: Fn(&mut gpu::render::RendererSDF3D<B>) -> ()>(&mut self, f: F) {
         match self {
@@ -260,6 +267,9 @@ where
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset_all(),
             Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset_all(),
+            Lang::IOEvent(IOEvent::RenderSettingsLoaded(data)) => {
+                self.renderers.values_mut().next()?.deserialize_settings(data).ok()?;
+            }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(..)) => {
                 let data = self.renderers.values().next()?.serialize_settings().ok()?;
                 response.push(Lang::RenderEvent(RenderEvent::Serialized(data)));
