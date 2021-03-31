@@ -71,10 +71,41 @@ pub enum Event {
     ToggleExpanded,
     Clicked,
     DeleteRequested,
+    PackRequested,
 }
 
 pub enum ContextAction {
     Delete,
+    Pack,
+}
+
+fn resource_icon(item: &ResourceTreeItem) -> IconName {
+    match item {
+        ResourceTreeItem::ResourceInfo(i) => match i.category() {
+            ResourceCategory::Graph => IconName::GRAPH,
+            ResourceCategory::Stack => IconName::LAYERS,
+            ResourceCategory::Node => IconName::NODE,
+            ResourceCategory::Layer => IconName::NODE,
+            ResourceCategory::Socket => IconName::SOCKET,
+            ResourceCategory::Image => IconName::IMAGE,
+            ResourceCategory::Input => IconName::INPUT,
+            ResourceCategory::Output => IconName::OUTPUT,
+        },
+        ResourceTreeItem::Folder(_, _) => IconName::FOLDER,
+    }
+}
+
+fn resource_context_actions(item: &ResourceTreeItem) -> &'static [(IconName, ContextAction)] {
+    match item {
+        ResourceTreeItem::ResourceInfo(i) => match i.category() {
+            ResourceCategory::Image => &[
+                (IconName::TRASH, ContextAction::Delete),
+                (IconName::PACKAGE_OPEN, ContextAction::Pack),
+            ],
+            _ => &[(IconName::TRASH, ContextAction::Delete)],
+        },
+        ResourceTreeItem::Folder(_, _) => &[],
+    }
 }
 
 impl<'a> Widget for ResourceRow<'a> {
@@ -105,20 +136,7 @@ impl<'a> Widget for ResourceRow<'a> {
 
         let hovering = rect.is_over(ui.global_input().current.mouse.xy);
 
-        let icon = match self.res_item {
-            ResourceTreeItem::ResourceInfo(i) => match i.category() {
-                ResourceCategory::Graph => IconName::GRAPH,
-                ResourceCategory::Stack => IconName::LAYERS,
-                ResourceCategory::Node => IconName::NODE,
-                ResourceCategory::Layer => IconName::NODE,
-                ResourceCategory::Socket => IconName::SOCKET,
-                ResourceCategory::Image => IconName::IMAGE,
-                ResourceCategory::Input => IconName::INPUT,
-                ResourceCategory::Output => IconName::OUTPUT,
-            },
-            ResourceTreeItem::Folder(_, _) => IconName::FOLDER,
-        };
-
+        let icon = resource_icon(&self.res_item);
         let mut indent = self.level as f64 * style.level_indent(&ui.theme);
 
         if self.expandable {
@@ -177,19 +195,24 @@ impl<'a> Widget for ResourceRow<'a> {
         }
 
         if hovering {
-            if let Some(ContextAction::Delete) =
-                toolbar::Toolbar::flow_left(&[(IconName::TRASH, ContextAction::Delete)])
-                    .icon_font(style.icon_font(&ui.theme))
-                    .icon_color(style.color(&ui.theme))
-                    .button_color(color::TRANSPARENT)
-                    .button_size(16.0)
-                    .icon_size(style.text_size(&ui.theme))
-                    .parent(args.id)
-                    .mid_right_of(args.id)
-                    .h(16.0)
-                    .set(state.ids.toolbar, ui)
+            match toolbar::Toolbar::flow_left(resource_context_actions(&self.res_item))
+                .icon_font(style.icon_font(&ui.theme))
+                .icon_color(style.color(&ui.theme))
+                .button_color(color::TRANSPARENT)
+                .button_size(16.0)
+                .icon_size(style.text_size(&ui.theme))
+                .parent(args.id)
+                .mid_right_of(args.id)
+                .h(16.0)
+                .set(state.ids.toolbar, ui)
             {
-                res = Some(Event::DeleteRequested);
+                Some(ContextAction::Delete) => {
+                    res = Some(Event::DeleteRequested);
+                }
+                Some(ContextAction::Pack) => {
+                    res = Some(Event::PackRequested);
+                }
+                _ => {}
             }
         }
 

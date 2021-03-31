@@ -242,6 +242,9 @@ impl<'a> Widget for ResourceBrowser<'a> {
                         }
                     }
                 }
+                Some(resource_row::Event::PackRequested) => {
+
+                }
             }
         }
 
