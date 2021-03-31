@@ -58,6 +58,7 @@ widget_ids! {
     pub struct Ids {
         icon,
         resource_name,
+        status_icons,
         expander,
         toolbar
     }
@@ -121,6 +122,25 @@ fn resource_context_actions(
     }
 }
 
+fn resource_status(item: &ResourceTreeItem) -> String {
+    match item {
+        ResourceTreeItem::ResourceInfo(i) => {
+            let mut status = String::new();
+            match i.location_status() {
+                Some(LocationStatus::Packed) => {
+                    status.push_str(IconName::PACKAGE_CLOSED.0);
+                }
+                Some(LocationStatus::Linked) => {
+                    status.push_str(IconName::LINK.0);
+                }
+                _ => {}
+            }
+            status
+        }
+        ResourceTreeItem::Folder(_, _) => "".to_string(),
+    }
+}
+
 impl<'a> Widget for ResourceRow<'a> {
     type State = State;
     type Style = Style;
@@ -151,6 +171,14 @@ impl<'a> Widget for ResourceRow<'a> {
 
         let icon = resource_icon(&self.res_item);
         let mut indent = self.level as f64 * style.level_indent(&ui.theme);
+
+        widget::Text::new(&resource_status(&self.res_item))
+            .parent(args.id)
+            .color(style.color(&ui.theme).alpha(0.5))
+            .font_id(style.icon_font(&ui.theme))
+            .font_size(style.text_size(&ui.theme))
+            .mid_left()
+            .set(state.ids.status_icons, ui);
 
         if self.expandable {
             for _click in icon_button(

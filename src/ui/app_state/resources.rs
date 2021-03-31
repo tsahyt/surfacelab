@@ -263,7 +263,10 @@ impl ResourceTree {
     }
 
     pub fn insert_image(&mut self, image: r::Resource<r::Img>) {
-        let rinfo = ResourceInfo::new(image, ResourceCategory::Image);
+        let rinfo = ResourceInfo {
+            location_status: Some(LocationStatus::Linked),
+            ..ResourceInfo::new(image, ResourceCategory::Image)
+        };
 
         self.tree
             .insert(
