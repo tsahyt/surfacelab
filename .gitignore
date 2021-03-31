@@ -2,3 +2,4 @@
 *.spv
 test-data/
 autosave.surf
+config.toml

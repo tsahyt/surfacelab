@@ -21,9 +21,13 @@ pub fn start_io_thread(
             let _scheduler = scheduler_setup(sender.clone());
 
             for event in receiver {
-                let res = io_manager.process_event(&event);
-                for r in res {
-                    sender.send(r).unwrap();
+                match io_manager.process_event(&event) {
+                    Some(res) => {
+                        for r in res {
+                            sender.send(r).unwrap();
+                        }
+                    }
+                    None => break,
                 }
             }
 
@@ -77,7 +81,7 @@ impl IOManager {
         }
     }
 
-    pub fn process_event(&mut self, event: &Lang) -> Vec<Lang> {
+    pub fn process_event(&mut self, event: &Lang) -> Option<Vec<Lang>> {
         let mut response = Vec::new();
 
         match event {
@@ -85,6 +89,7 @@ impl IOManager {
                 response.append(&mut self.open_surface(path))
             }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(path)) => self.save_surface(path),
+            Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::GraphEvent(GraphEvent::Serialized(data)) => self.write_graph_data(data),
             Lang::ComputeEvent(ComputeEvent::Serialized(data)) => self.write_compute_data(data),
             Lang::RenderEvent(RenderEvent::Serialized(data)) => self.write_render_settings(data),
@@ -97,7 +102,7 @@ impl IOManager {
             _ => {}
         }
 
-        response
+        Some(response)
     }
 
     fn open_surface<P: AsRef<Path> + Debug>(&self, path: P) -> Vec<Lang> {

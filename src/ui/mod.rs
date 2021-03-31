@@ -135,6 +135,14 @@ fn ui_loop<B: gpu::Backend>(
                     .render(&app_data.image_map(), primitives)
                     .expect("Rendering failed");
             }
+
+            winit::event::Event::LoopDestroyed => {
+                app_data
+                    .sender
+                    .send(Lang::UserIOEvent(UserIOEvent::Quit))
+                    .unwrap();
+            }
+
             _ => {}
         }
     });

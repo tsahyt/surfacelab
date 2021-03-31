@@ -8,10 +8,10 @@ use crate::ui::app_state::*;
 use conrod_core::*;
 
 pub struct ApplicationData<B: crate::gpu::Backend> {
-    sender: BrokerSender<Lang>,
-    image_map: image::Map<crate::gpu::ui::Image<B>>,
-    language: Language,
-    monitor_resolution: (u32, u32),
+    pub sender: BrokerSender<Lang>,
+    pub image_map: image::Map<crate::gpu::ui::Image<B>>,
+    pub language: Language,
+    pub monitor_resolution: (u32, u32),
 }
 
 impl<B> ApplicationData<B>
