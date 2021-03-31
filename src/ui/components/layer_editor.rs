@@ -69,11 +69,13 @@ pub struct State {
     operators: Vec<Operator>,
 }
 
+#[derive(Copy, Clone)]
 pub enum MainTool {
     NewFill,
     NewFx,
 }
 
+#[derive(Copy, Clone)]
 pub enum ContextTool {
     Delete,
     NewMask,
@@ -114,10 +116,14 @@ impl<'a> Widget for LayerEditor<'a> {
             }
         }
 
-        match toolbar::Toolbar::flow_right(&[
-            (IconName::SOLID, MainTool::NewFill),
-            (IconName::FX, MainTool::NewFx),
-        ])
+        match toolbar::Toolbar::flow_right(
+            [
+                (IconName::SOLID, MainTool::NewFill),
+                (IconName::FX, MainTool::NewFx),
+            ]
+            .iter()
+            .copied(),
+        )
         .icon_font(style.icon_font(&ui.theme))
         .icon_color(color::WHITE)
         .button_color(color::DARK_CHARCOAL)
@@ -158,7 +164,7 @@ impl<'a> Widget for LayerEditor<'a> {
                 context_tools.push((IconName::MASK, ContextTool::NewMask));
             }
 
-            match toolbar::Toolbar::flow_left(&context_tools)
+            match toolbar::Toolbar::flow_left(context_tools.drain(0..))
                 .icon_font(style.icon_font(&ui.theme))
                 .icon_color(color::WHITE)
                 .button_color(color::DARK_CHARCOAL)

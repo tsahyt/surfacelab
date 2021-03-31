@@ -50,6 +50,7 @@ widget_ids! {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum SurfaceTool {
     NewSurface,
     OpenSurface,
@@ -71,12 +72,16 @@ impl<'a> Widget for TopBar<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        match toolbar::Toolbar::flow_right(&[
-            (IconName::FOLDER_PLUS, SurfaceTool::NewSurface),
-            (IconName::FOLDER_OPEN, SurfaceTool::OpenSurface),
-            (IconName::CONTENT_SAVE, SurfaceTool::SaveSurface),
-            (IconName::EXPORT, SurfaceTool::ExportSurface),
-        ])
+        match toolbar::Toolbar::flow_right(
+            [
+                (IconName::FOLDER_PLUS, SurfaceTool::NewSurface),
+                (IconName::FOLDER_OPEN, SurfaceTool::OpenSurface),
+                (IconName::CONTENT_SAVE, SurfaceTool::SaveSurface),
+                (IconName::EXPORT, SurfaceTool::ExportSurface),
+            ]
+            .iter()
+            .copied(),
+        )
         .icon_font(args.style.icon_font(&args.ui.theme))
         .icon_color(color::WHITE)
         .button_color(color::DARK_CHARCOAL)

@@ -23,6 +23,12 @@ impl ResourceCategory {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum LocationStatus {
+    Packed,
+    Linked,
+}
+
 #[derive(Debug)]
 pub struct ResourceInfo {
     res: r::Resource<()>,
@@ -30,6 +36,7 @@ pub struct ResourceInfo {
     res_ty: TypeId,
     category: ResourceCategory,
     expanded: bool,
+    location_status: Option<LocationStatus>,
 }
 
 impl ResourceInfo {
@@ -43,6 +50,7 @@ impl ResourceInfo {
             res: resource.cast_unchecked(),
             category,
             expanded: true,
+            location_status: None,
         }
     }
 
@@ -74,6 +82,11 @@ impl ResourceInfo {
         } else {
             false
         }
+    }
+
+    /// Get the resource info's location status.
+    pub fn location_status(&self) -> Option<LocationStatus> {
+        self.location_status
     }
 }
 

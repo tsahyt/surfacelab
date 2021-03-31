@@ -31,17 +31,23 @@ impl Direction for FlowLeft {
 }
 
 #[derive(WidgetCommon)]
-pub struct Toolbar<'a, T, D> {
+pub struct Toolbar<T, D, I>
+where
+    I: Iterator<Item = (IconName, T)>,
+{
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    tools: &'a [(IconName, T)],
+    tools: I, // &'a [(IconName, T)],
     style: Style,
     direction: std::marker::PhantomData<D>,
 }
 
-impl<'a, T> Toolbar<'a, T, FlowRight> {
+impl<T, I> Toolbar<T, FlowRight, I>
+where
+    I: Iterator<Item = (IconName, T)>,
+{
     /// Construct a toolbar which grows towards the right.
-    pub fn flow_right(tools: &'a [(IconName, T)]) -> Self {
+    pub fn flow_right(tools: I) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
@@ -51,9 +57,12 @@ impl<'a, T> Toolbar<'a, T, FlowRight> {
     }
 }
 
-impl<'a, T> Toolbar<'a, T, FlowLeft> {
+impl<T, I> Toolbar<T, FlowLeft, I>
+where
+    I: Iterator<Item = (IconName, T)>,
+{
     /// Construct a toolbar which grows towards the left.
-    pub fn flow_left(tools: &'a [(IconName, T)]) -> Self {
+    pub fn flow_left(tools: I) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
@@ -63,7 +72,10 @@ impl<'a, T> Toolbar<'a, T, FlowLeft> {
     }
 }
 
-impl<'a, T, D> Toolbar<'a, T, D> {
+impl<T, D, I> Toolbar<T, D, I>
+where
+    I: Iterator<Item = (IconName, T)>,
+{
     builder_methods! {
         pub icon_font { style.icon_font = Some(text::font::Id) }
         pub button_size { style.button_size = Some(Scalar) }
@@ -97,13 +109,15 @@ pub struct State {
     ids: Ids,
 }
 
-impl<'a, T, D> Widget for Toolbar<'a, T, D>
+impl<T, D, I> Widget for Toolbar<T, D, I>
 where
     D: Direction,
+    T: Copy,
+    I: Iterator<Item = (IconName, T)>,
 {
     type State = State;
     type Style = Style;
-    type Event = Option<&'a T>;
+    type Event = Option<T>;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         State {
@@ -137,7 +151,7 @@ where
                 let mut id_gen = ui.widget_id_generator();
                 let button_id = walker.next(&mut state.ids.buttons, &mut id_gen);
 
-                let btn = icon_button(*tool, style.icon_font(&ui.theme))
+                let btn = icon_button(tool, style.icon_font(&ui.theme))
                     .label_font_size(icon_size)
                     .label_color(style.icon_color(&ui.theme))
                     .color(style.button_color(&ui.theme))

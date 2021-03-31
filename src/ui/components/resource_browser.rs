@@ -67,6 +67,7 @@ pub struct State {
     tree: ResourceTree,
 }
 
+#[derive(Clone, Copy)]
 pub enum CollectionTool {
     NewGraph,
     NewStack,
@@ -107,11 +108,15 @@ impl<'a> Widget for ResourceBrowser<'a> {
             }
         }
 
-        match toolbar::Toolbar::flow_right(&[
-            (IconName::GRAPH, CollectionTool::NewGraph),
-            (IconName::LAYERS, CollectionTool::NewStack),
-            (IconName::IMAGE, CollectionTool::NewImage),
-        ])
+        match toolbar::Toolbar::flow_right(
+            [
+                (IconName::GRAPH, CollectionTool::NewGraph),
+                (IconName::LAYERS, CollectionTool::NewStack),
+                (IconName::IMAGE, CollectionTool::NewImage),
+            ]
+            .iter()
+            .copied(),
+        )
         .icon_font(style.icon_font(&ui.theme))
         .icon_color(color::WHITE)
         .button_color(color::DARK_CHARCOAL)

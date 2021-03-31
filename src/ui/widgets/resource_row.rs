@@ -74,6 +74,7 @@ pub enum Event {
     PackRequested,
 }
 
+#[derive(Clone, Copy)]
 pub enum ContextAction {
     Delete,
     Pack,
@@ -95,16 +96,22 @@ fn resource_icon(item: &ResourceTreeItem) -> IconName {
     }
 }
 
-fn resource_context_actions(item: &ResourceTreeItem) -> &'static [(IconName, ContextAction)] {
+fn resource_context_actions(
+    item: &ResourceTreeItem,
+) -> Box<dyn Iterator<Item = (IconName, ContextAction)>> {
     match item {
         ResourceTreeItem::ResourceInfo(i) => match i.category() {
-            ResourceCategory::Image => &[
-                (IconName::TRASH, ContextAction::Delete),
-                (IconName::PACKAGE_OPEN, ContextAction::Pack),
-            ],
-            _ => &[(IconName::TRASH, ContextAction::Delete)],
+            ResourceCategory::Image => Box::new(
+                [
+                    (IconName::TRASH, ContextAction::Delete),
+                    (IconName::PACKAGE_OPEN, ContextAction::Pack),
+                ]
+                .iter()
+                .copied(),
+            ),
+            _ => Box::new(std::iter::once((IconName::TRASH, ContextAction::Delete))),
         },
-        ResourceTreeItem::Folder(_, _) => &[],
+        ResourceTreeItem::Folder(_, _) => Box::new(std::iter::empty()),
     }
 }
 
