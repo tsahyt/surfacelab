@@ -1,6 +1,8 @@
 use crate::compute::shaders::{
     IntermediateDataDescription, OperatorPassDescription, Shader, Uniforms,
 };
+
+pub mod config;
 pub mod operators;
 pub mod parameters;
 pub mod resource;
