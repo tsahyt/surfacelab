@@ -156,10 +156,11 @@ impl<'a> Widget for ResourceBrowser<'a> {
             let expandable = state.tree.expandable(&row.node_id);
             let data = state.tree.get_resource_info(&row.node_id);
 
-            let mut active = data.represents_resource(self.graphs.get_active());
-            if let Some(aelem) = self.graphs.get_active_element() {
-                active = active || data.represents_resource(aelem);
-            }
+            let active = self
+                .graphs
+                .get_active_element()
+                .map(|r| data.represents_resource(r))
+                .unwrap_or(false);
 
             let widget = resource_row::ResourceRow::new(&data, row.level)
                 .expandable(expandable)
