@@ -42,6 +42,7 @@ impl<'a> ResourceBrowser<'a> {
 
     builder_methods! {
         pub icon_font { style.icon_font = Some(text::font::Id) }
+        pub selected_color { style.selected_color = Some(Color) }
         pub event_buffer { event_buffer = Some(&'a [Arc<Lang>]) }
     }
 }
@@ -50,6 +51,8 @@ impl<'a> ResourceBrowser<'a> {
 pub struct Style {
     #[conrod(default = "theme.font_id.unwrap()")]
     icon_font: Option<text::font::Id>,
+    #[conrod(default = "color::Color::Rgba(0.9, 0.4, 0.15, 1.0)")]
+    selected_color: Option<Color>,
 }
 
 widget_ids! {
@@ -144,6 +147,8 @@ impl<'a> Widget for ResourceBrowser<'a> {
             _ => {}
         }
 
+        let selected_color = style.selected_color(&ui.theme);
+
         let (mut rows, scrollbar) = tree::Tree::new(state.tree.get_tree())
             .parent(id)
             .mid_top_with_margin(40.0)
@@ -168,7 +173,7 @@ impl<'a> Widget for ResourceBrowser<'a> {
                 .icon_font(style.icon_font(&ui.theme))
                 .icon_size(14)
                 .text_size(10)
-                .selected_color(color::Color::Rgba(0.9, 0.4, 0.15, 1.0))
+                .selected_color(selected_color)
                 .color(color::WHITE)
                 .h(32.0);
 
