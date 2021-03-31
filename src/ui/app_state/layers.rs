@@ -86,10 +86,6 @@ impl Layer {
         self.operator_pbox = param_box;
     }
 
-    pub fn unset_output(&mut self, chan: MaterialChannel) {
-        todo!()
-    }
-
     pub fn toggle_expanded(&mut self) {
         if !self.is_mask {
             self.expanded = !self.expanded;
