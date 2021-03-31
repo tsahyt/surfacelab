@@ -172,14 +172,6 @@ impl<'a> Widget for ResourceRow<'a> {
         let icon = resource_icon(&self.res_item);
         let mut indent = self.level as f64 * style.level_indent(&ui.theme);
 
-        widget::Text::new(&resource_status(&self.res_item))
-            .parent(args.id)
-            .color(style.color(&ui.theme).alpha(0.5))
-            .font_id(style.icon_font(&ui.theme))
-            .font_size(style.text_size(&ui.theme))
-            .mid_left()
-            .set(state.ids.status_icons, ui);
-
         if self.expandable {
             for _click in icon_button(
                 if self.res_item.expanded() {
@@ -255,6 +247,14 @@ impl<'a> Widget for ResourceRow<'a> {
                 }
                 _ => {}
             }
+        } else {
+            widget::Text::new(&resource_status(&self.res_item))
+                .parent(args.id)
+                .color(style.color(&ui.theme).alpha(0.3))
+                .font_id(style.icon_font(&ui.theme))
+                .font_size(style.text_size(&ui.theme))
+                .mid_right_of(args.id)
+                .set(state.ids.status_icons, ui);
         }
 
         res
