@@ -878,6 +878,8 @@ pub enum UserIOEvent {
     NewSurface,
     /// The user requests quitting the application.
     Quit,
+    /// The user resized the window
+    ResizeWindow(u32, u32),
 }
 
 /// Events triggered during computation or setup thereof

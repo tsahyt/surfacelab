@@ -90,6 +90,10 @@ impl IOManager {
             }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(path)) => self.save_surface(path),
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
+            Lang::UserIOEvent(UserIOEvent::ResizeWindow(w, h)) => {
+                self.config.window_size.0 = *w;
+                self.config.window_size.1 = *h;
+            }
             Lang::GraphEvent(GraphEvent::Serialized(data)) => self.write_graph_data(data),
             Lang::ComputeEvent(ComputeEvent::Serialized(data)) => self.write_compute_data(data),
             Lang::RenderEvent(RenderEvent::Serialized(data)) => self.write_render_settings(data),

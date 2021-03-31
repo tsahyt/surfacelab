@@ -105,6 +105,13 @@ fn ui_loop<B: gpu::Backend>(
                             height: dims.height,
                         }))
                         .expect("Swapchain recreation failed");
+                    app_data
+                        .sender
+                        .send(Lang::UserIOEvent(UserIOEvent::ResizeWindow(
+                            dims.width,
+                            dims.height,
+                        )))
+                        .unwrap();
                 }
                 _ => {}
             },
