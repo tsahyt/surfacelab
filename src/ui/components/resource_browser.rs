@@ -246,6 +246,12 @@ impl<'a> Widget for ResourceBrowser<'a> {
                             _ => {}
                         }
                     }
+
+                    if let Some(_img) = data.get_resource::<Img>() {
+                        if let Some(ResourceCategory::Image) = data.category() {
+                            unimplemented!();
+                        }
+                    }
                 }
                 Some(resource_row::Event::PackRequested) => {
                     if let Some(image) = data.get_resource() {
