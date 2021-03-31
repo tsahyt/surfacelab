@@ -243,7 +243,13 @@ impl<'a> Widget for ResourceBrowser<'a> {
                     }
                 }
                 Some(resource_row::Event::PackRequested) => {
-
+                    if let Some(image) = data.get_resource() {
+                        if let Some(ResourceCategory::Image) = data.category() {
+                            self.sender
+                                .send(Lang::UserIOEvent(UserIOEvent::PackImage(image.clone())))
+                                .unwrap()
+                        }
+                    }
                 }
             }
         }
