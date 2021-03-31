@@ -1,5 +1,8 @@
 use std::thread;
-use surfacelab::{broker, gpu, lang};
+use surfacelab::{
+    broker, gpu,
+    lang::{self, config::Configuration},
+};
 
 fn main() {
     env_logger::init();
@@ -10,9 +13,14 @@ fn main() {
             // initialize the bus
             let mut broker: broker::Broker<lang::Lang> = broker::Broker::new(1024);
 
+            // read config file from known location or use default
+            let config = Configuration::load_from_file("config.toml")
+                .unwrap_or_else(|_| Configuration::default());
+
             // start threads
-            let ui_thread = surfacelab::ui::start_ui_thread(&mut broker, gpu.clone());
-            let io_thread = surfacelab::io::start_io_thread(&mut broker);
+            let ui_thread =
+                surfacelab::ui::start_ui_thread(&mut broker, gpu.clone(), config.window_size);
+            let io_thread = surfacelab::io::start_io_thread(&mut broker, config);
             let nodes_thread = surfacelab::nodes::start_nodes_thread(&mut broker);
             let compute_thread =
                 surfacelab::compute::start_compute_thread(&mut broker, gpu.clone());

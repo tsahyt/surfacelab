@@ -1,4 +1,4 @@
-use crate::{broker, lang::*};
+use crate::{broker, lang::config::Configuration, lang::*};
 use std::{
     fmt::Debug,
     path::{Path, PathBuf},
@@ -7,14 +7,17 @@ use std::{
 
 pub mod file;
 
-pub fn start_io_thread(broker: &mut broker::Broker<Lang>) -> thread::JoinHandle<()> {
+pub fn start_io_thread(
+    broker: &mut broker::Broker<Lang>,
+    config: Configuration,
+) -> thread::JoinHandle<()> {
     let (sender, receiver, disconnector) = broker.subscribe();
     thread::Builder::new()
         .name("io".to_string())
         .spawn(move || {
             log::info!("Starting IO manager");
 
-            let mut io_manager = IOManager::new();
+            let mut io_manager = IOManager::new(config);
             let _scheduler = scheduler_setup(sender.clone());
 
             for event in receiver {
@@ -23,6 +26,8 @@ pub fn start_io_thread(broker: &mut broker::Broker<Lang>) -> thread::JoinHandle<
                     sender.send(r).unwrap();
                 }
             }
+
+            io_manager.save_config();
 
             log::info!("IO manager terminating");
             disconnector.disconnect();
@@ -48,19 +53,27 @@ fn scheduler_setup(sender: broker::BrokerSender<Lang>) -> clokwerk::ScheduleHand
 pub struct IOManager {
     file_builder: Option<file::SurfaceFileBuilder>,
     save_path: Option<PathBuf>,
+    config: Configuration,
 }
 
 impl Default for IOManager {
     fn default() -> Self {
-        Self::new()
+        Self::new(Configuration::default())
     }
 }
 
 impl IOManager {
-    pub fn new() -> Self {
+    pub fn new(config: Configuration) -> Self {
         Self {
             file_builder: None,
             save_path: None,
+            config,
+        }
+    }
+
+    pub fn save_config(&self) {
+        if let Err(e) = self.config.save_to_file("config.toml") {
+            log::error!("Error during config file write: {}", e);
         }
     }
 

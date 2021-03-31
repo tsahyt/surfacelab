@@ -14,11 +14,6 @@ pub mod widgets;
 
 conrod_winit::v023_conversion_fns!();
 
-const DIMS: gpu::Extent2D = gpu::Extent2D {
-    width: 1920,
-    height: 1080,
-};
-
 widget_ids! {
     struct Ids {
         application
@@ -30,6 +25,7 @@ fn ui_loop<B: gpu::Backend>(
     gpu: Arc<Mutex<gpu::GPU<B>>>,
     sender: broker::BrokerSender<Lang>,
     receiver: broker::BrokerReceiver<Lang>,
+    window_size: (u32, u32),
 ) {
     // Initialize event loop in thread. This is possible on Linux and Windows,
     // but would be a blocker for macOS.
@@ -38,8 +34,8 @@ fn ui_loop<B: gpu::Backend>(
 
     let window = winit::window::WindowBuilder::new()
         .with_inner_size(winit::dpi::Size::Physical(winit::dpi::PhysicalSize::new(
-            DIMS.width,
-            DIMS.height,
+            window_size.0,
+            window_size.1,
         )))
         .with_title("SurfaceLab".to_string())
         .build(&event_loop)
@@ -51,9 +47,13 @@ fn ui_loop<B: gpu::Backend>(
         .next()
         .unwrap();
 
+    let dims = gpu::Extent2D {
+        width: window_size.0,
+        height: window_size.1,
+    };
     let mut renderer =
-        gpu::ui::Renderer::new(gpu, &window, DIMS, [1024, 1024]).expect("Error building renderer");
-    let mut ui = conrod_core::UiBuilder::new([DIMS.width as f64, DIMS.height as f64]).build();
+        gpu::ui::Renderer::new(gpu, &window, dims, [1024, 1024]).expect("Error building renderer");
+    let mut ui = conrod_core::UiBuilder::new([dims.width as f64, dims.height as f64]).build();
     let assets = find_folder::Search::KidsThenParents(3, 5)
         .for_folder("assets")
         .unwrap();
@@ -147,10 +147,11 @@ fn ui_loop<B: gpu::Backend>(
 pub fn start_ui_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,
+    window_size: (u32, u32),
 ) -> thread::JoinHandle<()> {
     let (sender, receiver, _disconnector) = broker.subscribe();
     thread::Builder::new()
         .name("ui".to_string())
-        .spawn(move || ui_loop(gpu, sender, receiver))
+        .spawn(move || ui_loop(gpu, sender, receiver, window_size))
         .expect("Failed to spawn UI thread!")
 }

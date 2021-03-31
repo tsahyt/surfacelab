@@ -15,7 +15,7 @@ pub enum ConfigurationError {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Configuration {
-    window_size: (u32, u32),
+    pub window_size: (u32, u32),
 }
 
 impl Default for Configuration {
