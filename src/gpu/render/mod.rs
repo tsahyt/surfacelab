@@ -683,7 +683,8 @@ where
         self.view.deserialize(&settings.view_data)?;
         self.tone_map = settings.tone_map;
         self.object_type = settings.object_type;
-        self.load_environment(&settings.hdri_path).expect("Failed to load hdri");
+        self.load_environment(&settings.hdri_path)
+            .expect("Failed to load hdri");
         Ok(())
     }
 
