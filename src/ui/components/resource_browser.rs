@@ -1,7 +1,7 @@
 use crate::broker::BrokerSender;
 use crate::lang::*;
 use crate::ui::{
-    app_state::{NodeCollections, ResourceCategory, ResourceTree},
+    app_state::{NodeCollections, ResourceCategory, ResourceTree, LocationStatus},
     i18n::Language,
     util::IconName,
     widgets::{resource_row, toolbar, tree},
@@ -306,6 +306,9 @@ impl<'a> ResourceBrowser<'a> {
             }
             Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, _, _)) => {
                 state.update(|state| state.tree.insert_image(res.clone()));
+            }
+            Lang::ComputeEvent(ComputeEvent::ImagePacked(res)) => {
+                state.update(|state| state.tree.set_location_status(res, Some(LocationStatus::Packed)))
             }
             _ => {}
         }

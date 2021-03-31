@@ -88,6 +88,11 @@ impl ResourceInfo {
     pub fn location_status(&self) -> Option<LocationStatus> {
         self.location_status
     }
+
+    /// Determine whether resource is packed or not
+    pub fn is_packed(&self) -> bool {
+        matches!(self.location_status, Some(LocationStatus::Packed))
+    }
 }
 
 #[derive(Debug)]
@@ -320,5 +325,20 @@ impl ResourceTree {
         let has_children = self.tree.children(node).unwrap().next().is_some();
 
         can_expand && has_children
+    }
+
+    pub fn set_location_status<T: 'static + PartialEq + r::Scheme>(
+        &mut self,
+        res: &r::Resource<T>,
+        status: Option<LocationStatus>,
+    ) {
+        if let Some(node) = self.find_resource(res) {
+            match self.get_resource_info_mut(&node) {
+                ResourceTreeItem::ResourceInfo(info) => {
+                    info.location_status = status;
+                }
+                ResourceTreeItem::Folder(_, _) => {}
+            }
+        }
     }
 }

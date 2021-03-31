@@ -102,12 +102,18 @@ fn resource_context_actions(
     match item {
         ResourceTreeItem::ResourceInfo(i) => match i.category() {
             ResourceCategory::Image => Box::new(
-                [
+                vec![
                     (IconName::TRASH, ContextAction::Delete),
-                    (IconName::PACKAGE_OPEN, ContextAction::Pack),
+                    (
+                        if i.is_packed() {
+                            IconName::PACKAGE_CLOSED
+                        } else {
+                            IconName::PACKAGE_OPEN
+                        },
+                        ContextAction::Pack,
+                    ),
                 ]
-                .iter()
-                .copied(),
+                .into_iter(),
             ),
             _ => Box::new(std::iter::once((IconName::TRASH, ContextAction::Delete))),
         },
