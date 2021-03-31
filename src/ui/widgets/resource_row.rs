@@ -98,9 +98,12 @@ impl<'a> Widget for ResourceRow<'a> {
             ui,
             state,
             style,
+            rect,
             ..
         } = args;
         let mut res = None;
+
+        let hovering = rect.is_over(ui.global_input().current.mouse.xy);
 
         let icon = match self.res_item {
             ResourceTreeItem::ResourceInfo(i) => match i.category() {
@@ -173,7 +176,7 @@ impl<'a> Widget for ResourceRow<'a> {
             res = Some(Event::Clicked)
         }
 
-        if self.active {
+        if hovering {
             if let Some(ContextAction::Delete) =
                 toolbar::Toolbar::flow_left(&[(IconName::TRASH, ContextAction::Delete)])
                     .icon_font(style.icon_font(&ui.theme))

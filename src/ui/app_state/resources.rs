@@ -2,7 +2,7 @@ use crate::lang::resource as r;
 use crate::ui::widgets::tree::Expandable;
 use std::any::*;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ResourceCategory {
     Graph,
     Stack,
@@ -23,6 +23,7 @@ impl ResourceCategory {
     }
 }
 
+#[derive(Debug)]
 pub struct ResourceInfo {
     res: r::Resource<()>,
     res_str: String,
@@ -76,6 +77,7 @@ impl ResourceInfo {
     }
 }
 
+#[derive(Debug)]
 pub enum ResourceTreeItem {
     ResourceInfo(ResourceInfo),
     Folder(String, bool),
