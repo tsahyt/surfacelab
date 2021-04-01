@@ -801,8 +801,9 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         socket: Option<&Resource<Socket>>,
         node: Option<&Resource<Node>>,
     ) -> Result<Option<ComputeEvent>, InterpretationError> {
-        if socket != self.view_socket.as_ref()
-            || self.view_socket.as_ref().map(|s| s.socket_node()).as_ref() != node
+        if (socket.is_some() && socket != self.view_socket.as_ref())
+            || (node.is_some()
+                && self.view_socket.as_ref().map(|s| s.socket_node()).as_ref() != node)
         {
             return Ok(None);
         }
