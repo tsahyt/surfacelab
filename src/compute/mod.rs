@@ -347,54 +347,57 @@ where
                 }
                 _ => {}
             },
-            Lang::UserIOEvent(UserIOEvent::Quit) => return None,
-            Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => {
-                self.reset();
-                sender
-                    .send(Lang::ComputeEvent(ComputeEvent::Cleared))
-                    .unwrap();
-            }
-            Lang::UserIOEvent(UserIOEvent::SaveSurface(..)) => {
-                let data = self.serialize().ok()?;
-                sender
-                    .send(Lang::ComputeEvent(ComputeEvent::Serialized(data)))
-                    .unwrap();
-            }
-            Lang::UserIOEvent(UserIOEvent::NewSurface) => {
-                self.reset();
-                sender
-                    .send(Lang::ComputeEvent(ComputeEvent::Cleared))
-                    .unwrap();
-            }
-            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
-                self.parent_size = *size;
-            }
-            Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {
-                sender.send(self.add_image_resource(path)).unwrap();
-            }
-            Lang::UserIOEvent(UserIOEvent::SetImageColorSpace(res, cs)) => {
-                if let Some(img) = self.external_images.get_mut(res) {
-                    img.color_space(*cs);
+            Lang::UserIOEvent(event) => match event {
+                UserIOEvent::Quit => return None,
+                UserIOEvent::OpenSurface(..) => {
+                    self.reset();
                     sender
-                        .send(Lang::ComputeEvent(ComputeEvent::ImageColorSpaceSet(
-                            res.clone(),
-                            *cs,
-                        )))
+                        .send(Lang::ComputeEvent(ComputeEvent::Cleared))
                         .unwrap();
                 }
-            }
-            Lang::UserIOEvent(UserIOEvent::PackImage(res)) => {
-                if let Some(img) = self.external_images.get_mut(res) {
-                    img.pack().ok()?;
+                UserIOEvent::SaveSurface(..) => {
+                    let data = self.serialize().ok()?;
                     sender
-                        .send(Lang::ComputeEvent(ComputeEvent::ImagePacked(res.clone())))
+                        .send(Lang::ComputeEvent(ComputeEvent::Serialized(data)))
                         .unwrap();
                 }
-            }
+                UserIOEvent::NewSurface => {
+                    self.reset();
+                    sender
+                        .send(Lang::ComputeEvent(ComputeEvent::Cleared))
+                        .unwrap();
+                }
+                UserIOEvent::AddImageResource(path) => {
+                    sender.send(self.add_image_resource(path)).unwrap();
+                }
+                UserIOEvent::SetImageColorSpace(res, cs) => {
+                    if let Some(img) = self.external_images.get_mut(res) {
+                        img.color_space(*cs);
+                        sender
+                            .send(Lang::ComputeEvent(ComputeEvent::ImageColorSpaceSet(
+                                res.clone(),
+                                *cs,
+                            )))
+                            .unwrap();
+                    }
+                }
+                UserIOEvent::PackImage(res) => {
+                    if let Some(img) = self.external_images.get_mut(res) {
+                        img.pack().ok()?;
+                        sender
+                            .send(Lang::ComputeEvent(ComputeEvent::ImagePacked(res.clone())))
+                            .unwrap();
+                    }
+                }
+                _ => {}
+            },
             Lang::IOEvent(IOEvent::ComputeDataLoaded(data)) => {
                 for ev in self.deserialize(data).ok()? {
                     sender.send(ev).unwrap();
                 }
+            }
+            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
+                self.parent_size = *size;
             }
             Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => {
                 self.export(export, *size, path)
