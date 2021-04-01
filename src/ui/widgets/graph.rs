@@ -254,6 +254,7 @@ pub enum Event {
     Extract(Vec<petgraph::graph::NodeIndex>),
     AlignNodes(Vec<petgraph::graph::NodeIndex>),
     SocketView(petgraph::graph::NodeIndex, String),
+    SocketViewClear,
 }
 
 impl<'a> Graph<'a> {
@@ -601,8 +602,18 @@ impl<'a> Widget for Graph<'a> {
                         evs.push_back(Event::SocketClear(idx, socket))
                     }
                     node::Event::SocketView(socket) => {
-                        state.update(|state| state.socket_view = Some((idx, socket.clone())));
-                        evs.push_back(Event::SocketView(idx, socket))
+                        if state
+                            .socket_view
+                            .as_ref()
+                            .map(|s| s == &(idx, socket.clone()))
+                            .unwrap_or(false)
+                        {
+                            state.update(|state| state.socket_view = None);
+                            evs.push_back(Event::SocketViewClear)
+                        } else {
+                            state.update(|state| state.socket_view = Some((idx, socket.clone())));
+                            evs.push_back(Event::SocketView(idx, socket))
+                        }
                     }
                 }
             }

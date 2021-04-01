@@ -434,8 +434,8 @@ pub enum UserNodeEvent {
     RenameNode(Resource<Node>, Resource<Node>),
     /// The user changes the output size of the given node
     OutputSizeChange(Resource<Node>, OperatorSize),
-    /// The user requests display of the given socket
-    ViewSocket(Resource<Socket>),
+    /// The user requests display of the given socket or disabling it
+    ViewSocket(Option<Resource<Socket>>),
 }
 
 /// Events concerning graph operation triggered by the user, such as adding,

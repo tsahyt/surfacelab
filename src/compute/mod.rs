@@ -403,7 +403,7 @@ where
                 }
             }
             Lang::UserNodeEvent(UserNodeEvent::ViewSocket(socket)) => {
-                self.view_socket = Some((socket.clone(), u64::MIN));
+                self.view_socket = socket.as_ref().map(|s| (s.clone(), u64::MIN));
             }
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
                 self.parent_size = *size;
