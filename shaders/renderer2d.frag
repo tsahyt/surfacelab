@@ -41,6 +41,7 @@ layout(set = 0, binding = 11) uniform texture2D brdf_lut;
 void main() {
     vec2 uv = v_TexCoord * resolution / resolution.y;
     uv = zoom * uv - pan;
+    uv.y *= - 1.0;
 
     vec3 col;
     if (channel == CHANNEL_DISPLACEMENT && has_displacement != 0) {
