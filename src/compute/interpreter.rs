@@ -811,7 +811,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .sockets
                 .get_output_image_updated(&socket)
                 .unwrap_or(u64::MAX)
-                <= self.seq
+                < self.seq
             {
                 return Ok(None);
             }
