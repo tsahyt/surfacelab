@@ -231,7 +231,7 @@ pub struct Interpreter<'a, B: gpu::Backend> {
     parent_size: u32,
 
     /// View socket
-    view_socket: &'a Option<Resource<Socket>>,
+    view_socket: &'a mut Option<(Resource<Socket>, u64)>,
 }
 
 impl<'a, B: gpu::Backend> Interpreter<'a, B> {
@@ -245,7 +245,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         seq: u64,
         graph: &Resource<Graph>,
         parent_size: u32,
-        view_socket: &'a Option<Resource<Socket>>,
+        view_socket: &'a mut Option<(Resource<Socket>, u64)>,
     ) -> Result<Self, InterpretationError> {
         let linearization = linearizations
             .get(graph)
@@ -797,27 +797,34 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     /// check against the given socket and node resources to determine whether
     /// either match against the view socket before proceeding.
     fn process_view_socket(
-        &self,
+        &mut self,
         socket: Option<&Resource<Socket>>,
         node: Option<&Resource<Node>>,
     ) -> Result<Option<ComputeEvent>, InterpretationError> {
-        if (socket.is_some() && socket != self.view_socket.as_ref())
+        if (socket.is_some() && socket != self.view_socket.as_ref().map(|x| x.0.clone()).as_ref())
             || (node.is_some()
-                && self.view_socket.as_ref().map(|s| s.socket_node()).as_ref() != node)
+                && self
+                    .view_socket
+                    .as_ref()
+                    .map(|s| s.0.socket_node())
+                    .as_ref()
+                    != node)
         {
             return Ok(None);
         }
-        if let Some(socket) = self.view_socket {
+        if let Some((socket, vs_seq)) = &mut self.view_socket {
             if self
                 .sockets
                 .get_output_image_updated(&socket)
                 .unwrap_or(u64::MAX)
-                < self.seq
+                < *vs_seq
             {
                 return Ok(None);
             }
 
             let image = self.sockets.get_output_image(&socket).unwrap();
+            *vs_seq = self.seq;
+
             Ok(Some(ComputeEvent::SocketViewReady(
                 gpu::BrokerImage::from::<B>(image.get_raw()),
                 image.get_layout(),

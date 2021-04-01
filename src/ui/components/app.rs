@@ -489,7 +489,7 @@ where
         use components::viewport;
 
         state.update(|state| {
-            viewport::Viewport::new_3d(
+            viewport::Viewport::new_2d(
                 &self.app_data.language,
                 &self.app_data.sender,
                 &mut self.renderer,

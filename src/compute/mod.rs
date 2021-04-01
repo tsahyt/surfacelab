@@ -93,8 +93,9 @@ struct ComputeManager<B: gpu::Backend> {
     /// if no changes happen, execution can be skipped entirely.
     last_known: HashMap<Resource<Node>, u64>,
 
-    /// A special socket that the user wants to view
-    view_socket: Option<Resource<Socket>>,
+    /// A special socket that the user wants to view, with a seq number for when
+    /// it was last updated
+    view_socket: Option<(Resource<Socket>, u64)>,
 }
 
 impl<B> ComputeManager<B>
@@ -285,7 +286,7 @@ where
                         self.seq,
                         graph,
                         self.parent_size,
-                        &self.view_socket,
+                        &mut self.view_socket,
                     ) {
                         Ok(interpreter) => {
                             for step_response in interpreter {
@@ -402,7 +403,7 @@ where
                 }
             }
             Lang::UserNodeEvent(UserNodeEvent::ViewSocket(socket)) => {
-                self.view_socket = Some(socket.clone());
+                self.view_socket = Some((socket.clone(), u64::MIN));
             }
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
                 self.parent_size = *size;

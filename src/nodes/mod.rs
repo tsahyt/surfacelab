@@ -462,7 +462,11 @@ impl NodeManager {
                     };
                 }
             }
-            _ => {}
+            UserNodeEvent::ViewSocket(_) => {
+                response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                    self.active_graph.clone(),
+                )));
+            }
         }
 
         response
