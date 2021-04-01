@@ -1188,6 +1188,16 @@ where
                             families: None,
                             range: IMG_SLOT_RANGE.clone(),
                         },
+                        hal::memory::Barrier::Image {
+                            states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                                ..(
+                                    hal::image::Access::SHADER_READ,
+                                    hal::image::Layout::ShaderReadOnlyOptimal,
+                                ),
+                            target: &*image_slots.view.image,
+                            families: None,
+                            range: IMG_SLOT_RANGE.clone(),
+                        },
                     ],
                 );
                 cmd_buffer.pipeline_barrier(
