@@ -166,7 +166,7 @@ impl<'a> Widget for NodeEditor<'a> {
                 }
                 graph::Event::Extract(mut idxs) => {
                     self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::Extract(
+                        .send(Lang::UserGraphEvent(UserGraphEvent::Extract(
                             idxs.drain(0..)
                                 .map(|i| collection.graph.node_weight(i).unwrap().resource.clone())
                                 .collect(),

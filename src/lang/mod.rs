@@ -434,8 +434,6 @@ pub enum UserNodeEvent {
     RenameNode(Resource<Node>, Resource<Node>),
     /// The user changes the output size of the given node
     OutputSizeChange(Resource<Node>, OperatorSize),
-    /// The user requests extraction of the following nodes from this graph into a new graph
-    Extract(Vec<Resource<Node>>),
 }
 
 /// Events concerning graph operation triggered by the user, such as adding,
@@ -465,6 +463,8 @@ pub enum UserGraphEvent {
     /// The user renames the human readable title of a graph field from a string
     /// to a string.
     RetitleParameter(Resource<Graph>, String, String),
+    /// The user requests extraction of the following nodes from this graph into a new graph
+    Extract(Vec<Resource<Node>>),
 }
 
 /// Events concerning graphs, not directly coming from user input.

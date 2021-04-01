@@ -462,82 +462,6 @@ impl NodeManager {
                     };
                 }
             }
-            UserNodeEvent::Extract(ress) => {
-                use itertools::Itertools;
-
-                debug_assert!(!ress.is_empty());
-                debug_assert!(ress.iter().map(|r| r.node_graph()).dedup().count() == 1);
-
-                let graph_res = ress[0].node_graph();
-                let mut new_graph = None;
-
-                let name = (0..)
-                    .map(|i| format!("unnamed.{}", i))
-                    .find(|n| !self.graphs.contains_key(n))
-                    .unwrap();
-
-                if let Some(ManagedNodeCollection::NodeGraph(graph)) =
-                    self.graphs.get_mut(graph_res.path_str().unwrap())
-                {
-                    match graph.extract(
-                        &name,
-                        self.parent_size,
-                        ress.iter().map(|r| r.file().unwrap()),
-                    ) {
-                        Ok(x) => new_graph = Some(x),
-                        Err(e) => log::error!("{}", e),
-                    }
-                }
-
-                if let Some((g, mut evs)) = new_graph {
-                    // Insert new graph
-                    let sub_instructions = g.linearize(LinearizationMode::TopoSort);
-                    let sub_graph_res = g.graph_resource();
-                    self.graphs.insert(
-                        sub_graph_res.path_str().unwrap().to_string(),
-                        ManagedNodeCollection::NodeGraph(g),
-                    );
-
-                    response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphAdded(
-                        sub_graph_res.clone(),
-                    )));
-
-                    // Rebuild parameter boxes for node added events before publishing
-                    for ev in evs.iter_mut() {
-                        if let Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pbox, _, _)) = ev {
-                            *pbox = self.element_param_box(&op, res)
-                        }
-                    }
-
-                    response.append(&mut evs);
-
-                    // Publish subgraph linearization
-                    if let Some((instrs, last_use, force_points)) = sub_instructions {
-                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                            sub_graph_res.clone(),
-                            instrs,
-                            last_use,
-                            force_points,
-                        )));
-                    }
-
-                    // Relinearize the original graph and recompute
-                    if let Some((instrs, last_use, force_points)) = self
-                        .graphs
-                        .get_mut(graph_res.path_str().unwrap())
-                        .unwrap()
-                        .linearize(LinearizationMode::TopoSort)
-                    {
-                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                            graph_res.clone(),
-                            instrs,
-                            last_use,
-                            force_points,
-                        )));
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(graph_res)));
-                    }
-                }
-            }
         }
 
         response
@@ -677,6 +601,82 @@ impl NodeManager {
                     .get_mut(graph_res.path_str().unwrap())
                     .expect("Node Graph not found");
                 graph.refield_parameter(graph_field, new_field);
+            }
+            UserGraphEvent::Extract(ress) => {
+                use itertools::Itertools;
+
+                debug_assert!(!ress.is_empty());
+                debug_assert!(ress.iter().map(|r| r.node_graph()).dedup().count() == 1);
+
+                let graph_res = ress[0].node_graph();
+                let mut new_graph = None;
+
+                let name = (0..)
+                    .map(|i| format!("unnamed.{}", i))
+                    .find(|n| !self.graphs.contains_key(n))
+                    .unwrap();
+
+                if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                    self.graphs.get_mut(graph_res.path_str().unwrap())
+                {
+                    match graph.extract(
+                        &name,
+                        self.parent_size,
+                        ress.iter().map(|r| r.file().unwrap()),
+                    ) {
+                        Ok(x) => new_graph = Some(x),
+                        Err(e) => log::error!("{}", e),
+                    }
+                }
+
+                if let Some((g, mut evs)) = new_graph {
+                    // Insert new graph
+                    let sub_instructions = g.linearize(LinearizationMode::TopoSort);
+                    let sub_graph_res = g.graph_resource();
+                    self.graphs.insert(
+                        sub_graph_res.path_str().unwrap().to_string(),
+                        ManagedNodeCollection::NodeGraph(g),
+                    );
+
+                    response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphAdded(
+                        sub_graph_res.clone(),
+                    )));
+
+                    // Rebuild parameter boxes for node added events before publishing
+                    for ev in evs.iter_mut() {
+                        if let Lang::GraphEvent(GraphEvent::NodeAdded(res, op, pbox, _, _)) = ev {
+                            *pbox = self.element_param_box(&op, res)
+                        }
+                    }
+
+                    response.append(&mut evs);
+
+                    // Publish subgraph linearization
+                    if let Some((instrs, last_use, force_points)) = sub_instructions {
+                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                            sub_graph_res.clone(),
+                            instrs,
+                            last_use,
+                            force_points,
+                        )));
+                    }
+
+                    // Relinearize the original graph and recompute
+                    if let Some((instrs, last_use, force_points)) = self
+                        .graphs
+                        .get_mut(graph_res.path_str().unwrap())
+                        .unwrap()
+                        .linearize(LinearizationMode::TopoSort)
+                    {
+                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                            graph_res.clone(),
+                            instrs,
+                            last_use,
+                            force_points,
+                        )));
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(graph_res)));
+                    }
+                }
             }
         };
 
