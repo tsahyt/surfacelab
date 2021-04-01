@@ -102,6 +102,33 @@ pub struct GPURender<B: Backend, U: Renderer> {
     transfer_fence: ManuallyDrop<B::Fence>,
 }
 
+/// Uses of an image
+pub enum ImageUse {
+    Albedo,
+    Roughness,
+    Normal,
+    Displacement,
+    Metallic,
+    View,
+}
+
+impl std::convert::TryFrom<crate::lang::OutputType> for ImageUse {
+    type Error = &'static str;
+
+    fn try_from(value: crate::lang::OutputType) -> Result<Self, Self::Error> {
+        use crate::lang::OutputType;
+
+        match value {
+            OutputType::Albedo => Ok(ImageUse::Albedo),
+            OutputType::Roughness => Ok(ImageUse::Roughness),
+            OutputType::Normal => Ok(ImageUse::Normal),
+            OutputType::Displacement => Ok(ImageUse::Displacement),
+            OutputType::Metallic => Ok(ImageUse::Metallic),
+            _ => Err("Invalid OutputType for ImageUse"),
+        }
+    }
+}
+
 pub struct ImageSlots<B: Backend> {
     gpu: Arc<Mutex<GPU<B>>>,
     albedo: ImageSlot<B>,
@@ -163,14 +190,14 @@ impl<B: Backend> ImageSlots<B> {
     ///
     /// This does not modify any GPU memory, it merely marks the slot as
     /// unoccupied in the occupancy uniforms.
-    pub fn vacate(&mut self, image_use: crate::lang::OutputType) {
+    pub fn vacate(&mut self, image_use: ImageUse) {
         let slot = match image_use {
-            crate::lang::OutputType::Displacement => &mut self.displacement,
-            crate::lang::OutputType::Albedo => &mut self.albedo,
-            crate::lang::OutputType::Roughness => &mut self.roughness,
-            crate::lang::OutputType::Normal => &mut self.normal,
-            crate::lang::OutputType::Metallic => &mut self.metallic,
-            _ => return,
+            ImageUse::Displacement => &mut self.displacement,
+            ImageUse::Albedo => &mut self.albedo,
+            ImageUse::Roughness => &mut self.roughness,
+            ImageUse::Normal => &mut self.normal,
+            ImageUse::Metallic => &mut self.metallic,
+            ImageUse::View => &mut self.view,
         };
 
         slot.occupied = false;
@@ -1290,15 +1317,15 @@ where
         source_layout: hal::image::Layout,
         source_access: hal::image::Access,
         source_size: i32,
-        image_use: crate::lang::OutputType,
+        image_use: ImageUse,
     ) {
         let image_slot = match image_use {
-            crate::lang::OutputType::Displacement => &mut image_slots.displacement,
-            crate::lang::OutputType::Albedo => &mut image_slots.albedo,
-            crate::lang::OutputType::Roughness => &mut image_slots.roughness,
-            crate::lang::OutputType::Normal => &mut image_slots.normal,
-            crate::lang::OutputType::Metallic => &mut image_slots.metallic,
-            _ => return,
+            ImageUse::Displacement => &mut image_slots.displacement,
+            ImageUse::Albedo => &mut image_slots.albedo,
+            ImageUse::Roughness => &mut image_slots.roughness,
+            ImageUse::Normal => &mut image_slots.normal,
+            ImageUse::Metallic => &mut image_slots.metallic,
+            ImageUse::View => &mut image_slots.view,
         };
 
         image_slot.occupied = true;

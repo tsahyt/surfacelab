@@ -142,7 +142,7 @@ where
         source_layout: gfx_hal::image::Layout,
         source_access: gfx_hal::image::Access,
         source_size: i32,
-        image_use: crate::lang::OutputType,
+        image_use: gpu::render::ImageUse,
     ) {
         match self {
             ManagedRenderer::RendererSDF3D(r) => r.transfer_image(
@@ -536,34 +536,41 @@ where
         image_size: i32,
         output_type: OutputType,
     ) {
+        use std::convert::TryInto;
         log::trace!("Transferring output image for {:?}", output_type);
 
-        if let Some(r) = self.renderers.values_mut().next() {
-            match image.clone().to::<B>().and_then(|i| i.upgrade()) {
-                Some(img) => {
-                    let image_lock = img.lock().unwrap();
-                    r.transfer_image(
-                        &mut self.image_slots,
-                        &image_lock,
-                        layout,
-                        access,
-                        image_size,
-                        output_type,
-                    );
-                }
-                None => {
-                    log::warn!("Failed to acquire output image for transfer!");
+        if let Some(image_use) = output_type.try_into().ok() {
+            if let Some(r) = self.renderers.values_mut().next() {
+                match image.clone().to::<B>().and_then(|i| i.upgrade()) {
+                    Some(img) => {
+                        let image_lock = img.lock().unwrap();
+                        r.transfer_image(
+                            &mut self.image_slots,
+                            &image_lock,
+                            layout,
+                            access,
+                            image_size,
+                            image_use,
+                        );
+                    }
+                    None => {
+                        log::warn!("Failed to acquire output image for transfer!");
+                    }
                 }
             }
-        }
 
-        for r in self.renderers.values_mut() {
-            r.reset_sampling();
+            for r in self.renderers.values_mut() {
+                r.reset_sampling();
+            }
         }
     }
 
     pub fn disconnect_output(&mut self, output_type: OutputType) {
-        self.image_slots.vacate(output_type);
+        use std::convert::TryInto;
+
+        if let Some(image_use) = output_type.try_into().ok() {
+            self.image_slots.vacate(image_use);
+        }
     }
 
     pub fn rotate_camera(&mut self, renderer_id: RendererID, phi: f32, theta: f32) {
