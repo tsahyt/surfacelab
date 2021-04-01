@@ -434,6 +434,8 @@ pub enum UserNodeEvent {
     RenameNode(Resource<Node>, Resource<Node>),
     /// The user changes the output size of the given node
     OutputSizeChange(Resource<Node>, OperatorSize),
+    /// The user requests display of the given socket
+    ViewSocket(Resource<Socket>),
 }
 
 /// Events concerning graph operation triggered by the user, such as adding,
@@ -893,6 +895,13 @@ pub enum ComputeEvent {
         crate::gpu::Access,
         u32,
         OutputType,
+    ),
+    /// The system has computed a socket for viewing
+    SocketViewReady(
+        crate::gpu::BrokerImage,
+        crate::gpu::Layout,
+        crate::gpu::Access,
+        u32,
     ),
     /// The system has created a compute socket with a fixed type.
     SocketCreated(Resource<Socket>, ImageType),

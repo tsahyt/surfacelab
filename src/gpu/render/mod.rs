@@ -109,6 +109,7 @@ pub struct ImageSlots<B: Backend> {
     normal: ImageSlot<B>,
     displacement: ImageSlot<B>,
     metallic: ImageSlot<B>,
+    view: ImageSlot<B>,
 }
 
 impl<B: Backend> ImageSlots<B> {
@@ -144,6 +145,12 @@ impl<B: Backend> ImageSlots<B> {
                 image_size,
             )?,
             metallic: ImageSlot::new(
+                device,
+                memory_properties,
+                hal::format::Format::R16Sfloat,
+                image_size,
+            )?,
+            view: ImageSlot::new(
                 device,
                 memory_properties,
                 hal::format::Format::R16Sfloat,
@@ -185,6 +192,7 @@ impl<B: Backend> ImageSlots<B> {
             normal: from_bool(self.normal.occupied),
             displacement: from_bool(self.displacement.occupied),
             metallic: from_bool(self.metallic.occupied),
+            view: from_bool(self.view.occupied),
         }
     }
 }
@@ -212,6 +220,7 @@ where
         free_slot(&lock.device, &mut self.normal);
         free_slot(&lock.device, &mut self.displacement);
         free_slot(&lock.device, &mut self.metallic);
+        free_slot(&lock.device, &mut self.view);
     }
 }
 
@@ -225,6 +234,7 @@ pub struct SlotOccupancy {
     normal: u32,
     displacement: u32,
     metallic: u32,
+    view: u32,
 }
 
 /// The renderer holds a fixed number of image slots, as opposed to the compute
@@ -509,6 +519,17 @@ where
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 10,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 11,
                         ty: hal::pso::DescriptorType::Image {
                             ty: hal::pso::ImageDescriptorType::Sampled {
                                 with_sampler: false,
@@ -1017,7 +1038,7 @@ where
                             binding: 8,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                self.environment_maps.irradiance_view(),
+                                &*image_slots.view.view,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -1026,13 +1047,22 @@ where
                             binding: 9,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                self.environment_maps.spec_view(),
+                                self.environment_maps.irradiance_view(),
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
                         DescriptorSetWrite {
                             set: &self.main_descriptor_set,
                             binding: 10,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                self.environment_maps.spec_view(),
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 11,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
                                 self.environment_maps.brdf_lut_view(),

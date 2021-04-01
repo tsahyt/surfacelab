@@ -462,6 +462,7 @@ impl NodeManager {
                     };
                 }
             }
+            _ => {}
         }
 
         response

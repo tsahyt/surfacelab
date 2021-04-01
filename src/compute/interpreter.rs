@@ -229,6 +229,9 @@ pub struct Interpreter<'a, B: gpu::Backend> {
 
     /// Parent size
     parent_size: u32,
+
+    /// View socket
+    view_socket: &'a Option<Resource<Socket>>,
 }
 
 impl<'a, B: gpu::Backend> Interpreter<'a, B> {
@@ -242,6 +245,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         seq: u64,
         graph: &Resource<Graph>,
         parent_size: u32,
+        view_socket: &'a Option<Resource<Socket>>,
     ) -> Result<Self, InterpretationError> {
         let linearization = linearizations
             .get(graph)
@@ -267,6 +271,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             seq: seq + 1,
             execution_stack,
             parent_size,
+            view_socket,
         })
     }
 
@@ -788,6 +793,43 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         Ok(())
     }
 
+    /// Process view socket handling, returning an event if appropriate. It will
+    /// check against the given socket and node resources to determine whether
+    /// either match against the view socket before proceeding.
+    fn process_view_socket(
+        &self,
+        socket: Option<&Resource<Socket>>,
+        node: Option<&Resource<Node>>,
+    ) -> Result<Option<ComputeEvent>, InterpretationError> {
+        if socket != self.view_socket.as_ref()
+            || self.view_socket.as_ref().map(|s| s.socket_node()).as_ref() != node
+        {
+            return Ok(None);
+        }
+        if let Some(socket) = self.view_socket {
+            if self
+                .sockets
+                .get_output_image_updated(&socket)
+                .unwrap_or(u64::MAX)
+                <= self.seq
+            {
+                return Ok(None);
+            }
+
+            let image = self.sockets.get_output_image(&socket).unwrap();
+            Ok(Some(ComputeEvent::SocketViewReady(
+                gpu::BrokerImage::from::<B>(image.get_raw()),
+                image.get_layout(),
+                image.get_access(),
+                self.sockets
+                    .get_image_size(&socket.socket_node())
+                    .allocation_size(),
+            )))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Clean up all image data, using the current execution stack to determine what can be cleaned up.
     ///
     /// We can safely clean up an image if
@@ -865,12 +907,20 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                         self.execute_atomic_operator(frame_size, &op, res)?;
                     }
                 }
+
+                if let Some(ev) = self.process_view_socket(None, Some(res))? {
+                    response.push(ev);
+                }
             }
             Instruction::Call(res, op) => {
                 self.execute_call(frame_size, res, op)?;
             }
             Instruction::Copy(from, to) => {
                 self.execute_copy(from, to)?;
+
+                if let Some(ev) = self.process_view_socket(Some(to), None)? {
+                    response.push(ev);
+                }
             }
             Instruction::Thumbnail(socket) => {
                 let mut r = self.execute_thumbnail(socket);

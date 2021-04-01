@@ -92,6 +92,9 @@ struct ComputeManager<B: gpu::Backend> {
     /// uniforms for each resource. On the next execution this is checked, and
     /// if no changes happen, execution can be skipped entirely.
     last_known: HashMap<Resource<Node>, u64>,
+
+    /// A special socket that the user wants to view
+    view_socket: Option<Resource<Socket>>,
 }
 
 impl<B> ComputeManager<B>
@@ -111,6 +114,7 @@ where
             seq: 0,
             parent_size: 1024,
             last_known: HashMap::new(),
+            view_socket: None,
         }
     }
 
@@ -281,6 +285,7 @@ where
                         self.seq,
                         graph,
                         self.parent_size,
+                        &self.view_socket,
                     ) {
                         Ok(interpreter) => {
                             for step_response in interpreter {
@@ -395,6 +400,9 @@ where
                 for ev in self.deserialize(data).ok()? {
                     sender.send(ev).unwrap();
                 }
+            }
+            Lang::UserNodeEvent(UserNodeEvent::ViewSocket(socket)) => {
+                self.view_socket = Some(socket.clone());
             }
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
                 self.parent_size = *size;
