@@ -183,6 +183,9 @@ impl<'a> Widget for NodeEditor<'a> {
                             .unwrap();
                     }
                 }
+                graph::Event::SocketView(idx, socket) => {
+                    dbg!(idx, socket);
+                }
             }
         }
 

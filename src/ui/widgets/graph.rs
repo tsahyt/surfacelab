@@ -234,6 +234,7 @@ pub struct State {
     camera: Camera,
     selection: Selection,
     connection_draw: Option<ConnectionDraw>,
+    socket_view: Option<(petgraph::graph::NodeIndex, String)>,
 }
 
 #[derive(Clone, Debug)]
@@ -252,6 +253,7 @@ pub enum Event {
     AddModal(Point),
     Extract(Vec<petgraph::graph::NodeIndex>),
     AlignNodes(Vec<petgraph::graph::NodeIndex>),
+    SocketView(petgraph::graph::NodeIndex, String),
 }
 
 impl<'a> Graph<'a> {
@@ -400,6 +402,7 @@ impl<'a> Widget for Graph<'a> {
             camera: Camera::default(),
             selection: Selection::default(),
             connection_draw: None,
+            socket_view: None,
         }
     }
 
@@ -485,6 +488,11 @@ impl<'a> Widget for Graph<'a> {
         for idx in self.graph.node_indices() {
             let w_id = *state.node_ids.get(&idx).unwrap();
             let node = self.graph.node_weight(idx).unwrap();
+            let view_socket =
+                state
+                    .socket_view
+                    .as_ref()
+                    .and_then(|(n, s)| if *n == idx { Some(s.clone()) } else { None });
 
             for press in ui
                 .widget_input(w_id)
@@ -521,6 +529,7 @@ impl<'a> Widget for Graph<'a> {
             .title_color(style.node_title_color(&ui.theme))
             .title_size(style.node_title_size(&ui.theme))
             .selected(selection_state)
+            .view_socket(view_socket)
             .active_color(style.node_active_color(&ui.theme))
             .selection_color(style.node_selection_color(&ui.theme))
             .parent(id)
@@ -590,6 +599,10 @@ impl<'a> Widget for Graph<'a> {
                     }
                     node::Event::SocketClear(socket) => {
                         evs.push_back(Event::SocketClear(idx, socket))
+                    }
+                    node::Event::SocketView(socket) => {
+                        state.update(|state| state.socket_view = Some((idx, socket.clone())));
+                        evs.push_back(Event::SocketView(idx, socket))
                     }
                 }
             }

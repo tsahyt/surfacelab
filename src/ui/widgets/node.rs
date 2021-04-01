@@ -17,6 +17,7 @@ pub struct Node<'a> {
     node_id: petgraph::graph::NodeIndex,
     style: Style,
     selected: SelectionState,
+    view_socket: Option<String>,
     thumbnail: Option<image::Id>,
     inputs: &'a [(String, OperatorType)],
     outputs: &'a [(String, OperatorType)],
@@ -53,6 +54,7 @@ pub enum Event {
     NodeDragStop,
     NodeDelete,
     NodeEnter,
+    SocketView(String),
     SocketDrag(Point, Point),
     SocketClear(String),
     SocketRelease(petgraph::graph::NodeIndex, SocketType),
@@ -71,6 +73,7 @@ impl<'a> Node<'a> {
             node_id,
             style: Style::default(),
             selected: SelectionState::None,
+            view_socket: None,
             thumbnail: None,
             inputs,
             outputs,
@@ -81,6 +84,11 @@ impl<'a> Node<'a> {
 
     pub fn thumbnail(mut self, thumbnail: Option<image::Id>) -> Self {
         self.thumbnail = thumbnail;
+        self
+    }
+
+    pub fn view_socket(mut self, socket: Option<String>) -> Self {
+        self.view_socket = socket;
         self
     }
 
@@ -330,9 +338,19 @@ impl<'a> Widget for Node<'a> {
         for (output, ty) in self.outputs.iter() {
             margin += margin_skip;
 
+            let is_viewing = self
+                .view_socket
+                .as_ref()
+                .map(|s| s == output)
+                .unwrap_or(false);
+
             let w_id = state.output_sockets.get(output).copied().unwrap();
             widget::BorderedRectangle::new(socket_size)
-                .border(border_width)
+                .border(if is_viewing {
+                    border_width * 2.
+                } else {
+                    border_width
+                })
                 .color(operator_type_color(ty, self.type_variables))
                 .parent(state.ids.rectangle)
                 .top_right_with_margins(margin, 0.0)
@@ -354,6 +372,13 @@ impl<'a> Widget for Node<'a> {
                 ui.widget_input(w_id)
                     .releases()
                     .map(|_| Event::SocketRelease(self.node_id, SocketType::Source)),
+            );
+
+            evs.extend(
+                ui.widget_input(w_id)
+                    .clicks()
+                    .right()
+                    .map(|_| Event::SocketView(output.clone())),
             );
 
             margin += socket_size[1];
