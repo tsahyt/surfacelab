@@ -1,6 +1,6 @@
 use super::RenderTarget;
 use crate::gpu::{basic_mem::*, load_shader};
-use crate::lang::{ObjectType, ToneMap};
+use crate::lang::{ImageType, ObjectType, ToneMap};
 use crate::shader;
 use crate::util::HaltonSequence2D;
 
@@ -109,7 +109,7 @@ pub enum ImageUse {
     Normal,
     Displacement,
     Metallic,
-    View,
+    View(ImageType),
 }
 
 impl std::convert::TryFrom<crate::lang::OutputType> for ImageUse {
@@ -137,6 +137,7 @@ pub struct ImageSlots<B: Backend> {
     displacement: ImageSlot<B>,
     metallic: ImageSlot<B>,
     view: ImageSlot<B>,
+    view_type: ImageType,
 }
 
 impl<B: Backend> ImageSlots<B> {
@@ -180,9 +181,10 @@ impl<B: Backend> ImageSlots<B> {
             view: ImageSlot::new(
                 device,
                 memory_properties,
-                hal::format::Format::R16Sfloat,
+                hal::format::Format::Rgba16Sfloat,
                 image_size,
             )?,
+            view_type: ImageType::Grayscale,
         })
     }
 
@@ -197,7 +199,7 @@ impl<B: Backend> ImageSlots<B> {
             ImageUse::Roughness => &mut self.roughness,
             ImageUse::Normal => &mut self.normal,
             ImageUse::Metallic => &mut self.metallic,
-            ImageUse::View => &mut self.view,
+            ImageUse::View(..) => &mut self.view,
         };
 
         slot.occupied = false;
@@ -220,6 +222,10 @@ impl<B: Backend> ImageSlots<B> {
             displacement: from_bool(self.displacement.occupied),
             metallic: from_bool(self.metallic.occupied),
             view: from_bool(self.view.occupied),
+            view_type: match self.view_type {
+                ImageType::Grayscale => 0,
+                ImageType::Rgb => 1,
+            },
         }
     }
 }
@@ -262,6 +268,7 @@ pub struct SlotOccupancy {
     displacement: u32,
     metallic: u32,
     view: u32,
+    view_type: u32,
 }
 
 /// The renderer holds a fixed number of image slots, as opposed to the compute
@@ -1335,10 +1342,17 @@ where
             ImageUse::Roughness => &mut image_slots.roughness,
             ImageUse::Normal => &mut image_slots.normal,
             ImageUse::Metallic => &mut image_slots.metallic,
-            ImageUse::View => &mut image_slots.view,
+            ImageUse::View(..) => &mut image_slots.view,
         };
 
         image_slot.occupied = true;
+
+        match image_use {
+            ImageUse::View(ty) => {
+                image_slots.view_type = ty;
+            }
+            _ => {}
+        }
 
         let cmd_buffer = unsafe {
             let mut cmd_buffer = self.command_pool.allocate_one(hal::command::Level::Primary);

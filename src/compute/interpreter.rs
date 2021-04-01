@@ -822,7 +822,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 return Ok(None);
             }
 
-            let image = self.sockets.get_output_image(&socket).unwrap();
+            let (image, ty) = self.sockets.get_output_image_typed(&socket).unwrap();
             *vs_seq = self.seq;
 
             Ok(Some(ComputeEvent::SocketViewReady(
@@ -832,6 +832,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 self.sockets
                     .get_image_size(&socket.socket_node())
                     .allocation_size(),
+                ty,
             )))
         } else {
             Ok(None)

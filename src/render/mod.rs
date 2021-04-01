@@ -308,8 +308,8 @@ where
                 size,
                 out_ty,
             )) => self.transfer_output(img, *layout, *access, *size as i32, *out_ty),
-            Lang::ComputeEvent(ComputeEvent::SocketViewReady(img, layout, access, size)) => {
-                self.transfer_socket_view(img, *layout, *access, *size as i32);
+            Lang::ComputeEvent(ComputeEvent::SocketViewReady(img, layout, access, size, ty)) => {
+                self.transfer_socket_view(img, *layout, *access, *size as i32, *ty);
             }
             Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
                 self.disconnect_output(*out_ty);
@@ -574,6 +574,7 @@ where
         layout: gpu::Layout,
         access: gpu::Access,
         image_size: i32,
+        image_type: ImageType,
     ) {
         log::trace!("Transferring socket view image");
 
@@ -587,7 +588,7 @@ where
                         layout,
                         access,
                         image_size,
-                        gpu::render::ImageUse::View,
+                        gpu::render::ImageUse::View(image_type),
                     );
                 }
                 None => {

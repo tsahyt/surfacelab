@@ -902,6 +902,7 @@ pub enum ComputeEvent {
         crate::gpu::Layout,
         crate::gpu::Access,
         u32,
+        ImageType,
     ),
     /// The system has created a compute socket with a fixed type.
     SocketCreated(Resource<Socket>, ImageType),

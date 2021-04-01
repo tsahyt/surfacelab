@@ -11,6 +11,7 @@ layout(set = 0, binding = 1) uniform Occupancy {
     uint has_displacement;
     uint has_metallic;
     uint has_view;
+    uint view_type;
 };
 layout(set = 0, binding = 2) uniform Camera {
     vec2 resolution;
@@ -28,15 +29,18 @@ layout(set = 0, binding = 9) uniform textureCube irradiance_map;
 layout(set = 0, binding = 10) uniform textureCube environment_map;
 layout(set = 0, binding = 11) uniform texture2D brdf_lut;
 
-#define CHANNEL_DISPLACEMENT 0
-#define CHANNEL_ALBEDO 1
-#define CHANNEL_NORMAL 2
-#define CHANNEL_ROUGHNESS 3
-#define CHANNEL_METALLIC 4
-#define CHANNEL_VIEW 5
+const uint CHANNEL_DISPLACEMENT = 0;
+const uint CHANNEL_ALBEDO = 1;
+const uint CHANNEL_NORMAL = 2;
+const uint CHANNEL_ROUGHNESS = 3;
+const uint CHANNEL_METALLIC = 4;
+const uint CHANNEL_VIEW = 5;
 
-#define TEX_SCALE 1.0
-#define TEX_GRID 0.01
+const uint VIEWTYPE_GRAYSCALE = 0;
+const uint VIEWTYPE_RGB = 1;
+
+const float TEX_SCALE = 1.0;
+const float TEX_GRID = 0.01;
 
 void main() {
     vec2 uv = v_TexCoord * resolution / resolution.y;
@@ -55,7 +59,14 @@ void main() {
     } else if (channel == CHANNEL_METALLIC && has_metallic != 0) {
         col = vec3(pow(texture(sampler2D(t_Metallic, s_Texture), uv).r, 2.2));
     } else if (channel == CHANNEL_VIEW && has_view != 0) {
-        col = vec3(pow(texture(sampler2D(t_View, s_Texture), uv).r, 2.2));
+        switch (view_type) {
+            case 0:
+                col = vec3(pow(texture(sampler2D(t_View, s_Texture), uv).r, 2.2));
+                break;
+            case 1:
+                col = vec3(texture(sampler2D(t_View, s_Texture), uv).rgb);
+                break;
+        }
     } else {
         col = vec3(0.,0.,0.);
     }
