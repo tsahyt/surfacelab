@@ -33,6 +33,7 @@ layout(set = 0, binding = 11) uniform texture2D brdf_lut;
 #define CHANNEL_NORMAL 2
 #define CHANNEL_ROUGHNESS 3
 #define CHANNEL_METALLIC 4
+#define CHANNEL_VIEW 5
 
 #define TEX_SCALE 1.0
 #define TEX_GRID 0.01
@@ -52,6 +53,8 @@ void main() {
         col = vec3(pow(texture(sampler2D(t_Roughness, s_Texture), uv).r, 2.2));
     } else if (channel == CHANNEL_METALLIC && has_metallic != 0) {
         col = vec3(pow(texture(sampler2D(t_Metallic, s_Texture), uv).r, 2.2));
+    } else if (channel == CHANNEL_VIEW && has_view != 0) {
+        col = vec3(pow(texture(sampler2D(t_View, s_Texture), uv).r, 2.2));
     } else {
         col = vec3(0.,0.,0.);
     }

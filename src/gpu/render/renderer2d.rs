@@ -27,7 +27,7 @@ impl Default for Uniforms {
             resolution: [1024.0, 1024.0],
             pan: [0., 0.],
             zoom: 1.,
-            channel: 0,
+            channel: 5,
         }
     }
 }
