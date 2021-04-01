@@ -308,6 +308,9 @@ where
                 size,
                 out_ty,
             )) => self.transfer_output(img, *layout, *access, *size as i32, *out_ty),
+            Lang::ComputeEvent(ComputeEvent::SocketViewReady(img, layout, access, size)) => {
+                self.transfer_socket_view(img, *layout, *access, *size as i32);
+            }
             Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
                 self.disconnect_output(*out_ty);
             }
@@ -562,6 +565,39 @@ where
             for r in self.renderers.values_mut() {
                 r.reset_sampling();
             }
+        }
+    }
+
+    pub fn transfer_socket_view(
+        &mut self,
+        image: &gpu::BrokerImage,
+        layout: gpu::Layout,
+        access: gpu::Access,
+        image_size: i32,
+    ) {
+        log::trace!("Transferring socket view image");
+
+        if let Some(r) = self.renderers.values_mut().next() {
+            match image.clone().to::<B>().and_then(|i| i.upgrade()) {
+                Some(img) => {
+                    let image_lock = img.lock().unwrap();
+                    r.transfer_image(
+                        &mut self.image_slots,
+                        &image_lock,
+                        layout,
+                        access,
+                        image_size,
+                        gpu::render::ImageUse::View,
+                    );
+                }
+                None => {
+                    log::warn!("Failed to acquire output image for transfer!");
+                }
+            }
+        }
+
+        for r in self.renderers.values_mut() {
+            r.reset_sampling();
         }
     }
 
