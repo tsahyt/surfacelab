@@ -98,6 +98,7 @@ impl<'a> Widget for SurfaceSection<'a> {
                 .w_of(id)
                 .mid_top()
                 .text_color(color::WHITE)
+                .icon_font(style.icon_font(&ui.theme))
                 .text_size(10)
                 .set(state.ids.param_box, ui)
             {

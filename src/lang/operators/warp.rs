@@ -120,6 +120,7 @@ impl OperatorParamBox for Warp {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
+                is_open: true,
                 parameters: vec![
                     Parameter {
                         name: "warp-mode".to_string(),

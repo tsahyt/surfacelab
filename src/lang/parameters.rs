@@ -446,6 +446,7 @@ where
                 .drain(0..)
                 .map(|mut cat| ParamCategory {
                     name: cat.name,
+                    is_open: cat.is_open,
                     parameters: cat
                         .parameters
                         .drain(0..)
@@ -561,6 +562,7 @@ impl ParamBoxDescription<ResourceField> {
             box_title: "node-attributes".to_string(),
             categories: vec![ParamCategory {
                 name: "node",
+                is_open: true,
                 parameters,
             }],
         }
@@ -575,6 +577,7 @@ impl ParamBoxDescription<RenderField> {
             categories: vec![
                 ParamCategory {
                     name: "renderer",
+                    is_open: true,
                     parameters: vec![
                         Parameter {
                             name: "sample-count".to_string(),
@@ -606,6 +609,7 @@ impl ParamBoxDescription<RenderField> {
                 },
                 ParamCategory {
                     name: "geometry",
+                    is_open: true,
                     parameters: vec![
                         Parameter {
                             name: "object-type".to_string(),
@@ -649,6 +653,7 @@ impl ParamBoxDescription<RenderField> {
                 },
                 ParamCategory {
                     name: "environment",
+                    is_open: true,
                     parameters: vec![
                         Parameter {
                             name: "hdri-file".to_string(),
@@ -701,6 +706,7 @@ impl ParamBoxDescription<RenderField> {
                 },
                 ParamCategory {
                     name: "light",
+                    is_open: true,
                     parameters: vec![
                         Parameter {
                             name: "light-type".to_string(),
@@ -734,6 +740,7 @@ impl ParamBoxDescription<RenderField> {
                 },
                 ParamCategory {
                     name: "camera",
+                    is_open: true,
                     parameters: vec![
                         Parameter {
                             name: "focal-length".to_string(),
@@ -804,6 +811,7 @@ impl ParamBoxDescription<GraphField> {
             box_title: "graph-tab".to_string(),
             categories: vec![ParamCategory {
                 name: "graph-attributes",
+                is_open: true,
                 parameters: vec![Parameter {
                     name: "graph-name".to_string(),
                     control: Control::Entry {
@@ -853,6 +861,7 @@ impl ParamBoxDescription<LayerField> {
             box_title: "layer".to_string(),
             categories: vec![ParamCategory {
                 name: "output-channels",
+                is_open: true,
                 parameters: super::MaterialChannel::iter()
                     .map(|chan| Parameter {
                         name: chan.to_string(),
@@ -886,6 +895,7 @@ impl ParamBoxDescription<LayerField> {
             categories: vec![
                 ParamCategory {
                     name: "input-channels",
+                    is_open: true,
                     parameters: operator
                         .inputs()
                         .keys()
@@ -906,6 +916,7 @@ impl ParamBoxDescription<LayerField> {
                 },
                 ParamCategory {
                     name: "output-channels",
+                    is_open: true,
                     parameters: super::MaterialChannel::iter()
                         .map(|chan| Parameter {
                             name: chan.to_string(),
@@ -933,6 +944,7 @@ impl ParamBoxDescription<SurfaceField> {
             box_title: "surface-tab".to_string(),
             categories: vec![ParamCategory {
                 name: "surface-attributes",
+                is_open: true,
                 parameters: vec![Parameter {
                     name: "parent-size".to_string(),
                     control: Control::Size {
@@ -952,6 +964,7 @@ impl ParamBoxDescription<SurfaceField> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ParamCategory<T: MessageWriter> {
     pub name: &'static str,
+    pub is_open: bool,
     pub parameters: Vec<Parameter<T>>,
 }
 

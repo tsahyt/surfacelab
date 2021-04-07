@@ -104,6 +104,7 @@ impl<'a> Widget for GraphSection<'a> {
         .w_of(args.id)
         .mid_top_with_margin(32.0)
         .text_color(color::WHITE)
+        .icon_font(args.style.icon_font(&args.ui.theme))
         .text_size(10)
         .set(args.state.param_box, args.ui)
         {

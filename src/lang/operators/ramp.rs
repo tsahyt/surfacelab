@@ -119,6 +119,7 @@ impl OperatorParamBox for Ramp {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
+                is_open: true,
                 parameters: vec![Parameter {
                     name: "gradient".to_string(),
                     transmitter: Field(Ramp::RAMP.to_string()),

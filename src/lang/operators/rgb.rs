@@ -76,6 +76,7 @@ impl OperatorParamBox for Rgb {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
+                is_open: true,
                 parameters: vec![Parameter {
                     name: "color".to_string(),
                     transmitter: Field(Rgb::RGB.to_string()),

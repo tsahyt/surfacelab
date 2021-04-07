@@ -126,6 +126,9 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
             state
                 .categories
                 .resize(self.description.categories(), id_gen);
+            state
+                .category_expanders
+                .resize(self.description.categories(), id_gen);
 
             let counts = ControlCounts::from(&*self.description);
             state
@@ -274,6 +277,7 @@ pub struct State {
     exposes: widget::id::List,
     controls: HashMap<TypeId, widget::id::List>,
     categories: widget::id::List,
+    category_expanders: widget::id::List,
 }
 
 #[derive(Debug)]
@@ -309,6 +313,7 @@ where
                 TypeId::of::<SizeControl>() => widget::id::List::new(),
             },
             categories: widget::id::List::new(),
+            category_expanders: widget::id::List::new(),
         }
     }
 
@@ -350,7 +355,32 @@ where
                 .mid_top_with_margin(top_margin)
                 .set(state.categories[j], ui);
 
+            for _click in icon_button(
+                if category.is_open {
+                    IconName::DOWN
+                } else {
+                    IconName::RIGHT
+                },
+                style.icon_font(&ui.theme),
+            )
+            .color(color::DARK_CHARCOAL)
+            .label_font_size(12)
+            .label_color(style.text_color(&ui.theme))
+            .border(0.0)
+            .w_h(16., 16.)
+            .top_right_with_margins(top_margin, 8.)
+            .parent(id)
+            .set(state.category_expanders[j], ui)
+            {
+                category.is_open = !category.is_open;
+            }
+
             top_margin += 16.0;
+
+            if !category.is_open {
+                top_margin += 16.;
+                continue;
+            }
 
             for parameter in category.parameters.iter_mut() {
                 let label_id = state.labels[label_count];

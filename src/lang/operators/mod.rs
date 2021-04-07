@@ -115,6 +115,7 @@ impl OperatorParamBox for Image {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
+                is_open: true,
                 parameters: vec![Parameter {
                     name: "image-resource".to_string(),
                     transmitter: Field(Self::RESOURCE.to_string()),
@@ -236,6 +237,7 @@ impl OperatorParamBox for Output {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
+                is_open: true,
                 parameters: vec![Parameter {
                     name: "output-type".to_string(),
                     transmitter: Field(Self::OUTPUT_TYPE.to_string()),
@@ -318,6 +320,7 @@ impl OperatorParamBox for Input {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
+                is_open: true,
                 parameters: vec![Parameter {
                     name: "input-type".to_string(),
                     transmitter: Field(Self::INPUT_TYPE.to_string()),

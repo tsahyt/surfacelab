@@ -132,6 +132,7 @@ impl OperatorParamBox for Blend {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
+                is_open: true,
                 parameters: vec![
                     Parameter {
                         name: "blend-mode".to_string(),
@@ -267,6 +268,7 @@ impl OperatorParamBox for BlendMasked {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
+                is_open: true,
                 parameters: vec![
                     Parameter {
                         name: "blend-mode".to_string(),

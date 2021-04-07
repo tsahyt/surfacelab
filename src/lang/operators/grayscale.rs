@@ -108,6 +108,7 @@ impl OperatorParamBox for Grayscale {
             box_title: self.title().to_string(),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
+                is_open: true,
                 parameters: vec![Parameter {
                     name: "grayscale-conversion-mode".to_string(),
                     transmitter: Field(Grayscale::MODE.to_string()),

@@ -70,6 +70,7 @@ trait ExposedParameters: NodeCollection {
             box_title: title,
             categories: vec![ParamCategory {
                 name: "Exposed Parameters",
+                is_open: true,
                 parameters: self
                     .exposed_parameters()
                     .iter()
