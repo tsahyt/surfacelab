@@ -52,15 +52,24 @@ pub struct ComputeAllocator<B: Backend> {
     allocs: Cell<AllocId>,
     image_mem: ManuallyDrop<B::Memory>,
     image_mem_chunks: Vec<Chunk>,
+    usage: AllocatorUsage,
 }
 
 /// Struct holding usage statistics for the allocator
+#[derive(Clone, Copy)]
 pub struct AllocatorUsage {
     vram_size: usize,
     vram_used: usize,
 }
 
 impl AllocatorUsage {
+    pub fn new(vram_size: usize) -> Self {
+        Self {
+            vram_size,
+            vram_used: 0,
+        }
+    }
+
     /// Get the total size of managed VRAM
     pub fn vram_size(&self) -> usize {
         self.vram_size
@@ -117,6 +126,7 @@ where
                     alloc: None,
                 })
                 .collect(),
+            usage: AllocatorUsage::new(Self::IMAGE_MEMORY_SIZE as usize),
         })
     }
 
@@ -148,6 +158,7 @@ where
         let alloc = self.allocs.get();
         for i in chunks {
             self.image_mem_chunks[*i].alloc = Some(alloc);
+            self.usage.vram_used += Self::CHUNK_SIZE as usize;
         }
         self.allocs.set(alloc.wrapping_add(1));
         alloc
@@ -162,21 +173,13 @@ where
             .filter(|c| c.alloc == Some(alloc))
         {
             chunk.alloc = None;
+            self.usage.vram_used -= Self::CHUNK_SIZE as usize;
         }
     }
 
     /// Produce usage statistics for the allocator
     pub fn usage(&self) -> AllocatorUsage {
-        let used_chunks = self
-            .image_mem_chunks
-            .iter()
-            .filter(|chunk| chunk.alloc.is_some())
-            .count();
-
-        AllocatorUsage {
-            vram_size: Self::IMAGE_MEMORY_SIZE as usize,
-            vram_used: used_chunks * Self::CHUNK_SIZE as usize,
-        }
+        self.usage
     }
 }
 
