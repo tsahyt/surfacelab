@@ -273,7 +273,14 @@ where
         match event {
             Lang::UserIOEvent(UserIOEvent::Quit) => return None,
             Lang::UserIOEvent(UserIOEvent::OpenSurface(..)) => self.reset_all(),
-            Lang::UserIOEvent(UserIOEvent::NewSurface) => self.reset_all(),
+            Lang::UserIOEvent(UserIOEvent::NewSurface) => {
+                self.reset_all();
+                response.extend(
+                    self.renderers
+                        .keys()
+                        .map(|r| Lang::RenderEvent(RenderEvent::RendererRedrawn(*r))),
+                );
+            }
             Lang::IOEvent(IOEvent::RenderSettingsLoaded(data)) => {
                 self.renderers
                     .values_mut()
@@ -312,7 +319,11 @@ where
                 self.transfer_socket_view(img, *layout, *access, *size as i32, *ty);
             }
             Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
-                self.disconnect_output(*out_ty);
+                use std::convert::TryInto;
+
+                if let Some(img_use) = (*out_ty).try_into().ok() {
+                    self.disconnect_image(img_use);
+                }
             }
             Lang::UserRenderEvent(UserRenderEvent::Rotate(id, theta, phi)) => {
                 self.rotate_camera(*id, *theta, *phi);
@@ -483,20 +494,18 @@ where
         self.renderers.remove(&renderer_id);
     }
 
-    pub fn redraw_all(&mut self) {
-        for r in self.renderers.values_mut() {
-            let now = Instant::now();
-            r.render(&self.image_slots);
-            r.frametime_ema.update(now.elapsed().as_micros() as f64);
-            r.samples_to_go = r.samples_to_go.saturating_sub(1);
-        }
-    }
-
     pub fn reset_all(&mut self) {
-        for output in OutputType::iter() {
-            self.disconnect_output(output);
+        for output in gpu::render::ImageUse::iter() {
+            self.disconnect_image(output);
         }
-        self.redraw_all();
+
+        for r in self.renderers.values_mut() {
+            r.reset_sampling();
+        }
+
+        for r in self.renderers.keys().cloned().collect::<Vec<_>>() {
+            self.redraw(r);
+        }
     }
 
     pub fn redraw(&mut self, renderer_id: RendererID) {
@@ -602,12 +611,8 @@ where
         }
     }
 
-    pub fn disconnect_output(&mut self, output_type: OutputType) {
-        use std::convert::TryInto;
-
-        if let Some(image_use) = output_type.try_into().ok() {
-            self.image_slots.vacate(image_use);
-        }
+    pub fn disconnect_image(&mut self, image_use: gpu::render::ImageUse) {
+        self.image_slots.vacate(image_use);
     }
 
     pub fn rotate_camera(&mut self, renderer_id: RendererID, phi: f32, theta: f32) {

@@ -10,6 +10,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
+use strum_macros::*;
 use thiserror::Error;
 use zerocopy::AsBytes;
 
@@ -103,6 +104,7 @@ pub struct GPURender<B: Backend, U: Renderer> {
 }
 
 /// Uses of an image
+#[derive(PartialEq, Clone, Copy, Debug, EnumIter)]
 pub enum ImageUse {
     Albedo,
     Roughness,
