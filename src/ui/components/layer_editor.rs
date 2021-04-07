@@ -398,6 +398,12 @@ impl<'a> Widget for LayerEditor<'a> {
 impl<'a> LayerEditor<'a> {
     fn handle_event(&self, state: &mut widget::State<State>, event: &Lang) {
         match event {
+            Lang::GraphEvent(GraphEvent::Cleared) => state.update(|state| {
+                state.operators = AtomicOperator::all_default()
+                    .iter()
+                    .map(|x| Operator::from(x.clone()))
+                    .collect();
+            }),
             Lang::GraphEvent(GraphEvent::GraphAdded(res)) => {
                 state.update(|state| {
                     state

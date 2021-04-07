@@ -254,6 +254,12 @@ impl<'a> Widget for NodeEditor<'a> {
 impl<'a> NodeEditor<'a> {
     fn handle_event(&self, state: &mut widget::State<State>, event: &Lang) {
         match event {
+            Lang::GraphEvent(GraphEvent::Cleared) => state.update(|state| {
+                state.operators = AtomicOperator::all_default()
+                    .iter()
+                    .map(|x| Operator::from(x.clone()))
+                    .collect();
+            }),
             Lang::GraphEvent(GraphEvent::GraphAdded(res)) => {
                 state.update(|state| {
                     state
