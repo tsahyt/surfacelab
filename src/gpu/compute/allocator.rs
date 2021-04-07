@@ -16,7 +16,7 @@ pub const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRan
 };
 
 /// Memory allocation ID.
-type AllocId = u64;
+type AllocId = std::num::NonZeroU64;
 
 /// A Chunk is a piece of VRAM of fixed size that can be allocated for some
 /// image. The size is hardcoded as `CHUNK_SIZE`.
@@ -118,7 +118,7 @@ where
 
         Ok(Self {
             gpu: gpu.clone(),
-            allocs: Cell::new(0),
+            allocs: Cell::new(unsafe { AllocId::new_unchecked(1) }),
             image_mem: ManuallyDrop::new(image_mem),
             image_mem_chunks: (0..Self::N_CHUNKS)
                 .map(|id| Chunk {
@@ -160,7 +160,10 @@ where
             self.image_mem_chunks[*i].alloc = Some(alloc);
             self.usage.vram_used += Self::CHUNK_SIZE as usize;
         }
-        self.allocs.set(alloc.wrapping_add(1));
+        self.allocs.set(
+            AllocId::new(alloc.get().wrapping_add(1))
+                .unwrap_or(unsafe { AllocId::new_unchecked(1) }),
+        );
         alloc
     }
 
