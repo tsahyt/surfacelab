@@ -924,6 +924,8 @@ pub enum ComputeEvent {
     Serialized(Vec<u8>),
     /// Compute data has been cleared,
     Cleared,
+    /// System compiled VRAM usage report, bytes used and total bytes in managed region
+    VramUsage(usize, usize),
 }
 
 /// Type of renderer.
@@ -1049,6 +1051,8 @@ pub enum IOEvent {
 pub enum ScheduleEvent {
     /// Autosave schedule reached
     Autosave,
+    /// VRAM statistics scheduled
+    VramUsage,
 }
 
 /// Master event type used by the application bus. This defines the common

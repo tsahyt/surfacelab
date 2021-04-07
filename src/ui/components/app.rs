@@ -441,6 +441,7 @@ where
                 &self.app_data.sender,
                 &mut state.graphs,
             )
+            .event_buffer(self.event_buffer.unwrap())
             .icon_font(style.icon_font(&ui.theme))
             .parent(state.ids.top_bar_canvas)
             .wh_of(state.ids.top_bar_canvas)

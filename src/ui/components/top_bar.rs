@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::broker::BrokerSender;
 use crate::lang::*;
 use crate::ui::{app_state::NodeCollections, i18n::Language, util::*, widgets::toolbar};
@@ -10,6 +12,7 @@ use dialog::{DialogBox, FileSelection, FileSelectionMode};
 pub struct TopBar<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
+    event_buffer: Option<&'a [Arc<Lang>]>,
     language: &'a Language,
     sender: &'a BrokerSender<Lang>,
     graphs: &'a mut NodeCollections,
@@ -28,10 +31,12 @@ impl<'a> TopBar<'a> {
             sender,
             graphs,
             style: Style::default(),
+            event_buffer: None,
         }
     }
 
     builder_methods! {
+        pub event_buffer { event_buffer = Some(&'a [Arc<Lang>]) }
         pub icon_font { style.icon_font = Some(text::font::Id) }
     }
 }
@@ -47,7 +52,13 @@ widget_ids! {
         surface_tools,
         graph_tools,
         graph_selector,
+        status_line,
     }
+}
+
+pub struct State {
+    ids: Ids,
+    vram_usage: (f32, f32, f32),
 }
 
 #[derive(Clone, Copy)]
@@ -59,12 +70,15 @@ pub enum SurfaceTool {
 }
 
 impl<'a> Widget for TopBar<'a> {
-    type State = Ids;
+    type State = State;
     type Style = Style;
     type Event = ();
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
-        Ids::new(id_gen)
+        State {
+            ids: Ids::new(id_gen),
+            vram_usage: (0., 0., 0.),
+        }
     }
 
     fn style(&self) -> Self::Style {
@@ -72,6 +86,20 @@ impl<'a> Widget for TopBar<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
+
+        if let Some(ev_buf) = self.event_buffer {
+            for ev in ev_buf {
+                self.handle_event(state, ev);
+            }
+        }
+
         match toolbar::Toolbar::flow_right(
             [
                 (IconName::FOLDER_PLUS, SurfaceTool::NewSurface),
@@ -82,13 +110,13 @@ impl<'a> Widget for TopBar<'a> {
             .iter()
             .copied(),
         )
-        .icon_font(args.style.icon_font(&args.ui.theme))
+        .icon_font(style.icon_font(&ui.theme))
         .icon_color(color::WHITE)
         .button_color(color::DARK_CHARCOAL)
-        .parent(args.id)
+        .parent(id)
         .h(32.0)
         .middle()
-        .set(args.state.surface_tools, args.ui)
+        .set(state.ids.surface_tools, ui)
         {
             Some(SurfaceTool::NewSurface) => {
                 self.sender
@@ -143,11 +171,11 @@ impl<'a> Widget for TopBar<'a> {
         if let Some(selection) =
             widget::DropDownList::new(&self.graphs.list_collection_names(), Some(0))
                 .label_font_size(12)
-                .parent(args.id)
+                .parent(id)
                 .mid_right_with_margin(8.0)
                 .w(256.0)
                 .h(32.0)
-                .set(args.state.graph_selector, args.ui)
+                .set(state.ids.graph_selector, ui)
         {
             if let Some(graph) = self.graphs.get_collection_resource(selection).cloned() {
                 self.sender
@@ -157,6 +185,33 @@ impl<'a> Widget for TopBar<'a> {
                     .unwrap();
                 self.graphs.set_active_collection(graph);
             }
+        }
+
+        let status_text = format!(
+            "VRAM: {:.1}MB/{:.1}MB ({:.2}%)",
+            state.vram_usage.0, state.vram_usage.1, state.vram_usage.2
+        );
+
+        widget::Text::new(&status_text)
+            .color(color::WHITE.alpha(0.5))
+            .font_size(10)
+            .parent(id)
+            .left(8.0)
+            .align_middle_y()
+            .set(state.ids.status_line, ui);
+    }
+}
+
+impl<'a> TopBar<'a> {
+    fn handle_event(&self, state: &mut widget::State<State>, event: &Lang) {
+        match event {
+            Lang::ComputeEvent(ComputeEvent::VramUsage(used, total)) => {
+                const MEGABYTES: f32 = 1024. * 1024.;
+                let used = *used as f32 / MEGABYTES;
+                let total = *total as f32 / MEGABYTES;
+                state.update(|state| state.vram_usage = (used, total, 100. * used / total));
+            }
+            _ => {}
         }
     }
 }

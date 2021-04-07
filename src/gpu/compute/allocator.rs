@@ -54,6 +54,24 @@ pub struct ComputeAllocator<B: Backend> {
     image_mem_chunks: Vec<Chunk>,
 }
 
+/// Struct holding usage statistics for the allocator
+pub struct AllocatorUsage {
+    vram_size: usize,
+    vram_used: usize,
+}
+
+impl AllocatorUsage {
+    /// Get the total size of managed VRAM
+    pub fn vram_size(&self) -> usize {
+        self.vram_size
+    }
+
+    /// Get the total number of bytes currently allocated
+    pub fn vram_used(&self) -> usize {
+        self.vram_used
+    }
+}
+
 impl<B> ComputeAllocator<B>
 where
     B: Backend,
@@ -144,6 +162,20 @@ where
             .filter(|c| c.alloc == Some(alloc))
         {
             chunk.alloc = None;
+        }
+    }
+
+    /// Produce usage statistics for the allocator
+    pub fn usage(&self) -> AllocatorUsage {
+        let used_chunks = self
+            .image_mem_chunks
+            .iter()
+            .filter(|chunk| chunk.alloc.is_some())
+            .count();
+
+        AllocatorUsage {
+            vram_size: Self::IMAGE_MEMORY_SIZE as usize,
+            vram_used: used_chunks * Self::CHUNK_SIZE as usize,
         }
     }
 }

@@ -50,6 +50,10 @@ fn scheduler_setup(sender: broker::BrokerSender<Lang>) -> clokwerk::ScheduleHand
         .every(2.minutes())
         .run(enclose!((sender_arc => sender) move ||
                       sender.send(Lang::ScheduleEvent(ScheduleEvent::Autosave)).unwrap()));
+    scheduler
+        .every(5.seconds())
+        .run(enclose!((sender_arc => sender) move ||
+                      sender.send(Lang::ScheduleEvent(ScheduleEvent::VramUsage)).unwrap()));
 
     scheduler.watch_thread(std::time::Duration::from_secs(1))
 }

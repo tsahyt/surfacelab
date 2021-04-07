@@ -411,6 +411,15 @@ where
             Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => {
                 self.export(export, *size, path)
             }
+            Lang::ScheduleEvent(ScheduleEvent::VramUsage) => {
+                let usage = self.gpu.allocator_usage();
+                sender
+                    .send(Lang::ComputeEvent(ComputeEvent::VramUsage(
+                        usage.vram_used(),
+                        usage.vram_size(),
+                    )))
+                    .unwrap();
+            }
             _ => {}
         }
 

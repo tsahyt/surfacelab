@@ -179,6 +179,12 @@ where
         })
     }
 
+    /// Gather allocator usage statistics
+    pub fn allocator_usage(&mut self) -> allocator::AllocatorUsage {
+        let lock = self.allocator.lock().unwrap();
+        lock.usage()
+    }
+
     /// Build a new compute shader given raw SPIR-V. The resulting shader will
     /// destroy itself when dropped. The parent GPU can not be dropped before
     /// all its shaders are dropped!
