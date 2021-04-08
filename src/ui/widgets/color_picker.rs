@@ -63,19 +63,29 @@ impl Widget for ColorPicker<Hsv> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let mut new_hsv = None;
-        let xy = args.ui.xy_of(args.id).unwrap();
-        let wh = args.ui.wh_of(args.id).unwrap();
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            rect,
+            ..
+        } = args;
 
-        let bar_size = [24.0, wh[1] - 32.0];
-        let bar_middle = [xy[0] + wh[0] / 2.0 - 12.0, xy[1]];
+        let mut new_hsv = None;
+        let xy = rect.xy();
+        let wh = rect.w_h();
+
+        let control_margin = 64.0;
+
+        let bar_size = [24.0, wh.1 - control_margin];
+        let bar_middle = [xy[0] + wh.0 / 2.0 - 12.0, xy[1] + control_margin / 2.];
         let bar_rect = Rect::from_xy_dim(bar_middle, bar_size);
         let bar_tris = color_strip(6, bar_size[0], bar_size[1], |x| {
             color::hsl(x as f32 * std::f32::consts::TAU, 1.0, 0.5).to_rgb()
         });
 
-        let rect_size = [wh[0] - 32.0, wh[1] - 32.0];
-        let rect_middle = [xy[0] - 16.0, xy[1]];
+        let rect_size = [wh.0 - 32.0, wh.1 - control_margin];
+        let rect_middle = [xy[0] - 16.0, xy[1] + control_margin / 2.];
         let rect_rect = Rect::from_xy_dim(rect_middle, rect_size);
         let rect_tris = color_rect(4, rect_size[0], rect_size[1], |x, y| {
             let hsv = palette::Hsv::new::<f32>(self.color.hue.into(), x as f32, y as f32);
@@ -89,12 +99,12 @@ impl Widget for ColorPicker<Hsv> {
             .chain(rect_tris.iter().map(|t| t.add(rect_middle)));
 
         widget::Triangles::multi_color(triangles)
-            .with_bounding_rect(args.rect)
-            .parent(args.id)
-            .graphics_for(args.id)
-            .set(args.state.ids.triangles, args.ui);
+            .with_bounding_rect(rect)
+            .parent(id)
+            .graphics_for(id)
+            .set(state.ids.triangles, ui);
 
-        let tri_input = args.ui.widget_input(args.id);
+        let tri_input = ui.widget_input(id);
 
         let sv_pos = [
             rect_middle[0] - rect_size[0] / 2.0 + self.color.saturation as f64 * rect_size[0],
@@ -159,21 +169,22 @@ impl Widget for ColorPicker<Hsv> {
         }
 
         let rgb = LinSrgb::from(self.color);
+        let pure_hue = LinSrgb::from(Hsv::new(self.color.hue, 1.0, 1.0));
 
         widget::Text::new("RGB")
-            .parent(args.id)
-            .bottom_left()
+            .parent(id)
+            .bottom_left_with_margin(8.)
             .font_size(10)
             .color(color::WHITE)
             .w(20.0)
-            .set(args.state.ids.rgb_label, args.ui);
+            .set(state.ids.rgb_label, ui);
 
         if let Some(red) = widget::NumberDialer::new(rgb.red, 0.0, 1.0, 4)
-            .parent(args.id)
+            .parent(id)
             .right(16.0)
             .label_font_size(10)
-            .w_h(wh[0] / 4.0, 16.0)
-            .set(args.state.ids.red, args.ui)
+            .w_h(wh.0 / 4.0, 16.0)
+            .set(state.ids.red, ui)
         {
             let mut new_rgb = rgb;
             new_rgb.red = red;
@@ -181,11 +192,11 @@ impl Widget for ColorPicker<Hsv> {
         }
 
         if let Some(green) = widget::NumberDialer::new(rgb.green, 0.0, 1.0, 4)
-            .parent(args.id)
+            .parent(id)
             .right(16.0)
             .label_font_size(10)
-            .w_h(wh[0] / 4.0, 16.0)
-            .set(args.state.ids.green, args.ui)
+            .w_h(wh.0 / 4.0, 16.0)
+            .set(state.ids.green, ui)
         {
             let mut new_rgb = rgb;
             new_rgb.green = green;
@@ -193,11 +204,11 @@ impl Widget for ColorPicker<Hsv> {
         }
 
         if let Some(blue) = widget::NumberDialer::new(rgb.blue, 0.0, 1.0, 4)
-            .parent(args.id)
+            .parent(id)
             .right(16.0)
             .label_font_size(10)
-            .w_h(wh[0] / 4.0, 16.0)
-            .set(args.state.ids.blue, args.ui)
+            .w_h(wh.0 / 4.0, 16.0)
+            .set(state.ids.blue, ui)
         {
             let mut new_rgb = rgb;
             new_rgb.blue = blue;
@@ -205,12 +216,12 @@ impl Widget for ColorPicker<Hsv> {
         }
 
         widget::Text::new("HSV")
-            .parent(args.id)
-            .down_from(args.state.ids.rgb_label, 16.0)
+            .parent(id)
+            .up_from(state.ids.rgb_label, 16.0)
             .font_size(10)
             .w(20.0)
             .color(color::WHITE)
-            .set(args.state.ids.hsv_label, args.ui);
+            .set(state.ids.hsv_label, ui);
 
         if let Some(hue) = widget::NumberDialer::new(
             self.color.hue.to_positive_radians() / std::f32::consts::TAU,
@@ -218,11 +229,11 @@ impl Widget for ColorPicker<Hsv> {
             1.0,
             4,
         )
-        .parent(args.id)
+        .parent(id)
         .right(16.0)
         .label_font_size(10)
-        .w_h(wh[0] / 4.0, 16.0)
-        .set(args.state.ids.hue, args.ui)
+        .w_h(wh.0 / 4.0, 16.0)
+        .set(state.ids.hue, ui)
         {
             let mut new_hsv_inner = self.color;
             new_hsv_inner.hue = RgbHue::from_radians(hue * std::f32::consts::TAU);
@@ -230,11 +241,11 @@ impl Widget for ColorPicker<Hsv> {
         }
 
         if let Some(saturation) = widget::NumberDialer::new(self.color.saturation, 0.0, 1.0, 4)
-            .parent(args.id)
+            .parent(id)
             .right(16.0)
             .label_font_size(10)
-            .w_h(wh[0] / 4.0, 16.0)
-            .set(args.state.ids.saturation, args.ui)
+            .w_h(wh.0 / 4.0, 16.0)
+            .set(state.ids.saturation, ui)
         {
             let mut new_hsv_inner = self.color;
             new_hsv_inner.saturation = saturation;
@@ -242,32 +253,36 @@ impl Widget for ColorPicker<Hsv> {
         }
 
         if let Some(value) = widget::NumberDialer::new(self.color.value, 0.0, 1.0, 4)
-            .parent(args.id)
+            .parent(id)
             .right(16.0)
             .label_font_size(10)
-            .w_h(wh[0] / 4.0, 16.0)
-            .set(args.state.ids.value, args.ui)
+            .w_h(wh.0 / 4.0, 16.0)
+            .set(state.ids.value, ui)
         {
             let mut new_hsv_inner = self.color;
             new_hsv_inner.value = value;
             new_hsv = Some(new_hsv_inner);
         }
 
+        let sv_color = color::rgb(rgb.red, rgb.green, rgb.blue);
+
         widget::BorderedRectangle::new([12.0, 12.0])
-            .color(color::rgb(rgb.red, rgb.green, rgb.blue))
-            .border_color(color::BLACK)
+            .color(sv_color)
+            .border_color(sv_color.plain_contrast())
             .border(2.0)
-            .graphics_for(args.id)
+            .graphics_for(id)
             .xy(sv_pos)
-            .set(args.state.ids.svdot, args.ui);
+            .set(state.ids.svdot, ui);
+
+        let hue_color = color::rgb(pure_hue.red, pure_hue.green, pure_hue.blue);
 
         widget::BorderedRectangle::new([20.0, 10.0])
-            .color(color::TRANSPARENT)
-            .border_color(color::BLACK)
+            .color(hue_color)
+            .border_color(hue_color.plain_contrast())
             .border(2.0)
-            .graphics_for(args.id)
+            .graphics_for(id)
             .xy(hue_pos)
-            .set(args.state.ids.huedot, args.ui);
+            .set(state.ids.huedot, ui);
 
         new_hsv
     }
