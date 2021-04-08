@@ -570,6 +570,18 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             .unwrap()
             .is_backed());
 
+        // Skip if the input is older than the last processing of this output
+        // operator.
+        if self
+            .last_known
+            .get(res)
+            .and_then(|s| Some(self.sockets.get_input_image_updated(&socket_res)? < *s))
+            .unwrap_or(false)
+        {
+            log::trace!("Skipping output processing");
+            return Vec::new();
+        }
+
         let ty = self
             .sockets
             .get_input_image_type(&socket_res)
@@ -597,6 +609,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .allocation_size(),
             output_type,
         )];
+
+        self.last_known.insert(res.clone(), self.seq);
 
         if new {
             result.push(ComputeEvent::ThumbnailCreated(

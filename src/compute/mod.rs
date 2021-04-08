@@ -91,6 +91,9 @@ struct ComputeManager<B: gpu::Backend> {
     /// The Compute Manager remembers the hash of the last executed set of
     /// uniforms for each resource. On the next execution this is checked, and
     /// if no changes happen, execution can be skipped entirely.
+    ///
+    /// For output nodes this is repurposed to hold the last executed seq
+    /// number, since output nodes don't hold uniforms (relevant to compute)
     last_known: HashMap<Resource<Node>, u64>,
 
     /// A special socket that the user wants to view, with a seq number for when
