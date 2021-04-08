@@ -45,6 +45,10 @@ widget_ids! {
 #[derive(Debug)]
 pub struct State {
     ids: Ids,
+    rect: Rect,
+    color: LinSrgb,
+    sv_triangles: Vec<Triangle<ColoredPoint>>,
+    hue_triangles: Vec<Triangle<ColoredPoint>>,
 }
 
 impl Widget for ColorPicker<Hsv> {
@@ -55,6 +59,10 @@ impl Widget for ColorPicker<Hsv> {
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         Self::State {
             ids: Ids::new(id_gen),
+            rect: Rect::from_corners([0., 0.], [100., 100.]),
+            color: LinSrgb::new(0., 0., 0.),
+            sv_triangles: Vec::new(),
+            hue_triangles: Vec::new(),
         }
     }
 
@@ -76,27 +84,36 @@ impl Widget for ColorPicker<Hsv> {
         let wh = rect.w_h();
 
         let control_margin = 64.0;
-
         let bar_size = [24.0, wh.1 - control_margin];
         let bar_middle = [xy[0] + wh.0 / 2.0 - 12.0, xy[1] + control_margin / 2.];
         let bar_rect = Rect::from_xy_dim(bar_middle, bar_size);
-        let bar_tris = color_strip(6, bar_size[0], bar_size[1], |x| {
-            color::hsl(x as f32 * std::f32::consts::TAU, 1.0, 0.5).to_rgb()
-        });
 
         let rect_size = [wh.0 - 32.0, wh.1 - control_margin];
         let rect_middle = [xy[0] - 16.0, xy[1] + control_margin / 2.];
         let rect_rect = Rect::from_xy_dim(rect_middle, rect_size);
-        let rect_tris = color_rect(4, rect_size[0], rect_size[1], |x, y| {
-            let hsv = palette::Hsv::new::<f32>(self.color.hue.into(), x as f32, y as f32);
-            let rgb = palette::LinSrgb::from(hsv);
-            color::Rgba(rgb.red, rgb.green, rgb.blue, 1.0)
-        });
 
-        let triangles = bar_tris
+        if rect != state.rect || LinSrgb::from(self.color) != state.color {
+            state.update(|state| {
+                state.hue_triangles = color_strip(6, bar_size[0], bar_size[1], |x| {
+                    color::hsl(x as f32 * std::f32::consts::TAU, 1.0, 0.5).to_rgb()
+                });
+
+                state.sv_triangles = color_rect(4, rect_size[0], rect_size[1], |x, y| {
+                    let hsv = palette::Hsv::new::<f32>(self.color.hue.into(), x as f32, y as f32);
+                    let rgb = palette::LinSrgb::from(hsv);
+                    color::Rgba(rgb.red, rgb.green, rgb.blue, 1.0)
+                });
+
+                state.rect = rect;
+                state.color = LinSrgb::from(self.color);
+            })
+        }
+
+        let triangles = state
+            .hue_triangles
             .iter()
             .map(|t| t.add(bar_middle))
-            .chain(rect_tris.iter().map(|t| t.add(rect_middle)));
+            .chain(state.sv_triangles.iter().map(|t| t.add(rect_middle)));
 
         widget::Triangles::multi_color(triangles)
             .with_bounding_rect(rect)
