@@ -134,25 +134,26 @@ impl Widget for ColorPicker<Hsv> {
                 + self.color.hue.to_positive_radians() as f64 / std::f64::consts::TAU * bar_size[1],
         ];
 
-        for mouse in tri_input
+        for (mouse_start, mouse_current, mouse_modifiers) in tri_input
             .presses()
             .mouse()
             .button(input::MouseButton::Left)
-            .map(|p| (p.0, false))
+            .map(|p| (p.0, p.0, input::ModifierKey::NO_MODIFIER))
             .chain(
                 tri_input
                     .drags()
                     .button(input::MouseButton::Left)
-                    .map(|d| (d.to, d.modifiers == input::ModifierKey::SHIFT)),
+                    .map(|d| (d.origin, d.to, d.modifiers)),
             )
         {
-            let pos = [mouse.0[0] + xy[0], mouse.0[1] + xy[1]];
-            let slowdown = mouse.1;
+            let start = [mouse_start[0] + xy[0], mouse_start[1] + xy[1]];
+            let current = [mouse_current[0] + xy[0], mouse_current[1] + xy[1]];
+            let slowdown = mouse_modifiers == input::ModifierKey::SHIFT;
 
-            if bar_rect.is_over(pos) {
+            if bar_rect.is_over(start) {
                 let mut new_hsv_inner = self.color;
 
-                let mut delta = pos[1] - hue_pos[1];
+                let mut delta = current[1] - hue_pos[1];
                 if slowdown {
                     delta = delta.signum() * SLOWDOWN
                 };
@@ -164,9 +165,9 @@ impl Widget for ColorPicker<Hsv> {
                 new_hsv = Some(new_hsv_inner);
             }
 
-            if rect_rect.is_over(pos) {
+            if rect_rect.is_over(start) {
                 let mut new_hsv_inner = self.color;
-                let mut delta = [pos[0] - sv_pos[0], pos[1] - sv_pos[1]];
+                let mut delta = [current[0] - sv_pos[0], current[1] - sv_pos[1]];
 
                 if slowdown {
                     let magnitude = delta[0].abs().max(delta[1].abs());
