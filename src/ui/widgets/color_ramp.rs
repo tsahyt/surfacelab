@@ -1,4 +1,5 @@
 use super::color_picker::ColorPicker;
+use crate::ui::util::*;
 use conrod_core::widget::triangles::{ColoredPoint, Triangle};
 use conrod_core::*;
 use smallvec::SmallVec;
@@ -8,6 +9,7 @@ pub struct ColorRamp<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     ramp: &'a [[f32; 4]],
+    style: Style,
 }
 
 impl<'a> ColorRamp<'a> {
@@ -15,19 +17,23 @@ impl<'a> ColorRamp<'a> {
         Self {
             common: widget::CommonBuilder::default(),
             ramp,
+            style: Style::default(),
         }
+    }
+
+    builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
     }
 }
 
 widget_ids! {
     pub struct Ids {
-        triangles,
+        gradient_triangles,
         colorpicker,
         add_step,
         delete_step,
-        next_step,
-        prev_step,
         step_dialer,
+        steps[],
     }
 }
 
@@ -42,8 +48,11 @@ pub enum Event {
     DeleteStep(usize),
 }
 
-#[derive(Default, Debug, PartialEq, Clone, WidgetStyle)]
-pub struct Style {}
+#[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
+pub struct Style {
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
+}
 
 impl<'a> Widget for ColorRamp<'a> {
     type State = State;
@@ -58,14 +67,27 @@ impl<'a> Widget for ColorRamp<'a> {
     }
 
     fn style(&self) -> Self::Style {
-        Style::default()
+        self.style
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { id, ui, state, rect, .. } = args;
+        let widget::UpdateArgs {
+            id,
+            ui,
+            state,
+            rect,
+            style,
+            ..
+        } = args;
+
+        let mut event = None;
 
         let xy = rect.xy();
         let wh = rect.w_h();
+
+        if state.selected >= self.ramp.len() {
+            state.update(|state| state.selected = 0)
+        }
 
         let selected_step = self.ramp[state.selected];
         let selected_position = selected_step[3];
@@ -78,23 +100,73 @@ impl<'a> Widget for ColorRamp<'a> {
         let mut display_ramp: SmallVec<[_; 16]> = self.ramp.iter().copied().collect();
         display_ramp.sort_by(|a, b| a[3].partial_cmp(&b[3]).unwrap());
 
-        let gradient_tris = gradient_strip(display_ramp.as_slice(), wh.0, 24.0);
-        let gradient_pos = [xy[0], xy[1] + wh.1 / 2.0 - 12.0];
+        let gradient_tris = gradient_strip(display_ramp.as_slice(), wh.0 - 64., 24.0);
+        let gradient_pos = [xy[0] - 32., xy[1] + wh.1 / 2.0 - 12.0];
 
         widget::Triangles::multi_color(gradient_tris.iter().map(|t| t.add(gradient_pos)))
             .with_bounding_rect(rect)
-            .set(state.ids.triangles, ui);
+            .depth(32.)
+            .set(state.ids.gradient_triangles, ui);
 
-        let mut event = None;
+        if self.ramp.len() != state.ids.steps.len() {
+            state.update(|state| {
+                state
+                    .ids
+                    .steps
+                    .resize(self.ramp.len(), &mut ui.widget_id_generator())
+            });
+        }
 
-        let button_width = (wh.0 - (8.0 * 4.0)) / 5.0;
-        for _press in widget::Button::new()
-            .label("Add")
+        for (i, step) in self.ramp.iter().enumerate() {
+            let step_id = state.ids.steps[i];
+            let step_pos = step[3] as f64 * (wh.0 - 64.);
+            let step_color = color::rgb(step[0], step[1], step[2]);
+
+            widget::BorderedRectangle::new([4., 48.])
+                .border(if i == state.selected { 1.0 } else { 0.0 })
+                .parent(id)
+                .top_left_with_margins(0., step_pos - 2.)
+                .color(step_color)
+                .border_color(step_color.plain_contrast())
+                .set(step_id, ui);
+
+            for _click in ui.widget_input(step_id).clicks().left() {
+                state.update(|state| state.selected = i);
+            }
+
+            for drag in ui.widget_input(step_id).drags().left() {
+                state.update(|state| state.selected = i);
+                let new_pos = (step[3] as f64 + drag.delta_xy[0] / (wh.0 - 64.)).clamp(0., 1.);
+                event = Some(Event::ChangeStep(
+                    i,
+                    [step[0], step[1], step[2], new_pos as f32],
+                ));
+            }
+        }
+
+        for _press in icon_button(IconName::MINUS, style.icon_font(&ui.theme))
+            .color(color::DARK_CHARCOAL)
+            .label_color(color::WHITE)
+            .border(0.)
             .parent(id)
             .label_font_size(10)
-            .top_left_with_margins(32.0, 0.0)
-            .w(button_width)
-            .h(16.0)
+            .w(24.0)
+            .h(24.0)
+            .top_right()
+            .set(state.ids.delete_step, ui)
+        {
+            event = Some(Event::DeleteStep(state.selected));
+        }
+
+        for _press in icon_button(IconName::PLUS, style.icon_font(&ui.theme))
+            .color(color::DARK_CHARCOAL)
+            .label_color(color::WHITE)
+            .border(0.)
+            .parent(id)
+            .label_font_size(10)
+            .w(24.0)
+            .h(24.0)
+            .left(8.0)
             .set(state.ids.add_step, ui)
         {
             state.update(|state| {
@@ -105,50 +177,13 @@ impl<'a> Widget for ColorRamp<'a> {
             event = Some(Event::AddStep);
         }
 
-        for _press in widget::Button::new()
-            .label("Delete")
-            .parent(id)
-            .label_font_size(10)
-            .w(button_width)
-            .h(16.0)
-            .right(8.0)
-            .set(state.ids.delete_step, ui)
-        {
-            event = Some(Event::DeleteStep(state.selected));
-        }
-
-        for _press in widget::Button::new()
-            .label("Next")
-            .parent(id)
-            .label_font_size(10)
-            .w(button_width)
-            .h(16.0)
-            .right(8.0)
-            .set(state.ids.next_step, ui)
-        {
-            state
-                .update(|state| state.selected = (state.selected + 1).min(self.ramp.len() - 1))
-        }
-
-        for _press in widget::Button::new()
-            .label("Prev")
-            .parent(id)
-            .label_font_size(10)
-            .w(button_width)
-            .h(16.0)
-            .right(8.0)
-            .set(state.ids.prev_step, ui)
-        {
-            state
-                .update(|state| state.selected = state.selected.saturating_sub(1))
-        }
-
         if let Some(new_pos) = widget::NumberDialer::new(selected_position, 0.0, 1.0, 4)
             .parent(id)
             .label_font_size(10)
             .right(8.0)
-            .w(button_width)
+            .w(56.0)
             .h(16.0)
+            .top_right_with_margins(32., 0.)
             .set(state.ids.step_dialer, ui)
         {
             event = Some(Event::ChangeStep(
@@ -191,10 +226,10 @@ fn gradient_strip(steps: &[[f32; 4]], width: f64, height: f64) -> Vec<Triangle<C
     let top = height / 2.0;
 
     let mut x: f64 = left;
-    let mut color = color::Rgba(steps[0][0], steps[0][1], steps[0][2], 0.5);
+    let mut color = color::Rgba(steps[0][0], steps[0][1], steps[0][2], 1.0);
 
     for step in steps {
-        let next_color = color::Rgba(step[0], step[1], step[2], 0.5);
+        let next_color = color::Rgba(step[0], step[1], step[2], 1.0);
         let next_x = left + step[3] as f64 * width;
 
         tris.push(Triangle([

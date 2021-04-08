@@ -641,6 +641,7 @@ where
                         let control_id = state.controls.get(&TypeId::of::<ColorRamp>()).unwrap()
                             [control_idx.ramps];
                         if let Some(event) = ColorRamp::new(steps)
+                            .icon_font(style.icon_font(&ui.theme))
                             .padded_w_of(id, 16.0)
                             .h(256.0)
                             .set(control_id, ui)
