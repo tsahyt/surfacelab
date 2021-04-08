@@ -653,19 +653,29 @@ where
                                 }
                                 color_ramp::Event::AddStep => {
                                     use palette::Mix;
-                                    let position = (steps[0][3] + steps[1][3]) / 2.0;
-                                    let before = palette::LinSrgb::new(
-                                        steps[0][0],
-                                        steps[0][1],
-                                        steps[0][2],
-                                    );
-                                    let after = palette::LinSrgb::new(
-                                        steps[1][0],
-                                        steps[1][1],
-                                        steps[1][2],
-                                    );
-                                    let color = before.mix(&after, 0.5);
-                                    steps.insert(1, [color.red, color.green, color.blue, position]);
+                                    if steps.len() < 2 {
+                                        let position = 1.0;
+                                        let color = palette::LinSrgb::new(
+                                            steps[0][0],
+                                            steps[0][1],
+                                            steps[0][2],
+                                        );
+                                        steps.push([color.red, color.green, color.blue, position]);
+                                    } else {
+                                        let position = (steps[0][3] + steps[1][3]) / 2.0;
+                                        let before = palette::LinSrgb::new(
+                                            steps[0][0],
+                                            steps[0][1],
+                                            steps[0][2],
+                                        );
+                                        let after = palette::LinSrgb::new(
+                                            steps[1][0],
+                                            steps[1][1],
+                                            steps[1][2],
+                                        );
+                                        let color = before.mix(&after, 0.5);
+                                        steps.push([color.red, color.green, color.blue, position]);
+                                    }
                                 }
                                 color_ramp::Event::DeleteStep(i) => {
                                     if steps.len() > 1 {
