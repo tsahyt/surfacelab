@@ -582,10 +582,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             return Vec::new();
         }
 
-        let ty = self
-            .sockets
-            .get_input_image_type(&socket_res)
-            .expect("Missing image for input socket");
+        let ty = op.output_type.into();
         let new = self
             .sockets
             .ensure_node_thumbnail_exists(&res, ty, &mut self.gpu);

@@ -189,15 +189,7 @@ impl Default for Output {
 impl Socketed for Output {
     fn inputs(&self) -> HashMap<String, OperatorType> {
         hashmap! {
-            "data".to_string() => match self.output_type {
-                super::OutputType::Albedo => OperatorType::Monomorphic(ImageType::Rgb),
-                super::OutputType::Roughness => OperatorType::Monomorphic(ImageType::Grayscale),
-                super::OutputType::Normal => OperatorType::Monomorphic(ImageType::Rgb),
-                super::OutputType::Displacement => OperatorType::Monomorphic(ImageType::Grayscale),
-                super::OutputType::Metallic => OperatorType::Monomorphic(ImageType::Grayscale),
-                super::OutputType::Value => OperatorType::Monomorphic(ImageType::Grayscale),
-                super::OutputType::Rgb => OperatorType::Monomorphic(ImageType::Rgb),
-        }
+            "data".to_string() => OperatorType::Monomorphic(self.output_type.into())
         }
     }
 

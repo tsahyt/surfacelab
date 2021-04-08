@@ -368,6 +368,20 @@ impl Default for ImageType {
     }
 }
 
+impl From<OutputType> for ImageType {
+    fn from(source: OutputType) -> Self {
+        match source {
+            OutputType::Albedo => ImageType::Rgb,
+            OutputType::Roughness => ImageType::Grayscale,
+            OutputType::Normal => ImageType::Rgb,
+            OutputType::Displacement => ImageType::Grayscale,
+            OutputType::Metallic => ImageType::Grayscale,
+            OutputType::Value => ImageType::Grayscale,
+            OutputType::Rgb => ImageType::Rgb,
+        }
+    }
+}
+
 /// Type variables are internally represented as `u8`. Therefore there can only
 /// be 256 type variables for each operator.
 pub type TypeVariable = u8;
