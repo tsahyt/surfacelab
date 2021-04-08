@@ -651,10 +651,10 @@ where
                                 color_ramp::Event::ChangeStep(i, step) => {
                                     steps[i] = step;
                                 }
-                                color_ramp::Event::AddStep => {
+                                color_ramp::Event::AddStep(i) => {
                                     use palette::Mix;
                                     if steps.len() < 2 {
-                                        let position = 1.0;
+                                        let position = 0.5;
                                         let color = palette::LinSrgb::new(
                                             steps[0][0],
                                             steps[0][1],
@@ -662,18 +662,30 @@ where
                                         );
                                         steps.push([color.red, color.green, color.blue, position]);
                                     } else {
-                                        let position = (steps[0][3] + steps[1][3]) / 2.0;
-                                        let before = palette::LinSrgb::new(
-                                            steps[0][0],
-                                            steps[0][1],
-                                            steps[0][2],
+                                        let before_step = steps
+                                            .iter()
+                                            .filter(|s| s[3] < steps[i][3])
+                                            .max_by(|a, b| {
+                                                a[3].partial_cmp(&b[3])
+                                                    .unwrap_or(std::cmp::Ordering::Equal)
+                                            })
+                                            .cloned()
+                                            .unwrap_or([0., 0., 0., 0.]);
+                                        let current_step = steps[i];
+
+                                        let position = (before_step[3] + current_step[3]) / 2.0;
+
+                                        let before_color = palette::LinSrgb::new(
+                                            before_step[0],
+                                            before_step[1],
+                                            before_step[2],
                                         );
-                                        let after = palette::LinSrgb::new(
-                                            steps[1][0],
-                                            steps[1][1],
-                                            steps[1][2],
+                                        let current_color = palette::LinSrgb::new(
+                                            current_step[0],
+                                            current_step[1],
+                                            current_step[2],
                                         );
-                                        let color = before.mix(&after, 0.5);
+                                        let color = before_color.mix(&current_color, 0.5);
                                         steps.push([color.red, color.green, color.blue, position]);
                                     }
                                 }

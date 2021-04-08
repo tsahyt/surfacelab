@@ -44,7 +44,7 @@ pub struct State {
 
 pub enum Event {
     ChangeStep(usize, [f32; 4]),
-    AddStep,
+    AddStep(usize),
     DeleteStep(usize),
 }
 
@@ -169,12 +169,7 @@ impl<'a> Widget for ColorRamp<'a> {
             .left(8.0)
             .set(state.ids.add_step, ui)
         {
-            state.update(|state| {
-                if state.selected > 0 {
-                    state.selected += 1
-                }
-            });
-            event = Some(Event::AddStep);
+            event = Some(Event::AddStep(state.selected));
         }
 
         if let Some(new_pos) = widget::NumberDialer::new(selected_position, 0.0, 1.0, 4)
