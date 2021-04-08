@@ -324,6 +324,14 @@ where
                 if let Some(img_use) = (*out_ty).try_into().ok() {
                     self.disconnect_image(img_use);
                 }
+
+                self.force_redraw_all();
+
+                response.extend(
+                    self.renderers
+                        .keys()
+                        .map(|r| Lang::RenderEvent(RenderEvent::RendererRedrawn(*r))),
+                );
             }
             Lang::UserRenderEvent(UserRenderEvent::Rotate(id, theta, phi)) => {
                 self.rotate_camera(*id, *theta, *phi);
@@ -504,13 +512,7 @@ where
             self.disconnect_image(output);
         }
 
-        for r in self.renderers.values_mut() {
-            r.reset_sampling();
-        }
-
-        for r in self.renderers.keys().cloned().collect::<Vec<_>>() {
-            self.redraw(r);
-        }
+        self.force_redraw_all();
     }
 
     pub fn redraw(&mut self, renderer_id: RendererID) {
@@ -613,6 +615,16 @@ where
 
         for r in self.renderers.values_mut() {
             r.reset_sampling();
+        }
+    }
+
+    pub fn force_redraw_all(&mut self) {
+        for r in self.renderers.values_mut() {
+            r.reset_sampling();
+        }
+
+        for r in self.renderers.keys().cloned().collect::<Vec<_>>() {
+            self.redraw(r);
         }
     }
 
