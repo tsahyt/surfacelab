@@ -41,6 +41,7 @@ layout(set = 0, binding = 2) uniform Camera {
 
     float environment_strength;
     float environment_blur;
+    float environment_rotation;
 
     uint light_type;
     float light_strength;
@@ -110,6 +111,28 @@ vec2 sphere_mapping(vec3 p) {
 vec2 cylinder_mapping(vec3 p) {
     float u = - atan(p.x, p.z) / (2 * PI);
     return vec2(3 * u, -p.y / 4.) + 0.5;
+}
+
+vec3 world(vec3 d, float lod) {
+    float c = cos(environment_rotation);
+    float s = sin(environment_rotation);
+    mat3 rot = mat3(
+        vec3(c, 0., s),
+        vec3(0., 1., 0.),
+        vec3(- s, 0., c)
+    );
+    return textureLod(samplerCube(environment_map, s_Texture), rot * d, lod).rgb * environment_strength;
+}
+
+vec3 irradiance(vec3 d) {
+    float c = cos(environment_rotation);
+    float s = sin(environment_rotation);
+    mat3 rot = mat3(
+        vec3(c, 0., s),
+        vec3(0., 1., 0.),
+        vec3(- s, 0., c)
+    );
+    return texture(samplerCube(irradiance_map, s_Texture), rot * d).rgb;
 }
 
 // Read the heightfield at a given texture coordinate
@@ -539,12 +562,12 @@ vec3 environment(vec3 n, vec3 rd, vec3 f0, vec3 albedo, float roughness, float m
     vec3 kS = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
     vec3 kD = 1.0 - kS;
     kD *= 1.0 - metallic;
-    vec3 irradiance = texture(samplerCube(irradiance_map, s_Texture), n).rgb;
+    vec3 irradiance = irradiance(n);
     vec3 diffuse = irradiance * albedo;
 
     // Specular
     vec3 r = reflect(rd, n);
-    vec3 refl_color = textureLod(samplerCube(environment_map, s_Texture), r, roughness * MAX_REFLECTION_LOD).rgb;
+    vec3 refl_color = world(r, roughness * MAX_REFLECTION_LOD);
     vec3 f = fresnelSchlickRoughness(max(dot(n, -rd), 0.0), f0, roughness);
     vec2 env_brdf = texture(sampler2D(brdf_lut, s_Texture), lut_coords_ltc(max(dot(n, -rd), 0.0), roughness)).rg;
     vec3 specular = refl_color * (f * env_brdf.x + env_brdf.y);
@@ -627,7 +650,7 @@ vec3 render(vec3 ro, vec3 rd) {
     float d = rayMarch(ro, rd);
 
     // Early termination for non-surface pixels
-    vec3 world = textureLod(samplerCube(environment_map, s_Texture), rd, environment_blur).rgb * environment_strength;
+    vec3 world = world(rd, environment_blur);
     if (d == INFINITY) { return world; }
 
     vec3 p = ro + rd * d;

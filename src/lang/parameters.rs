@@ -284,6 +284,7 @@ pub enum RenderField {
     AO,
     EnvironmentStrength,
     EnvironmentBlur,
+    EnvironmentRotation,
     HDRI,
     FocalLength,
     ApertureSize,
@@ -320,6 +321,9 @@ impl MessageWriter for RenderField {
             ),
             RenderField::EnvironmentBlur => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::EnvironmentBlur(*renderer, f32::from_data(data)),
+            ),
+            RenderField::EnvironmentRotation => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::EnvironmentRotation(*renderer, f32::from_data(data)),
             ),
             RenderField::Shadow => super::Lang::UserRenderEvent(super::UserRenderEvent::SetShadow(
                 *renderer,
@@ -681,6 +685,17 @@ impl ParamBoxDescription<RenderField> {
                                 max: 6.0,
                             },
                             transmitter: RenderField::EnvironmentBlur,
+                            expose_status: None,
+                            visibility: VisibilityFunction::default(),
+                        },
+                        Parameter {
+                            name: "hdri-rotation".to_string(),
+                            control: Control::Slider {
+                                value: 0.0,
+                                min: 0.0,
+                                max: std::f32::consts::TAU,
+                            },
+                            transmitter: RenderField::EnvironmentRotation,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
                         },

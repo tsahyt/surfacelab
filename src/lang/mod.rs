@@ -702,6 +702,8 @@ pub enum UserRenderEvent {
     EnvironmentStrength(RendererID, f32),
     /// The user requests setting the blurring of the HDRi
     EnvironmentBlur(RendererID, f32),
+    /// The user requests setting the rotation of the HDRi
+    EnvironmentRotation(RendererID, f32),
     /// The user requests setting the light type
     LightType(RendererID, LightType),
     /// The user requests setting the light strength

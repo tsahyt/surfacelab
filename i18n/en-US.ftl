@@ -36,6 +36,7 @@ environment = Environment
 hdri-file = HDRi File
 hdri-strength = Strength
 hdri-blur = Blur
+hdri-rotation = Rotation
 ao = Ambient Occlusion
 fog-strength = Fog Strength
 light = Light

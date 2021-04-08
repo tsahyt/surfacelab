@@ -380,6 +380,11 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
+            Lang::UserRenderEvent(UserRenderEvent::EnvironmentRotation(id, rotation)) => {
+                self.set_environment_rotation(*id, *rotation);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
             Lang::UserRenderEvent(UserRenderEvent::LightType(id, light_type)) => {
                 self.set_light_type(*id, *light_type);
                 self.redraw(*id);
@@ -729,6 +734,13 @@ where
     pub fn set_environment_blur(&mut self, renderer_id: RendererID, blur: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.update_sdf3d(|r| r.set_environment_blur(blur));
+            r.reset_sampling();
+        }
+    }
+
+    pub fn set_environment_rotation(&mut self, renderer_id: RendererID, rotation: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_environment_rotation(rotation));
             r.reset_sampling();
         }
     }

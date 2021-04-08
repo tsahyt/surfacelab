@@ -38,6 +38,7 @@ pub struct Uniforms {
 
     environment_strength: f32,
     environment_blur: f32,
+    environment_rotation: f32,
 
     light_type: LightType,
     light_strength: f32,
@@ -65,6 +66,7 @@ impl Default for Uniforms {
             tex_scale: 1.,
             environment_strength: 1.0,
             environment_blur: 3.0,
+            environment_rotation: 0.,
             light_type: LightType::PointLight,
             light_strength: 100.0,
             fog_strength: 0.0,
@@ -231,6 +233,11 @@ where
     /// Determine how much to blur the environment map background
     pub fn set_environment_blur(&mut self, blur: f32) {
         self.view.environment_blur = blur;
+    }
+
+    /// Determine how much to blur the environment map background
+    pub fn set_environment_rotation(&mut self, rotation: f32) {
+        self.view.environment_rotation = rotation;
     }
 
     /// Set whether a shadow should be rendered for the light source
