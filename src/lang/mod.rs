@@ -763,6 +763,7 @@ pub enum ColorSpace {
 }
 
 #[derive(Debug, EnumVariantNames, Copy, Clone, Serialize, Deserialize)]
+#[strum(serialize_all = "kebab_case")]
 pub enum ExportFormat {
     Png,
     Jpeg,
@@ -774,11 +775,11 @@ pub enum ExportFormat {
 /// Export specifications
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportSpec {
+    pub prefix: String,
     pub node: Resource<Node>,
     pub color_space: ColorSpace,
     pub bit_depth: u8,
     pub format: ExportFormat,
-    pub size: OperatorSize,
 }
 
 /// IO related events triggered by the user. Should be treated as unsanitized

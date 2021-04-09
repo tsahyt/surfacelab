@@ -188,3 +188,9 @@ rgb = RGB
 
 srgb = sRGB
 linear = Linear
+
+png = PNG
+jpeg = JPEG
+hdr = HDR
+tiff = TIFF
+tga = TGA

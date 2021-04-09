@@ -55,7 +55,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     parameters: ParamBoxDescription<SurfaceField>,
-    export_entries: Vec<(String, ExportSpec)>,
+    export_entries: Vec<ExportSpec>,
 }
 
 impl<'a> Widget for SurfaceSection<'a> {
@@ -67,7 +67,13 @@ impl<'a> Widget for SurfaceSection<'a> {
         State {
             ids: Ids::new(id_gen),
             parameters: ParamBoxDescription::surface_parameters(),
-            export_entries: Vec::new(),
+            export_entries: vec![ExportSpec {
+                prefix: "something".to_string(),
+                node: Resource::node("base/output.1"),
+                color_space: ColorSpace::Srgb,
+                bit_depth: 8,
+                format: ExportFormat::Png,
+            }], // Vec::new(),
         }
     }
 
@@ -132,7 +138,14 @@ impl<'a> Widget for SurfaceSection<'a> {
             .scrollbar_on_top()
             .set(state.ids.export_list, ui);
 
-        while let Some(row) = rows.next(ui) {}
+        state.update(|state| {
+            while let Some(row) = rows.next(ui) {
+                let widget =
+                    export_row::ExportRow::new(&mut state.export_entries[row.i], self.language);
+
+                row.set(widget, ui);
+            }
+        });
 
         if let Some(s) = scrollbar {
             s.set(ui);
