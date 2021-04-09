@@ -762,10 +762,24 @@ pub enum ColorSpace {
     Linear,
 }
 
-/// Export specifications, constructed as an appropriate set of channel
-/// specifications. Exposes a Builder-esque interface.
+#[derive(Debug, EnumVariantNames, Copy, Clone, Serialize, Deserialize)]
+pub enum ExportFormat {
+    Png,
+    Jpeg,
+    Hdr,
+    Tiff,
+    Tga,
+}
+
+/// Export specifications
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExportSpec {}
+pub struct ExportSpec {
+    pub node: Resource<Node>,
+    pub color_space: ColorSpace,
+    pub bit_depth: u8,
+    pub format: ExportFormat,
+    pub size: OperatorSize,
+}
 
 /// IO related events triggered by the user. Should be treated as unsanitized
 /// because they are usually user generated.

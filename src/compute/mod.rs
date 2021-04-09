@@ -412,7 +412,7 @@ where
                 self.parent_size = *size;
             }
             Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => {
-                self.export(export, *size, path)
+                self.export(export, path)
             }
             Lang::ScheduleEvent(ScheduleEvent::VramUsage) => {
                 let usage = self.gpu.allocator_usage();
@@ -468,107 +468,206 @@ where
     }
 
     /// Export an image as given by the export specifications to a certain path.
-    fn export<P: AsRef<Path>>(&mut self, spec: &ExportSpec, size: u32, path: P) {
-        // let mut images = HashMap::new();
-
-        // for s in spec.channel_specs() {
-        //     let entry = images.entry(s.0.clone());
-        //     entry.or_insert_with(|| {
-        //         #[allow(clippy::or_fun_call)]
-        //         let (image, ty) = self
-        //             .sockets
-        //             .get_input_image_typed(&s.0)
-        //             .or(self.sockets.get_output_image_typed(&s.0))
-        //             .expect("Trying to export non-existent socket");
-        //         let img_size = image.get_size();
-        //         imageops::resize(
-        //             &convert_image(&self.gpu.download_image(image).unwrap(), img_size, ty)
-        //                 .expect("Image conversion failed"),
-        //             size,
-        //             size,
-        //             imageops::Triangle,
-        //         )
-        //     });
-        // }
-
-        // match spec {
-        //     ExportSpec::RGBA([r, g, b, a]) => {
-        //         let final_image = ImageBuffer::from_fn(size, size, |x, y| {
-        //             Rgba([
-        //                 images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()],
-        //                 images.get(&g.0).unwrap().get_pixel(x, y)[g.1.channel_index()],
-        //                 images.get(&b.0).unwrap().get_pixel(x, y)[b.1.channel_index()],
-        //                 images.get(&a.0).unwrap().get_pixel(x, y)[a.1.channel_index()],
-        //             ])
-        //         });
-        //         final_image.save(path).unwrap();
-        //     }
-        //     ExportSpec::RGB([r, g, b]) => {
-        //         let final_image = ImageBuffer::from_fn(size, size, |x, y| {
-        //             Rgb([
-        //                 images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()],
-        //                 images.get(&g.0).unwrap().get_pixel(x, y)[g.1.channel_index()],
-        //                 images.get(&b.0).unwrap().get_pixel(x, y)[b.1.channel_index()],
-        //             ])
-        //         });
-        //         final_image.save(path).unwrap();
-        //     }
-        //     ExportSpec::Grayscale([r]) => {
-        //         let final_image = ImageBuffer::from_fn(size, size, |x, y| {
-        //             Luma([images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()]])
-        //         });
-        //         final_image.save(path).unwrap();
-        //     }
-        // }
+    fn export<P: AsRef<Path>>(&mut self, spec: &ExportSpec, path: P) {
+        let (img, ty) = self
+            .sockets
+            .get_input_image_typed(&spec.node.node_socket("data"))
+            .expect("Unable to find image");
+        let img_size = img.get_size();
+        ConvertedImage::new(
+            &self.gpu.download_image(img).unwrap(),
+            img_size,
+            spec.color_space,
+            spec.bit_depth,
+            ty,
+        )
+        .expect("Failed to convert image")
+        .save_to_file(spec.format, path);
     }
 }
 
-/// Converts an image from the GPU into a standardized rgba16 image. If the
-/// input image type is Rgb, a reverse gamma curve will be applied such that the
-/// output image matches what is displayed in the renderers.
-fn convert_image(
-    raw: &[u8],
-    size: u32,
-    ty: ImageType,
-) -> Result<ImageBuffer<Rgba<u16>, Vec<u16>>, String> {
-    fn to_16bit(x: f32) -> u16 {
-        (x.clamp(0., 1.) * 65535.) as u16
+pub enum ConvertedImage {
+    LinearR8(u32, Vec<u8>),
+    SrgbRgb8(u32, Vec<u8>),
+    LinearR16(u32, Vec<u16>),
+    SrgbRgb16(u32, Vec<u16>),
+    LinearR32(u32, Vec<Rgb<f32>>),
+}
+
+impl ConvertedImage {
+    /// Converts an image from the GPU. If the input image type is Rgb, a reverse
+    /// gamma curve will be applied such that the output image matches what is
+    /// displayed in the renderers.
+    pub fn new(
+        raw: &[u8],
+        size: u32,
+        color_space: ColorSpace,
+        bit_depth: u8,
+        ty: ImageType,
+    ) -> Result<Self, String> {
+        fn to_16bit(x: f32) -> u16 {
+            (x.clamp(0., 1.) * 65535.) as u16
+        }
+
+        fn to_16bit_gamma(x: f32) -> u16 {
+            (x.powf(1.0 / 2.2).clamp(0., 1.) * 65535.) as u16
+        }
+
+        fn to_8bit(x: f32) -> u8 {
+            (x.clamp(0., 1.) * 256.) as u8
+        }
+
+        fn to_8bit_gamma(x: f32) -> u8 {
+            (x.powf(1.0 / 2.2).clamp(0., 1.) * 256.) as u8
+        }
+
+        match (bit_depth, color_space, ty) {
+            (8, ColorSpace::Linear, ImageType::Grayscale) => {
+                #[allow(clippy::cast_ptr_alignment)]
+                let u8s: Vec<u8> = unsafe {
+                    std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
+                        .iter()
+                        .map(|x| to_8bit(*x))
+                        .collect()
+                };
+                Ok(ConvertedImage::LinearR8(size, u8s))
+            }
+            (8, ColorSpace::Srgb, ImageType::Rgb) => {
+                #[allow(clippy::cast_ptr_alignment)]
+                let u8s: Vec<u8> = unsafe {
+                    std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
+                        .chunks(4)
+                        .map(|chunk| {
+                            vec![
+                                to_8bit_gamma(chunk[0].to_f32()),
+                                to_8bit_gamma(chunk[1].to_f32()),
+                                to_8bit_gamma(chunk[2].to_f32()),
+                            ]
+                        })
+                        .flatten()
+                        .collect()
+                };
+                Ok(ConvertedImage::SrgbRgb8(size, u8s))
+            }
+            (16, ColorSpace::Linear, ImageType::Grayscale) => {
+                #[allow(clippy::cast_ptr_alignment)]
+                let u16s: Vec<u16> = unsafe {
+                    std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
+                        .iter()
+                        .map(|x| to_16bit(*x))
+                        .collect()
+                };
+                Ok(ConvertedImage::LinearR16(size, u16s))
+            }
+            (16, ColorSpace::Srgb, ImageType::Rgb) => {
+                #[allow(clippy::cast_ptr_alignment)]
+                let u16s: Vec<u16> = unsafe {
+                    std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
+                        .chunks(4)
+                        .map(|chunk| {
+                            vec![
+                                to_16bit_gamma(chunk[0].to_f32()),
+                                to_16bit_gamma(chunk[1].to_f32()),
+                                to_16bit_gamma(chunk[2].to_f32()),
+                            ]
+                        })
+                        .flatten()
+                        .collect()
+                };
+                Ok(ConvertedImage::SrgbRgb16(size, u16s))
+            }
+            (32, _, ImageType::Grayscale) => {
+                #[allow(clippy::cast_ptr_alignment)]
+                let f32s: Vec<Rgb<f32>> = unsafe {
+                    std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
+                        .iter()
+                        .map(|v| Rgb([*v, *v, *v]))
+                        .collect()
+                };
+                Ok(ConvertedImage::LinearR32(size, f32s))
+            }
+            _ => Err("Unsupported bit depth/colorspace combination for image type".to_string()),
+        }
     }
 
-    fn to_16bit_gamma(x: f32) -> u16 {
-        (x.powf(1.0 / 2.2).clamp(0., 1.) * 65535.) as u16
+    /// Save this image to a file, using a given format. The format is *not*
+    /// inferred from the path!
+    pub fn save_to_file<P: AsRef<Path>>(&self, format: ExportFormat, path: P) {
+        let mut writer = std::fs::File::create(path).expect("Failed to create file");
+        match (self, format) {
+            (ConvertedImage::LinearR8(size, data), ExportFormat::Png) => {
+                use image::codecs::png;
+                let enc = png::PngEncoder::new(writer);
+                enc.encode(data, *size, *size, image::ColorType::L8)
+                    .expect("Failed to encode as PNG");
+            }
+            (ConvertedImage::LinearR8(size, data), ExportFormat::Jpeg) => {
+                use image::codecs::jpeg;
+                let mut enc = jpeg::JpegEncoder::new(&mut writer);
+                enc.encode(data, *size, *size, image::ColorType::L8)
+                    .expect("Failed to encode as PNG");
+            }
+            (ConvertedImage::LinearR8(size, data), ExportFormat::Tiff) => {
+                use image::codecs::tiff;
+                let enc = tiff::TiffEncoder::new(writer);
+                enc.encode(data, *size, *size, image::ColorType::L8)
+                    .expect("Failed to encode as TIFF");
+            }
+            (ConvertedImage::LinearR8(size, data), ExportFormat::Tga) => {
+                use image::codecs::tga;
+                let enc = tga::TgaEncoder::new(writer);
+                enc.encode(data, *size, *size, image::ColorType::L8)
+                    .expect("Failed to encode as TGA");
+            }
+            (ConvertedImage::SrgbRgb8(size, data), ExportFormat::Png) => {
+                use image::codecs::png;
+                let enc = png::PngEncoder::new(writer);
+                enc.encode(data, *size, *size, image::ColorType::Rgb8)
+                    .expect("Failed to encode as PNG");
+            }
+            (ConvertedImage::SrgbRgb8(size, data), ExportFormat::Jpeg) => {
+                use image::codecs::jpeg;
+                let mut enc = jpeg::JpegEncoder::new(&mut writer);
+                enc.encode(data, *size, *size, image::ColorType::Rgb8)
+                    .expect("Failed to encode as PNG");
+            }
+            (ConvertedImage::SrgbRgb8(size, data), ExportFormat::Tiff) => {
+                use image::codecs::tiff;
+                let enc = tiff::TiffEncoder::new(writer);
+                enc.encode(data, *size, *size, image::ColorType::Rgb8)
+                    .expect("Failed to encode as TIFF");
+            }
+            (ConvertedImage::SrgbRgb8(size, data), ExportFormat::Tga) => {
+                use image::codecs::tga;
+                let enc = tga::TgaEncoder::new(writer);
+                enc.encode(data, *size, *size, image::ColorType::Rgb8)
+                    .expect("Failed to encode as TGA");
+            }
+            (ConvertedImage::LinearR16(size, data), ExportFormat::Png) => {
+                use image::codecs::png;
+                let enc = png::PngEncoder::new(writer);
+                let u8data = unsafe {
+                    std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 2)
+                };
+                enc.encode(u8data, *size, *size, image::ColorType::L16)
+                    .expect("Failed to encode as PNG");
+            }
+            (ConvertedImage::SrgbRgb16(size, data), ExportFormat::Png) => {
+                use image::codecs::png;
+                let enc = png::PngEncoder::new(writer);
+                let u8data = unsafe {
+                    std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 2)
+                };
+                enc.encode(u8data, *size, *size, image::ColorType::Rgb16)
+                    .expect("Failed to encode as PNG");
+            }
+            (ConvertedImage::LinearR32(size, data), ExportFormat::Hdr) => {
+                use image::codecs::hdr;
+                let enc = hdr::HdrEncoder::new(writer);
+                enc.encode(data, *size as _, *size as _)
+                    .expect("Failed to encode HDR");
+            }
+            _ => panic!("Unsupported format for image"),
+        }
     }
-
-    let converted: Vec<u16> = match ty {
-        // Underlying memory is formatted as rgba16f
-        ImageType::Rgb => unsafe {
-            #[allow(clippy::cast_ptr_alignment)]
-            let u16s: Vec<[u16; 4]> =
-                std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
-                    .chunks(4)
-                    .map(|chunk| {
-                        [
-                            to_16bit_gamma(chunk[0].to_f32()),
-                            to_16bit_gamma(chunk[1].to_f32()),
-                            to_16bit_gamma(chunk[2].to_f32()),
-                            to_16bit(chunk[3].to_f32()),
-                        ]
-                    })
-                    .collect();
-            std::slice::from_raw_parts(u16s.as_ptr() as *const u16, u16s.len() * 4).to_owned()
-        },
-        // Underlying memory is formatted as r32f, using this value for all channels
-        ImageType::Grayscale => unsafe {
-            #[allow(clippy::cast_ptr_alignment)]
-            let u16s: Vec<[u16; 4]> =
-                std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
-                    .iter()
-                    .map(|x| [to_16bit(*x); 4])
-                    .collect();
-            std::slice::from_raw_parts(u16s.as_ptr() as *const u16, u16s.len() * 4).to_owned()
-        },
-    };
-
-    ImageBuffer::from_raw(size, size, converted)
-        .ok_or_else(|| "Error while creating image buffer".to_string())
 }
