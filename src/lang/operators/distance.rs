@@ -24,6 +24,7 @@ use zerocopy::AsBytes;
     Deserialize,
     PartialEq,
 )]
+#[strum(serialize_all = "kebab_case")]
 pub enum DistanceMetric {
     Euclidean = 0,
     Manhattan = 1,
@@ -43,6 +44,7 @@ pub enum DistanceMetric {
     Deserialize,
     PartialEq,
 )]
+#[strum(serialize_all = "kebab_case")]
 pub enum DistanceBorderMode {
     Closed = 0,
     Open = 1,

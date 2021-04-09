@@ -667,16 +667,18 @@ pub enum SurfaceEvent {
 pub type RendererID = u64;
 
 /// Light types supported by renderers.
-#[derive(AsBytes, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(AsBytes, Copy, Clone, Debug, Serialize, EnumVariantNames, Deserialize)]
 #[repr(u32)]
+#[strum(serialize_all = "kebab_case")]
 pub enum LightType {
     PointLight = 0,
     SunLight = 1,
 }
 
 /// Object types supported by the SDF 3D renderer
-#[derive(AsBytes, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(AsBytes, Copy, Clone, Debug, Serialize, EnumVariantNames, Deserialize)]
 #[repr(u32)]
+#[strum(serialize_all = "kebab_case")]
 pub enum ObjectType {
     Plane = 0,
     FinitePlane = 1,
@@ -686,8 +688,9 @@ pub enum ObjectType {
 }
 
 /// Tonemapping operators for renderer
-#[derive(AsBytes, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(AsBytes, Copy, Clone, Debug, Serialize, EnumVariantNames, Deserialize)]
 #[repr(u32)]
+#[strum(serialize_all = "kebab_case")]
 pub enum ToneMap {
     Reinhard = 0,
     ReinhardJodie = 1,
@@ -753,6 +756,7 @@ pub enum UserRenderEvent {
 /// Supported color spaces for (external) images.
 #[repr(u32)]
 #[derive(Debug, EnumVariantNames, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Hash)]
+#[strum(serialize_all = "kebab_case")]
 pub enum ColorSpace {
     Srgb,
     Linear,

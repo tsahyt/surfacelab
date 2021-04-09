@@ -24,6 +24,7 @@ use zerocopy::AsBytes;
     Deserialize,
     PartialEq,
 )]
+#[strum(serialize_all = "kebab-case")]
 pub enum BlurQuality {
     LowQuality = 0,
     HighQuality = 1,

@@ -28,8 +28,17 @@ opacity = Deckkraft
 renderer = Renderer
 sample-count = Sampleanzahl
 tone-map = Tone Mapping Operator
+reinhard = Reinhard
+reinhard-jodie = Reinhard-Jodie
+hable = Hable Filmic
+aces = ACES
 geometry = Geometrie
 object-type = Objekttyp
+plane = Ebene
+finite-plane = Endliche Ebene
+cube = Würfel
+sphere = Kugel
+cylinder = Zylinder
 displacement-amount = Displacementstärke
 tex-scale = Texturskalierung
 environment = Umgebungslicht
@@ -41,6 +50,8 @@ ao = Ambient Occlusion
 fog-strength = Nebelstärke
 light = Licht
 light-type = Lichttyp
+point-light = Punktlicht
+sun-light = Sonnenlicht
 light-strength = Lichtstärke
 shadow = Schatten
 camera = Kamera
@@ -78,19 +89,38 @@ input-type = Inputtyp
 strength = Stärke
 
 blend-mode = Blendmodus
+mix = Mischen
+multiply = Multiplizieren
+add = Addieren
+subtract = Abziehen
+screen = Negativ Multiplizieren
+overlay = Überlagern
+darken = Abdunkeln
+lighten = Aufhellen
+smooth-darken = Weich Abdunkeln
+smooth-lighten = Weich Aufhellen
 clamp = Festhalten
 sharpness = Schärfe
-mix = Mischverhältnis
 
 grayscale-conversion-mode = Graustufenmodus
+luminance = Leuchtdichte
+average = Mittelwert
+desaturate = Entsättigen
+max-decompose = Max Decompose
+min-decompose = Min Decompose
+red-only = Nur Rot
+green-only = Nur Grün
+blue-only = Nur Blau
 
 scale = Skalierung
 octaves = Oktaven
-roughness = Rauheit
 
 gradient = Gradient
 
 range-mode = Rangemodus
+smooth-step = Smooth Step
+smoother-step = Smoother Step
+stepped = Schritte
 from-min = Von Min
 from-max = Von Max
 to-min = Zu Min
@@ -100,6 +130,9 @@ steps = Schritte
 color = Farbe
 
 adjust-mode = Farbmodus
+hsv = Farbe/Sättigung/Wert
+hsl = Farbe/Sättigung/Helligkeit
+hcl = Farbe/Chroma/Helligkeit
 hue = Farbe
 saturation = Sättigung
 value = Wert
@@ -118,20 +151,40 @@ translation = Verschiebung
 shear = Scheren
 rotation = Rotation
 
+low-quality = Niedrige Qualität
+high-quality = Hohe Qualität
 sigma = Sigma
 quality = Qualität
 
 expand = Ausdehnen
 metric = Distanzmetrik
+euclidean = Euklidisch
+manhattan = Manhattan
+chebyshev = Tschebyschow
 threshold = Schwellenwert
 extent = Ausdehnung
 border-mode = Randmodus
+closed = Geschlossen
+open = Offen
 
 smooth-edge = Kantenglättung
 
 warp-mode = Warp Modus
+push = Drücken
+pull = Ziehen
+directional = Gerichtet
 intensity = Intensität
 angle = Winkel
 
 spread-distance = Distanz
 spread-samples = Abtastpunkte
+
+albedo = Albedo
+roughness = Rauheit
+normal = Normale
+displacement = Verschiebung
+metallic = Metallisch
+rgb = RGB
+
+srgb = sRGB
+linear = Linear

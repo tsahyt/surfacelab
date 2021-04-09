@@ -345,9 +345,11 @@ where
         let mut message_count = 0;
         let mut control_idx = ControlCounts::default();
 
-        let controls = self.description.controls();
+        let description = self.description;
+        let language = self.language;
+        let controls = description.controls();
 
-        for (j, category) in self.description.categories.iter_mut().enumerate() {
+        for (j, category) in description.categories.iter_mut().enumerate() {
             widget::Text::new(&self.language.get_message(category.name))
                 .parent(id)
                 .color(style.text_color(&ui.theme))
@@ -533,8 +535,10 @@ where
                             .controls
                             .get(&TypeId::of::<widget::DropDownList<String>>())
                             .unwrap()[control_idx.enums];
+                        let i18nd: Vec<_> =
+                            variants.iter().map(|v| language.get_message(v)).collect();
                         if let Some(new_selection) =
-                            widget::DropDownList::new(variants, Some(*selected))
+                            widget::DropDownList::new(&i18nd, Some(*selected))
                                 .label_font_size(style.text_size(&ui.theme))
                                 .padded_w_of(id, 16.0)
                                 .h(16.0)

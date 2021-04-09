@@ -28,8 +28,17 @@ opacity = Opacity
 renderer = Renderer
 sample-count = Sample Count
 tone-map = Tone Mapping Operator
+reinhard = Reinhard
+reinhard-jodie = Reinhard-Jodie
+hable = Hable Filmic
+aces = ACES
 geometry = Geometry
 object-type = Object Type
+plane = Plane
+finite-plane = Finite Plane
+cube = Cube
+sphere = Sphere
+cylinder = Cylinder
 displacement-amount = Displacement Amount
 tex-scale = Texture Scale
 environment = Environment
@@ -41,6 +50,8 @@ ao = Ambient Occlusion
 fog-strength = Fog Strength
 light = Light
 light-type = Light Type
+point-light = Point Light
+sun-light = Sun Light
 light-strength = Strength
 shadow = Shadow
 camera = Camera
@@ -78,19 +89,38 @@ input-type = Input Type
 strength = Strength
 
 blend-mode = Blend Mode
+mix = Mix
+multiply = Multiply
+add = Add
+subtract = Subtract
+screen = Screen
+overlay = Overlay
+darken = Darken
+lighten = Lighten
+smooth-darken = Smooth Darken
+smooth-lighten = Smooth Lighten
 clamp = Clamp
 sharpness = Sharpness
-mix = Mix
 
 grayscale-conversion-mode = Conversion Mode
+luminance = Luminance
+average = Average
+desaturate = Desaturate
+max-decompose = Max Decompose
+min-decompose = Min Decompose
+red-only = Red Only
+green-only = Green Only
+blue-only = Blue Only
 
 scale = Scale
 octaves = Octaves
-roughness = Roughness
 
 gradient = Gradient
 
 range-mode = Range Mode
+smooth-step = Smooth Step
+smoother-step = Smoother Step
+stepped = Stepped
 from-min = From Min
 from-max = From Max
 to-min = To Min
@@ -100,6 +130,9 @@ steps = Steps
 color = Color
 
 adjust-mode = Color Mode
+hsv = Hue/Saturation/Value
+hsl = Hue/Saturation/Lightness
+hcl = Hue/Chroma/Lightness
 hue = Hue
 saturation = Saturation
 value = Value
@@ -118,20 +151,40 @@ translation = Translation
 shear = Shear
 rotation = Rotation
 
+low-quality = Low Quality
+high-quality = High Quality
 sigma = Sigma
 quality = Quality
 
 expand = Expand
 metric = Distance Metric
+euclidean = Euclidean
+manhattan = Manhattan
+chebyshev = Chebyshev
 threshold = Threshold
 extent = Extent
 border-mode = Border Mode
+closed = Closed
+open = Open
 
 smooth-edge = Edge Smoothing
 
 warp-mode = Warp Mode
+push = Push
+pull = Pull
+directional = Directional
 intensity = Intensity
 angle = Angle
 
 spread-distance = Distance
 spread-samples = Samples
+
+albedo = Albedo
+roughness = Roughness
+normal = Normal
+displacement = Displacement
+metallic = Metallic
+rgb = RGB
+
+srgb = sRGB
+linear = Linear

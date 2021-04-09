@@ -24,6 +24,7 @@ use zerocopy::AsBytes;
     Deserialize,
     PartialEq,
 )]
+#[strum(serialize_all = "kebab_case")]
 pub enum BlendMode {
     Mix,
     Multiply,

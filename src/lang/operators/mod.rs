@@ -136,6 +136,7 @@ impl OperatorParamBox for Image {
 #[derive(
     PartialEq, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString, Serialize, Deserialize,
 )]
+#[strum(serialize_all = "kebab_case")]
 pub enum OutputType {
     Albedo,
     Roughness,

@@ -26,6 +26,7 @@ use zerocopy::AsBytes;
     PartialEq,
     UnsafeFromPrimitive,
 )]
+#[strum(serialize_all = "kebab_case")]
 pub enum ColorAdjustMode {
     HSV = 0,
     HSL = 1,

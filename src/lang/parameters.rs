@@ -3,6 +3,7 @@ use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use strum::VariantNames;
 
 /// A trait for things that have parameters. Parameters can be set from a field
 /// descriptor and some plain data. It is up to the implementation to interpret
@@ -598,12 +599,10 @@ impl ParamBoxDescription<RenderField> {
                             name: "tone-map".to_string(),
                             control: Control::Enum {
                                 selected: 0,
-                                variants: vec![
-                                    "Reinhard".to_string(),
-                                    "Reinhard-Jodie".to_string(),
-                                    "Hable Filmic".to_string(),
-                                    "ACES".to_string(),
-                                ],
+                                variants: super::ToneMap::VARIANTS
+                                    .iter()
+                                    .map(|x| x.to_string())
+                                    .collect(),
                             },
                             transmitter: RenderField::ToneMap,
                             expose_status: None,
@@ -619,13 +618,10 @@ impl ParamBoxDescription<RenderField> {
                             name: "object-type".to_string(),
                             control: Control::Enum {
                                 selected: 2,
-                                variants: vec![
-                                    "Plane".to_string(),
-                                    "Finite Plane".to_string(),
-                                    "Cube".to_string(),
-                                    "Sphere".to_string(),
-                                    "Cylinder".to_string(),
-                                ],
+                                variants: super::ObjectType::VARIANTS
+                                    .iter()
+                                    .map(|x| x.to_string())
+                                    .collect(),
                             },
                             transmitter: RenderField::ObjectType,
                             expose_status: None,
@@ -727,7 +723,10 @@ impl ParamBoxDescription<RenderField> {
                             name: "light-type".to_string(),
                             control: Control::Enum {
                                 selected: 0,
-                                variants: vec!["Point Light".to_string(), "Sun Light".to_string()],
+                                variants: super::LightType::VARIANTS
+                                    .iter()
+                                    .map(|x| x.to_string())
+                                    .collect(),
                             },
                             transmitter: RenderField::LightType,
                             expose_status: None,

@@ -24,6 +24,7 @@ use zerocopy::AsBytes;
     Deserialize,
     PartialEq,
 )]
+#[strum(serialize_all = "kebab_case")]
 pub enum RangeMode {
     Linear = 0,
     SmoothStep = 1,
