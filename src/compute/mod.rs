@@ -469,57 +469,57 @@ where
 
     /// Export an image as given by the export specifications to a certain path.
     fn export<P: AsRef<Path>>(&mut self, spec: &ExportSpec, size: u32, path: P) {
-        let mut images = HashMap::new();
+        // let mut images = HashMap::new();
 
-        for s in spec.channel_specs() {
-            let entry = images.entry(s.0.clone());
-            entry.or_insert_with(|| {
-                #[allow(clippy::or_fun_call)]
-                let (image, ty) = self
-                    .sockets
-                    .get_input_image_typed(&s.0)
-                    .or(self.sockets.get_output_image_typed(&s.0))
-                    .expect("Trying to export non-existent socket");
-                let img_size = image.get_size();
-                imageops::resize(
-                    &convert_image(&self.gpu.download_image(image).unwrap(), img_size, ty)
-                        .expect("Image conversion failed"),
-                    size,
-                    size,
-                    imageops::Triangle,
-                )
-            });
-        }
+        // for s in spec.channel_specs() {
+        //     let entry = images.entry(s.0.clone());
+        //     entry.or_insert_with(|| {
+        //         #[allow(clippy::or_fun_call)]
+        //         let (image, ty) = self
+        //             .sockets
+        //             .get_input_image_typed(&s.0)
+        //             .or(self.sockets.get_output_image_typed(&s.0))
+        //             .expect("Trying to export non-existent socket");
+        //         let img_size = image.get_size();
+        //         imageops::resize(
+        //             &convert_image(&self.gpu.download_image(image).unwrap(), img_size, ty)
+        //                 .expect("Image conversion failed"),
+        //             size,
+        //             size,
+        //             imageops::Triangle,
+        //         )
+        //     });
+        // }
 
-        match spec {
-            ExportSpec::RGBA([r, g, b, a]) => {
-                let final_image = ImageBuffer::from_fn(size, size, |x, y| {
-                    Rgba([
-                        images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()],
-                        images.get(&g.0).unwrap().get_pixel(x, y)[g.1.channel_index()],
-                        images.get(&b.0).unwrap().get_pixel(x, y)[b.1.channel_index()],
-                        images.get(&a.0).unwrap().get_pixel(x, y)[a.1.channel_index()],
-                    ])
-                });
-                final_image.save(path).unwrap();
-            }
-            ExportSpec::RGB([r, g, b]) => {
-                let final_image = ImageBuffer::from_fn(size, size, |x, y| {
-                    Rgb([
-                        images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()],
-                        images.get(&g.0).unwrap().get_pixel(x, y)[g.1.channel_index()],
-                        images.get(&b.0).unwrap().get_pixel(x, y)[b.1.channel_index()],
-                    ])
-                });
-                final_image.save(path).unwrap();
-            }
-            ExportSpec::Grayscale([r]) => {
-                let final_image = ImageBuffer::from_fn(size, size, |x, y| {
-                    Luma([images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()]])
-                });
-                final_image.save(path).unwrap();
-            }
-        }
+        // match spec {
+        //     ExportSpec::RGBA([r, g, b, a]) => {
+        //         let final_image = ImageBuffer::from_fn(size, size, |x, y| {
+        //             Rgba([
+        //                 images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()],
+        //                 images.get(&g.0).unwrap().get_pixel(x, y)[g.1.channel_index()],
+        //                 images.get(&b.0).unwrap().get_pixel(x, y)[b.1.channel_index()],
+        //                 images.get(&a.0).unwrap().get_pixel(x, y)[a.1.channel_index()],
+        //             ])
+        //         });
+        //         final_image.save(path).unwrap();
+        //     }
+        //     ExportSpec::RGB([r, g, b]) => {
+        //         let final_image = ImageBuffer::from_fn(size, size, |x, y| {
+        //             Rgb([
+        //                 images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()],
+        //                 images.get(&g.0).unwrap().get_pixel(x, y)[g.1.channel_index()],
+        //                 images.get(&b.0).unwrap().get_pixel(x, y)[b.1.channel_index()],
+        //             ])
+        //         });
+        //         final_image.save(path).unwrap();
+        //     }
+        //     ExportSpec::Grayscale([r]) => {
+        //         let final_image = ImageBuffer::from_fn(size, size, |x, y| {
+        //             Luma([images.get(&r.0).unwrap().get_pixel(x, y)[r.1.channel_index()]])
+        //         });
+        //         final_image.save(path).unwrap();
+        //     }
+        // }
     }
 }
 
