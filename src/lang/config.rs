@@ -15,13 +15,25 @@ pub enum ConfigurationError {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Configuration {
+    #[serde(default = "default_size")]
     pub window_size: (u32, u32),
+    #[serde(default = "default_language")]
+    pub language: String,
+}
+
+fn default_size() -> (u32, u32) {
+    (1920, 1080)
+}
+
+fn default_language() -> String {
+    "en-US".to_string()
 }
 
 impl Default for Configuration {
     fn default() -> Self {
         Self {
-            window_size: (1920, 1080),
+            window_size: default_size(),
+            language: default_language(),
         }
     }
 }

@@ -25,7 +25,7 @@ fn ui_loop<B: gpu::Backend>(
     gpu: Arc<Mutex<gpu::GPU<B>>>,
     sender: broker::BrokerSender<Lang>,
     receiver: broker::BrokerReceiver<Lang>,
-    window_size: (u32, u32),
+    start_config: config::Configuration,
 ) {
     // Initialize event loop in thread. This is possible on Linux and Windows,
     // but would be a blocker for macOS.
@@ -34,8 +34,8 @@ fn ui_loop<B: gpu::Backend>(
 
     let window = winit::window::WindowBuilder::new()
         .with_inner_size(winit::dpi::Size::Physical(winit::dpi::PhysicalSize::new(
-            window_size.0,
-            window_size.1,
+            start_config.window_size.0,
+            start_config.window_size.1,
         )))
         .with_title("SurfaceLab".to_string())
         .build(&event_loop)
@@ -48,8 +48,8 @@ fn ui_loop<B: gpu::Backend>(
         .unwrap();
 
     let dims = gpu::Extent2D {
-        width: window_size.0,
-        height: window_size.1,
+        width: start_config.window_size.0,
+        height: start_config.window_size.1,
     };
     let mut renderer =
         gpu::ui::Renderer::new(gpu, &window, dims, [1024, 1024]).expect("Error building renderer");
@@ -72,6 +72,7 @@ fn ui_loop<B: gpu::Backend>(
         sender,
         conrod_core::image::Map::new(),
         (monitor_size.width, monitor_size.height),
+        &start_config.language,
     );
 
     // Initialize top level ids
@@ -162,11 +163,12 @@ fn ui_loop<B: gpu::Backend>(
 pub fn start_ui_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,
-    window_size: (u32, u32),
+    config: &config::Configuration,
 ) -> thread::JoinHandle<()> {
     let (sender, receiver, _disconnector) = broker.subscribe();
+    let start_config = config.clone();
     thread::Builder::new()
         .name("ui".to_string())
-        .spawn(move || ui_loop(gpu, sender, receiver, window_size))
+        .spawn(move || ui_loop(gpu, sender, receiver, start_config))
         .expect("Failed to spawn UI thread!")
 }

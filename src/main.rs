@@ -18,8 +18,7 @@ fn main() {
                 .unwrap_or_else(|_| Configuration::default());
 
             // start threads
-            let ui_thread =
-                surfacelab::ui::start_ui_thread(&mut broker, gpu.clone(), config.window_size);
+            let ui_thread = surfacelab::ui::start_ui_thread(&mut broker, gpu.clone(), &config);
             let io_thread = surfacelab::io::start_io_thread(&mut broker, config);
             let nodes_thread = surfacelab::nodes::start_nodes_thread(&mut broker);
             let compute_thread =

@@ -23,11 +23,12 @@ where
         sender: BrokerSender<Lang>,
         image_map: image::Map<crate::gpu::ui::Image<B>>,
         monitor_resolution: (u32, u32),
+        language: &str,
     ) -> Self {
         Self {
             sender,
             image_map,
-            language: Language::default(),
+            language: Language::from_langid(language.parse().expect("Parsing language ID failed")),
             monitor_resolution,
         }
     }
