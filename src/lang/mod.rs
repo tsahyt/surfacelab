@@ -772,6 +772,18 @@ pub enum ExportFormat {
     Tga,
 }
 
+impl ExportFormat {
+    pub fn file_extension(self) -> &'static str {
+        match self {
+            ExportFormat::Png => "png",
+            ExportFormat::Jpeg => "jpg",
+            ExportFormat::Hdr => "hdr",
+            ExportFormat::Tiff => "tiff",
+            ExportFormat::Tga => "tga",
+        }
+    }
+}
+
 /// Export specifications
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportSpec {

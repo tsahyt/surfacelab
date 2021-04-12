@@ -1122,9 +1122,10 @@ impl NodeManager {
                 for spec in self.export_specs.iter() {
                     let mut path = base.clone();
                     path.set_file_name(format!(
-                        "{}_{}.png",
+                        "{}_{}.{}",
                         path.file_name().unwrap().to_str().unwrap(),
-                        spec.name
+                        spec.name,
+                        spec.format.file_extension(),
                     ));
                     log::debug!("Dispatching export to {:#?}", path);
                     response.push(Lang::SurfaceEvent(SurfaceEvent::ExportImage(
