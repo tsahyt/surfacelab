@@ -138,9 +138,9 @@ impl<'a> Widget for SurfaceSection<'a> {
         let (mut rows, scrollbar) = widget::List::flow_down(state.export_entries.len())
             .parent(id)
             .padded_w_of(id, 8.0)
-            .h(320.0)
-            .mid_top_with_margin(112.0)
-            .scrollbar_on_top()
+            .item_size(120.)
+            .h(120. * state.export_entries.len() as f64)
+            .mid_top_with_margin(120.0)
             .set(state.ids.export_list, ui);
 
         state.update(|state| {

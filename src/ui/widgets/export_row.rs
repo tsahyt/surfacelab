@@ -73,6 +73,7 @@ impl<'a> Widget for ExportRow<'a> {
         widget::Text::new(&format!("{} - {}", self.spec.name, self.spec.node))
             .font_size(10)
             .color(color::WHITE)
+            .h(16.)
             .top_left()
             .parent(id)
             .set(state.ids.header_text, ui);
