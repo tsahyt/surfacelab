@@ -80,8 +80,8 @@ impl<'a> Widget for ExportRow<'a> {
 
         for event in widget::TextBox::new(&self.spec.name)
             .font_size(10)
-            .down(8.)
-            .w_of(id)
+            .top_left_with_margins(24., 8.)
+            .padded_w_of(id, 8.)
             .h(16.0)
             .parent(id)
             .set(state.ids.prefix_text, ui)
@@ -142,7 +142,7 @@ impl<'a> Widget for ExportRow<'a> {
                 .label_font_size(10)
                 .down(8.)
                 .h(16.0)
-                .padded_w_of(id, 32.)
+                .padded_w_of(id, 40.)
                 .parent(id)
                 .set(state.ids.format_selector, ui)
         {
