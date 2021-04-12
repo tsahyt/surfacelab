@@ -1,6 +1,6 @@
 use crate::{lang::*, ui::i18n::Language};
 use conrod_core::*;
-use strum::VariantNames;
+use strum::IntoEnumIterator;
 
 #[derive(WidgetCommon)]
 pub struct ExportRow<'a> {
@@ -8,14 +8,20 @@ pub struct ExportRow<'a> {
     common: widget::CommonBuilder,
     spec: &'a mut ExportSpec,
     style: Style,
+    resources: &'a [(Resource<Node>, ImageType)],
     language: &'a Language,
 }
 
 impl<'a> ExportRow<'a> {
-    pub fn new(spec: &'a mut ExportSpec, language: &'a Language) -> Self {
+    pub fn new(
+        spec: &'a mut ExportSpec,
+        resources: &'a [(Resource<Node>, ImageType)],
+        language: &'a Language,
+    ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
+            resources,
             spec,
             language,
         }
@@ -40,7 +46,9 @@ pub struct State {
     ids: Ids,
 }
 
-pub enum Event {}
+pub enum Event {
+    Updated,
+}
 
 impl<'a> Widget for ExportRow<'a> {
     type State = State;
@@ -65,6 +73,7 @@ impl<'a> Widget for ExportRow<'a> {
             style,
             ..
         } = args;
+        let mut ev = None;
 
         widget::Text::new(&format!("{} - {}", self.spec.prefix, self.spec.node))
             .font_size(10)
@@ -89,45 +98,94 @@ impl<'a> Widget for ExportRow<'a> {
             }
         }
 
-        widget::DropDownList::new(&["node:base/output.1"], Some(0))
-            .label_font_size(10)
-            .down(8.)
-            .h(16.0)
-            .parent(id)
-            .set(state.ids.resource_selector, ui);
-
-        let color_spaces: Vec<_> = ColorSpace::VARIANTS
+        let resource_names: Vec<_> = self.resources.iter().map(|x| x.0.to_string()).collect();
+        let resource_idx = self
+            .resources
             .iter()
-            .map(|v| self.language.get_message(v))
-            .collect();
-        widget::DropDownList::new(&color_spaces, Some(0))
+            .position(|(r, _)| r == &self.spec.node);
+        let resource_ty = resource_idx
+            .map(|i| self.resources[i].1)
+            .unwrap_or(ImageType::Grayscale);
+
+        if let Some(new) = widget::DropDownList::new(&resource_names, resource_idx)
             .label_font_size(10)
             .down(8.)
             .h(16.0)
             .parent(id)
-            .set(state.ids.color_space_selector, ui);
+            .set(state.ids.resource_selector, ui)
+        {
+            self.spec.node = self.resources[new].0.clone();
+            ev = Some(Event::Updated)
+        }
 
-        let export_formats: Vec<_> = ExportFormat::VARIANTS
+        // Color Spaces
+        let legal_color_spaces: Vec<_> = ColorSpace::iter()
+            .filter(|c| self.spec.color_space_legal(*c))
+            .collect();
+        let color_space_idx = legal_color_spaces
             .iter()
-            .map(|v| self.language.get_message(v))
+            .position(|c| *c == self.spec.color_space);
+        let color_space_names: Vec<_> = legal_color_spaces
+            .iter()
+            .map(|v| self.language.get_message(&v.to_string()))
             .collect();
-        widget::DropDownList::new(&export_formats, Some(0))
+        if let Some(new) = widget::DropDownList::new(&color_space_names, color_space_idx)
             .label_font_size(10)
             .down(8.)
             .h(16.0)
-            .padded_w_of(id, 32.)
             .parent(id)
-            .set(state.ids.format_selector, ui);
+            .set(state.ids.color_space_selector, ui)
+        {
+            self.spec.color_space = legal_color_spaces[new];
+            self.spec.sanitize_for_color_space();
+            ev = Some(Event::Updated)
+        }
 
-        if let Some(new) = widget::DropDownList::new(&["8", "16", "32"], Some(0))
+        // Export Formats, we allow everything here for choice and sanitize later
+        let export_format_names: Vec<_> = ExportFormat::iter()
+            .map(|v| self.language.get_message(&v.to_string()))
+            .collect();
+        if let Some(new) =
+            widget::DropDownList::new(&export_format_names, Some(self.spec.format as usize))
+                .label_font_size(10)
+                .down(8.)
+                .h(16.0)
+                .padded_w_of(id, 32.)
+                .parent(id)
+                .set(state.ids.format_selector, ui)
+        {
+            self.spec.format = ExportFormat::iter().nth(new).unwrap();
+            self.spec.sanitize_for_format();
+            ev = Some(Event::Updated)
+        }
+
+        // Bit Depths
+        let legal_bit_depths: Vec<u8> = [8, 16, 32]
+            .iter()
+            .copied()
+            .filter(|b| self.spec.bit_depth_legal(*b))
+            .collect();
+        let bit_depth_idx = legal_bit_depths
+            .iter()
+            .position(|b| *b == self.spec.bit_depth);
+        let bit_depth_names: Vec<_> = legal_bit_depths
+            .iter()
+            .map(|b| format!("{} bit", *b))
+            .collect();
+
+        if let Some(new) = widget::DropDownList::new(&bit_depth_names, bit_depth_idx)
             .label_font_size(10)
             .right(8.)
             .h(16.0)
             .w(56.0)
             .parent(id)
             .set(state.ids.bit_depth_selector, ui)
-        {}
+        {
+            self.spec.bit_depth = legal_bit_depths[new];
+            self.spec.sanitize_for_bit_depth();
+            ev = Some(Event::Updated)
+        }
 
-        None
+        ev
     }
 }

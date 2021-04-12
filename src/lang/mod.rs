@@ -755,14 +755,14 @@ pub enum UserRenderEvent {
 
 /// Supported color spaces for (external) images.
 #[repr(u32)]
-#[derive(Debug, EnumVariantNames, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Hash)]
+#[derive(Debug, EnumIter, ToString, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Hash)]
 #[strum(serialize_all = "kebab_case")]
 pub enum ColorSpace {
     Srgb,
     Linear,
 }
 
-#[derive(Debug, EnumVariantNames, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, EnumIter, ToString, PartialEq, Copy, Clone, Serialize, Deserialize)]
 #[strum(serialize_all = "kebab_case")]
 pub enum ExportFormat {
     Png,
@@ -780,6 +780,88 @@ pub struct ExportSpec {
     pub color_space: ColorSpace,
     pub bit_depth: u8,
     pub format: ExportFormat,
+}
+
+impl ExportSpec {
+    fn legal(color_space: ColorSpace, format: ExportFormat, bit_depth: u8) -> bool {
+        use ColorSpace::*;
+        use ExportFormat::*;
+
+        match (color_space, format, bit_depth) {
+            (Srgb, Png, 8) => true,
+            (Linear, Png, 8) => true,
+            (Srgb, Jpeg, 8) => true,
+            (Linear, Jpeg, 8) => true,
+            (Srgb, Tiff, 8) => true,
+            (Linear, Tiff, 8) => true,
+            (Srgb, Tga, 8) => true,
+            (Linear, Tga, 8) => true,
+            (Srgb, Png, 16) => true,
+            (Linear, Png, 16) => true,
+            (Linear, Hdr, 32) => true,
+            _ => false,
+        }
+    }
+
+    /// Determine whether a color space is legal for this spec
+    pub fn color_space_legal(&self, color_space: ColorSpace) -> bool {
+        Self::legal(color_space, self.format, self.bit_depth)
+    }
+
+    /// Determine whether a format is legal for this spec
+    pub fn format_legal(&self, format: ExportFormat) -> bool {
+        Self::legal(self.color_space, format, self.bit_depth)
+    }
+
+    /// Determine whether a bit depth is legal for this spec
+    pub fn bit_depth_legal(&self, bit_depth: u8) -> bool {
+        Self::legal(self.color_space, self.format, bit_depth)
+    }
+
+    /// Sanitize this spec such that all entries are legal for the color space
+    pub fn sanitize_for_color_space(&mut self) {
+        use itertools::Itertools;
+        use strum::IntoEnumIterator;
+
+        if !self.color_space_legal(self.color_space) {
+            let (format, bit_depth) = ExportFormat::iter()
+                .cartesian_product([8, 16, 32].iter().copied())
+                .find(|(f, b)| Self::legal(self.color_space, *f, *b))
+                .unwrap();
+            self.format = format;
+            self.bit_depth = bit_depth;
+        }
+    }
+
+    /// Sanitize this spec such that all entries are legal for the format
+    pub fn sanitize_for_format(&mut self) {
+        use itertools::Itertools;
+        use strum::IntoEnumIterator;
+
+        if !self.format_legal(self.format) {
+            let (color_space, bit_depth) = ColorSpace::iter()
+                .cartesian_product([8, 16, 32].iter().copied())
+                .find(|(c, b)| Self::legal(*c, self.format, *b))
+                .unwrap();
+            self.color_space = color_space;
+            self.bit_depth = bit_depth;
+        }
+    }
+
+    /// Sanitize this spec such that all entries are legal for the bit depth
+    pub fn sanitize_for_bit_depth(&mut self) {
+        use itertools::Itertools;
+        use strum::IntoEnumIterator;
+
+        if !self.bit_depth_legal(self.bit_depth) {
+            let (color_space, format) = ColorSpace::iter()
+                .cartesian_product(ExportFormat::iter())
+                .find(|(c, f)| Self::legal(*c, *f, self.bit_depth))
+                .unwrap();
+            self.color_space = color_space;
+            self.format = format;
+        }
+    }
 }
 
 /// IO related events triggered by the user. Should be treated as unsanitized

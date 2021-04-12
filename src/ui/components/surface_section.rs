@@ -55,6 +55,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     parameters: ParamBoxDescription<SurfaceField>,
+    output_resources: Vec<(Resource<Node>, ImageType)>,
     export_entries: Vec<ExportSpec>,
 }
 
@@ -73,7 +74,11 @@ impl<'a> Widget for SurfaceSection<'a> {
                 color_space: ColorSpace::Srgb,
                 bit_depth: 8,
                 format: ExportFormat::Png,
-            }], // Vec::new(),
+            }],
+            output_resources: vec![
+                (Resource::node("base/output.1"), ImageType::Grayscale),
+                (Resource::node("base/output.2"), ImageType::Rgb),
+            ],
         }
     }
 
@@ -140,8 +145,11 @@ impl<'a> Widget for SurfaceSection<'a> {
 
         state.update(|state| {
             while let Some(row) = rows.next(ui) {
-                let widget =
-                    export_row::ExportRow::new(&mut state.export_entries[row.i], self.language);
+                let widget = export_row::ExportRow::new(
+                    &mut state.export_entries[row.i],
+                    &state.output_resources,
+                    self.language,
+                );
 
                 row.set(widget, ui);
             }
