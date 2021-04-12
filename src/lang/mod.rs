@@ -657,8 +657,8 @@ pub enum SurfaceEvent {
     /// The system requests an export according to the given export spec, with
     /// the given image size, to the path specified.
     ExportImage(ExportSpec, u32, PathBuf),
-    /// The system reports having loaded an export specification with a given name.
-    ExportSpecLoaded(String, ExportSpec),
+    /// The system reports having declared an export specification.
+    ExportSpecDeclared(ExportSpec),
     /// The parent size has been set
     ParentSizeSet(u32),
 }
@@ -775,11 +775,23 @@ pub enum ExportFormat {
 /// Export specifications
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportSpec {
-    pub prefix: String,
+    pub name: String,
     pub node: Resource<Node>,
     pub color_space: ColorSpace,
     pub bit_depth: u8,
     pub format: ExportFormat,
+}
+
+impl From<&Resource<Node>> for ExportSpec {
+    fn from(source: &Resource<Node>) -> Self {
+        Self {
+            name: source.file().unwrap_or("unnamed").to_string(),
+            node: source.clone(),
+            color_space: ColorSpace::Srgb,
+            bit_depth: 8,
+            format: ExportFormat::Png,
+        }
+    }
 }
 
 impl ExportSpec {
@@ -880,10 +892,13 @@ pub enum UserIOEvent {
     PackImage(Resource<Img>),
     /// The user requests setting the parent size.
     SetParentSize(u32),
-    /// The user requests declaration of an export specification.
-    DeclareExport(String, ExportSpec),
-    /// The user requests renaming of an export specification.
-    RenameExport(String, String),
+    /// The user requests declaration of a new export specification.
+    NewExportSpec(ExportSpec),
+    /// The user requests updating of an export specification with new data.
+    /// This may include a name change.
+    UpdateExportSpec(String, ExportSpec),
+    /// The user requests removal of a named export specification
+    RemoveExportSpec(String),
     /// The user requests export according to existing specification.
     RunExports(PathBuf),
     /// The user requests a new surface file.

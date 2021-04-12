@@ -68,13 +68,7 @@ impl<'a> Widget for SurfaceSection<'a> {
         State {
             ids: Ids::new(id_gen),
             parameters: ParamBoxDescription::surface_parameters(),
-            export_entries: vec![ExportSpec {
-                prefix: "something".to_string(),
-                node: Resource::node("base/output.1"),
-                color_space: ColorSpace::Srgb,
-                bit_depth: 8,
-                format: ExportFormat::Png,
-            }],
+            export_entries: Vec::new(),
             output_resources: Vec::new(),
         }
     }
@@ -122,6 +116,7 @@ impl<'a> Widget for SurfaceSection<'a> {
             .set(state.ids.export_label, ui);
 
         for _ev in icon_button(IconName::PLUS, style.icon_font(&ui.theme))
+            .enabled(!state.output_resources.is_empty())
             .parent(id)
             .top_right_with_margins(96.0, 16.0)
             .border(0.)
@@ -130,7 +125,15 @@ impl<'a> Widget for SurfaceSection<'a> {
             .label_font_size(12)
             .wh([20.0, 16.0])
             .set(state.ids.export_add, ui)
-        {}
+        {
+            if let Some(res) = state.output_resources.iter().next() {
+                self.sender
+                    .send(Lang::UserIOEvent(UserIOEvent::NewExportSpec(
+                        ExportSpec::from(res),
+                    )))
+                    .unwrap()
+            }
+        }
 
         let (mut rows, scrollbar) = widget::List::flow_down(state.export_entries.len())
             .parent(id)
@@ -148,7 +151,28 @@ impl<'a> Widget for SurfaceSection<'a> {
                     self.language,
                 );
 
-                row.set(widget, ui);
+                if let Some(ev) = row.set(widget, ui) {
+                    match ev {
+                        export_row::Event::Updated => {
+                            let spec = &state.export_entries[row.i];
+                            self.sender
+                                .send(Lang::UserIOEvent(UserIOEvent::UpdateExportSpec(
+                                    spec.name.clone(),
+                                    spec.clone(),
+                                )))
+                                .unwrap();
+                        }
+                        export_row::Event::Renamed(from) => {
+                            let spec = &state.export_entries[row.i];
+                            self.sender
+                                .send(Lang::UserIOEvent(UserIOEvent::UpdateExportSpec(
+                                    from,
+                                    spec.clone(),
+                                )))
+                                .unwrap();
+                        }
+                    }
+                }
             }
         });
 
@@ -161,7 +185,9 @@ impl<'a> Widget for SurfaceSection<'a> {
 impl<'a> SurfaceSection<'a> {
     fn handle_event(&mut self, state: &mut widget::State<State>, event: &Lang) {
         match event {
-            // Lang::SurfaceEvent(SurfaceEvent::ExportSpecLoaded(name, spec)) => {}
+            Lang::SurfaceEvent(SurfaceEvent::ExportSpecDeclared(spec)) => state.update(|state| {
+                state.export_entries.push(spec.clone());
+            }),
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
                 state.update(|state| {
                     state.parameters.categories[0].parameters[0]

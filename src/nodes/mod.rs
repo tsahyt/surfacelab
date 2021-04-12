@@ -186,7 +186,7 @@ impl Default for ManagedNodeCollection {
 /// in the current surface file.
 struct NodeManager {
     parent_size: u32,
-    export_specs: HashMap<String, lang::ExportSpec>,
+    export_specs: Vec<lang::ExportSpec>,
     graphs: HashMap<String, ManagedNodeCollection>,
     active_graph: lang::Resource<lang::Graph>,
 }
@@ -196,7 +196,7 @@ impl NodeManager {
     pub fn new() -> Self {
         NodeManager {
             parent_size: 1024,
-            export_specs: HashMap::new(),
+            export_specs: Vec::new(),
             graphs: hashmap! { "base".to_string() => ManagedNodeCollection::default() },
             active_graph: lang::Resource::graph("base"),
         }
@@ -1088,12 +1088,20 @@ impl NodeManager {
                     self.active_graph.clone(),
                 )));
             }
-            UserIOEvent::DeclareExport(name, spec) => {
-                self.export_specs.insert(name.clone(), spec.clone());
+            UserIOEvent::NewExportSpec(new) => {
+                self.export_specs.push(new.clone());
+                response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecDeclared(
+                    new.clone(),
+                )));
             }
-            UserIOEvent::RenameExport(from, to) => {
-                if let Some(spec) = self.export_specs.remove(from) {
-                    self.export_specs.insert(to.clone(), spec);
+            UserIOEvent::UpdateExportSpec(name, new) => {
+                if let Some(idx) = self.export_specs.iter().position(|spec| &spec.name == name) {
+                    self.export_specs[idx] = new.clone();
+                }
+            }
+            UserIOEvent::RemoveExportSpec(name) => {
+                if let Some(idx) = self.export_specs.iter().position(|spec| &spec.name == name) {
+                    self.export_specs.remove(idx);
                 }
             }
             UserIOEvent::SetImageColorSpace(_, _) => {
@@ -1103,12 +1111,12 @@ impl NodeManager {
                 )));
             }
             UserIOEvent::RunExports(base) => {
-                for (name, spec) in self.export_specs.iter() {
+                for spec in self.export_specs.iter() {
                     let mut path = base.clone();
                     path.set_file_name(format!(
                         "{}_{}.png",
                         path.file_name().unwrap().to_str().unwrap(),
-                        name
+                        spec.name
                     ));
                     log::debug!("Dispatching export to {:#?}", path);
                     response.push(Lang::SurfaceEvent(SurfaceEvent::ExportImage(

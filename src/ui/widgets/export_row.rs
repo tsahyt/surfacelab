@@ -48,6 +48,7 @@ pub struct State {
 
 pub enum Event {
     Updated,
+    Renamed(String),
 }
 
 impl<'a> Widget for ExportRow<'a> {
@@ -66,23 +67,17 @@ impl<'a> Widget for ExportRow<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs {
-            state,
-            id,
-            ui,
-            style,
-            ..
-        } = args;
+        let widget::UpdateArgs { state, id, ui, .. } = args;
         let mut ev = None;
 
-        widget::Text::new(&format!("{} - {}", self.spec.prefix, self.spec.node))
+        widget::Text::new(&format!("{} - {}", self.spec.name, self.spec.node))
             .font_size(10)
             .color(color::WHITE)
             .top_left()
             .parent(id)
             .set(state.ids.header_text, ui);
 
-        for ev in widget::TextBox::new(&self.spec.prefix)
+        for event in widget::TextBox::new(&self.spec.name)
             .font_size(10)
             .down(8.)
             .w_of(id)
@@ -90,9 +85,11 @@ impl<'a> Widget for ExportRow<'a> {
             .parent(id)
             .set(state.ids.prefix_text, ui)
         {
-            match ev {
+            match event {
                 widget::text_box::Event::Update(new) => {
-                    self.spec.prefix = new;
+                    let old_name = self.spec.name.clone();
+                    self.spec.name = new;
+                    ev = Some(Event::Renamed(old_name));
                 }
                 _ => {}
             }

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 #[derive(Debug, Serialize, Deserialize)]
 struct NodeData<'a> {
     parent_size: u32,
-    export_specs: Cow<'a, HashMap<String, ExportSpec>>,
+    export_specs: Cow<'a, Vec<ExportSpec>>,
     graphs: Cow<'a, HashMap<String, ManagedNodeCollection>>,
 }
 
@@ -84,9 +84,9 @@ impl NodeManager {
         }
 
         // Export Specs
-        for (name, spec) in self.export_specs.iter() {
+        for spec in self.export_specs.iter() {
             events.push(Lang::SurfaceEvent(
-                crate::lang::SurfaceEvent::ExportSpecLoaded(name.clone(), spec.clone()),
+                crate::lang::SurfaceEvent::ExportSpecDeclared(spec.clone()),
             ));
         }
 
