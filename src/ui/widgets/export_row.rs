@@ -8,14 +8,14 @@ pub struct ExportRow<'a> {
     common: widget::CommonBuilder,
     spec: &'a mut ExportSpec,
     style: Style,
-    resources: &'a [(Resource<Node>, ImageType)],
+    resources: &'a [Resource<Node>],
     language: &'a Language,
 }
 
 impl<'a> ExportRow<'a> {
     pub fn new(
         spec: &'a mut ExportSpec,
-        resources: &'a [(Resource<Node>, ImageType)],
+        resources: &'a [Resource<Node>],
         language: &'a Language,
     ) -> Self {
         Self {
@@ -98,14 +98,8 @@ impl<'a> Widget for ExportRow<'a> {
             }
         }
 
-        let resource_names: Vec<_> = self.resources.iter().map(|x| x.0.to_string()).collect();
-        let resource_idx = self
-            .resources
-            .iter()
-            .position(|(r, _)| r == &self.spec.node);
-        let resource_ty = resource_idx
-            .map(|i| self.resources[i].1)
-            .unwrap_or(ImageType::Grayscale);
+        let resource_names: Vec<_> = self.resources.iter().map(|x| x.to_string()).collect();
+        let resource_idx = self.resources.iter().position(|r| r == &self.spec.node);
 
         if let Some(new) = widget::DropDownList::new(&resource_names, resource_idx)
             .label_font_size(10)
@@ -114,7 +108,7 @@ impl<'a> Widget for ExportRow<'a> {
             .parent(id)
             .set(state.ids.resource_selector, ui)
         {
-            self.spec.node = self.resources[new].0.clone();
+            self.spec.node = self.resources[new].clone();
             ev = Some(Event::Updated)
         }
 

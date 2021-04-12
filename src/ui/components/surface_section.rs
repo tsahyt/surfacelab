@@ -55,7 +55,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     parameters: ParamBoxDescription<SurfaceField>,
-    output_resources: Vec<(Resource<Node>, ImageType)>,
+    output_resources: Vec<Resource<Node>>,
     export_entries: Vec<ExportSpec>,
 }
 
@@ -75,10 +75,7 @@ impl<'a> Widget for SurfaceSection<'a> {
                 bit_depth: 8,
                 format: ExportFormat::Png,
             }],
-            output_resources: vec![
-                (Resource::node("base/output.1"), ImageType::Grayscale),
-                (Resource::node("base/output.2"), ImageType::Rgb),
-            ],
+            output_resources: Vec::new()
         }
     }
 
