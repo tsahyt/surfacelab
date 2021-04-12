@@ -491,7 +491,7 @@ pub enum ConvertedImage {
     SrgbRgb8(u32, Vec<u8>),
     LinearR16(u32, Vec<u16>),
     SrgbRgb16(u32, Vec<u16>),
-    LinearR32(u32, Vec<Rgb<f32>>),
+    LinearRgb32(u32, Vec<Rgb<f32>>),
 }
 
 impl ConvertedImage {
@@ -576,7 +576,7 @@ impl ConvertedImage {
                 };
                 Ok(ConvertedImage::SrgbRgb16(size, u16s))
             }
-            (32, _, ImageType::Grayscale) => {
+            (32, ColorSpace::Linear, ImageType::Grayscale) => {
                 #[allow(clippy::cast_ptr_alignment)]
                 let f32s: Vec<Rgb<f32>> = unsafe {
                     std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
@@ -584,7 +584,17 @@ impl ConvertedImage {
                         .map(|v| Rgb([*v, *v, *v]))
                         .collect()
                 };
-                Ok(ConvertedImage::LinearR32(size, f32s))
+                Ok(ConvertedImage::LinearRgb32(size, f32s))
+            }
+            (32, ColorSpace::Linear, ImageType::Rgb) => {
+                #[allow(clippy::cast_ptr_alignment)]
+                let f32s: Vec<Rgb<f32>> = unsafe {
+                    std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
+                        .chunks(4)
+                        .map(|chunk| Rgb([chunk[0].to_f32(), chunk[1].to_f32(), chunk[2].to_f32()]))
+                        .collect()
+                };
+                Ok(ConvertedImage::LinearRgb32(size, f32s))
             }
             _ => Err("Unsupported bit depth/colorspace combination for image type".to_string()),
         }
@@ -661,7 +671,7 @@ impl ConvertedImage {
                 enc.encode(u8data, *size, *size, image::ColorType::Rgb16)
                     .expect("Failed to encode as PNG");
             }
-            (ConvertedImage::LinearR32(size, data), ExportFormat::Hdr) => {
+            (ConvertedImage::LinearRgb32(size, data), ExportFormat::Hdr) => {
                 use image::codecs::hdr;
                 let enc = hdr::HdrEncoder::new(writer);
                 enc.encode(data, *size as _, *size as _)
