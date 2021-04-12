@@ -24,6 +24,7 @@ pub struct NodeData {
     pub title: String,
     pub inputs: Vec<(String, OperatorType)>,
     pub outputs: Vec<(String, OperatorType)>,
+    pub exportable: bool,
     pub type_variables: HashMap<TypeVariable, ImageType>,
     pub param_box: ParamBoxDescription<MessageWriters>,
 }
@@ -54,6 +55,10 @@ impl NodeData {
             title,
             inputs,
             outputs,
+            exportable: matches!(
+                operator,
+                Operator::AtomicOperator(AtomicOperator::Output(..))
+            ),
             param_box,
             thumbnail: None,
             position: position.unwrap_or([0., 0.]),

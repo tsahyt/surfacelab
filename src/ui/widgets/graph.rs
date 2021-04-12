@@ -253,6 +253,7 @@ pub enum Event {
     AddModal(Point),
     Extract(Vec<petgraph::graph::NodeIndex>),
     AlignNodes(Vec<petgraph::graph::NodeIndex>),
+    ExportSetup(Vec<petgraph::graph::NodeIndex>),
     SocketView(petgraph::graph::NodeIndex, String),
     SocketViewClear,
 }
@@ -373,6 +374,7 @@ enum SelectionOperation {
     Delete,
     Extract,
     Align,
+    ExportSetup,
 }
 
 #[derive(Debug)]
@@ -471,19 +473,27 @@ impl<'a> Widget for Graph<'a> {
         let mut drag_operation = None;
 
         // Handle selection operation events
-        let selection_op = ui
-            .widget_input(id)
-            .presses()
-            .key()
-            .find_map(|x| match x.key {
-                input::Key::X => Some(SelectionOperation::Delete),
-                input::Key::E => Some(SelectionOperation::Extract),
-                input::Key::A => Some(SelectionOperation::Align),
-                _ => None,
-            });
+        let selection_op =
+            ui.widget_input(id)
+                .presses()
+                .key()
+                .find_map(|x| match (x.key, x.modifiers) {
+                    (input::Key::X, input::ModifierKey::NO_MODIFIER) => {
+                        Some(SelectionOperation::Delete)
+                    }
+                    (input::Key::G, input::ModifierKey::CTRL) => Some(SelectionOperation::Extract),
+                    (input::Key::E, input::ModifierKey::NO_MODIFIER) => {
+                        Some(SelectionOperation::ExportSetup)
+                    }
+                    (input::Key::A, input::ModifierKey::NO_MODIFIER) => {
+                        Some(SelectionOperation::Align)
+                    }
+                    _ => None,
+                });
 
         let mut extract_ids = vec![];
         let mut align_ids = vec![];
+        let mut export_ids = vec![];
 
         // Build a node for each known index
         for idx in self.graph.node_indices() {
@@ -629,6 +639,9 @@ impl<'a> Widget for Graph<'a> {
                     Some(SelectionOperation::Align) => {
                         align_ids.push(idx);
                     }
+                    Some(SelectionOperation::ExportSetup) => {
+                        export_ids.push(idx);
+                    }
                     _ => {}
                 }
             }
@@ -745,6 +758,11 @@ impl<'a> Widget for Graph<'a> {
         // Handle align operation
         if !align_ids.is_empty() {
             evs.push_back(Event::AlignNodes(align_ids));
+        }
+
+        // Handle export requests
+        if !export_ids.is_empty() {
+            evs.push_back(Event::ExportSetup(export_ids));
         }
 
         evs

@@ -183,6 +183,19 @@ impl<'a> Widget for NodeEditor<'a> {
                             .unwrap();
                     }
                 }
+                graph::Event::ExportSetup(idxs) => {
+                    for node in idxs
+                        .iter()
+                        .map(|idx| collection.graph.node_weight(*idx).unwrap())
+                        .filter(|n| n.exportable)
+                    {
+                        self.sender
+                            .send(Lang::UserIOEvent(UserIOEvent::NewExportSpec(
+                                ExportSpec::from(&node.resource),
+                            )))
+                            .unwrap();
+                    }
+                }
                 graph::Event::SocketView(idx, socket) => self
                     .sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::ViewSocket(Some(
