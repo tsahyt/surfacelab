@@ -224,6 +224,14 @@ impl<'a> SurfaceSection<'a> {
                     state.update(|state| {
                         state.output_resources.remove(idx);
                         state.output_resources.push(to.clone());
+
+                        for spec in state
+                            .export_entries
+                            .iter_mut()
+                            .filter(|spec| &spec.node == from)
+                        {
+                            spec.node = to.clone();
+                        }
                     });
                 }
             }

@@ -447,6 +447,14 @@ impl NodeManager {
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
                     if let Some(r) = graph.rename_node(from_node, to_node) {
                         response.push(r);
+
+                        for spec in self
+                            .export_specs
+                            .iter_mut()
+                            .filter(|spec| &spec.node == from)
+                        {
+                            spec.node = to.clone();
+                        }
                     }
                 }
             }
