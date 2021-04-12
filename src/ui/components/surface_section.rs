@@ -75,7 +75,7 @@ impl<'a> Widget for SurfaceSection<'a> {
                 bit_depth: 8,
                 format: ExportFormat::Png,
             }],
-            output_resources: Vec::new()
+            output_resources: Vec::new(),
         }
     }
 
@@ -161,11 +161,46 @@ impl<'a> Widget for SurfaceSection<'a> {
 impl<'a> SurfaceSection<'a> {
     fn handle_event(&mut self, state: &mut widget::State<State>, event: &Lang) {
         match event {
-            Lang::SurfaceEvent(SurfaceEvent::ExportSpecLoaded(name, spec)) => {}
-            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {}
-            Lang::GraphEvent(GraphEvent::Cleared) => {}
-            Lang::ComputeEvent(ComputeEvent::SocketCreated(res, ty)) => {}
-            Lang::ComputeEvent(ComputeEvent::SocketDestroyed(res)) => {}
+            // Lang::SurfaceEvent(SurfaceEvent::ExportSpecLoaded(name, spec)) => {}
+            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
+                state.update(|state| {
+                    state.parameters.categories[0].parameters[0]
+                        .control
+                        .set_value(&OperatorSize::AbsoluteSize(*size).to_data())
+                });
+            }
+            Lang::GraphEvent(GraphEvent::Cleared) => {
+                state.update(|state| {
+                    state.output_resources.clear();
+                    state.export_entries.clear();
+                });
+            }
+            Lang::GraphEvent(GraphEvent::NodeAdded(
+                res,
+                Operator::AtomicOperator(AtomicOperator::Output(..)),
+                _,
+                _,
+                _,
+            )) => {
+                state.update(|state| {
+                    state.output_resources.push(res.clone());
+                });
+            }
+            Lang::GraphEvent(GraphEvent::NodeRemoved(res)) => {
+                if let Some(idx) = state.output_resources.iter().position(|r| r == res) {
+                    state.update(|state| {
+                        state.output_resources.remove(idx);
+                    });
+                }
+            }
+            Lang::GraphEvent(GraphEvent::NodeRenamed(from, to)) => {
+                if let Some(idx) = state.output_resources.iter().position(|r| r == from) {
+                    state.update(|state| {
+                        state.output_resources.remove(idx);
+                        state.output_resources.push(to.clone());
+                    });
+                }
+            }
             _ => {}
         }
     }
