@@ -581,7 +581,7 @@ impl ConvertedImage {
                 let u16s: Vec<u16> = unsafe {
                     std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
                         .iter()
-                        .map(|x| to_16bit(*x))
+                        .map(|x| to_16bit(*x).to_be())
                         .collect()
                 };
                 Ok(ConvertedImage::R16(size, u16s))
@@ -591,7 +591,7 @@ impl ConvertedImage {
                 let u16s: Vec<u16> = unsafe {
                     std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
                         .iter()
-                        .map(|x| to_16bit_gamma(*x))
+                        .map(|x| to_16bit_gamma(*x).to_be())
                         .collect()
                 };
                 Ok(ConvertedImage::R16(size, u16s))
@@ -603,9 +603,9 @@ impl ConvertedImage {
                         .chunks(4)
                         .map(|chunk| {
                             vec![
-                                to_16bit(chunk[0].to_f32()),
-                                to_16bit(chunk[1].to_f32()),
-                                to_16bit(chunk[2].to_f32()),
+                                to_16bit(chunk[0].to_f32()).to_be(),
+                                to_16bit(chunk[1].to_f32()).to_be(),
+                                to_16bit(chunk[2].to_f32()).to_be(),
                             ]
                         })
                         .flatten()
@@ -620,9 +620,9 @@ impl ConvertedImage {
                         .chunks(4)
                         .map(|chunk| {
                             vec![
-                                to_16bit_gamma(chunk[0].to_f32()),
-                                to_16bit_gamma(chunk[1].to_f32()),
-                                to_16bit_gamma(chunk[2].to_f32()),
+                                to_16bit_gamma(chunk[0].to_f32()).to_be(),
+                                to_16bit_gamma(chunk[1].to_f32()).to_be(),
+                                to_16bit_gamma(chunk[2].to_f32()).to_be(),
                             ]
                         })
                         .flatten()
