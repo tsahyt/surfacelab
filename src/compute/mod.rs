@@ -487,11 +487,11 @@ where
 }
 
 pub enum ConvertedImage {
-    LinearR8(u32, Vec<u8>),
-    SrgbRgb8(u32, Vec<u8>),
-    LinearR16(u32, Vec<u16>),
-    SrgbRgb16(u32, Vec<u16>),
-    LinearRgb32(u32, Vec<Rgb<f32>>),
+    R8(u32, Vec<u8>),
+    Rgb8(u32, Vec<u8>),
+    R16(u32, Vec<u16>),
+    Rgb16(u32, Vec<u16>),
+    Rgb32(u32, Vec<Rgb<f32>>),
 }
 
 impl ConvertedImage {
@@ -530,7 +530,34 @@ impl ConvertedImage {
                         .map(|x| to_8bit(*x))
                         .collect()
                 };
-                Ok(ConvertedImage::LinearR8(size, u8s))
+                Ok(ConvertedImage::R8(size, u8s))
+            }
+            (8, ColorSpace::Srgb, ImageType::Grayscale) => {
+                #[allow(clippy::cast_ptr_alignment)]
+                let u8s: Vec<u8> = unsafe {
+                    std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
+                        .iter()
+                        .map(|x| to_8bit_gamma(*x))
+                        .collect()
+                };
+                Ok(ConvertedImage::R8(size, u8s))
+            }
+            (8, ColorSpace::Linear, ImageType::Rgb) => {
+                #[allow(clippy::cast_ptr_alignment)]
+                let u8s: Vec<u8> = unsafe {
+                    std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
+                        .chunks(4)
+                        .map(|chunk| {
+                            vec![
+                                to_8bit(chunk[0].to_f32()),
+                                to_8bit(chunk[1].to_f32()),
+                                to_8bit(chunk[2].to_f32()),
+                            ]
+                        })
+                        .flatten()
+                        .collect()
+                };
+                Ok(ConvertedImage::Rgb8(size, u8s))
             }
             (8, ColorSpace::Srgb, ImageType::Rgb) => {
                 #[allow(clippy::cast_ptr_alignment)]
@@ -547,7 +574,7 @@ impl ConvertedImage {
                         .flatten()
                         .collect()
                 };
-                Ok(ConvertedImage::SrgbRgb8(size, u8s))
+                Ok(ConvertedImage::Rgb8(size, u8s))
             }
             (16, ColorSpace::Linear, ImageType::Grayscale) => {
                 #[allow(clippy::cast_ptr_alignment)]
@@ -557,7 +584,34 @@ impl ConvertedImage {
                         .map(|x| to_16bit(*x))
                         .collect()
                 };
-                Ok(ConvertedImage::LinearR16(size, u16s))
+                Ok(ConvertedImage::R16(size, u16s))
+            }
+            (16, ColorSpace::Srgb, ImageType::Grayscale) => {
+                #[allow(clippy::cast_ptr_alignment)]
+                let u16s: Vec<u16> = unsafe {
+                    std::slice::from_raw_parts(raw.as_ptr() as *const f32, raw.len() / 4)
+                        .iter()
+                        .map(|x| to_16bit_gamma(*x))
+                        .collect()
+                };
+                Ok(ConvertedImage::R16(size, u16s))
+            }
+            (16, ColorSpace::Linear, ImageType::Rgb) => {
+                #[allow(clippy::cast_ptr_alignment)]
+                let u16s: Vec<u16> = unsafe {
+                    std::slice::from_raw_parts(raw.as_ptr() as *const half::f16, raw.len() / 2)
+                        .chunks(4)
+                        .map(|chunk| {
+                            vec![
+                                to_16bit(chunk[0].to_f32()),
+                                to_16bit(chunk[1].to_f32()),
+                                to_16bit(chunk[2].to_f32()),
+                            ]
+                        })
+                        .flatten()
+                        .collect()
+                };
+                Ok(ConvertedImage::Rgb16(size, u16s))
             }
             (16, ColorSpace::Srgb, ImageType::Rgb) => {
                 #[allow(clippy::cast_ptr_alignment)]
@@ -574,7 +628,7 @@ impl ConvertedImage {
                         .flatten()
                         .collect()
                 };
-                Ok(ConvertedImage::SrgbRgb16(size, u16s))
+                Ok(ConvertedImage::Rgb16(size, u16s))
             }
             (32, ColorSpace::Linear, ImageType::Grayscale) => {
                 #[allow(clippy::cast_ptr_alignment)]
@@ -584,7 +638,7 @@ impl ConvertedImage {
                         .map(|v| Rgb([*v, *v, *v]))
                         .collect()
                 };
-                Ok(ConvertedImage::LinearRgb32(size, f32s))
+                Ok(ConvertedImage::Rgb32(size, f32s))
             }
             (32, ColorSpace::Linear, ImageType::Rgb) => {
                 #[allow(clippy::cast_ptr_alignment)]
@@ -594,7 +648,7 @@ impl ConvertedImage {
                         .map(|chunk| Rgb([chunk[0].to_f32(), chunk[1].to_f32(), chunk[2].to_f32()]))
                         .collect()
                 };
-                Ok(ConvertedImage::LinearRgb32(size, f32s))
+                Ok(ConvertedImage::Rgb32(size, f32s))
             }
             _ => Err("Unsupported bit depth/colorspace combination for image type".to_string()),
         }
@@ -605,55 +659,55 @@ impl ConvertedImage {
     pub fn save_to_file<P: AsRef<Path>>(&self, format: ExportFormat, path: P) {
         let mut writer = std::fs::File::create(path).expect("Failed to create file");
         match (self, format) {
-            (ConvertedImage::LinearR8(size, data), ExportFormat::Png) => {
+            (ConvertedImage::R8(size, data), ExportFormat::Png) => {
                 use image::codecs::png;
                 let enc = png::PngEncoder::new(writer);
                 enc.encode(data, *size, *size, image::ColorType::L8)
                     .expect("Failed to encode as PNG");
             }
-            (ConvertedImage::LinearR8(size, data), ExportFormat::Jpeg) => {
+            (ConvertedImage::R8(size, data), ExportFormat::Jpeg) => {
                 use image::codecs::jpeg;
                 let mut enc = jpeg::JpegEncoder::new(&mut writer);
                 enc.encode(data, *size, *size, image::ColorType::L8)
                     .expect("Failed to encode as PNG");
             }
-            (ConvertedImage::LinearR8(size, data), ExportFormat::Tiff) => {
+            (ConvertedImage::R8(size, data), ExportFormat::Tiff) => {
                 use image::codecs::tiff;
                 let enc = tiff::TiffEncoder::new(writer);
                 enc.encode(data, *size, *size, image::ColorType::L8)
                     .expect("Failed to encode as TIFF");
             }
-            (ConvertedImage::LinearR8(size, data), ExportFormat::Tga) => {
+            (ConvertedImage::R8(size, data), ExportFormat::Tga) => {
                 use image::codecs::tga;
                 let enc = tga::TgaEncoder::new(writer);
                 enc.encode(data, *size, *size, image::ColorType::L8)
                     .expect("Failed to encode as TGA");
             }
-            (ConvertedImage::SrgbRgb8(size, data), ExportFormat::Png) => {
+            (ConvertedImage::Rgb8(size, data), ExportFormat::Png) => {
                 use image::codecs::png;
                 let enc = png::PngEncoder::new(writer);
                 enc.encode(data, *size, *size, image::ColorType::Rgb8)
                     .expect("Failed to encode as PNG");
             }
-            (ConvertedImage::SrgbRgb8(size, data), ExportFormat::Jpeg) => {
+            (ConvertedImage::Rgb8(size, data), ExportFormat::Jpeg) => {
                 use image::codecs::jpeg;
                 let mut enc = jpeg::JpegEncoder::new(&mut writer);
                 enc.encode(data, *size, *size, image::ColorType::Rgb8)
                     .expect("Failed to encode as PNG");
             }
-            (ConvertedImage::SrgbRgb8(size, data), ExportFormat::Tiff) => {
+            (ConvertedImage::Rgb8(size, data), ExportFormat::Tiff) => {
                 use image::codecs::tiff;
                 let enc = tiff::TiffEncoder::new(writer);
                 enc.encode(data, *size, *size, image::ColorType::Rgb8)
                     .expect("Failed to encode as TIFF");
             }
-            (ConvertedImage::SrgbRgb8(size, data), ExportFormat::Tga) => {
+            (ConvertedImage::Rgb8(size, data), ExportFormat::Tga) => {
                 use image::codecs::tga;
                 let enc = tga::TgaEncoder::new(writer);
                 enc.encode(data, *size, *size, image::ColorType::Rgb8)
                     .expect("Failed to encode as TGA");
             }
-            (ConvertedImage::LinearR16(size, data), ExportFormat::Png) => {
+            (ConvertedImage::R16(size, data), ExportFormat::Png) => {
                 use image::codecs::png;
                 let enc = png::PngEncoder::new(writer);
                 let u8data = unsafe {
@@ -662,7 +716,7 @@ impl ConvertedImage {
                 enc.encode(u8data, *size, *size, image::ColorType::L16)
                     .expect("Failed to encode as PNG");
             }
-            (ConvertedImage::SrgbRgb16(size, data), ExportFormat::Png) => {
+            (ConvertedImage::Rgb16(size, data), ExportFormat::Png) => {
                 use image::codecs::png;
                 let enc = png::PngEncoder::new(writer);
                 let u8data = unsafe {
@@ -671,7 +725,7 @@ impl ConvertedImage {
                 enc.encode(u8data, *size, *size, image::ColorType::Rgb16)
                     .expect("Failed to encode as PNG");
             }
-            (ConvertedImage::LinearRgb32(size, data), ExportFormat::Hdr) => {
+            (ConvertedImage::Rgb32(size, data), ExportFormat::Hdr) => {
                 use image::codecs::hdr;
                 let enc = hdr::HdrEncoder::new(writer);
                 enc.encode(data, *size as _, *size as _)
