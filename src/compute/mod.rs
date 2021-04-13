@@ -8,6 +8,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use thiserror::Error;
 
 pub mod interpreter;
 pub mod io;
@@ -62,6 +63,20 @@ impl Linearization {
             }
         })
     }
+}
+
+#[derive(Error, Debug)]
+pub enum ExportError {
+    #[error("Export IO failed with {0}")]
+    IOError(#[from] std::io::Error),
+    #[error("Unsupport export format for given image")]
+    UnsupportedExportFormat,
+    #[error("Image encoding failed with {0}")]
+    EncodingError(#[from] image::ImageError),
+    #[error("Unsupported bit depth or colorspace for image type")]
+    UnsupportedBitDepthOrColorSpace,
+    #[error("Unable to find compute image for export")]
+    UnknownImage,
 }
 
 /// The compute manager is responsible for managing the compute component and
@@ -409,7 +424,9 @@ where
                 self.parent_size = *size;
             }
             Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => {
-                self.export(export, path)
+                if let Err(e) = self.export(export, path) {
+                    log::error!("Export Error: {}", e)
+                }
             }
             Lang::ScheduleEvent(ScheduleEvent::VramUsage) => {
                 let usage = self.gpu.allocator_usage();
@@ -465,11 +482,11 @@ where
     }
 
     /// Export an image as given by the export specifications to a certain path.
-    fn export<P: AsRef<Path>>(&mut self, spec: &ExportSpec, path: P) {
+    fn export<P: AsRef<Path>>(&mut self, spec: &ExportSpec, path: P) -> Result<(), ExportError> {
         let (img, ty) = self
             .sockets
             .get_input_image_typed(&spec.node.node_socket("data"))
-            .expect("Unable to find image");
+            .ok_or(ExportError::UnknownImage)?;
         let img_size = img.get_size();
         ConvertedImage::new(
             &self.gpu.download_image(img).unwrap(),
@@ -477,9 +494,10 @@ where
             spec.color_space,
             spec.bit_depth,
             ty,
-        )
-        .expect("Failed to convert image")
-        .save_to_file(spec.format, path);
+        )?
+        .save_to_file(spec.format, path)?;
+
+        Ok(())
     }
 }
 
@@ -501,7 +519,7 @@ impl ConvertedImage {
         color_space: ColorSpace,
         bit_depth: u8,
         ty: ImageType,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, ExportError> {
         fn to_16bit(x: f32) -> u16 {
             (x.clamp(0., 1.) * 65535.) as u16
         }
@@ -647,62 +665,58 @@ impl ConvertedImage {
                 };
                 Ok(ConvertedImage::Rgb32(size, f32s))
             }
-            _ => Err("Unsupported bit depth/colorspace combination for image type".to_string()),
+            _ => Err(ExportError::UnsupportedBitDepthOrColorSpace),
         }
     }
 
     /// Save this image to a file, using a given format. The format is *not*
     /// inferred from the path!
-    pub fn save_to_file<P: AsRef<Path>>(&self, format: ExportFormat, path: P) {
-        let mut writer = std::fs::File::create(path).expect("Failed to create file");
+    pub fn save_to_file<P: AsRef<Path>>(
+        &self,
+        format: ExportFormat,
+        path: P,
+    ) -> Result<(), ExportError> {
+        let mut writer = std::fs::File::create(path)?;
         match (self, format) {
             (ConvertedImage::R8(size, data), ExportFormat::Png) => {
                 use image::codecs::png;
                 let enc = png::PngEncoder::new(writer);
-                enc.encode(data, *size, *size, image::ColorType::L8)
-                    .expect("Failed to encode as PNG");
+                enc.encode(data, *size, *size, image::ColorType::L8)?;
             }
             (ConvertedImage::R8(size, data), ExportFormat::Jpeg) => {
                 use image::codecs::jpeg;
                 let mut enc = jpeg::JpegEncoder::new(&mut writer);
-                enc.encode(data, *size, *size, image::ColorType::L8)
-                    .expect("Failed to encode as PNG");
+                enc.encode(data, *size, *size, image::ColorType::L8)?;
             }
             (ConvertedImage::R8(size, data), ExportFormat::Tiff) => {
                 use image::codecs::tiff;
                 let enc = tiff::TiffEncoder::new(writer);
-                enc.encode(data, *size, *size, image::ColorType::L8)
-                    .expect("Failed to encode as TIFF");
+                enc.encode(data, *size, *size, image::ColorType::L8)?;
             }
             (ConvertedImage::R8(size, data), ExportFormat::Tga) => {
                 use image::codecs::tga;
                 let enc = tga::TgaEncoder::new(writer);
-                enc.encode(data, *size, *size, image::ColorType::L8)
-                    .expect("Failed to encode as TGA");
+                enc.encode(data, *size, *size, image::ColorType::L8)?;
             }
             (ConvertedImage::Rgb8(size, data), ExportFormat::Png) => {
                 use image::codecs::png;
                 let enc = png::PngEncoder::new(writer);
-                enc.encode(data, *size, *size, image::ColorType::Rgb8)
-                    .expect("Failed to encode as PNG");
+                enc.encode(data, *size, *size, image::ColorType::Rgb8)?;
             }
             (ConvertedImage::Rgb8(size, data), ExportFormat::Jpeg) => {
                 use image::codecs::jpeg;
                 let mut enc = jpeg::JpegEncoder::new(&mut writer);
-                enc.encode(data, *size, *size, image::ColorType::Rgb8)
-                    .expect("Failed to encode as PNG");
+                enc.encode(data, *size, *size, image::ColorType::Rgb8)?;
             }
             (ConvertedImage::Rgb8(size, data), ExportFormat::Tiff) => {
                 use image::codecs::tiff;
                 let enc = tiff::TiffEncoder::new(writer);
-                enc.encode(data, *size, *size, image::ColorType::Rgb8)
-                    .expect("Failed to encode as TIFF");
+                enc.encode(data, *size, *size, image::ColorType::Rgb8)?;
             }
             (ConvertedImage::Rgb8(size, data), ExportFormat::Tga) => {
                 use image::codecs::tga;
                 let enc = tga::TgaEncoder::new(writer);
-                enc.encode(data, *size, *size, image::ColorType::Rgb8)
-                    .expect("Failed to encode as TGA");
+                enc.encode(data, *size, *size, image::ColorType::Rgb8)?;
             }
             (ConvertedImage::R16(size, data), ExportFormat::Png) => {
                 use image::codecs::png;
@@ -710,8 +724,7 @@ impl ConvertedImage {
                 let u8data = unsafe {
                     std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 2)
                 };
-                enc.encode(u8data, *size, *size, image::ColorType::L16)
-                    .expect("Failed to encode as PNG");
+                enc.encode(u8data, *size, *size, image::ColorType::L16)?;
             }
             (ConvertedImage::Rgb16(size, data), ExportFormat::Png) => {
                 use image::codecs::png;
@@ -719,16 +732,16 @@ impl ConvertedImage {
                 let u8data = unsafe {
                     std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 2)
                 };
-                enc.encode(u8data, *size, *size, image::ColorType::Rgb16)
-                    .expect("Failed to encode as PNG");
+                enc.encode(u8data, *size, *size, image::ColorType::Rgb16)?;
             }
             (ConvertedImage::Rgb32(size, data), ExportFormat::Hdr) => {
                 use image::codecs::hdr;
                 let enc = hdr::HdrEncoder::new(writer);
-                enc.encode(data, *size as _, *size as _)
-                    .expect("Failed to encode HDR");
+                enc.encode(data, *size as _, *size as _)?;
             }
-            _ => panic!("Unsupported format for image"),
+            _ => return Err(ExportError::UnsupportedExportFormat),
         }
+
+        Ok(())
     }
 }
