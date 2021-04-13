@@ -3,10 +3,7 @@ use std::path::Path;
 use image::Rgb;
 use thiserror::Error;
 
-use crate::{
-    gpu,
-    lang::{ColorSpace, ExportFormat, ImageType},
-};
+use crate::lang::{ColorSpace, ExportFormat, ImageType};
 
 #[derive(Error, Debug)]
 pub enum ExportError {
