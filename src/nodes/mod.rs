@@ -389,6 +389,7 @@ impl NodeManager {
                                 response.push(instrs);
                                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                                     self.active_graph.clone(),
+                                    Vec::new(),
                                 )));
                             }
                         }
@@ -426,6 +427,7 @@ impl NodeManager {
                         response.push(instrs);
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
+                            Vec::new(),
                         )));
                     }
                 }
@@ -467,6 +469,7 @@ impl NodeManager {
                         response.push(r);
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
+                            Vec::new(),
                         )));
                     };
                 }
@@ -474,6 +477,7 @@ impl NodeManager {
             UserNodeEvent::ViewSocket(_) => {
                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                     self.active_graph.clone(),
+                    Vec::new(),
                 )));
             }
         }
@@ -507,6 +511,7 @@ impl NodeManager {
                     response.push(instrs);
                     response.push(Lang::GraphEvent(GraphEvent::Recompute(
                         self.active_graph.clone(),
+                        Vec::new(),
                     )));
                 }
             }
@@ -688,7 +693,10 @@ impl NodeManager {
                             last_use,
                             force_points,
                         )));
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(graph_res)));
+                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                            graph_res,
+                            Vec::new(),
+                        )));
                     }
                 }
             }
@@ -845,6 +853,7 @@ impl NodeManager {
                         response.push(linearize);
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
+                            Vec::new(),
                         )));
                     }
                 }
@@ -863,6 +872,7 @@ impl NodeManager {
                         response.push(linearize);
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
+                            Vec::new(),
                         )));
                     }
                 }
@@ -889,6 +899,7 @@ impl NodeManager {
                         response.push(linearize);
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
+                            Vec::new(),
                         )));
                     }
                 }
@@ -924,6 +935,7 @@ impl NodeManager {
                         response.push(linearize);
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
+                            Vec::new(),
                         )));
                     }
                 }
@@ -940,6 +952,7 @@ impl NodeManager {
                         response.push(linearize);
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
+                            Vec::new(),
                         )));
                     }
                 }
@@ -956,6 +969,7 @@ impl NodeManager {
                         response.push(linearize);
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
+                            Vec::new(),
                         )));
                     }
                 }
@@ -979,6 +993,7 @@ impl NodeManager {
                         response.push(linearize);
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             self.active_graph.clone(),
+                            Vec::new(),
                         )));
                     }
                 }
@@ -1001,6 +1016,7 @@ impl NodeManager {
                             response.push(linearize);
                             response.push(Lang::GraphEvent(GraphEvent::Recompute(
                                 self.active_graph.clone(),
+                                Vec::new(),
                             )));
                         }
                     }
@@ -1017,6 +1033,7 @@ impl NodeManager {
                             response.push(linearize);
                             response.push(Lang::GraphEvent(GraphEvent::Recompute(
                                 self.active_graph.clone(),
+                                Vec::new(),
                             )));
                         }
                     }
@@ -1095,6 +1112,7 @@ impl NodeManager {
                 response.push(Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(*size)));
                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                     self.active_graph.clone(),
+                    Vec::new(),
                 )));
             }
             UserIOEvent::NewExportSpec(new) => {
@@ -1120,22 +1138,28 @@ impl NodeManager {
                 // Color space changes should trigger a recompute of the current graph.
                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                     self.active_graph.clone(),
+                    Vec::new(),
                 )));
             }
             UserIOEvent::RunExports(base) => {
-                for spec in self.export_specs.iter() {
-                    let mut path = base.clone();
-                    path.set_file_name(format!(
-                        "{}_{}.{}",
-                        path.file_name().unwrap().to_str().unwrap(),
-                        spec.name,
-                        spec.format.file_extension(),
-                    ));
-                    log::debug!("Dispatching export to {:#?}", path);
-                    response.push(Lang::SurfaceEvent(SurfaceEvent::ExportImage(
-                        spec.clone(),
-                        path,
-                    )));
+                use itertools::Itertools;
+                for (graph, export) in self
+                    .export_specs
+                    .iter()
+                    .map(|spec| {
+                        let mut path = base.clone();
+                        path.set_file_name(format!(
+                            "{}_{}.{}",
+                            path.file_name().unwrap().to_str().unwrap(),
+                            spec.name,
+                            spec.format.file_extension(),
+                        ));
+                        (spec.node.node_graph(), (spec.clone(), path))
+                    })
+                    .into_group_map()
+                    .drain()
+                {
+                    response.push(Lang::GraphEvent(GraphEvent::Recompute(graph, export)))
                 }
             }
             _ => {}

@@ -1,3 +1,4 @@
+use super::export::*;
 use super::shaders::{BufferDim, IntermediateDataDescription, ShaderLibrary, Uniforms};
 use super::sockets::*;
 use super::Linearization;
@@ -135,6 +136,12 @@ pub enum InterpretationError {
     /// Recursion detected during execution
     #[error("Recursion detected during execution")]
     RecursionDetected,
+    /// Error during image download while exporting
+    #[error("Image download failed. {0}")]
+    DownloadError(#[from] gpu::DownloadError),
+    /// Error occurred during export
+    #[error("Error during export: {0}")]
+    ExportError(#[from] ExportError),
 }
 
 #[derive(Debug)]
@@ -232,6 +239,9 @@ pub struct Interpreter<'a, B: gpu::Backend> {
 
     /// View socket
     view_socket: &'a mut Option<(Resource<Socket>, u64)>,
+
+    /// Export specs relevant to the interpreter
+    export_specs: &'a HashMap<Resource<Node>, &'a (ExportSpec, std::path::PathBuf)>,
 }
 
 impl<'a, B: gpu::Backend> Interpreter<'a, B> {
@@ -246,6 +256,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         graph: &Resource<Graph>,
         parent_size: u32,
         view_socket: &'a mut Option<(Resource<Socket>, u64)>,
+        export_specs: &'a HashMap<Resource<Node>, &'a (ExportSpec, std::path::PathBuf)>,
     ) -> Result<Self, InterpretationError> {
         let linearization = linearizations
             .get(graph)
@@ -272,6 +283,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             execution_stack,
             parent_size,
             view_socket,
+            export_specs,
         })
     }
 
@@ -850,6 +862,29 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         }
     }
 
+    /// Export an image as given by the export specifications to a certain path.
+    fn export<P: AsRef<std::path::Path>>(
+        &mut self,
+        spec: &ExportSpec,
+        path: P,
+    ) -> Result<(), InterpretationError> {
+        let (img, ty) = self
+            .sockets
+            .get_input_image_typed(&spec.node.node_socket("data"))
+            .ok_or(ExportError::UnknownImage)?;
+        let img_size = img.get_size();
+        ConvertedImage::new(
+            &self.gpu.download_image(img)?,
+            img_size,
+            spec.color_space,
+            spec.bit_depth,
+            ty,
+        )?
+        .save_to_file(spec.format, path)?;
+
+        Ok(())
+    }
+
     /// Clean up all image data, using the current execution stack to determine what can be cleaned up.
     ///
     /// We can safely clean up an image if
@@ -921,6 +956,9 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                     AtomicOperator::Output(output) => {
                         for res in self.execute_output(&output, res) {
                             response.push(res);
+                        }
+                        if let Some((spec, path)) = self.export_specs.get(res) {
+                            self.export(spec, path)?;
                         }
                     }
                     _ => {

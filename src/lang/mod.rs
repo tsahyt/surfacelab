@@ -531,7 +531,7 @@ pub enum GraphEvent {
     /// supplied.
     Relinearized(Resource<Graph>, Linearization, UsePoints, ForcePoints),
     /// A graph needs to be recomputed.
-    Recompute(Resource<Graph>),
+    Recompute(Resource<Graph>, Vec<(ExportSpec, PathBuf)>),
     /// A sockets type has been monomorphized to the given image type.
     SocketMonomorphized(Resource<Socket>, ImageType),
     /// A sockets type is no longer monomorphic.
@@ -655,9 +655,6 @@ pub enum LayersEvent {
 /// Events concerning surfaces, not directly coming from user input.
 #[derive(Debug)]
 pub enum SurfaceEvent {
-    /// The system requests an export according to the given export spec to the
-    /// path specified.
-    ExportImage(ExportSpec, PathBuf),
     /// The system reports having declared an export specification.
     ExportSpecDeclared(ExportSpec),
     /// The system reports having removed an export specification
