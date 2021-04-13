@@ -298,7 +298,7 @@ impl<'a> ResourceBrowser<'a> {
             Lang::ComputeEvent(ComputeEvent::Cleared) => {
                 state.update(|state| state.tree.clear_images());
             }
-            Lang::LayersEvent(LayersEvent::LayersAdded(res, _)) => {
+            Lang::LayersEvent(LayersEvent::LayersAdded(res, _, _)) => {
                 state.update(|state| state.tree.insert_stack(res.clone()));
             }
             Lang::LayersEvent(LayersEvent::LayersRemoved(res)) => {

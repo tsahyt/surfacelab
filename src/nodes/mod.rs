@@ -706,13 +706,14 @@ impl NodeManager {
                     .map(|i| format!("unnamed.{}", i))
                     .find(|n| !self.graphs.contains_key(n))
                     .unwrap();
-                self.graphs.insert(
-                    name.to_string(),
-                    ManagedNodeCollection::LayerStack(layers::LayerStack::new(&name)),
-                );
+                let ls = layers::LayerStack::new(&name);
+                let outs = ls.output_resources();
+                self.graphs
+                    .insert(name.to_string(), ManagedNodeCollection::LayerStack(ls));
                 response.push(lang::Lang::LayersEvent(lang::LayersEvent::LayersAdded(
                     Resource::graph(name.clone()),
                     self.parent_size,
+                    outs,
                 )));
 
                 if let ManagedNodeCollection::LayerStack(ls) = self.graphs.get(&name).unwrap() {

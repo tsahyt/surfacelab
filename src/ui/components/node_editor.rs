@@ -295,7 +295,7 @@ impl<'a> NodeEditor<'a> {
                         .push(Operator::ComplexOperator(ComplexOperator::new(to.clone())));
                 });
             }
-            Lang::LayersEvent(LayersEvent::LayersAdded(res, _)) => {
+            Lang::LayersEvent(LayersEvent::LayersAdded(res, _, _)) => {
                 state.update(|state| {
                     state
                         .operators

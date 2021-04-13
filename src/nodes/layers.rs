@@ -867,6 +867,13 @@ impl LayerStack {
         Resource::node(&format!("{}/output.{}", self.name, channel.short_name(),))
     }
 
+    /// Obtain all output resources
+    pub fn output_resources(&self) -> Vec<Resource<Node>> {
+        MaterialChannel::iter()
+            .map(|chan| self.output_resource(chan))
+            .collect()
+    }
+
     /// Return all output sockets of the given layer
     pub fn layer_sockets(
         &self,

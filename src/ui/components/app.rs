@@ -389,7 +389,7 @@ where
     /// Handle layer events
     fn handle_layers_event(&self, state: &mut widget::State<State>, event: &LayersEvent) {
         match event {
-            LayersEvent::LayersAdded(res, _) => {
+            LayersEvent::LayersAdded(res, _, _) => {
                 state.update(|state| state.graphs.add_layers(res.clone()));
             }
             LayersEvent::LayersRemoved(res) => {

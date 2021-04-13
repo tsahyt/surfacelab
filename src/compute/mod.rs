@@ -156,12 +156,9 @@ where
                     blend_node.rename_file(&new_name);
                     self.sockets.ensure_node_exists(&blend_node, *size);
                 }
-                LayersEvent::LayersAdded(g, size) => {
-                    for channel in MaterialChannel::iter() {
-                        self.sockets.ensure_node_exists(
-                            &g.graph_node(&format!("output.{}", channel.short_name())),
-                            *size,
-                        );
+                LayersEvent::LayersAdded(_, size, outputs) => {
+                    for output in outputs {
+                        self.sockets.ensure_node_exists(output, *size);
                     }
                 }
                 LayersEvent::LayerRemoved(res) => {

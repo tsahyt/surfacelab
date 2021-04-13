@@ -213,6 +213,9 @@ impl<'a> SurfaceSection<'a> {
                         .set_value(&OperatorSize::AbsoluteSize(*size).to_data())
                 });
             }
+            Lang::LayersEvent(LayersEvent::LayersAdded(_, _, outs)) => state.update(|state| {
+                state.output_resources.extend(outs.iter().cloned());
+            }),
             Lang::GraphEvent(GraphEvent::Cleared) => {
                 state.update(|state| {
                     state.output_resources.clear();

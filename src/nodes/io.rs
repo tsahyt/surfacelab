@@ -50,9 +50,9 @@ impl NodeManager {
                 ManagedNodeCollection::NodeGraph(_) => {
                     Lang::GraphEvent(GraphEvent::GraphAdded(res.clone()))
                 }
-                ManagedNodeCollection::LayerStack(_) => {
-                    Lang::LayersEvent(LayersEvent::LayersAdded(res.clone(), self.parent_size))
-                }
+                ManagedNodeCollection::LayerStack(l) => Lang::LayersEvent(
+                    LayersEvent::LayersAdded(res.clone(), self.parent_size, l.output_resources()),
+                ),
             });
             events.append(&mut graph.rebuild_events(self.parent_size));
             if let Some((instrs, last_use, force_points)) =

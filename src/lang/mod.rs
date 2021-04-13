@@ -603,8 +603,9 @@ pub enum UserLayersEvent {
 /// Events concerning layers, not directly coming from user input.
 #[derive(Debug)]
 pub enum LayersEvent {
-    /// A layer stack has been added to the system, with the given parent size.
-    LayersAdded(Resource<Graph>, u32),
+    /// A layer stack has been added to the system, with the supplied parent
+    /// size and a list of material channel outputs.
+    LayersAdded(Resource<Graph>, u32, Vec<Resource<Node>>),
     /// A layer stack has been removed from the system.
     LayersRemoved(Resource<Graph>),
     /// A layer has been pushed onto a layer stack, with the goven resource and
