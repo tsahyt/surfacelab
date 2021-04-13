@@ -77,6 +77,8 @@ pub enum ExportError {
     UnsupportedBitDepthOrColorSpace,
     #[error("Unable to find compute image for export")]
     UnknownImage,
+    #[error("Image download failed. {0}")]
+    DownloadError(#[from] gpu::DownloadError),
 }
 
 /// The compute manager is responsible for managing the compute component and
@@ -489,7 +491,7 @@ where
             .ok_or(ExportError::UnknownImage)?;
         let img_size = img.get_size();
         ConvertedImage::new(
-            &self.gpu.download_image(img).unwrap(),
+            &self.gpu.download_image(img)?,
             img_size,
             spec.color_space,
             spec.bit_depth,

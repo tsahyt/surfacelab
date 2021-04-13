@@ -405,6 +405,10 @@ where
     /// Download a raw image from the GPU by copying it into a CPU visible
     /// buffer.
     pub fn download_image(&mut self, image: &Image<B>) -> Result<Vec<u8>, DownloadError> {
+        if !image.is_backed() {
+            return Err(DownloadError::NotBacked);
+        }
+
         let mut lock = self.gpu.lock().unwrap();
         let bytes = image.get_bytes() as u64;
 

@@ -77,6 +77,9 @@ pub enum PipelineError {
 
 #[derive(Debug, Error)]
 pub enum DownloadError {
+    /// Cannot download non-backed image
+    #[error("Tried to download an image that is not currently backed")]
+    NotBacked,
     /// Failed to build the download buffer
     #[error("Failed to build the download buffer")]
     Building(#[from] basic_mem::BasicBufferBuilderError),
