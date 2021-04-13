@@ -1134,7 +1134,6 @@ impl NodeManager {
                     log::debug!("Dispatching export to {:#?}", path);
                     response.push(Lang::SurfaceEvent(SurfaceEvent::ExportImage(
                         spec.clone(),
-                        self.parent_size,
                         path,
                     )));
                 }

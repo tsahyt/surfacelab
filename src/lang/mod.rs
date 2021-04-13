@@ -655,9 +655,9 @@ pub enum LayersEvent {
 /// Events concerning surfaces, not directly coming from user input.
 #[derive(Debug)]
 pub enum SurfaceEvent {
-    /// The system requests an export according to the given export spec, with
-    /// the given image size, to the path specified.
-    ExportImage(ExportSpec, u32, PathBuf),
+    /// The system requests an export according to the given export spec to the
+    /// path specified.
+    ExportImage(ExportSpec, PathBuf),
     /// The system reports having declared an export specification.
     ExportSpecDeclared(ExportSpec),
     /// The system reports having removed an export specification

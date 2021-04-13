@@ -423,7 +423,7 @@ where
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
                 self.parent_size = *size;
             }
-            Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, size, path)) => {
+            Lang::SurfaceEvent(SurfaceEvent::ExportImage(export, path)) => {
                 if let Err(e) = self.export(export, path) {
                     log::error!("Export Error: {}", e)
                 }
