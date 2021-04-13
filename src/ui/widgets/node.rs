@@ -108,6 +108,7 @@ widget_ids! {
         rectangle,
         thumbnail,
         title,
+        hover_text,
     }
 }
 
@@ -296,6 +297,18 @@ impl<'a> Widget for Node<'a> {
                 .set(w_id, ui);
 
             let middle = ui.xy_of(w_id).unwrap();
+            let hovering = ui
+                .rect_of(w_id)
+                .map(|rect| rect.is_over(ui.global_input().current.mouse.xy))
+                .unwrap_or(false);
+
+            if hovering {
+                widget::Text::new(input)
+                    .color(style.title_color(&ui.theme))
+                    .font_size(style.title_size(&ui.theme) - 2)
+                    .left_from(w_id, 8.)
+                    .set(state.ids.hover_text, ui)
+            }
 
             evs.extend(
                 ui.widget_input(w_id)
@@ -357,6 +370,18 @@ impl<'a> Widget for Node<'a> {
                 .set(w_id, ui);
 
             let middle = ui.xy_of(w_id).unwrap();
+            let hovering = ui
+                .rect_of(w_id)
+                .map(|rect| rect.is_over(ui.global_input().current.mouse.xy))
+                .unwrap_or(false);
+
+            if hovering {
+                widget::Text::new(output)
+                    .color(style.title_color(&ui.theme))
+                    .font_size(style.title_size(&ui.theme) - 2)
+                    .right_from(w_id, 8.)
+                    .set(state.ids.hover_text, ui)
+            }
 
             evs.extend(ui.widget_input(w_id).drags().left().map(|x| {
                 Event::SocketDrag(
