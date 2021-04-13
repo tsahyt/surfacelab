@@ -30,6 +30,7 @@ pub use socketed::*;
 #[enum_dispatch(Socketed, Parameters, Uniforms, Shader, OperatorParamBox)]
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum AtomicOperator {
+    AmbientOcclusion,
     Blend,
     BlendMasked,
     Blur,
@@ -61,6 +62,7 @@ impl AtomicOperator {
     /// for frontends to present a list of all operators.
     pub fn all_default() -> Vec<Self> {
         vec![
+            Self::AmbientOcclusion(AmbientOcclusion::default()),
             Self::Blend(Blend::default()),
             Self::BlendMasked(BlendMasked::default()),
             Self::Blur(Blur::default()),

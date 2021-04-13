@@ -1,0 +1,22 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    float strength;
+};
+
+layout(set = 0, binding = 1) uniform texture2D t_Height;
+layout(set = 0, binding = 2) uniform sampler Sampler;
+layout(set = 0, binding = 3, rgba16f) uniform image2D t_AO;
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_AO);
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+
+    float height = texture(sampler2D(t_Height, Sampler), uv).r;
+    float ao = 0.;
+
+    imageStore(t_AO, idx, vec4(vec3(ao), 1.));
+}
