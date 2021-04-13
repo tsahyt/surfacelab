@@ -659,6 +659,8 @@ pub enum SurfaceEvent {
     ExportImage(ExportSpec, u32, PathBuf),
     /// The system reports having declared an export specification.
     ExportSpecDeclared(ExportSpec),
+    /// The system reports having removed an export specification
+    ExportSpecRemoved(String),
     /// The parent size has been set
     ParentSizeSet(u32),
 }

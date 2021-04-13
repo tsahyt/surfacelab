@@ -1,4 +1,7 @@
-use crate::{lang::*, ui::i18n::Language};
+use crate::{
+    lang::*,
+    ui::{i18n::Language, util::*},
+};
 use conrod_core::*;
 use strum::IntoEnumIterator;
 
@@ -26,14 +29,22 @@ impl<'a> ExportRow<'a> {
             language,
         }
     }
+
+    builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
-pub struct Style {}
+pub struct Style {
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
+}
 
 widget_ids! {
     pub struct Ids {
         header_text,
+        remove_button,
         prefix_text,
         resource_selector,
         color_space_selector,
@@ -49,6 +60,7 @@ pub struct State {
 pub enum Event {
     Updated,
     Renamed(String),
+    Remove,
 }
 
 impl<'a> Widget for ExportRow<'a> {
@@ -67,7 +79,13 @@ impl<'a> Widget for ExportRow<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { state, id, ui, .. } = args;
+        let widget::UpdateArgs {
+            state,
+            id,
+            ui,
+            style,
+            ..
+        } = args;
         let mut ev = None;
 
         widget::Text::new(&format!("{} - {}", self.spec.name, self.spec.node))
@@ -77,6 +95,18 @@ impl<'a> Widget for ExportRow<'a> {
             .top_left()
             .parent(id)
             .set(state.ids.header_text, ui);
+
+        for _click in icon_button(IconName::MINUS, style.icon_font(&ui.theme))
+            .color(color::DARK_CHARCOAL)
+            .border(0.)
+            .label_color(color::WHITE)
+            .label_font_size(12)
+            .wh([20., 16.])
+            .top_right()
+            .set(state.ids.remove_button, ui)
+        {
+            ev = Some(Event::Remove);
+        }
 
         for event in widget::TextBox::new(&self.spec.name)
             .font_size(10)

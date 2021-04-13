@@ -118,7 +118,7 @@ impl<'a> Widget for SurfaceSection<'a> {
         for _ev in icon_button(IconName::PLUS, style.icon_font(&ui.theme))
             .enabled(!state.output_resources.is_empty())
             .parent(id)
-            .top_right_with_margins(96.0, 16.0)
+            .top_right_with_margins(96.0, 8.0)
             .border(0.)
             .color(color::DARK_CHARCOAL)
             .label_color(color::WHITE)
@@ -149,7 +149,8 @@ impl<'a> Widget for SurfaceSection<'a> {
                     &mut state.export_entries[row.i],
                     &state.output_resources,
                     self.language,
-                );
+                )
+                .icon_font(style.icon_font(&ui.theme));
 
                 if let Some(ev) = row.set(widget, ui) {
                     match ev {
@@ -171,6 +172,14 @@ impl<'a> Widget for SurfaceSection<'a> {
                                 )))
                                 .unwrap();
                         }
+                        export_row::Event::Remove => {
+                            let spec = &state.export_entries[row.i];
+                            self.sender
+                                .send(Lang::UserIOEvent(UserIOEvent::RemoveExportSpec(
+                                    spec.name.clone(),
+                                )))
+                                .unwrap();
+                        }
                     }
                 }
             }
@@ -187,6 +196,15 @@ impl<'a> SurfaceSection<'a> {
         match event {
             Lang::SurfaceEvent(SurfaceEvent::ExportSpecDeclared(spec)) => state.update(|state| {
                 state.export_entries.push(spec.clone());
+            }),
+            Lang::SurfaceEvent(SurfaceEvent::ExportSpecRemoved(name)) => state.update(|state| {
+                if let Some(idx) = state
+                    .export_entries
+                    .iter()
+                    .position(|spec| &spec.name == name)
+                {
+                    state.export_entries.remove(idx);
+                }
             }),
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
                 state.update(|state| {

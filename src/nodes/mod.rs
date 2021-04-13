@@ -1111,6 +1111,9 @@ impl NodeManager {
                 if let Some(idx) = self.export_specs.iter().position(|spec| &spec.name == name) {
                     self.export_specs.remove(idx);
                 }
+                response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecRemoved(
+                    name.clone(),
+                )));
             }
             UserIOEvent::SetImageColorSpace(_, _) => {
                 // Color space changes should trigger a recompute of the current graph.
