@@ -863,24 +863,33 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     }
 
     /// Export an image as given by the export specifications to a certain path.
-    fn export<P: AsRef<std::path::Path>>(
+    fn export(
         &mut self,
         spec: &ExportSpec,
-        path: P,
+        path: std::path::PathBuf,
     ) -> Result<(), InterpretationError> {
+        log::trace!("Exporting {} to {:?}", spec.node, path);
+
         let (img, ty) = self
             .sockets
             .get_input_image_typed(&spec.node.node_socket("data"))
             .ok_or(ExportError::UnknownImage)?;
         let img_size = img.get_size();
-        ConvertedImage::new(
-            &self.gpu.download_image(img)?,
-            img_size,
-            spec.color_space,
-            spec.bit_depth,
-            ty,
-        )?
-        .save_to_file(spec.format, path)?;
+        let raw_data = self.gpu.download_image(img)?;
+
+        let format = spec.format;
+        let color_space = spec.color_space;
+        let bit_depth = spec.bit_depth;
+
+        std::thread::spawn(move || {
+            log::trace!("Encoding image to {:?} in thread", format);
+            match ConvertedImage::new(&raw_data, img_size, color_space, bit_depth, ty)
+                .and_then(|img| img.save_to_file(format, path))
+            {
+                Err(e) => log::error!("Failed encoding with {}", e),
+                _ => {}
+            }
+        });
 
         Ok(())
     }
@@ -958,7 +967,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                             response.push(res);
                         }
                         if let Some((spec, path)) = self.export_specs.get(res) {
-                            self.export(spec, path)?;
+                            self.export(spec, path.clone())?;
                         }
                     }
                     _ => {
