@@ -66,7 +66,7 @@ impl Default for Uniforms {
             environment_strength: 1.0,
             environment_blur: 3.0,
             environment_rotation: 0.,
-            ambient_occlusion_strength: 1.,
+            ambient_occlusion_strength: 0.5,
             light_type: LightType::PointLight,
             light_strength: 100.0,
             fog_strength: 0.0,

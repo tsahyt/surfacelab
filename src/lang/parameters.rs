@@ -697,7 +697,7 @@ impl ParamBoxDescription<RenderField> {
                         Parameter {
                             name: "ambient-occlusion-strength".to_string(),
                             control: Control::Slider {
-                                value: 1.0,
+                                value: 0.5,
                                 min: 0.0,
                                 max: 2.0,
                             },

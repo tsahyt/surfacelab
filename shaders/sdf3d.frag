@@ -690,7 +690,7 @@ vec3 render(vec3 ro, vec3 rd) {
     }
 
     // Ambient Light
-    float ao = clamp(pow(baked_ao_, ao_strength), 0., 1.);
+    float ao = clamp(pow(baked_ao_, ao_strength * displacement_amount * 10.), 0., 1.);
     col += environment(n, rd, f0, albedo_, roughness_, metallic_, ao);
 
     // View Falloff
