@@ -152,7 +152,9 @@ shear = Shear
 rotation = Rotation
 
 low-quality = Low Quality
+mid-quality = Mid Quality
 high-quality = High Quality
+ultra-quality = Ultra Quality
 sigma = Sigma
 quality = Quality
 
@@ -194,3 +196,7 @@ jpeg = JPEG
 hdr = HDR
 tiff = TIFF
 tga = TGA
+
+jitter = Jitter
+depth = Depth
+radius = Radius

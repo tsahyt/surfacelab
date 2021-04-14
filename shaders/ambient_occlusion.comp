@@ -3,20 +3,138 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform Params {
-    float strength;
+    uint quality;
+    uint jitter;
+    float radius;
+    float depth;
+    float albedo;
 };
+
+const uint QUALITY_LOW = 0;
+const uint QUALITY_MID = 1;
+const uint QUALITY_HIGH = 2;
+const uint QUALITY_ULTRA = 3;
 
 layout(set = 0, binding = 1) uniform texture2D t_Height;
 layout(set = 0, binding = 2) uniform sampler Sampler;
 layout(set = 0, binding = 3, rgba16f) uniform image2D t_AO;
+
+const float PI = 3.141592654;
+
+float hash(uvec2 x) {
+    uvec2 q = 1103515245U * ( (x>>1U) ^ (x.yx   ) );
+    uint  n = 1103515245U * ( (q.x  ) ^ (q.y>>3U) );
+    return float(n) * (1.0/float(0xffffffffU));
+}
+
+float fetch_height(vec2 uv) {
+    return (texture(sampler2D(t_Height, Sampler), uv).r - .5) * depth;
+}
+
+// basic normal calculation based on differences, not sobel
+vec3 normal(vec2 uv, float scale) {
+    vec2 tex_size = vec2(textureSize(sampler2D(t_Height, Sampler), 0));
+    vec2 ste = 1. / tex_size;
+    float height = fetch_height(uv);
+    vec2 dxy = height - vec2(fetch_height(uv + vec2(ste.x, 0.)),
+                             fetch_height(uv + vec2(0., ste.y)));
+    return normalize(vec3(dxy*scale/ste,1.0));
+}
+
+// Find the maximum horizon angles for the hemisphere at the given point.
+vec3 maximum_horizon_angles(vec3 x, vec2 direction, float steps) {
+    vec2 tex_size = 1. / vec2(textureSize(sampler2D(t_Height, Sampler), 0));
+    float step_size = radius / steps;
+
+    float theta_1 = 0.;
+    float theta_2 = 0.;
+    float max_d = 0.;
+
+    for(float dist = step_size; dist < radius / 2.; dist += step_size) {
+        vec2 s_1 = x.xy - direction * dist;
+        vec3 ws_1 =
+            normalize(vec3(s_1,
+                 fetch_height(s_1)) - x);
+        theta_1 = max(theta_1, ws_1.z);
+        max_d = theta_1 == ws_1.z ? dist : max_d;
+
+        vec2 s_2 = x.xy + direction * dist;
+        vec3 ws_2 =
+            normalize(vec3(s_2,
+                 fetch_height(s_2)) - x);
+        theta_2 = max(theta_2, ws_2.z);
+        max_d = theta_2 == ws_2.z ? dist : max_d;
+    }
+
+    theta_1 = acos(max(theta_1, 0.));
+    theta_2 = acos(max(theta_2, 0.));
+
+    return vec3(theta_1, theta_2, max_d);
+}
+
+float ao(vec2 uv) {
+    float samples = 8.;
+    float steps = 16.;
+
+    switch(quality) {
+        case QUALITY_LOW:
+            samples = 8.;
+            steps = 16.;
+            break;
+        case QUALITY_MID:
+            samples = 16.;
+            steps = 48.;
+            break;
+        case QUALITY_HIGH:
+            samples = 24.;
+            steps = 96.;
+            break;
+        case QUALITY_ULTRA:
+            samples = 48.;
+            steps = 96.;
+            break;
+    }
+
+    float sample_step = PI / samples;
+    float sum = 0.;
+
+    vec3 x = vec3(uv, fetch_height(uv));
+    vec3 n = normal(uv, 1.);
+    float gamma = acos(n.z);
+
+    for(float phi = 0; phi < PI; phi += sample_step) {
+        float random = hash(uvec2(uv * 1e8 + phi)) * sample_step;
+        vec2 direction = jitter != 0 ?
+            vec2(cos(phi + random), sin(phi + random)) :
+            vec2(cos(phi), sin(phi));
+        vec3 theta = maximum_horizon_angles(x, direction, steps);
+
+        float a =
+            0.25 * (- cos(2 * theta.x - gamma) + cos(gamma) + 2 * theta.x * sin(gamma)) +
+            0.25 * (- cos(2 * theta.y - gamma) + cos(gamma) + 2 * theta.y * sin(gamma));
+
+        a /= exp(- theta.z);
+        sum += a;
+    }
+
+    sum /= samples;
+
+    return sum;
+}
+
+float multibounce(float x, float albedo) {
+    float a =   2.0404 * albedo - 0.3324;
+    float b = - 4.7951 * albedo + 0.6417;
+    float c =   2.7552 * albedo + 0.6903;
+    return max(x, (x * (a + b) * x + c) * x);
+}
 
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     ivec2 resolution = imageSize(t_AO);
     vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
 
-    float height = texture(sampler2D(t_Height, Sampler), uv).r;
-    float ao = 0.;
+    float res = multibounce(ao(uv), albedo);
 
-    imageStore(t_AO, idx, vec4(vec3(ao), 1.));
+    imageStore(t_AO, idx, vec4(vec3(res), 1.));
 }
