@@ -51,7 +51,7 @@ impl Default for AmbientOcclusion {
             radius: 0.01,
             falloff: 0.5,
             depth: 1.,
-            albedo: 0.,
+            albedo: 0.5,
         }
     }
 }

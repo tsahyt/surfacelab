@@ -201,3 +201,4 @@ tga = TGA
 jitter = Jitter
 depth = Tiefe
 radius = Radius
+falloff = Einflussabfall

@@ -201,3 +201,4 @@ tga = TGA
 jitter = Jitter
 depth = Depth
 radius = Radius
+falloff = Falloff
