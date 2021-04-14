@@ -6,6 +6,7 @@ layout(set = 0, binding = 0) uniform Params {
     uint quality;
     uint jitter;
     float radius;
+    float falloff;
     float depth;
     float albedo;
 };
@@ -22,8 +23,8 @@ layout(set = 0, binding = 3, rgba16f) uniform image2D t_AO;
 const float PI = 3.141592654;
 
 float hash(uvec2 x) {
-    uvec2 q = 1103515245U * ( (x>>1U) ^ (x.yx   ) );
-    uint  n = 1103515245U * ( (q.x  ) ^ (q.y>>3U) );
+    uvec2 q = 1103515245U * ((x>>1U) ^ (x.yx   ));
+    uint  n = 1103515245U * ((q.x  ) ^ (q.y>>3U));
     return float(n) * (1.0/float(0xffffffffU));
 }
 
@@ -113,7 +114,8 @@ float ao(vec2 uv) {
             0.25 * (- cos(2 * theta.x - gamma) + cos(gamma) + 2 * theta.x * sin(gamma)) +
             0.25 * (- cos(2 * theta.y - gamma) + cos(gamma) + 2 * theta.y * sin(gamma));
 
-        a /= exp(- theta.z);
+        float falloff = clamp(theta.z / radius * falloff, 0.0, 1.0);
+        a = mix(a, 1., falloff);
         sum += a;
     }
 

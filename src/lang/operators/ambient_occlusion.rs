@@ -38,6 +38,7 @@ pub struct AmbientOcclusion {
     pub quality: AmbientOcclusionQuality,
     pub jitter: ParameterBool,
     pub radius: f32,
+    pub falloff: f32,
     pub depth: f32,
     pub albedo: f32,
 }
@@ -48,6 +49,7 @@ impl Default for AmbientOcclusion {
             quality: AmbientOcclusionQuality::LowQuality,
             jitter: 1,
             radius: 0.01,
+            falloff: 0.5,
             depth: 1.,
             albedo: 0.,
         }
@@ -144,6 +146,17 @@ impl OperatorParamBox for AmbientOcclusion {
                             value: self.radius,
                             min: 0.,
                             max: 0.2,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                    },
+                    Parameter {
+                        name: "falloff".to_string(),
+                        transmitter: Field(AmbientOcclusion::FALLOFF.to_string()),
+                        control: Control::Slider {
+                            value: self.falloff,
+                            min: 0.,
+                            max: 1.0,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
