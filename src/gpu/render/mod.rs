@@ -111,6 +111,7 @@ pub enum ImageUse {
     Normal,
     Displacement,
     Metallic,
+    AmbientOcclusion,
     View(ImageType),
 }
 
@@ -126,6 +127,7 @@ impl std::convert::TryFrom<crate::lang::OutputType> for ImageUse {
             OutputType::Normal => Ok(ImageUse::Normal),
             OutputType::Displacement => Ok(ImageUse::Displacement),
             OutputType::Metallic => Ok(ImageUse::Metallic),
+            OutputType::AmbientOcclusion => Ok(ImageUse::AmbientOcclusion),
             _ => Err("Invalid OutputType for ImageUse"),
         }
     }
@@ -138,6 +140,7 @@ pub struct ImageSlots<B: Backend> {
     normal: ImageSlot<B>,
     displacement: ImageSlot<B>,
     metallic: ImageSlot<B>,
+    ao: ImageSlot<B>,
     view: ImageSlot<B>,
     view_type: ImageType,
 }
@@ -180,6 +183,12 @@ impl<B: Backend> ImageSlots<B> {
                 hal::format::Format::R16Sfloat,
                 image_size,
             )?,
+            ao: ImageSlot::new(
+                device,
+                memory_properties,
+                hal::format::Format::R16Sfloat,
+                image_size,
+            )?,
             view: ImageSlot::new(
                 device,
                 memory_properties,
@@ -201,6 +210,7 @@ impl<B: Backend> ImageSlots<B> {
             ImageUse::Roughness => &mut self.roughness,
             ImageUse::Normal => &mut self.normal,
             ImageUse::Metallic => &mut self.metallic,
+            ImageUse::AmbientOcclusion => &mut self.ao,
             ImageUse::View(..) => &mut self.view,
         };
 
@@ -223,6 +233,7 @@ impl<B: Backend> ImageSlots<B> {
             normal: from_bool(self.normal.occupied),
             displacement: from_bool(self.displacement.occupied),
             metallic: from_bool(self.metallic.occupied),
+            ao: from_bool(self.ao.occupied),
             view: from_bool(self.view.occupied),
             view_type: match self.view_type {
                 ImageType::Grayscale => 0,
@@ -255,6 +266,7 @@ where
         free_slot(&lock.device, &mut self.normal);
         free_slot(&lock.device, &mut self.displacement);
         free_slot(&lock.device, &mut self.metallic);
+        free_slot(&lock.device, &mut self.ao);
         free_slot(&lock.device, &mut self.view);
     }
 }
@@ -269,6 +281,7 @@ pub struct SlotOccupancy {
     normal: u32,
     displacement: u32,
     metallic: u32,
+    ao: u32,
     view: u32,
     view_type: u32,
 }
@@ -566,6 +579,17 @@ where
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 11,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 12,
                         ty: hal::pso::DescriptorType::Image {
                             ty: hal::pso::ImageDescriptorType::Sampled {
                                 with_sampler: false,
@@ -1074,7 +1098,7 @@ where
                             binding: 8,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                &*image_slots.view.view,
+                                &*image_slots.ao.view,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -1083,7 +1107,7 @@ where
                             binding: 9,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                self.environment_maps.irradiance_view(),
+                                &*image_slots.view.view,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -1092,13 +1116,22 @@ where
                             binding: 10,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                self.environment_maps.spec_view(),
+                                self.environment_maps.irradiance_view(),
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
                         DescriptorSetWrite {
                             set: &self.main_descriptor_set,
                             binding: 11,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                self.environment_maps.spec_view(),
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 12,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
                                 self.environment_maps.brdf_lut_view(),
@@ -1194,6 +1227,16 @@ where
                                     hal::image::Layout::ShaderReadOnlyOptimal,
                                 ),
                             target: &*image_slots.metallic.image,
+                            families: None,
+                            range: IMG_SLOT_RANGE.clone(),
+                        },
+                        hal::memory::Barrier::Image {
+                            states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                                ..(
+                                    hal::image::Access::SHADER_READ,
+                                    hal::image::Layout::ShaderReadOnlyOptimal,
+                                ),
+                            target: &*image_slots.ao.image,
                             families: None,
                             range: IMG_SLOT_RANGE.clone(),
                         },
@@ -1344,6 +1387,7 @@ where
             ImageUse::Roughness => &mut image_slots.roughness,
             ImageUse::Normal => &mut image_slots.normal,
             ImageUse::Metallic => &mut image_slots.metallic,
+            ImageUse::AmbientOcclusion => &mut image_slots.ao,
             ImageUse::View(..) => &mut image_slots.view,
         };
 

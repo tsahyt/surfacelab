@@ -378,6 +378,7 @@ impl From<OutputType> for ImageType {
             OutputType::Normal => ImageType::Rgb,
             OutputType::Displacement => ImageType::Grayscale,
             OutputType::Metallic => ImageType::Grayscale,
+            OutputType::AmbientOcclusion => ImageType::Grayscale,
             OutputType::Value => ImageType::Grayscale,
             OutputType::Rgb => ImageType::Rgb,
         }

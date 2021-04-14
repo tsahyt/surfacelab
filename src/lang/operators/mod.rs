@@ -145,6 +145,7 @@ pub enum OutputType {
     Normal,
     Displacement,
     Metallic,
+    AmbientOcclusion,
     Value,
     Rgb,
 }
