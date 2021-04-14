@@ -221,6 +221,30 @@ float triplanar_metallic(vec3 p, vec3 n, float lod) {
     return col_front + col_side + col_top;
 }
 
+float baked_ao(vec2 p, float lod) {
+    if(has_ao != 0) {
+        float ao = textureLod(sampler2D(t_AO, s_Texture), p / tex_scale, lod).x;
+        return ao;
+    } else {
+        return 1.;
+    }
+}
+
+float triplanar_baked_ao(vec3 p, vec3 n, float lod) {
+    n = pow(abs(n), vec3(4.0));
+    n = n / (n.x + n.y + n.z);
+
+    float ao_front = baked_ao(-p.xy + 0.5, lod);
+    float ao_side = baked_ao(-p.zy + 0.5, lod);
+    float ao_top = baked_ao(-p.xz + 0.5, lod);
+
+    ao_front *= n.b;
+    ao_side *= n.r;
+    ao_top *= n.g;
+
+    return ao_front + ao_side + ao_top;
+}
+
 vec3 normal_map(vec2 p, float lod) {
     if(has_normal != 0) {
         vec3 n = textureLod(sampler2D(t_Normal, s_Texture), p / tex_scale, lod).rgb;
@@ -662,6 +686,7 @@ vec3 render(vec3 ro, vec3 rd) {
     vec3 normal_;
     float metallic_;
     float roughness_;
+    float baked_ao_;
 
     switch (OBJECT_TYPE) {
         case OBJECT_TYPE_PLANE:
@@ -670,6 +695,7 @@ vec3 render(vec3 ro, vec3 rd) {
             metallic_ = metallic(plane_mapping(p), lod_by_distance(d));
             roughness_ = roughness(plane_mapping(p), lod_by_distance(d));
             normal_ = normal_map(plane_mapping(p), lod_by_distance(d));
+            baked_ao_ = baked_ao(plane_mapping(p), lod_by_distance(d));
             break;
         case OBJECT_TYPE_CUBE:
             vec3 nprime = cubeNormal(p, 0.9);
@@ -677,18 +703,21 @@ vec3 render(vec3 ro, vec3 rd) {
             metallic_ = triplanar_metallic(p / 2., nprime, lod_by_distance(d));
             roughness_ = triplanar_roughness(p / 2., nprime, lod_by_distance(d));
             normal_ = triplanar_normal_map(p / 2., nprime, lod_by_distance(d));
+            baked_ao_ = triplanar_baked_ao(p / 2., nprime, lod_by_distance(d));
             break;
         case OBJECT_TYPE_SPHERE:
             albedo_ = albedo(sphere_mapping(p), lod_by_distance(d));
             metallic_ = metallic(sphere_mapping(p), lod_by_distance(d));
             roughness_ = roughness(sphere_mapping(p), lod_by_distance(d));
             normal_ = normal_map(sphere_mapping(p), lod_by_distance(d));
+            baked_ao_ = baked_ao(sphere_mapping(p), lod_by_distance(d));
             break;
         case OBJECT_TYPE_CYLINDER:
             albedo_ = albedo(cylinder_mapping(p), lod_by_distance(d));
             metallic_ = metallic(cylinder_mapping(p), lod_by_distance(d));
             roughness_ = roughness(cylinder_mapping(p), lod_by_distance(d));
             normal_ = normal_map(cylinder_mapping(p), lod_by_distance(d));
+            baked_ao_ = baked_ao(cylinder_mapping(p), lod_by_distance(d));
             break;
     }
 
@@ -704,11 +733,12 @@ vec3 render(vec3 ro, vec3 rd) {
 
     // Ambient Light
     float ao;
-    if (draw_ao == 1) {
-        ao = ambientOcclusion(p, n, lod_by_distance(d));
-    } else {
-        ao = 1.;
-    }
+    // if (draw_ao == 1) {
+    //     ao = ambientOcclusion(p, n, lod_by_distance(d));
+    // } else {
+    //     ao = 1.;
+    // }
+    ao = baked_ao_;
 
     col += environment(n, rd, f0, albedo_, roughness_, metallic_, ao);
 
