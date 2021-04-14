@@ -46,7 +46,7 @@ hdri-file = HDRi File
 hdri-strength = Strength
 hdri-blur = Blur
 hdri-rotation = Rotation
-ao = Ambient Occlusion
+ambient-occlusion-strength = Ambient Occlusion Strength
 fog-strength = Fog Strength
 light = Light
 light-type = Light Type
@@ -186,6 +186,7 @@ roughness = Roughness
 normal = Normal
 displacement = Displacement
 metallic = Metallic
+ambient-occlusion = Ambient Occlusion
 rgb = RGB
 
 srgb = sRGB

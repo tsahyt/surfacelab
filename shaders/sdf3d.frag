@@ -43,13 +43,13 @@ layout(set = 0, binding = 2) uniform Camera {
     float environment_strength;
     float environment_blur;
     float environment_rotation;
+    float ao_strength;
 
     uint light_type;
     float light_strength;
     float fog_strength;
 
     uint draw_shadow;
-    uint draw_ao;
 };
 
 layout(push_constant) uniform constants_t {
@@ -432,48 +432,6 @@ float rayShadowSoft(vec3 ro, vec3 rd, float w) {
     return smoothstep(0.5, 0.6, s);
 }
 
-float ambientOcclusionCone(vec3 p, vec3 n, vec3 cd, float lod) {
-    float cone_arc_width = PI / 16;
-    float occlusion = 0.0;
-    float t = 128 * SURF_DIST;
-    float max_dist = outer_bound(p, cd, displacement_amount).y;
-
-    for(int i = 0; i < MAX_STEPS_AO; i++) {
-        float d = sdf(p + cd * t, lod);
-        float w = abs(t * cone_arc_width);
-
-        float local_occlusion = clamp(0, 1, ((w / 2) - d) / w);
-        occlusion = max(occlusion, local_occlusion);
-
-        if (t > max_dist) break;
-        t += max_dist / MAX_STEPS_AO;
-    }
-
-    return 1.0 - occlusion;
-}
-
-float ambientOcclusion(vec3 p, vec3 n, float lod) {
-    // Halton sequence sample to cosine weighted hemisphere
-    float phi = constants.sample_offset.x * 2.0 * PI;
-    float cosTheta = sqrt(1.0 - constants.sample_offset.y);
-    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
-
-    // tangent space sample
-    vec3 h = vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
-
-    // orient at n, convert to world coordinates
-    vec3 up = abs(n.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tangent = normalize(cross(up, n));
-    vec3 bitangent = cross(n, tangent);
-
-    float ao = ambientOcclusionCone(p, n, tangent * h.x + bitangent * h.y + n * h.z, lod);
-    ao += ambientOcclusionCone(p, n, tangent * -h.x + bitangent * h.y + n * h.z, lod);
-    ao += ambientOcclusionCone(p, n, tangent * h.x + bitangent * -h.y + n * h.z, lod);
-    ao += ambientOcclusionCone(p, n, tangent * -h.x + bitangent * -h.y + n * h.z, lod);
-
-    return ao / 4.0;
-}
-
 // --- Shading
 
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
@@ -732,14 +690,7 @@ vec3 render(vec3 ro, vec3 rd) {
     }
 
     // Ambient Light
-    float ao;
-    // if (draw_ao == 1) {
-    //     ao = ambientOcclusion(p, n, lod_by_distance(d));
-    // } else {
-    //     ao = 1.;
-    // }
-    ao = baked_ao_;
-
+    float ao = clamp(pow(baked_ao_, ao_strength), 0., 1.);
     col += environment(n, rd, f0, albedo_, roughness_, metallic_, ao);
 
     // View Falloff

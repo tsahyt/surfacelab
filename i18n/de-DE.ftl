@@ -46,7 +46,7 @@ hdri-file = HDRi Datei
 hdri-strength = HDRi Lichtstärke
 hdri-blur = Weichzeichnen
 hdri-rotation = Rotation
-ao = Umgebungsverdeckung
+ambient-occlusion-strength = Umgebungsverdeckungsstärke
 fog-strength = Nebelstärke
 light = Licht
 light-type = Lichttyp
@@ -186,6 +186,7 @@ roughness = Rauheit
 normal = Normale
 displacement = Verschiebung
 metallic = Metallisch
+ambient-occlusion = Umgebungsverdeckung
 rgb = RGB
 
 srgb = sRGB

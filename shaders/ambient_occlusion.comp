@@ -137,6 +137,7 @@ void main() {
     vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
 
     float res = multibounce(ao(uv), albedo);
+    res = clamp(res, 0., 1.);
 
     imageStore(t_AO, idx, vec4(vec3(res), 1.));
 }

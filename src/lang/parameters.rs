@@ -282,7 +282,7 @@ pub enum RenderField {
     LightStrength,
     FogStrength,
     Shadow,
-    AO,
+    AoStrength,
     EnvironmentStrength,
     EnvironmentBlur,
     EnvironmentRotation,
@@ -330,10 +330,9 @@ impl MessageWriter for RenderField {
                 *renderer,
                 ParameterBool::from_data(data),
             )),
-            RenderField::AO => super::Lang::UserRenderEvent(super::UserRenderEvent::SetAO(
-                *renderer,
-                ParameterBool::from_data(data),
-            )),
+            RenderField::AoStrength => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::AoStrength(*renderer, f32::from_data(data)),
+            ),
             RenderField::HDRI => super::Lang::UserRenderEvent(super::UserRenderEvent::LoadHDRI(
                 *renderer,
                 <Option<PathBuf>>::from_data(data),
@@ -696,9 +695,13 @@ impl ParamBoxDescription<RenderField> {
                             visibility: VisibilityFunction::default(),
                         },
                         Parameter {
-                            name: "ao".to_string(),
-                            control: Control::Toggle { def: false },
-                            transmitter: RenderField::AO,
+                            name: "ambient-occlusion-strength".to_string(),
+                            control: Control::Slider {
+                                value: 1.0,
+                                min: 0.0,
+                                max: 2.0,
+                            },
+                            transmitter: RenderField::AoStrength,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
                         },

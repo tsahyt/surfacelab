@@ -742,8 +742,8 @@ pub enum UserRenderEvent {
     FocalDistance(RendererID, f32),
     /// The user requests enabling/disabling shadow calculation
     SetShadow(RendererID, ParameterBool),
-    /// The user requests enabling/disabling ambient occlusion calculation
-    SetAO(RendererID, ParameterBool),
+    /// The user requests setting the ambient occlusion strength
+    AoStrength(RendererID, f32),
     /// The user seeks to load a new HDRi from file
     LoadHDRI(RendererID, Option<PathBuf>),
     /// The user requests setting the object type to be rendered

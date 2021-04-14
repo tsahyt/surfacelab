@@ -39,13 +39,12 @@ pub struct Uniforms {
     environment_strength: f32,
     environment_blur: f32,
     environment_rotation: f32,
+    ambient_occlusion_strength: f32,
 
     light_type: LightType,
     light_strength: f32,
     fog_strength: f32,
-
     shadow: ParameterBool,
-    ao: ParameterBool,
 }
 
 impl Default for Uniforms {
@@ -67,11 +66,11 @@ impl Default for Uniforms {
             environment_strength: 1.0,
             environment_blur: 3.0,
             environment_rotation: 0.,
+            ambient_occlusion_strength: 1.,
             light_type: LightType::PointLight,
             light_strength: 100.0,
             fog_strength: 0.0,
             shadow: 1,
-            ao: 0,
         }
     }
 }
@@ -245,9 +244,9 @@ where
         self.view.shadow = shadow;
     }
 
-    /// Set whether ambient occlusion should be rendered
-    pub fn set_ao(&mut self, ao: ParameterBool) {
-        self.view.ao = ao;
+    /// Set the strength of AO to be rendered
+    pub fn set_ao_strength(&mut self, ao_strength: f32) {
+        self.view.ambient_occlusion_strength = ao_strength;
     }
 
     /// Set the camera focal length

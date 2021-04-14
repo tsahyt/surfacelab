@@ -413,8 +413,8 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
-            Lang::UserRenderEvent(UserRenderEvent::SetAO(id, ao)) => {
-                self.set_ao(*id, *ao);
+            Lang::UserRenderEvent(UserRenderEvent::AoStrength(id, ao_strength)) => {
+                self.set_ao_strength(*id, *ao_strength);
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
@@ -764,9 +764,9 @@ where
         }
     }
 
-    pub fn set_ao(&mut self, renderer_id: RendererID, ao: ParameterBool) {
+    pub fn set_ao_strength(&mut self, renderer_id: RendererID, ao_strength: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
-            r.update_sdf3d(|r| r.set_ao(ao));
+            r.update_sdf3d(|r| r.set_ao_strength(ao_strength));
             r.reset_sampling();
         }
     }
