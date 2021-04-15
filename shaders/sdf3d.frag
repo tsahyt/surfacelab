@@ -642,7 +642,27 @@ vec3 render_matcap(vec3 ro, vec3 rd, vec3 look_at) {
     if (d == INFINITY) { return world; }
 
     vec3 p = ro + rd * d;
-    vec3 n = normal(p, vec3(0., 0., 1.), world_space_sample_size(d), lod_by_distance(d));
+
+    vec3 normal_;
+
+    switch (OBJECT_TYPE) {
+        case OBJECT_TYPE_PLANE:
+        case OBJECT_TYPE_FINITEPLANE:
+            normal_ = normal_map(plane_mapping(p), lod_by_distance(d));
+            break;
+        case OBJECT_TYPE_CUBE:
+            vec3 nprime = cubeNormal(p, 0.9);
+            normal_ = triplanar_normal_map(p / 2., nprime, lod_by_distance(d));
+            break;
+        case OBJECT_TYPE_SPHERE:
+            normal_ = normal_map(sphere_mapping(p), lod_by_distance(d));
+            break;
+        case OBJECT_TYPE_CYLINDER:
+            normal_ = normal_map(cylinder_mapping(p), lod_by_distance(d));
+            break;
+    }
+
+    vec3 n = normal(p, normal_, world_space_sample_size(d), lod_by_distance(d));
 
     // Construct view matrix
     vec3 forward = normalize(look_at - ro);
@@ -658,7 +678,7 @@ vec3 render_matcap(vec3 ro, vec3 rd, vec3 look_at) {
     // Matcap Render
     vec3 view_normal = vec3(view * n);
     vec2 muv = view_normal.xz * 0.5 + vec2(0.5, 0.5);
-    vec3 col = textureLod(sampler2D(matcap, s_Texture), vec2(muv.x, muv.y), 0.).rgb;
+    vec3 col = textureLod(sampler2D(matcap, s_Texture), vec2(muv.x, 1. - muv.y), 0.).rgb;
 
     // Shadowing
     float shadow;
