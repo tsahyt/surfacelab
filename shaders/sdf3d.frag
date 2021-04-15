@@ -636,6 +636,18 @@ float world_space_sample_size(float d) {
     return z * d;
 }
 
+vec3 view_falloff(vec3 col, vec3 p, vec3 world) {
+    switch(OBJECT_TYPE) {
+        case OBJECT_TYPE_FINITEPLANE:
+            vec2 d = abs(p.xz);
+            return mix(col, world, step(2., max(d.x, d.y)));
+        case OBJECT_TYPE_PLANE:
+            return mix(world, col, smoothstep(10., 9., distance(center.xyz, p)));
+        default:
+            return mix(world, col, smoothstep(10., 9., length(p)));
+    }
+}
+
 vec3 render_matcap(vec3 ro, vec3 rd, vec3 look_at) {
     float d = rayMarch(ro, rd);
 
@@ -682,23 +694,10 @@ vec3 render_matcap(vec3 ro, vec3 rd, vec3 look_at) {
     vec2 muv = view_normal.xz * 0.5 + vec2(0.5, 0.5);
     vec3 col = textureLod(sampler2D(matcap, s_Texture), vec2(muv.x, 1. - muv.y), 0.).rgb;
 
-    // Shadowing
-    float shadow;
-    if (draw_shadow == 1) {
-        vec3 l = vec3(0., 1., 0.);
-        if (light_type == LIGHT_TYPE_POINT) {
-            point_light(p, light_pos.xyz, l);
-        } else if (light_type == LIGHT_TYPE_SUN) {
-            sun_light(p, light_pos.xyz, l);
-        }
-        shadow = rayShadowSoft(p, l, 0.025);
-    } else {
-        shadow = 1.;
-    }
+    // View Falloff
+    col = view_falloff(col, p, world);
 
-    col *= vec3(smoothstep(6., 3., length(p.xz)));
-
-    return shadow * col;
+    return col;
 }
 
 vec3 render(vec3 ro, vec3 rd) {
@@ -766,19 +765,11 @@ vec3 render(vec3 ro, vec3 rd) {
     float ao = clamp(pow(baked_ao_, ao_strength * displacement_amount * 10.), 0., 1.);
     col += environment(n, rd, f0, albedo_, roughness_, metallic_, ao);
 
-    // View Falloff
+    // Fog
     col += vec3(0.5,0.5,0.4) * smoothstep(2,20,d) * fog_strength;
-    switch(OBJECT_TYPE) {
-        case OBJECT_TYPE_FINITEPLANE:
-            vec2 d = abs(p.xz);
-            col = mix(col, world, step(2., max(d.x, d.y)));
-            break;
-        case OBJECT_TYPE_PLANE:
-            col = mix(world, col, smoothstep(10., 9., distance(center.xyz, p)));
-            break;
-        default:
-            col = mix(world, col, smoothstep(10., 9., length(p)));
-    }
+
+    // View Falloff
+    col = view_falloff(col, p, world);
 
     return col;
 }
