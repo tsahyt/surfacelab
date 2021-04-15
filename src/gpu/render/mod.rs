@@ -1,6 +1,6 @@
 use super::RenderTarget;
 use crate::gpu::{basic_mem::*, load_shader};
-use crate::lang::{ImageType, ObjectType, ToneMap};
+use crate::lang::{ImageType, ObjectType, ShadingMode, ToneMap};
 use crate::shader;
 use crate::util::HaltonSequence2D;
 
@@ -76,6 +76,7 @@ pub struct GPURender<B: Backend, U: Renderer> {
     // Uniforms and specific/optional data
     view: U,
     object_type: Option<ObjectType>,
+    shading_mode: Option<ShadingMode>,
 
     // Rendering Data
     halton_sampler: HaltonSequence2D,
@@ -633,6 +634,7 @@ where
             hal::format::Format::Rgba32Sfloat,
             &main_set_layout,
             ObjectType::Cube,
+            ShadingMode::Pbr,
             U::vertex_shader(),
             U::fragment_shader(),
         )?;
@@ -740,6 +742,7 @@ where
 
             view,
             object_type: None,
+            shading_mode: None,
 
             halton_sampler: HaltonSequence2D::default(),
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
@@ -799,6 +802,7 @@ where
         format: hal::format::Format,
         set_layout: &B::DescriptorSetLayout,
         object_type: ObjectType,
+        shading_mode: ShadingMode,
         vertex_shader: &'static [u8],
         fragment_shader: &'static [u8],
     ) -> Result<(B::RenderPass, B::GraphicsPipeline, B::PipelineLayout), InitializationError> {
@@ -835,11 +839,6 @@ where
             )
         }?;
 
-        let object_specialization = hal::pso::Specialization {
-            constants: Cow::Borrowed(&[hal::pso::SpecializationConstant { id: 0, range: 0..4 }]),
-            data: Cow::Owned((object_type as u32).to_ne_bytes().to_vec()),
-        };
-
         let pipeline = {
             let vs_module = load_shader::<B>(device, vertex_shader)?;
             let fs_module = load_shader::<B>(device, fragment_shader)?;
@@ -871,7 +870,10 @@ where
                     Some(hal::pso::EntryPoint {
                         entry: "main",
                         module: &fs_module,
-                        specialization: object_specialization,
+                        specialization: hal::spec_const_list![
+                            object_type as u32,
+                            shading_mode as u32
+                        ],
                     }),
                     &pipeline_layout,
                     subpass,

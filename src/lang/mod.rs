@@ -692,6 +692,15 @@ pub enum ObjectType {
     Cylinder = 4,
 }
 
+/// Shading modes supported by the SDF 3D renderer
+#[derive(AsBytes, Copy, Clone, Debug, Serialize, EnumVariantNames, Deserialize)]
+#[repr(u32)]
+#[strum(serialize_all = "kebab_case")]
+pub enum ShadingMode {
+    Pbr = 0,
+    Matcap = 1,
+}
+
 /// Tonemapping operators for renderer
 #[derive(AsBytes, Copy, Clone, Debug, Serialize, EnumVariantNames, Deserialize)]
 #[repr(u32)]
@@ -750,6 +759,8 @@ pub enum UserRenderEvent {
     LoadHDRI(RendererID, Option<PathBuf>),
     /// The user requests setting the object type to be rendered
     ObjectType(RendererID, ObjectType),
+    /// The user requests setting the renderer shading mode
+    ShadingMode(RendererID, ShadingMode),
     /// The user requests changing the tone mapping operator
     ToneMap(RendererID, ToneMap),
     /// The user requests setting the sample count

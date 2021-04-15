@@ -1,6 +1,6 @@
 use super::{GPURender, InitializationError, Renderer};
 use crate::gpu::{Backend, GPU};
-use crate::lang::{LightType, ObjectType, ParameterBool};
+use crate::lang::{LightType, ObjectType, ParameterBool, ShadingMode};
 use crate::shader;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
@@ -125,7 +125,10 @@ where
             viewport_dimensions,
             Uniforms::default(),
         )?;
+
         renderer.object_type = Some(ObjectType::Cube);
+        renderer.shading_mode = Some(ShadingMode::Pbr);
+
         Ok(renderer)
     }
 
@@ -135,7 +138,6 @@ where
         &mut self,
         object_type: ObjectType,
     ) -> Result<(), InitializationError> {
-        // Store in uniforms for serialization/deserialization purposes
         self.object_type = Some(object_type);
 
         let lock = self.gpu.lock().unwrap();
@@ -145,6 +147,43 @@ where
             hal::format::Format::Rgba32Sfloat,
             &*self.main_descriptor_set_layout,
             object_type,
+            self.shading_mode.unwrap_or(ShadingMode::Pbr),
+            Uniforms::vertex_shader(),
+            Uniforms::fragment_shader(),
+        )?;
+
+        unsafe {
+            lock.device
+                .destroy_render_pass(ManuallyDrop::take(&mut self.main_render_pass));
+            lock.device
+                .destroy_graphics_pipeline(ManuallyDrop::take(&mut self.main_pipeline));
+            lock.device
+                .destroy_pipeline_layout(ManuallyDrop::take(&mut self.main_pipeline_layout));
+        }
+
+        self.main_render_pass = ManuallyDrop::new(main_render_pass);
+        self.main_pipeline = ManuallyDrop::new(main_pipeline);
+        self.main_pipeline_layout = ManuallyDrop::new(main_pipeline_layout);
+
+        Ok(())
+    }
+
+    /// Switch shading mode. This function recreates the pipeline and will
+    /// therefore incur a slight time penalty.
+    pub fn switch_shading_mode(
+        &mut self,
+        shading_mode: ShadingMode,
+    ) -> Result<(), InitializationError> {
+        self.shading_mode = Some(shading_mode);
+
+        let lock = self.gpu.lock().unwrap();
+
+        let (main_render_pass, main_pipeline, main_pipeline_layout) = Self::make_render_pipeline(
+            &lock.device,
+            hal::format::Format::Rgba32Sfloat,
+            &*self.main_descriptor_set_layout,
+            self.object_type.unwrap_or(ObjectType::Cube),
+            shading_mode,
             Uniforms::vertex_shader(),
             Uniforms::fragment_shader(),
         )?;

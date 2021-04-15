@@ -11,10 +11,10 @@ const uint OBJECT_TYPE_CUBE = 2;
 const uint OBJECT_TYPE_SPHERE = 3;
 const uint OBJECT_TYPE_CYLINDER = 4;
 
-layout(constant_id = 1) const uint RENDER_TYPE = 1;
+layout(constant_id = 1) const uint SHADING_MODE = 0;
 
-const uint RENDER_TYPE_PBR = 0;
-const uint RENDER_TYPE_MATCAP = 1;
+const uint SHADING_MODE_PBR = 0;
+const uint SHADING_MODE_MATCAP = 1;
 
 layout(set = 0, binding = 0) uniform sampler s_Texture;
 
@@ -790,11 +790,11 @@ void main() {
 
     vec3 col = vec3(0.);
 
-    switch (RENDER_TYPE) {
-        case RENDER_TYPE_PBR:
+    switch (SHADING_MODE) {
+        case SHADING_MODE_PBR:
             col = render(ro, rd);
             break;
-        case RENDER_TYPE_MATCAP:
+        case SHADING_MODE_MATCAP:
             col = render_matcap(ro, rd, center.xyz);
             break;
     }

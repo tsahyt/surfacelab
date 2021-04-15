@@ -27,6 +27,9 @@ opacity = Opacity
 
 renderer = Renderer
 sample-count = Sample Count
+shading-mode = Shading Mode
+pbr = PBR
+matcap = Matcap
 tone-map = Tone Mapping Operator
 reinhard = Reinhard
 reinhard-jodie = Reinhard-Jodie

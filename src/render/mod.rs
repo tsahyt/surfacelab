@@ -363,6 +363,11 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
+            Lang::UserRenderEvent(UserRenderEvent::ShadingMode(id, shading_mode)) => {
+                self.switch_shading_mode(*id, *shading_mode);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
             Lang::UserRenderEvent(UserRenderEvent::ToneMap(id, tone_map)) => {
                 self.set_tone_map(*id, *tone_map);
                 self.redraw(*id);
@@ -686,6 +691,16 @@ where
             r.update_sdf3d(|r| {
                 r.switch_object_type(object_type)
                     .expect("Failed to switch object type")
+            });
+            r.reset_sampling();
+        }
+    }
+
+    pub fn switch_shading_mode(&mut self, renderer_id: RendererID, shading_mode: ShadingMode) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| {
+                r.switch_shading_mode(shading_mode)
+                    .expect("Failed to switch shading mode")
             });
             r.reset_sampling();
         }

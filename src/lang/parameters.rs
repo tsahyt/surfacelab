@@ -293,6 +293,7 @@ pub enum RenderField {
     ApertureRotation,
     FocalDistance,
     ObjectType,
+    ShadingMode,
     ToneMap,
     SampleCount,
 }
@@ -354,6 +355,9 @@ impl MessageWriter for RenderField {
             ),
             RenderField::ObjectType => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::ObjectType(*renderer, super::ObjectType::from_data(data)),
+            ),
+            RenderField::ShadingMode => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::ShadingMode(*renderer, super::ShadingMode::from_data(data)),
             ),
             RenderField::ToneMap => super::Lang::UserRenderEvent(super::UserRenderEvent::ToneMap(
                 *renderer,
@@ -591,6 +595,19 @@ impl ParamBoxDescription<RenderField> {
                                 max: 256,
                             },
                             transmitter: RenderField::SampleCount,
+                            expose_status: None,
+                            visibility: VisibilityFunction::default(),
+                        },
+                        Parameter {
+                            name: "shading-mode".to_string(),
+                            control: Control::Enum {
+                                selected: 0,
+                                variants: super::ShadingMode::VARIANTS
+                                    .iter()
+                                    .map(|x| x.to_string())
+                                    .collect(),
+                            },
+                            transmitter: RenderField::ShadingMode,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
                         },
