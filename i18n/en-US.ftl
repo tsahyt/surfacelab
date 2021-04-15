@@ -208,5 +208,7 @@ falloff = Falloff
 shape-type = Shape
 circle = Circle
 box = Box
+regular-n-gon = Regular N-Gon
+ellipse = Ellipse
 width = Width
 height = Height

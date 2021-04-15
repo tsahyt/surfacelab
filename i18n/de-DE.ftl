@@ -207,5 +207,7 @@ falloff = Einflussabfall
 shape-type = Form
 circle = Kreis
 box = Rechteck
+regular-n-gon = Reguläres N-Gon
+ellipse = Ellipse
 width = Breite
 height = Höhe

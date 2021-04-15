@@ -107,7 +107,7 @@ void main() {
             sdf = sd_ngon(uv, radius, sides);
             break;
         case SHAPE_ELLIPSE:
-            sdf = sd_ellipse(uv, vec2(width / 2., height / 2.));
+            sdf = sd_ellipse(uv, vec2(width, height));
             break;
     }
 
