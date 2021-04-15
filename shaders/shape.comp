@@ -7,12 +7,13 @@ layout(set = 0, binding = 0) uniform Params {
     float radius;
     float width;
     float height;
+    int sides;
 };
 layout(set = 0, binding = 1, r32f) uniform image2D t_Out;
 
 const uint SHAPE_CIRCLE = 0;
 const uint SHAPE_BOX = 1;
-
+const uint SHAPE_NGON = 2;
 const float PI = 3.14159265359;
 
 float sd_circle(vec2 p, float r) {
@@ -22,6 +23,20 @@ float sd_circle(vec2 p, float r) {
 float sd_box(vec2 p, vec2 b) {
     vec2 d = abs(p) - b;
     return length(max(d,0.0)) + min(max(d.x,d.y),0.0);
+}
+
+float sd_ngon(vec2 p, float r, uint n) {
+    float an = 6.2831853 / float(n);
+    float he = r * tan(0.5 * an);
+
+    // rotate to first sector
+    p = -p.yx; // if you want the corner to be up
+    float bn = an * floor((atan(p.y, p.x) + 0.5 * an) / an);
+    vec2 cs = vec2(cos(bn), sin(bn));
+    p = mat2(cs.x, -cs.y, cs.y, cs.x) * p;
+
+    // side of polygon
+    return length(p-vec2(r,clamp(p.y,-he,he)))*sign(p.x-r);
 }
 
 void main() {
@@ -38,6 +53,9 @@ void main() {
             break;
         case SHAPE_BOX:
             sdf = sd_box(uv, vec2(width, height));
+            break;
+        case SHAPE_NGON:
+            sdf = sd_ngon(uv, radius, sides);
             break;
     }
 

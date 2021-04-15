@@ -30,11 +30,12 @@ use zerocopy::AsBytes;
 pub enum ShapeType {
     Circle = 0,
     Box = 1,
+    RegularNGon = 2,
 }
 
 impl ShapeType {
     pub fn has_radius(self) -> bool {
-        matches!(self, Self::Circle)
+        matches!(self, Self::Circle | Self::RegularNGon)
     }
 
     pub fn has_width(self) -> bool {
@@ -43,6 +44,10 @@ impl ShapeType {
 
     pub fn has_height(self) -> bool {
         matches!(self, Self::Box)
+    }
+
+    pub fn has_sides(self) -> bool {
+        matches!(self, Self::RegularNGon)
     }
 }
 
@@ -53,6 +58,7 @@ pub struct Shape {
     pub radius: f32,
     pub width: f32,
     pub height: f32,
+    pub sides: i32,
 }
 
 impl Default for Shape {
@@ -62,6 +68,7 @@ impl Default for Shape {
             radius: 0.5,
             width: 0.3,
             height: 0.3,
+            sides: 6,
         }
     }
 }
@@ -173,6 +180,23 @@ impl OperatorParamBox for Shape {
                         visibility: VisibilityFunction::on_parameter("shape-type", |c| {
                             if let Control::Enum { selected, .. } = c {
                                 unsafe { ShapeType::from_unchecked(*selected as u32) }.has_height()
+                            } else {
+                                false
+                            }
+                        }),
+                    },
+                    Parameter {
+                        name: "sides".to_string(),
+                        transmitter: Field(Shape::SIDES.to_string()),
+                        control: Control::DiscreteSlider {
+                            value: self.sides,
+                            min: 1,
+                            max: 32,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter("shape-type", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                unsafe { ShapeType::from_unchecked(*selected as u32) }.has_sides()
                             } else {
                                 false
                             }
