@@ -393,7 +393,8 @@ vec3 normal(vec3 p, vec3 tangent_normal, float s, float lod) {
 // --- Ray Marching
 
 float rayMarch(vec3 ro, vec3 rd) {
-    float t = outer_bound(ro, rd, displacement_amount).x;
+    vec2 bound = outer_bound(ro, rd, displacement_amount);
+    float t = bound.x;
 
     if (ro.y < displacement_amount) {
         t = 0;
@@ -405,6 +406,7 @@ float rayMarch(vec3 ro, vec3 rd) {
     for(int i = 0; i < MAX_STEPS; i++) {
         vec3 p = ro + t * rd;
         float d = sdf(p, lod_by_distance(t));
+        if (t > bound.y) { return INFINITY; }
         if (length(p) > MAX_DIST || abs(d) < (SURF_DIST * t)) { break; }
         if (d < 0.) {
             // when inside the surface make sure to step back out again
