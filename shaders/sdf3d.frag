@@ -360,7 +360,7 @@ vec2 outer_bound(vec3 ro, vec3 rd, float d) {
     switch (OBJECT_TYPE) {
         case OBJECT_TYPE_PLANE:
         case OBJECT_TYPE_FINITEPLANE:
-            return vec2(- (ro.y - d) / rd.y);
+            return vec2(- (ro.y - d) / rd.y, - (ro.y + d) / rd.y);
         case OBJECT_TYPE_CUBE:
             return intsBox(ro, rd, vec3(1. + d));
         case OBJECT_TYPE_SPHERE:
