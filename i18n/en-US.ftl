@@ -79,6 +79,7 @@ surface-attributes = Surface Attributes
 parent-size = Parent Size
 
 basic-parameters = Basic Parameters
+transform = Transform
 
 image-resource = Image Resource
 image-path = Image Path

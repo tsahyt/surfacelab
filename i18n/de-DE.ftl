@@ -79,6 +79,7 @@ surface-attributes = Oberflächenattribute
 parent-size = Oberflächendimensionen
 
 basic-parameters = Basisparameter
+transform = Transformation
 
 image-resource = Bildresource
 image-path = Pfad
