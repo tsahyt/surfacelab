@@ -15,20 +15,22 @@ layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     ivec2 resolution = imageSize(t_Out);
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
 
     float new = 0.;
 
     if(smooth_edge != 0) {
-        for(int x = -1; x <= 1; ++x) {
-            for(int y = -1; y <= 1; ++y) {
-                vec2 uv = vec2(float(idx.x + x) / float(resolution.x), float(idx.y + y) / float(resolution.y));
-                float value = texture(sampler2D(t_Color1, Sampler), uv).r;
+        vec2 sub_sample = 0.25 / vec2(resolution);
+
+        for(int x = - 2; x <= 2; ++x) {
+            for(int y = - 2; y <= 2; ++y) {
+                vec2 uv_ = uv + vec2(x, y) * sub_sample;
+                float value = texture(sampler2D(t_Color1, Sampler), uv_).r;
                 new += step(threshold, value);
             }
         }
-        new /= 9.;
+        new /= 25.;
     } else {
-        vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
         float value = texture(sampler2D(t_Color1, Sampler), uv).r;
         new = step(threshold, value);
     }
