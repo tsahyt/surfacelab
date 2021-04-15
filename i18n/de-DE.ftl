@@ -206,3 +206,5 @@ falloff = Einflussabfall
 shape-type = Form
 circle = Kreis
 box = Rechteck
+width = Breite
+height = Höhe

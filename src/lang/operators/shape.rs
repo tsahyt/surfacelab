@@ -4,6 +4,7 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
+use num_enum::UnsafeFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::VariantNames;
@@ -11,7 +12,7 @@ use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
-#[repr(C)]
+#[repr(u32)]
 #[derive(
     AsBytes,
     Clone,
@@ -23,6 +24,7 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     PartialEq,
+    UnsafeFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum ShapeType {
@@ -30,16 +32,36 @@ pub enum ShapeType {
     Box = 1,
 }
 
+impl ShapeType {
+    pub fn has_radius(self) -> bool {
+        matches!(self, Self::Circle)
+    }
+
+    pub fn has_width(self) -> bool {
+        matches!(self, Self::Box)
+    }
+
+    pub fn has_height(self) -> bool {
+        matches!(self, Self::Box)
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Shape {
     pub shape_type: ShapeType,
+    pub radius: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl Default for Shape {
     fn default() -> Self {
         Self {
             shape_type: ShapeType::Circle,
+            radius: 0.5,
+            width: 0.3,
+            height: 0.3,
         }
     }
 }
@@ -94,16 +116,69 @@ impl OperatorParamBox for Shape {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
-                parameters: vec![Parameter {
-                    name: "shape-type".to_string(),
-                    transmitter: Field(Shape::SHAPE_TYPE.to_string()),
-                    control: Control::Enum {
-                        selected: self.shape_type as usize,
-                        variants: ShapeType::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                parameters: vec![
+                    Parameter {
+                        name: "shape-type".to_string(),
+                        transmitter: Field(Shape::SHAPE_TYPE.to_string()),
+                        control: Control::Enum {
+                            selected: self.shape_type as usize,
+                            variants: ShapeType::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                     },
-                    expose_status: Some(ExposeStatus::Unexposed),
-                    visibility: VisibilityFunction::default(),
-                }],
+                    Parameter {
+                        name: "radius".to_string(),
+                        transmitter: Field(Shape::RADIUS.to_string()),
+                        control: Control::Slider {
+                            value: self.radius,
+                            min: 0.,
+                            max: 1.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter("shape-type", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                unsafe { ShapeType::from_unchecked(*selected as u32) }.has_radius()
+                            } else {
+                                false
+                            }
+                        }),
+                    },
+                    Parameter {
+                        name: "width".to_string(),
+                        transmitter: Field(Shape::WIDTH.to_string()),
+                        control: Control::Slider {
+                            value: self.width,
+                            min: 0.,
+                            max: 1.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter("shape-type", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                unsafe { ShapeType::from_unchecked(*selected as u32) }.has_width()
+                            } else {
+                                false
+                            }
+                        }),
+                    },
+                    Parameter {
+                        name: "height".to_string(),
+                        transmitter: Field(Shape::HEIGHT.to_string()),
+                        control: Control::Slider {
+                            value: self.height,
+                            min: 0.,
+                            max: 1.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter("shape-type", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                unsafe { ShapeType::from_unchecked(*selected as u32) }.has_height()
+                            } else {
+                                false
+                            }
+                        }),
+                    },
+                ],
             }],
         }
     }

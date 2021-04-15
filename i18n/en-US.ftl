@@ -207,3 +207,5 @@ falloff = Falloff
 shape-type = Shape
 circle = Circle
 box = Box
+width = Width
+height = Height
