@@ -599,6 +599,17 @@ where
                         stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
                         immutable_samplers: false,
                     },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 13,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
                 ],
                 &[],
             )

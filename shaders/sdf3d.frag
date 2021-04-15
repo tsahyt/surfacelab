@@ -11,6 +11,11 @@ const uint OBJECT_TYPE_CUBE = 2;
 const uint OBJECT_TYPE_SPHERE = 3;
 const uint OBJECT_TYPE_CYLINDER = 4;
 
+layout(constant_id = 1) const uint RENDER_TYPE = 0;
+
+const uint RENDER_TYPE_PBR = 0;
+const uint RENDER_TYPE_MATCAP = 1;
+
 layout(set = 0, binding = 0) uniform sampler s_Texture;
 
 layout(set = 0, binding = 1) uniform Occupancy {
@@ -69,6 +74,7 @@ layout(set = 0, binding = 9) uniform texture2D t_View;
 layout(set = 0, binding = 10) uniform textureCube irradiance_map;
 layout(set = 0, binding = 11) uniform textureCube environment_map;
 layout(set = 0, binding = 12) uniform texture2D brdf_lut;
+layout(set = 0, binding = 13) uniform texture2D matcap;
 
 const float PI = 3.141592654;
 
@@ -628,6 +634,51 @@ float world_space_sample_size(float d) {
     return z * d;
 }
 
+vec3 render_matcap(vec3 ro, vec3 rd, vec3 look_at) {
+    float d = rayMarch(ro, rd);
+
+    // Early termination for non-surface pixels
+    vec3 world = world(rd, environment_blur);
+    if (d == INFINITY) { return world; }
+
+    vec3 p = ro + rd * d;
+    vec3 n = normal(p, vec3(0., 0., 1.), world_space_sample_size(d), lod_by_distance(d));
+
+    // Construct view matrix
+    vec3 forward = normalize(look_at - ro);
+    vec3 right = normalize(cross(vec3(0,1,0), forward));
+    vec3 up = cross(forward, right);
+
+    mat3 view = mat3(
+        vec3(right.x, forward.x, up.x),
+        vec3(right.y, forward.y, up.y),
+        vec3(right.z, forward.z, up.z)
+    );
+
+    // Matcap Render
+    vec3 view_normal = vec3(view * n);
+    vec2 muv = view_normal.xz * 0.5 + vec2(0.5, 0.5);
+    vec3 col = textureLod(sampler2D(matcap, s_Texture), vec2(muv.x, muv.y), 0.).rgb;
+
+    // Shadowing
+    float shadow;
+    if (draw_shadow == 1) {
+        vec3 l = vec3(0., 1., 0.);
+        if (light_type == LIGHT_TYPE_POINT) {
+            point_light(p, light_pos.xyz, l);
+        } else if (light_type == LIGHT_TYPE_SUN) {
+            sun_light(p, light_pos.xyz, l);
+        }
+        shadow = rayShadowSoft(p, l, 0.025);
+    } else {
+        shadow = 1.;
+    }
+
+    col *= vec3(smoothstep(6., 3., length(p.xz)));
+
+    return shadow * col;
+}
+
 vec3 render(vec3 ro, vec3 rd) {
     vec3 col = vec3(0.);
 
@@ -724,7 +775,16 @@ void main() {
     vec3 ro;
     vec3 rd = camera(camera_pos, center.xyz, uv + subpixel_offset, focal_length, focal_distance, aperture_size, ro);
 
-    vec3 col = render(ro, rd);
+    vec3 col = vec3(0.);
+
+    switch (RENDER_TYPE) {
+        case RENDER_TYPE_PBR:
+            col = render(ro, rd);
+            break;
+        case RENDER_TYPE_MATCAP:
+            col = render_matcap(ro, rd, center.xyz);
+            break;
+    }
 
     outColor = vec4(col, 1.0);
 }
