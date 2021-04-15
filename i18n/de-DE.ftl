@@ -214,3 +214,4 @@ width = Breite
 height = Höhe
 sides = Seiten
 angle-factor = Winkelfaktor
+shell = Schale

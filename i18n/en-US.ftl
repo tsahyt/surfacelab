@@ -215,3 +215,4 @@ width = Width
 height = Height
 sides = Sides
 angle-factor = Angle Factor
+shell = Shell

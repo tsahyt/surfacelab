@@ -6,6 +6,7 @@ layout(set = 0, binding = 0) uniform Params {
     vec2 translation;
     float theta;
     uint shape;
+    uint shell;
     float radius;
     float width;
     float height;
@@ -128,6 +129,10 @@ void main() {
         case SHAPE_ELLIPSE:
             sdf = sd_ellipse(uv, vec2(width, height));
             break;
+    }
+
+    if (shell != 0) {
+        sdf = abs(sdf);
     }
 
     imageStore(t_Out, idx, vec4(sdf, sdf, sdf, 1.));

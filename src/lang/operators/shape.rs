@@ -63,6 +63,7 @@ pub struct Shape {
     pub translation: [f32; 2],
     pub rotation: f32,
     pub shape_type: ShapeType,
+    pub shell: ParameterBool,
     pub radius: f32,
     pub width: f32,
     pub height: f32,
@@ -76,6 +77,7 @@ impl Default for Shape {
             translation: [0.; 2],
             rotation: 0.,
             shape_type: ShapeType::Circle,
+            shell: 0,
             radius: 0.3,
             width: 0.4,
             height: 0.2,
@@ -174,6 +176,15 @@ impl OperatorParamBox for Shape {
                                     .iter()
                                     .map(|x| x.to_string())
                                     .collect(),
+                            },
+                            expose_status: Some(ExposeStatus::Unexposed),
+                            visibility: VisibilityFunction::default(),
+                        },
+                        Parameter {
+                            name: "shell".to_string(),
+                            transmitter: Field(Shape::SHELL.to_string()),
+                            control: Control::Toggle {
+                                def: self.shell == 1,
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
                             visibility: VisibilityFunction::default(),
