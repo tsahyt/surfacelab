@@ -1162,6 +1162,15 @@ where
                             )),
                         },
                         DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 13,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                self.matcap.matcap_view(),
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
                             set: &self.accum_descriptor_set,
                             binding: 0,
                             array_offset: 0,

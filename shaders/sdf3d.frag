@@ -11,7 +11,7 @@ const uint OBJECT_TYPE_CUBE = 2;
 const uint OBJECT_TYPE_SPHERE = 3;
 const uint OBJECT_TYPE_CYLINDER = 4;
 
-layout(constant_id = 1) const uint RENDER_TYPE = 0;
+layout(constant_id = 1) const uint RENDER_TYPE = 1;
 
 const uint RENDER_TYPE_PBR = 0;
 const uint RENDER_TYPE_MATCAP = 1;
