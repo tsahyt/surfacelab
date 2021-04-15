@@ -170,6 +170,7 @@ closed = Closed
 open = Open
 
 smooth-edge = Edge Smoothing
+invert = Invert
 
 warp-mode = Warp Mode
 push = Push
@@ -202,3 +203,7 @@ jitter = Jitter
 depth = Depth
 radius = Radius
 falloff = Falloff
+
+shape-type = Shape
+circle = Circle
+box = Box

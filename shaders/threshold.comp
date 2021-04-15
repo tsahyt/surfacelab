@@ -4,6 +4,7 @@ layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform Params {
     uint smooth_edge;
+    uint invert;
     float threshold;
 };
 
@@ -30,6 +31,10 @@ void main() {
         vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
         float value = texture(sampler2D(t_Color1, Sampler), uv).r;
         new = step(threshold, value);
+    }
+
+    if(invert != 0) {
+        new = 1. - new;
     }
 
     imageStore(t_Out, idx, vec4(vec3(new), 1.));

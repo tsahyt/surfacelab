@@ -13,6 +13,7 @@ use zerocopy::AsBytes;
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Threshold {
     pub smooth: ParameterBool,
+    pub invert: ParameterBool,
     pub threshold: f32,
 }
 
@@ -20,6 +21,7 @@ impl Default for Threshold {
     fn default() -> Self {
         Self {
             smooth: 0,
+            invert: 0,
             threshold: 0.5,
         }
     }
@@ -91,6 +93,15 @@ impl OperatorParamBox for Threshold {
                         transmitter: Field(Threshold::SMOOTH.to_string()),
                         control: Control::Toggle {
                             def: self.smooth == 1,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                    },
+                    Parameter {
+                        name: "invert".to_string(),
+                        transmitter: Field(Threshold::INVERT.to_string()),
+                        control: Control::Toggle {
+                            def: self.invert == 1,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),

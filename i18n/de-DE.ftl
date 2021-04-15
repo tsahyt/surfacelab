@@ -202,3 +202,7 @@ jitter = Jitter
 depth = Tiefe
 radius = Radius
 falloff = Einflussabfall
+
+shape-type = Form
+circle = Kreis
+box = Rechteck
