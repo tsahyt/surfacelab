@@ -31,6 +31,7 @@ pub enum ShapeType {
     Circle = 0,
     Box = 1,
     RegularNGon = 2,
+    Ellipse = 3,
 }
 
 impl ShapeType {
@@ -39,11 +40,11 @@ impl ShapeType {
     }
 
     pub fn has_width(self) -> bool {
-        matches!(self, Self::Box)
+        matches!(self, Self::Box | Self::Ellipse)
     }
 
     pub fn has_height(self) -> bool {
-        matches!(self, Self::Box)
+        matches!(self, Self::Box | Self::Ellipse)
     }
 
     pub fn has_sides(self) -> bool {
