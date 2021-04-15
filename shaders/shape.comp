@@ -9,6 +9,7 @@ layout(set = 0, binding = 0) uniform Params {
     float radius;
     float width;
     float height;
+    float angle_factor;
     int sides;
 };
 layout(set = 0, binding = 1, r32f) uniform image2D t_Out;
@@ -16,7 +17,8 @@ layout(set = 0, binding = 1, r32f) uniform image2D t_Out;
 const uint SHAPE_CIRCLE = 0;
 const uint SHAPE_BOX = 1;
 const uint SHAPE_NGON = 2;
-const uint SHAPE_ELLIPSE = 3;
+const uint SHAPE_STAR = 3;
+const uint SHAPE_ELLIPSE = 4;
 const float PI = 3.14159265359;
 
 float sd_circle(vec2 p, float r) {
@@ -82,6 +84,20 @@ float sd_ellipse(vec2 p, vec2 ab) {
     return length(r-p) * sign(p.y-r.y);
 }
 
+float sd_star(vec2 p, float r, int n, float m) {
+    float an = PI / float(n);
+    float en = PI / m;  // m is between 2 and n
+    vec2 acs = vec2(cos(an), sin(an));
+    vec2 ecs = vec2(cos(en), sin(en)); // ecs=vec2(0,1) for regular polygon
+
+    float bn = mod(atan(p.x, p.y), 2.0 * an) - an;
+    p = length(p) * vec2(cos(bn), abs(sin(bn)));
+    p -= r * acs;
+    p += ecs * clamp(- dot(p,ecs), 0.0, r * acs.y / ecs.y);
+
+    return length(p) * sign(p.x);
+}
+
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     ivec2 resolution = imageSize(t_Out);
@@ -105,6 +121,9 @@ void main() {
             break;
         case SHAPE_NGON:
             sdf = sd_ngon(uv, radius, sides);
+            break;
+        case SHAPE_STAR:
+            sdf = sd_star(uv, radius, sides, 2. + angle_factor * angle_factor * (sides - 2.));
             break;
         case SHAPE_ELLIPSE:
             sdf = sd_ellipse(uv, vec2(width, height));

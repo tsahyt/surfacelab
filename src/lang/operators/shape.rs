@@ -31,12 +31,13 @@ pub enum ShapeType {
     Circle = 0,
     Box = 1,
     RegularNGon = 2,
-    Ellipse = 3,
+    RegularStar = 3,
+    Ellipse = 4,
 }
 
 impl ShapeType {
     pub fn has_radius(self) -> bool {
-        matches!(self, Self::Circle | Self::RegularNGon)
+        matches!(self, Self::Circle | Self::RegularNGon | Self::RegularStar)
     }
 
     pub fn has_width(self) -> bool {
@@ -48,7 +49,11 @@ impl ShapeType {
     }
 
     pub fn has_sides(self) -> bool {
-        matches!(self, Self::RegularNGon)
+        matches!(self, Self::RegularNGon | Self::RegularStar)
+    }
+
+    pub fn has_angle_factor(self) -> bool {
+        matches!(self, Self::RegularStar)
     }
 }
 
@@ -61,6 +66,7 @@ pub struct Shape {
     pub radius: f32,
     pub width: f32,
     pub height: f32,
+    pub angle_factor: f32,
     pub sides: i32,
 }
 
@@ -70,9 +76,10 @@ impl Default for Shape {
             translation: [0.; 2],
             rotation: 0.,
             shape_type: ShapeType::Circle,
-            radius: 0.5,
-            width: 0.3,
-            height: 0.3,
+            radius: 0.3,
+            width: 0.4,
+            height: 0.2,
+            angle_factor: 0.5,
             sides: 6,
         }
     }
@@ -238,6 +245,24 @@ impl OperatorParamBox for Shape {
                                 if let Control::Enum { selected, .. } = c {
                                     unsafe { ShapeType::from_unchecked(*selected as u32) }
                                         .has_sides()
+                                } else {
+                                    false
+                                }
+                            }),
+                        },
+                        Parameter {
+                            name: "angle-factor".to_string(),
+                            transmitter: Field(Shape::ANGLE_FACTOR.to_string()),
+                            control: Control::Slider {
+                                value: self.angle_factor,
+                                min: 0.,
+                                max: 1.,
+                            },
+                            expose_status: Some(ExposeStatus::Unexposed),
+                            visibility: VisibilityFunction::on_parameter("shape-type", |c| {
+                                if let Control::Enum { selected, .. } = c {
+                                    unsafe { ShapeType::from_unchecked(*selected as u32) }
+                                        .has_angle_factor()
                                 } else {
                                     false
                                 }
