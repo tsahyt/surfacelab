@@ -18,6 +18,7 @@ use super::{Backend, PipelineError, GPU};
 
 pub mod brdf_lut;
 pub mod environment;
+pub mod matcap;
 pub mod renderer2d;
 pub mod sdf3d;
 
@@ -25,6 +26,7 @@ pub use renderer2d::Renderer2D;
 pub use sdf3d::RendererSDF3D;
 
 use environment::EnvironmentMaps;
+use matcap::Matcap;
 
 static ACCUM_SHADER: &[u8] = shader!("accum");
 
@@ -97,6 +99,7 @@ pub struct GPURender<B: Backend, U: Renderer> {
     uniform_buffer: ManuallyDrop<B::Buffer>,
     uniform_memory: ManuallyDrop<B::Memory>,
     environment_maps: EnvironmentMaps<B>,
+    matcap: Matcap<B>,
 
     // Synchronization
     complete_fence: ManuallyDrop<B::Fence>,
@@ -404,6 +407,14 @@ where
                 .for_folder("assets")
                 .unwrap()
                 .join("artist_workshop_2k.hdr"),
+        )
+        .unwrap();
+        let matcap = Matcap::from_file(
+            gpu.clone(),
+            find_folder::Search::KidsThenParents(3, 5)
+                .for_folder("assets")
+                .unwrap()
+                .join("matcap.png"),
         )
         .unwrap();
 
@@ -746,6 +757,7 @@ where
             sampler: ManuallyDrop::new(sampler),
 
             environment_maps,
+            matcap,
 
             occupancy_buffer: ManuallyDrop::new(occupancy_buf),
             occupancy_memory: ManuallyDrop::new(occupancy_mem),
