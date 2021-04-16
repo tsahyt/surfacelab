@@ -90,6 +90,7 @@ impl OperatorParamBox for Swizzle {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "red-channel".to_string(),

@@ -142,6 +142,7 @@ impl OperatorParamBox for Blur {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "quality".to_string(),

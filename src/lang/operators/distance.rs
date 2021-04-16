@@ -176,6 +176,7 @@ impl OperatorParamBox for Distance {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "metric".to_string(),

@@ -75,6 +75,7 @@ impl OperatorParamBox for Value {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![Parameter {
                     name: "value".to_string(),
                     transmitter: Field(Value::VALUE.to_string()),

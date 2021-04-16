@@ -138,6 +138,7 @@ impl OperatorParamBox for Shape {
                 ParamCategory {
                     name: "transform",
                     is_open: false,
+                    visibility: VisibilityFunction::default(),
                     parameters: vec![
                         Parameter {
                             name: "translation".to_string(),
@@ -166,6 +167,7 @@ impl OperatorParamBox for Shape {
                 ParamCategory {
                     name: "basic-parameters",
                     is_open: true,
+                    visibility: VisibilityFunction::default(),
                     parameters: vec![
                         Parameter {
                             name: "shape-type".to_string(),

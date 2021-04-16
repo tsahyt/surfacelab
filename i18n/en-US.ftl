@@ -46,6 +46,7 @@ displacement-amount = Displacement Amount
 tex-scale = Texture Scale
 environment = Environment
 hdri-file = HDRi File
+matcap-file = Matcap File
 hdri-strength = Strength
 hdri-blur = Blur
 hdri-rotation = Rotation

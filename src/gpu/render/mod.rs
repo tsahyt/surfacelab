@@ -1553,6 +1553,16 @@ where
         Ok(())
     }
 
+    /// Load a new matcap from a file.
+    pub fn load_matcap<P: AsRef<std::path::Path>>(
+        &mut self,
+        path: P,
+    ) -> Result<(), matcap::MatcapError> {
+        let new_matcap = Matcap::from_file(self.gpu.clone(), path)?;
+        self.matcap = new_matcap;
+        Ok(())
+    }
+
     pub fn set_tone_map(&mut self, tone_map: ToneMap) {
         self.tone_map = tone_map;
     }

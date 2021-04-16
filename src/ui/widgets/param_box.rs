@@ -349,7 +349,12 @@ where
         let language = self.language;
         let controls = description.controls();
 
-        for (j, category) in description.categories.iter_mut().enumerate() {
+        for (j, category) in description
+            .categories
+            .iter_mut()
+            .enumerate()
+            .filter(|(_, category)| category.visibility.run(&controls))
+        {
             widget::Text::new(&self.language.get_message(category.name))
                 .parent(id)
                 .color(style.text_color(&ui.theme))

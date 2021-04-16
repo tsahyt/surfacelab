@@ -134,6 +134,7 @@ impl OperatorParamBox for Blend {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "blend-mode".to_string(),
@@ -270,6 +271,7 @@ impl OperatorParamBox for BlendMasked {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "blend-mode".to_string(),

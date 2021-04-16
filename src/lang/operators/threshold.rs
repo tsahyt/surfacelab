@@ -87,6 +87,7 @@ impl OperatorParamBox for Threshold {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "smooth-edge".to_string(),

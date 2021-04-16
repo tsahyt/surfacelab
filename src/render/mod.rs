@@ -423,8 +423,13 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
-            Lang::UserRenderEvent(UserRenderEvent::LoadHDRI(id, Some(path))) => {
+            Lang::UserRenderEvent(UserRenderEvent::LoadHdri(id, Some(path))) => {
                 self.load_hdri(*id, path);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
+            Lang::UserRenderEvent(UserRenderEvent::LoadMatcap(id, Some(path))) => {
+                self.load_matcap(*id, path);
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
@@ -825,6 +830,15 @@ where
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             if let ManagedRenderer::RendererSDF3D(r) = &mut r.gpu {
                 r.load_environment(path).unwrap();
+            }
+            r.reset_sampling();
+        }
+    }
+
+    pub fn load_matcap<P: AsRef<std::path::Path>>(&mut self, renderer_id: RendererID, path: P) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            if let ManagedRenderer::RendererSDF3D(r) = &mut r.gpu {
+                r.load_matcap(path).unwrap();
             }
             r.reset_sampling();
         }

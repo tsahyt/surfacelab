@@ -122,6 +122,7 @@ impl OperatorParamBox for Warp {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "warp-mode".to_string(),

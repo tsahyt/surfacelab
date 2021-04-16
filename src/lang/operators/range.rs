@@ -118,6 +118,7 @@ impl OperatorParamBox for Range {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "range-mode".to_string(),

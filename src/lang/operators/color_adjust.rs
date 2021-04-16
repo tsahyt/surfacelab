@@ -137,6 +137,7 @@ impl OperatorParamBox for ColorAdjust {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "adjust-mode".to_string(),

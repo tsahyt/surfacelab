@@ -81,6 +81,7 @@ impl OperatorParamBox for NormalMap {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![Parameter {
                     name: "strength".to_string(),
                     transmitter: Field(NormalMap::STRENGTH.to_string()),

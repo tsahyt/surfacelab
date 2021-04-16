@@ -1,4 +1,4 @@
-use super::{resource::*, ImageType, OperatorSize, OperatorType};
+use super::{resource::*, ImageType, OperatorSize, OperatorType, ShadingMode};
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -286,7 +286,8 @@ pub enum RenderField {
     EnvironmentStrength,
     EnvironmentBlur,
     EnvironmentRotation,
-    HDRI,
+    Hdri,
+    Matcap,
     FocalLength,
     ApertureSize,
     ApertureBlades,
@@ -334,10 +335,13 @@ impl MessageWriter for RenderField {
             RenderField::AoStrength => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::AoStrength(*renderer, f32::from_data(data)),
             ),
-            RenderField::HDRI => super::Lang::UserRenderEvent(super::UserRenderEvent::LoadHDRI(
+            RenderField::Hdri => super::Lang::UserRenderEvent(super::UserRenderEvent::LoadHdri(
                 *renderer,
                 <Option<PathBuf>>::from_data(data),
             )),
+            RenderField::Matcap => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::LoadMatcap(*renderer, <Option<PathBuf>>::from_data(data)),
+            ),
             RenderField::FocalLength => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::FocalLength(*renderer, f32::from_data(data)),
             ),
@@ -455,6 +459,7 @@ where
                 .map(|mut cat| ParamCategory {
                     name: cat.name,
                     is_open: cat.is_open,
+                    visibility: cat.visibility,
                     parameters: cat
                         .parameters
                         .drain(0..)
@@ -571,6 +576,7 @@ impl ParamBoxDescription<ResourceField> {
             categories: vec![ParamCategory {
                 name: "node",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters,
             }],
         }
@@ -586,6 +592,7 @@ impl ParamBoxDescription<RenderField> {
                 ParamCategory {
                     name: "renderer",
                     is_open: true,
+                    visibility: VisibilityFunction::default(),
                     parameters: vec![
                         Parameter {
                             name: "sample-count".to_string(),
@@ -629,6 +636,7 @@ impl ParamBoxDescription<RenderField> {
                 ParamCategory {
                     name: "geometry",
                     is_open: true,
+                    visibility: VisibilityFunction::default(),
                     parameters: vec![
                         Parameter {
                             name: "object-type".to_string(),
@@ -670,11 +678,12 @@ impl ParamBoxDescription<RenderField> {
                 ParamCategory {
                     name: "environment",
                     is_open: true,
+                    visibility: VisibilityFunction::default(),
                     parameters: vec![
                         Parameter {
                             name: "hdri-file".to_string(),
                             control: Control::File { selected: None },
-                            transmitter: RenderField::HDRI,
+                            transmitter: RenderField::Hdri,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
                         },
@@ -720,7 +729,14 @@ impl ParamBoxDescription<RenderField> {
                             },
                             transmitter: RenderField::AoStrength,
                             expose_status: None,
-                            visibility: VisibilityFunction::default(),
+                            visibility: VisibilityFunction::on_parameter("shading-mode", |c| {
+                                if let Control::Enum { selected, .. } = c {
+                                    unsafe { ShadingMode::from_unchecked(*selected as u32) }
+                                        .has_lights()
+                                } else {
+                                    false
+                                }
+                            }),
                         },
                         Parameter {
                             name: "fog-strength".to_string(),
@@ -736,8 +752,33 @@ impl ParamBoxDescription<RenderField> {
                     ],
                 },
                 ParamCategory {
+                    name: "matcap",
+                    is_open: true,
+                    visibility: VisibilityFunction::on_parameter("shading-mode", |c| {
+                        if let Control::Enum { selected, .. } = c {
+                            unsafe { ShadingMode::from_unchecked(*selected as u32) }.has_matcap()
+                        } else {
+                            false
+                        }
+                    }),
+                    parameters: vec![Parameter {
+                        name: "matcap-file".to_string(),
+                        control: Control::File { selected: None },
+                        transmitter: RenderField::Matcap,
+                        expose_status: None,
+                        visibility: VisibilityFunction::default(),
+                    }],
+                },
+                ParamCategory {
                     name: "light",
                     is_open: true,
+                    visibility: VisibilityFunction::on_parameter("shading-mode", |c| {
+                        if let Control::Enum { selected, .. } = c {
+                            unsafe { ShadingMode::from_unchecked(*selected as u32) }.has_lights()
+                        } else {
+                            false
+                        }
+                    }),
                     parameters: vec![
                         Parameter {
                             name: "light-type".to_string(),
@@ -775,6 +816,7 @@ impl ParamBoxDescription<RenderField> {
                 ParamCategory {
                     name: "camera",
                     is_open: true,
+                    visibility: VisibilityFunction::default(),
                     parameters: vec![
                         Parameter {
                             name: "focal-length".to_string(),
@@ -846,6 +888,7 @@ impl ParamBoxDescription<GraphField> {
             categories: vec![ParamCategory {
                 name: "graph-attributes",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![Parameter {
                     name: "graph-name".to_string(),
                     control: Control::Entry {
@@ -896,6 +939,7 @@ impl ParamBoxDescription<LayerField> {
             categories: vec![ParamCategory {
                 name: "output-channels",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: super::MaterialChannel::iter()
                     .map(|chan| Parameter {
                         name: chan.to_string(),
@@ -930,6 +974,7 @@ impl ParamBoxDescription<LayerField> {
                 ParamCategory {
                     name: "input-channels",
                     is_open: true,
+                    visibility: VisibilityFunction::default(),
                     parameters: operator
                         .inputs()
                         .keys()
@@ -951,6 +996,7 @@ impl ParamBoxDescription<LayerField> {
                 ParamCategory {
                     name: "output-channels",
                     is_open: true,
+                    visibility: VisibilityFunction::default(),
                     parameters: super::MaterialChannel::iter()
                         .map(|chan| Parameter {
                             name: chan.to_string(),
@@ -979,6 +1025,7 @@ impl ParamBoxDescription<SurfaceField> {
             categories: vec![ParamCategory {
                 name: "surface-attributes",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![Parameter {
                     name: "parent-size".to_string(),
                     control: Control::Size {
@@ -999,6 +1046,7 @@ impl ParamBoxDescription<SurfaceField> {
 pub struct ParamCategory<T: MessageWriter> {
     pub name: &'static str,
     pub is_open: bool,
+    pub visibility: VisibilityFunction,
     pub parameters: Vec<Parameter<T>>,
 }
 

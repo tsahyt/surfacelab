@@ -71,6 +71,7 @@ trait ExposedParameters: NodeCollection {
             categories: vec![ParamCategory {
                 name: "Exposed Parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: self
                     .exposed_parameters()
                     .iter()

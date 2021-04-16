@@ -77,6 +77,7 @@ impl OperatorParamBox for Checker {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "tiling".to_string(),

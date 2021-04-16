@@ -85,6 +85,7 @@ impl OperatorParamBox for NoiseSpread {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "spread-distance".to_string(),

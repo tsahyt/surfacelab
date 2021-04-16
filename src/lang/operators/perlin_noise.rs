@@ -76,6 +76,7 @@ impl OperatorParamBox for PerlinNoise {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "scale".to_string(),

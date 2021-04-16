@@ -131,6 +131,7 @@ impl OperatorParamBox for Transform {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
                         name: "translation".to_string(),

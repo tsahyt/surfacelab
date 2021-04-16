@@ -110,6 +110,7 @@ impl OperatorParamBox for Grayscale {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![Parameter {
                     name: "grayscale-conversion-mode".to_string(),
                     transmitter: Field(Grayscale::MODE.to_string()),

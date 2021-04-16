@@ -120,6 +120,7 @@ impl OperatorParamBox for Image {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![Parameter {
                     name: "image-resource".to_string(),
                     transmitter: Field(Self::RESOURCE.to_string()),
@@ -236,6 +237,7 @@ impl OperatorParamBox for Output {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![Parameter {
                     name: "output-type".to_string(),
                     transmitter: Field(Self::OUTPUT_TYPE.to_string()),
@@ -319,6 +321,7 @@ impl OperatorParamBox for Input {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![Parameter {
                     name: "input-type".to_string(),
                     transmitter: Field(Self::INPUT_TYPE.to_string()),

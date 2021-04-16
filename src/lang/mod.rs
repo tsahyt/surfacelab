@@ -10,6 +10,7 @@ pub mod socketed;
 
 use enum_dispatch::*;
 use enumset::{EnumSet, EnumSetType};
+use num_enum::UnsafeFromPrimitive;
 
 use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -693,12 +694,24 @@ pub enum ObjectType {
 }
 
 /// Shading modes supported by the SDF 3D renderer
-#[derive(AsBytes, Copy, Clone, Debug, Serialize, EnumVariantNames, Deserialize)]
+#[derive(
+    AsBytes, Copy, Clone, Debug, Serialize, EnumVariantNames, Deserialize, UnsafeFromPrimitive,
+)]
 #[repr(u32)]
 #[strum(serialize_all = "kebab_case")]
 pub enum ShadingMode {
     Pbr = 0,
     Matcap = 1,
+}
+
+impl ShadingMode {
+    pub fn has_lights(self) -> bool {
+        matches!(self, Self::Pbr)
+    }
+
+    pub fn has_matcap(self) -> bool {
+        matches!(self, Self::Matcap)
+    }
 }
 
 /// Tonemapping operators for renderer
@@ -755,8 +768,10 @@ pub enum UserRenderEvent {
     SetShadow(RendererID, ParameterBool),
     /// The user requests setting the ambient occlusion strength
     AoStrength(RendererID, f32),
-    /// The user seeks to load a new HDRi from file
-    LoadHDRI(RendererID, Option<PathBuf>),
+    /// The user seeks to load a new HDRI from file
+    LoadHdri(RendererID, Option<PathBuf>),
+    /// The user seeks to load a new matcap from file
+    LoadMatcap(RendererID, Option<PathBuf>),
     /// The user requests setting the object type to be rendered
     ObjectType(RendererID, ObjectType),
     /// The user requests setting the renderer shading mode

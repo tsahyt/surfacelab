@@ -46,7 +46,10 @@ where
         // Read matcap from disk
         let io_timer = Instant::now();
         let image = image::io::Reader::open(path.as_ref())?.decode()?.to_rgba8();
-        log::debug!("Read Matcap from disk in {}ms", io_timer.elapsed().as_millis());
+        log::debug!(
+            "Read Matcap from disk in {}ms",
+            io_timer.elapsed().as_millis()
+        );
 
         // Obtain resources for matcap
         let (matcap_image, matcap_memory, matcap_view) =

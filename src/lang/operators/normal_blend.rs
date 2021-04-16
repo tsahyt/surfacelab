@@ -86,6 +86,7 @@ impl OperatorParamBox for NormalBlend {
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
+                visibility: VisibilityFunction::default(),
                 parameters: vec![Parameter {
                     name: "mix".to_string(),
                     transmitter: Field(NormalBlend::MIX.to_string()),
