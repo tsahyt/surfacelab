@@ -371,7 +371,9 @@ struct RendererSettings {
     view_data: Vec<u8>,
     tone_map: ToneMap,
     object_type: Option<ObjectType>,
+    shading_mode: Option<ShadingMode>,
     hdri_path: std::path::PathBuf,
+    matcap_path: std::path::PathBuf,
 }
 
 impl<B, U> GPURender<B, U>
@@ -780,7 +782,9 @@ where
             view_data: self.view.serialize()?,
             tone_map: self.tone_map,
             object_type: self.object_type,
+            shading_mode: self.shading_mode,
             hdri_path: self.environment_maps.path().clone(),
+            matcap_path: self.matcap.path().clone(),
         })
     }
 
@@ -789,8 +793,11 @@ where
         self.view.deserialize(&settings.view_data)?;
         self.tone_map = settings.tone_map;
         self.object_type = settings.object_type;
+        self.shading_mode = settings.shading_mode;
         self.load_environment(&settings.hdri_path)
             .expect("Failed to load hdri");
+        self.load_matcap(&settings.matcap_path)
+            .expect("Failed to load matcap");
         Ok(())
     }
 
