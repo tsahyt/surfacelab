@@ -250,7 +250,7 @@ impl OperatorParamBox for Shape {
                             transmitter: Field(Shape::SIDES.to_string()),
                             control: Control::DiscreteSlider {
                                 value: self.sides,
-                                min: 1,
+                                min: 2,
                                 max: 32,
                             },
                             expose_status: Some(ExposeStatus::Unexposed),

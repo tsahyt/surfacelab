@@ -142,6 +142,10 @@ impl<'a> Widget for LayerEditor<'a> {
             _ => {}
         }
 
+        let blend_modes: Vec<_> = BlendMode::VARIANTS
+            .iter()
+            .map(|v| self.language.get_message(&v))
+            .collect();
         let active_collection = match self.graphs.get_active_collection_mut() {
             NodeCollection::Layers(l) => l,
             _ => panic!("Layers UI built for graph"),
@@ -196,7 +200,7 @@ impl<'a> Widget for LayerEditor<'a> {
             }
 
             if let Some(new_selection) =
-                widget::DropDownList::new(BlendMode::VARIANTS, Some(active_layer.blend_mode))
+                widget::DropDownList::new(&blend_modes, Some(active_layer.blend_mode))
                     .label_font_size(10)
                     .top_left_with_margins(48.0, 8.0)
                     .padded_w_of(id, 8.0)
@@ -235,7 +239,7 @@ impl<'a> Widget for LayerEditor<'a> {
                     .unwrap();
             }
         } else {
-            widget::DropDownList::new(BlendMode::VARIANTS, Some(0))
+            widget::DropDownList::new(&blend_modes, Some(0))
                 .enabled(false)
                 .label_font_size(10)
                 .parent(id)
