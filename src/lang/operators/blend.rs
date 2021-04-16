@@ -44,15 +44,17 @@ pub enum BlendMode {
 
 impl BlendMode {
     pub fn has_sharpness(self) -> bool {
-        matches!(self, Self::SmoothDarken | Self::SmoothLighten | Self::SmoothInvertLighten)
+        matches!(
+            self,
+            Self::SmoothDarken | Self::SmoothLighten | Self::SmoothInvertLighten
+        )
     }
 }
 
 fn sharpness_visibility() -> VisibilityFunction {
     VisibilityFunction::on_parameter("blend-mode", |c| {
         if let Control::Enum { selected, .. } = c {
-            unsafe { BlendMode::from_unchecked(*selected as u32) }
-                .has_sharpness()
+            unsafe { BlendMode::from_unchecked(*selected as u32) }.has_sharpness()
         } else {
             false
         }

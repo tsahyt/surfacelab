@@ -10,6 +10,7 @@ layout(set = 0, binding = 0) uniform Params {
     float to_max;
     int steps;
     uint clamp_output;
+    uint smooth_edge;
 };
 
 layout(set = 0, binding = 1) uniform texture2D t_Color1;
@@ -67,7 +68,22 @@ void main() {
     ivec2 resolution = imageSize(t_Out);
     vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
 
-    float factor = map_range(texture(sampler2D(t_Color1, Sampler), uv).r);
+    float factor = 0.;
+
+    if(smooth_edge != 0) {
+        vec2 sub_sample = 0.25 / vec2(resolution);
+
+        for(int x = - 2; x <= 2; ++x) {
+            for(int y = - 2; y <= 2; ++y) {
+                vec2 uv_ = uv + vec2(x, y) * sub_sample;
+                factor += map_range(texture(sampler2D(t_Color1, Sampler), uv_).r);
+            }
+        }
+        factor /= 25.;
+    } else {
+        factor = map_range(texture(sampler2D(t_Color1, Sampler), uv).r);
+    }
+
     float x = to_min + factor * (to_max - to_min);
 
     if (clamp_output != 0) {

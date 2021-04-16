@@ -42,6 +42,7 @@ pub struct Range {
     pub to_max: f32,
     pub steps: i32,
     pub clamp_output: ParameterBool,
+    pub smooth: ParameterBool,
 }
 
 impl Default for Range {
@@ -54,6 +55,7 @@ impl Default for Range {
             to_max: 1.0,
             steps: 4,
             clamp_output: 1,
+            smooth: 0,
         }
     }
 }
@@ -138,6 +140,21 @@ impl OperatorParamBox for Range {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                    },
+                    Parameter {
+                        name: "smooth-edge".to_string(),
+                        transmitter: Field(Range::SMOOTH.to_string()),
+                        control: Control::Toggle {
+                            def: self.smooth == 1,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter("range-mode", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                *selected == RangeMode::Stepped as usize
+                            } else {
+                                false
+                            }
+                        }),
                     },
                     Parameter {
                         name: "from-min".to_string(),
