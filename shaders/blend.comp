@@ -14,16 +14,18 @@ layout(set = 0, binding = 2) uniform texture2D t_Color2;
 layout(set = 0, binding = 3) uniform sampler Sampler;
 layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
 
-#define MODE_MIX 0
-#define MODE_MULTIPLY 1
-#define MODE_ADD 2
-#define MODE_SUBTRACT 3
-#define MODE_SCREEN 4
-#define MODE_OVERLAY 5
-#define MODE_DARKEN 6
-#define MODE_LIGHTEN 7
-#define MODE_SMOOTH_DARKEN 8
-#define MODE_SMOOTH_LIGHTEN 9
+const uint MODE_MIX = 0;
+const uint MODE_MULTIPLY = 1;
+const uint MODE_ADD = 2;
+const uint MODE_SUBTRACT = 3;
+const uint MODE_SCREEN = 4;
+const uint MODE_OVERLAY = 5;
+const uint MODE_DARKEN = 6;
+const uint MODE_LIGHTEN = 7;
+const uint MODE_INVERT_LIGHTEN = 8;
+const uint MODE_SMOOTH_DARKEN = 9;
+const uint MODE_SMOOTH_LIGHTEN = 10;
+const uint MODE_SMOOTH_INVERT_LIGHTEN = 11;
 
 float overlay_f(float a, float b) {
     if (a < 0.5) {
@@ -48,26 +50,34 @@ vec4 smax(vec4 a, vec4 b, float k)
 }
 
 vec4 blend(vec4 col1, vec4 col2) {
-    if (mode == MODE_MIX)
-        return mix(col1, col2, mix_factor);
-    else if (mode == MODE_MULTIPLY)
-        return mix(col1, col1 * col2, mix_factor);
-    else if (mode == MODE_ADD)
-        return mix(col1, col1 + col2, mix_factor);
-    else if (mode == MODE_SUBTRACT)
-        return mix(col1, col1 - col2, mix_factor);
-    else if (mode == MODE_SCREEN)
-        return mix(col1, 1. - (1. - col1) * (1. - col2), mix_factor);
-    else if (mode == MODE_OVERLAY)
-        return mix(col1, overlay(col1, col2), mix_factor);
-    else if (mode == MODE_DARKEN)
-        return mix(col1, min(col1, col2), mix_factor);
-    else if (mode == MODE_LIGHTEN)
-        return mix(col1, max(col1, col2), mix_factor);
-    else if (mode == MODE_SMOOTH_DARKEN)
-        return mix(col1, smin(col1, col2, sharpness), mix_factor);
-    else if (mode == MODE_SMOOTH_LIGHTEN)
-        return mix(col1, smax(col1, col2, sharpness), mix_factor);
+    switch(mode) {
+        case MODE_MIX:
+            return mix(col1, col2, mix_factor);
+        case MODE_MULTIPLY:
+            return mix(col1, col1 * col2, mix_factor);
+        case MODE_ADD:
+            return mix(col1, col1 + col2, mix_factor);
+        case MODE_SUBTRACT:
+            return mix(col1, col1 - col2, mix_factor);
+        case MODE_SCREEN:
+            return mix(col1, 1. - (1. - col1) * (1. - col2), mix_factor);
+        case MODE_OVERLAY:
+            return mix(col1, overlay(col1, col2), mix_factor);
+        case MODE_DARKEN:
+            return mix(col1, min(col1, col2), mix_factor);
+        case MODE_LIGHTEN:
+            return mix(col1, max(col1, col2), mix_factor);
+        case MODE_INVERT_LIGHTEN:
+            return mix(col1, max(-col1, col2), mix_factor);
+        case MODE_SMOOTH_DARKEN:
+            return mix(col1, smin(col1, col2, sharpness), mix_factor);
+        case MODE_SMOOTH_LIGHTEN:
+            return mix(col1, smax(col1, col2, sharpness), mix_factor);
+        case MODE_SMOOTH_INVERT_LIGHTEN:
+            return mix(col1, smax(-col1, col2, sharpness), mix_factor);
+        default:
+            return col1;
+    }
 }
 
 void main() {

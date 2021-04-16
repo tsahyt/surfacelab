@@ -102,8 +102,10 @@ screen = Screen
 overlay = Overlay
 darken = Darken
 lighten = Lighten
+invert-lighten = Invert Lighten
 smooth-darken = Smooth Darken
 smooth-lighten = Smooth Lighten
+smooth-invert-lighten = Smooth Invert Lighten
 clamp = Clamp
 sharpness = Sharpness
 

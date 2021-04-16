@@ -4,6 +4,7 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
+use num_enum::UnsafeFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::VariantNames;
@@ -11,7 +12,7 @@ use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
-#[repr(C)]
+#[repr(u32)]
 #[derive(
     AsBytes,
     Clone,
@@ -23,26 +24,35 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     PartialEq,
+    UnsafeFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum BlendMode {
-    Mix,
-    Multiply,
-    Add,
-    Subtract,
-    Screen,
-    Overlay,
-    Darken,
-    Lighten,
-    SmoothDarken,
-    SmoothLighten,
+    Mix = 0,
+    Multiply = 1,
+    Add = 2,
+    Subtract = 3,
+    Screen = 4,
+    Overlay = 5,
+    Darken = 6,
+    Lighten = 7,
+    InvertLighten = 8,
+    SmoothDarken = 9,
+    SmoothLighten = 10,
+    SmoothInvertLighten = 11,
+}
+
+impl BlendMode {
+    pub fn has_sharpness(self) -> bool {
+        matches!(self, Self::SmoothDarken | Self::SmoothLighten | Self::SmoothInvertLighten)
+    }
 }
 
 fn sharpness_visibility() -> VisibilityFunction {
     VisibilityFunction::on_parameter("blend-mode", |c| {
         if let Control::Enum { selected, .. } = c {
-            *selected == BlendMode::SmoothDarken as usize
-                || *selected == BlendMode::SmoothLighten as usize
+            unsafe { BlendMode::from_unchecked(*selected as u32) }
+                .has_sharpness()
         } else {
             false
         }

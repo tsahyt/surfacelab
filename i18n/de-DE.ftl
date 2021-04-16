@@ -102,8 +102,10 @@ screen = Negativ Multiplizieren
 overlay = Überlagern
 darken = Abdunkeln
 lighten = Aufhellen
+invert-lighten = Invers Aufhellen
 smooth-darken = Weich Abdunkeln
 smooth-lighten = Weich Aufhellen
+smooth-invert-lighten = Weich Invers Aufhellen
 clamp = Festhalten
 sharpness = Schärfe
 
