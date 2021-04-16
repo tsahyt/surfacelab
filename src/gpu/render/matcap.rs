@@ -128,7 +128,7 @@ where
                 &[hal::memory::Barrier::Image {
                     states: (
                         hal::image::Access::TRANSFER_WRITE,
-                        hal::image::Layout::TransferSrcOptimal,
+                        hal::image::Layout::TransferDstOptimal,
                     )
                         ..(
                             hal::image::Access::SHADER_READ,
