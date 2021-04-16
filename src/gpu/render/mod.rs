@@ -7,7 +7,6 @@ use crate::util::HaltonSequence2D;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
 use serde_derive::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use strum_macros::*;
