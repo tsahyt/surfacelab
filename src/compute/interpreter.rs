@@ -216,9 +216,6 @@ pub struct Interpreter<'a, B: gpu::Backend> {
     /// Reference to socket data
     sockets: &'a mut Sockets<B>,
 
-    /// Last known uniform hashes
-    last_known: &'a mut HashMap<Resource<Node>, u64>,
-
     /// Storage for external images
     external_images: &'a mut HashMap<Resource<Img>, ExternalImage>,
 
@@ -248,7 +245,6 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     pub fn new(
         gpu: &'a mut gpu::compute::GPUCompute<B>,
         sockets: &'a mut Sockets<B>,
-        last_known: &'a mut HashMap<Resource<Node>, u64>,
         external_images: &'a mut HashMap<Resource<Img>, ExternalImage>,
         shader_library: &'a ShaderLibrary<B>,
         linearizations: &'a HashMap<Resource<Graph>, Rc<Linearization>>,
@@ -275,7 +271,6 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         Ok(Self {
             gpu,
             sockets,
-            last_known,
             external_images,
             shader_library,
             linearizations,
@@ -364,9 +359,9 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .expect("Missing input image")
                 > op_seq
         });
-        match self.last_known.get(res) {
+        match self.sockets.get_last_hash(res) {
             Some(hash)
-                if *hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) =>
+                if hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) =>
             {
                 log::trace!("Reusing cached images, skipping call");
 
@@ -432,7 +427,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         }
 
         // Write down uniforms and timing data
-        self.last_known.insert(res.clone(), uniform_hash);
+        self.sockets.set_last_hash(&res, uniform_hash);
 
         Ok(())
     }
@@ -506,9 +501,9 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             image_res.hash(&mut hasher);
             hasher.finish()
         };
-        match self.last_known.get(res) {
+        match self.sockets.get_last_hash(res) {
             Some(hash)
-                if *hash == parameter_hash
+                if hash == parameter_hash
                     && !self.sockets.get_force(&res)
                     && !self
                         .external_images
@@ -540,7 +535,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             image.ensure_alloc()?;
 
             self.gpu.upload_image(&image, buf)?;
-            self.last_known.insert(res.clone(), parameter_hash);
+            self.sockets.set_last_hash(res, parameter_hash);
             self.sockets.set_output_images_updated(res, self.seq);
             self.sockets
                 .update_timing_data(res, start_time.elapsed().as_secs_f64());
@@ -586,9 +581,9 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         // Skip if the input is older than the last processing of this output
         // operator.
         if self
-            .last_known
-            .get(res)
-            .and_then(|s| Some(self.sockets.get_input_image_updated(&socket_res)? < *s))
+            .sockets
+            .get_last_hash(res)
+            .and_then(|s| Some(self.sockets.get_input_image_updated(&socket_res)? < s))
             .unwrap_or(false)
             && !self.sockets.get_force(res)
         {
@@ -596,11 +591,14 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             return Vec::new();
         }
 
+        self.sockets.set_last_hash(res, self.seq);
+
         let ty = op.output_type.into();
         let new = self
             .sockets
             .ensure_group_thumbnail_exists(&res, ty, &mut self.gpu);
         let image = self.sockets.get_input_image(&socket_res).unwrap();
+
         let thumbnail = self.sockets.get_thumbnail(&res).unwrap();
         self.gpu.generate_thumbnail(image, thumbnail);
 
@@ -620,8 +618,6 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .allocation_size(),
             output_type,
         )];
-
-        self.last_known.insert(res.clone(), self.seq);
 
         if new {
             result.push(ComputeEvent::ThumbnailCreated(
@@ -686,9 +682,9 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .expect("Missing input image")
                 > op_seq
         });
-        match self.last_known.get(res) {
+        match self.sockets.get_last_hash(res) {
             Some(hash)
-                if *hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) =>
+                if hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) =>
             {
                 log::trace!("Reusing cached image");
                 return Ok(());
@@ -810,7 +806,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             },
         );
 
-        self.last_known.insert(res.clone(), uniform_hash);
+        self.sockets.set_last_hash(res, uniform_hash);
         self.sockets.set_output_images_updated(res, self.seq);
         self.sockets
             .update_timing_data(res, start_time.elapsed().as_secs_f64());

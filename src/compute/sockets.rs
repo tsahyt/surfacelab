@@ -86,6 +86,11 @@ pub struct SocketGroup<B: gpu::Backend> {
     /// Sequence number to determine when this group was last touched
     seq: u64,
 
+    /// A hash describing the last known "state" of the socket group for compute
+    /// purposes. This is typically the hash of the parameters the group was
+    /// recomputed with.
+    last_hash: u64,
+
     /// Required to keep track of polymorphic outputs. Kept separately to keep
     /// output_sockets ownership structure simple.
     known_outputs: HashSet<String>,
@@ -125,6 +130,7 @@ impl<B: gpu::Backend> SocketGroup<B> {
             typed_outputs: HashMap::new(),
             force: false,
             seq: 0,
+            last_hash: 0,
             known_outputs: HashSet::new(),
             size: GroupSize {
                 ideal: size,
@@ -406,12 +412,24 @@ where
 
     /// Obtain whether a group must be forced
     pub fn get_force(&self, group: &Resource<Node>) -> bool {
-        self.0.get(&group).unwrap().force
+        self.0.get(group).unwrap().force
     }
 
     /// Force recomputation of a group on the next step
     pub fn set_force(&mut self, group: &Resource<Node>) {
-        self.0.get_mut(&group).unwrap().force = true;
+        self.0.get_mut(group).unwrap().force = true;
+    }
+
+    /// Get the last known hash for a socket group
+    pub fn get_last_hash(&self, group: &Resource<Node>) -> Option<u64> {
+        self.0.get(group).map(|x| x.last_hash)
+    }
+
+    /// Set the last known hash for a socket group
+    pub fn set_last_hash(&mut self, group: &Resource<Node>, hash: u64) {
+        if let Some(g) = self.0.get_mut(group) {
+            g.last_hash = hash;
+        }
     }
 
     /// Set when the output image was last updated

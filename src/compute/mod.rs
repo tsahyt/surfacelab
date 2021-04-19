@@ -88,14 +88,6 @@ struct ComputeManager<B: gpu::Backend> {
     /// Current system-wide parent size
     parent_size: u32,
 
-    /// The Compute Manager remembers the hash of the last executed set of
-    /// uniforms for each resource. On the next execution this is checked, and
-    /// if no changes happen, execution can be skipped entirely.
-    ///
-    /// For output nodes this is repurposed to hold the last executed seq
-    /// number, since output nodes don't hold uniforms (relevant to compute)
-    last_known: HashMap<Resource<Node>, u64>,
-
     /// A special socket that the user wants to view, with a seq number for when
     /// it was last updated
     view_socket: Option<(Resource<Socket>, u64)>,
@@ -117,7 +109,6 @@ where
             linearizations: HashMap::new(),
             seq: 0,
             parent_size: 1024,
-            last_known: HashMap::new(),
             view_socket: None,
         }
     }
@@ -255,7 +246,7 @@ where
                             .unwrap();
                     }
                 }
-                GraphEvent::NodeRenamed(from, to) => self.rename(from, to),
+                GraphEvent::NodeRenamed(from, to) => self.sockets.rename(from, to),
                 GraphEvent::NodeResized(res, new_size, scalable) => {
                     if self.sockets.resize(res, *new_size as u32, *scalable) {
                         self.sockets
@@ -399,7 +390,6 @@ where
         match interpreter::Interpreter::new(
             &mut self.gpu,
             &mut self.sockets,
-            &mut self.last_known,
             &mut self.external_images,
             &self.shader_library,
             &self.linearizations,
@@ -432,22 +422,10 @@ where
         }
     }
 
-    /// Rename a node
-    fn rename(&mut self, from: &Resource<Node>, to: &Resource<Node>) {
-        // Move last known hash so we can save on a recomputation
-        if let Some(h) = self.last_known.remove(from) {
-            self.last_known.insert(to.clone(), h);
-        }
-
-        // Move sockets
-        self.sockets.rename(from, to);
-    }
-
     /// Reset the entire compute manager. This clears all socket data and external images.
     pub fn reset(&mut self) {
         self.sockets.clear(&mut self.gpu);
         self.external_images.clear();
-        self.last_known.clear();
     }
 
     /// Adds an (unpacked) image resource from a path.
