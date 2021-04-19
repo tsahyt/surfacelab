@@ -406,7 +406,7 @@ where
     }
 
     /// Force recomputation of a node on the next step
-    pub fn force(&mut self, node: &Resource<Node>) {
+    pub fn set_force(&mut self, node: &Resource<Node>) {
         self.0.get_mut(&node).unwrap().force = true;
     }
 
@@ -417,7 +417,9 @@ where
         socket_group.seq = updated;
     }
 
-    /// Connect an output to an input
+    /// Connect an output to an input. If the new connection differs from any
+    /// existing old one, the group of the sink socket will be forced on next
+    /// compute.
     pub fn connect_input(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
         let to_node = to.socket_node();
         let new_connection = self
@@ -429,7 +431,7 @@ where
             .map(|old| &old != from)
             .unwrap_or(false);
         if new_connection {
-            self.force(&to_node)
+            self.set_force(&to_node)
         }
     }
 
@@ -485,7 +487,7 @@ where
     }
 
     /// Obtain iterator over all known nodes
-    pub fn known_nodes(&self) -> impl Iterator<Item = &Resource<Node>> {
+    pub fn known_groups(&self) -> impl Iterator<Item = &Resource<Node>> {
         self.0.keys()
     }
 }

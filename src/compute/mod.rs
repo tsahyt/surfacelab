@@ -242,7 +242,7 @@ where
                     }
                 }
                 GraphEvent::ComplexOperatorUpdated(node, _, _) => {
-                    self.sockets.force(node);
+                    self.sockets.set_force(node);
                 }
                 GraphEvent::NodeRemoved(res) => {
                     for socket in self

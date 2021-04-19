@@ -913,7 +913,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         log::debug!("Compute Image cleanup triggered");
 
         let mut cleanable: HashSet<Resource<Node>> =
-            HashSet::from_iter(self.sockets.known_nodes().cloned());
+            HashSet::from_iter(self.sockets.known_groups().cloned());
 
         let execution_stack = &self.execution_stack;
 
