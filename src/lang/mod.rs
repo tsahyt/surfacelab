@@ -316,10 +316,6 @@ pub struct UsePoint {
 /// Structure holding use point information for each node.
 pub type UsePoints = Vec<(Resource<Node>, UsePoint)>;
 
-/// A force point is a node that has to be explicitly recomputed on request,
-/// overriding any caching schemes.
-pub type ForcePoints = Vec<Resource<Node>>;
-
 #[derive(Clone, Debug)]
 pub enum Instruction {
     Execute(Resource<Node>, AtomicOperator),
@@ -547,7 +543,7 @@ pub enum GraphEvent {
     DisconnectedSockets(Resource<Socket>, Resource<Socket>),
     /// A graph has been relinearized, resulting in the new linearization data
     /// supplied.
-    Relinearized(Resource<Graph>, Linearization, UsePoints, ForcePoints),
+    Relinearized(Resource<Graph>, Linearization, UsePoints),
     /// A graph needs to be recomputed.
     Recompute(Resource<Graph>, Vec<(ExportSpec, PathBuf)>),
     /// A sockets type has been monomorphized to the given image type.

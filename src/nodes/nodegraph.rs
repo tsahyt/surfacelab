@@ -800,10 +800,7 @@ impl NodeCollection for NodeGraph {
     ///
     /// Linearization may fail when a node is missing inputs, and will return
     /// None in this case.
-    fn linearize(
-        &self,
-        mode: LinearizationMode,
-    ) -> Option<(Linearization, UsePoints, ForcePoints)> {
+    fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, UsePoints)> {
         use petgraph::visit::EdgeRef;
 
         enum Action<'a> {
@@ -908,7 +905,7 @@ impl NodeCollection for NodeGraph {
             }
         }
 
-        Some((traversal, use_points.drain().collect(), Vec::new()))
+        Some((traversal, use_points.drain().collect()))
     }
 
     /// Change a parameter in a resource in this graph. Will return an error if

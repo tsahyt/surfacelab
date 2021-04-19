@@ -262,11 +262,7 @@ where
                             .reinit_output_images(res, &self.gpu, *new_size as u32);
                     }
                 }
-                GraphEvent::Relinearized(graph, instrs, use_points, force_points) => {
-                    for fp in force_points {
-                        self.sockets.force(fp);
-                    }
-
+                GraphEvent::Relinearized(graph, instrs, use_points) => {
                     self.linearizations.insert(
                         graph.clone(),
                         Rc::new(Linearization {

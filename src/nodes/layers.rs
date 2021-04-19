@@ -735,7 +735,6 @@ pub struct LayerStack {
     layers: Vec<Layer>,
     resources: HashMap<String, usize>,
     parameters: HashMap<String, GraphParameter>,
-    force_points: ForcePoints,
 }
 
 impl LayerStack {
@@ -745,7 +744,6 @@ impl LayerStack {
             layers: Vec::new(),
             resources: HashMap::new(),
             parameters: HashMap::new(),
-            force_points: Vec::new(),
         }
     }
 
@@ -1071,9 +1069,6 @@ impl LayerStack {
             self.set_mask_enabled(layer, enabled);
         } else if let Some(idx) = self.resources.get(layer.file().unwrap()) {
             self.layers[*idx].set_enabled(enabled);
-            if let Some(successor) = self.layers.get(*idx + 1) {
-                self.force_points.push(self.layer_resource(successor));
-            }
         }
     }
 
@@ -1084,11 +1079,6 @@ impl LayerStack {
         if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
             self.layers[*idx].set_mask_enabled(mask, enabled);
         }
-    }
-
-    /// Clear the force points of the layer stack
-    pub fn clear_force_points(&mut self) {
-        self.force_points.clear();
     }
 
     /// Determine whether the stack can be linearized in its current state
@@ -1325,10 +1315,7 @@ impl super::NodeCollection for LayerStack {
     /// function in the NodeGraph.
     ///
     /// The linearization mode is ignored for layer stacks.
-    fn linearize(
-        &self,
-        _mode: super::LinearizationMode,
-    ) -> Option<(Linearization, UsePoints, ForcePoints)> {
+    fn linearize(&self, _mode: super::LinearizationMode) -> Option<(Linearization, UsePoints)> {
         let mut linearization = Vec::new();
         let mut use_points: HashMap<Resource<Node>, UsePoint> = HashMap::new();
         let mut step = 0;
@@ -1512,11 +1499,7 @@ impl super::NodeCollection for LayerStack {
             }
         }
 
-        Some((
-            linearization,
-            use_points.drain().collect(),
-            self.force_points.clone(),
-        ))
+        Some((linearization, use_points.drain().collect()))
     }
 
     fn parameter_change(&mut self, resource: &Resource<Param>, data: &[u8]) -> Option<Lang> {

@@ -144,8 +144,7 @@ trait NodeCollection {
 
     /// Linearize this node graph into a vector of instructions that can be
     /// interpreted by the compute backend.
-    fn linearize(&self, mode: LinearizationMode)
-        -> Option<(Linearization, UsePoints, ForcePoints)>;
+    fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, UsePoints)>;
 
     /// Change a parameter in a resource in this node collection. May optionally
     /// return an event or fail silently.
@@ -384,12 +383,11 @@ impl NodeManager {
                             response.append(&mut res);
 
                             if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
-                                |(instructions, last_use, force_points)| {
+                                |(instructions, last_use)| {
                                     lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
                                         graph.graph_resource(),
                                         instructions,
                                         last_use,
-                                        force_points,
                                     ))
                                 },
                             ) {
@@ -422,12 +420,11 @@ impl NodeManager {
                         response.push(side_effect);
                     }
                     if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
-                        |(instructions, last_use, force_points)| {
+                        |(instructions, last_use)| {
                             lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
                                 graph.graph_resource(),
                                 instructions,
                                 last_use,
-                                force_points,
                             ))
                         },
                     ) {
@@ -545,12 +542,11 @@ impl NodeManager {
                     )));
 
                     // Publish linearization of newly named graph
-                    if let Some((instrs, last_use, force_points)) = instructions {
+                    if let Some((instrs, last_use)) = instructions {
                         response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                             to.clone(),
                             instrs,
                             last_use,
-                            force_points,
                         )));
                     }
 
@@ -678,17 +674,16 @@ impl NodeManager {
                     response.append(&mut evs);
 
                     // Publish subgraph linearization
-                    if let Some((instrs, last_use, force_points)) = sub_instructions {
+                    if let Some((instrs, last_use)) = sub_instructions {
                         response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                             sub_graph_res.clone(),
                             instrs,
                             last_use,
-                            force_points,
                         )));
                     }
 
                     // Relinearize the original graph and recompute
-                    if let Some((instrs, last_use, force_points)) = self
+                    if let Some((instrs, last_use)) = self
                         .graphs
                         .get_mut(graph_res.path_str().unwrap())
                         .unwrap()
@@ -698,7 +693,6 @@ impl NodeManager {
                             graph_res.clone(),
                             instrs,
                             last_use,
-                            force_points,
                         )));
                         response.push(Lang::GraphEvent(GraphEvent::Recompute(
                             graph_res,
@@ -785,12 +779,11 @@ impl NodeManager {
                             self.parent_size,
                         ))
                     }));
-                    if let Some((linearization, last_use, force_points)) = lin {
+                    if let Some((linearization, last_use)) = lin {
                         response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                             graph_res.to_owned(),
                             linearization,
                             last_use,
-                            force_points,
                         )))
                     }
                 }
@@ -835,12 +828,11 @@ impl NodeManager {
                                 self.parent_size,
                             ))
                         }));
-                        if let Some((linearization, last_use, force_points)) = lin {
+                        if let Some((linearization, last_use)) = lin {
                             response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                                 for_layer.node_graph(),
                                 linearization,
                                 last_use,
-                                force_points,
                             )))
                         }
                     }
@@ -1004,13 +996,6 @@ impl NodeManager {
                         )));
                     }
                 }
-
-                // Reborrow after linearization to clear the force point
-                if let Some(ManagedNodeCollection::LayerStack(ls)) =
-                    self.graphs.get_mut(layer_res.directory().unwrap())
-                {
-                    ls.clear_force_points();
-                }
             }
             UserLayersEvent::MoveUp(layer_res) => {
                 if let Some(ManagedNodeCollection::LayerStack(ls)) =
@@ -1072,12 +1057,11 @@ impl NodeManager {
                         )));
                         response.extend(evs.drain(0..));
 
-                        if let Some((instrs, last_use, force_points)) = linearization {
+                        if let Some((instrs, last_use)) = linearization {
                             response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                                 new_graph_res,
                                 instrs,
                                 last_use,
-                                force_points,
                             )))
                         }
                     }
@@ -1199,14 +1183,12 @@ impl NodeManager {
                 graph.update_complex_operators(self.parent_size, &changed_graph, &op_stub);
 
             if !updated.is_empty() {
-                if let Some((instructions, last_use, force_points)) =
-                    graph.linearize(LinearizationMode::TopoSort)
+                if let Some((instructions, last_use)) = graph.linearize(LinearizationMode::TopoSort)
                 {
                     response.push(Lang::GraphEvent(GraphEvent::Relinearized(
                         graph.graph_resource(),
                         instructions,
                         last_use,
-                        force_points,
                     )));
                 }
             }
@@ -1237,17 +1219,16 @@ impl NodeManager {
         response
     }
 
-    /// Run the linearization procedura on a graph.
+    /// Run the linearization procedure on a graph.
     fn relinearize(&self, graph: &lang::Resource<lang::Graph>) -> Option<lang::Lang> {
         self.graphs
             .get(graph.path_str().unwrap())?
             .linearize(LinearizationMode::TopoSort)
-            .map(|(instructions, last_use, force_points)| {
+            .map(|(instructions, last_use)| {
                 lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
                     graph.clone(),
                     instructions,
                     last_use,
-                    force_points,
                 ))
             })
     }
