@@ -31,15 +31,15 @@ vec3 normal_sobel(ivec2 texel) {
     int d = 1;
 
     mat3 neighborhood =
-        mat3(fetch_height(texel + ivec2(-d,-d)),
-             fetch_height(texel + ivec2(0 ,-d)),
-             fetch_height(texel + ivec2(d ,-d)),
+        mat3(fetch_height(texel + ivec2(-d, d)),
+             fetch_height(texel + ivec2(0 , d)),
+             fetch_height(texel + ivec2(d , d)),
              fetch_height(texel + ivec2(-d, 0)),
              fetch_height(texel + ivec2(0 , 0)),
              fetch_height(texel + ivec2(d , 0)),
-             fetch_height(texel + ivec2(-d, d)),
-             fetch_height(texel + ivec2(0 , d)),
-             fetch_height(texel + ivec2( d, d)));
+             fetch_height(texel + ivec2(-d,-d)),
+             fetch_height(texel + ivec2(0 ,-d)),
+             fetch_height(texel + ivec2( d,-d)));
 
     vec3 hill = vec3(1., 2., 1.);
     vec3 slope = vec3(1., 0., - 1.);
