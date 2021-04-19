@@ -318,10 +318,15 @@ pub type UsePoints = Vec<(Resource<Node>, UsePoint)>;
 
 #[derive(Clone, Debug)]
 pub enum Instruction {
+    /// Execute an atomic operator for the given node
     Execute(Resource<Node>, AtomicOperator),
+    /// Perform a call at the given node to the complex operator as specified
     Call(Resource<Node>, ComplexOperator),
+    /// Move data from socket to socket
     Move(Resource<Socket>, Resource<Socket>),
+    /// Copy data from socket to socket
     Copy(Resource<Socket>, Resource<Socket>),
+    /// Generate a thumbnail for the given socket
     Thumbnail(Resource<Socket>),
 }
 

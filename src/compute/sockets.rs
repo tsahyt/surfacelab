@@ -7,9 +7,6 @@ const TIMING_DECAY: f64 = 0.85;
 /// backed by a compute image. However, this image may not necessarily be backed
 /// by an allocation at all times.
 struct TypedOutput<B: gpu::Backend> {
-    /// Sequence number to determine when this output was last touched
-    seq: u64,
-
     /// GPU side image backing the output
     image: gpu::compute::Image<B>,
 
@@ -86,6 +83,9 @@ pub struct SocketGroup<B: gpu::Backend> {
     /// at the next recomputation.
     force: bool,
 
+    /// Sequence number to determine when this group was last touched
+    seq: u64,
+
     /// Required to keep track of polymorphic outputs. Kept separately to keep
     /// output_sockets ownership structure simple.
     known_outputs: HashSet<String>,
@@ -124,6 +124,7 @@ impl<B: gpu::Backend> SocketGroup<B> {
         Self {
             typed_outputs: HashMap::new(),
             force: false,
+            seq: 0,
             known_outputs: HashSet::new(),
             size: GroupSize {
                 ideal: size,
@@ -263,7 +264,6 @@ where
             sockets.typed_outputs.insert(
                 socket_name.clone(),
                 TypedOutput {
-                    seq: 0,
                     image: img,
                     ty,
                     transfer_dst,
@@ -392,24 +392,12 @@ where
     pub fn get_input_image_updated(&self, res: &Resource<Socket>) -> Option<u64> {
         let sockets = self.0.get(&res.socket_node())?;
         let output_res = sockets.inputs.get(res.fragment()?)?;
-        self.0
-            .get(&output_res.socket_node())?
-            .typed_outputs
-            .get((&output_res).fragment()?)
-            .map(|x| x.seq)
+        self.0.get(&output_res.socket_node()).map(|x| x.seq)
     }
 
     /// Obtain when the output image was last updated
-    pub fn get_output_image_updated(&self, res: &Resource<Socket>) -> Option<u64> {
-        self.0
-            .get(&res.socket_node())?
-            .typed_outputs
-            .get((&res).fragment()?)
-            .map(|x| x.seq)
-    }
-
-    pub fn get_any_output_updated(&self, res: &Resource<Node>) -> Option<u64> {
-        self.0.get(res)?.typed_outputs.values().map(|x| x.seq).max()
+    pub fn get_output_images_updated(&self, group: &Resource<Node>) -> Option<u64> {
+        self.0.get(group).map(|x| x.seq)
     }
 
     /// Obtain whether a node must be forced
@@ -423,26 +411,10 @@ where
     }
 
     /// Set when the output image was last updated
-    pub fn set_output_image_updated(&mut self, socket: &Resource<Socket>, updated: u64) {
-        let socket_group = self.0.get_mut(&socket.socket_node()).unwrap();
+    pub fn set_output_images_updated(&mut self, group: &Resource<Node>, updated: u64) {
+        let socket_group = self.0.get_mut(group).unwrap();
         socket_group.force = false;
-
-        for img in socket_group
-            .typed_outputs
-            .get_mut(socket.fragment().unwrap())
-        {
-            img.seq = updated;
-        }
-    }
-
-    /// Set when the all output images on this group were last updated
-    pub fn set_all_outputs_updated(&mut self, node: &Resource<Node>, updated: u64) {
-        let socket_group = self.0.get_mut(node).unwrap();
-        socket_group.force = false;
-
-        for img in socket_group.typed_outputs.values_mut() {
-            img.seq = updated;
-        }
+        socket_group.seq = updated;
     }
 
     /// Connect an output to an input
