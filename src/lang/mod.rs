@@ -388,6 +388,18 @@ impl From<OutputType> for ImageType {
     }
 }
 
+impl From<MaterialChannel> for ImageType {
+    fn from(source: MaterialChannel) -> Self {
+        match source {
+            MaterialChannel::Displacement => ImageType::Grayscale,
+            MaterialChannel::Albedo => ImageType::Rgb,
+            MaterialChannel::Normal => ImageType::Rgb,
+            MaterialChannel::Roughness => ImageType::Grayscale,
+            MaterialChannel::Metallic => ImageType::Grayscale,
+        }
+    }
+}
+
 /// Type variables are internally represented as `u8`. Therefore there can only
 /// be 256 type variables for each operator.
 pub type TypeVariable = u8;
@@ -1015,31 +1027,9 @@ pub enum MaterialChannel {
 }
 
 impl MaterialChannel {
-    /// Obtain output type from a material channel.
-    pub fn to_output_type(self) -> OutputType {
-        match self {
-            MaterialChannel::Displacement => OutputType::Displacement,
-            MaterialChannel::Albedo => OutputType::Albedo,
-            MaterialChannel::Normal => OutputType::Normal,
-            MaterialChannel::Roughness => OutputType::Roughness,
-            MaterialChannel::Metallic => OutputType::Metallic,
-        }
-    }
-
-    /// Obtain image type from a material channel.
-    pub fn to_image_type(self) -> ImageType {
-        match self {
-            MaterialChannel::Displacement => ImageType::Grayscale,
-            MaterialChannel::Albedo => ImageType::Rgb,
-            MaterialChannel::Normal => ImageType::Rgb,
-            MaterialChannel::Roughness => ImageType::Grayscale,
-            MaterialChannel::Metallic => ImageType::Grayscale,
-        }
-    }
-
     pub fn legal_for(self, ty: OperatorType) -> bool {
         match ty {
-            OperatorType::Monomorphic(ty) => self.to_image_type() == ty,
+            OperatorType::Monomorphic(ty) => ImageType::from(self) == ty,
             OperatorType::Polymorphic(_) => true,
         }
     }

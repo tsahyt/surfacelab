@@ -2,9 +2,9 @@ use crate::gpu::{Backend, GPU};
 use crate::lang;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
-use std::{cell::Cell, ops::Range};
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
+use std::{cell::Cell, ops::Range};
 use thiserror::Error;
 
 pub const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
@@ -142,7 +142,7 @@ where
             if chunk.alloc.is_none() {
                 upper = i + 1;
                 if upper - lower == request as usize {
-                    return Some((offset, lower .. upper));
+                    return Some((offset, lower..upper));
                 }
             } else {
                 offset = (i + 1) as u64 * Self::CHUNK_SIZE;

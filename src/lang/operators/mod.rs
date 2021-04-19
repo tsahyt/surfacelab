@@ -1,5 +1,5 @@
-use super::parameters::*;
 use super::socketed::*;
+use super::{parameters::*, MaterialChannel};
 use crate::{
     compute::shaders::*,
     lang::{Img, Resource},
@@ -139,7 +139,16 @@ impl OperatorParamBox for Image {
 /// generalized formats.
 #[repr(C)]
 #[derive(
-    PartialEq, Clone, Copy, Debug, EnumIter, EnumVariantNames, EnumString, Serialize, Deserialize,
+    PartialEq,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    ToString,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum OutputType {
@@ -167,6 +176,18 @@ impl From<OperatorType> for OutputType {
         match source {
             OperatorType::Monomorphic(i) => Self::from(i),
             OperatorType::Polymorphic(_) => OutputType::Value,
+        }
+    }
+}
+
+impl From<MaterialChannel> for OutputType {
+    fn from(source: MaterialChannel) -> Self {
+        match source {
+            MaterialChannel::Displacement => OutputType::Displacement,
+            MaterialChannel::Albedo => OutputType::Albedo,
+            MaterialChannel::Normal => OutputType::Normal,
+            MaterialChannel::Roughness => OutputType::Roughness,
+            MaterialChannel::Metallic => OutputType::Metallic,
         }
     }
 }

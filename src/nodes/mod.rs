@@ -133,7 +133,13 @@ trait NodeCollection {
     /// Obtain the outputs, i.e. set of output nodes, in the node graph
     fn outputs(&self) -> HashMap<String, (OperatorType, Resource<Node>)>;
 
+    /// Obtain the Output Type of a given node if it is an output in the collection
+    fn output_type(&self, node: &Resource<Node>) -> Option<OutputType>;
+
+    /// Obtain the graph resource for this collection
     fn graph_resource(&self) -> Resource<Graph>;
+
+    /// Rename the collection
     fn rename(&mut self, name: &str);
 
     /// Linearize this node graph into a vector of instructions that can be
@@ -1117,10 +1123,19 @@ impl NodeManager {
                 )));
             }
             UserIOEvent::NewExportSpec(new) => {
-                self.export_specs.push(new.clone());
-                response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecDeclared(
-                    new.clone(),
-                )));
+                let mut new = new.clone();
+
+                if let Some(out_ty) = self
+                    .graphs
+                    .get(new.node.node_graph().file().unwrap())
+                    .and_then(|graph| graph.output_type(&new.node))
+                {
+                    new.name = out_ty.to_string();
+                    self.export_specs.push(new.clone());
+                    response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecDeclared(
+                        new,
+                    )));
+                }
             }
             UserIOEvent::UpdateExportSpec(name, new) => {
                 if let Some(idx) = self.export_specs.iter().position(|spec| &spec.name == name) {

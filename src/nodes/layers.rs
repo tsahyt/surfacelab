@@ -575,7 +575,7 @@ impl From<Operator> for Layer {
                 .drain()
                 .filter_map(|(_, t)| match t {
                     OperatorType::Polymorphic(v) => {
-                        Some((v, MaterialChannel::Displacement.to_image_type()))
+                        Some((v, ImageType::from(MaterialChannel::Displacement)))
                     }
                     _ => None,
                 })
@@ -942,7 +942,7 @@ impl LayerStack {
                 .map(|channel| {
                     (
                         self.blend_resource(layer, channel).node_socket("color"),
-                        OperatorType::Monomorphic(channel.to_image_type()),
+                        OperatorType::Monomorphic(ImageType::from(channel)),
                     )
                 })
                 .collect()
@@ -991,7 +991,7 @@ impl LayerStack {
             if let LayerType::Fx = l.layer_type {
                 l.input_sockets
                     .insert(layer_socket.fragment().unwrap().to_owned(), channel);
-                let ty = channel.to_image_type();
+                let ty = ImageType::from(channel);
                 return l
                     .set_type_variable(layer_socket.fragment().unwrap(), ty)
                     .iter()
@@ -1250,7 +1250,7 @@ impl LayerStack {
         x += SLICE_WIDTH;
         for channel in MaterialChannel::iter().filter(|channel| last_socket.contains_key(channel)) {
             let output_op = Operator::from(AtomicOperator::Output(Output {
-                output_type: channel.to_output_type(),
+                output_type: OutputType::from(channel),
             }));
             let output_node = graph.new_node(&output_op, parent_size).0;
             graph.position_node(&output_node, x, 0.0);
@@ -1293,11 +1293,23 @@ impl super::NodeCollection for LayerStack {
             (
                 channel.short_name().to_string(),
                 (
-                    OperatorType::Monomorphic(channel.to_image_type()),
+                    OperatorType::Monomorphic(ImageType::from(channel)),
                     self.output_resource(channel),
                 ),
             )
         }))
+    }
+
+    fn output_type(&self, node: &Resource<Node>) -> Option<OutputType> {
+        let channels = self
+            .layers
+            .iter()
+            .map(|l| l.get_output_channels())
+            .fold(EnumSet::empty(), |z, c| z.union(c));
+        channels
+            .iter()
+            .find(|chan| &self.output_resource(*chan) == node)
+            .map(|chan| OutputType::from(chan))
     }
 
     fn graph_resource(&self) -> Resource<Graph> {
@@ -1494,7 +1506,7 @@ impl super::NodeCollection for LayerStack {
                 linearization.push(Instruction::Execute(
                     output,
                     AtomicOperator::Output(Output {
-                        output_type: channel.to_output_type(),
+                        output_type: OutputType::from(channel),
                     }),
                 ));
             }

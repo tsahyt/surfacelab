@@ -763,6 +763,18 @@ impl NodeCollection for NodeGraph {
         result
     }
 
+    fn output_type(&self, node: &Resource<r::Node>) -> Option<OutputType> {
+        self.outputs
+            .iter()
+            .find(|idx| &self.node_resource(idx) == node)
+            .and_then(|idx| match self.graph.node_weight(*idx).unwrap().operator {
+                Operator::AtomicOperator(AtomicOperator::Output(Output { output_type })) => {
+                    Some(output_type)
+                }
+                _ => None,
+            })
+    }
+
     fn graph_resource(&self) -> Resource<r::Graph> {
         Resource::graph(self.name.clone())
     }
