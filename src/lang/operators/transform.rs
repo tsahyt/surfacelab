@@ -15,6 +15,8 @@ use zerocopy::AsBytes;
 pub struct TransformUniforms {
     pub transform: [[f32; 4]; 3],
     pub tiling: ParameterBool,
+    pub mirror_x: ParameterBool,
+    pub mirror_y: ParameterBool,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
@@ -24,6 +26,8 @@ pub struct Transform {
     pub shear: [f32; 2],
     pub rotation: f32,
     pub tiling: ParameterBool,
+    pub mirror_x: ParameterBool,
+    pub mirror_y: ParameterBool,
 }
 
 impl Default for Transform {
@@ -34,6 +38,8 @@ impl Default for Transform {
             shear: [0., 0.],
             rotation: 0.,
             tiling: 1,
+            mirror_x: 0,
+            mirror_y: 0,
         }
     }
 }
@@ -87,6 +93,8 @@ impl Uniforms for Transform {
                 [transform[(2, 0)], transform[(2, 1)], transform[(2, 2)], 0.0],
             ],
             tiling: self.tiling,
+            mirror_x: self.mirror_x,
+            mirror_y: self.mirror_y,
         };
 
         Cow::Owned(uniforms.as_bytes().iter().copied().collect())
@@ -182,6 +190,24 @@ impl OperatorParamBox for Transform {
                         transmitter: Field(Transform::TILING.to_string()),
                         control: Control::Toggle {
                             def: self.tiling == 1,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                    },
+                    Parameter {
+                        name: "mirror-x".to_string(),
+                        transmitter: Field(Transform::MIRROR_X.to_string()),
+                        control: Control::Toggle {
+                            def: self.mirror_x == 1,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                    },
+                    Parameter {
+                        name: "mirror-y".to_string(),
+                        transmitter: Field(Transform::MIRROR_Y.to_string()),
+                        control: Control::Toggle {
+                            def: self.mirror_y == 1,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),

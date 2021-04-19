@@ -62,6 +62,8 @@ impl ShapeType {
 pub struct Shape {
     pub translation: [f32; 2],
     pub rotation: f32,
+    pub mirror_x: ParameterBool,
+    pub mirror_y: ParameterBool,
     pub shape_type: ShapeType,
     pub shell: ParameterBool,
     pub radius: f32,
@@ -76,6 +78,8 @@ impl Default for Shape {
         Self {
             translation: [0.; 2],
             rotation: 0.,
+            mirror_x: 0,
+            mirror_y: 0,
             shape_type: ShapeType::Circle,
             shell: 0,
             radius: 0.3,
@@ -158,6 +162,24 @@ impl OperatorParamBox for Shape {
                                 value: self.rotation,
                                 min: 0.,
                                 max: std::f32::consts::TAU,
+                            },
+                            expose_status: Some(ExposeStatus::Unexposed),
+                            visibility: VisibilityFunction::default(),
+                        },
+                        Parameter {
+                            name: "mirror-x".to_string(),
+                            transmitter: Field(Shape::MIRROR_X.to_string()),
+                            control: Control::Toggle {
+                                def: self.mirror_x == 1,
+                            },
+                            expose_status: Some(ExposeStatus::Unexposed),
+                            visibility: VisibilityFunction::default(),
+                        },
+                        Parameter {
+                            name: "mirror-y".to_string(),
+                            transmitter: Field(Shape::MIRROR_Y.to_string()),
+                            control: Control::Toggle {
+                                def: self.mirror_y == 1,
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
                             visibility: VisibilityFunction::default(),

@@ -157,6 +157,8 @@ inverted = Inverted
 translation = Translation
 shear = Shear
 rotation = Rotation
+mirror-x = Mirror X
+mirror-y = Mirror Y
 
 low-quality = Low Quality
 mid-quality = Mid Quality

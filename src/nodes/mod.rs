@@ -1132,9 +1132,7 @@ impl NodeManager {
                 {
                     new.name = out_ty.to_string();
                     self.export_specs.push(new.clone());
-                    response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecDeclared(
-                        new,
-                    )));
+                    response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecDeclared(new)));
                 }
             }
             UserIOEvent::UpdateExportSpec(name, new) => {
