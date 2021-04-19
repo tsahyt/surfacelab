@@ -2,7 +2,7 @@ use crate::gpu::{Backend, GPU};
 use crate::lang;
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
-use std::cell::Cell;
+use std::{cell::Cell, ops::Range};
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
@@ -132,20 +132,21 @@ where
 
     /// Find the first set of chunks of contiguous free memory that fits the
     /// requested number of bytes
-    pub fn find_free_memory(&self, bytes: u64) -> Option<(u64, Vec<usize>)> {
+    pub fn find_free_memory(&self, bytes: u64) -> Option<(u64, Range<usize>)> {
         let request = bytes.max(Self::CHUNK_SIZE) / Self::CHUNK_SIZE;
-        let mut free = Vec::with_capacity(request as usize);
         let mut offset = 0;
+        let mut lower = 0;
+        let mut upper;
 
         for (i, chunk) in self.image_mem_chunks.iter().enumerate() {
             if chunk.alloc.is_none() {
-                free.push(i);
-                if free.len() == request as usize {
-                    return Some((offset, free));
+                upper = i + 1;
+                if upper - lower == request as usize {
+                    return Some((offset, lower .. upper));
                 }
             } else {
                 offset = (i + 1) as u64 * Self::CHUNK_SIZE;
-                free.clear();
+                lower = i + 1;
             }
         }
 
@@ -154,10 +155,10 @@ where
 
     /// Mark the given set of chunks as used. Assumes that the chunks were
     /// previously free!
-    pub fn allocate_memory(&mut self, chunks: &[usize]) -> AllocId {
+    pub fn allocate_memory(&mut self, chunks: Range<usize>) -> AllocId {
         let alloc = self.allocs.get();
         for i in chunks {
-            self.image_mem_chunks[*i].alloc = Some(alloc);
+            self.image_mem_chunks[i].alloc = Some(alloc);
             self.usage.vram_used += Self::CHUNK_SIZE as usize;
         }
         self.allocs.set(
@@ -380,7 +381,7 @@ where
         let (offset, chunks) = parent_lock
             .find_free_memory(bytes)
             .ok_or(AllocatorError::OutOfMemory)?;
-        let alloc = parent_lock.allocate_memory(&chunks);
+        let alloc = parent_lock.allocate_memory(chunks);
 
         log::trace!(
             "Allocated memory for {}x{} image ({} bytes, id {})",
@@ -518,7 +519,7 @@ where
             .find_free_memory(bytes)
             .ok_or(AllocatorError::OutOfMemory)?;
         let mut buffer = unsafe { device.create_buffer(bytes, hal::buffer::Usage::STORAGE) }?;
-        let alloc_id = alloc_lock.allocate_memory(&chunks);
+        let alloc_id = alloc_lock.allocate_memory(chunks);
 
         log::trace!(
             "Allocated memory for buffer ({} bytes, id {})",
