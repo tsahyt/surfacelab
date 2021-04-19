@@ -16,10 +16,6 @@ struct TypedOutput<B: gpu::Backend> {
     /// Image type of the output, stored such that it is known for exporting.
     ty: ImageType,
 
-    /// Determines whether the output must be recomputed under all circumstances
-    /// at the next recomputation.
-    force: bool,
-
     /// Whether this output can be transferred to
     transfer_dst: bool,
 }
@@ -35,7 +31,6 @@ where
         self.image = gpu
             .create_compute_image(size, self.ty, self.transfer_dst)
             .unwrap();
-        self.force = true;
     }
 }
 
@@ -87,6 +82,10 @@ pub struct SocketGroup<B: gpu::Backend> {
     /// we know it at export time.
     typed_outputs: HashMap<String, TypedOutput<B>>,
 
+    /// Determines whether the group must be recomputed under all circumstances
+    /// at the next recomputation.
+    force: bool,
+
     /// Required to keep track of polymorphic outputs. Kept separately to keep
     /// output_sockets ownership structure simple.
     known_outputs: HashSet<String>,
@@ -124,6 +123,7 @@ impl<B: gpu::Backend> SocketGroup<B> {
     pub fn new(size: u32) -> Self {
         Self {
             typed_outputs: HashMap::new(),
+            force: false,
             known_outputs: HashSet::new(),
             size: GroupSize {
                 ideal: size,
@@ -199,15 +199,6 @@ where
         result
     }
 
-    /// Force all sockets on this node in the next run
-    pub fn force_all_for_node(&mut self, res: &Resource<Node>) {
-        if let Some(socket) = self.0.get_mut(res) {
-            for typed_output in socket.typed_outputs.values_mut() {
-                typed_output.force = true;
-            }
-        }
-    }
-
     /// Ensure the node is known
     pub fn ensure_node_exists(&mut self, res: &Resource<Node>, size: u32) -> &mut SocketGroup<B> {
         self.0
@@ -275,7 +266,6 @@ where
                     seq: 0,
                     image: img,
                     ty,
-                    force: false,
                     transfer_dst,
                 },
             );
@@ -313,6 +303,7 @@ where
         for out in sockets.typed_outputs.values_mut() {
             out.reinit_image(gpu, sockets.size.ideal)
         }
+        sockets.force = true;
     }
 
     /// Reinitialize output images of a node given a new size.
@@ -323,6 +314,8 @@ where
         size: u32,
     ) {
         if let Some(socket_data) = self.0.get_mut(&res) {
+            socket_data.force = true;
+
             for out in socket_data.typed_outputs.values_mut() {
                 out.reinit_image(gpu, size);
             }
@@ -421,48 +414,51 @@ where
 
     /// Obtain whether a node must be forced
     pub fn get_force(&self, node: &Resource<Node>) -> bool {
-        self.0
-            .get(&node)
-            .unwrap()
-            .typed_outputs
-            .values()
-            .any(|x| x.force)
+        self.0.get(&node).unwrap().force
     }
 
     /// Force recomputation of a node on the next step
     pub fn force(&mut self, node: &Resource<Node>) {
-        for typed_output in self.0.get_mut(&node).unwrap().typed_outputs.values_mut() {
-            typed_output.force = true;
-        }
+        self.0.get_mut(&node).unwrap().force = true;
     }
 
     /// Set when the output image was last updated
     pub fn set_output_image_updated(&mut self, socket: &Resource<Socket>, updated: u64) {
-        for img in self
-            .0
-            .get_mut(&socket.socket_node())
-            .and_then(|xs| xs.typed_outputs.get_mut(socket.fragment().unwrap()))
+        let socket_group = self.0.get_mut(&socket.socket_node()).unwrap();
+        socket_group.force = false;
+
+        for img in socket_group
+            .typed_outputs
+            .get_mut(socket.fragment().unwrap())
         {
             img.seq = updated;
-            img.force = false;
         }
     }
 
     /// Set when the all output images on this group were last updated
     pub fn set_all_outputs_updated(&mut self, node: &Resource<Node>, updated: u64) {
-        for img in self.0.get_mut(node).unwrap().typed_outputs.values_mut() {
+        let socket_group = self.0.get_mut(node).unwrap();
+        socket_group.force = false;
+
+        for img in socket_group.typed_outputs.values_mut() {
             img.seq = updated;
-            img.force = false;
         }
     }
 
     /// Connect an output to an input
     pub fn connect_input(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
-        self.0
-            .get_mut(&to.socket_node())
+        let to_node = to.socket_node();
+        let new_connection = self
+            .0
+            .get_mut(&to_node)
             .unwrap()
             .inputs
-            .insert(to.fragment().unwrap().to_string(), from.to_owned());
+            .insert(to.fragment().unwrap().to_string(), from.to_owned())
+            .map(|old| &old != from)
+            .unwrap_or(false);
+        if new_connection {
+            self.force(&to_node)
+        }
     }
 
     /// Get the size of the images associated with this node

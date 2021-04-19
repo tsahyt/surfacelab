@@ -179,7 +179,7 @@ pub fn target_socket(ui: &Ui, node_id: widget::Id, point: Point) -> Option<&str>
         .iter()
         .chain(unique.state.output_sockets.iter())
     {
-        let rect = ui.rect_of(*socket.1).unwrap().pad(- 8.);
+        let rect = ui.rect_of(*socket.1).unwrap().pad(-8.);
 
         if rect.x.is_over(point[0]) && rect.y.is_over(point[1]) {
             return Some(socket.0);

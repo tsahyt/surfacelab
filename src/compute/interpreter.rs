@@ -589,6 +589,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             .get(res)
             .and_then(|s| Some(self.sockets.get_input_image_updated(&socket_res)? < *s))
             .unwrap_or(false)
+            && !self.sockets.get_force(res)
         {
             log::trace!("Skipping output processing");
             return Vec::new();

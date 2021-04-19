@@ -264,7 +264,7 @@ where
                 }
                 GraphEvent::Relinearized(graph, instrs, use_points, force_points) => {
                     for fp in force_points {
-                        self.sockets.force_all_for_node(fp);
+                        self.sockets.force(fp);
                     }
 
                     self.linearizations.insert(
