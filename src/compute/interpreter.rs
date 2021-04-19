@@ -316,7 +316,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .expect("Missing output image for socket");
             let new = self
                 .sockets
-                .ensure_node_thumbnail_exists(&node, ty, &mut self.gpu);
+                .ensure_group_thumbnail_exists(&node, ty, &mut self.gpu);
             let thumbnail = self.sockets.get_thumbnail(&node).unwrap();
             let image = self
                 .sockets
@@ -599,7 +599,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         let ty = op.output_type.into();
         let new = self
             .sockets
-            .ensure_node_thumbnail_exists(&res, ty, &mut self.gpu);
+            .ensure_group_thumbnail_exists(&res, ty, &mut self.gpu);
         let image = self.sockets.get_input_image(&socket_res).unwrap();
         let thumbnail = self.sockets.get_thumbnail(&res).unwrap();
         self.gpu.generate_thumbnail(image, thumbnail);
@@ -926,7 +926,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         }
 
         for node in cleanable {
-            self.sockets.free_images_for_node(&node, &mut self.gpu);
+            self.sockets.free_images_for_group(&node, &mut self.gpu);
         }
     }
 

@@ -42,7 +42,7 @@ pub struct GroupSize {
     pub allocated: Option<u32>,
 
     /// Whether the group can be scaled or not. False in the case of absolutely
-    /// sized nodes.
+    /// sized groups.
     pub scalable: bool,
 }
 
@@ -70,7 +70,7 @@ impl GroupSize {
     }
 }
 
-/// Per "node" socket data. Note that we don't really have a notion of node here
+/// A group of socket data. Note that we don't really have a notion of node here
 /// in the compute component, but this still very closely corresponds to that.
 pub struct SocketGroup<B: gpu::Backend> {
     /// Output sockets always map to an image, which may or may not be
@@ -101,7 +101,7 @@ pub struct SocketGroup<B: gpu::Backend> {
     /// future. Measured in seconds, for easy conversion from Durations.
     time_ema: EMA<f64>,
 
-    /// Optional thumbnail for the "node".
+    /// Optional thumbnail for the "group".
     thumbnail: Option<gpu::compute::ThumbnailIndex>,
 
     /// Thumbnail related sequence number
@@ -145,7 +145,7 @@ impl<B: gpu::Backend> Default for SocketGroup<B> {
     }
 }
 
-/// Mapping to associate socket data to each node as required. Nodes can be from
+/// Mapping to associate socket data to each group as required. Groups can be from
 /// anywhere, and are not required to be in the same graph.
 pub struct Sockets<B: gpu::Backend>(HashMap<Resource<Node>, SocketGroup<B>>);
 
@@ -175,23 +175,23 @@ where
         }
     }
 
-    /// Update the timing data associated with one node.
-    pub fn update_timing_data(&mut self, node: &Resource<Node>, seconds: f64) {
-        if let Some(sdata) = self.0.get_mut(&node) {
+    /// Update the timing data associated with one group.
+    pub fn update_timing_data(&mut self, group: &Resource<Node>, seconds: f64) {
+        if let Some(sdata) = self.0.get_mut(&group) {
             sdata.update_time_ema(seconds);
         }
     }
 
-    /// Remove all sockets for the given node.
-    pub fn remove_all_for_node(
+    /// Remove all sockets for the given group.
+    pub fn remove_all_for_group(
         &mut self,
-        res: &Resource<Node>,
+        group: &Resource<Node>,
         gpu: &mut gpu::compute::GPUCompute<B>,
     ) -> Vec<Resource<Socket>> {
         let mut result = Vec::new();
 
-        if let Some(mut socket) = self.0.remove(res) {
-            result.extend(socket.typed_outputs.keys().map(|s| res.node_socket(s)));
+        if let Some(mut socket) = self.0.remove(group) {
+            result.extend(socket.typed_outputs.keys().map(|s| group.node_socket(s)));
             if let Some(thumbnail) = socket.thumbnail.take() {
                 gpu.return_thumbnail(thumbnail);
             }
@@ -200,16 +200,20 @@ where
         result
     }
 
-    /// Ensure the node is known
-    pub fn ensure_node_exists(&mut self, res: &Resource<Node>, size: u32) -> &mut SocketGroup<B> {
+    /// Ensure the group is known
+    pub fn ensure_group_exists(
+        &mut self,
+        group: &Resource<Node>,
+        size: u32,
+    ) -> &mut SocketGroup<B> {
         self.0
-            .entry(res.clone())
+            .entry(group.clone())
             .or_insert_with(|| SocketGroup::new(size))
     }
 
-    /// Ensure the node described by the resource has a thumbnail image
+    /// Ensure the group described by the resource has a thumbnail image
     /// available, returning whether the thumbnail is newly created.
-    pub fn ensure_node_thumbnail_exists(
+    pub fn ensure_group_thumbnail_exists(
         &mut self,
         res: &Resource<Node>,
         ty: ImageType,
@@ -236,7 +240,7 @@ where
         }
     }
 
-    /// Return the thumbnail for the given node
+    /// Return the thumbnail for the given group
     pub fn clear_thumbnail(&mut self, res: &Resource<Node>, gpu: &mut gpu::compute::GPUCompute<B>) {
         if let Some(socket) = self.0.get_mut(res) {
             if let Some(thumbnail) = socket.thumbnail.take() {
@@ -245,7 +249,7 @@ where
         }
     }
 
-    /// Get the thumbnail for a resource (node or socket thereof) if it exists
+    /// Get the thumbnail for a resource (group or socket thereof) if it exists
     pub fn get_thumbnail(&self, res: &Resource<Node>) -> Option<&gpu::compute::ThumbnailIndex> {
         self.0.get(res).and_then(|s| s.thumbnail.as_ref())
     }
@@ -258,7 +262,7 @@ where
         size: u32,
         transfer_dst: bool,
     ) {
-        let sockets = self.ensure_node_exists(&res.socket_node(), size);
+        let sockets = self.ensure_group_exists(&res.socket_node(), size);
         let socket_name = res.fragment().unwrap().to_string();
         if let Some((img, ty)) = image {
             sockets.typed_outputs.insert(
@@ -290,16 +294,16 @@ where
         sockets.typed_outputs.remove(res.fragment().unwrap());
     }
 
-    /// Free the images for one specific node.
-    pub fn free_images_for_node(
+    /// Free the images for one specific group.
+    pub fn free_images_for_group(
         &mut self,
-        node: &Resource<Node>,
+        group: &Resource<Node>,
         gpu: &mut gpu::compute::GPUCompute<B>,
     ) {
         let sockets = self
             .0
-            .get_mut(node)
-            .expect("Trying to free images from unknown node");
+            .get_mut(group)
+            .expect("Trying to free images from unknown group");
         for out in sockets.typed_outputs.values_mut() {
             out.reinit_image(gpu, sockets.size.ideal)
         }
@@ -400,14 +404,14 @@ where
         self.0.get(group).map(|x| x.seq)
     }
 
-    /// Obtain whether a node must be forced
-    pub fn get_force(&self, node: &Resource<Node>) -> bool {
-        self.0.get(&node).unwrap().force
+    /// Obtain whether a group must be forced
+    pub fn get_force(&self, group: &Resource<Node>) -> bool {
+        self.0.get(&group).unwrap().force
     }
 
-    /// Force recomputation of a node on the next step
-    pub fn set_force(&mut self, node: &Resource<Node>) {
-        self.0.get_mut(&node).unwrap().force = true;
+    /// Force recomputation of a group on the next step
+    pub fn set_force(&mut self, group: &Resource<Node>) {
+        self.0.get_mut(&group).unwrap().force = true;
     }
 
     /// Set when the output image was last updated
@@ -435,16 +439,17 @@ where
         }
     }
 
-    /// Get the size of the images associated with this node
+    /// Get the size of the images associated with this group
     pub fn get_image_size(&self, res: &Resource<Node>) -> &GroupSize {
         &self.0.get(&res).unwrap().size
     }
 
-    /// Get the size of the images associated with this node, mutably
+    /// Get the size of the images associated with this group, mutably
     pub fn get_image_size_mut(&mut self, res: &Resource<Node>) -> &mut GroupSize {
         &mut self.0.get_mut(&res).unwrap().size
     }
 
+    /// Get the socket that acts as an input to the given socket, if it exists
     pub fn get_input_resource(&self, res: &Resource<Socket>) -> Option<&Resource<Socket>> {
         let sockets = self.0.get(&res.socket_node())?;
         sockets.inputs.get(res.fragment()?)
@@ -486,7 +491,7 @@ where
         }
     }
 
-    /// Obtain iterator over all known nodes
+    /// Obtain iterator over all known groups
     pub fn known_groups(&self) -> impl Iterator<Item = &Resource<Node>> {
         self.0.keys()
     }

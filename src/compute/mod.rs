@@ -132,7 +132,7 @@ where
             Lang::LayersEvent(event) => match event {
                 LayersEvent::LayerPushed(res, _, _, _, _, _, _, size) => {
                     // Ensure socket data exists
-                    self.sockets.ensure_node_exists(res, *size);
+                    self.sockets.ensure_group_exists(res, *size);
 
                     // Blend nodes
                     for channel in MaterialChannel::iter() {
@@ -144,27 +144,27 @@ where
                         );
                         blend_node.rename_file(&new_name);
                         self.sockets
-                            .ensure_node_exists(&blend_node, self.parent_size);
+                            .ensure_group_exists(&blend_node, self.parent_size);
                     }
                 }
                 LayersEvent::MaskPushed(_, res, _, _, _, _, _, size) => {
                     // Ensure socket data exists
-                    self.sockets.ensure_node_exists(res, *size);
+                    self.sockets.ensure_group_exists(res, *size);
 
                     let mut blend_node = res.clone();
                     let new_name = format!("{}.blend", blend_node.file().unwrap(),);
                     blend_node.rename_file(&new_name);
-                    self.sockets.ensure_node_exists(&blend_node, *size);
+                    self.sockets.ensure_group_exists(&blend_node, *size);
                 }
                 LayersEvent::LayersAdded(_, size, outputs) => {
                     for output in outputs {
-                        self.sockets.ensure_node_exists(output, *size);
+                        self.sockets.ensure_group_exists(output, *size);
                     }
                 }
                 LayersEvent::LayerRemoved(res) => {
                     for socket in self
                         .sockets
-                        .remove_all_for_node(res, &mut self.gpu)
+                        .remove_all_for_group(res, &mut self.gpu)
                         .drain(0..)
                     {
                         sender
@@ -183,7 +183,7 @@ where
 
                         for socket in self
                             .sockets
-                            .remove_all_for_node(res, &mut self.gpu)
+                            .remove_all_for_group(res, &mut self.gpu)
                             .drain(0..)
                         {
                             sender
@@ -197,7 +197,7 @@ where
             Lang::GraphEvent(event) => match event {
                 GraphEvent::NodeAdded(res, _, _, _, size) => {
                     // Ensure socket data exists
-                    self.sockets.ensure_node_exists(res, *size);
+                    self.sockets.ensure_group_exists(res, *size);
                 }
                 GraphEvent::OutputSocketAdded(res, ty, external_data, size) => {
                     match ty {
@@ -247,7 +247,7 @@ where
                 GraphEvent::NodeRemoved(res) => {
                     for socket in self
                         .sockets
-                        .remove_all_for_node(res, &mut self.gpu)
+                        .remove_all_for_group(res, &mut self.gpu)
                         .drain(0..)
                     {
                         sender
