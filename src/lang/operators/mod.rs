@@ -142,6 +142,7 @@ impl OperatorParamBox for Image {
     PartialEq,
     Clone,
     Copy,
+    Hash,
     Debug,
     EnumIter,
     EnumVariantNames,
@@ -238,10 +239,21 @@ impl Socketed for Output {
     }
 }
 
-/// Output is special and doesn't have uniforms. Therefore the output is empty
+/// Output is special and doesn't have uniforms. Therefore the output is empty.
+/// The hash however is computed using the output type.
 impl Uniforms for Output {
     fn uniforms(&self) -> Cow<[u8]> {
         Cow::Borrowed(&[])
+    }
+
+    fn uniform_hash(&self) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::Hash;
+        use std::hash::Hasher;
+
+        let mut hasher = DefaultHasher::new();
+        self.output_type.hash(&mut hasher);
+        hasher.finish()
     }
 }
 

@@ -348,41 +348,25 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         log::trace!("Calling complex operator of {}", res);
 
         let uniform_hash = op.parameter_hash();
-        let op_seq = self
-            .sockets
-            .get_output_images_updated(res)
-            .expect("Missing sequence for operator");
-        let inputs_updated = op.inputs().iter().any(|(socket, _)| {
-            let socket_res = res.node_socket(&socket);
+        if !self.sockets.group_requires_recompute(res, uniform_hash) {
+            log::trace!("Reusing cached images, skipping call");
+
+            let inner_seq = op
+                .outputs
+                .iter()
+                .map(|(_, (_, x))| {
+                    self.sockets
+                        .get_input_image_updated(&x.node_socket("data"))
+                        .unwrap_or(0)
+                })
+                .max()
+                .unwrap_or(0);
+
             self.sockets
-                .get_input_image_updated(&socket_res)
-                .expect("Missing input image")
-                > op_seq
-        });
-        match self.sockets.get_last_hash(res) {
-            Some(hash)
-                if hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) =>
-            {
-                log::trace!("Reusing cached images, skipping call");
+                .set_output_images_updated(res, self.seq.min(inner_seq));
 
-                let inner_seq = op
-                    .outputs
-                    .iter()
-                    .map(|(_, (_, x))| {
-                        self.sockets
-                            .get_input_image_updated(&x.node_socket("data"))
-                            .unwrap_or(0)
-                    })
-                    .max()
-                    .unwrap_or(0);
-
-                self.sockets
-                    .set_output_images_updated(res, self.seq.min(inner_seq));
-
-                return Ok(());
-            }
-            _ => {}
-        };
+            return Ok(());
+        }
 
         // Ensure socket group is well sized
         let op_size = self.sockets.get_image_size_mut(res);
@@ -426,7 +410,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .ensure_alloc()?;
         }
 
-        // Write down uniforms and timing data
+        // Write down uniforms and timing data. Output update happens on copy later.
         self.sockets.set_last_hash(&res, uniform_hash);
 
         Ok(())
@@ -578,20 +562,15 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             .unwrap()
             .is_backed());
 
-        // Skip if the input is older than the last processing of this output
-        // operator.
-        if self
-            .sockets
-            .get_last_hash(res)
-            .and_then(|s| Some(self.sockets.get_input_image_updated(&socket_res)? < s))
-            .unwrap_or(false)
-            && !self.sockets.get_force(res)
-        {
+        // Potentially skip output processing
+        let uniform_hash = op.uniform_hash();
+        if !self.sockets.group_requires_recompute(res, uniform_hash) {
             log::trace!("Skipping output processing");
             return Vec::new();
         }
 
-        self.sockets.set_last_hash(res, self.seq);
+        self.sockets.set_last_hash(res, uniform_hash);
+        self.sockets.set_output_images_updated(res, self.seq);
 
         let ty = op.output_type.into();
         let new = self
@@ -669,28 +648,12 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             output.is_some() && output.unwrap().is_backed()
         }));
 
-        // skip execution if neither uniforms nor input changed
+        // Potentially skip execution if group recompute is not required
         let uniform_hash = op.uniform_hash();
-        let op_seq = self
-            .sockets
-            .get_output_images_updated(res)
-            .expect("Missing sequence for operator");
-        let inputs_updated = op.inputs().iter().any(|(socket, _)| {
-            let socket_res = res.node_socket(&socket);
-            self.sockets
-                .get_input_image_updated(&socket_res)
-                .expect("Missing input image")
-                > op_seq
-        });
-        match self.sockets.get_last_hash(res) {
-            Some(hash)
-                if hash == uniform_hash && !inputs_updated && !self.sockets.get_force(&res) =>
-            {
-                log::trace!("Reusing cached image");
-                return Ok(());
-            }
-            _ => {}
-        };
+        if !self.sockets.group_requires_recompute(res, uniform_hash) {
+            log::trace!("Reusing cached image");
+            return Ok(());
+        }
 
         let start_time = Instant::now();
 

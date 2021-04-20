@@ -432,6 +432,22 @@ where
         }
     }
 
+    /// Determine whether a group needs to be recomputed
+    pub fn group_requires_recompute(&self, group: &Resource<Node>, hash: u64) -> bool {
+        match self.0.get(group) {
+            Some(g) => {
+                hash != g.last_hash
+                    || g.inputs.values().any(|inp| {
+                        self.get_output_images_updated(&inp.socket_node())
+                            .unwrap_or(0)
+                            > g.seq
+                    })
+                    || g.force
+            }
+            None => true,
+        }
+    }
+
     /// Set when the output image was last updated
     pub fn set_output_images_updated(&mut self, group: &Resource<Node>, updated: u64) {
         let socket_group = self.0.get_mut(group).unwrap();
