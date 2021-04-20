@@ -485,21 +485,17 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             image_res.hash(&mut hasher);
             hasher.finish()
         };
-        match self.sockets.get_last_hash(res) {
-            Some(hash)
-                if hash == parameter_hash
-                    && !self.sockets.get_force(&res)
-                    && !self
-                        .external_images
-                        .get(image_res)
-                        .map(|i| i.needs_loading())
-                        .unwrap_or(false) =>
-            {
-                log::trace!("Reusing cached image");
-                return Ok(());
-            }
-            _ => {}
-        };
+
+        if !self.sockets.group_requires_recompute(res, parameter_hash)
+            && !self
+                .external_images
+                .get(image_res)
+                .map(|i| i.needs_loading())
+                .unwrap_or(false)
+        {
+            log::trace!("Reusing cached image");
+            return Ok(());
+        }
 
         let start_time = Instant::now();
         if let Some(external_image) = self.external_images.get_mut(image_res) {
