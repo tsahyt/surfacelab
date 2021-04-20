@@ -440,7 +440,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             .get_input_image_updated(from)
             .or_else(|| self.sockets.get_output_images_updated(&from.socket_node()));
 
-        if to_seq >= from_seq && !self.sockets.get_force(&to.socket_node()) {
+        if to_seq > from_seq && !self.sockets.get_force(&to.socket_node()) {
             log::trace!("Skipping copy");
         } else {
             log::trace!("Executing copy from {} to {}", from, to);
