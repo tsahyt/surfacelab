@@ -398,8 +398,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             }
 
             self.execution_stack.push(frame);
+            self.seq += 1;
         }
-        self.seq += 1;
 
         // Set up outputs for copy back
         for (socket, _) in op.outputs().iter() {
