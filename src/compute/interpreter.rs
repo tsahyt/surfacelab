@@ -437,8 +437,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         let to_seq = self.sockets.get_output_images_updated(&to.socket_node());
         let from_seq = self
             .sockets
-            .get_output_images_updated(&from.socket_node())
-            .or_else(|| self.sockets.get_input_image_updated(from));
+            .get_input_image_updated(from)
+            .or_else(|| self.sockets.get_output_images_updated(&from.socket_node()));
 
         if to_seq >= from_seq && !self.sockets.get_force(&to.socket_node()) {
             log::trace!("Skipping copy");
@@ -534,6 +534,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
     /// Execute an Input operator
     fn execute_input(&mut self, res: &Resource<Node>) -> Result<(), InterpretationError> {
+        log::trace!("Processing Input operator at {}", res);
+
         let start_time = Instant::now();
         let socket_res = res.node_socket("data");
         self.sockets

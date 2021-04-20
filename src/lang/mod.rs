@@ -338,7 +338,9 @@ impl Instruction {
     pub fn is_call_skippable(&self) -> bool {
         matches!(
             self,
-            Self::Execute(_, AtomicOperator::Output { .. }) | Self::Thumbnail(..)
+            Self::Execute(_, AtomicOperator::Output { .. })
+                | Self::Execute(_, AtomicOperator::Input { .. })
+                | Self::Thumbnail(..)
         )
     }
 }
