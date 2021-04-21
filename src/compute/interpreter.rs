@@ -377,6 +377,15 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
         let size = self.sockets.get_image_size(res).allocation_size();
 
+        // Set up outputs for copy back
+        for (socket, _) in op.outputs().iter() {
+            let socket_res = res.node_socket(&socket);
+            self.sockets
+                .get_output_image_mut(&socket_res)
+                .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
+                .ensure_alloc()?;
+        }
+
         // Push call onto stack
         if let Some(frame) = StackFrame::new(
             op.graph.clone(),
@@ -399,15 +408,6 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
             self.execution_stack.push(frame);
             self.seq += 1;
-        }
-
-        // Set up outputs for copy back
-        for (socket, _) in op.outputs().iter() {
-            let socket_res = res.node_socket(&socket);
-            self.sockets
-                .get_output_image_mut(&socket_res)
-                .unwrap_or_else(|| panic!("Missing output image for operator {}", res))
-                .ensure_alloc()?;
         }
 
         // Write down uniforms and timing data. Output update happens on copy later.
