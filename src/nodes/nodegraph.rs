@@ -834,10 +834,19 @@ impl NodeCollection for NodeGraph {
                     if !self.all_node_inputs_connected(nx) {
                         return None;
                     }
+
+                    // Visit always happens, execution is skipped there
                     stack.push((nx, Action::Visit(l)));
-                    for edge in self.graph.edges_directed(nx, petgraph::Direction::Incoming) {
-                        stack.push((edge.target(), Action::Use(edge.source())));
+
+                    // Skip use point logging if the node was already known unless we're in full traversal mode
+                    if mode == LinearizationMode::FullTraversal
+                        || !use_points.contains_key(&self.node_resource(&nx))
+                    {
+                        for edge in self.graph.edges_directed(nx, petgraph::Direction::Incoming) {
+                            stack.push((edge.target(), Action::Use(edge.source())));
+                        }
                     }
+
                     for edge in self.graph.edges_directed(nx, petgraph::Direction::Incoming) {
                         let label = edge.weight();
                         let sink = edge.target();
@@ -848,7 +857,7 @@ impl NodeCollection for NodeGraph {
                     let node = self.graph.node_weight(nx).unwrap();
                     let res = self.node_resource(&nx);
 
-                    if !use_points.contains_key(&res) || mode == LinearizationMode::FullTraversal {
+                    if mode == LinearizationMode::FullTraversal || !use_points.contains_key(&res) {
                         match &node.operator {
                             Operator::AtomicOperator(op) => {
                                 traversal.push(Instruction::Execute(res.clone(), op.to_owned()));
@@ -882,16 +891,18 @@ impl NodeCollection for NodeGraph {
                             traversal
                                 .push(Instruction::Thumbnail(res.node_socket(thumbnail_output)));
                         }
+
+                        step += 1;
                     }
 
+                    // Always move, because even if previously visited, we might
+                    // not have visited from the same place.
                     if let Some(((source, sink), idx)) = l {
                         let to_node = self.node_resource(&idx);
                         let from = res.node_socket(&source);
                         let to = to_node.node_socket(&sink);
                         traversal.push(Instruction::Move(from, to));
                     }
-
-                    step += 1;
                 }
                 Action::Use(idx) => {
                     use_points
