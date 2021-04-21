@@ -414,13 +414,13 @@ where
     /// Ensures that the image is backed. If no memory is currently allocated to
     /// it, new memory will be allocated. May fail if out of memory!
     pub fn ensure_alloc(&mut self) -> Result<(), AllocatorError> {
-        if self.alloc.is_none() {
-            return self.allocate_memory();
+        match &self.alloc {
+            None => return self.allocate_memory(),
+            Some(a) => {
+                log::trace!("Reusing existing allocation {}", a.id);
+                Ok(())
+            }
         }
-
-        log::trace!("Reusing existing allocation");
-
-        Ok(())
     }
 
     /// Get a view to the image
