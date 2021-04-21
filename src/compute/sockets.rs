@@ -32,6 +32,7 @@ where
 }
 
 /// Sizing parameters of a socket group.
+#[derive(Debug)]
 pub struct GroupSize {
     /// The ideal size of the sockets, corresponds to the size requested by the
     /// user through settings and parent size.
@@ -501,6 +502,7 @@ where
         let mut resized = false;
         if let Some(x) = self.0.get_mut(res) {
             resized = x.size.ideal != new_size || x.size.scalable != scalable;
+            x.size.allocated = None;
             x.size.ideal = new_size;
             x.size.scalable = scalable;
         }
