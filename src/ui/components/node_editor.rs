@@ -2,7 +2,7 @@ use crate::broker::BrokerSender;
 use crate::lang::*;
 use crate::ui::{
     app_state,
-    widgets::{graph, modal},
+    widgets::{filtered_list, graph, modal},
 };
 
 use std::sync::Arc;
@@ -223,42 +223,29 @@ impl<'a> Widget for NodeEditor<'a> {
 
         if let Some(insertion_pt) = state.add_modal {
             match modal::Modal::new(
-                widget::List::flow_down(state.operators.len())
-                    .item_size(50.0)
-                    .scrollbar_on_top(),
+                // widget::List::flow_down(state.operators.len())
+                //     .item_size(50.0)
+                //     .scrollbar_on_top(),
+                filtered_list::FilteredList::new(state.operators.iter()),
             )
             .wh_of(id)
             .middle_of(id)
             .graphics_for(id)
             .set(state.ids.add_modal, ui)
             {
-                modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
-                    while let Some(item) = items.next(ui) {
-                        let i = item.i;
-                        let label = state.operators[i].title();
-                        let button = widget::Button::new()
-                            .label(&label)
-                            .label_color(conrod_core::color::WHITE)
-                            .label_font_size(12)
-                            .color(conrod_core::color::CHARCOAL);
-                        for _press in item.set(button, ui) {
-                            state.update(|state| state.add_modal = None);
+                modal::Event::ChildEvent((Some(op), _)) => {
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                            self.graphs.get_active().clone(),
+                            op.clone(),
+                            (insertion_pt[0], insertion_pt[1]),
+                        )))
+                        .unwrap();
 
-                            self.sender
-                                .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                                    self.graphs.get_active().clone(),
-                                    state.operators[i].clone(),
-                                    (insertion_pt[0], insertion_pt[1]),
-                                )))
-                                .unwrap();
-                        }
-                    }
-
-                    if let Some(s) = scrollbar {
-                        s.set(ui)
-                    }
+                    state.update(|state| state.add_modal = None);
                 }
                 modal::Event::Hide => state.update(|state| state.add_modal = None),
+                _ => {}
             }
         }
     }
@@ -304,5 +291,15 @@ impl<'a> NodeEditor<'a> {
             }
             _ => {}
         }
+    }
+}
+
+impl filtered_list::FilteredListItem for Operator {
+    fn filter(&self, filter_string: &str) -> bool {
+        true
+    }
+
+    fn display(&self) -> &str {
+        self.title()
     }
 }
