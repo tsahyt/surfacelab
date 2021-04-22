@@ -812,8 +812,8 @@ impl ParamBoxDescription<RenderField> {
                             name: "light-size".to_string(),
                             control: Control::Slider {
                                 value: 1.0,
-                                min: 0.1,
-                                max: 5.0,
+                                min: 0.01,
+                                max: 2.0,
                             },
                             transmitter: RenderField::LightSize,
                             expose_status: None,

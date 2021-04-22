@@ -423,7 +423,8 @@ float rayMarch(vec3 ro, vec3 rd) {
 float rayShadowSoft(vec3 ro, vec3 rd, float w) {
     float s = 1.0;
     float t = 128 * SURF_DIST;
-    float max_dist = outer_bound(ro, rd, displacement_amount).y;
+    vec2 bounds = outer_bound(ro, rd, displacement_amount);
+    float max_dist = max(bounds.x, bounds.y);
     float step_size = max_dist / MAX_STEPS_SHD;
 
     t += hash13(rd + vec3(constants.sample_offset, 0.)) * step_size;
@@ -438,7 +439,7 @@ float rayShadowSoft(vec3 ro, vec3 rd, float w) {
 
     s = max(s, 0.0);
 
-    return smoothstep(0.5, 0.6, s);
+    return smoothstep(0.4, 0.6, s);
 }
 
 // --- Shading
