@@ -57,6 +57,7 @@ light-type = Lichttyp
 point-light = Punktlicht
 sun-light = Sonnenlicht
 light-strength = Lichtstärke
+light-size = Lichtgröße
 shadow = Schatten
 camera = Kamera
 focal-length = Brennweite

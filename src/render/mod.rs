@@ -408,6 +408,11 @@ where
                 self.redraw(*id);
                 response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
             }
+            Lang::UserRenderEvent(UserRenderEvent::LightSize(id, size)) => {
+                self.set_light_size(*id, *size);
+                self.redraw(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRedrawn(*id)));
+            }
             Lang::UserRenderEvent(UserRenderEvent::FogStrength(id, strength)) => {
                 self.set_fog_strength(*id, *strength);
                 self.redraw(*id);
@@ -745,6 +750,13 @@ where
     pub fn set_light_strength(&mut self, renderer_id: RendererID, strength: f32) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
             r.update_sdf3d(|r| r.set_light_strength(strength));
+            r.reset_sampling();
+        }
+    }
+
+    pub fn set_light_size(&mut self, renderer_id: RendererID, size: f32) {
+        if let Some(r) = self.renderers.get_mut(&renderer_id) {
+            r.update_sdf3d(|r| r.set_light_size(size));
             r.reset_sampling();
         }
     }

@@ -57,6 +57,7 @@ light-type = Light Type
 point-light = Point Light
 sun-light = Sun Light
 light-strength = Strength
+light-size = Size
 shadow = Shadow
 camera = Camera
 focal-length = Focal Length

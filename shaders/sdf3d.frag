@@ -52,6 +52,7 @@ layout(set = 0, binding = 2) uniform Camera {
 
     uint light_type;
     float light_strength;
+    float light_size;
     float fog_strength;
 
     uint draw_shadow;
@@ -758,7 +759,7 @@ vec3 render(vec3 ro, vec3 rd) {
     f0 = mix(f0, albedo_, metallic_);
 
     if (light_strength > 0.) {
-        col += light(p, n, rd, f0, d, albedo_, metallic_, roughness_, vec3(1.), light_pos.xyz, 1.);
+        col += light(p, n, rd, f0, d, albedo_, metallic_, roughness_, vec3(1.), light_pos.xyz, light_size);
     }
 
     // Ambient Light

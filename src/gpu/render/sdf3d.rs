@@ -43,6 +43,7 @@ pub struct Uniforms {
 
     light_type: LightType,
     light_strength: f32,
+    light_size: f32,
     fog_strength: f32,
     shadow: ParameterBool,
 }
@@ -69,6 +70,7 @@ impl Default for Uniforms {
             ambient_occlusion_strength: 0.5,
             light_type: LightType::PointLight,
             light_strength: 100.0,
+            light_size: 1.0,
             fog_strength: 0.0,
             shadow: 1,
         }
@@ -256,6 +258,11 @@ where
     /// Set the light strength
     pub fn set_light_strength(&mut self, strength: f32) {
         self.view.light_strength = strength;
+    }
+
+    /// Set the light size
+    pub fn set_light_size(&mut self, size: f32) {
+        self.view.light_size = size;
     }
 
     /// Set the fog strength

@@ -767,6 +767,8 @@ pub enum UserRenderEvent {
     LightType(RendererID, LightType),
     /// The user requests setting the light strength
     LightStrength(RendererID, f32),
+    /// The user requests setting the light size
+    LightSize(RendererID, f32),
     /// The user requests setting the fog strength
     FogStrength(RendererID, f32),
     /// The user requests setting the focal length

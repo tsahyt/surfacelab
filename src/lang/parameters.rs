@@ -280,6 +280,7 @@ pub enum RenderField {
     DisplacementAmount,
     LightType,
     LightStrength,
+    LightSize,
     FogStrength,
     Shadow,
     AoStrength,
@@ -315,6 +316,9 @@ impl MessageWriter for RenderField {
             ),
             RenderField::LightStrength => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::LightStrength(*renderer, f32::from_data(data)),
+            ),
+            RenderField::LightSize => super::Lang::UserRenderEvent(
+                super::UserRenderEvent::LightSize(*renderer, f32::from_data(data)),
             ),
             RenderField::FogStrength => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::FogStrength(*renderer, f32::from_data(data)),
@@ -801,6 +805,17 @@ impl ParamBoxDescription<RenderField> {
                                 max: 1000.0,
                             },
                             transmitter: RenderField::LightStrength,
+                            expose_status: None,
+                            visibility: VisibilityFunction::default(),
+                        },
+                        Parameter {
+                            name: "light-size".to_string(),
+                            control: Control::Slider {
+                                value: 1.0,
+                                min: 0.1,
+                                max: 5.0,
+                            },
+                            transmitter: RenderField::LightSize,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
                         },
