@@ -79,7 +79,13 @@ where
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { state, ui, id, style, .. } = args;
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
         let FilteredList { items, .. } = self;
 
         let mut ret = None;
@@ -88,7 +94,9 @@ where
         // Listen to all input globally
         for ev in ui.global_input().events().ui() {
             match ev {
-                event::Ui::Text(_, event::Text { string, .. }) => {
+                event::Ui::Text(_, event::Text { string, modifiers })
+                    if !modifiers.contains(input::ModifierKey::CTRL) =>
+                {
                     state.update(|state| state.filter_string.push_str(string));
                 }
                 event::Ui::Press(
@@ -98,13 +106,15 @@ where
                         ..
                     },
                 ) => {
-                    state.update(|state| { state.filter_string.pop(); });
+                    state.update(|state| {
+                        state.filter_string.pop();
+                    });
                 }
                 event::Ui::Press(
                     _,
                     event::Press {
                         button: event::Button::Keyboard(input::Key::X),
-                        modifiers: input::ModifierKey::CTRL
+                        modifiers: input::ModifierKey::CTRL,
                     },
                 ) => {
                     state.update(|state| state.filter_string.clear());
@@ -117,7 +127,10 @@ where
                     },
                 ) => {
                     picked = true;
-                    ret = items.clone().filter(|item| item.filter(&state.filter_string)).next();
+                    ret = items
+                        .clone()
+                        .filter(|item| item.filter(&state.filter_string))
+                        .next();
                 }
                 _ => {}
             }

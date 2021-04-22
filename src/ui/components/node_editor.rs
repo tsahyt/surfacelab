@@ -77,7 +77,13 @@ impl<'a> Widget for NodeEditor<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { state, ui, id, style, .. } = args;
+        let widget::UpdateArgs {
+            state,
+            ui,
+            id,
+            style,
+            ..
+        } = args;
 
         if let Some(ev_buf) = self.event_buffer {
             for ev in ev_buf {
@@ -227,12 +233,11 @@ impl<'a> Widget for NodeEditor<'a> {
         }
 
         if let Some(insertion_pt) = state.add_modal {
-            match modal::Modal::canvas(
-            )
-            .wh_of(id)
-            .middle_of(id)
-            .graphics_for(id)
-            .set(state.ids.add_modal, ui)
+            match modal::Modal::canvas()
+                .wh_of(id)
+                .middle_of(id)
+                .graphics_for(id)
+                .set(state.ids.add_modal, ui)
             {
                 modal::Event::ChildEvent((_, cid)) => {
                     if let Some(op) = filtered_list::FilteredList::new(state.operators.iter())
@@ -240,20 +245,20 @@ impl<'a> Widget for NodeEditor<'a> {
                         .parent(cid)
                         .padded_wh_of(cid, 8.)
                         .middle()
-                        .set(state.ids.operator_list, ui) {
-                            self.sender
-                                .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                                    self.graphs.get_active().clone(),
-                                    op.clone(),
-                                    (insertion_pt[0], insertion_pt[1]),
-                                )))
-                                .unwrap();
+                        .set(state.ids.operator_list, ui)
+                    {
+                        self.sender
+                            .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                                self.graphs.get_active().clone(),
+                                op.clone(),
+                                (insertion_pt[0], insertion_pt[1]),
+                            )))
+                            .unwrap();
 
-                            state.update(|state| state.add_modal = None);
-                        }
+                        state.update(|state| state.add_modal = None);
+                    }
                 }
                 modal::Event::Hide => state.update(|state| state.add_modal = None),
-                _ => {}
             }
         }
     }
