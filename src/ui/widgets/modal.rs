@@ -70,29 +70,49 @@ where
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
+        let widget::UpdateArgs {
+            id,
+            ui,
+            state,
+            style,
+            rect,
+            ..
+        } = args;
+
         widget::Canvas::new()
             .border(0.0)
-            .wh_of(args.id)
-            .middle_of(args.id)
+            .wh_of(id)
+            .middle_of(id)
             .color(color::Color::Rgba(0., 0., 0., 0.9))
-            .set(args.state.canvas, args.ui);
+            .set(state.canvas, ui);
 
-        if args
-            .ui
-            .widget_input(args.state.canvas)
-            .clicks()
-            .next()
-            .is_some()
-        {
+        if rect.is_over(ui.global_input().current.mouse.xy) {
+            for ev in ui.global_input().events().ui() {
+                match ev {
+                    event::Ui::Press(
+                        _,
+                        event::Press {
+                            button: event::Button::Keyboard(input::Key::Escape),
+                            ..
+                        },
+                    ) => {
+                        return Event::Hide;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        if ui.widget_input(state.canvas).clicks().next().is_some() {
             return Event::Hide;
         }
 
         let ev = self
             .widget
-            .middle_of(args.state.canvas)
-            .padded_wh_of(args.state.canvas, args.style.padding(&args.ui.theme))
-            .set(args.state.widget, args.ui);
+            .middle_of(state.canvas)
+            .padded_wh_of(state.canvas, style.padding(&ui.theme))
+            .set(state.widget, ui);
 
-        Event::ChildEvent((ev, args.state.widget))
+        Event::ChildEvent((ev, state.widget))
     }
 }
