@@ -272,17 +272,23 @@ impl Graph {
 
         if var_y > var_x {
             let mean_x = poss.clone().map(|x| x[0]).mean();
-            for idx in nodes.iter() {
-                if let Some(n) = self.graph.node_weight_mut(*idx) {
-                    n.position[0] = mean_x;
-                }
+            for (idx, pos) in nodes
+                .iter()
+                .filter_map(|idx| self.graph.node_weight(*idx).map(|n| (idx, n.position)))
+                .collect::<Vec<_>>()
+            {
+                let new_pos = [mean_x, pos[1]];
+                self.move_node(*idx, new_pos, false);
             }
         } else {
             let mean_y = poss.clone().map(|x| x[1]).mean();
-            for idx in nodes.iter() {
-                if let Some(n) = self.graph.node_weight_mut(*idx) {
-                    n.position[1] = mean_y;
-                }
+            for (idx, pos) in nodes
+                .iter()
+                .filter_map(|idx| self.graph.node_weight(*idx).map(|n| (idx, n.position)))
+                .collect::<Vec<_>>()
+            {
+                let new_pos = [pos[0], mean_y];
+                self.move_node(*idx, new_pos, false);
             }
         }
 
