@@ -39,7 +39,9 @@ pub struct Style {}
 
 widget_ids! {
     pub struct Ids {
-        list
+        list,
+        filter_display,
+        filter_icon,
     }
 }
 
@@ -87,12 +89,22 @@ where
                         ..
                     },
                 ) => {
+                    state.update(|state| { state.filter_string.pop(); });
+                }
+                event::Ui::Press(
+                    _,
+                    event::Press {
+                        button: event::Button::Keyboard(input::Key::X),
+                        modifiers: input::ModifierKey::CTRL
+                    },
+                ) => {
                     state.update(|state| state.filter_string.clear());
                 }
                 _ => {}
             }
         }
 
+        let mut picked = false;
         let mut filtered = items
             .filter(|item| item.filter(&state.filter_string))
             .take(self.limit.unwrap_or(usize::MAX));
@@ -100,7 +112,7 @@ where
         let (mut list_items, scrollbar) = widget::list::List::flow_down(filtered.clone().count())
             .parent(id)
             .middle()
-            .item_size(40.)
+            .item_size(32.)
             .scrollbar_on_top()
             .instantiate_all_items()
             .set(state.ids.list, ui);
@@ -113,14 +125,21 @@ where
                 .label(&label)
                 .label_color(conrod_core::color::WHITE)
                 .label_font_size(12)
-                .color(conrod_core::color::CHARCOAL);
+                .color(color::DARK_CHARCOAL)
+                .border(0.)
+                .color(conrod_core::color::DARK_CHARCOAL);
             for _press in list_item.set(button, ui) {
+                picked = true;
                 ret = Some(item);
             }
         }
 
         if let Some(s) = scrollbar {
             s.set(ui)
+        }
+
+        if picked {
+            state.update(|state| state.filter_string.clear());
         }
 
         ret

@@ -42,6 +42,7 @@ widget_ids! {
     pub struct Ids {
         graph,
         add_modal,
+        operator_list,
     }
 }
 
@@ -222,27 +223,29 @@ impl<'a> Widget for NodeEditor<'a> {
         }
 
         if let Some(insertion_pt) = state.add_modal {
-            match modal::Modal::new(
-                // widget::List::flow_down(state.operators.len())
-                //     .item_size(50.0)
-                //     .scrollbar_on_top(),
-                filtered_list::FilteredList::new(state.operators.iter()),
+            match modal::Modal::canvas(
             )
             .wh_of(id)
             .middle_of(id)
             .graphics_for(id)
             .set(state.ids.add_modal, ui)
             {
-                modal::Event::ChildEvent((Some(op), _)) => {
-                    self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                            self.graphs.get_active().clone(),
-                            op.clone(),
-                            (insertion_pt[0], insertion_pt[1]),
-                        )))
-                        .unwrap();
+                modal::Event::ChildEvent((_, cid)) => {
+                    if let Some(op) = filtered_list::FilteredList::new(state.operators.iter())
+                        .parent(cid)
+                        .padded_wh_of(cid, 8.)
+                        .middle()
+                        .set(state.ids.operator_list, ui) {
+                            self.sender
+                                .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                                    self.graphs.get_active().clone(),
+                                    op.clone(),
+                                    (insertion_pt[0], insertion_pt[1]),
+                                )))
+                                .unwrap();
 
-                    state.update(|state| state.add_modal = None);
+                            state.update(|state| state.add_modal = None);
+                        }
                 }
                 modal::Event::Hide => state.update(|state| state.add_modal = None),
                 _ => {}
@@ -296,7 +299,7 @@ impl<'a> NodeEditor<'a> {
 
 impl filtered_list::FilteredListItem for Operator {
     fn filter(&self, filter_string: &str) -> bool {
-        self.title().starts_with(filter_string)
+        self.title().to_lowercase().starts_with(filter_string)
     }
 
     fn display(&self) -> &str {
