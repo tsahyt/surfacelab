@@ -292,8 +292,7 @@ impl NodeCollections {
         let node_res = node.resource.clone();
 
         if let Some(target) = self.target_graph_from_node(&node_res) {
-            let idx = target.graph.add_node(node);
-            target.resources.insert(node_res, idx);
+            target.add_node(node_res, node);
         }
     }
 
@@ -349,14 +348,7 @@ impl NodeCollections {
     /// Remove a node from a graph. This is a NOP for layers.
     pub fn remove_node(&mut self, node: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&node) {
-            if let Some(idx) = target.resources.remove(node) {
-                // Obtain last node before removal for reindexing
-                let last_idx = target.graph.node_indices().next_back().unwrap();
-                let last_res = target.graph.node_weight(last_idx).unwrap().resource.clone();
-
-                target.graph.remove_node(idx);
-                target.resources.insert(last_res, idx);
-            }
+            target.remove_node(node);
         }
     }
 

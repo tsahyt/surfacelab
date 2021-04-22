@@ -2,6 +2,7 @@ use crate::lang::resource as r;
 use crate::lang::*;
 
 use conrod_core::{image, Point};
+use rstar::{PointDistance, RTree, RTreeObject};
 use std::collections::HashMap;
 
 use super::collection::Collection;
@@ -9,6 +10,7 @@ use super::collection::Collection;
 #[derive(Debug, Clone)]
 pub struct Graph {
     pub graph: NodeGraph,
+    pub rtree: RTree<GraphObject>,
     pub resources: HashMap<Resource<r::Node>, petgraph::graph::NodeIndex>,
     pub exposed_parameters: Vec<(String, GraphParameter)>,
     pub param_box: ParamBoxDescription<GraphField>,
@@ -95,12 +97,55 @@ impl NodeData {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum GraphObject {
+    Node {
+        index: petgraph::graph::NodeIndex,
+        position: Point,
+    },
+    Noodle {
+        index_from: petgraph::graph::NodeIndex,
+        index_to: petgraph::graph::NodeIndex,
+        from: Point,
+        to: Point,
+    },
+}
+
+impl RTreeObject for GraphObject {
+    type Envelope = rstar::AABB<Point>;
+
+    fn envelope(&self) -> Self::Envelope {
+        match self {
+            GraphObject::Node { position, .. } => rstar::AABB::from_corners(
+                [position[0] - 64., position[1] - 64.],
+                [position[0] + 64., position[1] + 64.],
+            ),
+            GraphObject::Noodle { from, to, .. } => rstar::AABB::from_corners(*from, *to),
+        }
+    }
+}
+
+impl PointDistance for GraphObject {
+    fn distance_2(&self, point: &Point) -> f64 {
+        match self {
+            GraphObject::Node { position, .. } => {
+                (point[0] - position[0]).powi(2) + (point[1] - position[1]).powi(2)
+            }
+            GraphObject::Noodle { from, to, .. } => {
+                let mid = [(from[0] + to[0]) / 2., (from[1] + to[1]) / 2.];
+                (point[0] - mid[0]).powi(2) + (point[1] - mid[1]).powi(2)
+            }
+        }
+    }
+}
+
 pub type NodeGraph = petgraph::Graph<NodeData, (String, String)>;
 
 impl Graph {
     pub fn new(name: &str) -> Self {
         Self {
             graph: petgraph::Graph::new(),
+            rtree: RTree::new(),
             resources: HashMap::new(),
             exposed_parameters: Vec::new(),
             param_box: ParamBoxDescription::graph_parameters(name),
@@ -108,12 +153,95 @@ impl Graph {
         }
     }
 
-    pub fn insert_index(&mut self, resource: Resource<r::Node>, index: petgraph::graph::NodeIndex) {
-        self.resources.insert(resource, index);
+    /// Add a node into the graph, creating all necessary acceleration structures.
+    pub fn add_node(&mut self, res: Resource<Node>, node: NodeData) {
+        let pos = node.position;
+        let idx = self.graph.add_node(node);
+        self.rtree.insert(GraphObject::Node {
+            index: idx,
+            position: pos,
+        });
+        self.resources.insert(res, idx);
+        dbg!(&self.rtree);
     }
 
-    pub fn remove_index(&mut self, resource: &Resource<r::Node>) {
-        self.resources.remove(resource);
+    /// Remove a node from the graph, respecting all acceleration structures.
+    pub fn remove_node(&mut self, res: &Resource<Node>) {
+        if let Some(idx) = self.resources.remove(res) {
+            // Obtain last node before removal for reindexing
+            let last = {
+                let last_idx = self.graph.node_indices().next_back().unwrap();
+                let last = self.graph.node_weight(last_idx).unwrap();
+
+                if last_idx != idx {
+                    Some((last.resource.clone(), last.position, last_idx))
+                } else {
+                    None
+                }
+            };
+
+            // Remove node
+            let node = self
+                .graph
+                .remove_node(idx)
+                .expect("Graph inconsistency detected during removal");
+            self.rtree
+                .remove(dbg!(&GraphObject::Node {
+                    index: idx,
+                    position: node.position,
+                }))
+                .expect("R-Tree inconsistency detected during removal phase 1");
+
+            // Update index of last
+            if let Some((last_res, last_pos, last_idx)) = last {
+                self.resources.insert(last_res, idx);
+                let gobj = self
+                    .rtree
+                    .locate_all_at_point_mut(&last_pos)
+                    .find(|gobj| {
+                        if let GraphObject::Node { index, .. } = gobj {
+                            index == &last_idx
+                        } else {
+                            false
+                        }
+                    })
+                    .unwrap();
+
+                match gobj {
+                    GraphObject::Node { index, .. } => *index = idx,
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
+
+    /// Move a node position, updating acceleration structures. Returns new
+    /// position. Snapping can be enabled via the boolean parameter.
+    ///
+    /// Panics if the node index is invalid!
+    pub fn move_node(&mut self, idx: petgraph::graph::NodeIndex, to: Point, snap: bool) {
+        let mut node = self.graph.node_weight_mut(idx).unwrap();
+        let old_position = node.position;
+
+        node.position[0] = to[0];
+        node.position[1] = to[1];
+
+        if snap {
+            node.position[0] = (node.position[0] / 32.).round() * 32.;
+            node.position[1] = (node.position[1] / 32.).round() * 32.;
+        }
+
+        // Move node in R-Tree
+        self.rtree
+            .remove(&GraphObject::Node {
+                position: old_position,
+                index: idx,
+            })
+            .expect("R-Tree inconsistency during node moving");
+        self.rtree.insert(GraphObject::Node {
+            position: node.position,
+            index: idx,
+        });
     }
 
     pub fn resources(&self) -> &HashMap<Resource<r::Node>, petgraph::graph::NodeIndex> {

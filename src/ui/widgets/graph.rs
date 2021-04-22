@@ -46,7 +46,6 @@ widget_ids! {
     }
 }
 
-#[derive(Clone)]
 pub struct State {
     ids: Ids,
     node_ids: HashMap<petgraph::graph::NodeIndex, widget::Id>,
