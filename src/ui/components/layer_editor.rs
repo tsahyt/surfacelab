@@ -4,7 +4,7 @@ use crate::ui::{
     app_state::{LayerFilter, NodeCollection, NodeCollections},
     i18n::Language,
     util::*,
-    widgets::{layer_row, modal, toolbar, tree},
+    widgets::{layer_row, modal, toolbar, tree, filtered_list},
 };
 
 use std::sync::Arc;
@@ -54,12 +54,13 @@ pub struct Style {
 
 widget_ids! {
     pub struct Ids {
-        modal,
+        add_modal,
         opacity,
         blend_mode,
         main_toolbar,
         context_toolbar,
         list,
+        operator_list,
     }
 }
 
@@ -339,54 +340,43 @@ impl<'a> Widget for LayerEditor<'a> {
 
         if let Some(filter) = state.modal.as_ref().cloned() {
             let mut hide_modal = false;
-            let mut operators = state.operators.iter().filter(|o| match filter {
+            let operators = state.operators.iter().filter(|o| match filter {
                 LayerFilter::Layer(LayerType::Fill) => o.inputs().is_empty(),
                 LayerFilter::Layer(LayerType::Fx) => !o.inputs().is_empty(),
                 LayerFilter::Mask(..) => o.is_mask(),
             });
 
-            match modal::Modal::new(
-                widget::List::flow_down(operators.clone().count())
-                    .item_size(50.0)
-                    .scrollbar_on_top(),
-            )
-            .padding(32.0)
-            .wh_of(id)
-            .middle_of(id)
-            .graphics_for(id)
-            .set(state.ids.modal, ui)
+            match modal::Modal::canvas()
+                .padding(32.)
+                .wh_of(id)
+                .middle_of(id)
+                .graphics_for(id)
+                .set(state.ids.add_modal, ui)
             {
-                modal::Event::ChildEvent(((mut items, scrollbar), _)) => {
-                    while let Some(item) = items.next(ui) {
-                        let op = operators.next().unwrap();
-                        let label = op.title();
-                        let button = widget::Button::new()
-                            .label(&label)
-                            .label_color(conrod_core::color::WHITE)
-                            .label_font_size(12)
-                            .color(conrod_core::color::CHARCOAL);
-                        for _press in item.set(button, ui) {
-                            hide_modal = true;
+                modal::Event::ChildEvent((_, cid)) => {
+                    if let Some(op) = filtered_list::FilteredList::new(operators)
+                        .icon_font(style.icon_font(&ui.theme))
+                        .parent(cid)
+                        .padded_wh_of(cid, 8.)
+                        .middle()
+                        .set(state.ids.operator_list, ui)
+                    {
+                        hide_modal = true;
 
-                            self.sender
-                                .send(match &filter {
-                                    LayerFilter::Layer(filter) => {
-                                        Lang::UserLayersEvent(UserLayersEvent::PushLayer(
-                                            self.graphs.get_active().clone(),
-                                            *filter,
-                                            op.clone(),
-                                        ))
-                                    }
-                                    LayerFilter::Mask(for_layer) => Lang::UserLayersEvent(
-                                        UserLayersEvent::PushMask(for_layer.clone(), op.clone()),
-                                    ),
-                                })
-                                .unwrap();
-                        }
-                    }
-
-                    if let Some(s) = scrollbar {
-                        s.set(ui)
+                        self.sender
+                            .send(match &filter {
+                                LayerFilter::Layer(filter) => {
+                                    Lang::UserLayersEvent(UserLayersEvent::PushLayer(
+                                        self.graphs.get_active().clone(),
+                                        *filter,
+                                        op.clone(),
+                                    ))
+                                }
+                                LayerFilter::Mask(for_layer) => Lang::UserLayersEvent(
+                                    UserLayersEvent::PushMask(for_layer.clone(), op.clone()),
+                                ),
+                            })
+                            .unwrap();
                     }
                 }
                 modal::Event::Hide => hide_modal = true,
