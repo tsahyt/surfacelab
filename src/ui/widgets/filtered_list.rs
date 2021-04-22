@@ -74,6 +74,25 @@ where
 
         let mut ret = None;
 
+        // Listen to all input globally
+        for ev in ui.global_input().events().ui() {
+            match ev {
+                event::Ui::Text(_, event::Text { string, .. }) => {
+                    state.update(|state| state.filter_string.push_str(string));
+                }
+                event::Ui::Press(
+                    _,
+                    event::Press {
+                        button: event::Button::Keyboard(input::Key::Backspace),
+                        ..
+                    },
+                ) => {
+                    state.update(|state| state.filter_string.clear());
+                }
+                _ => {}
+            }
+        }
+
         let mut filtered = items
             .filter(|item| item.filter(&state.filter_string))
             .take(self.limit.unwrap_or(usize::MAX));

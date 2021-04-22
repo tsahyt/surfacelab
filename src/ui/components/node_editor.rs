@@ -296,7 +296,7 @@ impl<'a> NodeEditor<'a> {
 
 impl filtered_list::FilteredListItem for Operator {
     fn filter(&self, filter_string: &str) -> bool {
-        true
+        self.title().starts_with(filter_string)
     }
 
     fn display(&self) -> &str {
