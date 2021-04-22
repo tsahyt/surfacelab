@@ -146,7 +146,7 @@ impl OperatorParamBox for AmbientOcclusion {
                         control: Control::Slider {
                             value: self.radius,
                             min: 0.,
-                            max: 0.2,
+                            max: 0.5,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
