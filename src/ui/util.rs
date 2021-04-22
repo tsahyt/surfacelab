@@ -34,6 +34,7 @@ impl IconName {
     pub const PACKAGE_OPEN: IconName = IconName("\u{f03d6}");
     pub const PACKAGE_CLOSED: IconName = IconName("\u{f03d7}");
     pub const LINK: IconName = IconName("\u{f0337}");
+    pub const SEARCH: IconName = IconName("\u{f0a49}");
 }
 
 /// Create an icon button, i.e. a button with an icon in it. Uses an IconName

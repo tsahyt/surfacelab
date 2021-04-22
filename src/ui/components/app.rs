@@ -262,7 +262,7 @@ where
         // Call update functions for each part of the UI
         self.update_top_bar(state, ui, style);
         match state.graphs.get_active_collection() {
-            NodeCollection::Graph(_) => self.update_node_graph(state, ui),
+            NodeCollection::Graph(_) => self.update_node_graph(state, ui, style),
             NodeCollection::Layers(_) => self.update_layer_stack(state, ui, style),
         };
         self.update_viewport(state, ui, style);
@@ -452,11 +452,12 @@ where
     }
 
     /// Updates the node graph widget
-    fn update_node_graph(&self, state: &mut widget::State<State>, ui: &mut UiCell) {
+    fn update_node_graph(&self, state: &mut widget::State<State>, ui: &mut UiCell, style: &Style) {
         use components::node_editor;
 
         state.update(|state| {
             node_editor::NodeEditor::new(&self.app_data.sender, &mut state.graphs)
+                .icon_font(style.icon_font(&ui.theme))
                 .event_buffer(self.event_buffer.unwrap())
                 .parent(state.ids.edit_canvas)
                 .wh_of(state.ids.edit_canvas)

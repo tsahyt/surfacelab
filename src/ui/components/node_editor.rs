@@ -31,12 +31,16 @@ impl<'a> NodeEditor<'a> {
     }
 
     builder_methods! {
+        pub icon_font { style.icon_font = Some(text::font::Id) }
         pub event_buffer { event_buffer = Some(&'a [Arc<Lang>]) }
     }
 }
 
 #[derive(Copy, Clone, Default, Debug, WidgetStyle, PartialEq)]
-pub struct Style {}
+pub struct Style {
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
+}
 
 widget_ids! {
     pub struct Ids {
@@ -73,7 +77,7 @@ impl<'a> Widget for NodeEditor<'a> {
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { state, ui, id, .. } = args;
+        let widget::UpdateArgs { state, ui, id, style, .. } = args;
 
         if let Some(ev_buf) = self.event_buffer {
             for ev in ev_buf {
@@ -232,6 +236,7 @@ impl<'a> Widget for NodeEditor<'a> {
             {
                 modal::Event::ChildEvent((_, cid)) => {
                     if let Some(op) = filtered_list::FilteredList::new(state.operators.iter())
+                        .icon_font(style.icon_font(&ui.theme))
                         .parent(cid)
                         .padded_wh_of(cid, 8.)
                         .middle()
