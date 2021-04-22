@@ -4,7 +4,7 @@ use crate::ui::{
     app_state::{LayerFilter, NodeCollection, NodeCollections},
     i18n::Language,
     util::*,
-    widgets::{layer_row, modal, toolbar, tree, filtered_list},
+    widgets::{filtered_list, layer_row, modal, toolbar, tree},
 };
 
 use std::sync::Arc;

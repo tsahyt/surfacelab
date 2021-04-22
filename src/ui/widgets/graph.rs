@@ -419,6 +419,7 @@ impl<'a> Widget for Graph<'a> {
             state,
             ui,
             style,
+            rect,
             ..
         } = args;
         let mut evs = VecDeque::new();
@@ -749,6 +750,18 @@ impl<'a> Widget for Graph<'a> {
                 .button(input::MouseButton::Right)
                 .map(|c| Event::AddModal(state.camera.inv_transform(c.xy))),
         );
+        if rect.is_over(ui.global_input().current.mouse.xy) {
+            evs.extend(ui.global_input().events().ui().find_map(|x| match x {
+                event::Ui::Press(
+                    _,
+                    event::Press {
+                        button: event::Button::Keyboard(input::Key::A),
+                        modifiers: input::ModifierKey::CTRL,
+                    },
+                ) => Some(Event::AddModal(state.camera.inv_transform([0., 0.]))),
+                _ => None,
+            }));
+        }
 
         // Handle extraction events
         if !extract_ids.is_empty() {
