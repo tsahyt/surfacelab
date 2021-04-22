@@ -7,186 +7,6 @@ use std::collections::{HashMap, VecDeque};
 const STANDARD_NODE_SIZE: f64 = 128.0;
 const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Camera {
-    position: Point,
-    zoom: Scalar,
-}
-
-impl Camera {
-    pub fn transform(&self, point: Point) -> Point {
-        [
-            self.zoom * (point[0] + self.position[0]),
-            self.zoom * (point[1] + self.position[1]),
-        ]
-    }
-
-    pub fn inv_scale(&self, point: Point) -> Point {
-        [point[0] / self.zoom, point[1] / self.zoom]
-    }
-
-    pub fn inv_transform(&self, point: Point) -> Point {
-        [
-            (point[0] / self.zoom) - self.position[0],
-            (point[1] / self.zoom) - self.position[1],
-        ]
-    }
-
-    pub fn pan(&mut self, dx: f64, dy: f64) {
-        self.position[0] += dx;
-        self.position[1] += dy;
-    }
-
-    pub fn zoom(&mut self, dz: f64) {
-        self.zoom = (self.zoom * (1.0 - (dz * ZOOM_SENSITIVITY))).clamp(0.2, 4.0);
-    }
-}
-
-impl Default for Camera {
-    fn default() -> Self {
-        Camera {
-            position: [0.0, 0.0],
-            zoom: 1.0,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-struct Selected {
-    drag_start: Option<Point>,
-    drag_delta: Option<Point>,
-}
-
-impl Default for Selected {
-    fn default() -> Self {
-        Self {
-            drag_start: None,
-            drag_delta: None,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Selection {
-    rect: Option<(Point, Point)>,
-    set: HashMap<widget::Id, Selected>,
-    active: Option<widget::Id>,
-}
-
-impl Default for Selection {
-    fn default() -> Self {
-        Self {
-            rect: None,
-            set: HashMap::new(),
-            active: None,
-        }
-    }
-}
-
-impl Selection {
-    pub fn set_geometry(&mut self, from: Point, to: Point) {
-        self.rect = Some((from, to))
-    }
-
-    pub fn add(&mut self, widget_id: widget::Id) {
-        self.set.insert(widget_id, Selected::default());
-    }
-
-    pub fn get_geometry(&mut self) -> Option<(Point, Point)> {
-        self.rect
-    }
-
-    pub fn set_active(&mut self, widget_id: Option<widget::Id>) {
-        if let Some(wid) = widget_id {
-            if !self.is_selected(wid) {
-                self.set.clear();
-            }
-
-            self.set.insert(wid, Selected::default());
-        }
-        self.active = widget_id;
-    }
-
-    pub fn get_active(&self) -> Option<widget::Id> {
-        self.active
-    }
-
-    pub fn is_active(&self, widget_id: widget::Id) -> bool {
-        self.active == Some(widget_id)
-    }
-
-    pub fn finish(&mut self) {
-        self.rect = None
-    }
-
-    pub fn set_selection<I>(&mut self, selection: I, adding: bool)
-    where
-        I: Iterator<Item = widget::Id>,
-    {
-        if adding {
-            self.set.extend(selection.map(|x| (x, Selected::default())));
-        } else {
-            self.set = selection.map(|x| (x, Selected::default())).collect();
-        }
-        self.set_active(None);
-    }
-
-    pub fn is_selected(&self, id: widget::Id) -> bool {
-        self.set.get(&id).is_some()
-    }
-
-    pub fn geometry_contains(&self, point: Point) -> bool {
-        if let Some((from, to)) = self.rect {
-            (from[0].min(to[0])..to[0].max(from[0])).contains(&point[0])
-                && (from[1].min(to[1])..to[1].max(from[1])).contains(&point[1])
-        } else {
-            false
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.set.is_empty()
-    }
-
-    pub fn start_drag(&mut self, widget_id: &widget::Id, pos: Point) {
-        if let Some(selected) = self.set.get_mut(widget_id) {
-            selected.drag_start = Some(pos);
-            selected.drag_delta = Some([0., 0.]);
-        }
-    }
-
-    pub fn drag(&mut self, widget_id: &widget::Id, delta: Point) {
-        if let Some(selected) = self.set.get_mut(widget_id) {
-            selected.drag_delta = selected
-                .drag_delta
-                .map(|[x, y]| [x + delta[0], y + delta[1]]);
-        }
-    }
-
-    pub fn drag_pos(&self, widget_id: &widget::Id) -> Option<Point> {
-        if let Some(selected) = self.set.get(widget_id) {
-            selected
-                .drag_start
-                .and_then(|[px, py]| selected.drag_delta.map(|[dx, dy]| [px + dx, py + dy]))
-        } else {
-            None
-        }
-    }
-
-    pub fn stop_drag(&mut self, widget_id: &widget::Id) {
-        if let Some(selected) = self.set.get_mut(widget_id) {
-            selected.drag_start = None;
-            selected.drag_delta = None;
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct ConnectionDraw {
-    from: Point,
-    to: Point,
-}
-
 #[derive(Clone, WidgetCommon)]
 pub struct Graph<'a> {
     #[conrod(common_builder)]
@@ -780,6 +600,186 @@ impl<'a> Widget for Graph<'a> {
 
         evs
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Camera {
+    position: Point,
+    zoom: Scalar,
+}
+
+impl Camera {
+    pub fn transform(&self, point: Point) -> Point {
+        [
+            self.zoom * (point[0] + self.position[0]),
+            self.zoom * (point[1] + self.position[1]),
+        ]
+    }
+
+    pub fn inv_scale(&self, point: Point) -> Point {
+        [point[0] / self.zoom, point[1] / self.zoom]
+    }
+
+    pub fn inv_transform(&self, point: Point) -> Point {
+        [
+            (point[0] / self.zoom) - self.position[0],
+            (point[1] / self.zoom) - self.position[1],
+        ]
+    }
+
+    pub fn pan(&mut self, dx: f64, dy: f64) {
+        self.position[0] += dx;
+        self.position[1] += dy;
+    }
+
+    pub fn zoom(&mut self, dz: f64) {
+        self.zoom = (self.zoom * (1.0 - (dz * ZOOM_SENSITIVITY))).clamp(0.2, 4.0);
+    }
+}
+
+impl Default for Camera {
+    fn default() -> Self {
+        Camera {
+            position: [0.0, 0.0],
+            zoom: 1.0,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Selected {
+    drag_start: Option<Point>,
+    drag_delta: Option<Point>,
+}
+
+impl Default for Selected {
+    fn default() -> Self {
+        Self {
+            drag_start: None,
+            drag_delta: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Selection {
+    rect: Option<(Point, Point)>,
+    set: HashMap<widget::Id, Selected>,
+    active: Option<widget::Id>,
+}
+
+impl Default for Selection {
+    fn default() -> Self {
+        Self {
+            rect: None,
+            set: HashMap::new(),
+            active: None,
+        }
+    }
+}
+
+impl Selection {
+    pub fn set_geometry(&mut self, from: Point, to: Point) {
+        self.rect = Some((from, to))
+    }
+
+    pub fn add(&mut self, widget_id: widget::Id) {
+        self.set.insert(widget_id, Selected::default());
+    }
+
+    pub fn get_geometry(&mut self) -> Option<(Point, Point)> {
+        self.rect
+    }
+
+    pub fn set_active(&mut self, widget_id: Option<widget::Id>) {
+        if let Some(wid) = widget_id {
+            if !self.is_selected(wid) {
+                self.set.clear();
+            }
+
+            self.set.insert(wid, Selected::default());
+        }
+        self.active = widget_id;
+    }
+
+    pub fn get_active(&self) -> Option<widget::Id> {
+        self.active
+    }
+
+    pub fn is_active(&self, widget_id: widget::Id) -> bool {
+        self.active == Some(widget_id)
+    }
+
+    pub fn finish(&mut self) {
+        self.rect = None
+    }
+
+    pub fn set_selection<I>(&mut self, selection: I, adding: bool)
+    where
+        I: Iterator<Item = widget::Id>,
+    {
+        if adding {
+            self.set.extend(selection.map(|x| (x, Selected::default())));
+        } else {
+            self.set = selection.map(|x| (x, Selected::default())).collect();
+        }
+        self.set_active(None);
+    }
+
+    pub fn is_selected(&self, id: widget::Id) -> bool {
+        self.set.get(&id).is_some()
+    }
+
+    pub fn geometry_contains(&self, point: Point) -> bool {
+        if let Some((from, to)) = self.rect {
+            (from[0].min(to[0])..to[0].max(from[0])).contains(&point[0])
+                && (from[1].min(to[1])..to[1].max(from[1])).contains(&point[1])
+        } else {
+            false
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.set.is_empty()
+    }
+
+    pub fn start_drag(&mut self, widget_id: &widget::Id, pos: Point) {
+        if let Some(selected) = self.set.get_mut(widget_id) {
+            selected.drag_start = Some(pos);
+            selected.drag_delta = Some([0., 0.]);
+        }
+    }
+
+    pub fn drag(&mut self, widget_id: &widget::Id, delta: Point) {
+        if let Some(selected) = self.set.get_mut(widget_id) {
+            selected.drag_delta = selected
+                .drag_delta
+                .map(|[x, y]| [x + delta[0], y + delta[1]]);
+        }
+    }
+
+    pub fn drag_pos(&self, widget_id: &widget::Id) -> Option<Point> {
+        if let Some(selected) = self.set.get(widget_id) {
+            selected
+                .drag_start
+                .and_then(|[px, py]| selected.drag_delta.map(|[dx, dy]| [px + dx, py + dy]))
+        } else {
+            None
+        }
+    }
+
+    pub fn stop_drag(&mut self, widget_id: &widget::Id) {
+        if let Some(selected) = self.set.get_mut(widget_id) {
+            selected.drag_start = None;
+            selected.drag_delta = None;
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ConnectionDraw {
+    from: Point,
+    to: Point,
 }
 
 fn node_height(socket_count: usize, socket_size: f64, min_skip: f64) -> f64 {
