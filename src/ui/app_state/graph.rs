@@ -207,6 +207,13 @@ impl Graph {
         })
     }
 
+    fn locate_node_mut(&mut self, node: &Resource<Node>) -> Option<&mut NodeData> {
+        self.rtree.locate_with_selection_function_mut(SelectNodeFunction::new(node, *self.nodes.get(node)?)).next().and_then(|gobj| match gobj {
+            GraphObject::Node(d) => Some(d),
+            _ => None
+        })
+    }
+
     /// Connect two sockets in a graph.
     pub fn connect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
         let from_node_data = self.locate_node(&from.socket_node()).expect("Missing node in R-Tree");
@@ -391,31 +398,20 @@ impl Collection for Graph {
     }
 
     fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
-        // if let Some(node) = self
-        //     .resources
-        //     .get(node)
-        //     .copied()
-        //     .and_then(|idx| self.graph.node_weight_mut(idx))
-        // {
-        //     node.thumbnail = Some(thumbnail);
-        // }
+        if let Some(node) = self.locate_node_mut(node) {
+            node.thumbnail = Some(thumbnail);
+        }
     }
 
     fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id> {
-        // let mut old_id = None;
+        let mut old_id = None;
 
-        // if let Some(node) = self
-        //     .resources
-        //     .get(node)
-        //     .copied()
-        //     .and_then(|idx| self.graph.node_weight_mut(idx))
-        // {
-        //     old_id = node.thumbnail;
-        //     node.thumbnail = None;
-        // }
+        if let Some(node) = self.locate_node_mut(node) {
+            old_id = node.thumbnail;
+            node.thumbnail = None;
+        }
 
-        // old_id
-        None
+        old_id
     }
 
     fn update_complex_operator(
