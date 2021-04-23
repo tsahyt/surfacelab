@@ -141,23 +141,19 @@ impl NodeData {
         let nheight = node_height(self.inputs.len().max(self.outputs.len()), 16., 8.);
 
         if let Some(pos) = self.inputs.iter().position(|(s, _)| s == socket) {
-            let sockets = self.inputs.len();
-            let skip = socket_margin_skip(sockets, 16., 16., nheight);
-
-            let margin = (pos as f64 + 1.) * skip;
+            let skip = socket_margin_skip(self.inputs.len(), 16., 16., nheight);
+            let margin = 16. + (pos as f64 + 1.) * skip + (pos as f64) * (skip + 16.);
 
             let x = self.position[0] - (STANDARD_NODE_SIZE / 2.) + 8.;
-            let y = self.position[1] - (STANDARD_NODE_SIZE / 2.) + margin;
+            let y = self.position[1] + (STANDARD_NODE_SIZE / 2.) - margin - 8.;
 
             Some([x, y])
         } else if let Some(pos) = self.outputs.iter().position(|(s, _)| s == socket) {
-            let sockets = self.outputs.len();
-            let skip = socket_margin_skip(sockets, 16., 16., nheight);
-
-            let margin = (pos as f64 + 1.) * skip;
+            let skip = socket_margin_skip(self.outputs.len(), 16., 16., nheight);
+            let margin = 16. + (pos as f64 + 1.) * skip + (pos as f64) * (skip + 16.);
 
             let x = self.position[0] + (STANDARD_NODE_SIZE / 2.) - 8.;
-            let y = self.position[1] - (STANDARD_NODE_SIZE / 2.) + margin;
+            let y = self.position[1] + (STANDARD_NODE_SIZE / 2.) - margin - 8.;
 
             Some([x, y])
         } else {

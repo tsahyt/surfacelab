@@ -404,155 +404,29 @@ impl<'a> Widget for Graph<'a> {
                         [transformed[0] + rect_xy[0], transformed[1] + rect_xy[1]]
                     };
 
-                    let dist = (from_view[0] - to_view[0]).abs();
-                    super::bezier::Bezier::new(
-                        from_view,
-                        [from_view[0] + dist / 2., from_view[1]],
-                        to_view,
-                        [to_view[0] - dist / 2., to_view[1]],
-                    )
-                    .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.))
-                    .color(style.edge_color(&ui.theme))
-                    .parent(id)
-                    .graphics_for(id)
-                    .depth(1.0)
-                    .set(w_id, ui);
+                    widget::Line::abs(from_view, to_view)
+                        .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.))
+                        .color(style.edge_color(&ui.theme))
+                        .parent(id)
+                        .graphics_for(id)
+                        .depth(1.0)
+                        .set(w_id, ui);
+                    // let dist = (from_view[0] - to_view[0]).abs();
+                    // super::bezier::Bezier::new(
+                    //     from_view,
+                    //     [from_view[0] + dist / 2., from_view[1]],
+                    //     to_view,
+                    //     [to_view[0] - dist / 2., to_view[1]],
+                    // )
+                    // .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.))
+                    // .color(style.edge_color(&ui.theme))
+                    // .parent(id)
+                    // .graphics_for(id)
+                    // .depth(1.0)
+                    // .set(w_id, ui);
                 }
             }
         }
-
-        // // Build a node for each known index
-        // for idx in self.graph.node_indices() {
-        //     let w_id = *state.node_ids.get(&idx).unwrap();
-        //     let node = self.graph.node_weight(idx).unwrap();
-        //     let view_socket =
-        //         state
-        //             .socket_view
-        //             .as_ref()
-        //             .and_then(|(n, s)| if *n == idx { Some(s.clone()) } else { None });
-
-        //     for press in ui
-        //         .widget_input(w_id)
-        //         .presses()
-        //         .mouse()
-        //         .button(input::MouseButton::Left)
-        //     {
-        //         state.update(|state| {
-        //             if press.1 == input::ModifierKey::SHIFT {
-        //                 state.selection.add(w_id);
-        //             }
-        //             state.selection.set_active(Some(w_id))
-        //         });
-        //         evs.push_back(Event::ActiveElement(idx));
-        //     }
-
-        //     let selection_state = if state.selection.is_active(w_id) {
-        //         node::SelectionState::Active
-        //     } else if state.selection.is_selected(w_id) {
-        //         node::SelectionState::Selected
-        //     } else {
-        //         node::SelectionState::None
-        //     };
-
-        //     let socket_count = node.inputs.len().max(node.outputs.len());
-
-        //     for ev in node::Node::new(
-        //         idx,
-        //         &node.type_variables,
-        //         &node.inputs,
-        //         &node.outputs,
-        //         &node.title,
-        //     )
-        //     .title_color(style.node_title_color(&ui.theme))
-        //     .title_size(style.node_title_size(&ui.theme))
-        //     .selected(selection_state)
-        //     .view_socket(view_socket)
-        //     .active_color(style.node_active_color(&ui.theme))
-        //     .selection_color(style.node_selection_color(&ui.theme))
-        //     .parent(id)
-        //     .xy_relative_to(id, state.camera.transform(node.position))
-        //     .thumbnail(node.thumbnail)
-        //     .wh([
-        //         STANDARD_NODE_SIZE * state.camera.zoom,
-        //         node_height(socket_count, 16., 8.) * state.camera.zoom,
-        //     ])
-        //     .zoom(state.camera.zoom)
-        //     .set(w_id, ui)
-        //     {
-        //         match ev {
-        //             node::Event::NodeDragStart => {
-        //                 drag_operation = Some(DragOperation::Starting);
-        //             }
-        //             node::Event::NodeDragMotion(delta, tmp_snap) => {
-        //                 drag_operation = Some(DragOperation::Moving(delta, tmp_snap));
-        //             }
-        //             node::Event::NodeDragStop => {
-        //                 drag_operation = Some(DragOperation::Drop);
-        //             }
-        //             node::Event::NodeDelete => {
-        //                 evs.push_back(Event::NodeDelete(idx));
-        //             }
-        //             node::Event::NodeEnter => {
-        //                 evs.push_back(Event::NodeEnter(idx));
-        //             }
-        //             node::Event::SocketDrag(from, to) => {
-        //                 state.update(|state| {
-        //                     state.connection_draw = Some(ConnectionDraw { from, to })
-        //                 });
-        //             }
-        //             node::Event::SocketRelease(nid, node::SocketType::Source) => {
-        //                 if let Some(draw) = &state.connection_draw {
-        //                     if let Some(target) = self.find_target_socket(ui, state, draw.to) {
-        //                         let w_id = state.node_ids.get(&nid).unwrap();
-        //                         evs.push_back(Event::ConnectionDrawn(
-        //                             nid,
-        //                             node::target_socket(ui, *w_id, draw.from)
-        //                                 .unwrap()
-        //                                 .to_string(),
-        //                             target.0,
-        //                             target.1,
-        //                         ))
-        //                     }
-        //                 }
-        //                 state.update(|state| {
-        //                     state.connection_draw = None;
-        //                 });
-        //             }
-        //             node::Event::SocketRelease(nid, node::SocketType::Sink) => {
-        //                 if let Some(draw) = &state.connection_draw {
-        //                     if let Some(target) = self.find_target_socket(ui, state, draw.from) {
-        //                         let w_id = state.node_ids.get(&nid).unwrap();
-        //                         evs.push_back(Event::ConnectionDrawn(
-        //                             target.0,
-        //                             target.1,
-        //                             nid,
-        //                             node::target_socket(ui, *w_id, draw.to).unwrap().to_string(),
-        //                         ))
-        //                     }
-        //                 }
-        //                 state.update(|state| {
-        //                     state.connection_draw = None;
-        //                 });
-        //             }
-        //             node::Event::SocketClear(socket) => {
-        //                 evs.push_back(Event::SocketClear(idx, socket))
-        //             }
-        //             node::Event::SocketView(socket) => {
-        //                 if state
-        //                     .socket_view
-        //                     .as_ref()
-        //                     .map(|s| s == &(idx, socket.clone()))
-        //                     .unwrap_or(false)
-        //                 {
-        //                     state.update(|state| state.socket_view = None);
-        //                     evs.push_back(Event::SocketViewClear)
-        //                 } else {
-        //                     state.update(|state| state.socket_view = Some((idx, socket.clone())));
-        //                     evs.push_back(Event::SocketView(idx, socket))
-        //                 }
-        //             }
-        //         }
-        //     }
 
         //     if selection_state != node::SelectionState::None {
         //         match selection_op {
