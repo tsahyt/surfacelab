@@ -244,7 +244,7 @@ impl Graph {
         }
     }
 
-    fn locate_node(&self, node: &Resource<Node>) -> Option<&NodeData> {
+    pub fn locate_node(&self, node: &Resource<Node>) -> Option<&NodeData> {
         self.rtree
             .locate_with_selection_function(SelectNodeFunction::new(node, *self.nodes.get(node)?))
             .next()

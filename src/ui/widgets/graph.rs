@@ -2,13 +2,10 @@ use super::node;
 use conrod_core::*;
 use std::collections::{HashMap, VecDeque};
 
-use crate::{
-    lang::{Resource, Socket},
-    ui::app_state::{
+use crate::{lang::{Node, Resource, Socket}, ui::app_state::{
         graph::{node_height, STANDARD_NODE_SIZE},
         GraphObject,
-    },
-};
+    }};
 
 const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
 
@@ -65,9 +62,9 @@ pub struct State {
 pub enum Event {
     NodeDrag(petgraph::graph::NodeIndex, Scalar, Scalar, bool),
     ConnectionDrawn(Resource<Socket>, Resource<Socket>),
-    SocketClear(petgraph::graph::NodeIndex, String),
-    NodeDelete(petgraph::graph::NodeIndex),
-    NodeEnter(petgraph::graph::NodeIndex),
+    SocketClear(Resource<Socket>),
+    NodeDelete(Resource<Node>),
+    NodeEnter(Resource<Node>),
     ActiveElement(petgraph::graph::NodeIndex),
     AddModal(Point),
     Extract(Vec<petgraph::graph::NodeIndex>),
@@ -278,14 +275,14 @@ impl<'a> Widget for Graph<'a> {
         //         });
 
         // Create widgets for all graph objects
-        let mut node_count = 0;
-        let mut connection_count = 0;
+        let mut node_i = 0;
+        let mut connection_i = 0;
 
         for gobj in self.graph.rtree.iter() {
             match gobj {
                 GraphObject::Node(node) => {
-                    let w_id = state.ids.nodes[node_count];
-                    node_count += 1;
+                    let w_id = state.ids.nodes[node_i];
+                    node_i += 1;
 
                     // let view_socket =
                     //     state
@@ -318,6 +315,21 @@ impl<'a> Widget for Graph<'a> {
                     .set(w_id, ui)
                     {
                         match ev {
+                            // node::Event::NodeDragStart => {
+                            //     drag_operation = Some(DragOperation::Starting);
+                            // }
+                            // node::Event::NodeDragMotion(delta, tmp_snap) => {
+                            //     drag_operation = Some(DragOperation::Moving(delta, tmp_snap));
+                            // }
+                            // node::Event::NodeDragStop => {
+                            //     drag_operation = Some(DragOperation::Drop);
+                            // }
+                            node::Event::NodeDelete => {
+                                evs.push_back(Event::NodeDelete(node.resource.clone()));
+                            }
+                            node::Event::NodeEnter => {
+                                evs.push_back(Event::NodeEnter(node.resource.clone()));
+                            }
                             node::Event::SocketDrag(from, to) => {
                                 state.update(|state| {
                                     state.connection_draw = Some(ConnectionDraw { from, to })
@@ -357,13 +369,30 @@ impl<'a> Widget for Graph<'a> {
                                     state.connection_draw = None;
                                 });
                             }
+                            node::Event::SocketClear(socket) => {
+                                evs.push_back(Event::SocketClear(node.resource.node_socket(&socket)))
+                            }
+                            // node::Event::SocketView(socket) => {
+                            //     if state
+                            //         .socket_view
+                            //         .as_ref()
+                            //         .map(|s| s == &(idx, socket.clone()))
+                            //         .unwrap_or(false)
+                            //     {
+                            //         state.update(|state| state.socket_view = None);
+                            //         evs.push_back(Event::SocketViewClear)
+                            //     } else {
+                            //         state.update(|state| state.socket_view = Some((idx, socket.clone())));
+                            //         evs.push_back(Event::SocketView(idx, socket))
+                            //     }
+                            // }
                             _ => {}
                         }
                     }
                 }
                 GraphObject::Connection { from, to } => {
-                    let w_id = state.ids.connections[connection_count];
-                    connection_count += 1;
+                    let w_id = state.ids.connections[connection_i];
+                    connection_i += 1;
 
                     let rect_xy = rect.xy();
                     let from_view = {

@@ -97,7 +97,7 @@ impl<'a> Widget for NodeEditor<'a> {
             .as_graph_mut()
             .expect("Node Graph UI built for non-graph");
 
-        let collection_change: Option<Resource<Graph>> = None;
+        let mut collection_change: Option<Resource<Graph>> = None;
 
         for event in graph::Graph::new(&collection)
             .node_title_color(color::LIGHT_CHARCOAL)
@@ -145,20 +145,15 @@ impl<'a> Widget for NodeEditor<'a> {
                     //     )))
                     //     .unwrap();
                 }
-                graph::Event::NodeEnter(idx) => {
-                    // collection_change = collection.graph.node_weight(idx).unwrap().callee.clone();
+                graph::Event::NodeEnter(node) => {
+                    collection_change = collection.locate_node(&node).unwrap().callee.clone();
                 }
-                graph::Event::SocketClear(idx, socket) => {
-                    // self.sender
-                    //     .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
-                    //         collection
-                    //             .graph
-                    //             .node_weight(idx)
-                    //             .unwrap()
-                    //             .resource
-                    //             .node_socket(&socket),
-                    //     )))
-                    //     .unwrap();
+                graph::Event::SocketClear(socket) => {
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
+                            socket
+                        )))
+                        .unwrap();
                 }
                 graph::Event::ActiveElement(idx) => {
                     collection.active_element = Some(idx);
