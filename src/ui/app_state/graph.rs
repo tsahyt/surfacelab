@@ -226,34 +226,6 @@ impl Graph {
             to: to_pos,
         });
         self.connection_count += 1;
-
-        // // Add to graph
-        // self.graph.add_edge(
-        //     *from_idx,
-        //     *to_idx,
-        //     (
-        //         from.fragment().unwrap().to_string(),
-        //         to.fragment().unwrap().to_string(),
-        //     ),
-        // );
-
-        // // Add to R-Tree
-        // self.rtree.insert(GraphObject::Connection {
-        //     from: self
-        //         .graph
-        //         .node_weight(*from_idx)
-        //         .unwrap()
-        //         .socket_position(from.fragment().unwrap())
-        //         .unwrap(),
-        //     to: self
-        //         .graph
-        //         .node_weight(*to_idx)
-        //         .unwrap()
-        //         .socket_position(to.fragment().unwrap())
-        //         .unwrap(),
-        //     index_from: *from_idx,
-        //     index_to: *to_idx,
-        // });
     }
 
     pub fn disconnect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {

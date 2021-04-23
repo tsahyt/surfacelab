@@ -326,8 +326,15 @@ impl<'a> Widget for Graph<'a> {
                     let w_id = state.ids.connections[connection_count];
                     connection_count += 1;
 
-                    let from_view = state.camera.transform(*from);
-                    let to_view = state.camera.transform(*to);
+                    let rect_xy = rect.xy();
+                    let from_view = {
+                        let transformed = state.camera.transform(*from);
+                        [transformed[0] + rect_xy[0], transformed[1] + rect_xy[1]]
+                    };
+                    let to_view = {
+                        let transformed = state.camera.transform(*to);
+                        [transformed[0] + rect_xy[0], transformed[1] + rect_xy[1]]
+                    };
 
                     let dist = (from_view[0] - to_view[0]).abs();
                     super::bezier::Bezier::new(
@@ -339,7 +346,6 @@ impl<'a> Widget for Graph<'a> {
                     .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.))
                     .color(style.edge_color(&ui.theme))
                     .parent(id)
-                    .middle()
                     .graphics_for(id)
                     .depth(1.0)
                     .set(w_id, ui);
