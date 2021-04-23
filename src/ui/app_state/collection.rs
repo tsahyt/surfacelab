@@ -300,16 +300,7 @@ impl NodeCollections {
     pub fn connect_sockets(&mut self, from: &Resource<r::Socket>, to: &Resource<r::Socket>) {
         let from_node = from.socket_node();
         if let Some(target) = self.target_graph_from_node(&from_node) {
-            let from_idx = target.resources.get(&from_node).unwrap();
-            let to_idx = target.resources.get(&to.socket_node()).unwrap();
-            target.graph.add_edge(
-                *from_idx,
-                *to_idx,
-                (
-                    from.fragment().unwrap().to_string(),
-                    to.fragment().unwrap().to_string(),
-                ),
-            );
+            target.connect_sockets(from, to);
         }
     }
 
@@ -317,24 +308,7 @@ impl NodeCollections {
     pub fn disconnect_sockets(&mut self, from: &Resource<r::Socket>, to: &Resource<r::Socket>) {
         let from_node = from.socket_node();
         if let Some(target) = self.target_graph_from_node(&from_node) {
-            use petgraph::visit::EdgeRef;
-
-            let from_idx = target.resources.get(&from_node).unwrap();
-            let to_idx = target.resources.get(&to.socket_node()).unwrap();
-
-            // Assuming that there's only ever one edge connecting two sockets.
-            if let Some(e) = target
-                .graph
-                .edges_connecting(*from_idx, *to_idx)
-                .filter(|e| {
-                    (e.weight().0.as_str(), e.weight().1.as_str())
-                        == (from.fragment().unwrap(), to.fragment().unwrap())
-                })
-                .map(|e| e.id())
-                .next()
-            {
-                target.graph.remove_edge(e);
-            }
+            target.disconnect_sockets(from, to);
         }
     }
 

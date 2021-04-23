@@ -95,6 +95,10 @@ impl NodeData {
             None => self.type_variables.remove(&var),
         };
     }
+
+    pub fn socket_position(&self, socket: &str) -> Option<Point> {
+        Some(self.position)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -103,7 +107,7 @@ pub enum GraphObject {
         index: petgraph::graph::NodeIndex,
         position: Point,
     },
-    Noodle {
+    Connection {
         index_from: petgraph::graph::NodeIndex,
         index_to: petgraph::graph::NodeIndex,
         from: Point,
@@ -120,7 +124,7 @@ impl RTreeObject for GraphObject {
                 [position[0] - 64., position[1] - 64.],
                 [position[0] + 64., position[1] + 64.],
             ),
-            GraphObject::Noodle { from, to, .. } => rstar::AABB::from_corners(*from, *to),
+            GraphObject::Connection { from, to, .. } => rstar::AABB::from_corners(*from, *to),
         }
     }
 }
@@ -131,7 +135,7 @@ impl PointDistance for GraphObject {
             GraphObject::Node { position, .. } => {
                 (point[0] - position[0]).powi(2) + (point[1] - position[1]).powi(2)
             }
-            GraphObject::Noodle { from, to, .. } => {
+            GraphObject::Connection { from, to, .. } => {
                 let mid = [(from[0] + to[0]) / 2., (from[1] + to[1]) / 2.];
                 (point[0] - mid[0]).powi(2) + (point[1] - mid[1]).powi(2)
             }
@@ -162,7 +166,6 @@ impl Graph {
             position: pos,
         });
         self.resources.insert(res, idx);
-        dbg!(&self.rtree);
     }
 
     /// Remove a node from the graph, respecting all acceleration structures.
@@ -186,10 +189,10 @@ impl Graph {
                 .remove_node(idx)
                 .expect("Graph inconsistency detected during removal");
             self.rtree
-                .remove(dbg!(&GraphObject::Node {
+                .remove(GraphObject::Node {
                     index: idx,
                     position: node.position,
-                }))
+                })
                 .expect("R-Tree inconsistency detected during removal phase 1");
 
             // Update index of last
@@ -242,6 +245,72 @@ impl Graph {
             position: node.position,
             index: idx,
         });
+    }
+
+    /// Connect two sockets in a graph.
+    pub fn connect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
+        let from_idx = self.resources.get(&from.socket_node()).unwrap();
+        let to_idx = self.resources.get(&to.socket_node()).unwrap();
+
+        // Add to graph
+        self.graph.add_edge(
+            *from_idx,
+            *to_idx,
+            (
+                from.fragment().unwrap().to_string(),
+                to.fragment().unwrap().to_string(),
+            ),
+        );
+
+        // Add to R-Tree
+        self.rtree.insert(GraphObject::Connection {
+            from: self
+                .graph
+                .node_weight(*from_idx)
+                .unwrap()
+                .socket_position(from.fragment().unwrap())
+                .unwrap(),
+            to: self
+                .graph
+                .node_weight(*to_idx)
+                .unwrap()
+                .socket_position(to.fragment().unwrap())
+                .unwrap(),
+            index_from: *from_idx,
+            index_to: *to_idx,
+        });
+    }
+
+    pub fn disconnect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
+        use petgraph::visit::EdgeRef;
+
+        let from_idx = self.resources.get(&from.socket_node()).unwrap();
+        let to_idx = self.resources.get(&to.socket_node()).unwrap();
+
+        // Assuming that there's only ever one edge connecting two sockets.
+        if let Some(e) = self
+            .graph
+            .edges_connecting(*from_idx, *to_idx)
+            .filter(|e| {
+                (e.weight().0.as_str(), e.weight().1.as_str())
+                    == (from.fragment().unwrap(), to.fragment().unwrap())
+            })
+            .map(|e| e.id())
+            .next()
+        {
+            self.graph.remove_edge(e);
+        }
+
+        // Remove from R-Tree
+        let from_pos = self.graph.node_weight(*from_idx).unwrap().socket_position(from.fragment().unwrap()).unwrap();
+        let to_pos = self.graph.node_weight(*to_idx).unwrap().socket_position(to.fragment().unwrap()).unwrap();
+
+        self.rtree.remove(&GraphObject::Connection {
+            index_from: *from_idx,
+            index_to: *to_idx,
+            from: from_pos,
+            to: to_pos,
+        }).expect("R-Tree inconsistency detected during connection removal");
     }
 
     pub fn resources(&self) -> &HashMap<Resource<r::Node>, petgraph::graph::NodeIndex> {
