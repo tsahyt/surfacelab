@@ -1,6 +1,5 @@
 use super::node;
 use conrod_core::*;
-use rstar::RTree;
 use std::collections::{HashMap, VecDeque};
 
 use crate::ui::app_state::{GraphObject};
@@ -116,28 +115,28 @@ impl<'a> Graph<'a> {
             .mouse()
             .filter(|mr| mr.button == input::MouseButton::Left)
         {
-            // state.update(|state| {
-            //     let mut selected: Vec<_> = self
-            //         .graph
-            //         .node_indices()
-            //         .filter_map(|idx| {
-            //             if state.selection.geometry_contains(
-            //                 state
-            //                     .camera
-            //                     .transform(self.graph.node_weight(idx).unwrap().position),
-            //             ) {
-            //                 Some(*state.node_ids.get(&idx).unwrap())
-            //             } else {
-            //                 None
-            //             }
-            //         })
-            //         .collect();
-            //     state.selection.set_selection(
-            //         selected.drain(0..),
-            //         release.modifiers == input::ModifierKey::SHIFT,
-            //     );
-            //     state.selection.finish();
-            // })
+            state.update(|state| {
+                // let mut selected: Vec<_> = self
+                //     .graph
+                //     .node_indices()
+                //     .filter_map(|idx| {
+                //         if state.selection.geometry_contains(
+                //             state
+                //                 .camera
+                //                 .transform(self.graph.node_weight(idx).unwrap().position),
+                //         ) {
+                //             Some(*state.node_ids.get(&idx).unwrap())
+                //         } else {
+                //             None
+                //         }
+                //     })
+                //     .collect();
+                // state.selection.set_selection(
+                //     selected.drain(0..),
+                //     release.modifiers == input::ModifierKey::SHIFT,
+                // );
+                state.selection.finish();
+            })
         }
     }
 
@@ -248,7 +247,7 @@ impl<'a> Widget for Graph<'a> {
         self.camera_handling(ui, state, id);
 
         // Update selection
-        // self.rect_selection_handling(ui, state, id);
+        self.rect_selection_handling(ui, state, id);
 
         // Create Grid
         super::grid::Grid::new()
@@ -280,10 +279,6 @@ impl<'a> Widget for Graph<'a> {
         //             }
         //             _ => None,
         //         });
-
-        // let mut extract_ids = vec![];
-        // let mut align_ids = vec![];
-        // let mut export_ids = vec![]
 
         // Create widgets for all graph objects
         let mut node_count = 0;
@@ -542,25 +537,25 @@ impl<'a> Widget for Graph<'a> {
         //     .set(*w_id, ui);
         // }
 
-        // // Draw selection rectangle if actively selecting
-        // if let Selection {
-        //     rect: Some((from, to)),
-        //     ..
-        // } = &state.selection
-        // {
-        //     widget::BorderedRectangle::new(Rect::from_corners(*from, *to).dim())
-        //         .xy_relative_to(
-        //             id,
-        //             [
-        //                 from[0] + (to[0] - from[0]) / 2.0,
-        //                 from[1] + (to[1] - from[1]) / 2.0,
-        //             ],
-        //         )
-        //         .parent(id)
-        //         .color(style.select_rect_color(&ui.theme).alpha(0.2))
-        //         .border_color(style.select_rect_color(&ui.theme))
-        //         .set(state.ids.selection_rect, ui);
-        // }
+        // Draw selection rectangle if actively selecting
+        if let Selection {
+            rect: Some((from, to)),
+            ..
+        } = &state.selection
+        {
+            widget::BorderedRectangle::new(Rect::from_corners(*from, *to).dim())
+                .xy_relative_to(
+                    id,
+                    [
+                        from[0] + (to[0] - from[0]) / 2.0,
+                        from[1] + (to[1] - from[1]) / 2.0,
+                    ],
+                )
+                .parent(id)
+                .color(style.select_rect_color(&ui.theme).alpha(0.2))
+                .border_color(style.select_rect_color(&ui.theme))
+                .set(state.ids.selection_rect, ui);
+        }
 
         // // Draw floating noodle if currently drawing a connection
         // if let Some(ConnectionDraw { from, to, .. }) = &state.connection_draw {
