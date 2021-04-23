@@ -2,7 +2,7 @@ use crate::lang::resource as r;
 use crate::lang::*;
 
 use conrod_core::{image, Point};
-use rstar::{PointDistance, RTree, RTreeObject};
+use rstar::{PointDistance, RTree, RTreeObject, SelectionFunction};
 use std::collections::HashMap;
 
 use super::collection::Collection;
@@ -10,15 +10,56 @@ use super::collection::Collection;
 #[derive(Debug, Clone)]
 pub struct Graph {
     pub rtree: RTree<GraphObject>,
-    pub resources: HashMap<Resource<r::Node>, Point>,
+    pub nodes: HashMap<Resource<r::Node>, Point>,
+    pub node_count: usize,
+    pub connection_count: usize,
     pub exposed_parameters: Vec<(String, GraphParameter)>,
     pub param_box: ParamBoxDescription<GraphField>,
     pub active_element: Option<petgraph::graph::NodeIndex>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum GraphObject {
+    Node(NodeData),
+    Connection { from: Point, to: Point },
+}
+
+impl RTreeObject for GraphObject {
+    type Envelope = rstar::AABB<Point>;
+
+    fn envelope(&self) -> Self::Envelope {
+        match self {
+            GraphObject::Node(node_data) => {
+                let position = node_data.position;
+                rstar::AABB::from_corners(
+                    [position[0] - 64., position[1] - 64.],
+                    [position[0] + 64., position[1] + 64.],
+                )
+            }
+            GraphObject::Connection { from, to, .. } => rstar::AABB::from_corners(*from, *to),
+        }
+    }
+}
+
+impl PointDistance for GraphObject {
+    fn distance_2(&self, point: &Point) -> f64 {
+        match self {
+            GraphObject::Node(node_data) => {
+                let position = node_data.position;
+                (point[0] - position[0]).powi(2) + (point[1] - position[1]).powi(2)
+            }
+            GraphObject::Connection { from, to, .. } => {
+                let mid = [(from[0] + to[0]) / 2., (from[1] + to[1]) / 2.];
+                (point[0] - mid[0]).powi(2) + (point[1] - mid[1]).powi(2)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeData {
     pub resource: Resource<Node>,
+    pub position: Point,
     pub callee: Option<Resource<r::Graph>>,
     pub thumbnail: Option<image::Id>,
     pub title: String,
@@ -33,6 +74,7 @@ impl NodeData {
     pub fn new(
         resource: Resource<Node>,
         operator: &Operator,
+        position: Point,
         param_box: ParamBoxDescription<MessageWriters>,
     ) -> Self {
         let mut inputs: Vec<_> = operator
@@ -50,6 +92,7 @@ impl NodeData {
         let title = operator.title().to_owned();
         Self {
             resource,
+            position,
             callee: operator.graph().cloned(),
             title,
             inputs,
@@ -98,140 +141,64 @@ impl NodeData {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum GraphObject {
-    Node {
-        data: NodeData,
-        position: Point,
-    },
-    Connection {
-        from: Point,
-        to: Point,
-    },
-}
-
-impl RTreeObject for GraphObject {
-    type Envelope = rstar::AABB<Point>;
-
-    fn envelope(&self) -> Self::Envelope {
-        match self {
-            GraphObject::Node { position, .. } => rstar::AABB::from_corners(
-                [position[0] - 64., position[1] - 64.],
-                [position[0] + 64., position[1] + 64.],
-            ),
-            GraphObject::Connection { from, to, .. } => rstar::AABB::from_corners(*from, *to),
-        }
-    }
-}
-
-impl PointDistance for GraphObject {
-    fn distance_2(&self, point: &Point) -> f64 {
-        match self {
-            GraphObject::Node { position, .. } => {
-                (point[0] - position[0]).powi(2) + (point[1] - position[1]).powi(2)
-            }
-            GraphObject::Connection { from, to, .. } => {
-                let mid = [(from[0] + to[0]) / 2., (from[1] + to[1]) / 2.];
-                (point[0] - mid[0]).powi(2) + (point[1] - mid[1]).powi(2)
-            }
-        }
-    }
-}
-
 impl Graph {
     pub fn new(name: &str) -> Self {
         Self {
             rtree: RTree::new(),
-            resources: HashMap::new(),
+            nodes: HashMap::new(),
+            node_count: 0,
+            connection_count: 0,
             exposed_parameters: Vec::new(),
             param_box: ParamBoxDescription::graph_parameters(name),
             active_element: None,
         }
     }
 
-    /// Add a node into the graph, creating all necessary acceleration structures.
-    pub fn add_node(&mut self, res: Resource<Node>, node: NodeData, position: Point) {
-        self.rtree.insert(GraphObject::Node {
-            data: node,
-            position,
-        });
-        // self.resources.insert(res, idx);
+    /// Add a node into the graph
+    pub fn add_node(&mut self, res: Resource<Node>, node: NodeData) {
+        let position = node.position;
+        self.rtree.insert(GraphObject::Node(node));
+        self.nodes.insert(res, position);
+        self.node_count += 1;
     }
 
-    /// Remove a node from the graph, respecting all acceleration structures.
+    /// Remove a node from the graph
     pub fn remove_node(&mut self, res: &Resource<Node>) {
-        // if let Some(idx) = self.resources.remove(res) {
-        //     // Obtain last node before removal for reindexing
-        //     let last = {
-        //         let last_idx = self.graph.node_indices().next_back().unwrap();
-        //         let last = self.graph.node_weight(last_idx).unwrap();
-
-        //         if last_idx != idx {
-        //             Some((last.resource.clone(), last.position, last_idx))
-        //         } else {
-        //             None
-        //         }
-        //     };
-
-        //     // Remove node
-        //     let node = self
-        //         .graph
-        //         .remove_node(idx)
-        //         .expect("Graph inconsistency detected during removal");
-        //     self.rtree
-        //         .remove(GraphObject::Node {
-        //             index: idx,
-        //             position: node.position,
-        //         })
-        //         .expect("R-Tree inconsistency detected during removal phase 1");
-
-        //     // Update index of last
-        //     if let Some((last_res, last_pos, last_idx)) = last {
-        //         self.resources.insert(last_res, idx);
-        //         let gobj = self
-        //             .rtree
-        //             .locate_all_at_point_mut(&last_pos)
-        //             .find(|gobj| {
-        //                 if let GraphObject::Node { index, .. } = gobj {
-        //                     index == &last_idx
-        //                 } else {
-        //                     false
-        //                 }
-        //             })
-        //             .unwrap();
-
-        //         match gobj {
-        //             GraphObject::Node { index, .. } => *index = idx,
-        //             _ => unreachable!(),
-        //         }
-        //     }
-        // }
+        if let Some(pos) = self.nodes.remove(res) {
+            self.rtree
+                .remove_with_selection_function(SelectNodeFunction::new(res, pos))
+                .expect("R-Tree inconsistency detected!");
+        }
+        self.node_count -= 1;
     }
 
     /// Move a node position, updating acceleration structures. Returns new
     /// position. Snapping can be enabled via the boolean parameter.
     ///
     /// Panics if the node index is invalid!
-    pub fn move_node(&mut self, res: &Resource<Node>, from: Point, to: Point, snap: bool) {
-        // node.position[0] = to[0];
-        // node.position[1] = to[1];
+    pub fn move_node(&mut self, res: &Resource<Node>, to: Point, snap: bool) {
+        if let Some(old_position) = self.nodes.get_mut(res) {
+            let new_position = if snap {
+                [(to[0] / 32.).round() * 32., (to[0] / 32.).round() * 32.]
+            } else {
+                to
+            };
 
-        // if snap {
-        //     node.position[0] = (node.position[0] / 32.).round() * 32.;
-        //     node.position[1] = (node.position[1] / 32.).round() * 32.;
-        // }
-
-        // // Move node in R-Tree
-        // self.rtree
-        //     .remove(&GraphObject::Node {
-        //         position: old_position,
-        //         index: idx,
-        //     })
-        //     .expect("R-Tree inconsistency during node moving");
-        // self.rtree.insert(GraphObject::Node {
-        //     position: node.position,
-        //     index: idx,
-        // });
+            match self
+                .rtree
+                .remove_with_selection_function(SelectNodeFunction::new(res, *old_position))
+                .expect("R-Tree inconsistency detected")
+            {
+                GraphObject::Node(node_data) => {
+                    self.rtree.insert(GraphObject::Node(NodeData {
+                        position: new_position,
+                        ..node_data
+                    }));
+                    *old_position = new_position;
+                }
+                _ => unreachable!(),
+            }
+        }
     }
 
     /// Connect two sockets in a graph.
@@ -353,17 +320,17 @@ impl Graph {
 
 impl Collection for Graph {
     fn rename_collection(&mut self, to: &Resource<r::Graph>) {
-        self.param_box.categories[0].parameters[0].control = Control::Entry {
-            value: to.file().unwrap().to_string(),
-        };
-        for gp in self.exposed_parameters.iter_mut().map(|x| &mut x.1) {
-            gp.parameter.set_graph(to.path());
-        }
-        for (mut res, idx) in self.resources.drain().collect::<Vec<_>>() {
-            res.set_graph(to.path());
-            self.resources.insert(res.clone(), idx);
-            // self.graph.node_weight_mut(idx).unwrap().resource = res;
-        }
+        // self.param_box.categories[0].parameters[0].control = Control::Entry {
+        //     value: to.file().unwrap().to_string(),
+        // };
+        // for gp in self.exposed_parameters.iter_mut().map(|x| &mut x.1) {
+        //     gp.parameter.set_graph(to.path());
+        // }
+        // for (mut res, idx) in self.resources.drain().collect::<Vec<_>>() {
+        //     res.set_graph(to.path());
+        //     self.resources.insert(res.clone(), idx);
+        //     self.graph.node_weight_mut(idx).unwrap().resource = res;
+        // }
     }
 
     fn exposed_parameters(&mut self) -> &mut Vec<(String, GraphParameter)> {
@@ -473,5 +440,36 @@ impl Collection for Graph {
 impl Default for Graph {
     fn default() -> Self {
         Self::new("base")
+    }
+}
+
+pub struct SelectNodeFunction<'a> {
+    resource: &'a Resource<Node>,
+    position: Point,
+}
+
+impl<'a> SelectNodeFunction<'a> {
+    pub fn new(resource: &'a Resource<Node>, position: Point) -> Self {
+        Self { resource, position }
+    }
+}
+
+impl<'a> SelectionFunction<GraphObject> for SelectNodeFunction<'a> {
+    fn should_unpack_parent(&self, parent_envelope: &rstar::AABB<Point>) -> bool {
+        use rstar::Envelope;
+
+        let position = self.position;
+        let envelope = rstar::AABB::from_corners(
+            [position[0] - 64., position[1] - 64.],
+            [position[0] + 64., position[1] + 64.],
+        );
+        parent_envelope.contains_envelope(&envelope)
+    }
+
+    fn should_unpack_leaf(&self, leaf: &GraphObject) -> bool {
+        match leaf {
+            GraphObject::Node(node_data) => &node_data.resource == self.resource,
+            _ => false,
+        }
     }
 }

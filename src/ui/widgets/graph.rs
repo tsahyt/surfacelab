@@ -1,8 +1,9 @@
+use super::node;
 use conrod_core::*;
 use rstar::RTree;
 use std::collections::{HashMap, VecDeque};
 
-use crate::ui::app_state::GraphObject;
+use crate::ui::app_state::{GraphObject};
 
 const STANDARD_NODE_SIZE: f64 = 128.0;
 const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
@@ -11,7 +12,7 @@ const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
 pub struct Graph<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    rtree: &'a RTree<GraphObject>,
+    graph: &'a crate::ui::app_state::graph::Graph,
     style: Style,
 }
 
@@ -78,10 +79,10 @@ pub enum Event {
 }
 
 impl<'a> Graph<'a> {
-    pub fn new(rtree: &'a RTree<GraphObject>) -> Self {
+    pub fn new(graph: &'a crate::ui::app_state::graph::Graph) -> Self {
         Graph {
             common: widget::CommonBuilder::default(),
-            rtree,
+            graph,
             style: Style::default(),
         }
     }
@@ -207,7 +208,7 @@ impl<'a> Widget for Graph<'a> {
     type Style = Style;
     type Event = VecDeque<Event>;
 
-    fn init_state(&self, mut id_gen: widget::id::Generator) -> Self::State {
+    fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         State {
             ids: Ids::new(id_gen),
             camera: Camera::default(),
@@ -232,41 +233,21 @@ impl<'a> Widget for Graph<'a> {
         } = args;
         let mut evs = VecDeque::new();
 
-        // // We collect the new nodes into a SmallVec that will spill after 4
-        // // elements. This should be plenty, since updates should arrive slowly
-        // // anyhow, unless we're rebuilding the whole graph on load, in which
-        // // case the allocation is acceptable.
-        // let new_nodes: SmallVec<[_; 4]> = self
-        //     .graph
-        //     .node_indices()
-        //     .filter(|x| state.node_ids.get(&x).is_none())
-        //     .collect();
+        // Update list sizes if required
+        if state.ids.nodes.len() < self.graph.node_count {
+            let mut id_gen = ui.widget_id_generator();
+            state.update(|state| state.ids.nodes.resize(self.graph.node_count, &mut id_gen));
+        }
 
-        // for idx in new_nodes {
-        //     state.update(|state| {
-        //         state.node_ids.insert(idx, ui.widget_id_generator().next());
-        //     })
-        // }
-
-        // // Now repeat the same thing for edges. Note that we don't have to do
-        // // the deletion here, because all edges are the same in terms of
-        // // internal state, since they're just simple primitives.
-        // let new_edges: SmallVec<[_; 4]> = self
-        //     .graph
-        //     .edge_indices()
-        //     .filter(|x| state.edge_ids.get(&x).is_none())
-        //     .collect();
-
-        // for idx in new_edges {
-        //     state.update(|state| {
-        //         state.edge_ids.insert(idx, ui.widget_id_generator().next());
-        //     })
-        // }
+        if state.ids.connections.len() < self.graph.connection_count {
+            let mut id_gen = ui.widget_id_generator();
+            state.update(|state| state.ids.connections.resize(self.graph.connection_count, &mut id_gen));
+        }
 
         // Update camera
         self.camera_handling(ui, state, id);
 
-        // // Update selection
+        // Update selection
         // self.rect_selection_handling(ui, state, id);
 
         // Create Grid
@@ -302,7 +283,56 @@ impl<'a> Widget for Graph<'a> {
 
         // let mut extract_ids = vec![];
         // let mut align_ids = vec![];
-        // let mut export_ids = vec![];
+        // let mut export_ids = vec![]
+
+        // Create widgets for all graph objects
+        let mut node_count = 0;
+        let mut connection_count = 0;
+
+        for gobj in self.graph.rtree.iter() {
+            match gobj {
+                GraphObject::Node(node) => {
+                    let w_id = state.ids.nodes[node_count];
+                    node_count += 1;
+
+                    // let view_socket =
+                    //     state
+                    //         .socket_view
+                    //         .as_ref()
+                    //         .and_then(|(n, s)| if *n == idx { Some(s.clone()) } else { None });
+
+                    let socket_count = node.inputs.len().max(node.outputs.len());
+
+                    for ev in node::Node::new(
+                        &node.type_variables,
+                        &node.inputs,
+                        &node.outputs,
+                        &node.title,
+                    )
+                    .title_color(style.node_title_color(&ui.theme))
+                    .title_size(style.node_title_size(&ui.theme))
+                    // .selected(selection_state)
+                    // .view_socket(view_socket)
+                    .active_color(style.node_active_color(&ui.theme))
+                    .selection_color(style.node_selection_color(&ui.theme))
+                    .parent(id)
+                    .xy_relative_to(id, state.camera.transform(node.position))
+                    .thumbnail(node.thumbnail)
+                    .wh([
+                        STANDARD_NODE_SIZE * state.camera.zoom,
+                        node_height(socket_count, 16., 8.) * state.camera.zoom,
+                    ])
+                    .zoom(state.camera.zoom)
+                    .set(w_id, ui)
+                    {
+                    }
+                }
+                GraphObject::Connection { from, to } => {
+                    let w_id = state.ids.connections[connection_count];
+                    connection_count += 1;
+                }
+            }
+        }
 
         // // Build a node for each known index
         // for idx in self.graph.node_indices() {
@@ -551,25 +581,25 @@ impl<'a> Widget for Graph<'a> {
         //     .set(state.ids.floating_noodle, ui);
         // }
 
-        // // Trigger Add Modal
-        // evs.extend(
-        //     ui.widget_input(id)
-        //         .clicks()
-        //         .button(input::MouseButton::Right)
-        //         .map(|c| Event::AddModal(state.camera.inv_transform(c.xy))),
-        // );
-        // if rect.is_over(ui.global_input().current.mouse.xy) {
-        //     evs.extend(ui.global_input().events().ui().find_map(|x| match x {
-        //         event::Ui::Press(
-        //             _,
-        //             event::Press {
-        //                 button: event::Button::Keyboard(input::Key::A),
-        //                 modifiers: input::ModifierKey::CTRL,
-        //             },
-        //         ) => Some(Event::AddModal(state.camera.inv_transform([0., 0.]))),
-        //         _ => None,
-        //     }));
-        // }
+        // Trigger Add Modal
+        evs.extend(
+            ui.widget_input(id)
+                .clicks()
+                .button(input::MouseButton::Right)
+                .map(|c| Event::AddModal(state.camera.inv_transform(c.xy))),
+        );
+        if rect.is_over(ui.global_input().current.mouse.xy) {
+            evs.extend(ui.global_input().events().ui().find_map(|x| match x {
+                event::Ui::Press(
+                    _,
+                    event::Press {
+                        button: event::Button::Keyboard(input::Key::A),
+                        modifiers: input::ModifierKey::CTRL,
+                    },
+                ) => Some(Event::AddModal(state.camera.inv_transform([0., 0.]))),
+                _ => None,
+            }));
+        }
 
         // // Handle extraction events
         // if !extract_ids.is_empty() {

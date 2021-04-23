@@ -99,7 +99,7 @@ impl<'a> Widget for NodeEditor<'a> {
 
         let collection_change: Option<Resource<Graph>> = None;
 
-        for event in graph::Graph::new(&collection.rtree)
+        for event in graph::Graph::new(&collection)
             .node_title_color(color::LIGHT_CHARCOAL)
             .node_title_size(14)
             .node_active_color(Color::Rgba(0.9, 0.4, 0.15, 1.0))
@@ -212,7 +212,7 @@ impl<'a> Widget for NodeEditor<'a> {
                     //         .node_socket(&socket),
                     // ))))
                     // .unwrap()
-                },
+                }
                 graph::Event::SocketViewClear => {
                     // self
                     // .sender

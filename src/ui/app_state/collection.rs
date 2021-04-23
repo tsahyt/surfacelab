@@ -1,7 +1,7 @@
 use crate::lang::resource as r;
 use crate::lang::*;
 
-use conrod_core::{Point, image};
+use conrod_core::{image, Point};
 use enum_dispatch::*;
 use std::collections::HashMap;
 
@@ -288,11 +288,11 @@ impl NodeCollections {
 
     /// Add a node to a graph, based on the resource data given. This is a NOP
     /// if the parent graph is a layer.
-    pub fn add_node(&mut self, node: graph::NodeData, position: Point) {
+    pub fn add_node(&mut self, node: graph::NodeData) {
         let node_res = node.resource.clone();
 
         if let Some(target) = self.target_graph_from_node(&node_res) {
-            target.add_node(node_res, node, position);
+            target.add_node(node_res, node);
         }
     }
 
@@ -369,12 +369,12 @@ impl NodeCollections {
     /// graph to another!
     pub fn rename_node(&mut self, from: &Resource<r::Node>, to: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&from) {
-            if let Some(idx) = target.resources.get(from).copied() {
-                // let node = target.graph.node_weight_mut(idx).unwrap();
-                // node.resource = to.clone();
-                // target.resources.insert(to.clone(), idx);
-                // target.resources.remove(from);
-            }
+            // if let Some(idx) = target.resources.get(from).copied() {
+            // let node = target.graph.node_weight_mut(idx).unwrap();
+            // node.resource = to.clone();
+            // target.resources.insert(to.clone(), idx);
+            // target.resources.remove(from);
+            // }
         }
     }
 

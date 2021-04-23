@@ -14,7 +14,6 @@ pub enum SelectionState {
 pub struct Node<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    node_id: petgraph::graph::NodeIndex,
     style: Style,
     selected: SelectionState,
     view_socket: Option<String>,
@@ -62,7 +61,6 @@ pub enum Event {
 
 impl<'a> Node<'a> {
     pub fn new(
-        node_id: petgraph::graph::NodeIndex,
         type_variables: &'a HashMap<TypeVariable, ImageType>,
         inputs: &'a [(String, OperatorType)],
         outputs: &'a [(String, OperatorType)],
@@ -70,7 +68,6 @@ impl<'a> Node<'a> {
     ) -> Self {
         Node {
             common: widget::CommonBuilder::default(),
-            node_id,
             style: Style::default(),
             selected: SelectionState::None,
             view_socket: None,
@@ -325,11 +322,11 @@ impl<'a> Widget for Node<'a> {
                     }),
             );
 
-            evs.extend(
-                ui.widget_input(w_id)
-                    .releases()
-                    .map(|_| Event::SocketRelease(self.node_id, SocketType::Sink)),
-            );
+            // evs.extend(
+            //     ui.widget_input(w_id)
+            //         .releases()
+            //         .map(|_| Event::SocketRelease(self.node_id, SocketType::Sink)),
+            // );
 
             evs.extend(
                 ui.widget_input(w_id)
@@ -393,11 +390,11 @@ impl<'a> Widget for Node<'a> {
                 )
             }));
 
-            evs.extend(
-                ui.widget_input(w_id)
-                    .releases()
-                    .map(|_| Event::SocketRelease(self.node_id, SocketType::Source)),
-            );
+            // evs.extend(
+            //     ui.widget_input(w_id)
+            //         .releases()
+            //         .map(|_| Event::SocketRelease(self.node_id, SocketType::Source)),
+            // );
 
             evs.extend(
                 ui.widget_input(w_id)
