@@ -1,4 +1,4 @@
-use crate::lang::*;
+use crate::{lang::*, ui::app_state::socket_margin_skip};
 use conrod_core::*;
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -56,7 +56,7 @@ pub enum Event {
     SocketView(String),
     SocketDrag(Point, Point),
     SocketClear(String),
-    SocketRelease(petgraph::graph::NodeIndex, SocketType),
+    SocketRelease(String, SocketType),
 }
 
 impl<'a> Node<'a> {
@@ -147,43 +147,6 @@ impl State {
 
         self.sockets_hash = hash_sockets(inputs, outputs);
     }
-}
-
-pub fn socket_rect(ui: &Ui, node_id: widget::Id, socket: &str) -> Option<Rect> {
-    let unique = ui
-        .widget_graph()
-        .widget(node_id)?
-        .state_and_style::<State, Style>()?;
-    let mut sockets = unique
-        .state
-        .input_sockets
-        .iter()
-        .chain(unique.state.output_sockets.iter());
-    let result = sockets
-        .find(|(name, _)| name.as_str() == socket)
-        .map(|x| x.1)?;
-    ui.rect_of(*result)
-}
-
-pub fn target_socket(ui: &Ui, node_id: widget::Id, point: Point) -> Option<&str> {
-    let unique = ui
-        .widget_graph()
-        .widget(node_id)?
-        .state_and_style::<State, Style>()?;
-    for socket in unique
-        .state
-        .input_sockets
-        .iter()
-        .chain(unique.state.output_sockets.iter())
-    {
-        let rect = ui.rect_of(*socket.1).unwrap().pad(-8.);
-
-        if rect.x.is_over(point[0]) && rect.y.is_over(point[1]) {
-            return Some(socket.0);
-        }
-    }
-
-    None
 }
 
 fn hash_sockets(inputs: &[(String, OperatorType)], outputs: &[(String, OperatorType)]) -> u64 {
@@ -278,7 +241,7 @@ impl<'a> Widget for Node<'a> {
         let margin_initial = 16. * zoom;
 
         let margin_skip =
-            calculate_margin_skip(self.inputs.len(), margin_initial, socket_size[1], rect.h());
+            socket_margin_skip(self.inputs.len(), margin_initial, socket_size[1], rect.h());
 
         let mut margin = margin_initial;
 
@@ -322,11 +285,11 @@ impl<'a> Widget for Node<'a> {
                     }),
             );
 
-            // evs.extend(
-            //     ui.widget_input(w_id)
-            //         .releases()
-            //         .map(|_| Event::SocketRelease(self.node_id, SocketType::Sink)),
-            // );
+            evs.extend(
+                ui.widget_input(w_id)
+                    .releases()
+                    .map(|_| Event::SocketRelease(input.clone(), SocketType::Sink)),
+            );
 
             evs.extend(
                 ui.widget_input(w_id)
@@ -343,7 +306,7 @@ impl<'a> Widget for Node<'a> {
         margin = margin_initial;
 
         let margin_skip =
-            calculate_margin_skip(self.outputs.len(), margin_initial, socket_size[1], rect.h());
+            socket_margin_skip(self.outputs.len(), margin_initial, socket_size[1], rect.h());
 
         for (output, ty) in self.outputs.iter() {
             margin += margin_skip;
@@ -390,11 +353,11 @@ impl<'a> Widget for Node<'a> {
                 )
             }));
 
-            // evs.extend(
-            //     ui.widget_input(w_id)
-            //         .releases()
-            //         .map(|_| Event::SocketRelease(self.node_id, SocketType::Source)),
-            // );
+            evs.extend(
+                ui.widget_input(w_id)
+                    .releases()
+                    .map(|_| Event::SocketRelease(output.clone(), SocketType::Source)),
+            );
 
             evs.extend(
                 ui.widget_input(w_id)
@@ -464,11 +427,4 @@ fn operator_type_color(
             },
         },
     }
-}
-
-fn calculate_margin_skip(sockets: usize, margin: f64, socket_height: f64, node_height: f64) -> f64 {
-    let a = node_height - 2. * margin;
-    let n = sockets as f64;
-
-    (a - n * socket_height) / (2. * n)
 }

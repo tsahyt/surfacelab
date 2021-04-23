@@ -121,7 +121,7 @@ impl<'a> Widget for NodeEditor<'a> {
                     //     )))
                     //     .unwrap();
                 }
-                graph::Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
+                graph::Event::ConnectionDrawn(from, to) => {
                     // let from_res = collection
                     //     .graph
                     //     .node_weight(from)
@@ -134,11 +134,9 @@ impl<'a> Widget for NodeEditor<'a> {
                     //     .unwrap()
                     //     .resource
                     //     .node_socket(&to_socket);
-                    // self.sender
-                    //     .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
-                    //         from_res, to_res,
-                    //     )))
-                    //     .unwrap();
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(from, to)))
+                        .unwrap();
                 }
                 graph::Event::NodeDelete(idx) => {
                     // self.sender

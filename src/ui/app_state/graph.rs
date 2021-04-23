@@ -7,6 +7,8 @@ use std::collections::HashMap;
 
 use super::collection::Collection;
 
+pub const STANDARD_NODE_SIZE: f64 = 128.;
+
 #[derive(Debug, Clone)]
 pub struct Graph {
     pub rtree: RTree<GraphObject>,
@@ -136,7 +138,49 @@ impl NodeData {
     }
 
     pub fn socket_position(&self, socket: &str) -> Option<Point> {
-        Some(self.position)
+        let nheight = node_height(self.inputs.len().max(self.outputs.len()), 16., 8.);
+
+        if let Some(pos) = self.inputs.iter().position(|(s, _)| s == socket) {
+            let sockets = self.inputs.len();
+            let skip = socket_margin_skip(sockets, 16., 16., nheight);
+
+            let margin = (pos as f64 + 1.) * skip;
+
+            let x = self.position[0] - (STANDARD_NODE_SIZE / 2.) + 8.;
+            let y = self.position[1] - (STANDARD_NODE_SIZE / 2.) + margin;
+
+            Some([x, y])
+        } else if let Some(pos) = self.outputs.iter().position(|(s, _)| s == socket) {
+            let sockets = self.outputs.len();
+            let skip = socket_margin_skip(sockets, 16., 16., nheight);
+
+            let margin = (pos as f64 + 1.) * skip;
+
+            let x = self.position[0] + (STANDARD_NODE_SIZE / 2.) - 8.;
+            let y = self.position[1] - (STANDARD_NODE_SIZE / 2.) + margin;
+
+            Some([x, y])
+        } else {
+            None
+        }
+    }
+
+    /// Find socket at the position given. May be an input or an output socket.
+    /// `radius2` describes the *squared* radius within which a socket is
+    /// detected.
+    pub fn socket_at_position(&self, position: Point, radius2: f64) -> Option<&str> {
+        self.inputs
+            .iter()
+            .chain(self.outputs.iter())
+            .find(|(socket, _)| {
+                if let Some(socket_pos) = self.socket_position(socket) {
+                    ((position[0] - socket_pos[0]).powi(2) + (position[1] - socket_pos[1]).powi(2))
+                        < radius2
+                } else {
+                    false
+                }
+            })
+            .map(|x| x.0.as_ref())
     }
 }
 
@@ -201,30 +245,58 @@ impl Graph {
     }
 
     fn locate_node(&self, node: &Resource<Node>) -> Option<&NodeData> {
-        self.rtree.locate_with_selection_function(SelectNodeFunction::new(node, *self.nodes.get(node)?)).next().and_then(|gobj| match gobj {
-            GraphObject::Node(d) => Some(d),
-            _ => None
-        })
+        self.rtree
+            .locate_with_selection_function(SelectNodeFunction::new(node, *self.nodes.get(node)?))
+            .next()
+            .and_then(|gobj| match gobj {
+                GraphObject::Node(d) => Some(d),
+                _ => None,
+            })
     }
 
     fn locate_node_mut(&mut self, node: &Resource<Node>) -> Option<&mut NodeData> {
-        self.rtree.locate_with_selection_function_mut(SelectNodeFunction::new(node, *self.nodes.get(node)?)).next().and_then(|gobj| match gobj {
-            GraphObject::Node(d) => Some(d),
-            _ => None
-        })
+        self.rtree
+            .locate_with_selection_function_mut(SelectNodeFunction::new(
+                node,
+                *self.nodes.get(node)?,
+            ))
+            .next()
+            .and_then(|gobj| match gobj {
+                GraphObject::Node(d) => Some(d),
+                _ => None,
+            })
+    }
+
+    /// Find the node closest to the given position. Note that this node does
+    /// not necessarily contain the position!
+    pub fn nearest_node_at(&self, position: Point) -> Option<&NodeData> {
+        self.rtree
+            .nearest_neighbor(&position)
+            .and_then(|gobj| match gobj {
+                GraphObject::Node(data) => Some(data),
+                _ => None,
+            })
     }
 
     /// Connect two sockets in a graph.
     pub fn connect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
-        let from_node_data = self.locate_node(&from.socket_node()).expect("Missing node in R-Tree");
-        let from_pos = from_node_data.socket_position(from.fragment().unwrap()).unwrap();
-        let to_node_data = self.locate_node(&to.socket_node()).expect("Missing node in R-Tree");
-        let to_pos = to_node_data.socket_position(to.fragment().unwrap()).unwrap();
+        let from_node_data = self
+            .locate_node(&from.socket_node())
+            .expect("Missing node in R-Tree");
+        let from_pos = from_node_data
+            .socket_position(from.fragment().unwrap())
+            .unwrap();
+        let to_node_data = self
+            .locate_node(&to.socket_node())
+            .expect("Missing node in R-Tree");
+        let to_pos = to_node_data
+            .socket_position(to.fragment().unwrap())
+            .unwrap();
 
-        self.rtree.insert(GraphObject::Connection {
+        self.rtree.insert(dbg!(GraphObject::Connection {
             from: from_pos,
             to: to_pos,
-        });
+        }));
         self.connection_count += 1;
     }
 
@@ -454,4 +526,27 @@ impl<'a> SelectionFunction<GraphObject> for SelectNodeFunction<'a> {
             _ => false,
         }
     }
+}
+
+/// Calculate the margin skip for drawing sockets given the specified parameters.
+///
+/// Required both for actual drawing of sockets as well as for laying out connections.
+pub fn socket_margin_skip(
+    sockets: usize,
+    margin: f64,
+    socket_height: f64,
+    node_height: f64,
+) -> f64 {
+    let a = node_height - 2. * margin;
+    let n = sockets as f64;
+
+    (a - n * socket_height) / (2. * n)
+}
+
+/// Calculate the height of a node given the parameters
+///
+/// Required both for actual drawing of nodes as well as for determining bounding boxes.
+pub fn node_height(socket_count: usize, socket_size: f64, min_skip: f64) -> f64 {
+    let n = socket_count as f64;
+    (2. * n * min_skip + socket_size * n).max(STANDARD_NODE_SIZE)
 }

@@ -2,9 +2,14 @@ use super::node;
 use conrod_core::*;
 use std::collections::{HashMap, VecDeque};
 
-use crate::ui::app_state::{GraphObject};
+use crate::{
+    lang::{Resource, Socket},
+    ui::app_state::{
+        graph::{node_height, STANDARD_NODE_SIZE},
+        GraphObject,
+    },
+};
 
-const STANDARD_NODE_SIZE: f64 = 128.0;
 const ZOOM_SENSITIVITY: f64 = 1.0 / 100.0;
 
 #[derive(Clone, WidgetCommon)]
@@ -59,12 +64,7 @@ pub struct State {
 #[derive(Clone, Debug)]
 pub enum Event {
     NodeDrag(petgraph::graph::NodeIndex, Scalar, Scalar, bool),
-    ConnectionDrawn(
-        petgraph::graph::NodeIndex,
-        String,
-        petgraph::graph::NodeIndex,
-        String,
-    ),
+    ConnectionDrawn(Resource<Socket>, Resource<Socket>),
     SocketClear(petgraph::graph::NodeIndex, String),
     NodeDelete(petgraph::graph::NodeIndex),
     NodeEnter(petgraph::graph::NodeIndex),
@@ -161,18 +161,10 @@ impl<'a> Graph<'a> {
         }
     }
 
-    fn find_target_socket(
-        &self,
-        ui: &Ui,
-        state: &State,
-        drop_point: Point,
-    ) -> Option<(petgraph::graph::NodeIndex, String)> {
-        // self.graph.node_indices().find_map(|idx| {
-        //     let w_id = state.node_ids.get(&idx)?;
-        //     let socket = super::node::target_socket(ui, *w_id, drop_point)?;
-        //     Some((idx, socket.to_string()))
-        // })
-        None
+    fn find_target_socket(&self, ui: &Ui, pos: Point) -> Option<Resource<Socket>> {
+        let node = self.graph.nearest_node_at(pos)?;
+        let socket = node.socket_at_position(pos, 64.)?;
+        Some(dbg!(node.resource.node_socket(socket)))
     }
 
     builder_methods! {
@@ -240,7 +232,12 @@ impl<'a> Widget for Graph<'a> {
 
         if state.ids.connections.len() < self.graph.connection_count {
             let mut id_gen = ui.widget_id_generator();
-            state.update(|state| state.ids.connections.resize(self.graph.connection_count, &mut id_gen));
+            state.update(|state| {
+                state
+                    .ids
+                    .connections
+                    .resize(self.graph.connection_count, &mut id_gen)
+            });
         }
 
         // Update camera
@@ -320,6 +317,48 @@ impl<'a> Widget for Graph<'a> {
                     .zoom(state.camera.zoom)
                     .set(w_id, ui)
                     {
+                        match ev {
+                            node::Event::SocketDrag(from, to) => {
+                                state.update(|state| {
+                                    state.connection_draw = Some(ConnectionDraw { from, to })
+                                });
+                            }
+                            node::Event::SocketRelease(source, node::SocketType::Source) => {
+                                if let Some(draw) = &state.connection_draw {
+                                    let pos = state.camera.inv_transform([
+                                        draw.to[0] - rect.xy()[0],
+                                        draw.to[1] - rect.xy()[1],
+                                    ]);
+                                    if let Some(sink) = self.find_target_socket(ui, pos) {
+                                        evs.push_back(Event::ConnectionDrawn(
+                                            node.resource.node_socket(&source),
+                                            sink,
+                                        ))
+                                    }
+                                }
+                                state.update(|state| {
+                                    state.connection_draw = None;
+                                });
+                            }
+                            node::Event::SocketRelease(sink, node::SocketType::Sink) => {
+                                if let Some(draw) = &state.connection_draw {
+                                    let pos = state.camera.inv_transform([
+                                        draw.from[0] - rect.xy()[0],
+                                        draw.from[1] - rect.xy()[1],
+                                    ]);
+                                    if let Some(source) = self.find_target_socket(ui, pos) {
+                                        evs.push_back(Event::ConnectionDrawn(
+                                            source,
+                                            node.resource.node_socket(&sink),
+                                        ))
+                                    }
+                                }
+                                state.update(|state| {
+                                    state.connection_draw = None;
+                                });
+                            }
+                            _ => {}
+                        }
                     }
                 }
                 GraphObject::Connection { from, to } => {
@@ -530,37 +569,6 @@ impl<'a> Widget for Graph<'a> {
         //     }
         // }
 
-        // // Draw a line for each edge
-        // for idx in self.graph.edge_indices() {
-        //     let w_id = state.edge_ids.get(&idx).unwrap();
-        //     let (from_idx, to_idx) = self.graph.edge_endpoints(idx).unwrap();
-        //     let edge = self.graph.edge_weight(idx).unwrap();
-
-        //     let from_pos =
-        //         super::node::socket_rect(ui, *state.node_ids.get(&from_idx).unwrap(), &edge.0)
-        //             .expect("Missing source socket for drawing")
-        //             .xy();
-        //     let to_pos =
-        //         super::node::socket_rect(ui, *state.node_ids.get(&to_idx).unwrap(), &edge.1)
-        //             .expect("Missing sink socket for drawing")
-        //             .xy();
-
-        //     let dist = (from_pos[0] - to_pos[0]).abs();
-        //     super::bezier::Bezier::new(
-        //         from_pos,
-        //         [from_pos[0] + dist / 2., from_pos[1]],
-        //         to_pos,
-        //         [to_pos[0] - dist / 2., to_pos[1]],
-        //     )
-        //     .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.))
-        //     .color(style.edge_color(&ui.theme))
-        //     .parent(id)
-        //     .middle()
-        //     .graphics_for(id)
-        //     .depth(1.0)
-        //     .set(*w_id, ui);
-        // }
-
         // Draw selection rectangle if actively selecting
         if let Selection {
             rect: Some((from, to)),
@@ -581,24 +589,24 @@ impl<'a> Widget for Graph<'a> {
                 .set(state.ids.selection_rect, ui);
         }
 
-        // // Draw floating noodle if currently drawing a connection
-        // if let Some(ConnectionDraw { from, to, .. }) = &state.connection_draw {
-        //     let dist = (from[0] - to[0]).abs();
-        //     super::bezier::Bezier::new(
-        //         *from,
-        //         [from[0] + dist / 2., from[1]],
-        //         *to,
-        //         [to[0] - dist / 2., to[1]],
-        //     )
-        //     .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 6.))
-        //     .color(style.edge_drag_color(&ui.theme))
-        //     .graphics_for(id)
-        //     .pattern(widget::point_path::Pattern::Dotted)
-        //     .middle()
-        //     .parent(id)
-        //     .depth(1.0)
-        //     .set(state.ids.floating_noodle, ui);
-        // }
+        // Draw floating noodle if currently drawing a connection
+        if let Some(ConnectionDraw { from, to, .. }) = &state.connection_draw {
+            let dist = (from[0] - to[0]).abs();
+            super::bezier::Bezier::new(
+                *from,
+                [from[0] + dist / 2., from[1]],
+                *to,
+                [to[0] - dist / 2., to[1]],
+            )
+            .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 6.))
+            .color(style.edge_drag_color(&ui.theme))
+            .graphics_for(id)
+            .pattern(widget::point_path::Pattern::Dotted)
+            .middle()
+            .parent(id)
+            .depth(1.0)
+            .set(state.ids.floating_noodle, ui);
+        }
 
         // Trigger Add Modal
         evs.extend(
@@ -817,9 +825,4 @@ impl Selection {
 pub struct ConnectionDraw {
     from: Point,
     to: Point,
-}
-
-fn node_height(socket_count: usize, socket_size: f64, min_skip: f64) -> f64 {
-    let n = socket_count as f64;
-    (2. * n * min_skip + socket_size * n).max(STANDARD_NODE_SIZE)
 }
