@@ -136,8 +136,7 @@ impl NodeData {
     }
 
     pub fn socket_position(&self, socket: &str) -> Option<Point> {
-        Some([0., 0.])
-        // Some(self.position)
+        Some(self.position)
     }
 }
 
@@ -201,10 +200,25 @@ impl Graph {
         }
     }
 
+    fn locate_node(&self, node: &Resource<Node>) -> Option<&NodeData> {
+        self.rtree.locate_with_selection_function(SelectNodeFunction::new(node, *self.nodes.get(node)?)).next().and_then(|gobj| match gobj {
+            GraphObject::Node(d) => Some(d),
+            _ => None
+        })
+    }
+
     /// Connect two sockets in a graph.
     pub fn connect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
-        // let from_idx = self.resources.get(&from.socket_node()).unwrap();
-        // let to_idx = self.resources.get(&to.socket_node()).unwrap();
+        let from_node_data = self.locate_node(&from.socket_node()).expect("Missing node in R-Tree");
+        let from_pos = from_node_data.socket_position(from.fragment().unwrap()).unwrap();
+        let to_node_data = self.locate_node(&to.socket_node()).expect("Missing node in R-Tree");
+        let to_pos = to_node_data.socket_position(to.fragment().unwrap()).unwrap();
+
+        self.rtree.insert(GraphObject::Connection {
+            from: from_pos,
+            to: to_pos,
+        });
+        self.connection_count += 1;
 
         // // Add to graph
         // self.graph.add_edge(

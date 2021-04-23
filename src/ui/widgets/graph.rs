@@ -325,6 +325,24 @@ impl<'a> Widget for Graph<'a> {
                 GraphObject::Connection { from, to } => {
                     let w_id = state.ids.connections[connection_count];
                     connection_count += 1;
+
+                    let from_view = state.camera.transform(*from);
+                    let to_view = state.camera.transform(*to);
+
+                    let dist = (from_view[0] - to_view[0]).abs();
+                    super::bezier::Bezier::new(
+                        from_view,
+                        [from_view[0] + dist / 2., from_view[1]],
+                        to_view,
+                        [to_view[0] - dist / 2., to_view[1]],
+                    )
+                    .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.))
+                    .color(style.edge_color(&ui.theme))
+                    .parent(id)
+                    .middle()
+                    .graphics_for(id)
+                    .depth(1.0)
+                    .set(w_id, ui);
                 }
             }
         }
