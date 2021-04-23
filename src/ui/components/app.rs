@@ -346,10 +346,9 @@ where
                 state.update(|state| {
                     state.graphs.add_node(NodeData::new(
                         res.clone(),
-                        position.map(|(x, y)| [x, y]),
                         &op,
                         pbox.clone(),
-                    ))
+                    ), position.map(|(x, y)| [x, y]).unwrap_or([0., 0.]))
                 });
             }
             GraphEvent::NodeRemoved(res) => {

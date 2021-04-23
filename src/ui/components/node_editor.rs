@@ -97,9 +97,9 @@ impl<'a> Widget for NodeEditor<'a> {
             .as_graph_mut()
             .expect("Node Graph UI built for non-graph");
 
-        let mut collection_change = None;
+        let collection_change: Option<Resource<Graph>> = None;
 
-        for event in graph::Graph::new(&collection.graph)
+        for event in graph::Graph::new(&collection.rtree)
             .node_title_color(color::LIGHT_CHARCOAL)
             .node_title_size(14)
             .node_active_color(Color::Rgba(0.9, 0.4, 0.15, 1.0))
@@ -111,56 +111,56 @@ impl<'a> Widget for NodeEditor<'a> {
         {
             match event {
                 graph::Event::NodeDrag(idx, x, y, tmp_snap) => {
-                    collection.move_node(idx, [x, y], tmp_snap);
-                    let node = collection.graph.node_weight(idx).unwrap();
+                    // collection.move_node(idx, [x, y], tmp_snap);
+                    // let node = collection.graph.node_weight(idx).unwrap();
 
-                    self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
-                            node.resource.clone(),
-                            (node.position[0], node.position[1]),
-                        )))
-                        .unwrap();
+                    // self.sender
+                    //     .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
+                    //         node.resource.clone(),
+                    //         (node.position[0], node.position[1]),
+                    //     )))
+                    //     .unwrap();
                 }
                 graph::Event::ConnectionDrawn(from, from_socket, to, to_socket) => {
-                    let from_res = collection
-                        .graph
-                        .node_weight(from)
-                        .unwrap()
-                        .resource
-                        .node_socket(&from_socket);
-                    let to_res = collection
-                        .graph
-                        .node_weight(to)
-                        .unwrap()
-                        .resource
-                        .node_socket(&to_socket);
-                    self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
-                            from_res, to_res,
-                        )))
-                        .unwrap();
+                    // let from_res = collection
+                    //     .graph
+                    //     .node_weight(from)
+                    //     .unwrap()
+                    //     .resource
+                    //     .node_socket(&from_socket);
+                    // let to_res = collection
+                    //     .graph
+                    //     .node_weight(to)
+                    //     .unwrap()
+                    //     .resource
+                    //     .node_socket(&to_socket);
+                    // self.sender
+                    //     .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
+                    //         from_res, to_res,
+                    //     )))
+                    //     .unwrap();
                 }
                 graph::Event::NodeDelete(idx) => {
-                    self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
-                            collection.graph.node_weight(idx).unwrap().resource.clone(),
-                        )))
-                        .unwrap();
+                    // self.sender
+                    //     .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
+                    //         collection.graph.node_weight(idx).unwrap().resource.clone(),
+                    //     )))
+                    //     .unwrap();
                 }
                 graph::Event::NodeEnter(idx) => {
-                    collection_change = collection.graph.node_weight(idx).unwrap().callee.clone();
+                    // collection_change = collection.graph.node_weight(idx).unwrap().callee.clone();
                 }
                 graph::Event::SocketClear(idx, socket) => {
-                    self.sender
-                        .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
-                            collection
-                                .graph
-                                .node_weight(idx)
-                                .unwrap()
-                                .resource
-                                .node_socket(&socket),
-                        )))
-                        .unwrap();
+                    // self.sender
+                    //     .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
+                    //         collection
+                    //             .graph
+                    //             .node_weight(idx)
+                    //             .unwrap()
+                    //             .resource
+                    //             .node_socket(&socket),
+                    //     )))
+                    //     .unwrap();
                 }
                 graph::Event::ActiveElement(idx) => {
                     collection.active_element = Some(idx);
@@ -169,13 +169,13 @@ impl<'a> Widget for NodeEditor<'a> {
                     state.update(|state| state.add_modal = Some(pt));
                 }
                 graph::Event::Extract(mut idxs) => {
-                    self.sender
-                        .send(Lang::UserGraphEvent(UserGraphEvent::Extract(
-                            idxs.drain(0..)
-                                .map(|i| collection.graph.node_weight(i).unwrap().resource.clone())
-                                .collect(),
-                        )))
-                        .unwrap();
+                    // self.sender
+                    //     .send(Lang::UserGraphEvent(UserGraphEvent::Extract(
+                    //         idxs.drain(0..)
+                    //             .map(|i| collection.graph.node_weight(i).unwrap().resource.clone())
+                    //             .collect(),
+                    //     )))
+                    //     .unwrap();
                 }
                 graph::Event::AlignNodes(idxs) => {
                     for (res, pos) in collection.align_nodes(&idxs) {
@@ -188,33 +188,37 @@ impl<'a> Widget for NodeEditor<'a> {
                     }
                 }
                 graph::Event::ExportSetup(idxs) => {
-                    for node in idxs
-                        .iter()
-                        .map(|idx| collection.graph.node_weight(*idx).unwrap())
-                        .filter(|n| n.exportable)
-                    {
-                        self.sender
-                            .send(Lang::UserIOEvent(UserIOEvent::NewExportSpec(
-                                ExportSpec::from(&node.resource),
-                            )))
-                            .unwrap();
-                    }
+                    // for node in idxs
+                    //     .iter()
+                    //     .map(|idx| collection.graph.node_weight(*idx).unwrap())
+                    //     .filter(|n| n.exportable)
+                    // {
+                    //     self.sender
+                    //         .send(Lang::UserIOEvent(UserIOEvent::NewExportSpec(
+                    //             ExportSpec::from(&node.resource),
+                    //         )))
+                    //         .unwrap();
+                    // }
                 }
-                graph::Event::SocketView(idx, socket) => self
-                    .sender
-                    .send(Lang::UserNodeEvent(UserNodeEvent::ViewSocket(Some(
-                        collection
-                            .graph
-                            .node_weight(idx)
-                            .unwrap()
-                            .resource
-                            .node_socket(&socket),
-                    ))))
-                    .unwrap(),
-                graph::Event::SocketViewClear => self
-                    .sender
-                    .send(Lang::UserNodeEvent(UserNodeEvent::ViewSocket(None)))
-                    .unwrap(),
+                graph::Event::SocketView(idx, socket) => {
+                    // self
+                    // .sender
+                    // .send(Lang::UserNodeEvent(UserNodeEvent::ViewSocket(Some(
+                    //     collection
+                    //         .graph
+                    //         .node_weight(idx)
+                    //         .unwrap()
+                    //         .resource
+                    //         .node_socket(&socket),
+                    // ))))
+                    // .unwrap()
+                },
+                graph::Event::SocketViewClear => {
+                    // self
+                    // .sender
+                    // .send(Lang::UserNodeEvent(UserNodeEvent::ViewSocket(None)))
+                    // .unwrap(),
+                }
             }
         }
 

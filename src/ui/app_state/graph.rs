@@ -9,9 +9,8 @@ use super::collection::Collection;
 
 #[derive(Debug, Clone)]
 pub struct Graph {
-    pub graph: NodeGraph,
     pub rtree: RTree<GraphObject>,
-    pub resources: HashMap<Resource<r::Node>, petgraph::graph::NodeIndex>,
+    pub resources: HashMap<Resource<r::Node>, Point>,
     pub exposed_parameters: Vec<(String, GraphParameter)>,
     pub param_box: ParamBoxDescription<GraphField>,
     pub active_element: Option<petgraph::graph::NodeIndex>,
@@ -22,7 +21,6 @@ pub struct NodeData {
     pub resource: Resource<Node>,
     pub callee: Option<Resource<r::Graph>>,
     pub thumbnail: Option<image::Id>,
-    pub position: Point,
     pub title: String,
     pub inputs: Vec<(String, OperatorType)>,
     pub outputs: Vec<(String, OperatorType)>,
@@ -34,7 +32,6 @@ pub struct NodeData {
 impl NodeData {
     pub fn new(
         resource: Resource<Node>,
-        position: Option<Point>,
         operator: &Operator,
         param_box: ParamBoxDescription<MessageWriters>,
     ) -> Self {
@@ -63,7 +60,6 @@ impl NodeData {
             ),
             param_box,
             thumbnail: None,
-            position: position.unwrap_or([0., 0.]),
             type_variables: HashMap::new(),
         }
     }
@@ -97,19 +93,18 @@ impl NodeData {
     }
 
     pub fn socket_position(&self, socket: &str) -> Option<Point> {
-        Some(self.position)
+        Some([0., 0.])
+        // Some(self.position)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum GraphObject {
     Node {
-        index: petgraph::graph::NodeIndex,
+        data: NodeData,
         position: Point,
     },
     Connection {
-        index_from: petgraph::graph::NodeIndex,
-        index_to: petgraph::graph::NodeIndex,
         from: Point,
         to: Point,
     },
@@ -143,12 +138,9 @@ impl PointDistance for GraphObject {
     }
 }
 
-pub type NodeGraph = petgraph::Graph<NodeData, (String, String)>;
-
 impl Graph {
     pub fn new(name: &str) -> Self {
         Self {
-            graph: petgraph::Graph::new(),
             rtree: RTree::new(),
             resources: HashMap::new(),
             exposed_parameters: Vec::new(),
@@ -158,167 +150,154 @@ impl Graph {
     }
 
     /// Add a node into the graph, creating all necessary acceleration structures.
-    pub fn add_node(&mut self, res: Resource<Node>, node: NodeData) {
-        let pos = node.position;
-        let idx = self.graph.add_node(node);
+    pub fn add_node(&mut self, res: Resource<Node>, node: NodeData, position: Point) {
         self.rtree.insert(GraphObject::Node {
-            index: idx,
-            position: pos,
+            data: node,
+            position,
         });
-        self.resources.insert(res, idx);
+        // self.resources.insert(res, idx);
     }
 
     /// Remove a node from the graph, respecting all acceleration structures.
     pub fn remove_node(&mut self, res: &Resource<Node>) {
-        if let Some(idx) = self.resources.remove(res) {
-            // Obtain last node before removal for reindexing
-            let last = {
-                let last_idx = self.graph.node_indices().next_back().unwrap();
-                let last = self.graph.node_weight(last_idx).unwrap();
+        // if let Some(idx) = self.resources.remove(res) {
+        //     // Obtain last node before removal for reindexing
+        //     let last = {
+        //         let last_idx = self.graph.node_indices().next_back().unwrap();
+        //         let last = self.graph.node_weight(last_idx).unwrap();
 
-                if last_idx != idx {
-                    Some((last.resource.clone(), last.position, last_idx))
-                } else {
-                    None
-                }
-            };
+        //         if last_idx != idx {
+        //             Some((last.resource.clone(), last.position, last_idx))
+        //         } else {
+        //             None
+        //         }
+        //     };
 
-            // Remove node
-            let node = self
-                .graph
-                .remove_node(idx)
-                .expect("Graph inconsistency detected during removal");
-            self.rtree
-                .remove(GraphObject::Node {
-                    index: idx,
-                    position: node.position,
-                })
-                .expect("R-Tree inconsistency detected during removal phase 1");
+        //     // Remove node
+        //     let node = self
+        //         .graph
+        //         .remove_node(idx)
+        //         .expect("Graph inconsistency detected during removal");
+        //     self.rtree
+        //         .remove(GraphObject::Node {
+        //             index: idx,
+        //             position: node.position,
+        //         })
+        //         .expect("R-Tree inconsistency detected during removal phase 1");
 
-            // Update index of last
-            if let Some((last_res, last_pos, last_idx)) = last {
-                self.resources.insert(last_res, idx);
-                let gobj = self
-                    .rtree
-                    .locate_all_at_point_mut(&last_pos)
-                    .find(|gobj| {
-                        if let GraphObject::Node { index, .. } = gobj {
-                            index == &last_idx
-                        } else {
-                            false
-                        }
-                    })
-                    .unwrap();
+        //     // Update index of last
+        //     if let Some((last_res, last_pos, last_idx)) = last {
+        //         self.resources.insert(last_res, idx);
+        //         let gobj = self
+        //             .rtree
+        //             .locate_all_at_point_mut(&last_pos)
+        //             .find(|gobj| {
+        //                 if let GraphObject::Node { index, .. } = gobj {
+        //                     index == &last_idx
+        //                 } else {
+        //                     false
+        //                 }
+        //             })
+        //             .unwrap();
 
-                match gobj {
-                    GraphObject::Node { index, .. } => *index = idx,
-                    _ => unreachable!(),
-                }
-            }
-        }
+        //         match gobj {
+        //             GraphObject::Node { index, .. } => *index = idx,
+        //             _ => unreachable!(),
+        //         }
+        //     }
+        // }
     }
 
     /// Move a node position, updating acceleration structures. Returns new
     /// position. Snapping can be enabled via the boolean parameter.
     ///
     /// Panics if the node index is invalid!
-    pub fn move_node(&mut self, idx: petgraph::graph::NodeIndex, to: Point, snap: bool) {
-        let mut node = self.graph.node_weight_mut(idx).unwrap();
-        let old_position = node.position;
+    pub fn move_node(&mut self, res: &Resource<Node>, from: Point, to: Point, snap: bool) {
+        // node.position[0] = to[0];
+        // node.position[1] = to[1];
 
-        node.position[0] = to[0];
-        node.position[1] = to[1];
+        // if snap {
+        //     node.position[0] = (node.position[0] / 32.).round() * 32.;
+        //     node.position[1] = (node.position[1] / 32.).round() * 32.;
+        // }
 
-        if snap {
-            node.position[0] = (node.position[0] / 32.).round() * 32.;
-            node.position[1] = (node.position[1] / 32.).round() * 32.;
-        }
-
-        // Move node in R-Tree
-        self.rtree
-            .remove(&GraphObject::Node {
-                position: old_position,
-                index: idx,
-            })
-            .expect("R-Tree inconsistency during node moving");
-        self.rtree.insert(GraphObject::Node {
-            position: node.position,
-            index: idx,
-        });
+        // // Move node in R-Tree
+        // self.rtree
+        //     .remove(&GraphObject::Node {
+        //         position: old_position,
+        //         index: idx,
+        //     })
+        //     .expect("R-Tree inconsistency during node moving");
+        // self.rtree.insert(GraphObject::Node {
+        //     position: node.position,
+        //     index: idx,
+        // });
     }
 
     /// Connect two sockets in a graph.
     pub fn connect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
-        let from_idx = self.resources.get(&from.socket_node()).unwrap();
-        let to_idx = self.resources.get(&to.socket_node()).unwrap();
+        // let from_idx = self.resources.get(&from.socket_node()).unwrap();
+        // let to_idx = self.resources.get(&to.socket_node()).unwrap();
 
-        // Add to graph
-        self.graph.add_edge(
-            *from_idx,
-            *to_idx,
-            (
-                from.fragment().unwrap().to_string(),
-                to.fragment().unwrap().to_string(),
-            ),
-        );
+        // // Add to graph
+        // self.graph.add_edge(
+        //     *from_idx,
+        //     *to_idx,
+        //     (
+        //         from.fragment().unwrap().to_string(),
+        //         to.fragment().unwrap().to_string(),
+        //     ),
+        // );
 
-        // Add to R-Tree
-        self.rtree.insert(GraphObject::Connection {
-            from: self
-                .graph
-                .node_weight(*from_idx)
-                .unwrap()
-                .socket_position(from.fragment().unwrap())
-                .unwrap(),
-            to: self
-                .graph
-                .node_weight(*to_idx)
-                .unwrap()
-                .socket_position(to.fragment().unwrap())
-                .unwrap(),
-            index_from: *from_idx,
-            index_to: *to_idx,
-        });
+        // // Add to R-Tree
+        // self.rtree.insert(GraphObject::Connection {
+        //     from: self
+        //         .graph
+        //         .node_weight(*from_idx)
+        //         .unwrap()
+        //         .socket_position(from.fragment().unwrap())
+        //         .unwrap(),
+        //     to: self
+        //         .graph
+        //         .node_weight(*to_idx)
+        //         .unwrap()
+        //         .socket_position(to.fragment().unwrap())
+        //         .unwrap(),
+        //     index_from: *from_idx,
+        //     index_to: *to_idx,
+        // });
     }
 
     pub fn disconnect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
-        use petgraph::visit::EdgeRef;
+        // use petgraph::visit::EdgeRef;
 
-        let from_idx = self.resources.get(&from.socket_node()).unwrap();
-        let to_idx = self.resources.get(&to.socket_node()).unwrap();
+        // let from_idx = self.resources.get(&from.socket_node()).unwrap();
+        // let to_idx = self.resources.get(&to.socket_node()).unwrap();
 
-        // Assuming that there's only ever one edge connecting two sockets.
-        if let Some(e) = self
-            .graph
-            .edges_connecting(*from_idx, *to_idx)
-            .filter(|e| {
-                (e.weight().0.as_str(), e.weight().1.as_str())
-                    == (from.fragment().unwrap(), to.fragment().unwrap())
-            })
-            .map(|e| e.id())
-            .next()
-        {
-            self.graph.remove_edge(e);
-        }
+        // // Assuming that there's only ever one edge connecting two sockets.
+        // if let Some(e) = self
+        //     .graph
+        //     .edges_connecting(*from_idx, *to_idx)
+        //     .filter(|e| {
+        //         (e.weight().0.as_str(), e.weight().1.as_str())
+        //             == (from.fragment().unwrap(), to.fragment().unwrap())
+        //     })
+        //     .map(|e| e.id())
+        //     .next()
+        // {
+        //     self.graph.remove_edge(e);
+        // }
 
-        // Remove from R-Tree
-        let from_pos = self.graph.node_weight(*from_idx).unwrap().socket_position(from.fragment().unwrap()).unwrap();
-        let to_pos = self.graph.node_weight(*to_idx).unwrap().socket_position(to.fragment().unwrap()).unwrap();
+        // // Remove from R-Tree
+        // let from_pos = self.graph.node_weight(*from_idx).unwrap().socket_position(from.fragment().unwrap()).unwrap();
+        // let to_pos = self.graph.node_weight(*to_idx).unwrap().socket_position(to.fragment().unwrap()).unwrap();
 
-        self.rtree.remove(&GraphObject::Connection {
-            index_from: *from_idx,
-            index_to: *to_idx,
-            from: from_pos,
-            to: to_pos,
-        }).expect("R-Tree inconsistency detected during connection removal");
-    }
-
-    pub fn resources(&self) -> &HashMap<Resource<r::Node>, petgraph::graph::NodeIndex> {
-        &self.resources
-    }
-
-    pub fn resources_mut(&mut self) -> &mut HashMap<Resource<r::Node>, petgraph::graph::NodeIndex> {
-        &mut self.resources
+        // self.rtree.remove(&GraphObject::Connection {
+        //     index_from: *from_idx,
+        //     index_to: *to_idx,
+        //     from: from_pos,
+        //     to: to_pos,
+        // }).expect("R-Tree inconsistency detected during connection removal");
     }
 
     /// Align given nodes in the graph on a best guess basis, returning
@@ -330,44 +309,45 @@ impl Graph {
         &mut self,
         nodes: &[petgraph::graph::NodeIndex],
     ) -> Vec<(Resource<Node>, (f64, f64))> {
-        use statrs::statistics::Statistics;
+        // use statrs::statistics::Statistics;
 
-        let poss = nodes
-            .iter()
-            .filter_map(|idx| self.graph.node_weight(*idx))
-            .map(|n| n.position);
-        let var_x = poss.clone().map(|x| x[0]).variance();
-        let var_y = poss.clone().map(|x| x[1]).variance();
+        // let poss = nodes
+        //     .iter()
+        //     .filter_map(|idx| self.graph.node_weight(*idx))
+        //     .map(|n| n.position);
+        // let var_x = poss.clone().map(|x| x[0]).variance();
+        // let var_y = poss.clone().map(|x| x[1]).variance();
 
-        if var_y > var_x {
-            let mean_x = poss.clone().map(|x| x[0]).mean();
-            for (idx, pos) in nodes
-                .iter()
-                .filter_map(|idx| self.graph.node_weight(*idx).map(|n| (idx, n.position)))
-                .collect::<Vec<_>>()
-            {
-                let new_pos = [mean_x, pos[1]];
-                self.move_node(*idx, new_pos, false);
-            }
-        } else {
-            let mean_y = poss.clone().map(|x| x[1]).mean();
-            for (idx, pos) in nodes
-                .iter()
-                .filter_map(|idx| self.graph.node_weight(*idx).map(|n| (idx, n.position)))
-                .collect::<Vec<_>>()
-            {
-                let new_pos = [pos[0], mean_y];
-                self.move_node(*idx, new_pos, false);
-            }
-        }
+        // if var_y > var_x {
+        //     let mean_x = poss.clone().map(|x| x[0]).mean();
+        //     for (idx, pos) in nodes
+        //         .iter()
+        //         .filter_map(|idx| self.graph.node_weight(*idx).map(|n| (idx, n.position)))
+        //         .collect::<Vec<_>>()
+        //     {
+        //         let new_pos = [mean_x, pos[1]];
+        //         self.move_node(*idx, new_pos, false);
+        //     }
+        // } else {
+        //     let mean_y = poss.clone().map(|x| x[1]).mean();
+        //     for (idx, pos) in nodes
+        //         .iter()
+        //         .filter_map(|idx| self.graph.node_weight(*idx).map(|n| (idx, n.position)))
+        //         .collect::<Vec<_>>()
+        //     {
+        //         let new_pos = [pos[0], mean_y];
+        //         self.move_node(*idx, new_pos, false);
+        //     }
+        // }
 
-        nodes
-            .iter()
-            .filter_map(|idx| {
-                let n = self.graph.node_weight(*idx)?;
-                Some((n.resource.clone(), (n.position[0], n.position[1])))
-            })
-            .collect()
+        // nodes
+        //     .iter()
+        //     .filter_map(|idx| {
+        //         let n = self.graph.node_weight(*idx)?;
+        //         Some((n.resource.clone(), (n.position[0], n.position[1])))
+        //     })
+        //     .collect()
+        Vec::new()
     }
 }
 
@@ -382,7 +362,7 @@ impl Collection for Graph {
         for (mut res, idx) in self.resources.drain().collect::<Vec<_>>() {
             res.set_graph(to.path());
             self.resources.insert(res.clone(), idx);
-            self.graph.node_weight_mut(idx).unwrap().resource = res;
+            // self.graph.node_weight_mut(idx).unwrap().resource = res;
         }
     }
 
@@ -395,65 +375,66 @@ impl Collection for Graph {
     }
 
     fn expose_parameter(&mut self, param: GraphParameter) {
-        let node = param.parameter.parameter_node();
-        if let Some(idx) = self.resources.get(&node) {
-            let pbox = &mut self
-                .graph
-                .node_weight_mut(*idx)
-                .expect("Malformed graph in UI")
-                .param_box;
-            pbox.set_expose_status(
-                param.parameter.fragment().unwrap(),
-                Some(ExposeStatus::Exposed),
-            );
-            self.exposed_parameters
-                .push((param.graph_field.clone(), param));
-        }
+        // let node = param.parameter.parameter_node();
+        // if let Some(idx) = self.resources.get(&node) {
+        //     let pbox = &mut self
+        //         .graph
+        //         .node_weight_mut(*idx)
+        //         .expect("Malformed graph in UI")
+        //         .param_box;
+        //     pbox.set_expose_status(
+        //         param.parameter.fragment().unwrap(),
+        //         Some(ExposeStatus::Exposed),
+        //     );
+        //     self.exposed_parameters
+        //         .push((param.graph_field.clone(), param));
+        // }
     }
 
     fn conceal_parameter(&mut self, field: &str) {
-        if let Some(idx) = self.exposed_parameters.iter().position(|x| x.0 == field) {
-            let (_, param) = self.exposed_parameters.remove(idx);
-            let node = param.parameter.parameter_node();
-            if let Some(gidx) = self.resources.get(&node) {
-                let pbox = &mut self
-                    .graph
-                    .node_weight_mut(*gidx)
-                    .expect("Malformed graph in UI")
-                    .param_box;
-                pbox.set_expose_status(
-                    param.parameter.fragment().unwrap(),
-                    Some(ExposeStatus::Unexposed),
-                );
-            }
-        }
+        // if let Some(idx) = self.exposed_parameters.iter().position(|x| x.0 == field) {
+        //     let (_, param) = self.exposed_parameters.remove(idx);
+        //     let node = param.parameter.parameter_node();
+        //     if let Some(gidx) = self.resources.get(&node) {
+        //         let pbox = &mut self
+        //             .graph
+        //             .node_weight_mut(*gidx)
+        //             .expect("Malformed graph in UI")
+        //             .param_box;
+        //         pbox.set_expose_status(
+        //             param.parameter.fragment().unwrap(),
+        //             Some(ExposeStatus::Unexposed),
+        //         );
+        //     }
+        // }
     }
 
     fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
-        if let Some(node) = self
-            .resources
-            .get(node)
-            .copied()
-            .and_then(|idx| self.graph.node_weight_mut(idx))
-        {
-            node.thumbnail = Some(thumbnail);
-        }
+        // if let Some(node) = self
+        //     .resources
+        //     .get(node)
+        //     .copied()
+        //     .and_then(|idx| self.graph.node_weight_mut(idx))
+        // {
+        //     node.thumbnail = Some(thumbnail);
+        // }
     }
 
     fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id> {
-        let mut old_id = None;
+        // let mut old_id = None;
 
-        if let Some(node) = self
-            .resources
-            .get(node)
-            .copied()
-            .and_then(|idx| self.graph.node_weight_mut(idx))
-        {
-            old_id = node.thumbnail;
-            node.thumbnail = None;
-        }
+        // if let Some(node) = self
+        //     .resources
+        //     .get(node)
+        //     .copied()
+        //     .and_then(|idx| self.graph.node_weight_mut(idx))
+        // {
+        //     old_id = node.thumbnail;
+        //     node.thumbnail = None;
+        // }
 
-        old_id
+        // old_id
+        None
     }
 
     fn update_complex_operator(
@@ -462,28 +443,30 @@ impl Collection for Graph {
         op: &ComplexOperator,
         pbox: &ParamBoxDescription<MessageWriters>,
     ) {
-        if let Some(idx) = self.resources.get(node) {
-            let node_weight = self.graph.node_weight_mut(*idx).unwrap();
-            node_weight.update(Operator::ComplexOperator(op.clone()), pbox.clone());
-        }
+        // if let Some(idx) = self.resources.get(node) {
+        //     let node_weight = self.graph.node_weight_mut(*idx).unwrap();
+        //     node_weight.update(Operator::ComplexOperator(op.clone()), pbox.clone());
+        // }
     }
 
     fn active_element(
         &mut self,
     ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)> {
-        let idx = self.active_element.as_ref()?;
-        let node = self.graph.node_weight_mut(*idx)?;
-        Some((&node.resource, &mut node.param_box))
+        // let idx = self.active_element.as_ref()?;
+        // let node = self.graph.node_weight_mut(*idx)?;
+        // Some((&node.resource, &mut node.param_box))
+        None
     }
 
     fn active_resource(&self) -> Option<&Resource<r::Node>> {
-        let idx = self.active_element.as_ref()?;
-        let node = self.graph.node_weight(*idx)?;
-        Some(&node.resource)
+        // let idx = self.active_element.as_ref()?;
+        // let node = self.graph.node_weight(*idx)?;
+        // Some(&node.resource)
+        None
     }
 
     fn set_active(&mut self, element: &Resource<r::Node>) {
-        self.active_element = self.resources.get(element).cloned();
+        // self.active_element = self.resources.get(element).cloned();
     }
 }
 

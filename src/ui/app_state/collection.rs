@@ -1,7 +1,7 @@
 use crate::lang::resource as r;
 use crate::lang::*;
 
-use conrod_core::image;
+use conrod_core::{Point, image};
 use enum_dispatch::*;
 use std::collections::HashMap;
 
@@ -288,11 +288,11 @@ impl NodeCollections {
 
     /// Add a node to a graph, based on the resource data given. This is a NOP
     /// if the parent graph is a layer.
-    pub fn add_node(&mut self, node: graph::NodeData) {
+    pub fn add_node(&mut self, node: graph::NodeData, position: Point) {
         let node_res = node.resource.clone();
 
         if let Some(target) = self.target_graph_from_node(&node_res) {
-            target.add_node(node_res, node);
+            target.add_node(node_res, node, position);
         }
     }
 
@@ -332,14 +332,14 @@ impl NodeCollections {
 
         match self.target_collection_from_node(&node) {
             Some(NodeCollection::Graph(target)) => {
-                let idx = target.resources.get(&node).unwrap();
-                let node = target.graph.node_weight_mut(*idx).unwrap();
-                let var = type_variable_from_socket_iter(
-                    node.inputs.iter().chain(node.outputs.iter()),
-                    socket.fragment().unwrap(),
-                )
-                .unwrap();
-                node.set_type_variable(var, Some(ty))
+                // let idx = target.resources.get(&node).unwrap();
+                // let node = target.graph.node_weight_mut(*idx).unwrap();
+                // let var = type_variable_from_socket_iter(
+                //     node.inputs.iter().chain(node.outputs.iter()),
+                //     socket.fragment().unwrap(),
+                // )
+                // .unwrap();
+                // node.set_type_variable(var, Some(ty))
             }
             Some(NodeCollection::Layers(target)) => {
                 target.set_type_variable(socket, ty);
@@ -354,14 +354,14 @@ impl NodeCollections {
         let node = socket.socket_node();
 
         if let Some(target) = self.target_graph_from_node(&node) {
-            let idx = target.resources.get(&node).unwrap();
-            let node = target.graph.node_weight_mut(*idx).unwrap();
-            let var = type_variable_from_socket_iter(
-                node.inputs.iter().chain(node.outputs.iter()),
-                socket.fragment().unwrap(),
-            )
-            .unwrap();
-            node.set_type_variable(var, None)
+            // let idx = target.resources.get(&node).unwrap();
+            // let node = target.graph.node_weight_mut(*idx).unwrap();
+            // let var = type_variable_from_socket_iter(
+            //     node.inputs.iter().chain(node.outputs.iter()),
+            //     socket.fragment().unwrap(),
+            // )
+            // .unwrap();
+            // node.set_type_variable(var, None)
         }
     }
 
@@ -370,10 +370,10 @@ impl NodeCollections {
     pub fn rename_node(&mut self, from: &Resource<r::Node>, to: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&from) {
             if let Some(idx) = target.resources.get(from).copied() {
-                let node = target.graph.node_weight_mut(idx).unwrap();
-                node.resource = to.clone();
-                target.resources.insert(to.clone(), idx);
-                target.resources.remove(from);
+                // let node = target.graph.node_weight_mut(idx).unwrap();
+                // node.resource = to.clone();
+                // target.resources.insert(to.clone(), idx);
+                // target.resources.remove(from);
             }
         }
     }
