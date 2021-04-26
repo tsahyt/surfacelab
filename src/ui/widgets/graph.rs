@@ -58,7 +58,7 @@ pub struct State {
     camera: Camera,
     selection: Selection,
     connection_draw: Option<ConnectionDraw>,
-    socket_view: Option<(petgraph::graph::NodeIndex, String)>,
+    socket_view: Option<Resource<Socket>>,
 }
 
 #[derive(Clone, Debug)]
@@ -73,7 +73,7 @@ pub enum Event {
     Extract(Vec<petgraph::graph::NodeIndex>),
     AlignNodes(Vec<petgraph::graph::NodeIndex>),
     ExportSetup(Vec<petgraph::graph::NodeIndex>),
-    SocketView(petgraph::graph::NodeIndex, String),
+    SocketView(Resource<Socket>),
     SocketViewClear,
 }
 
@@ -279,14 +279,6 @@ impl<'a> Widget for Graph<'a> {
 
                     let node = &self.graph.nodes[resource];
 
-                    // let view_socket =
-                    //     state
-                    //         .socket_view
-                    //         .as_ref()
-                    //         .and_then(|(n, s)| if *n == idx { Some(s.clone()) } else { None });
-
-                    let socket_count = node.inputs.len().max(node.outputs.len());
-
                     for press in ui
                         .widget_input(w_id)
                         .presses()
@@ -309,6 +301,14 @@ impl<'a> Widget for Graph<'a> {
                     } else {
                         node::SelectionState::None
                     };
+                    let view_socket = state.socket_view.as_ref().and_then(|socket| {
+                        if socket.is_socket_of(&node.resource) {
+                            socket.fragment().map(|x| x.to_string())
+                        } else {
+                            None
+                        }
+                    });
+                    let socket_count = node.inputs.len().max(node.outputs.len());
 
                     for ev in node::Node::new(
                         &node.type_variables,
@@ -319,7 +319,7 @@ impl<'a> Widget for Graph<'a> {
                     .title_color(style.node_title_color(&ui.theme))
                     .title_size(style.node_title_size(&ui.theme))
                     .selected(selection_state)
-                    // .view_socket(view_socket)
+                    .view_socket(view_socket)
                     .active_color(style.node_active_color(&ui.theme))
                     .selection_color(style.node_selection_color(&ui.theme))
                     .parent(id)
@@ -390,20 +390,21 @@ impl<'a> Widget for Graph<'a> {
                             node::Event::SocketClear(socket) => {
                                 evs.push(Event::SocketClear(node.resource.node_socket(&socket)))
                             }
-                            // node::Event::SocketView(socket) => {
-                            //     if state
-                            //         .socket_view
-                            //         .as_ref()
-                            //         .map(|s| s == &(idx, socket.clone()))
-                            //         .unwrap_or(false)
-                            //     {
-                            //         state.update(|state| state.socket_view = None);
-                            //         evs.push_back(Event::SocketViewClear)
-                            //     } else {
-                            //         state.update(|state| state.socket_view = Some((idx, socket.clone())));
-                            //         evs.push_back(Event::SocketView(idx, socket))
-                            //     }
-                            // }
+                            node::Event::SocketView(socket) => {
+                                let res = node.resource.node_socket(&socket);
+                                if state
+                                    .socket_view
+                                    .as_ref()
+                                    .map(|s| s == &res)
+                                    .unwrap_or(false)
+                                {
+                                    state.update(|state| state.socket_view = None);
+                                    evs.push(Event::SocketViewClear)
+                                } else {
+                                    state.update(|state| state.socket_view = Some(res.clone()));
+                                    evs.push(Event::SocketView(res))
+                                }
+                            }
                             _ => {}
                         }
                     }

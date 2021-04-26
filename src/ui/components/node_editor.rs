@@ -180,19 +180,10 @@ impl<'a> Widget for NodeEditor<'a> {
                     //         .unwrap();
                     // }
                 }
-                graph::Event::SocketView(idx, socket) => {
-                    // self
-                    // .sender
-                    // .send(Lang::UserNodeEvent(UserNodeEvent::ViewSocket(Some(
-                    //     collection
-                    //         .graph
-                    //         .node_weight(idx)
-                    //         .unwrap()
-                    //         .resource
-                    //         .node_socket(&socket),
-                    // ))))
-                    // .unwrap()
-                }
+                graph::Event::SocketView(socket) => self
+                    .sender
+                    .send(Lang::UserNodeEvent(UserNodeEvent::ViewSocket(Some(socket))))
+                    .unwrap(),
                 graph::Event::SocketViewClear => {
                     // self
                     // .sender

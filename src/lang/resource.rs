@@ -210,6 +210,11 @@ impl Resource<Socket> {
             phantom_data: std::marker::PhantomData,
         }
     }
+
+    /// Determine whether this socket is a socket of the given node
+    pub fn is_socket_of(&self, node: &Resource<Node>) -> bool {
+        self.resource_path.starts_with(&node.resource_path)
+    }
 }
 
 impl Resource<Img> {
