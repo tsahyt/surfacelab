@@ -365,6 +365,18 @@ impl Graph {
         self.connection_count -= 1;
     }
 
+    /// Set type variable present at given socket.
+    pub fn set_type_variable(&mut self, socket: &Resource<Socket>, ty: Option<ImageType>) {
+        if let Some(node) = self.nodes.get_mut(&socket.socket_node()) {
+            if let Some(var) = type_variable_from_socket_iter(
+                node.inputs.iter().chain(node.outputs.iter()),
+                socket.fragment().unwrap(),
+            ) {
+                node.set_type_variable(var, ty)
+            }
+        }
+    }
+
     /// Align given nodes in the graph on a best guess basis, returning
     /// resources and new positions
     ///

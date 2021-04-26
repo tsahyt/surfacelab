@@ -332,14 +332,7 @@ impl NodeCollections {
 
         match self.target_collection_from_node(&node) {
             Some(NodeCollection::Graph(target)) => {
-                // let idx = target.resources.get(&node).unwrap();
-                // let node = target.graph.node_weight_mut(*idx).unwrap();
-                // let var = type_variable_from_socket_iter(
-                //     node.inputs.iter().chain(node.outputs.iter()),
-                //     socket.fragment().unwrap(),
-                // )
-                // .unwrap();
-                // node.set_type_variable(var, Some(ty))
+                target.set_type_variable(socket, Some(ty));
             }
             Some(NodeCollection::Layers(target)) => {
                 target.set_type_variable(socket, ty);
@@ -354,14 +347,7 @@ impl NodeCollections {
         let node = socket.socket_node();
 
         if let Some(target) = self.target_graph_from_node(&node) {
-            // let idx = target.resources.get(&node).unwrap();
-            // let node = target.graph.node_weight_mut(*idx).unwrap();
-            // let var = type_variable_from_socket_iter(
-            //     node.inputs.iter().chain(node.outputs.iter()),
-            //     socket.fragment().unwrap(),
-            // )
-            // .unwrap();
-            // node.set_type_variable(var, None)
+            target.set_type_variable(socket, None)
         }
     }
 
