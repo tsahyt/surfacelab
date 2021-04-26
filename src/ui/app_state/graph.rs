@@ -311,12 +311,14 @@ impl Graph {
             .and_then(|node| node.socket_position(to.fragment().unwrap()))
             .expect("Missing source node or socket for connection");
 
-        self.rtree.remove(&GraphObject::Connection {
-            source: from.clone(),
-            sink: to.clone(),
-            from: from_pos,
-            to: to_pos
-        }).expect("R-Tree inconsistency detected during connection removal");
+        self.rtree
+            .remove(&GraphObject::Connection {
+                source: from.clone(),
+                sink: to.clone(),
+                from: from_pos,
+                to: to_pos,
+            })
+            .expect("R-Tree inconsistency detected during connection removal");
 
         self.connection_count -= 1;
     }
@@ -396,38 +398,28 @@ impl Collection for Graph {
     }
 
     fn expose_parameter(&mut self, param: GraphParameter) {
-        // let node = param.parameter.parameter_node();
-        // if let Some(idx) = self.resources.get(&node) {
-        //     let pbox = &mut self
-        //         .graph
-        //         .node_weight_mut(*idx)
-        //         .expect("Malformed graph in UI")
-        //         .param_box;
-        //     pbox.set_expose_status(
-        //         param.parameter.fragment().unwrap(),
-        //         Some(ExposeStatus::Exposed),
-        //     );
-        //     self.exposed_parameters
-        //         .push((param.graph_field.clone(), param));
-        // }
+        let node = param.parameter.parameter_node();
+        if let Some(node_data) = self.nodes.get_mut(&node) {
+            node_data.param_box.set_expose_status(
+                param.parameter.fragment().unwrap(),
+                Some(ExposeStatus::Exposed),
+            );
+            self.exposed_parameters
+                .push((param.graph_field.clone(), param));
+        }
     }
 
     fn conceal_parameter(&mut self, field: &str) {
-        // if let Some(idx) = self.exposed_parameters.iter().position(|x| x.0 == field) {
-        //     let (_, param) = self.exposed_parameters.remove(idx);
-        //     let node = param.parameter.parameter_node();
-        //     if let Some(gidx) = self.resources.get(&node) {
-        //         let pbox = &mut self
-        //             .graph
-        //             .node_weight_mut(*gidx)
-        //             .expect("Malformed graph in UI")
-        //             .param_box;
-        //         pbox.set_expose_status(
-        //             param.parameter.fragment().unwrap(),
-        //             Some(ExposeStatus::Unexposed),
-        //         );
-        //     }
-        // }
+        if let Some(idx) = self.exposed_parameters.iter().position(|x| x.0 == field) {
+            let (_, param) = self.exposed_parameters.remove(idx);
+            let node = param.parameter.parameter_node();
+            if let Some(node_data) = self.nodes.get_mut(&node) {
+                node_data.param_box.set_expose_status(
+                    param.parameter.fragment().unwrap(),
+                    Some(ExposeStatus::Unexposed),
+                );
+            }
+        }
     }
 
     fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
@@ -453,10 +445,9 @@ impl Collection for Graph {
         op: &ComplexOperator,
         pbox: &ParamBoxDescription<MessageWriters>,
     ) {
-        // if let Some(idx) = self.resources.get(node) {
-        //     let node_weight = self.graph.node_weight_mut(*idx).unwrap();
-        //     node_weight.update(Operator::ComplexOperator(op.clone()), pbox.clone());
-        // }
+        if let Some(node_data) = self.nodes.get_mut(node) {
+            node_data.update(Operator::ComplexOperator(op.clone()), pbox.clone());
+        }
     }
 
     fn active_element(
