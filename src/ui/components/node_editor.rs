@@ -110,16 +110,15 @@ impl<'a> Widget for NodeEditor<'a> {
             .set(state.ids.graph, ui)
         {
             match event {
-                graph::Event::NodeDrag(idx, x, y, tmp_snap) => {
-                    // collection.move_node(idx, [x, y], tmp_snap);
-                    // let node = collection.graph.node_weight(idx).unwrap();
+                graph::Event::NodeDrag(res, new_pos, tmp_snap) => {
+                    let pos = collection.move_node(&res, new_pos, tmp_snap);
 
-                    // self.sender
-                    //     .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
-                    //         node.resource.clone(),
-                    //         (node.position[0], node.position[1]),
-                    //     )))
-                    //     .unwrap();
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
+                            res,
+                            (pos[0], pos[1]),
+                        )))
+                        .unwrap();
                 }
                 graph::Event::ConnectionDrawn(from, to) => {
                     self.sender

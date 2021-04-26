@@ -1,6 +1,6 @@
 use super::node;
 use conrod_core::*;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use crate::{
     lang::{Node, Resource, Socket},
@@ -63,7 +63,7 @@ pub struct State {
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    NodeDrag(petgraph::graph::NodeIndex, Scalar, Scalar, bool),
+    NodeDrag(Resource<Node>, Point, bool),
     ConnectionDrawn(Resource<Socket>, Resource<Socket>),
     SocketClear(Resource<Socket>),
     NodeDelete(Resource<Node>),
@@ -187,7 +187,7 @@ enum DragOperation {
 impl<'a> Widget for Graph<'a> {
     type State = State;
     type Style = Style;
-    type Event = VecDeque<Event>;
+    type Event = Vec<Event>;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         State {
@@ -212,7 +212,7 @@ impl<'a> Widget for Graph<'a> {
             rect,
             ..
         } = args;
-        let mut evs = VecDeque::new();
+        let mut evs = Vec::new();
 
         // Update list sizes if required
         if state.ids.nodes.len() < self.graph.node_count {
@@ -248,24 +248,24 @@ impl<'a> Widget for Graph<'a> {
 
         let mut drag_operation = None;
 
-        // Handle selection operation events
-        let selection_op =
-            ui.widget_input(id)
-                .presses()
-                .key()
-                .find_map(|x| match (x.key, x.modifiers) {
-                    (input::Key::X, input::ModifierKey::NO_MODIFIER) => {
-                        Some(SelectionOperation::Delete)
-                    }
-                    (input::Key::G, input::ModifierKey::CTRL) => Some(SelectionOperation::Extract),
-                    (input::Key::E, input::ModifierKey::NO_MODIFIER) => {
-                        Some(SelectionOperation::ExportSetup)
-                    }
-                    (input::Key::A, input::ModifierKey::NO_MODIFIER) => {
-                        Some(SelectionOperation::Align)
-                    }
-                    _ => None,
-                });
+        // // Handle selection operation events
+        // let selection_op =
+        //     ui.widget_input(id)
+        //         .presses()
+        //         .key()
+        //         .find_map(|x| match (x.key, x.modifiers) {
+        //             (input::Key::X, input::ModifierKey::NO_MODIFIER) => {
+        //                 Some(SelectionOperation::Delete)
+        //             }
+        //             (input::Key::G, input::ModifierKey::CTRL) => Some(SelectionOperation::Extract),
+        //             (input::Key::E, input::ModifierKey::NO_MODIFIER) => {
+        //                 Some(SelectionOperation::ExportSetup)
+        //             }
+        //             (input::Key::A, input::ModifierKey::NO_MODIFIER) => {
+        //                 Some(SelectionOperation::Align)
+        //             }
+        //             _ => None,
+        //         });
 
         // Create widgets for all graph objects
         let mut node_i = 0;
@@ -299,7 +299,7 @@ impl<'a> Widget for Graph<'a> {
                             }
                             state.selection.set_active(Some(node.resource.clone()))
                         });
-                        evs.push_back(Event::ActiveElement(node.resource.clone()));
+                        evs.push(Event::ActiveElement(node.resource.clone()));
                     }
 
                     let selection_state = if state.selection.is_active(&node.resource) {
@@ -343,10 +343,10 @@ impl<'a> Widget for Graph<'a> {
                                 drag_operation = Some(DragOperation::Drop);
                             }
                             node::Event::NodeDelete => {
-                                evs.push_back(Event::NodeDelete(node.resource.clone()));
+                                evs.push(Event::NodeDelete(node.resource.clone()));
                             }
                             node::Event::NodeEnter => {
-                                evs.push_back(Event::NodeEnter(node.resource.clone()));
+                                evs.push(Event::NodeEnter(node.resource.clone()));
                             }
                             node::Event::SocketDrag(from, to) => {
                                 state.update(|state| {
@@ -360,7 +360,7 @@ impl<'a> Widget for Graph<'a> {
                                         draw.to[1] - rect.xy()[1],
                                     ]);
                                     if let Some(sink) = self.find_target_socket(ui, pos) {
-                                        evs.push_back(Event::ConnectionDrawn(
+                                        evs.push(Event::ConnectionDrawn(
                                             node.resource.node_socket(&source),
                                             sink,
                                         ))
@@ -377,7 +377,7 @@ impl<'a> Widget for Graph<'a> {
                                         draw.from[1] - rect.xy()[1],
                                     ]);
                                     if let Some(source) = self.find_target_socket(ui, pos) {
-                                        evs.push_back(Event::ConnectionDrawn(
+                                        evs.push(Event::ConnectionDrawn(
                                             source,
                                             node.resource.node_socket(&sink),
                                         ))
@@ -387,8 +387,9 @@ impl<'a> Widget for Graph<'a> {
                                     state.connection_draw = None;
                                 });
                             }
-                            node::Event::SocketClear(socket) => evs
-                                .push_back(Event::SocketClear(node.resource.node_socket(&socket))),
+                            node::Event::SocketClear(socket) => {
+                                evs.push(Event::SocketClear(node.resource.node_socket(&socket)))
+                            }
                             // node::Event::SocketView(socket) => {
                             //     if state
                             //         .socket_view
@@ -458,30 +459,37 @@ impl<'a> Widget for Graph<'a> {
         //     }
         // }
 
-        // // Dragging of nodes processed separately to apply operation to the
-        // // entire selection set
-        // for idx in self.graph.node_indices() {
-        //     match drag_operation {
-        //         Some(DragOperation::Starting) => {
-        //             let w_id = state.node_ids.get(&idx).unwrap().clone();
-        //             let pos = self.graph.node_weight(idx).unwrap().position;
-        //             state.update(|state| state.selection.start_drag(&w_id, pos));
-        //         }
-        //         Some(DragOperation::Moving(delta, tmp_snap)) => {
-        //             let w_id = state.node_ids.get(&idx).unwrap().clone();
-        //             state
-        //                 .update(|state| state.selection.drag(&w_id, state.camera.inv_scale(delta)));
-        //             if let Some(pos) = state.selection.drag_pos(&w_id) {
-        //                 evs.push_back(Event::NodeDrag(idx, pos[0], pos[1], tmp_snap))
-        //             }
-        //         }
-        //         Some(DragOperation::Drop) => {
-        //             let w_id = state.node_ids.get(&idx).unwrap().clone();
-        //             state.update(|state| state.selection.stop_drag(&w_id));
-        //         }
-        //         None => {}
-        //     }
-        // }
+        // Dragging of nodes processed separately to apply operation to the
+        // entire selection set
+        match drag_operation {
+            Some(DragOperation::Starting) => state.update(|state| {
+                state.selection.start_drag(|res| {
+                    self.graph
+                        .nodes
+                        .get(res)
+                        .map(|node_data| node_data.position)
+                        .unwrap_or([0., 0.])
+                })
+            }),
+
+            Some(DragOperation::Moving(delta, tmp_snap)) => {
+                state.update(|state| state.selection.drag(state.camera.inv_scale(delta)));
+                evs.extend(
+                    state
+                        .selection
+                        .current_drag_positions()
+                        .filter_map(|(res, pos)| {
+                            pos.map(|p| Event::NodeDrag(res.clone(), p, tmp_snap))
+                        }),
+                )
+            }
+
+            Some(DragOperation::Drop) => {
+                state.update(|state| state.selection.stop_drag());
+            }
+
+            None => {}
+        }
 
         // Draw selection rectangle if actively selecting
         if let Selection {
@@ -697,33 +705,41 @@ impl Selection {
         self.set.is_empty()
     }
 
-    pub fn start_drag(&mut self, node: &Resource<Node>, pos: Point) {
-        if let Some(selected) = self.set.get_mut(node) {
+    /// Start the drag operation, given a closure to determine the original
+    /// position of each node in the selection set.
+    pub fn start_drag<F: Fn(&Resource<Node>) -> Point>(&mut self, original_position: F) {
+        for (res, selected) in self.set.iter_mut() {
+            let pos = original_position(res);
             selected.drag_start = Some(pos);
             selected.drag_delta = Some([0., 0.]);
         }
     }
 
-    pub fn drag(&mut self, node: &Resource<Node>, delta: Point) {
-        if let Some(selected) = self.set.get_mut(node) {
+    /// Drag the entire selection set by a delta
+    pub fn drag(&mut self, delta: Point) {
+        for selected in self.set.values_mut() {
             selected.drag_delta = selected
                 .drag_delta
                 .map(|[x, y]| [x + delta[0], y + delta[1]]);
         }
     }
 
-    pub fn drag_pos(&self, node: &Resource<Node>) -> Option<Point> {
-        if let Some(selected) = self.set.get(node) {
-            selected
-                .drag_start
-                .and_then(|[px, py]| selected.drag_delta.map(|[dx, dy]| [px + dx, py + dy]))
-        } else {
-            None
-        }
+    /// Get the current dragging positions of the selection set, i.e. the
+    /// original positions plus the accumulated deltas.
+    pub fn current_drag_positions(&self) -> impl Iterator<Item = (&Resource<Node>, Option<Point>)> {
+        self.set.iter().map(|(res, selected)| {
+            (
+                res,
+                selected
+                    .drag_start
+                    .and_then(|[px, py]| selected.drag_delta.map(|[dx, dy]| [px + dx, py + dy])),
+            )
+        })
     }
 
-    pub fn stop_drag(&mut self, node: &Resource<Node>) {
-        if let Some(selected) = self.set.get_mut(node) {
+    /// Stop a drag operation, resetting all stored positions for the whole selection set.
+    pub fn stop_drag(&mut self) {
+        for selected in self.set.values_mut() {
             selected.drag_start = None;
             selected.drag_delta = None;
         }

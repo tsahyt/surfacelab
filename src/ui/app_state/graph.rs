@@ -220,30 +220,31 @@ impl Graph {
     /// Move a node position, updating acceleration structures. Returns new
     /// position. Snapping can be enabled via the boolean parameter.
     ///
-    /// Panics if the node index is invalid!
-    pub fn move_node(&mut self, res: &Resource<Node>, to: Point, snap: bool) {
-        if let Some(node_data) = self.nodes.get_mut(res) {
-            let new_position = if snap {
-                [(to[0] / 32.).round() * 32., (to[0] / 32.).round() * 32.]
-            } else {
-                to
-            };
+    /// Panics if the node resource is invalid!
+    pub fn move_node(&mut self, res: &Resource<Node>, to: Point, snap: bool) -> Point {
+        let node_data = self.nodes.get_mut(res).expect("Moving unknown node");
+        let new_position = if snap {
+            [(to[0] / 32.).round() * 32., (to[1] / 32.).round() * 32.]
+        } else {
+            to
+        };
 
-            match self
-                .rtree
-                .remove_with_selection_function(SelectNodeFunction::new(res, node_data.position))
-                .expect("R-Tree inconsistency detected")
-            {
-                GraphObject::Node { position, resource } => {
-                    self.rtree.insert(GraphObject::Node {
-                        position: new_position,
-                        resource,
-                    });
-                    node_data.position = new_position;
-                }
-                _ => unreachable!(),
+        match self
+            .rtree
+            .remove_with_selection_function(SelectNodeFunction::new(res, node_data.position))
+            .expect("R-Tree inconsistency detected")
+        {
+            GraphObject::Node { resource, .. } => {
+                self.rtree.insert(GraphObject::Node {
+                    position: new_position,
+                    resource,
+                });
+                node_data.position = new_position;
             }
+            _ => unreachable!(),
         }
+
+        new_position
     }
 
     /// Find the node closest to the given position. Note that this node does
