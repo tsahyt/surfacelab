@@ -151,7 +151,7 @@ impl<'a> Graph<'a> {
         }
     }
 
-    fn find_target_socket(&self, ui: &Ui, pos: Point) -> Option<Resource<Socket>> {
+    fn find_target_socket(&self, pos: Point) -> Option<Resource<Socket>> {
         let node = self.graph.nodes.get(self.graph.nearest_node_at(pos)?)?;
         let socket = node.socket_at_position(pos, 64.)?;
         Some(node.resource.node_socket(socket))
@@ -333,7 +333,7 @@ impl<'a> Widget for Graph<'a> {
                                         draw.to[0] - rect.xy()[0],
                                         draw.to[1] - rect.xy()[1],
                                     ]);
-                                    if let Some(sink) = self.find_target_socket(ui, pos) {
+                                    if let Some(sink) = self.find_target_socket(pos) {
                                         evs.push(Event::ConnectionDrawn(
                                             node.resource.node_socket(&source),
                                             sink,
@@ -350,7 +350,7 @@ impl<'a> Widget for Graph<'a> {
                                         draw.from[0] - rect.xy()[0],
                                         draw.from[1] - rect.xy()[1],
                                     ]);
-                                    if let Some(source) = self.find_target_socket(ui, pos) {
+                                    if let Some(source) = self.find_target_socket(pos) {
                                         evs.push(Event::ConnectionDrawn(
                                             source,
                                             node.resource.node_socket(&sink),
@@ -379,7 +379,6 @@ impl<'a> Widget for Graph<'a> {
                                     evs.push(Event::SocketView(res))
                                 }
                             }
-                            _ => {}
                         }
                     }
                 }

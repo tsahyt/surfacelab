@@ -1,7 +1,7 @@
 use crate::lang::resource as r;
 use crate::lang::*;
 
-use conrod_core::{image, Point};
+use conrod_core::image;
 use enum_dispatch::*;
 use std::collections::HashMap;
 
