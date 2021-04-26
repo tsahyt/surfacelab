@@ -274,6 +274,21 @@ impl Graph {
             })
     }
 
+    /// Find all nodes contained in the enveloped defined by the two corner
+    /// points.
+    pub fn nodes_in_envelope(
+        &self,
+        corner1: Point,
+        corner2: Point,
+    ) -> impl Iterator<Item = &NodeData> {
+        self.rtree
+            .locate_in_envelope(&rstar::AABB::from_corners(corner1, corner2))
+            .filter_map(|gobj| match gobj {
+                GraphObject::Node(data) => Some(data),
+                _ => None,
+            })
+    }
+
     /// Connect two sockets in a graph.
     pub fn connect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
         let from_node_data = self

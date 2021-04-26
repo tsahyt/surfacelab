@@ -151,7 +151,7 @@ impl<'a> Widget for NodeEditor<'a> {
                 graph::Event::SocketClear(socket) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
-                            socket
+                            socket,
                         )))
                         .unwrap();
                 }
