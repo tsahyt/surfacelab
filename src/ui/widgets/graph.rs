@@ -70,9 +70,9 @@ pub enum Event {
     NodeEnter(Resource<Node>),
     ActiveElement(Resource<Node>),
     AddModal(Point),
-    Extract(Vec<petgraph::graph::NodeIndex>),
-    AlignNodes(Vec<petgraph::graph::NodeIndex>),
-    ExportSetup(Vec<petgraph::graph::NodeIndex>),
+    Extract(Vec<Resource<Node>>),
+    AlignNodes(Vec<Resource<Node>>),
+    ExportSetup(Vec<Resource<Node>>),
     SocketView(Resource<Socket>),
     SocketViewClear,
 }
@@ -170,13 +170,6 @@ impl<'a> Graph<'a> {
     }
 }
 
-enum SelectionOperation {
-    Delete,
-    Extract,
-    Align,
-    ExportSetup,
-}
-
 #[derive(Debug)]
 enum DragOperation {
     Starting,
@@ -247,25 +240,6 @@ impl<'a> Widget for Graph<'a> {
             .set(state.ids.grid, ui);
 
         let mut drag_operation = None;
-
-        // // Handle selection operation events
-        // let selection_op =
-        //     ui.widget_input(id)
-        //         .presses()
-        //         .key()
-        //         .find_map(|x| match (x.key, x.modifiers) {
-        //             (input::Key::X, input::ModifierKey::NO_MODIFIER) => {
-        //                 Some(SelectionOperation::Delete)
-        //             }
-        //             (input::Key::G, input::ModifierKey::CTRL) => Some(SelectionOperation::Extract),
-        //             (input::Key::E, input::ModifierKey::NO_MODIFIER) => {
-        //                 Some(SelectionOperation::ExportSetup)
-        //             }
-        //             (input::Key::A, input::ModifierKey::NO_MODIFIER) => {
-        //                 Some(SelectionOperation::Align)
-        //             }
-        //             _ => None,
-        //         });
 
         // Create widgets for all graph objects
         let mut node_i = 0;
@@ -441,24 +415,36 @@ impl<'a> Widget for Graph<'a> {
             }
         }
 
-        //     if selection_state != node::SelectionState::None {
-        //         match selection_op {
-        //             Some(SelectionOperation::Delete) => {
-        //                 evs.push_back(Event::NodeDelete(idx));
-        //             }
-        //             Some(SelectionOperation::Extract) => {
-        //                 extract_ids.push(idx);
-        //             }
-        //             Some(SelectionOperation::Align) => {
-        //                 align_ids.push(idx);
-        //             }
-        //             Some(SelectionOperation::ExportSetup) => {
-        //                 export_ids.push(idx);
-        //             }
-        //             _ => {}
-        //         }
-        //     }
-        // }
+        // Handle operations on the selection
+        for press in ui.widget_input(id).presses().key() {
+            match (press.key, press.modifiers) {
+                (input::Key::X, input::ModifierKey::NO_MODIFIER) => {
+                    evs.extend(
+                        state
+                            .selection
+                            .get_selection()
+                            .cloned()
+                            .map(|res| Event::NodeDelete(res)),
+                    );
+                }
+                (input::Key::G, input::ModifierKey::CTRL) => {
+                    evs.push(Event::Extract(
+                        state.selection.get_selection().cloned().collect(),
+                    ));
+                }
+                (input::Key::E, input::ModifierKey::NO_MODIFIER) => {
+                    evs.push(Event::ExportSetup(
+                        state.selection.get_selection().cloned().collect(),
+                    ));
+                }
+                (input::Key::A, input::ModifierKey::NO_MODIFIER) => {
+                    evs.push(Event::AlignNodes(
+                        state.selection.get_selection().cloned().collect(),
+                    ));
+                }
+                _ => {}
+            }
+        }
 
         // Dragging of nodes processed separately to apply operation to the
         // entire selection set
@@ -550,21 +536,6 @@ impl<'a> Widget for Graph<'a> {
                 _ => None,
             }));
         }
-
-        // // Handle extraction events
-        // if !extract_ids.is_empty() {
-        //     evs.push_back(Event::Extract(extract_ids));
-        // }
-
-        // // Handle align operation
-        // if !align_ids.is_empty() {
-        //     evs.push_back(Event::AlignNodes(align_ids));
-        // }
-
-        // // Handle export requests
-        // if !export_ids.is_empty() {
-        //     evs.push_back(Event::ExportSetup(export_ids));
-        // }
 
         evs
     }
@@ -696,6 +667,10 @@ impl Selection {
                 .collect();
         }
         self.set_active(None);
+    }
+
+    pub fn get_selection(&self) -> impl Iterator<Item = &Resource<Node>> {
+        self.set.keys()
     }
 
     pub fn is_selected(&self, node: &Resource<Node>) -> bool {

@@ -329,49 +329,45 @@ impl Graph {
     ///
     /// It does so by calculating the variance in X and Y directions separately,
     /// and aligning in whichever axis the variance is currently minimal.
-    pub fn align_nodes(
-        &mut self,
-        nodes: &[petgraph::graph::NodeIndex],
-    ) -> Vec<(Resource<Node>, (f64, f64))> {
-        // use statrs::statistics::Statistics;
+    pub fn align_nodes(&mut self, nodes: &[Resource<Node>]) -> Vec<(Resource<Node>, (f64, f64))> {
+        use statrs::statistics::Statistics;
 
-        // let poss = nodes
-        //     .iter()
-        //     .filter_map(|idx| self.graph.node_weight(*idx))
-        //     .map(|n| n.position);
-        // let var_x = poss.clone().map(|x| x[0]).variance();
-        // let var_y = poss.clone().map(|x| x[1]).variance();
+        let poss = nodes
+            .iter()
+            .filter_map(|res| self.nodes.get(res))
+            .map(|n| n.position);
+        let var_x = poss.clone().map(|x| x[0]).variance();
+        let var_y = poss.clone().map(|x| x[1]).variance();
 
-        // if var_y > var_x {
-        //     let mean_x = poss.clone().map(|x| x[0]).mean();
-        //     for (idx, pos) in nodes
-        //         .iter()
-        //         .filter_map(|idx| self.graph.node_weight(*idx).map(|n| (idx, n.position)))
-        //         .collect::<Vec<_>>()
-        //     {
-        //         let new_pos = [mean_x, pos[1]];
-        //         self.move_node(*idx, new_pos, false);
-        //     }
-        // } else {
-        //     let mean_y = poss.clone().map(|x| x[1]).mean();
-        //     for (idx, pos) in nodes
-        //         .iter()
-        //         .filter_map(|idx| self.graph.node_weight(*idx).map(|n| (idx, n.position)))
-        //         .collect::<Vec<_>>()
-        //     {
-        //         let new_pos = [pos[0], mean_y];
-        //         self.move_node(*idx, new_pos, false);
-        //     }
-        // }
+        if var_y > var_x {
+            let mean_x = poss.clone().map(|x| x[0]).mean();
+            for (res, pos) in nodes
+                .iter()
+                .filter_map(|res| self.nodes.get(res).map(|n| (res, n.position)))
+                .collect::<Vec<_>>()
+            {
+                let new_pos = [mean_x, pos[1]];
+                self.move_node(res, new_pos, false);
+            }
+        } else {
+            let mean_y = poss.clone().map(|x| x[1]).mean();
+            for (res, pos) in nodes
+                .iter()
+                .filter_map(|res| self.nodes.get(res).map(|n| (res, n.position)))
+                .collect::<Vec<_>>()
+            {
+                let new_pos = [pos[0], mean_y];
+                self.move_node(res, new_pos, false);
+            }
+        }
 
-        // nodes
-        //     .iter()
-        //     .filter_map(|idx| {
-        //         let n = self.graph.node_weight(*idx)?;
-        //         Some((n.resource.clone(), (n.position[0], n.position[1])))
-        //     })
-        //     .collect()
-        Vec::new()
+        nodes
+            .iter()
+            .filter_map(|res| {
+                let n = self.nodes.get(res)?;
+                Some((n.resource.clone(), (n.position[0], n.position[1])))
+            })
+            .collect()
     }
 }
 

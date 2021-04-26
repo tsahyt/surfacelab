@@ -125,12 +125,10 @@ impl<'a> Widget for NodeEditor<'a> {
                         .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(from, to)))
                         .unwrap();
                 }
-                graph::Event::NodeDelete(idx) => {
-                    // self.sender
-                    //     .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(
-                    //         collection.graph.node_weight(idx).unwrap().resource.clone(),
-                    //     )))
-                    //     .unwrap();
+                graph::Event::NodeDelete(node) => {
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node)))
+                        .unwrap();
                 }
                 graph::Event::NodeEnter(node) => {
                     collection_change = collection.nodes.get(&node).unwrap().callee.clone();
@@ -148,17 +146,13 @@ impl<'a> Widget for NodeEditor<'a> {
                 graph::Event::AddModal(pt) => {
                     state.update(|state| state.add_modal = Some(pt));
                 }
-                graph::Event::Extract(mut idxs) => {
-                    // self.sender
-                    //     .send(Lang::UserGraphEvent(UserGraphEvent::Extract(
-                    //         idxs.drain(0..)
-                    //             .map(|i| collection.graph.node_weight(i).unwrap().resource.clone())
-                    //             .collect(),
-                    //     )))
-                    //     .unwrap();
+                graph::Event::Extract(nodes) => {
+                    self.sender
+                        .send(Lang::UserGraphEvent(UserGraphEvent::Extract(nodes)))
+                        .unwrap();
                 }
-                graph::Event::AlignNodes(idxs) => {
-                    for (res, pos) in collection.align_nodes(&idxs) {
+                graph::Event::AlignNodes(nodes) => {
+                    for (res, pos) in collection.align_nodes(&nodes) {
                         self.sender
                             .send(Lang::UserNodeEvent(UserNodeEvent::PositionNode(
                                 res.clone(),
@@ -167,29 +161,27 @@ impl<'a> Widget for NodeEditor<'a> {
                             .unwrap();
                     }
                 }
-                graph::Event::ExportSetup(idxs) => {
-                    // for node in idxs
-                    //     .iter()
-                    //     .map(|idx| collection.graph.node_weight(*idx).unwrap())
-                    //     .filter(|n| n.exportable)
-                    // {
-                    //     self.sender
-                    //         .send(Lang::UserIOEvent(UserIOEvent::NewExportSpec(
-                    //             ExportSpec::from(&node.resource),
-                    //         )))
-                    //         .unwrap();
-                    // }
+                graph::Event::ExportSetup(ress) => {
+                    for node in ress
+                        .iter()
+                        .map(|res| collection.nodes.get(res).unwrap())
+                        .filter(|n| n.exportable)
+                    {
+                        self.sender
+                            .send(Lang::UserIOEvent(UserIOEvent::NewExportSpec(
+                                ExportSpec::from(&node.resource),
+                            )))
+                            .unwrap();
+                    }
                 }
                 graph::Event::SocketView(socket) => self
                     .sender
                     .send(Lang::UserNodeEvent(UserNodeEvent::ViewSocket(Some(socket))))
                     .unwrap(),
-                graph::Event::SocketViewClear => {
-                    // self
-                    // .sender
-                    // .send(Lang::UserNodeEvent(UserNodeEvent::ViewSocket(None)))
-                    // .unwrap(),
-                }
+                graph::Event::SocketViewClear => self
+                    .sender
+                    .send(Lang::UserNodeEvent(UserNodeEvent::ViewSocket(None)))
+                    .unwrap(),
             }
         }
 
