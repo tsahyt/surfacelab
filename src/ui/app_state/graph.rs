@@ -12,18 +12,24 @@ pub const STANDARD_NODE_SIZE: f64 = 128.;
 #[derive(Debug, Clone)]
 pub struct Graph {
     pub rtree: RTree<GraphObject>,
-    pub nodes: HashMap<Resource<r::Node>, Point>,
+    pub nodes: HashMap<Resource<r::Node>, NodeData>,
     pub node_count: usize,
     pub connection_count: usize,
     pub exposed_parameters: Vec<(String, GraphParameter)>,
     pub param_box: ParamBoxDescription<GraphField>,
-    pub active_element: Option<petgraph::graph::NodeIndex>,
+    pub active_element: Option<Resource<Node>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum GraphObject {
-    Node(NodeData),
-    Connection { from: Point, to: Point },
+    Node {
+        position: Point,
+        resource: Resource<Node>,
+    },
+    Connection {
+        from: Point,
+        to: Point,
+    },
 }
 
 impl RTreeObject for GraphObject {
@@ -31,13 +37,10 @@ impl RTreeObject for GraphObject {
 
     fn envelope(&self) -> Self::Envelope {
         match self {
-            GraphObject::Node(node_data) => {
-                let position = node_data.position;
-                rstar::AABB::from_corners(
-                    [position[0] - 64., position[1] - 64.],
-                    [position[0] + 64., position[1] + 64.],
-                )
-            }
+            GraphObject::Node { position, .. } => rstar::AABB::from_corners(
+                [position[0] - 64., position[1] - 64.],
+                [position[0] + 64., position[1] + 64.],
+            ),
             GraphObject::Connection { from, to, .. } => rstar::AABB::from_corners(*from, *to),
         }
     }
@@ -46,8 +49,7 @@ impl RTreeObject for GraphObject {
 impl PointDistance for GraphObject {
     fn distance_2(&self, point: &Point) -> f64 {
         match self {
-            GraphObject::Node(node_data) => {
-                let position = node_data.position;
+            GraphObject::Node { position, .. } => {
                 (point[0] - position[0]).powi(2) + (point[1] - position[1]).powi(2)
             }
             GraphObject::Connection { from, to, .. } => {
@@ -195,17 +197,19 @@ impl Graph {
 
     /// Add a node into the graph
     pub fn add_node(&mut self, res: Resource<Node>, node: NodeData) {
-        let position = node.position;
-        self.rtree.insert(GraphObject::Node(node));
-        self.nodes.insert(res, position);
+        self.rtree.insert(GraphObject::Node {
+            resource: res.clone(),
+            position: node.position,
+        });
+        self.nodes.insert(res, node);
         self.node_count += 1;
     }
 
     /// Remove a node from the graph
     pub fn remove_node(&mut self, res: &Resource<Node>) {
-        if let Some(pos) = self.nodes.remove(res) {
+        if let Some(node) = self.nodes.remove(res) {
             self.rtree
-                .remove_with_selection_function(SelectNodeFunction::new(res, pos))
+                .remove_with_selection_function(SelectNodeFunction::new(res, node.position))
                 .expect("R-Tree inconsistency detected!");
         }
         self.node_count -= 1;
@@ -216,7 +220,7 @@ impl Graph {
     ///
     /// Panics if the node index is invalid!
     pub fn move_node(&mut self, res: &Resource<Node>, to: Point, snap: bool) {
-        if let Some(old_position) = self.nodes.get_mut(res) {
+        if let Some(node_data) = self.nodes.get_mut(res) {
             let new_position = if snap {
                 [(to[0] / 32.).round() * 32., (to[0] / 32.).round() * 32.]
             } else {
@@ -225,51 +229,28 @@ impl Graph {
 
             match self
                 .rtree
-                .remove_with_selection_function(SelectNodeFunction::new(res, *old_position))
+                .remove_with_selection_function(SelectNodeFunction::new(res, node_data.position))
                 .expect("R-Tree inconsistency detected")
             {
-                GraphObject::Node(node_data) => {
-                    self.rtree.insert(GraphObject::Node(NodeData {
+                GraphObject::Node { position, resource } => {
+                    self.rtree.insert(GraphObject::Node {
                         position: new_position,
-                        ..node_data
-                    }));
-                    *old_position = new_position;
+                        resource,
+                    });
+                    node_data.position = new_position;
                 }
                 _ => unreachable!(),
             }
         }
     }
 
-    pub fn locate_node(&self, node: &Resource<Node>) -> Option<&NodeData> {
-        self.rtree
-            .locate_with_selection_function(SelectNodeFunction::new(node, *self.nodes.get(node)?))
-            .next()
-            .and_then(|gobj| match gobj {
-                GraphObject::Node(d) => Some(d),
-                _ => None,
-            })
-    }
-
-    fn locate_node_mut(&mut self, node: &Resource<Node>) -> Option<&mut NodeData> {
-        self.rtree
-            .locate_with_selection_function_mut(SelectNodeFunction::new(
-                node,
-                *self.nodes.get(node)?,
-            ))
-            .next()
-            .and_then(|gobj| match gobj {
-                GraphObject::Node(d) => Some(d),
-                _ => None,
-            })
-    }
-
     /// Find the node closest to the given position. Note that this node does
     /// not necessarily contain the position!
-    pub fn nearest_node_at(&self, position: Point) -> Option<&NodeData> {
+    pub fn nearest_node_at(&self, position: Point) -> Option<&Resource<Node>> {
         self.rtree
             .nearest_neighbor(&position)
             .and_then(|gobj| match gobj {
-                GraphObject::Node(data) => Some(data),
+                GraphObject::Node { resource, .. } => Some(resource),
                 _ => None,
             })
     }
@@ -280,29 +261,27 @@ impl Graph {
         &self,
         corner1: Point,
         corner2: Point,
-    ) -> impl Iterator<Item = &NodeData> {
+    ) -> impl Iterator<Item = &Resource<Node>> {
         self.rtree
             .locate_in_envelope(&rstar::AABB::from_corners(corner1, corner2))
             .filter_map(|gobj| match gobj {
-                GraphObject::Node(data) => Some(data),
+                GraphObject::Node { resource, .. } => Some(resource),
                 _ => None,
             })
     }
 
     /// Connect two sockets in a graph.
     pub fn connect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
-        let from_node_data = self
-            .locate_node(&from.socket_node())
-            .expect("Missing node in R-Tree");
-        let from_pos = from_node_data
-            .socket_position(from.fragment().unwrap())
-            .unwrap();
-        let to_node_data = self
-            .locate_node(&to.socket_node())
-            .expect("Missing node in R-Tree");
-        let to_pos = to_node_data
-            .socket_position(to.fragment().unwrap())
-            .unwrap();
+        let from_pos = self
+            .nodes
+            .get(&from.socket_node())
+            .and_then(|node| node.socket_position(from.fragment().unwrap()))
+            .expect("Missing source node or socket for connection");
+        let to_pos = self
+            .nodes
+            .get(&to.socket_node())
+            .and_then(|node| node.socket_position(to.fragment().unwrap()))
+            .expect("Missing source node or socket for connection");
 
         self.rtree.insert(dbg!(GraphObject::Connection {
             from: from_pos,
@@ -453,7 +432,7 @@ impl Collection for Graph {
     }
 
     fn register_thumbnail(&mut self, node: &Resource<r::Node>, thumbnail: image::Id) {
-        if let Some(node) = self.locate_node_mut(node) {
+        if let Some(node) = self.nodes.get_mut(node) {
             node.thumbnail = Some(thumbnail);
         }
     }
@@ -461,7 +440,7 @@ impl Collection for Graph {
     fn unregister_thumbnail(&mut self, node: &Resource<r::Node>) -> Option<image::Id> {
         let mut old_id = None;
 
-        if let Some(node) = self.locate_node_mut(node) {
+        if let Some(node) = self.nodes.get_mut(node) {
             old_id = node.thumbnail;
             node.thumbnail = None;
         }
@@ -484,21 +463,16 @@ impl Collection for Graph {
     fn active_element(
         &mut self,
     ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)> {
-        // let idx = self.active_element.as_ref()?;
-        // let node = self.graph.node_weight_mut(*idx)?;
-        // Some((&node.resource, &mut node.param_box))
-        None
+        let node = self.nodes.get_mut(self.active_element.as_ref()?)?;
+        Some((&node.resource, &mut node.param_box))
     }
 
     fn active_resource(&self) -> Option<&Resource<r::Node>> {
-        // let idx = self.active_element.as_ref()?;
-        // let node = self.graph.node_weight(*idx)?;
-        // Some(&node.resource)
-        None
+        self.active_element.as_ref()
     }
 
     fn set_active(&mut self, element: &Resource<r::Node>) {
-        // self.active_element = self.resources.get(element).cloned();
+        self.active_element = Some(element.clone())
     }
 }
 
@@ -533,7 +507,7 @@ impl<'a> SelectionFunction<GraphObject> for SelectNodeFunction<'a> {
 
     fn should_unpack_leaf(&self, leaf: &GraphObject) -> bool {
         match leaf {
-            GraphObject::Node(node_data) => &node_data.resource == self.resource,
+            GraphObject::Node { resource, .. } => resource == self.resource,
             _ => false,
         }
     }

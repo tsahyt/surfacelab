@@ -117,13 +117,10 @@ impl<'a> Graph<'a> {
         {
             if let Some(rect) = state.selection.rect {
                 state.update(|state| {
-                    let nodes = self
-                        .graph
-                        .nodes_in_envelope(
-                            state.camera.inv_transform(rect.0),
-                            state.camera.inv_transform(rect.1),
-                        )
-                        .map(|n| &n.resource);
+                    let nodes = self.graph.nodes_in_envelope(
+                        state.camera.inv_transform(rect.0),
+                        state.camera.inv_transform(rect.1),
+                    );
                     state
                         .selection
                         .set_selection(nodes, release.modifiers == input::ModifierKey::SHIFT);
@@ -155,9 +152,9 @@ impl<'a> Graph<'a> {
     }
 
     fn find_target_socket(&self, ui: &Ui, pos: Point) -> Option<Resource<Socket>> {
-        let node = self.graph.nearest_node_at(pos)?;
+        let node = self.graph.nodes.get(self.graph.nearest_node_at(pos)?)?;
         let socket = node.socket_at_position(pos, 64.)?;
-        Some(dbg!(node.resource.node_socket(socket)))
+        Some(node.resource.node_socket(socket))
     }
 
     builder_methods! {
@@ -276,9 +273,11 @@ impl<'a> Widget for Graph<'a> {
 
         for gobj in self.graph.rtree.iter() {
             match gobj {
-                GraphObject::Node(node) => {
+                GraphObject::Node { resource, .. } => {
                     let w_id = state.ids.nodes[node_i];
                     node_i += 1;
+
+                    let node = &self.graph.nodes[resource];
 
                     // let view_socket =
                     //     state
@@ -303,14 +302,13 @@ impl<'a> Widget for Graph<'a> {
                         evs.push_back(Event::ActiveElement(node.resource.clone()));
                     }
 
-                    let selection_state =
-                        if state.selection.is_active(&node.resource) {
-                            node::SelectionState::Active
-                        } else if state.selection.is_selected(&node.resource) {
-                            node::SelectionState::Selected
-                        } else {
-                            node::SelectionState::None
-                        };
+                    let selection_state = if state.selection.is_active(&node.resource) {
+                        node::SelectionState::Active
+                    } else if state.selection.is_selected(&node.resource) {
+                        node::SelectionState::Selected
+                    } else {
+                        node::SelectionState::None
+                    };
 
                     for ev in node::Node::new(
                         &node.type_variables,

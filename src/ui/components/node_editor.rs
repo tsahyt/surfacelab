@@ -134,7 +134,7 @@ impl<'a> Widget for NodeEditor<'a> {
                     //     .unwrap();
                 }
                 graph::Event::NodeEnter(node) => {
-                    collection_change = collection.locate_node(&node).unwrap().callee.clone();
+                    collection_change = collection.nodes.get(&node).unwrap().callee.clone();
                 }
                 graph::Event::SocketClear(socket) => {
                     self.sender
@@ -144,7 +144,7 @@ impl<'a> Widget for NodeEditor<'a> {
                         .unwrap();
                 }
                 graph::Event::ActiveElement(node) => {
-                    // collection.active_element = Some(node);
+                    collection.active_element = Some(node);
                 }
                 graph::Event::AddModal(pt) => {
                     state.update(|state| state.add_modal = Some(pt));
