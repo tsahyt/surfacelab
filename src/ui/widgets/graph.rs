@@ -68,7 +68,7 @@ pub enum Event {
     SocketClear(Resource<Socket>),
     NodeDelete(Resource<Node>),
     NodeEnter(Resource<Node>),
-    ActiveElement(petgraph::graph::NodeIndex),
+    ActiveElement(Resource<Node>),
     AddModal(Point),
     Extract(Vec<petgraph::graph::NodeIndex>),
     AlignNodes(Vec<petgraph::graph::NodeIndex>),
@@ -287,6 +287,21 @@ impl<'a> Widget for Graph<'a> {
                     //         .and_then(|(n, s)| if *n == idx { Some(s.clone()) } else { None });
 
                     let socket_count = node.inputs.len().max(node.outputs.len());
+
+                    for press in ui
+                        .widget_input(w_id)
+                        .presses()
+                        .mouse()
+                        .button(input::MouseButton::Left)
+                    {
+                        state.update(|state| {
+                            if press.1 == input::ModifierKey::SHIFT {
+                                state.selection.add(node.resource.clone());
+                            }
+                            state.selection.set_active(Some(node.resource.clone()))
+                        });
+                        evs.push_back(Event::ActiveElement(node.resource.clone()));
+                    }
 
                     let selection_state =
                         if state.selection.is_active(&node.resource) {

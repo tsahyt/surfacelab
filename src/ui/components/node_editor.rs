@@ -122,18 +122,6 @@ impl<'a> Widget for NodeEditor<'a> {
                     //     .unwrap();
                 }
                 graph::Event::ConnectionDrawn(from, to) => {
-                    // let from_res = collection
-                    //     .graph
-                    //     .node_weight(from)
-                    //     .unwrap()
-                    //     .resource
-                    //     .node_socket(&from_socket);
-                    // let to_res = collection
-                    //     .graph
-                    //     .node_weight(to)
-                    //     .unwrap()
-                    //     .resource
-                    //     .node_socket(&to_socket);
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(from, to)))
                         .unwrap();
@@ -155,8 +143,8 @@ impl<'a> Widget for NodeEditor<'a> {
                         )))
                         .unwrap();
                 }
-                graph::Event::ActiveElement(idx) => {
-                    collection.active_element = Some(idx);
+                graph::Event::ActiveElement(node) => {
+                    // collection.active_element = Some(node);
                 }
                 graph::Event::AddModal(pt) => {
                     state.update(|state| state.add_modal = Some(pt));
