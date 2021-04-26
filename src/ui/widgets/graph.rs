@@ -407,7 +407,7 @@ impl<'a> Widget for Graph<'a> {
                         }
                     }
                 }
-                GraphObject::Connection { from, to } => {
+                GraphObject::Connection { from, to, .. } => {
                     let w_id = state.ids.connections[connection_i];
                     connection_i += 1;
 

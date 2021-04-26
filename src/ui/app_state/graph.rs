@@ -27,6 +27,8 @@ pub enum GraphObject {
         resource: Resource<Node>,
     },
     Connection {
+        source: Resource<Socket>,
+        sink: Resource<Socket>,
         from: Point,
         to: Point,
     },
@@ -270,7 +272,9 @@ impl Graph {
             })
     }
 
-    /// Connect two sockets in a graph.
+    /// Connect two sockets this graph.
+    ///
+    /// This will not alter any node data, but merely insert a drawable graph object.
     pub fn connect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
         let from_pos = self
             .nodes
@@ -283,43 +287,38 @@ impl Graph {
             .and_then(|node| node.socket_position(to.fragment().unwrap()))
             .expect("Missing source node or socket for connection");
 
-        self.rtree.insert(dbg!(GraphObject::Connection {
+        self.rtree.insert(GraphObject::Connection {
+            source: from.clone(),
+            sink: to.clone(),
             from: from_pos,
             to: to_pos,
-        }));
+        });
         self.connection_count += 1;
     }
 
+    /// Disconnect two sockets in this graph.
+    ///
+    /// This will not alter any node data, but merely remove a drawable graph object.
     pub fn disconnect_sockets(&mut self, from: &Resource<Socket>, to: &Resource<Socket>) {
-        // use petgraph::visit::EdgeRef;
+        let from_pos = self
+            .nodes
+            .get(&from.socket_node())
+            .and_then(|node| node.socket_position(from.fragment().unwrap()))
+            .expect("Missing source node or socket for connection");
+        let to_pos = self
+            .nodes
+            .get(&to.socket_node())
+            .and_then(|node| node.socket_position(to.fragment().unwrap()))
+            .expect("Missing source node or socket for connection");
 
-        // let from_idx = self.resources.get(&from.socket_node()).unwrap();
-        // let to_idx = self.resources.get(&to.socket_node()).unwrap();
+        self.rtree.remove(&GraphObject::Connection {
+            source: from.clone(),
+            sink: to.clone(),
+            from: from_pos,
+            to: to_pos
+        }).expect("R-Tree inconsistency detected during connection removal");
 
-        // // Assuming that there's only ever one edge connecting two sockets.
-        // if let Some(e) = self
-        //     .graph
-        //     .edges_connecting(*from_idx, *to_idx)
-        //     .filter(|e| {
-        //         (e.weight().0.as_str(), e.weight().1.as_str())
-        //             == (from.fragment().unwrap(), to.fragment().unwrap())
-        //     })
-        //     .map(|e| e.id())
-        //     .next()
-        // {
-        //     self.graph.remove_edge(e);
-        // }
-
-        // // Remove from R-Tree
-        // let from_pos = self.graph.node_weight(*from_idx).unwrap().socket_position(from.fragment().unwrap()).unwrap();
-        // let to_pos = self.graph.node_weight(*to_idx).unwrap().socket_position(to.fragment().unwrap()).unwrap();
-
-        // self.rtree.remove(&GraphObject::Connection {
-        //     index_from: *from_idx,
-        //     index_to: *to_idx,
-        //     from: from_pos,
-        //     to: to_pos,
-        // }).expect("R-Tree inconsistency detected during connection removal");
+        self.connection_count -= 1;
     }
 
     /// Align given nodes in the graph on a best guess basis, returning
@@ -482,6 +481,9 @@ impl Default for Graph {
     }
 }
 
+/// Selection function to select a specific node in the R-Tree given its
+/// position. Differs from standard selection functions in that it *only*
+/// compares based on the resource (other than spatial queries)
 pub struct SelectNodeFunction<'a> {
     resource: &'a Resource<Node>,
     position: Point,
