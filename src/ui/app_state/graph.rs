@@ -223,6 +223,7 @@ impl Graph {
     /// Panics if the node resource is invalid!
     pub fn move_node(&mut self, res: &Resource<Node>, to: Point, snap: bool) -> Point {
         let node_data = self.nodes.get_mut(res).expect("Moving unknown node");
+        let old_position = node_data.position;
         let new_position = if snap {
             [(to[0] / 32.).round() * 32., (to[1] / 32.).round() * 32.]
         } else {
@@ -231,7 +232,7 @@ impl Graph {
 
         match self
             .rtree
-            .remove_with_selection_function(SelectNodeFunction::new(res, node_data.position))
+            .remove_with_selection_function(SelectNodeFunction::new(res, old_position))
             .expect("R-Tree inconsistency detected")
         {
             GraphObject::Node { resource, .. } => {
@@ -242,6 +243,46 @@ impl Graph {
                 node_data.position = new_position;
             }
             _ => unreachable!(),
+        }
+
+        let mut conns = Vec::new();
+
+        // Remove all affected connections and store them temporarily
+        while let Some(GraphObject::Connection {
+            source,
+            sink,
+            from,
+            to,
+        }) = self
+            .rtree
+            .remove_with_selection_function(SelectConnectionFunction::new(res, old_position))
+        {
+            if source.is_socket_of(res) {
+                conns.push(GraphObject::Connection {
+                    from: node_data
+                        .socket_position(source.fragment().unwrap())
+                        .expect("Unable to determine source socket position"),
+                    source,
+                    sink,
+                    to,
+                })
+            } else if sink.is_socket_of(res) {
+                conns.push(GraphObject::Connection {
+                    to: node_data
+                        .socket_position(sink.fragment().unwrap())
+                        .expect("Unable to determine sink socket position"),
+                    source,
+                    sink,
+                    from,
+                })
+            } else {
+                panic!("R-Tree inconsistency detected")
+            }
+        }
+
+        // Reinsert affected connections
+        for conn in conns.drain(0..) {
+            self.rtree.insert(conn);
         }
 
         new_position
@@ -489,8 +530,14 @@ impl<'a> SelectionFunction<GraphObject> for SelectNodeFunction<'a> {
 
         let position = self.position;
         let envelope = rstar::AABB::from_corners(
-            [position[0] - 64., position[1] - 64.],
-            [position[0] + 64., position[1] + 64.],
+            [
+                position[0] - STANDARD_NODE_SIZE / 2.,
+                position[1] - STANDARD_NODE_SIZE / 2.,
+            ],
+            [
+                position[0] + STANDARD_NODE_SIZE / 2.,
+                position[1] + STANDARD_NODE_SIZE / 2.,
+            ],
         );
         parent_envelope.contains_envelope(&envelope)
     }
@@ -498,6 +545,47 @@ impl<'a> SelectionFunction<GraphObject> for SelectNodeFunction<'a> {
     fn should_unpack_leaf(&self, leaf: &GraphObject) -> bool {
         match leaf {
             GraphObject::Node { resource, .. } => resource == self.resource,
+            _ => false,
+        }
+    }
+}
+
+/// Selection function to select connections adjacent to a node, connecting
+/// sockets of that node.
+pub struct SelectConnectionFunction<'a> {
+    resource: &'a Resource<Node>,
+    position: Point,
+}
+
+impl<'a> SelectConnectionFunction<'a> {
+    pub fn new(resource: &'a Resource<Node>, position: Point) -> Self {
+        Self { resource, position }
+    }
+}
+
+impl<'a> SelectionFunction<GraphObject> for SelectConnectionFunction<'a> {
+    fn should_unpack_parent(&self, parent_envelope: &rstar::AABB<Point>) -> bool {
+        use rstar::Envelope;
+
+        let position = self.position;
+        let envelope = rstar::AABB::from_corners(
+            [
+                position[0] - STANDARD_NODE_SIZE,
+                position[1] - STANDARD_NODE_SIZE,
+            ],
+            [
+                position[0] + STANDARD_NODE_SIZE,
+                position[1] + STANDARD_NODE_SIZE,
+            ],
+        );
+        parent_envelope.intersects(&envelope)
+    }
+
+    fn should_unpack_leaf(&self, leaf: &GraphObject) -> bool {
+        match leaf {
+            GraphObject::Connection { source, sink, .. } => {
+                source.is_socket_of(self.resource) || sink.is_socket_of(self.resource)
+            }
             _ => false,
         }
     }
