@@ -17,7 +17,7 @@ pub struct Bezier {
 }
 
 impl Bezier {
-    pub fn new(start: Point, control_1: Point, end: Point, control_2: Point) -> Self {
+    pub fn abs(start: Point, control_1: Point, end: Point, control_2: Point) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),

@@ -421,28 +421,20 @@ impl<'a> Widget for Graph<'a> {
                         [transformed[0] + rect_xy[0], transformed[1] + rect_xy[1]]
                     };
 
-                    widget::Line::abs(from_view, to_view)
-                        .thickness(
-                            (style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.),
-                        )
-                        .color(style.edge_color(&ui.theme))
-                        .parent(id)
-                        .graphics_for(id)
-                        .depth(1.0)
-                        .set(w_id, ui);
-                    // let dist = (from_view[0] - to_view[0]).abs();
-                    // super::bezier::Bezier::new(
-                    //     from_view,
-                    //     [from_view[0] + dist / 2., from_view[1]],
-                    //     to_view,
-                    //     [to_view[0] - dist / 2., to_view[1]],
-                    // )
-                    // .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.))
-                    // .color(style.edge_color(&ui.theme))
-                    // .parent(id)
-                    // .graphics_for(id)
-                    // .depth(1.0)
-                    // .set(w_id, ui);
+                    let dist = (from_view[0] - to_view[0]).abs();
+                    super::bezier::Bezier::abs(
+                        from_view,
+                        [from_view[0] + dist / 2., from_view[1]],
+                        to_view,
+                        [to_view[0] - dist / 2., to_view[1]],
+                    )
+                    .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.))
+                    .color(style.edge_color(&ui.theme))
+                    .graphics_for(id)
+                    .middle()
+                    .parent(id)
+                    .depth(1.0)
+                    .set(w_id, ui);
                 }
             }
         }
@@ -514,7 +506,7 @@ impl<'a> Widget for Graph<'a> {
         // Draw floating noodle if currently drawing a connection
         if let Some(ConnectionDraw { from, to, .. }) = &state.connection_draw {
             let dist = (from[0] - to[0]).abs();
-            super::bezier::Bezier::new(
+            super::bezier::Bezier::abs(
                 *from,
                 [from[0] + dist / 2., from[1]],
                 *to,
