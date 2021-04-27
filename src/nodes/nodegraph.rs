@@ -375,7 +375,12 @@ impl NodeGraph {
         sink_node: &str,
         sink_socket: &str,
     ) -> Result<Vec<Lang>, NodeGraphError> {
+        use itertools::Itertools;
+
         let mut response = Vec::new();
+
+        let source_type = self.socket_type(source_node, source_socket)?;
+        let sink_type = self.socket_type(sink_node, sink_socket)?;
 
         let node_idx = *self
             .indices
@@ -386,24 +391,56 @@ impl NodeGraph {
         let node_input_socket = op
             .inputs()
             .iter()
-            .find_map(|(socket, _)| Some(socket.clone()))
-            .ok_or_else(|| NodeGraphError::SocketNotFound("input".to_string()))?;
+            .sorted_by_key(|x| x.0)
+            .find_map(|(socket, ty)| {
+                if source_type.can_unify(ty) {
+                    Some(socket.clone())
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| NodeGraphError::InvalidConnection)?;
         let node_output_socket = op
             .outputs()
             .iter()
-            .find_map(|(socket, _)| Some(socket.clone()))
-            .ok_or_else(|| NodeGraphError::SocketNotFound("output".to_string()))?;
+            .sorted_by_key(|x| x.0)
+            .find_map(|(socket, ty)| {
+                if sink_type.can_unify(ty) {
+                    Some(socket.clone())
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| NodeGraphError::InvalidConnection)?;
 
-        response.append(&mut self.connect_sockets(source_node, source_socket, node, &node_input_socket)?);
-        response.append(&mut self.connect_sockets(node, &node_output_socket, sink_node, sink_socket)?);
+        response.append(&mut self.connect_sockets(
+            source_node,
+            source_socket,
+            node,
+            &node_input_socket,
+        )?);
+        response.append(&mut self.connect_sockets(
+            node,
+            &node_output_socket,
+            sink_node,
+            sink_socket,
+        )?);
 
         response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-            self.graph_resource().graph_node(source_node).node_socket(source_socket),
-            self.graph_resource().graph_node(node).node_socket(&node_input_socket)
+            self.graph_resource()
+                .graph_node(source_node)
+                .node_socket(source_socket),
+            self.graph_resource()
+                .graph_node(node)
+                .node_socket(&node_input_socket),
         )));
         response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-            self.graph_resource().graph_node(node).node_socket(&node_output_socket),
-            self.graph_resource().graph_node(sink_node).node_socket(sink_socket)
+            self.graph_resource()
+                .graph_node(node)
+                .node_socket(&node_output_socket),
+            self.graph_resource()
+                .graph_node(sink_node)
+                .node_socket(sink_socket),
         )));
 
         Ok(response)

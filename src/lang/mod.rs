@@ -417,6 +417,20 @@ pub enum OperatorType {
     Polymorphic(TypeVariable),
 }
 
+impl OperatorType {
+    /// Check whether this operator type is compatible (can be unified with)
+    /// another type. Note that unification of two polymorphic types is
+    /// forbidden!
+    pub fn can_unify(&self, other: &OperatorType) -> bool {
+        match (self, other) {
+            (OperatorType::Monomorphic(t), OperatorType::Monomorphic(q)) => t == q,
+            (OperatorType::Monomorphic(_), OperatorType::Polymorphic(_)) => true,
+            (OperatorType::Polymorphic(_), OperatorType::Monomorphic(_)) => true,
+            (OperatorType::Polymorphic(_), OperatorType::Polymorphic(_)) => false,
+        }
+    }
+}
+
 impl From<ImageType> for OperatorType {
     fn from(source: ImageType) -> Self {
         Self::Monomorphic(source)
