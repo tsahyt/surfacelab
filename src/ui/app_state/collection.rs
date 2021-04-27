@@ -355,12 +355,10 @@ impl NodeCollections {
     /// graph to another!
     pub fn rename_node(&mut self, from: &Resource<r::Node>, to: &Resource<r::Node>) {
         if let Some(target) = self.target_graph_from_node(&from) {
-            // if let Some(idx) = target.resources.get(from).copied() {
-            // let node = target.graph.node_weight_mut(idx).unwrap();
-            // node.resource = to.clone();
-            // target.resources.insert(to.clone(), idx);
-            // target.resources.remove(from);
-            // }
+            target.rename_node(from, to);
+            if target.active_resource() == Some(from) {
+                target.set_active(to);
+            }
         }
     }
 

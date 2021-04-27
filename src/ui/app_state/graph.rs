@@ -387,6 +387,45 @@ impl Graph {
         }
     }
 
+    pub fn rename_node(&mut self, from: &Resource<Node>, to: &Resource<Node>) {
+        if let Some(mut node) = self.nodes.remove(from) {
+            node.resource = to.clone();
+
+            // Change resource in R-Tree Node object
+            match self
+                .rtree
+                .locate_with_selection_function_mut(SelectNodeFunction::new(from, node.position))
+                .next()
+            {
+                Some(GraphObject::Node { resource, .. }) => *resource = to.clone(),
+                _ => panic!("R-Tree inconsistency detected"),
+            }
+
+            // Change resources in R-Tree connection objects
+            for (source, sink) in self
+                .rtree
+                .locate_with_selection_function_mut(SelectConnectionFunction::new(
+                    from,
+                    node.position,
+                ))
+                .filter_map(|gobj| match gobj {
+                    GraphObject::Connection { source, sink, .. } => Some((source, sink)),
+                    _ => None,
+                })
+            {
+                if source.is_socket_of(from) {
+                    *source = to.node_socket(source.fragment().unwrap())
+                } else if sink.is_socket_of(from) {
+                    *sink = to.node_socket(sink.fragment().unwrap())
+                } else {
+                    unreachable!()
+                }
+            }
+
+            self.nodes.insert(to.clone(), node);
+        }
+    }
+
     /// Align given nodes in the graph on a best guess basis, returning
     /// resources and new positions
     ///
@@ -436,17 +475,22 @@ impl Graph {
 
 impl Collection for Graph {
     fn rename_collection(&mut self, to: &Resource<r::Graph>) {
-        // self.param_box.categories[0].parameters[0].control = Control::Entry {
-        //     value: to.file().unwrap().to_string(),
-        // };
-        // for gp in self.exposed_parameters.iter_mut().map(|x| &mut x.1) {
-        //     gp.parameter.set_graph(to.path());
-        // }
-        // for (mut res, idx) in self.resources.drain().collect::<Vec<_>>() {
-        //     res.set_graph(to.path());
-        //     self.resources.insert(res.clone(), idx);
-        //     self.graph.node_weight_mut(idx).unwrap().resource = res;
-        // }
+        self.param_box.categories[0].parameters[0].control = Control::Entry {
+            value: to.file().unwrap().to_string(),
+        };
+
+        for gp in self.exposed_parameters.iter_mut().map(|x| &mut x.1) {
+            gp.parameter.set_graph(to.path());
+        }
+
+        for from in self.nodes.keys().cloned().collect::<Vec<_>>() {
+            let to = {
+                let mut res = from.clone();
+                res.set_graph(to.path());
+                res
+            };
+            self.rename_node(&from, &to);
+        }
     }
 
     fn exposed_parameters(&mut self) -> &mut Vec<(String, GraphParameter)> {

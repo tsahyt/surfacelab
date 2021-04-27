@@ -581,10 +581,10 @@ impl Camera {
         let width = width / self.zoom;
         let height = height / self.zoom;
 
-        let x_min = - self.position[0] - width / 2.;
-        let x_max = - self.position[0] + width / 2.;
-        let y_min = - self.position[1] - height / 2.;
-        let y_max = - self.position[1] + height / 2.;
+        let x_min = -self.position[0] - width / 2.;
+        let x_max = -self.position[0] + width / 2.;
+        let y_min = -self.position[1] - height / 2.;
+        let y_max = -self.position[1] + height / 2.;
 
         ([x_min, y_min], [x_max, y_max])
     }
