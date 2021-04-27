@@ -298,8 +298,7 @@ impl Graph {
         new_position
     }
 
-    /// Find the node closest to the given position. Note that this node does
-    /// not necessarily contain the position!
+    /// Find the node closest to the given position.
     pub fn nearest_node_at(&self, position: Point) -> Option<&Resource<Node>> {
         self.rtree
             .nearest_neighbor(&position)
@@ -307,6 +306,14 @@ impl Graph {
                 GraphObject::Node { resource, .. } => Some(resource),
                 _ => None,
             })
+    }
+
+    /// Find the closest connection to the given position
+    pub fn nearest_connection_at(&self, position: Point) -> Option<&GraphObject> {
+        self.rtree
+            .nearest_neighbor_iter(&position)
+            .filter(|gobj| matches!(gobj, GraphObject::Connection { .. }))
+            .next()
     }
 
     /// Find all nodes contained in the enveloped defined by the two corner

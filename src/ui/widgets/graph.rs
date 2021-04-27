@@ -49,7 +49,8 @@ widget_ids! {
         connections[],
         grid,
         selection_rect,
-        floating_noodle
+        floating_noodle,
+        highlight_noodle,
     }
 }
 
@@ -388,30 +389,18 @@ impl<'a> Widget for Graph<'a> {
                     let w_id = state.ids.connections[connection_i];
                     connection_i += 1;
 
-                    let rect_xy = rect.xy();
-                    let from_view = {
-                        let transformed = state.camera.transform(*from);
-                        [transformed[0] + rect_xy[0], transformed[1] + rect_xy[1]]
-                    };
-                    let to_view = {
-                        let transformed = state.camera.transform(*to);
-                        [transformed[0] + rect_xy[0], transformed[1] + rect_xy[1]]
-                    };
-
-                    let dist = (from_view[0] - to_view[0]).abs();
-                    super::bezier::Bezier::abs(
-                        from_view,
-                        [from_view[0] + dist / 2., from_view[1]],
-                        to_view,
-                        [to_view[0] - dist / 2., to_view[1]],
-                    )
-                    .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.))
-                    .color(style.edge_color(&ui.theme))
-                    .graphics_for(id)
-                    .middle()
-                    .parent(id)
-                    .depth(1.0)
-                    .set(w_id, ui);
+                    draw_noodle(
+                        rect,
+                        id,
+                        ui,
+                        &state.camera,
+                        w_id,
+                        *from,
+                        *to,
+                        style.edge_color(&ui.theme),
+                        (style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.),
+                        true,
+                    );
                 }
             }
         }
@@ -469,7 +458,39 @@ impl<'a> Widget for Graph<'a> {
                         .filter_map(|(res, pos)| {
                             pos.map(|p| Event::NodeDrag(res.clone(), p, tmp_snap))
                         }),
-                )
+                );
+
+                // Draw highlight noodle on nearest connection if appropriate
+                if let Some(pos) = state.selection.get_active_current_drag_pos() {
+                    if let Some(GraphObject::Connection {
+                        from,
+                        to,
+                        source,
+                        sink,
+                        ..
+                    }) = self.graph.nearest_connection_at(pos)
+                    {
+                        if !(source.is_socket_of(state.selection.get_active().unwrap())
+                            || sink.is_socket_of(state.selection.get_active().unwrap()))
+                            && noodle_distance(pos, *from, *to) < 64.
+                        {
+                            draw_noodle(
+                                rect,
+                                id,
+                                ui,
+                                &state.camera,
+                                state.ids.highlight_noodle,
+                                *from,
+                                *to,
+                                color::RED.alpha(0.5),
+                                (style.edge_thickness(&ui.theme) * state.camera.zoom)
+                                    .clamp(1.5, 8.)
+                                    * 3.,
+                                true,
+                            );
+                        }
+                    }
+                }
             }
 
             Some(DragOperation::Drop) => {
@@ -501,21 +522,18 @@ impl<'a> Widget for Graph<'a> {
 
         // Draw floating noodle if currently drawing a connection
         if let Some(ConnectionDraw { from, to, .. }) = &state.connection_draw {
-            let dist = (from[0] - to[0]).abs();
-            super::bezier::Bezier::abs(
+            draw_noodle(
+                rect,
+                id,
+                ui,
+                &state.camera,
+                state.ids.floating_noodle,
                 *from,
-                [from[0] + dist / 2., from[1]],
                 *to,
-                [to[0] - dist / 2., to[1]],
-            )
-            .thickness((style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 6.))
-            .color(style.edge_drag_color(&ui.theme))
-            .graphics_for(id)
-            .pattern(widget::point_path::Pattern::Dotted)
-            .middle()
-            .parent(id)
-            .depth(1.0)
-            .set(state.ids.floating_noodle, ui);
+                style.edge_drag_color(&ui.theme),
+                (style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 6.),
+                false,
+            );
         }
 
         // Trigger Add Modal
@@ -540,6 +558,62 @@ impl<'a> Widget for Graph<'a> {
 
         evs
     }
+}
+
+/// Helper function for drawing noodles
+fn draw_noodle(
+    rect: Rect,
+    id: widget::Id,
+    ui: &mut UiCell,
+    camera: &Camera,
+    w_id: widget::Id,
+    from: Point,
+    to: Point,
+    color: color::Color,
+    thickness: f64,
+    transform: bool,
+) {
+    let rect_xy = rect.xy();
+    let from_view = if transform {
+        let transformed = camera.transform(from);
+        [transformed[0] + rect_xy[0], transformed[1] + rect_xy[1]]
+    } else {
+        from
+    };
+    let to_view = if transform {
+        let transformed = camera.transform(to);
+        [transformed[0] + rect_xy[0], transformed[1] + rect_xy[1]]
+    } else {
+        to
+    };
+
+    let dist = (from_view[0] - to_view[0]).abs();
+    super::bezier::Bezier::abs(
+        from_view,
+        [from_view[0] + dist / 2., from_view[1]],
+        to_view,
+        [to_view[0] - dist / 2., to_view[1]],
+    )
+    .thickness(thickness)
+    .color(color)
+    .graphics_for(id)
+    .middle()
+    .parent(id)
+    .depth(1.0)
+    .set(w_id, ui);
+}
+
+/// Helper function to determine distance to bezier. This function assumes
+/// canvas coordinates!
+fn noodle_distance(p: Point, from: Point, to: Point) -> f64 {
+    let dist = (from[0] - to[0]).abs();
+    super::bezier::approx_bezier_distance(
+        p,
+        from,
+        [from[0] + dist / 2., from[1]],
+        [to[0] - dist / 2., to[1]],
+        to,
+    )
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -658,6 +732,13 @@ impl Selection {
 
     pub fn get_active(&self) -> Option<&Resource<Node>> {
         self.active.as_ref()
+    }
+
+    pub fn get_active_current_drag_pos(&self) -> Option<Point> {
+        let selected = self.set.get(self.active.as_ref()?)?;
+        selected
+            .drag_start
+            .and_then(|[px, py]| selected.drag_delta.map(|[dx, dy]| [px + dx, py + dy]))
     }
 
     pub fn is_active(&self, node: &Resource<Node>) -> bool {
