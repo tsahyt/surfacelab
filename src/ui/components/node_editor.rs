@@ -104,6 +104,7 @@ impl<'a> Widget for NodeEditor<'a> {
             .node_title_size(14)
             .node_active_color(Color::Rgba(0.9, 0.4, 0.15, 1.0))
             .node_selection_color(Color::Rgba(0.9, 0.8, 0.15, 1.0))
+            .crop_kids()
             .parent(id)
             .wh_of(id)
             .middle()
