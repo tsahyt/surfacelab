@@ -125,6 +125,13 @@ impl<'a> Widget for NodeEditor<'a> {
                         .send(Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(from, to)))
                         .unwrap();
                 }
+                graph::Event::ConnectBetween(node, source, sink) => {
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::ConnectBetweenSockets(
+                            node, source, sink,
+                        )))
+                        .unwrap();
+                }
                 graph::Event::NodeDelete(node) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node)))

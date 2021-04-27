@@ -402,6 +402,15 @@ impl NodeManager {
                     }
                 }
             }
+            UserNodeEvent::ConnectBetweenSockets(node, source, sink) => {
+                let source_node = source.file().unwrap();
+                let source_socket = source.fragment().unwrap();
+                let sink_node = sink.file().unwrap();
+                let sink_socket = sink.fragment().unwrap();
+                let graph = node.directory().unwrap();
+
+                if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {}
+            }
             UserNodeEvent::DisconnectSinkSocket(sink) => {
                 let node = sink.file().unwrap();
                 let socket = sink.fragment().unwrap();

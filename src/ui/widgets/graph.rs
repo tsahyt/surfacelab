@@ -66,6 +66,7 @@ pub struct State {
 pub enum Event {
     NodeDrag(Resource<Node>, Point, bool),
     ConnectionDrawn(Resource<Socket>, Resource<Socket>),
+    ConnectBetween(Resource<Node>, Resource<Socket>, Resource<Socket>),
     SocketClear(Resource<Socket>),
     NodeDelete(Resource<Node>),
     NodeEnter(Resource<Node>),
@@ -461,39 +462,33 @@ impl<'a> Widget for Graph<'a> {
                 );
 
                 // Draw highlight noodle on nearest connection if appropriate
-                if let Some(pos) = state.selection.get_active_current_drag_pos() {
-                    if let Some(GraphObject::Connection {
+                if let Some((from, to, _, _)) = can_drop_on_noodle(&state.selection, &self.graph) {
+                    draw_noodle(
+                        rect,
+                        id,
+                        ui,
+                        &state.camera,
+                        state.ids.highlight_noodle,
                         from,
                         to,
-                        source,
-                        sink,
-                        ..
-                    }) = self.graph.nearest_connection_at(pos)
-                    {
-                        if !(source.is_socket_of(state.selection.get_active().unwrap())
-                            || sink.is_socket_of(state.selection.get_active().unwrap()))
-                            && noodle_distance(pos, *from, *to) < 64.
-                        {
-                            draw_noodle(
-                                rect,
-                                id,
-                                ui,
-                                &state.camera,
-                                state.ids.highlight_noodle,
-                                *from,
-                                *to,
-                                color::RED.alpha(0.5),
-                                (style.edge_thickness(&ui.theme) * state.camera.zoom)
-                                    .clamp(1.5, 8.)
-                                    * 3.,
-                                true,
-                            );
-                        }
-                    }
+                        color::RED.alpha(0.5),
+                        (style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.) * 3.,
+                        true,
+                    );
                 }
             }
 
             Some(DragOperation::Drop) => {
+                if let Some((_, _, source, sink)) =
+                    can_drop_on_noodle(&state.selection, &self.graph)
+                {
+                    evs.push(Event::ConnectBetween(
+                        state.selection.get_active().unwrap().clone(),
+                        source.clone(),
+                        sink.clone(),
+                    ));
+                }
+
                 state.update(|state| state.selection.stop_drag());
             }
 
@@ -614,6 +609,30 @@ fn noodle_distance(p: Point, from: Point, to: Point) -> f64 {
         [to[0] - dist / 2., to[1]],
         to,
     )
+}
+
+/// Get parameters if the active element can be dropped onto a noodle.
+fn can_drop_on_noodle<'a>(
+    selection: &Selection,
+    graph: &'a crate::ui::app_state::graph::Graph,
+) -> Option<(Point, Point, &'a Resource<Socket>, &'a Resource<Socket>)> {
+    let pos = selection.get_active_current_drag_pos()?;
+    let gobj = graph.nearest_connection_at(pos)?;
+    match gobj {
+        GraphObject::Connection {
+            from,
+            to,
+            source,
+            sink,
+            ..
+        } if !(source.is_socket_of(selection.get_active()?)
+            || sink.is_socket_of(selection.get_active()?))
+            && noodle_distance(pos, *from, *to) < 64. =>
+        {
+            Some((*from, *to, source, sink))
+        }
+        _ => None,
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

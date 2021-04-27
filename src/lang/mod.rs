@@ -451,7 +451,8 @@ impl TryFrom<OperatorType> for TypeVariable {
 /// user generated.
 #[derive(Debug)]
 pub enum UserNodeEvent {
-    /// The user requests creation of a new node inside a given graph, using this operator, at layout position.
+    /// The user requests creation of a new node inside a given graph, using
+    /// this operator, at layout position.
     NewNode(Resource<Graph>, Operator, (f64, f64)),
     /// The user requests the removal of a given node.
     RemoveNode(Resource<Node>),
@@ -461,6 +462,8 @@ pub enum UserNodeEvent {
     ConnectSockets(Resource<Socket>, Resource<Socket>),
     /// The user requests the disconnection of the given sink socket.
     DisconnectSinkSocket(Resource<Socket>),
+    /// The user requests connecting a node between two sockets
+    ConnectBetweenSockets(Resource<Node>, Resource<Socket>, Resource<Socket>),
     /// The user changes the given parameter to the supplied value.
     ParameterChange(Resource<Param>, Vec<u8>),
     /// The user repositions the node to the given coordinates.
