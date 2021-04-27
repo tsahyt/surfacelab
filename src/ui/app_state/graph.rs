@@ -197,6 +197,16 @@ impl Graph {
         }
     }
 
+    /// Return all the drawable graph objects in the given envelope determined by two corners.
+    pub fn drawables_in_envelope(
+        &self,
+        corner_1: Point,
+        corner_2: Point,
+    ) -> impl Iterator<Item = &GraphObject> {
+        self.rtree
+            .locate_in_envelope_intersecting(&rstar::AABB::from_corners(corner_1, corner_2))
+    }
+
     /// Add a node into the graph
     pub fn add_node(&mut self, res: Resource<Node>, node: NodeData) {
         self.rtree.insert(GraphObject::Node {

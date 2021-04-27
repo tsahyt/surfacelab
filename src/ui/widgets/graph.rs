@@ -245,7 +245,9 @@ impl<'a> Widget for Graph<'a> {
         let mut node_i = 0;
         let mut connection_i = 0;
 
-        for gobj in self.graph.rtree.iter() {
+        let (corner_1, corner_2) = state.camera.viewport(rect.w(), rect.h());
+
+        for gobj in self.graph.drawables_in_envelope(corner_1, corner_2) {
             match gobj {
                 GraphObject::Node { resource, .. } => {
                     let w_id = state.ids.nodes[node_i];
@@ -572,6 +574,19 @@ impl Camera {
 
     pub fn zoom(&mut self, dz: f64) {
         self.zoom = (self.zoom * (1.0 - (dz * ZOOM_SENSITIVITY))).clamp(0.2, 4.0);
+    }
+
+    /// Return corners of the currently visible viewport
+    pub fn viewport(&self, width: Scalar, height: Scalar) -> (Point, Point) {
+        let width = width / self.zoom;
+        let height = height / self.zoom;
+
+        let x_min = - self.position[0] - width / 2.;
+        let x_max = - self.position[0] + width / 2.;
+        let y_min = - self.position[1] - height / 2.;
+        let y_max = - self.position[1] + height / 2.;
+
+        ([x_min, y_min], [x_max, y_max])
     }
 }
 
