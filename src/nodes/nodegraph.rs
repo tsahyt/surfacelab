@@ -367,6 +367,48 @@ impl NodeGraph {
         Ok(response)
     }
 
+    pub fn connect_between(
+        &mut self,
+        node: &str,
+        source_node: &str,
+        source_socket: &str,
+        sink_node: &str,
+        sink_socket: &str,
+    ) -> Result<Vec<Lang>, NodeGraphError> {
+        let mut response = Vec::new();
+
+        let node_idx = *self
+            .indices
+            .get_by_left(&node.to_string())
+            .ok_or_else(|| NodeGraphError::NodeNotFound(node.to_string()))?;
+
+        let op = &self.graph.node_weight(node_idx).unwrap().operator;
+        let node_input_socket = op
+            .inputs()
+            .iter()
+            .find_map(|(socket, _)| Some(socket.clone()))
+            .ok_or_else(|| NodeGraphError::SocketNotFound("input".to_string()))?;
+        let node_output_socket = op
+            .outputs()
+            .iter()
+            .find_map(|(socket, _)| Some(socket.clone()))
+            .ok_or_else(|| NodeGraphError::SocketNotFound("output".to_string()))?;
+
+        response.append(&mut self.connect_sockets(source_node, source_socket, node, &node_input_socket)?);
+        response.append(&mut self.connect_sockets(node, &node_output_socket, sink_node, sink_socket)?);
+
+        response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+            self.graph_resource().graph_node(source_node).node_socket(source_socket),
+            self.graph_resource().graph_node(node).node_socket(&node_input_socket)
+        )));
+        response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+            self.graph_resource().graph_node(node).node_socket(&node_output_socket),
+            self.graph_resource().graph_node(sink_node).node_socket(sink_socket)
+        )));
+
+        Ok(response)
+    }
+
     /// Disconnect all (1) inputs from a sink socket.
     pub fn disconnect_sink_socket(
         &mut self,

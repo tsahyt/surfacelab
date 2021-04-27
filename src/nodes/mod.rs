@@ -403,13 +403,43 @@ impl NodeManager {
                 }
             }
             UserNodeEvent::ConnectBetweenSockets(node, source, sink) => {
+                let between_node = node.file().unwrap();
                 let source_node = source.file().unwrap();
                 let source_socket = source.fragment().unwrap();
                 let sink_node = sink.file().unwrap();
                 let sink_socket = sink.fragment().unwrap();
                 let graph = node.directory().unwrap();
 
-                if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {}
+                if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    match graph.connect_between(
+                        between_node,
+                        source_node,
+                        source_socket,
+                        sink_node,
+                        sink_socket,
+                    ) {
+                        Ok(mut res) => {
+                            response.append(&mut res);
+
+                            if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
+                                |(instructions, last_use)| {
+                                    lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
+                                        graph.graph_resource(),
+                                        instructions,
+                                        last_use,
+                                    ))
+                                },
+                            ) {
+                                response.push(instrs);
+                                response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                    self.active_graph.clone(),
+                                    Vec::new(),
+                                )));
+                            }
+                        }
+                        Err(e) => log::error!("{}", e),
+                    }
+                }
             }
             UserNodeEvent::DisconnectSinkSocket(sink) => {
                 let node = sink.file().unwrap();
