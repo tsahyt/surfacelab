@@ -272,6 +272,7 @@ impl NodeManager {
                 let graph_name = graph_res.path().to_str().unwrap();
                 let op = self.complete_operator(op);
                 let mut update_co = None;
+                let mut relinearize = false;
 
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) =
                     self.graphs.get_mut(graph_name)
@@ -323,12 +324,37 @@ impl NodeManager {
                             size as u32,
                         )));
                     }
-                    response.append(&mut autoconnect_events);
+                    if !autoconnect_events.is_empty() {
+                        response.append(&mut autoconnect_events);
+                        relinearize = true;
+                    }
                 }
 
                 // Process update event if required. This is separate for borrowing reasons
                 if let Some(co_stub) = update_co {
                     response.append(&mut self.update_complex_operators(graph_res, &co_stub));
+                }
+
+                if relinearize {
+                    if let Some(ManagedNodeCollection::NodeGraph(graph)) =
+                        self.graphs.get_mut(graph_name)
+                    {
+                        if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
+                            |(instructions, last_use)| {
+                                lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
+                                    graph.graph_resource(),
+                                    instructions,
+                                    last_use,
+                                ))
+                            },
+                        ) {
+                            response.push(instrs);
+                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                self.active_graph.clone(),
+                                Vec::new(),
+                            )));
+                        }
+                    }
                 }
             }
             UserNodeEvent::RemoveNode(res) => {
