@@ -56,7 +56,7 @@ pub enum Event {
     SocketView(String),
     SocketDrag(Point, Point),
     SocketClear(String),
-    SocketRelease(String, SocketType),
+    SocketRelease(String, SocketType, input::ModifierKey),
 }
 
 impl<'a> Node<'a> {
@@ -288,7 +288,7 @@ impl<'a> Widget for Node<'a> {
             evs.extend(
                 ui.widget_input(w_id)
                     .releases()
-                    .map(|_| Event::SocketRelease(input.clone(), SocketType::Sink)),
+                    .map(|r| Event::SocketRelease(input.clone(), SocketType::Sink, r.modifiers)),
             );
 
             evs.extend(
@@ -356,7 +356,7 @@ impl<'a> Widget for Node<'a> {
             evs.extend(
                 ui.widget_input(w_id)
                     .releases()
-                    .map(|_| Event::SocketRelease(output.clone(), SocketType::Source)),
+                    .map(|r| Event::SocketRelease(output.clone(), SocketType::Source, r.modifiers)),
             );
 
             evs.extend(

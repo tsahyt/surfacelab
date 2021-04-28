@@ -80,7 +80,7 @@ pub enum Event {
     NodeDelete(Resource<Node>),
     NodeEnter(Resource<Node>),
     ActiveElement(Resource<Node>),
-    AddModal(Point),
+    AddNode(Point, Option<Resource<Socket>>),
     Extract(Vec<Resource<Node>>),
     AlignNodes(Vec<Resource<Node>>),
     ExportSetup(Vec<Resource<Node>>),
@@ -382,7 +382,25 @@ impl<'a> Widget for Graph<'a> {
                                     state.connection_draw = Some(ConnectionDraw { from, to })
                                 });
                             }
-                            node::Event::SocketRelease(source, node::SocketType::Source) => {
+                            node::Event::SocketRelease(socket, _, m)
+                                if m.contains(input::ModifierKey::CTRL) =>
+                            {
+                                if let Some(draw) = &state.connection_draw {
+                                    let pos = state.camera.inv_transform([
+                                        draw.to[0] - rect.xy()[0],
+                                        draw.to[1] - rect.xy()[1],
+                                    ]);
+
+                                    evs.push(Event::AddNode(
+                                        pos,
+                                        Some(node.resource.node_socket(&socket)),
+                                    ));
+                                }
+                                state.update(|state| {
+                                    state.connection_draw = None;
+                                });
+                            }
+                            node::Event::SocketRelease(source, node::SocketType::Source, _) => {
                                 if let Some(draw) = &state.connection_draw {
                                     let pos = state.camera.inv_transform([
                                         draw.to[0] - rect.xy()[0],
@@ -399,7 +417,7 @@ impl<'a> Widget for Graph<'a> {
                                     state.connection_draw = None;
                                 });
                             }
-                            node::Event::SocketRelease(sink, node::SocketType::Sink) => {
+                            node::Event::SocketRelease(sink, node::SocketType::Sink, _) => {
                                 if let Some(draw) = &state.connection_draw {
                                     let pos = state.camera.inv_transform([
                                         draw.from[0] - rect.xy()[0],
@@ -600,7 +618,7 @@ impl<'a> Widget for Graph<'a> {
             ui.widget_input(id)
                 .clicks()
                 .button(input::MouseButton::Right)
-                .map(|c| Event::AddModal(state.camera.inv_transform(c.xy))),
+                .map(|c| Event::AddNode(state.camera.inv_transform(c.xy), None)),
         );
         if rect.is_over(ui.global_input().current.mouse.xy) {
             evs.extend(ui.global_input().events().ui().find_map(|x| match x {
@@ -610,7 +628,7 @@ impl<'a> Widget for Graph<'a> {
                         button: event::Button::Keyboard(input::Key::A),
                         modifiers: input::ModifierKey::CTRL,
                     },
-                ) => Some(Event::AddModal(state.camera.inv_transform([0., 0.]))),
+                ) => Some(Event::AddNode(state.camera.inv_transform([0., 0.]), None)),
                 _ => None,
             }));
         }

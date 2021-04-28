@@ -171,10 +171,15 @@ impl<'a> Widget for NodeEditor<'a> {
                 graph::Event::ActiveElement(node) => {
                     collection.active_element = Some(node);
                 }
-                graph::Event::AddModal(pt) => {
+                graph::Event::AddNode(pt, socket) => {
                     state.update(|state| {
                         state.add_modal = Some(Box::new(move |g, op| {
-                            Lang::UserNodeEvent(UserNodeEvent::NewNode(g, op, (pt[0], pt[1])))
+                            Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                                g,
+                                op,
+                                (pt[0], pt[1]),
+                                socket.clone(),
+                            ))
                         }))
                     });
                 }

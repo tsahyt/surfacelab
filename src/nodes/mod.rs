@@ -268,7 +268,7 @@ impl NodeManager {
         let mut response = vec![];
 
         match event {
-            UserNodeEvent::NewNode(graph_res, op, pos) => {
+            UserNodeEvent::NewNode(graph_res, op, pos, _) => {
                 let graph_name = graph_res.path().to_str().unwrap();
                 let op = self.complete_operator(op);
                 let mut update_co = None;
