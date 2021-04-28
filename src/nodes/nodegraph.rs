@@ -455,6 +455,7 @@ impl NodeGraph {
         combine_op: &Operator,
         node_1: &str,
         node_2: &str,
+        parent_size: u32,
     ) -> Result<Vec<Lang>, NodeGraphError> {
         use itertools::Itertools;
 
@@ -511,7 +512,7 @@ impl NodeGraph {
             .ok_or(NodeGraphError::InvalidConnection)?;
 
         // Construct blend node
-        let (combine_node, combine_size) = self.new_node(&combine_op.clone().into(), 1024);
+        let (combine_node, combine_size) = self.new_node(&combine_op.clone().into(), parent_size);
         let combine_res = self.graph_resource().graph_node(&combine_node);
         let combine_pos = {
             let pos_1 = &self.graph.node_weight(node_1_idx).unwrap().position;

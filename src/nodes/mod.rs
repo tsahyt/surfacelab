@@ -461,7 +461,7 @@ impl NodeManager {
                 let graph = node_1.directory().unwrap();
 
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
-                    match graph.quick_combine(&op, node_1_name, node_2_name) {
+                    match graph.quick_combine(&op, node_1_name, node_2_name, self.parent_size) {
                         Ok(mut res) => {
                             let g_res = graph.graph_resource();
                             let g_instrs = graph.linearize(LinearizationMode::TopoSort);
