@@ -429,6 +429,43 @@ impl OperatorType {
             (OperatorType::Polymorphic(_), OperatorType::Polymorphic(_)) => false,
         }
     }
+
+    /// Like `can_unify` but takes a mapping of type variables to respect during
+    /// the process. Unification of two polymorphic types is forbidden
+    /// regardless!
+    pub fn can_unify_with(
+        &self,
+        other: &OperatorType,
+        ty_vars: HashMap<TypeVariable, ImageType>,
+    ) -> bool {
+        match (self, other) {
+            (OperatorType::Monomorphic(t), OperatorType::Monomorphic(q)) => t == q,
+            (OperatorType::Monomorphic(t), OperatorType::Polymorphic(q)) => {
+                ty_vars.get(q).map(|z| t == z).unwrap_or(true)
+            }
+            (OperatorType::Polymorphic(q), OperatorType::Monomorphic(t)) => {
+                ty_vars.get(q).map(|z| t == z).unwrap_or(true)
+            }
+            (OperatorType::Polymorphic(t), OperatorType::Polymorphic(q)) => ty_vars
+                .get(t)
+                .and_then(|z| ty_vars.get(q).map(|w| w == z))
+                .unwrap_or(false),
+        }
+    }
+
+    /// Unify this operator type with another operator, yielding a type variable
+    /// assignment in the process.
+    ///
+    /// Will return None when unification fails *or* when no type variable
+    /// assignment is made! Use `can_unify` to check.
+    pub fn unify_with(&self, other: &OperatorType) -> Option<(TypeVariable, ImageType)> {
+        match (self, other) {
+            (OperatorType::Monomorphic(_), OperatorType::Monomorphic(_)) => None,
+            (OperatorType::Monomorphic(t), OperatorType::Polymorphic(v)) => Some((*v, *t)),
+            (OperatorType::Polymorphic(v), OperatorType::Monomorphic(t)) => Some((*v, *t)),
+            (OperatorType::Polymorphic(_), OperatorType::Polymorphic(_)) => None,
+        }
+    }
 }
 
 impl From<ImageType> for OperatorType {

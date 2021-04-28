@@ -470,7 +470,7 @@ impl NodeGraph {
             .ok_or_else(|| NodeGraphError::NodeNotFound(node_2.to_string()))?;
 
         // Find first output sockets on both nodes with compatible types.
-        let (socket_1, socket_2) = self
+        let (source_socket_1, source_socket_2, sink_socket_1, sink_socket_2) = self
             .graph
             .node_weight(node_1_idx)
             .unwrap()
@@ -487,52 +487,80 @@ impl NodeGraph {
                     .iter()
                     .sorted_by_key(|x| x.0),
             )
-            .find(|((_, t1), (_, t2))| t1.can_unify(t2))
-            .map(|((s1, _), (s2, _))| (s1.to_string(), s2.to_string()))
+            .cartesian_product(combine_op.inputs().iter().sorted_by_key(|x| x.0))
+            .cartesian_product(combine_op.inputs().iter().sorted_by_key(|x| x.0))
+            .find(|((((_, t1), (_, t2)), (s3, t3)), (s4, t4))| {
+                if s3 == s4 {
+                    false
+                } else {
+                    let mut vs = HashMap::new();
+                    if let Some((v, t)) = t1.unify_with(t3).take() {
+                        vs.insert(v, t);
+                    }
+                    t1.can_unify(t3) && t2.can_unify_with(t4, vs)
+                }
+            })
+            .map(|(((a, b), c), d)| {
+                (
+                    a.0.to_string(),
+                    b.0.to_string(),
+                    c.0.to_string(),
+                    d.0.to_string(),
+                )
+            })
             .ok_or(NodeGraphError::InvalidConnection)?;
 
         // Construct blend node
-        let blend_op = AtomicOperator::Blend(Blend::default());
-        let (blend_node, blend_size) = self.new_node(&blend_op.clone().into(), 1024);
-        let blend_res = self.graph_resource().graph_node(&blend_node);
-        let blend_pos = {
+        let (combine_node, combine_size) = self.new_node(&combine_op.clone().into(), 1024);
+        let combine_res = self.graph_resource().graph_node(&combine_node);
+        let combine_pos = {
             let pos_1 = &self.graph.node_weight(node_1_idx).unwrap().position;
             let pos_2 = &self.graph.node_weight(node_2_idx).unwrap().position;
             (pos_1.0.max(pos_2.0) + 256., (pos_1.1 + pos_2.1) / 2.)
         };
-        self.position_node(&blend_node, blend_pos.0, blend_pos.1);
+        self.position_node(&combine_node, combine_pos.0, combine_pos.1);
         response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-            blend_res.clone(),
-            blend_op.clone().into(),
+            combine_res.clone(),
+            combine_op.clone(),
             ParamBoxDescription::empty(),
-            Some(blend_pos),
-            blend_size,
+            Some(combine_pos),
+            combine_size,
         )));
-        for (socket, imgtype) in blend_op.outputs().iter() {
+        for (socket, imgtype) in combine_op.outputs().iter() {
             response.push(Lang::GraphEvent(GraphEvent::OutputSocketAdded(
-                blend_res.node_socket(socket),
+                combine_res.node_socket(socket),
                 *imgtype,
-                blend_op.external_data(),
-                blend_size,
+                combine_op.external_data(),
+                combine_size,
             )));
         }
 
         // Route node 1 output to background
-        response.append(&mut self.connect_sockets(node_1, &socket_1, &blend_node, "background")?);
+        response.append(&mut self.connect_sockets(
+            node_1,
+            &source_socket_1,
+            &combine_node,
+            &sink_socket_1,
+        )?);
         response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
             self.graph_resource()
                 .graph_node(node_1)
-                .node_socket(&socket_1),
-            blend_res.node_socket("background"),
+                .node_socket(&source_socket_1),
+            combine_res.node_socket(&sink_socket_1),
         )));
 
         // Route node 2 output to foreground
-        response.append(&mut self.connect_sockets(node_2, &socket_2, &blend_node, "foreground")?);
+        response.append(&mut self.connect_sockets(
+            node_2,
+            &source_socket_2,
+            &combine_node,
+            &sink_socket_2,
+        )?);
         response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
             self.graph_resource()
                 .graph_node(node_2)
-                .node_socket(&socket_2),
-            blend_res.node_socket("foreground"),
+                .node_socket(&source_socket_2),
+            combine_res.node_socket(&sink_socket_2),
         )));
 
         Ok(response)
