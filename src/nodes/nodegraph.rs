@@ -499,7 +499,7 @@ impl NodeGraph {
         response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
             blend_res.clone(),
             blend_op.clone().into(),
-            blend_op.param_box_description().transmitters_into(),
+            ParamBoxDescription::empty(),
             Some(blend_pos),
             blend_size,
         )));

@@ -463,18 +463,29 @@ impl NodeManager {
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
                     match graph.quick_blend(node_1_name, node_2_name) {
                         Ok(mut res) => {
+                            let g_res = graph.graph_resource();
+                            let g_instrs = graph.linearize(LinearizationMode::TopoSort);
+
+                            // Rebuild parameter boxes for node added events before publishing
+                            for ev in res.iter_mut() {
+                                if let Lang::GraphEvent(GraphEvent::NodeAdded(
+                                    res,
+                                    op,
+                                    pbox,
+                                    _,
+                                    _,
+                                )) = ev
+                                {
+                                    *pbox = self.element_param_box(&op, res)
+                                }
+                            }
+
                             response.append(&mut res);
 
-                            if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
-                                |(instructions, last_use)| {
-                                    lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
-                                        graph.graph_resource(),
-                                        instructions,
-                                        last_use,
-                                    ))
-                                },
-                            ) {
-                                response.push(instrs);
+                            if let Some(instrs) = g_instrs {
+                                response.push(Lang::GraphEvent(GraphEvent::Relinearized(
+                                    g_res, instrs.0, instrs.1,
+                                )));
                                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                                     self.active_graph.clone(),
                                     Vec::new(),
