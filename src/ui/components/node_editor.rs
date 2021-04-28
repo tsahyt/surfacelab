@@ -133,7 +133,8 @@ impl<'a> Widget for NodeEditor<'a> {
                         )))
                         .unwrap();
                 }
-                graph::Event::QuickCombine(node_1, node_2) => {
+                graph::Event::QuickCombine(node_1, node_2, true) => {}
+                graph::Event::QuickCombine(node_1, node_2, false) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::QuickCombine(
                             AtomicOperator::from(Blend::default()).into(),

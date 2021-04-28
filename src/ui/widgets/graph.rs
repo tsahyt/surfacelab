@@ -75,7 +75,7 @@ pub enum Event {
     NodeDrag(Resource<Node>, Point, bool),
     ConnectionDrawn(Resource<Socket>, Resource<Socket>),
     ConnectBetween(Resource<Node>, Resource<Socket>, Resource<Socket>),
-    QuickCombine(Resource<Node>, Resource<Node>),
+    QuickCombine(Resource<Node>, Resource<Node>, bool),
     SocketClear(Resource<Socket>),
     NodeDelete(Resource<Node>),
     NodeEnter(Resource<Node>),
@@ -348,23 +348,24 @@ impl<'a> Widget for Graph<'a> {
                             node::Event::NodeDragMotion(delta, tmp_snap) => {
                                 drag_operation = Some(DragOperation::Moving(delta, tmp_snap));
                             }
-                            node::Event::NodeDragStop => match state.blend_draw {
+                            node::Event::NodeDragStop(modifier) => match state.blend_draw {
                                 Some(ConnectionDraw { to, .. }) => {
                                     let pos = state.camera.inv_transform([
                                         to[0] - rect.xy()[0],
                                         to[1] - rect.xy()[1],
                                     ]);
 
+                                    state.update(|state| {
+                                        state.blend_draw = None;
+                                    });
+
                                     if let Some(other) = self.graph.node_containing(pos) {
                                         evs.push(Event::QuickCombine(
                                             node.resource.clone(),
                                             other.clone(),
+                                            modifier.contains(input::ModifierKey::CTRL),
                                         ))
                                     }
-
-                                    state.update(|state| {
-                                        state.blend_draw = None;
-                                    });
                                 }
                                 None => {
                                     drag_operation = Some(DragOperation::Drop);

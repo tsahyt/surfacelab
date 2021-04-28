@@ -50,7 +50,7 @@ pub enum SocketType {
 pub enum Event {
     NodeDragStart(input::ModifierKey),
     NodeDragMotion(Point, bool),
-    NodeDragStop,
+    NodeDragStop(input::ModifierKey),
     NodeDelete,
     NodeEnter,
     SocketView(String),
@@ -389,8 +389,8 @@ impl<'a> Widget for Node<'a> {
             evs.push(Event::NodeDragStart(press.1));
         }
 
-        for _release in ui.widget_input(id).releases().mouse().left() {
-            evs.push(Event::NodeDragStop);
+        for release in ui.widget_input(id).releases().mouse().left() {
+            evs.push(Event::NodeDragStop(release.1));
         }
 
         // Key events
