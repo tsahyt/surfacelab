@@ -298,13 +298,17 @@ impl NodeManager {
 
                     // Autoconnect with socket if specified
                     let mut autoconnect_events = match socket {
-                        Some(socket) => graph
-                            .auto_connect(
-                                &node_id,
-                                socket.file().unwrap(),
-                                socket.fragment().unwrap(),
-                            )
-                            .unwrap(),
+                        Some(socket) => match graph.auto_connect(
+                            &node_id,
+                            socket.file().unwrap(),
+                            socket.fragment().unwrap(),
+                        ) {
+                            Ok(rs) => rs,
+                            Err(e) => {
+                                log::error!("{}", e);
+                                Vec::new()
+                            }
+                        },
                         None => Vec::new(),
                     };
 
