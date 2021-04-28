@@ -490,11 +490,17 @@ impl NodeGraph {
         let blend_op = AtomicOperator::Blend(Blend::default());
         let (blend_node, blend_size) = self.new_node(&blend_op.clone().into(), 1024);
         let blend_res = self.graph_resource().graph_node(&blend_node);
+        let blend_pos = {
+            let pos_1 = &self.graph.node_weight(node_1_idx).unwrap().position;
+            let pos_2 = &self.graph.node_weight(node_2_idx).unwrap().position;
+            (pos_1.0.max(pos_2.0) + 256., (pos_1.1 + pos_2.1) / 2.)
+        };
+        self.position_node(&blend_node, blend_pos.0, blend_pos.1);
         response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
             blend_res.clone(),
             blend_op.clone().into(),
             blend_op.param_box_description().transmitters_into(),
-            None,
+            Some(blend_pos),
             blend_size,
         )));
         for (socket, imgtype) in blend_op.outputs().iter() {
