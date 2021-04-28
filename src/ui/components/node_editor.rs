@@ -52,7 +52,7 @@ widget_ids! {
 
 pub struct State {
     ids: Ids,
-    add_modal: Option<Point>,
+    add_modal: Option<Box<dyn Fn(Resource<Graph>, Operator) -> Lang + Send>>,
     operators: Vec<Operator>,
 }
 
@@ -133,7 +133,17 @@ impl<'a> Widget for NodeEditor<'a> {
                         )))
                         .unwrap();
                 }
-                graph::Event::QuickCombine(node_1, node_2, true) => {}
+                graph::Event::QuickCombine(node_1, node_2, true) => {
+                    state.update(|state| {
+                        state.add_modal = Some(Box::new(move |_, op| {
+                            Lang::UserNodeEvent(UserNodeEvent::QuickCombine(
+                                op,
+                                node_1.clone(),
+                                node_2.clone(),
+                            ))
+                        }))
+                    });
+                }
                 graph::Event::QuickCombine(node_1, node_2, false) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::QuickCombine(
@@ -162,7 +172,11 @@ impl<'a> Widget for NodeEditor<'a> {
                     collection.active_element = Some(node);
                 }
                 graph::Event::AddModal(pt) => {
-                    state.update(|state| state.add_modal = Some(pt));
+                    state.update(|state| {
+                        state.add_modal = Some(Box::new(move |g, op| {
+                            Lang::UserNodeEvent(UserNodeEvent::NewNode(g, op, (pt[0], pt[1])))
+                        }))
+                    });
                 }
                 graph::Event::Extract(nodes) => {
                     self.sender
@@ -210,7 +224,7 @@ impl<'a> Widget for NodeEditor<'a> {
                 .unwrap();
         }
 
-        if let Some(insertion_pt) = state.add_modal {
+        if let Some(transmitter) = state.add_modal.as_ref() {
             match modal::Modal::canvas()
                 .wh_of(id)
                 .middle_of(id)
@@ -226,11 +240,7 @@ impl<'a> Widget for NodeEditor<'a> {
                         .set(state.ids.operator_list, ui)
                     {
                         self.sender
-                            .send(Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                                self.graphs.get_active().clone(),
-                                op.clone(),
-                                (insertion_pt[0], insertion_pt[1]),
-                            )))
+                            .send(transmitter(self.graphs.get_active().clone(), op.clone()))
                             .unwrap();
 
                         state.update(|state| state.add_modal = None);
