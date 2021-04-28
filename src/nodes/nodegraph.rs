@@ -457,11 +457,11 @@ impl NodeGraph {
 
         let node_1_idx = *self
             .indices
-            .get_by_left(&node_2.to_string())
+            .get_by_left(&node_1.to_string())
             .ok_or_else(|| NodeGraphError::NodeNotFound(node_1.to_string()))?;
         let node_2_idx = *self
             .indices
-            .get_by_left(&node_1.to_string())
+            .get_by_left(&node_2.to_string())
             .ok_or_else(|| NodeGraphError::NodeNotFound(node_2.to_string()))?;
 
         // Find first output sockets on both nodes with compatible types.
