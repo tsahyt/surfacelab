@@ -382,14 +382,20 @@ impl<'a> Widget for Graph<'a> {
                                     state.connection_draw = Some(ConnectionDraw { from, to })
                                 });
                             }
-                            node::Event::SocketRelease(socket, _, m)
+                            node::Event::SocketRelease(socket, t, m)
                                 if m.contains(input::ModifierKey::CTRL) =>
                             {
                                 if let Some(draw) = &state.connection_draw {
-                                    let pos = state.camera.inv_transform([
-                                        draw.to[0] - rect.xy()[0],
-                                        draw.to[1] - rect.xy()[1],
-                                    ]);
+                                    let pos = match t {
+                                        node::SocketType::Source => state.camera.inv_transform([
+                                            draw.to[0] - rect.xy()[0],
+                                            draw.to[1] - rect.xy()[1],
+                                        ]),
+                                        node::SocketType::Sink => state.camera.inv_transform([
+                                            draw.from[0] - rect.xy()[0],
+                                            draw.from[1] - rect.xy()[1],
+                                        ]),
+                                    };
 
                                     evs.push(Event::AddNode(
                                         pos,
