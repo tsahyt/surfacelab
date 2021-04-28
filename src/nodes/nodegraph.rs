@@ -498,7 +498,7 @@ impl NodeGraph {
                     if let Some((v, t)) = t1.unify_with(t3).take() {
                         vs.insert(v, t);
                     }
-                    t1.can_unify(t3) && t2.can_unify_with(t4, vs)
+                    t1.can_unify(t3) && t2.can_unify_with(t4, &vs)
                 }
             })
             .map(|(((a, b), c), d)| {
@@ -563,6 +563,96 @@ impl NodeGraph {
                 .node_socket(&source_socket_2),
             combine_res.node_socket(&sink_socket_2),
         )));
+
+        Ok(response)
+    }
+
+    /// Attempt to automatically connect a socket to a node, on a best guess basis.
+    pub fn auto_connect(
+        &mut self,
+        node: &str,
+        other_node: &str,
+        other_socket: &str,
+    ) -> Result<Vec<Lang>, NodeGraphError> {
+        use itertools::Itertools;
+
+        let mut response = Vec::new();
+        let node_idx = *self
+            .indices
+            .get_by_left(&node.to_string())
+            .ok_or_else(|| NodeGraphError::NodeNotFound(node.to_string()))?;
+        let other_idx = *self
+            .indices
+            .get_by_left(&other_node.to_string())
+            .ok_or_else(|| NodeGraphError::NodeNotFound(other_node.to_string()))?;
+
+        let node_data = self.graph.node_weight(node_idx).unwrap();
+
+        if let Some(sink_ty) = self
+            .graph
+            .node_weight(other_idx)
+            .unwrap()
+            .operator
+            .inputs()
+            .get(other_socket)
+        {
+            // The socket is an input socket and thus to be used a sink. First
+            // find a corresponding source on node
+            let socket = node_data
+                .operator
+                .outputs()
+                .iter()
+                .sorted_by_key(|x| x.0)
+                .find_map(|(s, t)| {
+                    if t.can_unify_with(sink_ty, &node_data.type_variables) {
+                        Some(s.clone())
+                    } else {
+                        None
+                    }
+                })
+                .ok_or(NodeGraphError::InvalidConnection)?;
+
+            // Perform connection
+            response.append(&mut self.connect_sockets(node, &socket, other_node, other_socket)?);
+            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                self.graph_resource().graph_node(node).node_socket(&socket),
+                self.graph_resource()
+                    .graph_node(other_node)
+                    .node_socket(other_socket),
+            )));
+        } else if let Some(source_ty) = self
+            .graph
+            .node_weight(other_idx)
+            .unwrap()
+            .operator
+            .outputs()
+            .get(other_socket)
+        {
+            // The socket is an output socket and thus to be used a source.
+            // First find a corresponding sink on node
+            let socket = node_data
+                .operator
+                .inputs()
+                .iter()
+                .sorted_by_key(|x| x.0)
+                .find_map(|(s, t)| {
+                    if t.can_unify_with(source_ty, &node_data.type_variables) {
+                        Some(s.clone())
+                    } else {
+                        None
+                    }
+                })
+                .ok_or(NodeGraphError::InvalidConnection)?;
+
+            // Perform connection
+            response.append(&mut self.connect_sockets(other_node, other_socket, node, &socket)?);
+            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                self.graph_resource()
+                    .graph_node(other_node)
+                    .node_socket(other_socket),
+                self.graph_resource().graph_node(node).node_socket(&socket),
+            )));
+        }
 
         Ok(response)
     }

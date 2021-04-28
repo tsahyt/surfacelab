@@ -436,7 +436,7 @@ impl OperatorType {
     pub fn can_unify_with(
         &self,
         other: &OperatorType,
-        ty_vars: HashMap<TypeVariable, ImageType>,
+        ty_vars: &HashMap<TypeVariable, ImageType>,
     ) -> bool {
         match (self, other) {
             (OperatorType::Monomorphic(t), OperatorType::Monomorphic(q)) => t == q,

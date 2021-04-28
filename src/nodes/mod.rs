@@ -268,7 +268,7 @@ impl NodeManager {
         let mut response = vec![];
 
         match event {
-            UserNodeEvent::NewNode(graph_res, op, pos, _) => {
+            UserNodeEvent::NewNode(graph_res, op, pos, socket) => {
                 let graph_name = graph_res.path().to_str().unwrap();
                 let op = self.complete_operator(op);
                 let mut update_co = None;
@@ -295,6 +295,18 @@ impl NodeManager {
                         _ => {}
                     }
 
+                    // Autoconnect with socket if specified
+                    let mut autoconnect_events = match socket {
+                        Some(socket) => graph
+                            .auto_connect(
+                                &node_id,
+                                socket.file().unwrap(),
+                                socket.fragment().unwrap(),
+                            )
+                            .unwrap(),
+                        None => Vec::new(),
+                    };
+
                     // Construct ordinary responses
                     response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
                         resource.clone(),
@@ -311,6 +323,7 @@ impl NodeManager {
                             size as u32,
                         )));
                     }
+                    response.append(&mut autoconnect_events);
                 }
 
                 // Process update event if required. This is separate for borrowing reasons
