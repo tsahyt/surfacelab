@@ -367,6 +367,7 @@ impl NodeGraph {
         Ok(response)
     }
 
+    /// Insert a node between two sockets.
     pub fn connect_between(
         &mut self,
         node: &str,
@@ -441,6 +442,86 @@ impl NodeGraph {
             self.graph_resource()
                 .graph_node(sink_node)
                 .node_socket(sink_socket),
+        )));
+
+        Ok(response)
+    }
+
+    /// Perform a quick blend operation, i.e. insert a blend node combining two
+    /// output sockets of given nodes. Sockets will be picked on a best guess
+    /// basis.
+    pub fn quick_blend(&mut self, node_1: &str, node_2: &str) -> Result<Vec<Lang>, NodeGraphError> {
+        use itertools::Itertools;
+
+        let mut response = Vec::new();
+
+        let node_1_idx = *self
+            .indices
+            .get_by_left(&node_2.to_string())
+            .ok_or_else(|| NodeGraphError::NodeNotFound(node_1.to_string()))?;
+        let node_2_idx = *self
+            .indices
+            .get_by_left(&node_1.to_string())
+            .ok_or_else(|| NodeGraphError::NodeNotFound(node_2.to_string()))?;
+
+        // Find first output sockets on both nodes with compatible types.
+        let (socket_1, socket_2) = self
+            .graph
+            .node_weight(node_1_idx)
+            .unwrap()
+            .operator
+            .outputs()
+            .iter()
+            .sorted_by_key(|x| x.0)
+            .cartesian_product(
+                self.graph
+                    .node_weight(node_2_idx)
+                    .unwrap()
+                    .operator
+                    .outputs()
+                    .iter()
+                    .sorted_by_key(|x| x.0),
+            )
+            .find(|((_, t1), (_, t2))| t1.can_unify(t2))
+            .map(|((s1, _), (s2, _))| (s1.to_string(), s2.to_string()))
+            .ok_or(NodeGraphError::InvalidConnection)?;
+
+        // Construct blend node
+        let blend_op = AtomicOperator::Blend(Blend::default());
+        let (blend_node, blend_size) = self.new_node(&blend_op.clone().into(), 1024);
+        let blend_res = self.graph_resource().graph_node(&blend_node);
+        response.push(Lang::GraphEvent(GraphEvent::NodeAdded(
+            blend_res.clone(),
+            blend_op.clone().into(),
+            blend_op.param_box_description().transmitters_into(),
+            None,
+            blend_size,
+        )));
+        for (socket, imgtype) in blend_op.outputs().iter() {
+            response.push(Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                blend_res.node_socket(socket),
+                *imgtype,
+                blend_op.external_data(),
+                blend_size,
+            )));
+        }
+
+        // Route node 1 output to background
+        response.append(&mut self.connect_sockets(node_1, &socket_1, &blend_node, "background")?);
+        response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+            self.graph_resource()
+                .graph_node(node_1)
+                .node_socket(&socket_1),
+            blend_res.node_socket("background"),
+        )));
+
+        // Route node 2 output to foreground
+        response.append(&mut self.connect_sockets(node_2, &socket_2, &blend_node, "foreground")?);
+        response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+            self.graph_resource()
+                .graph_node(node_2)
+                .node_socket(&socket_2),
+            blend_res.node_socket("foreground"),
         )));
 
         Ok(response)

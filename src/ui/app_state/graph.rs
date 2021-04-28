@@ -301,9 +301,22 @@ impl Graph {
     /// Find the node closest to the given position.
     pub fn nearest_node_at(&self, position: Point) -> Option<&Resource<Node>> {
         self.rtree
-            .nearest_neighbor(&position)
-            .and_then(|gobj| match gobj {
+            .nearest_neighbor_iter(&position)
+            .find_map(|gobj| match gobj {
                 GraphObject::Node { resource, .. } => Some(resource),
+                _ => None,
+            })
+    }
+
+    pub fn node_containing(&self, position: Point) -> Option<&Resource<Node>> {
+        use rstar::Envelope;
+
+        self.rtree
+            .nearest_neighbor_iter(&position)
+            .find_map(|gobj| match gobj {
+                GraphObject::Node { resource, .. } if gobj.envelope().contains_point(&position) => {
+                    Some(resource)
+                }
                 _ => None,
             })
     }

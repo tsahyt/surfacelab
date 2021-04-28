@@ -133,6 +133,13 @@ impl<'a> Widget for NodeEditor<'a> {
                         )))
                         .unwrap();
                 }
+                graph::Event::QuickBlend(node_1, node_2) => {
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::QuickBlend(
+                            node_1, node_2,
+                        )))
+                        .unwrap();
+                }
                 graph::Event::NodeDelete(node) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node)))

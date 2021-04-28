@@ -51,7 +51,14 @@ widget_ids! {
         selection_rect,
         floating_noodle,
         highlight_noodle,
+        blend_line,
     }
+}
+
+#[derive(Clone)]
+pub struct ConnectionDraw {
+    from: Point,
+    to: Point,
 }
 
 pub struct State {
@@ -59,6 +66,7 @@ pub struct State {
     camera: Camera,
     selection: Selection,
     connection_draw: Option<ConnectionDraw>,
+    blend_draw: Option<ConnectionDraw>,
     socket_view: Option<Resource<Socket>>,
 }
 
@@ -67,6 +75,7 @@ pub enum Event {
     NodeDrag(Resource<Node>, Point, bool),
     ConnectionDrawn(Resource<Socket>, Resource<Socket>),
     ConnectBetween(Resource<Node>, Resource<Socket>, Resource<Socket>),
+    QuickBlend(Resource<Node>, Resource<Node>),
     SocketClear(Resource<Socket>),
     NodeDelete(Resource<Node>),
     NodeEnter(Resource<Node>),
@@ -155,7 +164,7 @@ impl<'a> Graph<'a> {
 
     fn find_target_socket(&self, pos: Point) -> Option<Resource<Socket>> {
         let node = self.graph.nodes.get(self.graph.nearest_node_at(pos)?)?;
-        let socket = node.socket_at_position(pos, 64.)?;
+        let socket = node.socket_at_position(pos, 256.)?;
         Some(node.resource.node_socket(socket))
     }
 
@@ -190,6 +199,7 @@ impl<'a> Widget for Graph<'a> {
             camera: Camera::default(),
             selection: Selection::default(),
             connection_draw: None,
+            blend_draw: None,
             socket_view: None,
         }
     }
@@ -311,15 +321,55 @@ impl<'a> Widget for Graph<'a> {
                     .set(w_id, ui)
                     {
                         match ev {
-                            node::Event::NodeDragStart => {
+                            node::Event::NodeDragStart(input::ModifierKey::SHIFT) => {
+                                state.update(|state| {
+                                    let npos = ui.xy_of(w_id).unwrap();
+                                    let mpos = ui.global_input().current.mouse.xy;
+                                    state.blend_draw = Some(ConnectionDraw {
+                                        from: npos,
+                                        to: mpos,
+                                    });
+                                })
+                            }
+                            node::Event::NodeDragStart(_) => {
                                 drag_operation = Some(DragOperation::Starting);
+                            }
+                            node::Event::NodeDragMotion(delta, _tmp_snap)
+                                if state.blend_draw.is_some() =>
+                            {
+                                state.update(|state| {
+                                    let old = state.blend_draw.as_ref().unwrap();
+                                    state.blend_draw = Some(ConnectionDraw {
+                                        from: old.from,
+                                        to: [old.to[0] + delta[0], old.to[1] + delta[1]],
+                                    });
+                                })
                             }
                             node::Event::NodeDragMotion(delta, tmp_snap) => {
                                 drag_operation = Some(DragOperation::Moving(delta, tmp_snap));
                             }
-                            node::Event::NodeDragStop => {
-                                drag_operation = Some(DragOperation::Drop);
-                            }
+                            node::Event::NodeDragStop => match state.blend_draw {
+                                Some(ConnectionDraw { to, .. }) => {
+                                    let pos = state.camera.inv_transform([
+                                        to[0] - rect.xy()[0],
+                                        to[1] - rect.xy()[1],
+                                    ]);
+
+                                    if let Some(other) = self.graph.node_containing(pos) {
+                                        evs.push(Event::QuickBlend(
+                                            node.resource.clone(),
+                                            other.clone(),
+                                        ))
+                                    }
+
+                                    state.update(|state| {
+                                        state.blend_draw = None;
+                                    });
+                                }
+                                None => {
+                                    drag_operation = Some(DragOperation::Drop);
+                                }
+                            },
                             node::Event::NodeDelete => {
                                 evs.push(Event::NodeDelete(node.resource.clone()));
                             }
@@ -516,7 +566,7 @@ impl<'a> Widget for Graph<'a> {
         }
 
         // Draw floating noodle if currently drawing a connection
-        if let Some(ConnectionDraw { from, to, .. }) = &state.connection_draw {
+        if let Some(ConnectionDraw { from, to }) = &state.connection_draw {
             draw_noodle(
                 rect,
                 id,
@@ -529,6 +579,19 @@ impl<'a> Widget for Graph<'a> {
                 (style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 6.),
                 false,
             );
+        }
+
+        // Draw line if currently blend dragging
+        if let Some(ConnectionDraw { from, to }) = &state.blend_draw {
+            widget::Line::abs(*from, *to)
+                .color(color::WHITE.alpha(0.5))
+                .thickness(
+                    (style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.) * 2.,
+                )
+                .parent(id)
+                .middle()
+                .depth(1.)
+                .set(state.ids.blend_line, ui);
         }
 
         // Trigger Add Modal
@@ -834,10 +897,4 @@ impl Selection {
             selected.drag_delta = None;
         }
     }
-}
-
-#[derive(Clone)]
-pub struct ConnectionDraw {
-    from: Point,
-    to: Point,
 }

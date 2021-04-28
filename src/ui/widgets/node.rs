@@ -48,7 +48,7 @@ pub enum SocketType {
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    NodeDragStart,
+    NodeDragStart(input::ModifierKey),
     NodeDragMotion(Point, bool),
     NodeDragStop,
     NodeDelete,
@@ -385,8 +385,8 @@ impl<'a> Widget for Node<'a> {
             evs.push(Event::NodeDragMotion(drag_delta.0, drag_delta.1));
         }
 
-        for _press in ui.widget_input(id).presses().mouse().left() {
-            evs.push(Event::NodeDragStart);
+        for press in ui.widget_input(id).presses().mouse().left() {
+            evs.push(Event::NodeDragStart(press.1));
         }
 
         for _release in ui.widget_input(id).releases().mouse().left() {

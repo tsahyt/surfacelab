@@ -453,6 +453,38 @@ impl NodeManager {
                     }
                 }
             }
+            UserNodeEvent::QuickBlend(node_1, node_2) => {
+                debug_assert!(node_1.node_graph() == node_2.node_graph());
+
+                let node_1_name = node_1.file().unwrap();
+                let node_2_name = node_2.file().unwrap();
+                let graph = node_1.directory().unwrap();
+
+                if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    match graph.quick_blend(node_1_name, node_2_name) {
+                        Ok(mut res) => {
+                            response.append(&mut res);
+
+                            if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
+                                |(instructions, last_use)| {
+                                    lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
+                                        graph.graph_resource(),
+                                        instructions,
+                                        last_use,
+                                    ))
+                                },
+                            ) {
+                                response.push(instrs);
+                                response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                    self.active_graph.clone(),
+                                    Vec::new(),
+                                )));
+                            }
+                        }
+                        Err(e) => log::error!("{}", e),
+                    }
+                }
+            }
             UserNodeEvent::ParameterChange(res, data) => {
                 if let Some(graph) = self.graphs.get_mut(res.directory().unwrap()) {
                     if let Some(side_effect) = graph.parameter_change(res, data) {
