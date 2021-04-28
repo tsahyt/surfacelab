@@ -75,7 +75,7 @@ pub enum Event {
     NodeDrag(Resource<Node>, Point, bool),
     ConnectionDrawn(Resource<Socket>, Resource<Socket>),
     ConnectBetween(Resource<Node>, Resource<Socket>, Resource<Socket>),
-    QuickBlend(Resource<Node>, Resource<Node>),
+    QuickCombine(Resource<Node>, Resource<Node>),
     SocketClear(Resource<Socket>),
     NodeDelete(Resource<Node>),
     NodeEnter(Resource<Node>),
@@ -356,7 +356,7 @@ impl<'a> Widget for Graph<'a> {
                                     ]);
 
                                     if let Some(other) = self.graph.node_containing(pos) {
-                                        evs.push(Event::QuickBlend(
+                                        evs.push(Event::QuickCombine(
                                             node.resource.clone(),
                                             other.clone(),
                                         ))

@@ -447,10 +447,15 @@ impl NodeGraph {
         Ok(response)
     }
 
-    /// Perform a quick blend operation, i.e. insert a blend node combining two
+    /// Perform a quick combine operation, i.e. insert a node combining two
     /// output sockets of given nodes. Sockets will be picked on a best guess
     /// basis.
-    pub fn quick_blend(&mut self, node_1: &str, node_2: &str) -> Result<Vec<Lang>, NodeGraphError> {
+    pub fn quick_combine(
+        &mut self,
+        combine_op: &Operator,
+        node_1: &str,
+        node_2: &str,
+    ) -> Result<Vec<Lang>, NodeGraphError> {
         use itertools::Itertools;
 
         let mut response = Vec::new();

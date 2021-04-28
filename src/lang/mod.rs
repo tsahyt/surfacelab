@@ -478,8 +478,8 @@ pub enum UserNodeEvent {
     DisconnectSinkSocket(Resource<Socket>),
     /// The user requests connecting a node between two sockets
     ConnectBetweenSockets(Resource<Node>, Resource<Socket>, Resource<Socket>),
-    /// The user requests quick blending of the two given nodes
-    QuickBlend(Resource<Node>, Resource<Node>),
+    /// The user requests quick blending of the two given nodes using the given operator
+    QuickCombine(Operator, Resource<Node>, Resource<Node>),
     /// The user changes the given parameter to the supplied value.
     ParameterChange(Resource<Param>, Vec<u8>),
     /// The user repositions the node to the given coordinates.

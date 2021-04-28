@@ -453,7 +453,7 @@ impl NodeManager {
                     }
                 }
             }
-            UserNodeEvent::QuickBlend(node_1, node_2) => {
+            UserNodeEvent::QuickCombine(op, node_1, node_2) => {
                 debug_assert!(node_1.node_graph() == node_2.node_graph());
 
                 let node_1_name = node_1.file().unwrap();
@@ -461,7 +461,7 @@ impl NodeManager {
                 let graph = node_1.directory().unwrap();
 
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
-                    match graph.quick_blend(node_1_name, node_2_name) {
+                    match graph.quick_combine(&op, node_1_name, node_2_name) {
                         Ok(mut res) => {
                             let g_res = graph.graph_resource();
                             let g_instrs = graph.linearize(LinearizationMode::TopoSort);
