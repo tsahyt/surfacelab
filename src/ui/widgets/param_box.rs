@@ -99,6 +99,7 @@ pub struct ParamBox<'a, T: MessageWriter> {
     language: &'a Language,
     image_resources: &'a [(Resource<Img>, ColorSpace, bool)],
     parent_size: Option<u32>,
+    presets: bool,
 }
 
 impl<'a, T: MessageWriter> ParamBox<'a, T> {
@@ -115,6 +116,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
             language,
             image_resources: &[],
             parent_size: None,
+            presets: false,
         }
     }
 
@@ -257,6 +259,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
         pub icon_font { style.icon_font = Some(text::font::Id) }
         pub text_size { style.text_size = Some(FontSize) }
         pub text_color { style.text_color = Some(Color) }
+        pub presets { presets = bool }
     }
 }
 
@@ -270,8 +273,14 @@ pub struct Style {
     text_color: Option<Color>,
 }
 
-#[derive(Clone, Debug)]
+widget_ids! {
+    pub struct Ids {
+        preset_tools,
+    }
+}
+
 pub struct State {
+    ids: Ids,
     labels: widget::id::List,
     messages: widget::id::List,
     exposes: widget::id::List,
@@ -287,6 +296,12 @@ pub enum Event {
     ConcealParameter(String),
 }
 
+#[derive(Copy, Clone)]
+enum PresetTool {
+    Save,
+    Load,
+}
+
 impl<'a, T> Widget for ParamBox<'a, T>
 where
     T: MessageWriter,
@@ -295,8 +310,9 @@ where
     type Style = Style;
     type Event = Vec<Event>;
 
-    fn init_state(&self, _id_gen: widget::id::Generator) -> Self::State {
+    fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         State {
+            ids: Ids::new(id_gen),
             labels: widget::id::List::new(),
             messages: widget::id::List::new(),
             exposes: widget::id::List::new(),
@@ -337,6 +353,70 @@ where
         // check whether it is necessary or not.
         if self.needs_resize(state) {
             self.resize_ids(state, &mut ui.widget_id_generator());
+        }
+
+        if self.presets {
+            match super::toolbar::Toolbar::flow_right(
+                [
+                    (IconName::UPLOAD, PresetTool::Save),
+                    (IconName::DOWNLOAD, PresetTool::Load),
+                ]
+                .iter()
+                .copied(),
+            )
+            .icon_font(style.icon_font(&ui.theme))
+            .icon_color(color::WHITE)
+            .button_color(color::DARK_CHARCOAL)
+            .parent(id)
+            .h(16.)
+            .button_size(16.)
+            .icon_size(10)
+            .top_left_with_margins(16., 8.)
+            .set(state.ids.preset_tools, ui)
+            {
+                Some(PresetTool::Save) => {
+                    match FileSelection::new("Select preset file")
+                        .title("Save Preset")
+                        .mode(FileSelectionMode::Save)
+                        .show()
+                    {
+                        Ok(Some(path)) => {
+                            if let Err(e) = self.description.to_preset().write_to_file(path) {
+                                log::error!("{}", e);
+                            }
+                        }
+                        Err(e) => log::error!("Error during file selection {}", e),
+                        _ => {}
+                    }
+                }
+                Some(PresetTool::Load) => {
+                    match FileSelection::new("Select preset file")
+                        .title("Load Preset")
+                        .mode(FileSelectionMode::Open)
+                        .show()
+                    {
+                        Ok(Some(path)) => {
+                            let preset = ParameterPreset::load_from_file(path);
+                            match preset {
+                                Ok(preset) => {
+                                    ev.extend(
+                                        self.description
+                                            .load_preset(self.resource, preset)
+                                            .drain(0..)
+                                            .map(|l| Event::ChangeParameter(l)),
+                                    );
+                                }
+                                Err(e) => {
+                                    log::error!("{}", e);
+                                }
+                            }
+                        }
+                        Err(e) => log::error!("Error during file selection {}", e),
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
         }
 
         // Build widgets for each parameter

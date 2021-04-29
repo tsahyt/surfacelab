@@ -92,6 +92,7 @@ impl<'a> Widget for ParameterSection<'a> {
             .icon_font(style.icon_font(&ui.theme))
             .text_size(10)
             .text_color(color::WHITE)
+            .presets(true)
             .set(state.ids.param_box, ui)
         {
             let resp = match ev {

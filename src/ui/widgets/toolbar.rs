@@ -37,7 +37,7 @@ where
 {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
-    tools: I, // &'a [(IconName, T)],
+    tools: I,
     style: Style,
     direction: std::marker::PhantomData<D>,
 }

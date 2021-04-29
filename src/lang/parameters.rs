@@ -1,9 +1,10 @@
 use super::{resource::*, ImageType, OperatorSize, OperatorType, ShadingMode};
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use strum::VariantNames;
+use thiserror::Error;
 
 /// A trait for things that have parameters. Parameters can be set from a field
 /// descriptor and some plain data. It is up to the implementation to interpret
@@ -396,6 +397,43 @@ impl MessageWriter for SurfaceField {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParameterPreset(HashMap<String, Vec<u8>>);
+
+#[derive(Debug, Error)]
+pub enum ParameterPresetError {
+    #[error("Error during file IO")]
+    FileIO(#[from] std::io::Error),
+    #[error("Error during file serialization")]
+    Serialization(#[from] serde_cbor::Error),
+}
+
+impl ParameterPreset {
+    pub fn write_to_file<P: AsRef<Path> + std::fmt::Debug>(
+        &self,
+        path: P,
+    ) -> Result<(), ParameterPresetError> {
+        use std::fs::File;
+
+        log::info!("Saving preset to {:?}", path);
+
+        let output_file = File::create(path)?;
+        serde_cbor::to_writer(output_file, &self)?;
+
+        Ok(())
+    }
+
+    pub fn load_from_file<P: AsRef<Path> + std::fmt::Debug>(
+        path: P,
+    ) -> Result<Self, ParameterPresetError> {
+        use std::fs::File;
+
+        log::info!("Loading preset from {:?}", path);
+
+        let input_file = File::open(path)?;
+        let preset: Self = serde_cbor::from_reader(input_file)?;
+
+        Ok(preset)
+    }
+}
 
 /// A ParamBoxDescription describes a parameter box with its categories and
 /// parameters. It is a structure that can then get interpreted by the frontend
