@@ -395,7 +395,7 @@ impl MessageWriter for SurfaceField {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ParameterPreset(HashMap<String, Control>);
+pub struct ParameterPreset(HashMap<String, Vec<u8>>);
 
 /// A ParamBoxDescription describes a parameter box with its categories and
 /// parameters. It is a structure that can then get interpreted by the frontend
@@ -464,7 +464,7 @@ where
                 .flat_map(|cat| {
                     cat.parameters.iter().filter_map(|param| {
                         if param.presetable {
-                            Some((param.name.clone(), param.control.clone()))
+                            Some((param.name.clone(), param.control.value()))
                         } else {
                             None
                         }
@@ -484,9 +484,9 @@ where
         let mut events = Vec::new();
 
         for param in self.parameters_mut() {
-            if let Some(c) = preset.0.remove(&param.name) {
-                param.control = c;
-                events.push(param.transmitter.transmit(resource, &param.control.value()));
+            if let Some(data) = preset.0.remove(&param.name) {
+                param.control.set_value(&data);
+                events.push(param.transmitter.transmit(resource, &data));
             }
         }
 
