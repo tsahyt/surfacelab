@@ -67,7 +67,8 @@ trait ExposedParameters: NodeCollection {
     /// Obtain a ParamBoxDescription for the exposed parameters of this node graph
     fn param_box_description(&self, title: String) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
-            box_title: title,
+            box_title: title.clone(),
+            preset_tag: Some(title),
             categories: vec![ParamCategory {
                 name: "Exposed Parameters",
                 is_open: true,

@@ -73,6 +73,7 @@ impl OperatorParamBox for PerlinNoise {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
+            preset_tag: Some("perlin_noise".to_string()),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,

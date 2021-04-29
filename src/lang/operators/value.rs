@@ -72,6 +72,7 @@ impl OperatorParamBox for Value {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
+            preset_tag: Some("value".to_string()),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,

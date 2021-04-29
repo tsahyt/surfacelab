@@ -82,6 +82,7 @@ impl OperatorParamBox for Split {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
+            preset_tag: Some("split".to_string()),
             categories: vec![],
         }
     }
@@ -160,6 +161,7 @@ impl OperatorParamBox for Merge {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
+            preset_tag: Some("merge".to_string()),
             categories: vec![],
         }
     }

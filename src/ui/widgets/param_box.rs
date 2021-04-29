@@ -396,15 +396,11 @@ where
                         .show()
                     {
                         Ok(Some(path)) => {
-                            let preset = ParameterPreset::load_from_file(path);
-                            match preset {
-                                Ok(preset) => {
-                                    ev.extend(
-                                        self.description
-                                            .load_preset(self.resource, preset)
-                                            .drain(0..)
-                                            .map(|l| Event::ChangeParameter(l)),
-                                    );
+                            let preset_evs = ParameterPreset::load_from_file(path)
+                                .and_then(|x| self.description.load_preset(self.resource, x));
+                            match preset_evs {
+                                Ok(mut evs) => {
+                                    ev.extend(evs.drain(0..).map(|l| Event::ChangeParameter(l)));
                                 }
                                 Err(e) => {
                                     log::error!("{}", e);

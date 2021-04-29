@@ -396,7 +396,10 @@ impl MessageWriter for SurfaceField {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ParameterPreset(HashMap<String, Vec<u8>>);
+pub struct ParameterPreset {
+    tag: Option<String>,
+    preset: HashMap<String, Vec<u8>>,
+}
 
 #[derive(Debug, Error)]
 pub enum ParameterPresetError {
@@ -404,6 +407,8 @@ pub enum ParameterPresetError {
     FileIO(#[from] std::io::Error),
     #[error("Error during file serialization")]
     Serialization(#[from] serde_cbor::Error),
+    #[error("Preset tag {0} does not match required {1}")]
+    TagError(String, String),
 }
 
 impl ParameterPreset {
@@ -441,6 +446,7 @@ impl ParameterPreset {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ParamBoxDescription<T: MessageWriter> {
     pub box_title: String,
+    pub preset_tag: Option<String>,
     pub categories: Vec<ParamCategory<T>>,
 }
 
@@ -452,6 +458,7 @@ where
     pub fn empty() -> Self {
         ParamBoxDescription {
             box_title: "".to_string(),
+            preset_tag: None,
             categories: vec![],
         }
     }
@@ -496,8 +503,10 @@ where
     /// Turn the current state of this parameter box description into a
     /// parameter preset.
     pub fn to_preset(&self) -> ParameterPreset {
-        ParameterPreset(
-            self.categories
+        ParameterPreset {
+            tag: self.preset_tag.clone(),
+            preset: self
+                .categories
                 .iter()
                 .flat_map(|cat| {
                     cat.parameters.iter().filter_map(|param| {
@@ -509,7 +518,7 @@ where
                     })
                 })
                 .collect(),
-        )
+        }
     }
 
     /// Load data from a preset into this parameter box, mutating the relevant
@@ -518,17 +527,24 @@ where
         &mut self,
         resource: &T::Resource,
         mut preset: ParameterPreset,
-    ) -> Vec<super::Lang> {
+    ) -> Result<Vec<super::Lang>, ParameterPresetError> {
         let mut events = Vec::new();
 
+        if self.preset_tag != preset.tag {
+            return Err(ParameterPresetError::TagError(
+                preset.tag.unwrap_or("".to_string()),
+                self.preset_tag.as_ref().unwrap_or(&"".to_string()).clone(),
+            ));
+        }
+
         for param in self.parameters_mut() {
-            if let Some(data) = preset.0.remove(&param.name) {
+            if let Some(data) = preset.preset.remove(&param.name) {
                 param.control.set_value(&data);
                 events.push(param.transmitter.transmit(resource, &data));
             }
         }
 
-        events
+        Ok(events)
     }
 
     /// Map a function over each transmitter in the box. Essentially making the
@@ -536,6 +552,7 @@ where
     pub fn transmitters_into<Q: MessageWriter + From<T>>(mut self) -> ParamBoxDescription<Q> {
         ParamBoxDescription {
             box_title: self.box_title,
+            preset_tag: self.preset_tag,
             categories: self
                 .categories
                 .drain(0..)
@@ -570,6 +587,7 @@ where
 
     /// Merge two parameter boxes.
     pub fn merge(mut self, other: Self) -> Self {
+        self.preset_tag = self.preset_tag.or(other.preset_tag);
         self.extend_categories(other.categories.iter().cloned());
         self
     }
@@ -659,6 +677,7 @@ impl ParamBoxDescription<ResourceField> {
         }
         ParamBoxDescription {
             box_title: "node-attributes".to_string(),
+            preset_tag: None,
             categories: vec![ParamCategory {
                 name: "node",
                 is_open: true,
@@ -674,6 +693,7 @@ impl ParamBoxDescription<RenderField> {
     pub fn render_parameters() -> Self {
         Self {
             box_title: "renderer".to_string(),
+            preset_tag: Some("renderer".to_string()),
             categories: vec![
                 ParamCategory {
                     name: "renderer",
@@ -1004,6 +1024,7 @@ impl ParamBoxDescription<GraphField> {
     pub fn graph_parameters(name: &str) -> Self {
         Self {
             box_title: "graph-tab".to_string(),
+            preset_tag: None,
             categories: vec![ParamCategory {
                 name: "graph-attributes",
                 is_open: true,
@@ -1056,6 +1077,7 @@ impl ParamBoxDescription<LayerField> {
 
         Self {
             box_title: "layer".to_string(),
+            preset_tag: None,
             categories: vec![ParamCategory {
                 name: "output-channels",
                 is_open: true,
@@ -1091,6 +1113,7 @@ impl ParamBoxDescription<LayerField> {
 
         Self {
             box_title: "layer".to_string(),
+            preset_tag: None,
             categories: vec![
                 ParamCategory {
                     name: "input-channels",
@@ -1145,6 +1168,7 @@ impl ParamBoxDescription<SurfaceField> {
     pub fn surface_parameters() -> Self {
         Self {
             box_title: "surface-tab".to_string(),
+            preset_tag: None,
             categories: vec![ParamCategory {
                 name: "surface-attributes",
                 is_open: true,

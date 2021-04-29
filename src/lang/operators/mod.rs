@@ -117,6 +117,7 @@ impl OperatorParamBox for Image {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
+            preset_tag: Some("image".to_string()),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
@@ -268,6 +269,7 @@ impl OperatorParamBox for Output {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
+            preset_tag: Some("output".to_string()),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
@@ -353,6 +355,7 @@ impl OperatorParamBox for Input {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
+            preset_tag: Some("input".to_string()),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,

@@ -87,6 +87,7 @@ impl OperatorParamBox for Swizzle {
 
         ParamBoxDescription {
             box_title: self.title().to_string(),
+            preset_tag: Some("swizzle".to_string()),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,

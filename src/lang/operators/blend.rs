@@ -143,6 +143,7 @@ impl OperatorParamBox for Blend {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
+            preset_tag: Some("blend".to_string()),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
@@ -284,6 +285,7 @@ impl OperatorParamBox for BlendMasked {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
+            preset_tag: Some("blend_masked".to_string()),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
