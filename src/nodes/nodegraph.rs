@@ -484,7 +484,7 @@ impl NodeGraph {
             .clone();
 
         // Find first output sockets on both nodes with compatible types.
-        let (source_socket_1, source_socket_2, sink_socket_1, sink_socket_2) = self
+        let (source_socket_1, source_socket_2, sink_socket_1, sink_socket_2, switch_order) = self
             .graph
             .node_weight(node_1_idx)
             .unwrap()
@@ -503,26 +503,36 @@ impl NodeGraph {
             )
             .cartesian_product(combine_op.inputs().iter().sorted_by_key(|x| x.0))
             .cartesian_product(combine_op.inputs().iter().sorted_by_key(|x| x.0))
-            .find(|((((_, t1), (_, t2)), (s3, t3)), (s4, t4))| {
+            .find_map(|((((s1, t1), (s2, t2)), (s3, t3)), (s4, t4))| {
                 if s3 == s4 {
-                    false
+                    None
                 } else {
                     let mut vs1 = node_1_tyvars.clone();
                     let mut vs2 = node_2_tyvars.clone();
                     let mut vs3 = HashMap::new();
+                    let mut switch = false;
 
+                    // Unify until fixpoint
                     t1.unify_with(t3, &mut vs1, &mut vs3);
                     t2.unify_with(t4, &mut vs2, &mut vs3);
-                    t1.can_unify_with(t3, &vs1, &vs3) && t2.can_unify_with(t4, &vs2, &vs3)
+                    if !t1.can_unify_with(t3, &vs1, &vs3) && t2.can_unify_with(t4, &vs2, &vs3) {
+                        switch = true;
+                    }
+                    t1.unify_with(t3, &mut vs1, &mut vs3);
+                    t2.unify_with(t4, &mut vs2, &mut vs3);
+
+                    if t1.can_unify_with(t3, &vs1, &vs3) && t2.can_unify_with(t4, &vs2, &vs3) {
+                        Some((
+                            s1.to_string(),
+                            s2.to_string(),
+                            s3.to_string(),
+                            s4.to_string(),
+                            switch,
+                        ))
+                    } else {
+                        None
+                    }
                 }
-            })
-            .map(|(((a, b), c), d)| {
-                (
-                    a.0.to_string(),
-                    b.0.to_string(),
-                    c.0.to_string(),
-                    d.0.to_string(),
-                )
             })
             .ok_or(NodeGraphError::InvalidConnection)?;
 
@@ -551,33 +561,65 @@ impl NodeGraph {
             )));
         }
 
-        // Route node 1 output to background
-        response.append(&mut self.connect_sockets(
-            node_1,
-            &source_socket_1,
-            &combine_node,
-            &sink_socket_1,
-        )?);
-        response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-            self.graph_resource()
-                .graph_node(node_1)
-                .node_socket(&source_socket_1),
-            combine_res.node_socket(&sink_socket_1),
-        )));
+        // Depending on monomorphization order we need to process one node
+        // before the other.
+        if switch_order {
+            // Route node 2 output to foreground
+            response.append(&mut self.connect_sockets(
+                node_2,
+                &source_socket_2,
+                &combine_node,
+                &sink_socket_2,
+            )?);
+            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                self.graph_resource()
+                    .graph_node(node_2)
+                    .node_socket(&source_socket_2),
+                combine_res.node_socket(&sink_socket_2),
+            )));
 
-        // Route node 2 output to foreground
-        response.append(&mut self.connect_sockets(
-            node_2,
-            &source_socket_2,
-            &combine_node,
-            &sink_socket_2,
-        )?);
-        response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-            self.graph_resource()
-                .graph_node(node_2)
-                .node_socket(&source_socket_2),
-            combine_res.node_socket(&sink_socket_2),
-        )));
+            // Route node 1 output to background
+            response.append(&mut self.connect_sockets(
+                node_1,
+                &source_socket_1,
+                &combine_node,
+                &sink_socket_1,
+            )?);
+            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                self.graph_resource()
+                    .graph_node(node_1)
+                    .node_socket(&source_socket_1),
+                combine_res.node_socket(&sink_socket_1),
+            )));
+        } else {
+            // Route node 1 output to background
+            response.append(&mut self.connect_sockets(
+                node_1,
+                &source_socket_1,
+                &combine_node,
+                &sink_socket_1,
+            )?);
+            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                self.graph_resource()
+                    .graph_node(node_1)
+                    .node_socket(&source_socket_1),
+                combine_res.node_socket(&sink_socket_1),
+            )));
+
+            // Route node 2 output to foreground
+            response.append(&mut self.connect_sockets(
+                node_2,
+                &source_socket_2,
+                &combine_node,
+                &sink_socket_2,
+            )?);
+            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+                self.graph_resource()
+                    .graph_node(node_2)
+                    .node_socket(&source_socket_2),
+                combine_res.node_socket(&sink_socket_2),
+            )));
+        }
 
         Ok(response)
     }
