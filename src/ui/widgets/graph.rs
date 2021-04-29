@@ -592,6 +592,22 @@ impl<'a> Widget for Graph<'a> {
 
         // Draw floating noodle if currently drawing a connection
         if let Some(ConnectionDraw { from, to }) = &state.connection_draw {
+            let graph_pos = state
+                .camera
+                .inv_transform([to[0] - rect.xy()[0], to[1] - rect.xy()[1]]);
+            let over_socket = self.find_target_socket(graph_pos).is_some();
+            let adding = ui
+                .global_input()
+                .current
+                .modifiers
+                .contains(input::ModifierKey::CTRL);
+
+            let color = if over_socket || adding {
+                color::GREEN
+            } else {
+                style.edge_drag_color(&ui.theme)
+            };
+
             draw_noodle(
                 rect,
                 id,
@@ -600,7 +616,7 @@ impl<'a> Widget for Graph<'a> {
                 state.ids.floating_noodle,
                 *from,
                 *to,
-                style.edge_drag_color(&ui.theme),
+                color,
                 (style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 6.),
                 false,
             );
@@ -608,8 +624,19 @@ impl<'a> Widget for Graph<'a> {
 
         // Draw line if currently blend dragging
         if let Some(ConnectionDraw { from, to }) = &state.blend_draw {
+            let graph_pos = state
+                .camera
+                .inv_transform([to[0] - rect.xy()[0], to[1] - rect.xy()[1]]);
+            let over_node = self.graph.node_containing(graph_pos).is_some();
+
+            let color = if over_node {
+                color::GREEN
+            } else {
+                color::WHITE.alpha(0.5)
+            };
+
             widget::Line::abs(*from, *to)
-                .color(color::WHITE.alpha(0.5))
+                .color(color)
                 .thickness(
                     (style.edge_thickness(&ui.theme) * state.camera.zoom).clamp(1.5, 8.) * 2.,
                 )
