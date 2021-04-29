@@ -129,6 +129,7 @@ impl OperatorParamBox for Image {
                     },
                     expose_status: Some(ExposeStatus::Unexposed),
                     visibility: VisibilityFunction::default(),
+                    presetable: false,
                 }],
             }],
         }
@@ -283,6 +284,7 @@ impl OperatorParamBox for Output {
                     },
                     expose_status: None,
                     visibility: VisibilityFunction::default(),
+                    presetable: true,
                 }],
             }],
         }
@@ -367,6 +369,7 @@ impl OperatorParamBox for Input {
                     },
                     expose_status: None,
                     visibility: VisibilityFunction::default(),
+                    presetable: true,
                 }],
             }],
         }

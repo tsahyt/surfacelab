@@ -97,6 +97,7 @@ impl OperatorParamBox for NormalBlend {
                     },
                     expose_status: Some(ExposeStatus::Unexposed),
                     visibility: VisibilityFunction::default(),
+                    presetable: true,
                 }],
             }],
         }

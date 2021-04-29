@@ -394,6 +394,9 @@ impl MessageWriter for SurfaceField {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ParameterPreset(HashMap<String, Control>);
+
 /// A ParamBoxDescription describes a parameter box with its categories and
 /// parameters. It is a structure that can then get interpreted by the frontend
 /// in order to present the parameters to the user.
@@ -452,6 +455,44 @@ where
             .collect()
     }
 
+    /// Turn the current state of this parameter box description into a
+    /// parameter preset.
+    pub fn to_preset(&self) -> ParameterPreset {
+        ParameterPreset(
+            self.categories
+                .iter()
+                .flat_map(|cat| {
+                    cat.parameters.iter().filter_map(|param| {
+                        if param.presetable {
+                            Some((param.name.clone(), param.control.clone()))
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .collect(),
+        )
+    }
+
+    /// Load data from a preset into this parameter box, mutating the relevant
+    /// controls and creating events according to the stored transmitters.
+    pub fn load_preset(
+        &mut self,
+        resource: &T::Resource,
+        mut preset: ParameterPreset,
+    ) -> Vec<super::Lang> {
+        let mut events = Vec::new();
+
+        for param in self.parameters_mut() {
+            if let Some(c) = preset.0.remove(&param.name) {
+                param.control = c;
+                events.push(param.transmitter.transmit(resource, &param.control.value()));
+            }
+        }
+
+        events
+    }
+
     /// Map a function over each transmitter in the box. Essentially making the
     /// description a functor.
     pub fn transmitters_into<Q: MessageWriter + From<T>>(mut self) -> ParamBoxDescription<Q> {
@@ -473,6 +514,7 @@ where
                             control: param.control,
                             transmitter: param.transmitter.into(),
                             visibility: param.visibility,
+                            presetable: param.presetable,
                         })
                         .collect(),
                 })
@@ -562,6 +604,7 @@ impl ParamBoxDescription<ResourceField> {
             },
             expose_status: None,
             visibility: VisibilityFunction::default(),
+            presetable: false,
         }];
         if let Some(op_size) = size {
             parameters.push(Parameter {
@@ -573,6 +616,7 @@ impl ParamBoxDescription<ResourceField> {
                 },
                 expose_status: None,
                 visibility: VisibilityFunction::default(),
+                presetable: false,
             })
         }
         ParamBoxDescription {
@@ -608,6 +652,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::SampleCount,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "shading-mode".to_string(),
@@ -621,6 +666,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::ShadingMode,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "tone-map".to_string(),
@@ -634,6 +680,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::ToneMap,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                     ],
                 },
@@ -654,6 +701,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::ObjectType,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "displacement-amount".to_string(),
@@ -665,6 +713,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::DisplacementAmount,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "tex-scale".to_string(),
@@ -676,6 +725,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::TextureScale,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                     ],
                 },
@@ -690,6 +740,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::Hdri,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "hdri-strength".to_string(),
@@ -701,6 +752,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::EnvironmentStrength,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "hdri-blur".to_string(),
@@ -712,6 +764,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::EnvironmentBlur,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "hdri-rotation".to_string(),
@@ -723,6 +776,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::EnvironmentRotation,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "ambient-occlusion-strength".to_string(),
@@ -741,6 +795,7 @@ impl ParamBoxDescription<RenderField> {
                                     false
                                 }
                             }),
+                            presetable: false,
                         },
                         Parameter {
                             name: "fog-strength".to_string(),
@@ -752,6 +807,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::FogStrength,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                     ],
                 },
@@ -771,6 +827,7 @@ impl ParamBoxDescription<RenderField> {
                         transmitter: RenderField::Matcap,
                         expose_status: None,
                         visibility: VisibilityFunction::default(),
+                        presetable: false,
                     }],
                 },
                 ParamCategory {
@@ -796,6 +853,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::LightType,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "light-strength".to_string(),
@@ -807,6 +865,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::LightStrength,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "light-size".to_string(),
@@ -818,6 +877,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::LightSize,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "shadow".to_string(),
@@ -825,6 +885,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::Shadow,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                     ],
                 },
@@ -843,6 +904,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::FocalLength,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "aperture-size".to_string(),
@@ -854,6 +916,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::ApertureSize,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "aperture-blades".to_string(),
@@ -865,6 +928,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::ApertureBlades,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "aperture-rotation".to_string(),
@@ -876,6 +940,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::ApertureRotation,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                         Parameter {
                             name: "focal-distance".to_string(),
@@ -887,6 +952,7 @@ impl ParamBoxDescription<RenderField> {
                             transmitter: RenderField::FocalDistance,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         },
                     ],
                 },
@@ -912,6 +978,7 @@ impl ParamBoxDescription<GraphField> {
                     transmitter: GraphField::Name,
                     expose_status: None,
                     visibility: VisibilityFunction::default(),
+                    presetable: false,
                 }],
             }],
         }
@@ -972,6 +1039,7 @@ impl ParamBoxDescription<LayerField> {
                         transmitter: LayerField::ConnectOutput(chan),
                         expose_status: None,
                         visibility: VisibilityFunction::default(),
+                        presetable: false,
                     })
                     .collect(),
             }],
@@ -1005,6 +1073,7 @@ impl ParamBoxDescription<LayerField> {
                             transmitter: LayerField::ConnectInput(input.to_owned()),
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         })
                         .collect(),
                 },
@@ -1024,6 +1093,7 @@ impl ParamBoxDescription<LayerField> {
                             transmitter: LayerField::ConnectOutput(chan),
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
+                            presetable: false,
                         })
                         .collect(),
                 },
@@ -1050,6 +1120,7 @@ impl ParamBoxDescription<SurfaceField> {
                     transmitter: SurfaceField::Resize,
                     expose_status: None,
                     visibility: VisibilityFunction::default(),
+                    presetable: false,
                 }],
             }],
         }
@@ -1080,6 +1151,7 @@ pub struct Parameter<T: MessageWriter> {
     pub control: Control,
     pub expose_status: Option<ExposeStatus>,
     pub visibility: VisibilityFunction,
+    pub presetable: bool,
 }
 
 #[derive(Clone)]

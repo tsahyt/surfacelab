@@ -131,6 +131,7 @@ impl OperatorParamBox for Range {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "clamp".to_string(),
@@ -140,6 +141,7 @@ impl OperatorParamBox for Range {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "smooth-edge".to_string(),
@@ -155,6 +157,7 @@ impl OperatorParamBox for Range {
                                 false
                             }
                         }),
+                        presetable: true,
                     },
                     Parameter {
                         name: "from-min".to_string(),
@@ -166,6 +169,7 @@ impl OperatorParamBox for Range {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "from-max".to_string(),
@@ -177,6 +181,7 @@ impl OperatorParamBox for Range {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "to-min".to_string(),
@@ -188,6 +193,7 @@ impl OperatorParamBox for Range {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "to-max".to_string(),
@@ -199,6 +205,7 @@ impl OperatorParamBox for Range {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "steps".to_string(),
@@ -216,6 +223,7 @@ impl OperatorParamBox for Range {
                                 false
                             }
                         }),
+                        presetable: true,
                     },
                 ],
             }],

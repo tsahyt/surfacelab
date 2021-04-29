@@ -81,6 +81,7 @@ trait ExposedParameters: NodeCollection {
                         control: v.control.clone(),
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     })
                     .collect(),
             }],

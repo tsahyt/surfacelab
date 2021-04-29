@@ -84,6 +84,7 @@ impl OperatorParamBox for Rgb {
                     control: Control::RgbColor { value: self.rgb },
                     expose_status: Some(ExposeStatus::Unexposed),
                     visibility: VisibilityFunction::default(),
+                    presetable: true,
                 }],
             }],
         }

@@ -151,6 +151,7 @@ impl OperatorParamBox for ColorAdjust {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "mix".to_string(),
@@ -162,6 +163,7 @@ impl OperatorParamBox for ColorAdjust {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "hue".to_string(),
@@ -173,6 +175,7 @@ impl OperatorParamBox for ColorAdjust {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "saturation".to_string(),
@@ -191,6 +194,7 @@ impl OperatorParamBox for ColorAdjust {
                                 false
                             }
                         }),
+                        presetable: true,
                     },
                     Parameter {
                         name: "chroma".to_string(),
@@ -209,6 +213,7 @@ impl OperatorParamBox for ColorAdjust {
                                 false
                             }
                         }),
+                        presetable: true,
                     },
                     Parameter {
                         name: "value".to_string(),
@@ -227,6 +232,7 @@ impl OperatorParamBox for ColorAdjust {
                                 false
                             }
                         }),
+                        presetable: true,
                     },
                     Parameter {
                         name: "lightness".to_string(),
@@ -245,6 +251,7 @@ impl OperatorParamBox for ColorAdjust {
                                 false
                             }
                         }),
+                        presetable: true,
                     },
                 ],
             }],

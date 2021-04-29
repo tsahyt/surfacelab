@@ -86,6 +86,7 @@ impl OperatorParamBox for Value {
                     },
                     expose_status: Some(ExposeStatus::Unexposed),
                     visibility: VisibilityFunction::default(),
+                    presetable: true,
                 }],
             }],
         }

@@ -101,6 +101,7 @@ impl OperatorParamBox for Swizzle {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "green-channel".to_string(),
@@ -111,6 +112,7 @@ impl OperatorParamBox for Swizzle {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "blue-channel".to_string(),
@@ -121,6 +123,7 @@ impl OperatorParamBox for Swizzle {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                 ],
             }],

@@ -97,6 +97,7 @@ impl OperatorParamBox for NoiseSpread {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "spread-samples".to_string(),
@@ -108,6 +109,7 @@ impl OperatorParamBox for NoiseSpread {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                 ],
             }],

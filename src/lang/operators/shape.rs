@@ -154,6 +154,7 @@ impl OperatorParamBox for Shape {
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
                             visibility: VisibilityFunction::default(),
+                            presetable: true,
                         },
                         Parameter {
                             name: "rotation".to_string(),
@@ -165,6 +166,7 @@ impl OperatorParamBox for Shape {
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
                             visibility: VisibilityFunction::default(),
+                            presetable: true,
                         },
                         Parameter {
                             name: "mirror-x".to_string(),
@@ -174,6 +176,7 @@ impl OperatorParamBox for Shape {
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
                             visibility: VisibilityFunction::default(),
+                            presetable: true,
                         },
                         Parameter {
                             name: "mirror-y".to_string(),
@@ -183,6 +186,7 @@ impl OperatorParamBox for Shape {
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
                             visibility: VisibilityFunction::default(),
+                            presetable: true,
                         },
                     ],
                 },
@@ -203,6 +207,7 @@ impl OperatorParamBox for Shape {
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
                             visibility: VisibilityFunction::default(),
+                            presetable: true,
                         },
                         Parameter {
                             name: "shell".to_string(),
@@ -212,6 +217,7 @@ impl OperatorParamBox for Shape {
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
                             visibility: VisibilityFunction::default(),
+                            presetable: true,
                         },
                         Parameter {
                             name: "radius".to_string(),
@@ -230,6 +236,7 @@ impl OperatorParamBox for Shape {
                                     false
                                 }
                             }),
+                            presetable: true,
                         },
                         Parameter {
                             name: "width".to_string(),
@@ -248,6 +255,7 @@ impl OperatorParamBox for Shape {
                                     false
                                 }
                             }),
+                            presetable: true,
                         },
                         Parameter {
                             name: "height".to_string(),
@@ -266,6 +274,7 @@ impl OperatorParamBox for Shape {
                                     false
                                 }
                             }),
+                            presetable: true,
                         },
                         Parameter {
                             name: "sides".to_string(),
@@ -284,6 +293,7 @@ impl OperatorParamBox for Shape {
                                     false
                                 }
                             }),
+                            presetable: true,
                         },
                         Parameter {
                             name: "angle-factor".to_string(),
@@ -302,6 +312,7 @@ impl OperatorParamBox for Shape {
                                     false
                                 }
                             }),
+                            presetable: true,
                         },
                     ],
                 },

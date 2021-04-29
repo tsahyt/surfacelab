@@ -97,6 +97,7 @@ impl OperatorParamBox for Threshold {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "invert".to_string(),
@@ -106,6 +107,7 @@ impl OperatorParamBox for Threshold {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "threshold".to_string(),
@@ -117,6 +119,7 @@ impl OperatorParamBox for Threshold {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                 ],
             }],

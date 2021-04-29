@@ -130,6 +130,7 @@ impl OperatorParamBox for AmbientOcclusion {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "jitter".to_string(),
@@ -139,6 +140,7 @@ impl OperatorParamBox for AmbientOcclusion {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "radius".to_string(),
@@ -150,6 +152,7 @@ impl OperatorParamBox for AmbientOcclusion {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "falloff".to_string(),
@@ -161,6 +164,7 @@ impl OperatorParamBox for AmbientOcclusion {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "depth".to_string(),
@@ -172,6 +176,7 @@ impl OperatorParamBox for AmbientOcclusion {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "albedo".to_string(),
@@ -183,6 +188,7 @@ impl OperatorParamBox for AmbientOcclusion {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                 ],
             }],

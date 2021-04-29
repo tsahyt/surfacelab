@@ -88,6 +88,7 @@ impl OperatorParamBox for PerlinNoise {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "octaves".to_string(),
@@ -99,6 +100,7 @@ impl OperatorParamBox for PerlinNoise {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "roughness".to_string(),
@@ -110,6 +112,7 @@ impl OperatorParamBox for PerlinNoise {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                 ],
             }],

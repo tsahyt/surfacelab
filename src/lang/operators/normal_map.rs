@@ -92,6 +92,7 @@ impl OperatorParamBox for NormalMap {
                     },
                     expose_status: Some(ExposeStatus::Unexposed),
                     visibility: VisibilityFunction::default(),
+                    presetable: true,
                 }],
             }],
         }

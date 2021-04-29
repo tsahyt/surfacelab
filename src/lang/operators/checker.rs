@@ -89,6 +89,7 @@ impl OperatorParamBox for Checker {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "rotated".to_string(),
@@ -98,6 +99,7 @@ impl OperatorParamBox for Checker {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "inverted".to_string(),
@@ -107,6 +109,7 @@ impl OperatorParamBox for Checker {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                 ],
             }],

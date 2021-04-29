@@ -123,6 +123,7 @@ impl OperatorParamBox for Grayscale {
                     },
                     expose_status: Some(ExposeStatus::Unexposed),
                     visibility: VisibilityFunction::default(),
+                    presetable: true,
                 }],
             }],
         }

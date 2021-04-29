@@ -129,6 +129,7 @@ impl OperatorParamBox for Ramp {
                     },
                     expose_status: Some(ExposeStatus::Unexposed),
                     visibility: VisibilityFunction::default(),
+                    presetable: true,
                 }],
             }],
         }

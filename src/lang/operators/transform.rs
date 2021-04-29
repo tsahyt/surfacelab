@@ -151,6 +151,7 @@ impl OperatorParamBox for Transform {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "scale".to_string(),
@@ -162,6 +163,7 @@ impl OperatorParamBox for Transform {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "shear".to_string(),
@@ -173,6 +175,7 @@ impl OperatorParamBox for Transform {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "rotation".to_string(),
@@ -184,6 +187,7 @@ impl OperatorParamBox for Transform {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "tiling".to_string(),
@@ -193,6 +197,7 @@ impl OperatorParamBox for Transform {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "mirror-x".to_string(),
@@ -202,6 +207,7 @@ impl OperatorParamBox for Transform {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "mirror-y".to_string(),
@@ -211,6 +217,7 @@ impl OperatorParamBox for Transform {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                 ],
             }],

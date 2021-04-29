@@ -190,6 +190,7 @@ impl OperatorParamBox for Distance {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "border-mode".to_string(),
@@ -203,6 +204,7 @@ impl OperatorParamBox for Distance {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "clamp".to_string(),
@@ -212,6 +214,7 @@ impl OperatorParamBox for Distance {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "expand".to_string(),
@@ -221,6 +224,7 @@ impl OperatorParamBox for Distance {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "threshold".to_string(),
@@ -232,6 +236,7 @@ impl OperatorParamBox for Distance {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "extent".to_string(),
@@ -243,6 +248,7 @@ impl OperatorParamBox for Distance {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                 ],
             }],

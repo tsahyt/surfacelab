@@ -157,6 +157,7 @@ impl OperatorParamBox for Blend {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "clamp".to_string(),
@@ -166,6 +167,7 @@ impl OperatorParamBox for Blend {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "mix".to_string(),
@@ -177,6 +179,7 @@ impl OperatorParamBox for Blend {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "sharpness".to_string(),
@@ -188,6 +191,7 @@ impl OperatorParamBox for Blend {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: sharpness_visibility(),
+                        presetable: true,
                     },
                 ],
             }],
@@ -294,6 +298,7 @@ impl OperatorParamBox for BlendMasked {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "clamp".to_string(),
@@ -303,6 +308,7 @@ impl OperatorParamBox for BlendMasked {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
                     },
                     Parameter {
                         name: "sharpness".to_string(),
@@ -314,6 +320,7 @@ impl OperatorParamBox for BlendMasked {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: sharpness_visibility(),
+                        presetable: true,
                     },
                 ],
             }],
