@@ -27,7 +27,9 @@ pub struct Style {
     #[conrod(default = "3.0")]
     edge_thickness: Option<Scalar>,
     #[conrod(default = "color::DARK_RED")]
-    edge_drag_color: Option<Color>,
+    edge_drag_color_fail: Option<Color>,
+    #[conrod(default = "color::GREEN")]
+    edge_drag_color_success: Option<Color>,
     #[conrod(default = "color::LIGHT_BLUE")]
     select_rect_color: Option<Color>,
     #[conrod(default = "theme.label_color")]
@@ -171,7 +173,8 @@ impl<'a> Graph<'a> {
     builder_methods! {
         pub edge_color { style.edge_color = Some(Color) }
         pub edge_thickness { style.edge_thickness = Some(Scalar) }
-        pub edge_drag_color { style.edge_drag_color = Some(Color) }
+        pub edge_drag_color_fail { style.edge_drag_color_fail = Some(Color) }
+        pub edge_drag_color_success { style.edge_drag_color_success = Some(Color) }
         pub select_rect_color { style.select_rect_color = Some(Color) }
         pub node_title_color { style.node_title_color = Some(Color) }
         pub node_title_size { style.node_title_size = Some(FontSize) }
@@ -603,9 +606,9 @@ impl<'a> Widget for Graph<'a> {
                 .contains(input::ModifierKey::CTRL);
 
             let color = if over_socket || adding {
-                color::GREEN
+                style.edge_drag_color_success(&ui.theme)
             } else {
-                style.edge_drag_color(&ui.theme)
+                style.edge_drag_color_fail(&ui.theme)
             };
 
             draw_noodle(
@@ -630,9 +633,9 @@ impl<'a> Widget for Graph<'a> {
             let over_node = self.graph.node_containing(graph_pos).is_some();
 
             let color = if over_node {
-                color::GREEN
+                style.edge_drag_color_success(&ui.theme)
             } else {
-                color::WHITE.alpha(0.5)
+                style.edge_drag_color_fail(&ui.theme)
             };
 
             widget::Line::abs(*from, *to)
