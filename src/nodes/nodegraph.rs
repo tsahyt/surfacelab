@@ -470,6 +470,19 @@ impl NodeGraph {
             .get_by_left(&node_2.to_string())
             .ok_or_else(|| NodeGraphError::NodeNotFound(node_2.to_string()))?;
 
+        let node_1_tyvars = self
+            .graph
+            .node_weight(node_1_idx)
+            .unwrap()
+            .type_variables
+            .clone();
+        let node_2_tyvars = self
+            .graph
+            .node_weight(node_2_idx)
+            .unwrap()
+            .type_variables
+            .clone();
+
         // Find first output sockets on both nodes with compatible types.
         let (source_socket_1, source_socket_2, sink_socket_1, sink_socket_2) = self
             .graph
@@ -494,11 +507,13 @@ impl NodeGraph {
                 if s3 == s4 {
                     false
                 } else {
-                    let mut vs = HashMap::new();
-                    if let Some((v, t)) = t1.unify_with(t3).take() {
-                        vs.insert(v, t);
-                    }
-                    t1.can_unify(t3) && t2.can_unify_with(t4, &vs)
+                    let mut vs1 = node_1_tyvars.clone();
+                    let mut vs2 = node_2_tyvars.clone();
+                    let mut vs3 = HashMap::new();
+
+                    t1.unify_with(t3, &mut vs1, &mut vs3);
+                    t2.unify_with(t4, &mut vs2, &mut vs3);
+                    t1.can_unify_with(t3, &vs1, &vs3) && t2.can_unify_with(t4, &vs2, &vs3)
                 }
             })
             .map(|(((a, b), c), d)| {
@@ -587,6 +602,12 @@ impl NodeGraph {
             .ok_or_else(|| NodeGraphError::NodeNotFound(other_node.to_string()))?;
 
         let node_data = self.graph.node_weight(node_idx).unwrap();
+        let other_tyvars = self
+            .graph
+            .node_weight(other_idx)
+            .unwrap()
+            .type_variables
+            .clone();
 
         if let Some(sink_ty) = self
             .graph
@@ -604,7 +625,7 @@ impl NodeGraph {
                 .iter()
                 .sorted_by_key(|x| x.0)
                 .find_map(|(s, t)| {
-                    if t.can_unify_with(sink_ty, &node_data.type_variables) {
+                    if t.can_unify_with(sink_ty, &node_data.type_variables, &other_tyvars) {
                         Some(s.clone())
                     } else {
                         None
@@ -636,7 +657,7 @@ impl NodeGraph {
                 .iter()
                 .sorted_by_key(|x| x.0)
                 .find_map(|(s, t)| {
-                    if t.can_unify_with(source_ty, &node_data.type_variables) {
+                    if t.can_unify_with(source_ty, &node_data.type_variables, &other_tyvars) {
                         Some(s.clone())
                     } else {
                         None

@@ -430,40 +430,64 @@ impl OperatorType {
         }
     }
 
-    /// Like `can_unify` but takes a mapping of type variables to respect during
+    /// Like `can_unify` but takes mappings of type variables to respect during
     /// the process. Unification of two polymorphic types is forbidden
     /// regardless!
     pub fn can_unify_with(
         &self,
         other: &OperatorType,
-        ty_vars: &HashMap<TypeVariable, ImageType>,
+        ty_vars_self: &HashMap<TypeVariable, ImageType>,
+        ty_vars_other: &HashMap<TypeVariable, ImageType>,
     ) -> bool {
         match (self, other) {
             (OperatorType::Monomorphic(t), OperatorType::Monomorphic(q)) => t == q,
             (OperatorType::Monomorphic(t), OperatorType::Polymorphic(q)) => {
-                ty_vars.get(q).map(|z| t == z).unwrap_or(true)
+                ty_vars_other.get(q).map(|z| t == z).unwrap_or(true)
             }
             (OperatorType::Polymorphic(q), OperatorType::Monomorphic(t)) => {
-                ty_vars.get(q).map(|z| t == z).unwrap_or(true)
+                ty_vars_self.get(q).map(|z| t == z).unwrap_or(true)
             }
-            (OperatorType::Polymorphic(t), OperatorType::Polymorphic(q)) => ty_vars
+            (OperatorType::Polymorphic(t), OperatorType::Polymorphic(q)) => ty_vars_self
                 .get(t)
-                .and_then(|z| ty_vars.get(q).map(|w| w == z))
+                .and_then(|z| ty_vars_other.get(q).map(|w| w == z))
                 .unwrap_or(false),
         }
     }
 
-    /// Unify this operator type with another operator, yielding a type variable
-    /// assignment in the process.
-    ///
-    /// Will return None when unification fails *or* when no type variable
-    /// assignment is made! Use `can_unify` to check.
-    pub fn unify_with(&self, other: &OperatorType) -> Option<(TypeVariable, ImageType)> {
+    /// Unify this operator type with another operator, modifying type variable
+    /// assignments in the process if required. This will not overwrite existing
+    /// type variable assignments! If the types are incompatible as given, no
+    /// change will occur.
+    pub fn unify_with(
+        &self,
+        other: &OperatorType,
+        ty_vars_self: &mut HashMap<TypeVariable, ImageType>,
+        ty_vars_other: &mut HashMap<TypeVariable, ImageType>,
+    ) {
         match (self, other) {
-            (OperatorType::Monomorphic(_), OperatorType::Monomorphic(_)) => None,
-            (OperatorType::Monomorphic(t), OperatorType::Polymorphic(v)) => Some((*v, *t)),
-            (OperatorType::Polymorphic(v), OperatorType::Monomorphic(t)) => Some((*v, *t)),
-            (OperatorType::Polymorphic(_), OperatorType::Polymorphic(_)) => None,
+            (OperatorType::Monomorphic(_), OperatorType::Monomorphic(_)) => {}
+            (OperatorType::Monomorphic(t), OperatorType::Polymorphic(q)) => {
+                if ty_vars_other.get(q).is_none() {
+                    ty_vars_other.insert(*q, *t);
+                }
+            }
+            (OperatorType::Polymorphic(q), OperatorType::Monomorphic(t)) => {
+                if ty_vars_self.get(q).is_none() {
+                    ty_vars_self.insert(*q, *t);
+                }
+            }
+            (OperatorType::Polymorphic(t), OperatorType::Polymorphic(q)) => {
+                if ty_vars_self.get(t).is_none() {
+                    if let Some(x) = ty_vars_other.get(q) {
+                        ty_vars_self.insert(*t, *x);
+                    }
+                }
+                if ty_vars_other.get(q).is_none() {
+                    if let Some(x) = ty_vars_self.get(t) {
+                        ty_vars_other.insert(*t, *x);
+                    }
+                }
+            }
         }
     }
 }
