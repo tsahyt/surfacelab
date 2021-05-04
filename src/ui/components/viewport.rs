@@ -12,25 +12,16 @@ pub struct Viewport3D;
 pub struct Viewport2D;
 
 pub trait ViewportType {
-    fn build_params() -> ParamBoxDescription<RenderField>;
     fn renderer_type() -> RendererType;
 }
 
 impl ViewportType for Viewport3D {
-    fn build_params() -> ParamBoxDescription<RenderField> {
-        ParamBoxDescription::render_parameters()
-    }
-
     fn renderer_type() -> RendererType {
         RendererType::Renderer3D
     }
 }
 
 impl ViewportType for Viewport2D {
-    fn build_params() -> ParamBoxDescription<RenderField> {
-        ParamBoxDescription::render_parameters()
-    }
-
     fn renderer_type() -> RendererType {
         RendererType::Renderer2D
     }
@@ -126,7 +117,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     modal: bool,
-    parameters: ParamBoxDescription<RenderField>,
+    parameters: Option<ParamBoxDescription<RenderField>>,
     render_image: RenderImage,
 }
 
@@ -143,7 +134,7 @@ where
         State {
             ids: Ids::new(id_gen),
             modal: false,
-            parameters: V::build_params(),
+            parameters: None,
             render_image: RenderImage::None,
         }
     }
@@ -246,7 +237,7 @@ where
             RenderImage::Requested => {}
         }
 
-        if state.modal {
+        if state.modal && state.parameters.is_some() {
             use widgets::modal;
             use widgets::param_box;
 
@@ -258,7 +249,7 @@ where
             {
                 modal::Event::ChildEvent((_, id)) => state.update(|state| {
                     for ev in param_box::ParamBox::new(
-                        &mut state.parameters,
+                        state.parameters.as_mut().unwrap(),
                         &renderer_id,
                         &self.language,
                     )
@@ -289,7 +280,7 @@ where
 {
     fn handle_event(&mut self, ui: &mut UiCell, state: &mut widget::State<State>, event: &Lang) {
         match event {
-            Lang::RenderEvent(RenderEvent::RendererAdded(_id, view)) => {
+            Lang::RenderEvent(RenderEvent::RendererAdded(_id, view, pbox)) => {
                 if let Some(view) = view.clone().to::<B>() {
                     if let Some(img) = self.renderer.create_image(
                         view,
@@ -297,7 +288,10 @@ where
                         self.monitor_resolution.1,
                     ) {
                         let id = self.image_map.insert(img);
-                        state.update(|state| state.render_image = RenderImage::Image(id));
+                        state.update(|state| {
+                            state.render_image = RenderImage::Image(id);
+                            state.parameters = Some(pbox.clone());
+                        });
                     }
                 }
             }

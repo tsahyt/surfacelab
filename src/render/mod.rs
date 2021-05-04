@@ -125,6 +125,14 @@ where
         }
     }
 
+    /// Obtain a parameter box description from the contained renderer
+    pub fn param_box(&self) -> ParamBoxDescription<RenderField> {
+        match self {
+            ManagedRenderer::RendererSDF3D(r) => r.parameters(),
+            ManagedRenderer::Renderer2D(r) => r.parameters(),
+        }
+    }
+
     /// Resize the viewport dimensions in the renderer
     pub fn set_viewport_dimensions(&mut self, width: u32, height: u32) {
         match self {
@@ -296,10 +304,12 @@ where
                 self.resize_images(*new_size)
             }
             Lang::UIEvent(UIEvent::RendererRequested(id, monitor_size, view_size, ty)) => {
-                let view = self
+                let (view, pbox) = self
                     .new_renderer(*id, *monitor_size, *view_size, *ty)
                     .unwrap();
-                response.push(Lang::RenderEvent(RenderEvent::RendererAdded(*id, view)))
+                response.push(Lang::RenderEvent(RenderEvent::RendererAdded(
+                    *id, view, pbox,
+                )))
             }
             Lang::UIEvent(UIEvent::RendererRedraw(id)) => self.redraw(*id),
             Lang::UIEvent(UIEvent::RendererResize(id, width, height)) => {
@@ -481,7 +491,7 @@ where
         monitor_dimensions: (u32, u32),
         viewport_dimensions: (u32, u32),
         ty: RendererType,
-    ) -> Result<gpu::BrokerImageView, String> {
+    ) -> Result<(gpu::BrokerImageView, ParamBoxDescription<RenderField>), String> {
         let mut renderer = match ty {
             RendererType::Renderer3D => Renderer::new(
                 ManagedRenderer::RendererSDF3D(
@@ -513,9 +523,10 @@ where
             .frametime_ema
             .update(now.elapsed().as_micros() as f64);
         let view = gpu::BrokerImageView::from::<B>(renderer.target_view());
+        let pbox = renderer.param_box();
         self.renderers.insert(id, renderer);
 
-        Ok(view)
+        Ok((view, pbox))
     }
 
     pub fn remove(&mut self, renderer_id: RendererID) {

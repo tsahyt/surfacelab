@@ -1,8 +1,11 @@
 use super::RenderTarget;
-use crate::gpu::{basic_mem::*, load_shader};
 use crate::lang::{ImageType, ObjectType, ShadingMode, ToneMap};
 use crate::shader;
 use crate::util::HaltonSequence2D;
+use crate::{
+    gpu::{basic_mem::*, load_shader},
+    lang::{ParamBoxDescription, RenderField},
+};
 
 use gfx_hal as hal;
 use gfx_hal::prelude::*;
@@ -40,6 +43,7 @@ pub trait Renderer {
     fn uniforms(&self) -> &[u8];
     fn serialize(&self) -> Result<Vec<u8>, serde_cbor::Error>;
     fn deserialize(&mut self, data: &[u8]) -> Result<(), serde_cbor::Error>;
+    fn parameters(&self) -> ParamBoxDescription<RenderField>;
 }
 
 #[derive(Debug, Error)]
@@ -794,6 +798,10 @@ where
             complete_fence: ManuallyDrop::new(fence),
             transfer_fence: ManuallyDrop::new(tfence),
         })
+    }
+
+    pub fn parameters(&self) -> ParamBoxDescription<RenderField> {
+        self.view.parameters()
     }
 
     pub fn object_type(&self) -> Option<ObjectType> {

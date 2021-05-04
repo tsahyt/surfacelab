@@ -1,6 +1,9 @@
 use super::{GPURender, InitializationError, Renderer};
-use crate::gpu::{Backend, GPU};
 use crate::shader;
+use crate::{
+    gpu::{Backend, GPU},
+    lang::{ParamBoxDescription, RenderField},
+};
 use serde_derive::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
@@ -56,6 +59,11 @@ impl Renderer for Uniforms {
     fn deserialize(&mut self, data: &[u8]) -> Result<(), serde_cbor::Error> {
         *self = serde_cbor::de::from_slice(data)?;
         Ok(())
+    }
+
+    fn parameters(&self) -> ParamBoxDescription<RenderField> {
+        use crate::lang::parameters::*;
+        ParamBoxDescription::empty()
     }
 }
 

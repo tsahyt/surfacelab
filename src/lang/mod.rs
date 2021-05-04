@@ -1182,7 +1182,11 @@ pub enum UIEvent {
 #[derive(Debug)]
 pub enum RenderEvent {
     /// A renderer has been added with the given ID and image view.
-    RendererAdded(RendererID, crate::gpu::BrokerImageView),
+    RendererAdded(
+        RendererID,
+        crate::gpu::BrokerImageView,
+        ParamBoxDescription<RenderField>,
+    ),
     /// The specified renderer has been redrawn.
     RendererRedrawn(RendererID),
     /// Render settings have been serialized.
