@@ -190,7 +190,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "displacement-amount".to_string(),
                             control: Control::Slider {
-                                value: 0.1,
+                                value: self.displacement,
                                 min: 0.0,
                                 max: 1.0,
                             },
@@ -202,7 +202,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "tex-scale".to_string(),
                             control: Control::Slider {
-                                value: 1.0,
+                                value: self.tex_scale,
                                 min: 0.0,
                                 max: 4.0,
                             },
@@ -229,7 +229,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "hdri-strength".to_string(),
                             control: Control::Slider {
-                                value: 1.0,
+                                value: self.environment_strength,
                                 min: 0.0,
                                 max: 4.0,
                             },
@@ -241,7 +241,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "hdri-blur".to_string(),
                             control: Control::Slider {
-                                value: 3.0,
+                                value: self.environment_blur,
                                 min: 0.0,
                                 max: 6.0,
                             },
@@ -253,7 +253,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "hdri-rotation".to_string(),
                             control: Control::Slider {
-                                value: 0.0,
+                                value: self.environment_rotation,
                                 min: 0.0,
                                 max: std::f32::consts::TAU,
                             },
@@ -265,7 +265,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "ambient-occlusion-strength".to_string(),
                             control: Control::Slider {
-                                value: 0.5,
+                                value: self.ambient_occlusion_strength,
                                 min: 0.0,
                                 max: 2.0,
                             },
@@ -284,7 +284,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "fog-strength".to_string(),
                             control: Control::Slider {
-                                value: 0.0,
+                                value: self.fog_strength,
                                 min: 0.0,
                                 max: 1.0,
                             },
@@ -328,7 +328,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "light-type".to_string(),
                             control: Control::Enum {
-                                selected: 0,
+                                selected: self.light_type as usize,
                                 variants: LightType::VARIANTS
                                     .iter()
                                     .map(|x| x.to_string())
@@ -342,7 +342,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "light-strength".to_string(),
                             control: Control::Slider {
-                                value: 100.0,
+                                value: self.light_strength,
                                 min: 0.0,
                                 max: 1000.0,
                             },
@@ -354,7 +354,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "light-size".to_string(),
                             control: Control::Slider {
-                                value: 1.0,
+                                value: self.light_size,
                                 min: 0.01,
                                 max: 2.0,
                             },
@@ -365,7 +365,7 @@ impl Renderer for Uniforms {
                         },
                         Parameter {
                             name: "shadow".to_string(),
-                            control: Control::Toggle { def: true },
+                            control: Control::Toggle { def: self.shadow == 1 },
                             transmitter: RenderField::Shadow,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),
@@ -381,7 +381,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "focal-length".to_string(),
                             control: Control::Slider {
-                                value: 1.0,
+                                value: self.focal_length,
                                 min: 0.2,
                                 max: 10.0,
                             },
@@ -393,7 +393,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "aperture-size".to_string(),
                             control: Control::Slider {
-                                value: 0.0,
+                                value: self.aperture_size,
                                 min: 0.0,
                                 max: 0.1,
                             },
@@ -405,7 +405,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "aperture-blades".to_string(),
                             control: Control::DiscreteSlider {
-                                value: 6,
+                                value: self.aperture_blades,
                                 min: 0,
                                 max: 12,
                             },
@@ -417,7 +417,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "aperture-rotation".to_string(),
                             control: Control::Slider {
-                                value: 0.0,
+                                value: self.aperture_rotation,
                                 min: 0.0,
                                 max: std::f32::consts::TAU,
                             },
@@ -429,7 +429,7 @@ impl Renderer for Uniforms {
                         Parameter {
                             name: "focal-distance".to_string(),
                             control: Control::Slider {
-                                value: 5.0,
+                                value: self.focal_distance,
                                 min: 1.0,
                                 max: 40.0,
                             },
