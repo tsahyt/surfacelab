@@ -254,6 +254,30 @@ float triplanar_baked_ao(vec3 p, vec3 n, float lod) {
     return ao_front + ao_side + ao_top;
 }
 
+float alpha(vec2 p, float lod) {
+    if(has_alpha != 0) {
+        float alpha = textureLod(sampler2D(t_Alpha, s_Texture), p / tex_scale, lod).x;
+        return alpha;
+    } else {
+        return 1.;
+    }
+}
+
+float triplanar_alpha(vec3 p, vec3 n, float lod) {
+    n = pow(abs(n), vec3(4.0));
+    n = n / (n.x + n.y + n.z);
+
+    float alpha_front = alpha(-p.xy + 0.5, lod);
+    float alpha_side = alpha(-p.zy + 0.5, lod);
+    float alpha_top = alpha(-p.xz + 0.5, lod);
+
+    alpha_front *= n.b;
+    alpha_side *= n.r;
+    alpha_top *= n.g;
+
+    return alpha_front + alpha_side + alpha_top;
+}
+
 vec3 normal_map(vec2 p, float lod) {
     if(has_normal != 0) {
         vec3 n = textureLod(sampler2D(t_Normal, s_Texture), p / tex_scale, lod).rgb;
@@ -708,12 +732,29 @@ vec3 render(vec3 ro, vec3 rd) {
     vec3 col = vec3(0.);
 
     float d = rayMarch(ro, rd);
-
-    // Early termination for non-surface pixels
-    vec3 world = world(rd, environment_blur);
-    if (d == INFINITY) { return world; }
-
     vec3 p = ro + rd * d;
+    float alpha_;
+
+    switch (OBJECT_TYPE) {
+        case OBJECT_TYPE_PLANE:
+        case OBJECT_TYPE_FINITEPLANE:
+            alpha_ = alpha(plane_mapping(p), lod_by_distance(d));
+            break;
+        case OBJECT_TYPE_CUBE:
+            vec3 nprime = cubeNormal(p, 0.9);
+            alpha_ = triplanar_alpha(p / 2., nprime, lod_by_distance(d));
+            break;
+        case OBJECT_TYPE_SPHERE:
+            alpha_ = alpha(sphere_mapping(p), lod_by_distance(d));
+            break;
+        case OBJECT_TYPE_CYLINDER:
+            alpha_ = alpha(cylinder_mapping(p), lod_by_distance(d));
+            break;
+    }
+
+    // Early termination for non-surface or fully transparent pixels
+    vec3 world = world(rd, environment_blur);
+    if (d == INFINITY || alpha_ == 0.) { return world; }
 
     // Texture fetching
     vec3 albedo_;
@@ -774,6 +815,9 @@ vec3 render(vec3 ro, vec3 rd) {
 
     // View Falloff
     col = view_falloff(col, p, world);
+
+    // Alpha Blend
+    col = mix(world, col, alpha_);
 
     return col;
 }

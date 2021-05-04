@@ -115,6 +115,7 @@ pub enum ImageUse {
     Displacement,
     Metallic,
     AmbientOcclusion,
+    Alpha,
     View(ImageType),
 }
 
@@ -131,6 +132,7 @@ impl std::convert::TryFrom<crate::lang::OutputType> for ImageUse {
             OutputType::Displacement => Ok(ImageUse::Displacement),
             OutputType::Metallic => Ok(ImageUse::Metallic),
             OutputType::AmbientOcclusion => Ok(ImageUse::AmbientOcclusion),
+            OutputType::Alpha => Ok(ImageUse::Alpha),
             _ => Err("Invalid OutputType for ImageUse"),
         }
     }
@@ -221,6 +223,7 @@ impl<B: Backend> ImageSlots<B> {
             ImageUse::Normal => &mut self.normal,
             ImageUse::Metallic => &mut self.metallic,
             ImageUse::AmbientOcclusion => &mut self.ao,
+            ImageUse::Alpha => &mut self.alpha,
             ImageUse::View(..) => &mut self.view,
         };
 
@@ -1315,6 +1318,16 @@ where
                                     hal::image::Access::SHADER_READ,
                                     hal::image::Layout::ShaderReadOnlyOptimal,
                                 ),
+                            target: &*image_slots.alpha.image,
+                            families: None,
+                            range: IMG_SLOT_RANGE.clone(),
+                        },
+                        hal::memory::Barrier::Image {
+                            states: (hal::image::Access::empty(), hal::image::Layout::Undefined)
+                                ..(
+                                    hal::image::Access::SHADER_READ,
+                                    hal::image::Layout::ShaderReadOnlyOptimal,
+                                ),
                             target: &*image_slots.view.image,
                             families: None,
                             range: IMG_SLOT_RANGE.clone(),
@@ -1457,6 +1470,7 @@ where
             ImageUse::Normal => &mut image_slots.normal,
             ImageUse::Metallic => &mut image_slots.metallic,
             ImageUse::AmbientOcclusion => &mut image_slots.ao,
+            ImageUse::Alpha => &mut image_slots.alpha,
             ImageUse::View(..) => &mut image_slots.view,
         };
 
