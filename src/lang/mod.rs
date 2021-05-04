@@ -1175,7 +1175,7 @@ pub enum UIEvent {
     /// The UI requests resizing the given renderer.
     RendererResize(RendererID, u32, u32),
     /// The UI requests removal of the renderer.
-    RendererRemoved(RendererID),
+    RendererRemove(RendererID),
 }
 
 /// Events from the renderer.
@@ -1189,6 +1189,10 @@ pub enum RenderEvent {
     ),
     /// The specified renderer has been redrawn.
     RendererRedrawn(RendererID),
+    /// The specified renderer has been removed.
+    RendererRemoved(RendererID),
+    /// The specified render settings have been updated
+    SettingsUpdated(RendererID, ParamBoxDescription<RenderField>),
     /// Render settings have been serialized.
     Serialized(Vec<u8>),
 }

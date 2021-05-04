@@ -298,6 +298,9 @@ where
             Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
                 ui.needs_redraw();
             }
+            Lang::RenderEvent(RenderEvent::SettingsUpdated(_id, pbox)) => state.update(|state| {
+                state.parameters = Some(pbox.clone());
+            }),
             _ => {}
         }
     }

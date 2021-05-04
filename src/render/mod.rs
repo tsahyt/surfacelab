@@ -300,6 +300,9 @@ where
                     .next()?
                     .deserialize_settings(data)
                     .ok()?;
+                let id = *self.renderers.keys().next()?;
+                let pbox = self.parameter_box(id)?;
+                response.push(Lang::RenderEvent(RenderEvent::SettingsUpdated(id, pbox)));
             }
             Lang::UserIOEvent(UserIOEvent::SaveSurface(..)) => {
                 let data = self.renderers.values().next()?.serialize_settings().ok()?;
@@ -309,9 +312,10 @@ where
                 self.resize_images(*new_size)
             }
             Lang::UIEvent(UIEvent::RendererRequested(id, monitor_size, view_size, ty)) => {
-                let (view, pbox) = self
+                let view = self
                     .new_renderer(*id, *monitor_size, *view_size, *ty)
-                    .unwrap();
+                    .ok()?;
+                let pbox = self.parameter_box(*id)?;
                 response.push(Lang::RenderEvent(RenderEvent::RendererAdded(
                     *id, view, pbox,
                 )))
@@ -321,7 +325,10 @@ where
                 self.resize(*id, *width, *height);
                 self.redraw(*id);
             }
-            Lang::UIEvent(UIEvent::RendererRemoved(id)) => self.remove(*id),
+            Lang::UIEvent(UIEvent::RendererRemove(id)) => {
+                self.remove(*id);
+                response.push(Lang::RenderEvent(RenderEvent::RendererRemoved(*id)));
+            }
             Lang::ComputeEvent(ComputeEvent::OutputReady(
                 _res,
                 img,
@@ -496,9 +503,7 @@ where
         monitor_dimensions: (u32, u32),
         viewport_dimensions: (u32, u32),
         ty: RendererType,
-    ) -> Result<(gpu::BrokerImageView, ParamBoxDescription<RenderField>), String> {
-        use crate::lang::parameters::*;
-
+    ) -> Result<gpu::BrokerImageView, String> {
         let mut renderer = match ty {
             RendererType::Renderer3D => Renderer::new(
                 ManagedRenderer::RendererSDF3D(
@@ -530,6 +535,15 @@ where
             .frametime_ema
             .update(now.elapsed().as_micros() as f64);
         let view = gpu::BrokerImageView::from::<B>(renderer.target_view());
+        self.renderers.insert(id, renderer);
+
+        Ok(view)
+    }
+
+    pub fn parameter_box(&self, id: RendererID) -> Option<ParamBoxDescription<RenderField>> {
+        use crate::lang::parameters::*;
+
+        let renderer = self.renderers.get(&id)?;
         let mut pbox = renderer.param_box();
         pbox = pbox.merge_deep(ParamBoxDescription {
             box_title: "renderer".to_string(),
@@ -553,9 +567,7 @@ where
             }],
         });
 
-        self.renderers.insert(id, renderer);
-
-        Ok((view, pbox))
+        Some(pbox)
     }
 
     pub fn remove(&mut self, renderer_id: RendererID) {
