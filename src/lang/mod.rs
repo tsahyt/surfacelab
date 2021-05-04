@@ -385,6 +385,7 @@ impl From<OutputType> for ImageType {
             OutputType::Displacement => ImageType::Grayscale,
             OutputType::Metallic => ImageType::Grayscale,
             OutputType::AmbientOcclusion => ImageType::Grayscale,
+            OutputType::Alpha => ImageType::Grayscale,
             OutputType::Value => ImageType::Grayscale,
             OutputType::Rgb => ImageType::Rgb,
         }
@@ -399,6 +400,7 @@ impl From<MaterialChannel> for ImageType {
             MaterialChannel::Normal => ImageType::Rgb,
             MaterialChannel::Roughness => ImageType::Grayscale,
             MaterialChannel::Metallic => ImageType::Grayscale,
+            MaterialChannel::Alpha => ImageType::Grayscale,
         }
     }
 }
@@ -1116,6 +1118,7 @@ pub enum MaterialChannel {
     Normal,
     Roughness,
     Metallic,
+    Alpha,
 }
 
 impl MaterialChannel {
@@ -1134,6 +1137,7 @@ impl MaterialChannel {
             MaterialChannel::Metallic => "met",
             MaterialChannel::Normal => "nor",
             MaterialChannel::Displacement => "dsp",
+            MaterialChannel::Alpha => "alpha",
         }
     }
 }

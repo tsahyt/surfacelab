@@ -144,6 +144,7 @@ pub struct ImageSlots<B: Backend> {
     displacement: ImageSlot<B>,
     metallic: ImageSlot<B>,
     ao: ImageSlot<B>,
+    alpha: ImageSlot<B>,
     view: ImageSlot<B>,
     view_type: ImageType,
 }
@@ -187,6 +188,12 @@ impl<B: Backend> ImageSlots<B> {
                 image_size,
             )?,
             ao: ImageSlot::new(
+                device,
+                memory_properties,
+                hal::format::Format::R16Sfloat,
+                image_size,
+            )?,
+            alpha: ImageSlot::new(
                 device,
                 memory_properties,
                 hal::format::Format::R16Sfloat,
@@ -237,6 +244,7 @@ impl<B: Backend> ImageSlots<B> {
             displacement: from_bool(self.displacement.occupied),
             metallic: from_bool(self.metallic.occupied),
             ao: from_bool(self.ao.occupied),
+            alpha: from_bool(self.alpha.occupied),
             view: from_bool(self.view.occupied),
             view_type: match self.view_type {
                 ImageType::Grayscale => 0,
@@ -285,6 +293,7 @@ pub struct SlotOccupancy {
     displacement: u32,
     metallic: u32,
     ao: u32,
+    alpha: u32,
     view: u32,
     view_type: u32,
 }
@@ -614,6 +623,17 @@ where
                     },
                     hal::pso::DescriptorSetLayoutBinding {
                         binding: 13,
+                        ty: hal::pso::DescriptorType::Image {
+                            ty: hal::pso::ImageDescriptorType::Sampled {
+                                with_sampler: false,
+                            },
+                        },
+                        count: 1,
+                        stage_flags: hal::pso::ShaderStageFlags::FRAGMENT,
+                        immutable_samplers: false,
+                    },
+                    hal::pso::DescriptorSetLayoutBinding {
+                        binding: 14,
                         ty: hal::pso::DescriptorType::Image {
                             ty: hal::pso::ImageDescriptorType::Sampled {
                                 with_sampler: false,
@@ -1138,7 +1158,7 @@ where
                             binding: 9,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                &*image_slots.view.view,
+                                &*image_slots.alpha.view,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -1147,7 +1167,7 @@ where
                             binding: 10,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                self.environment_maps.irradiance_view(),
+                                &*image_slots.view.view,
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -1156,7 +1176,7 @@ where
                             binding: 11,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                self.environment_maps.spec_view(),
+                                self.environment_maps.irradiance_view(),
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
@@ -1165,13 +1185,22 @@ where
                             binding: 12,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
-                                self.environment_maps.brdf_lut_view(),
+                                self.environment_maps.spec_view(),
                                 hal::image::Layout::ShaderReadOnlyOptimal,
                             )),
                         },
                         DescriptorSetWrite {
                             set: &self.main_descriptor_set,
                             binding: 13,
+                            array_offset: 0,
+                            descriptors: Some(Descriptor::Image(
+                                self.environment_maps.brdf_lut_view(),
+                                hal::image::Layout::ShaderReadOnlyOptimal,
+                            )),
+                        },
+                        DescriptorSetWrite {
+                            set: &self.main_descriptor_set,
+                            binding: 14,
                             array_offset: 0,
                             descriptors: Some(Descriptor::Image(
                                 self.matcap.matcap_view(),

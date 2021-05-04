@@ -690,6 +690,7 @@ where
                     MaterialChannel::Normal => 2,
                     MaterialChannel::Roughness => 3,
                     MaterialChannel::Metallic => 4,
+                    MaterialChannel::Alpha => 5,
                 })
             });
             r.reset_sampling();

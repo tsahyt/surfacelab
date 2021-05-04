@@ -25,6 +25,7 @@ layout(set = 0, binding = 1) uniform Occupancy {
     uint has_displacement;
     uint has_metallic;
     uint has_ao;
+    uint has_alpha;
     uint has_view;
 };
 
@@ -71,11 +72,12 @@ layout(set = 0, binding = 5) uniform texture2D t_Normal;
 layout(set = 0, binding = 6) uniform texture2D t_Roughness;
 layout(set = 0, binding = 7) uniform texture2D t_Metallic;
 layout(set = 0, binding = 8) uniform texture2D t_AO;
-layout(set = 0, binding = 9) uniform texture2D t_View;
-layout(set = 0, binding = 10) uniform textureCube irradiance_map;
-layout(set = 0, binding = 11) uniform textureCube environment_map;
-layout(set = 0, binding = 12) uniform texture2D brdf_lut;
-layout(set = 0, binding = 13) uniform texture2D matcap;
+layout(set = 0, binding = 9) uniform texture2D t_Alpha;
+layout(set = 0, binding = 10) uniform texture2D t_View;
+layout(set = 0, binding = 11) uniform textureCube irradiance_map;
+layout(set = 0, binding = 12) uniform textureCube environment_map;
+layout(set = 0, binding = 13) uniform texture2D brdf_lut;
+layout(set = 0, binding = 14) uniform texture2D matcap;
 
 const float PI = 3.141592654;
 

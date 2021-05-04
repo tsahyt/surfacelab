@@ -161,6 +161,7 @@ pub enum OutputType {
     Displacement,
     Metallic,
     AmbientOcclusion,
+    Alpha,
     Value,
     Rgb,
 }
@@ -191,6 +192,7 @@ impl From<MaterialChannel> for OutputType {
             MaterialChannel::Normal => OutputType::Normal,
             MaterialChannel::Roughness => OutputType::Roughness,
             MaterialChannel::Metallic => OutputType::Metallic,
+            MaterialChannel::Alpha => OutputType::Alpha,
         }
     }
 }

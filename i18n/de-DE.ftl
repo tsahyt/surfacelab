@@ -197,6 +197,7 @@ normal = Normale
 displacement = Verschiebung
 metallic = Metallisch
 ambient-occlusion = Umgebungsverdeckung
+alpha = Alpha
 rgb = RGB
 
 srgb = sRGB
