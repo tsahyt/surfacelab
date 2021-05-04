@@ -801,7 +801,93 @@ where
     }
 
     pub fn parameters(&self) -> ParamBoxDescription<RenderField> {
-        self.view.parameters()
+        use crate::lang::parameters::*;
+        use strum::VariantNames;
+
+        self.view.parameters().merge_deep(ParamBoxDescription {
+            box_title: "renderer".to_string(),
+            preset_tag: Some("renderer".to_string()),
+            categories: vec![
+                ParamCategory {
+                    name: "renderer",
+                    is_open: true,
+                    visibility: VisibilityFunction::default(),
+                    parameters: vec![
+                        Parameter {
+                            name: "shading-mode".to_string(),
+                            control: Control::Enum {
+                                selected: self.shading_mode.unwrap_or(ShadingMode::Pbr) as usize,
+                                variants: ShadingMode::VARIANTS
+                                    .iter()
+                                    .map(|x| x.to_string())
+                                    .collect(),
+                            },
+                            transmitter: RenderField::ShadingMode,
+                            expose_status: None,
+                            visibility: VisibilityFunction::default(),
+                            presetable: false,
+                        },
+                        Parameter {
+                            name: "tone-map".to_string(),
+                            control: Control::Enum {
+                                selected: self.tone_map as usize,
+                                variants: ToneMap::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                            },
+                            transmitter: RenderField::ToneMap,
+                            expose_status: None,
+                            visibility: VisibilityFunction::default(),
+                            presetable: false,
+                        },
+                    ],
+                },
+                ParamCategory {
+                    name: "geometry",
+                    is_open: true,
+                    visibility: VisibilityFunction::default(),
+                    parameters: vec![Parameter {
+                        name: "object-type".to_string(),
+                        control: Control::Enum {
+                            selected: self.object_type.unwrap_or(ObjectType::Cube) as usize,
+                            variants: ObjectType::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        transmitter: RenderField::ObjectType,
+                        expose_status: None,
+                        visibility: VisibilityFunction::default(),
+                        presetable: false,
+                    }],
+                },
+                ParamCategory {
+                    name: "environment",
+                    is_open: true,
+                    visibility: VisibilityFunction::default(),
+                    parameters: vec![Parameter {
+                        name: "hdri-file".to_string(),
+                        control: Control::File {
+                            selected: Some(self.environment_maps.path().clone()),
+                        },
+                        transmitter: RenderField::Hdri,
+                        expose_status: None,
+                        visibility: VisibilityFunction::default(),
+                        presetable: false,
+                    }],
+                },
+                ParamCategory {
+                    name: "matcap",
+                    is_open: true,
+                    visibility: VisibilityFunction::default(),
+                    parameters: vec![Parameter {
+                        name: "matcap-file".to_string(),
+                        control: Control::File {
+                            selected: Some(self.matcap.path().clone()),
+                        },
+                        transmitter: RenderField::Matcap,
+                        expose_status: None,
+                        visibility: VisibilityFunction::default(),
+                        presetable: false,
+                    }],
+                },
+            ],
+        })
     }
 
     pub fn object_type(&self) -> Option<ObjectType> {

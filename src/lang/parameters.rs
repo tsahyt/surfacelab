@@ -584,10 +584,33 @@ where
         self.categories.extend(cats);
     }
 
-    /// Merge two parameter boxes.
-    pub fn merge(mut self, other: Self) -> Self {
+    /// Merge two parameter boxes by extending categories. If the two boxes have
+    /// the same categories, these categories will occur twice!
+    pub fn merge(mut self, mut other: Self) -> Self {
         self.preset_tag = self.preset_tag.or(other.preset_tag);
-        self.extend_categories(other.categories.iter().cloned());
+        self.extend_categories(other.categories.drain(0..));
+        self
+    }
+
+    /// Merge two parameter boxes by merging their categories. If the two boxes
+    /// share a category, this category from the first box will be extended by
+    /// the category from the second box.
+    pub fn merge_deep(mut self, mut other: Self) -> Self {
+        self.preset_tag = self.preset_tag.or(other.preset_tag);
+
+        let (mut shared, mut rest): (Vec<_>, Vec<_>) = other
+            .categories
+            .drain(0..)
+            .partition(|c| self.categories.iter().find(|s| s.name == c.name).is_some());
+
+        for cat in self.categories.iter_mut() {
+            if let Some(other_cat) = shared.iter_mut().find(|c| c.name == cat.name) {
+                cat.extend(other_cat.parameters.drain(0..));
+            }
+        }
+
+        self.extend_categories(rest.drain(0..));
+
         self
     }
 
@@ -864,6 +887,15 @@ pub struct ParamCategory<T: MessageWriter> {
     pub is_open: bool,
     pub visibility: VisibilityFunction,
     pub parameters: Vec<Parameter<T>>,
+}
+
+impl<T: MessageWriter> ParamCategory<T> {
+    pub fn extend<I>(&mut self, other: I)
+    where
+        I: IntoIterator<Item = Parameter<T>>,
+    {
+        self.parameters.extend(other)
+    }
 }
 
 /// Tracks whether a parameter is exposed or not.

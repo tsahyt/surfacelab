@@ -125,68 +125,13 @@ impl Renderer for Uniforms {
                     name: "renderer",
                     is_open: true,
                     visibility: VisibilityFunction::default(),
-                    parameters: vec![
-                        Parameter {
-                            name: "sample-count".to_string(),
-                            control: Control::DiscreteSlider {
-                                value: 24,
-                                min: 0,
-                                max: 256,
-                            },
-                            transmitter: RenderField::SampleCount,
-                            expose_status: None,
-                            visibility: VisibilityFunction::default(),
-                            presetable: false,
-                        },
-                        Parameter {
-                            name: "shading-mode".to_string(),
-                            control: Control::Enum {
-                                selected: 0,
-                                variants: super::ShadingMode::VARIANTS
-                                    .iter()
-                                    .map(|x| x.to_string())
-                                    .collect(),
-                            },
-                            transmitter: RenderField::ShadingMode,
-                            expose_status: None,
-                            visibility: VisibilityFunction::default(),
-                            presetable: false,
-                        },
-                        Parameter {
-                            name: "tone-map".to_string(),
-                            control: Control::Enum {
-                                selected: 0,
-                                variants: super::ToneMap::VARIANTS
-                                    .iter()
-                                    .map(|x| x.to_string())
-                                    .collect(),
-                            },
-                            transmitter: RenderField::ToneMap,
-                            expose_status: None,
-                            visibility: VisibilityFunction::default(),
-                            presetable: false,
-                        },
-                    ],
+                    parameters: vec![],
                 },
                 ParamCategory {
                     name: "geometry",
                     is_open: true,
                     visibility: VisibilityFunction::default(),
                     parameters: vec![
-                        Parameter {
-                            name: "object-type".to_string(),
-                            control: Control::Enum {
-                                selected: 2,
-                                variants: super::ObjectType::VARIANTS
-                                    .iter()
-                                    .map(|x| x.to_string())
-                                    .collect(),
-                            },
-                            transmitter: RenderField::ObjectType,
-                            expose_status: None,
-                            visibility: VisibilityFunction::default(),
-                            presetable: false,
-                        },
                         Parameter {
                             name: "displacement-amount".to_string(),
                             control: Control::Slider {
@@ -218,14 +163,6 @@ impl Renderer for Uniforms {
                     is_open: true,
                     visibility: VisibilityFunction::default(),
                     parameters: vec![
-                        Parameter {
-                            name: "hdri-file".to_string(),
-                            control: Control::File { selected: None },
-                            transmitter: RenderField::Hdri,
-                            expose_status: None,
-                            visibility: VisibilityFunction::default(),
-                            presetable: false,
-                        },
                         Parameter {
                             name: "hdri-strength".to_string(),
                             control: Control::Slider {
@@ -305,14 +242,7 @@ impl Renderer for Uniforms {
                             false
                         }
                     }),
-                    parameters: vec![Parameter {
-                        name: "matcap-file".to_string(),
-                        control: Control::File { selected: None },
-                        transmitter: RenderField::Matcap,
-                        expose_status: None,
-                        visibility: VisibilityFunction::default(),
-                        presetable: false,
-                    }],
+                    parameters: vec![],
                 },
                 ParamCategory {
                     name: "light",
@@ -365,7 +295,9 @@ impl Renderer for Uniforms {
                         },
                         Parameter {
                             name: "shadow".to_string(),
-                            control: Control::Toggle { def: self.shadow == 1 },
+                            control: Control::Toggle {
+                                def: self.shadow == 1,
+                            },
                             transmitter: RenderField::Shadow,
                             expose_status: None,
                             visibility: VisibilityFunction::default(),

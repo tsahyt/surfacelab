@@ -199,6 +199,11 @@ impl<B: gpu::Backend> Renderer<B> {
         self.samples_to_go = self.max_samples;
         self.gpu.reset_sampling();
     }
+
+    /// Get the renderer's max samples.
+    fn max_samples(&self) -> usize {
+        self.max_samples
+    }
 }
 
 /// Renderers dereference to their inner managed renderers
@@ -492,6 +497,8 @@ where
         viewport_dimensions: (u32, u32),
         ty: RendererType,
     ) -> Result<(gpu::BrokerImageView, ParamBoxDescription<RenderField>), String> {
+        use crate::lang::parameters::*;
+
         let mut renderer = match ty {
             RendererType::Renderer3D => Renderer::new(
                 ManagedRenderer::RendererSDF3D(
@@ -523,7 +530,29 @@ where
             .frametime_ema
             .update(now.elapsed().as_micros() as f64);
         let view = gpu::BrokerImageView::from::<B>(renderer.target_view());
-        let pbox = renderer.param_box();
+        let mut pbox = renderer.param_box();
+        pbox = pbox.merge_deep(ParamBoxDescription {
+            box_title: "renderer".to_string(),
+            preset_tag: Some("renderer".to_string()),
+            categories: vec![ParamCategory {
+                name: "renderer",
+                is_open: true,
+                visibility: VisibilityFunction::default(),
+                parameters: vec![Parameter {
+                    name: "sample-count".to_string(),
+                    control: Control::DiscreteSlider {
+                        value: renderer.max_samples() as i32,
+                        min: 0,
+                        max: 256,
+                    },
+                    transmitter: RenderField::SampleCount,
+                    expose_status: None,
+                    visibility: VisibilityFunction::default(),
+                    presetable: false,
+                }],
+            }],
+        });
+
         self.renderers.insert(id, renderer);
 
         Ok((view, pbox))
