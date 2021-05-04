@@ -678,12 +678,30 @@ vec3 view_falloff(vec3 col, vec3 p, vec3 world) {
 
 vec3 render_matcap(vec3 ro, vec3 rd, vec3 look_at) {
     float d = rayMarch(ro, rd);
+    vec3 p = ro + rd * d;
+
+    float alpha_;
+
+    switch (OBJECT_TYPE) {
+        case OBJECT_TYPE_PLANE:
+        case OBJECT_TYPE_FINITEPLANE:
+            alpha_ = alpha(plane_mapping(p), lod_by_distance(d));
+            break;
+        case OBJECT_TYPE_CUBE:
+            vec3 nprime = cubeNormal(p, 0.9);
+            alpha_ = triplanar_alpha(p / 2., nprime, lod_by_distance(d));
+            break;
+        case OBJECT_TYPE_SPHERE:
+            alpha_ = alpha(sphere_mapping(p), lod_by_distance(d));
+            break;
+        case OBJECT_TYPE_CYLINDER:
+            alpha_ = alpha(cylinder_mapping(p), lod_by_distance(d));
+            break;
+    }
 
     // Early termination for non-surface pixels
     vec3 world = world(rd, environment_blur);
-    if (d == INFINITY) { return world; }
-
-    vec3 p = ro + rd * d;
+    if (d == INFINITY || alpha_ == 0.) { return world; }
 
     vec3 normal_;
 
@@ -724,6 +742,9 @@ vec3 render_matcap(vec3 ro, vec3 rd, vec3 look_at) {
 
     // View Falloff
     col = view_falloff(col, p, world);
+
+    // Alpha Blend
+    col = mix(world, col, alpha_);
 
     return col;
 }
