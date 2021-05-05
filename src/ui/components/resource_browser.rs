@@ -72,6 +72,7 @@ pub enum CollectionTool {
     NewGraph,
     NewStack,
     NewImage,
+    NewSvg,
 }
 
 impl<'a> Widget for ResourceBrowser<'a> {
@@ -113,6 +114,7 @@ impl<'a> Widget for ResourceBrowser<'a> {
                 (IconName::GRAPH, CollectionTool::NewGraph),
                 (IconName::LAYERS, CollectionTool::NewStack),
                 (IconName::IMAGE, CollectionTool::NewImage),
+                (IconName::SVG, CollectionTool::NewSvg),
             ]
             .iter()
             .copied(),
@@ -142,6 +144,22 @@ impl<'a> Widget for ResourceBrowser<'a> {
                     Ok(Some(path)) => self
                         .sender
                         .send(Lang::UserIOEvent(UserIOEvent::AddImageResource(
+                            std::path::PathBuf::from(path),
+                        )))
+                        .unwrap(),
+                    Err(e) => log::error!("Error during file selection {}", e),
+                    _ => {}
+                }
+            }
+            Some(CollectionTool::NewSvg) => {
+                match FileSelection::new(self.language.get_message("svg-select"))
+                    .title(self.language.get_message("svg-select-title"))
+                    .mode(FileSelectionMode::Open)
+                    .show()
+                {
+                    Ok(Some(path)) => self
+                        .sender
+                        .send(Lang::UserIOEvent(UserIOEvent::AddSvgResource(
                             std::path::PathBuf::from(path),
                         )))
                         .unwrap(),
@@ -258,6 +276,14 @@ impl<'a> Widget for ResourceBrowser<'a> {
                         if let Some(ResourceCategory::Image) = data.category() {
                             self.sender
                                 .send(Lang::UserIOEvent(UserIOEvent::PackImage(image.clone())))
+                                .unwrap()
+                        }
+                    }
+
+                    if let Some(svg) = data.get_resource() {
+                        if let Some(ResourceCategory::Svg) = data.category() {
+                            self.sender
+                                .send(Lang::UserIOEvent(UserIOEvent::PackSvg(svg.clone())))
                                 .unwrap()
                         }
                     }

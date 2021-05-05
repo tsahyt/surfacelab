@@ -268,6 +268,24 @@ impl Externals {
     pub fn iter_images(&self) -> impl Iterator<Item = (&Resource<Img>, &ExternalData<ImageData>)> {
         self.images.iter()
     }
+
+    /// Get a reference to an external SVG if it exists.
+    pub fn get_svg(&self, resource: &Resource<Svg>) -> Option<&ExternalData<SvgData>> {
+        self.svgs.get(resource)
+    }
+
+    /// Get a mutable reference to an external SVG if it exists.
+    pub fn get_svg_mut(&mut self, resource: &Resource<Svg>) -> Option<&mut ExternalData<SvgData>> {
+        self.svgs.get_mut(resource)
+    }
+
+    /// Insert a new SVG
+    pub fn insert_svg<P: AsRef<Path> + Debug>(&mut self, resource: Resource<Svg>, path: P) {
+        self.svgs.insert(
+            resource,
+            ExternalData::new(PathBuf::from(path.as_ref()), SvgData {}),
+        );
+    }
 }
 
 impl Default for Externals {

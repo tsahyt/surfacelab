@@ -103,7 +103,7 @@ fn resource_context_actions(
 ) -> Box<dyn Iterator<Item = (IconName, ContextAction)>> {
     match item {
         ResourceTreeItem::ResourceInfo(i) => match i.category() {
-            ResourceCategory::Image => Box::new(
+            ResourceCategory::Image | ResourceCategory::Svg => Box::new(
                 vec![
                     (IconName::TRASH, ContextAction::Delete),
                     (

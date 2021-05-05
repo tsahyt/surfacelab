@@ -351,6 +351,17 @@ where
                             .unwrap();
                     }
                 }
+                UserIOEvent::AddSvgResource(path) => {
+                    sender.send(self.add_svg_resource(path)).unwrap();
+                }
+                UserIOEvent::PackSvg(res) => {
+                    if let Some(svg) = self.external_data.get_svg_mut(res) {
+                        svg.pack().ok()?;
+                        sender
+                            .send(Lang::ComputeEvent(ComputeEvent::SvgPacked(res.clone())))
+                            .unwrap();
+                    }
+                }
                 _ => {}
             },
             Lang::IOEvent(IOEvent::ComputeDataLoaded(data)) => {
@@ -442,5 +453,15 @@ where
             ColorSpace::Srgb,
             false,
         ))
+    }
+
+    /// Adds an (unpacked) SVG resource from a path.
+    fn add_svg_resource<P: AsRef<Path> + std::fmt::Debug>(&mut self, path: P) -> Lang {
+        let res = Resource::svg(path.as_ref().file_name().unwrap());
+        log::debug!("Adding SVG resource from path {:?} as {}", path, res);
+
+        self.external_data.insert_svg(res.clone(), path);
+
+        Lang::ComputeEvent(ComputeEvent::SvgResourceAdded(res, false))
     }
 }

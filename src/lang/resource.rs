@@ -237,6 +237,17 @@ impl Resource<Img> {
     }
 }
 
+impl Resource<Svg> {
+    /// Constructor for an SVG resource
+    pub fn svg<P: AsRef<Path>>(path: P) -> Self {
+        Self {
+            resource_path: path.as_ref().to_path_buf(),
+            fragment: None,
+            phantom_data: std::marker::PhantomData,
+        }
+    }
+}
+
 impl<S> Resource<S> {
     /// Get the fragment part of a resource if it exists
     pub fn fragment(&self) -> Option<&str> {
