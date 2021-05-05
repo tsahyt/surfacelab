@@ -150,7 +150,7 @@ vec3 irradiance(vec3 d) {
 float heightfield(vec2 p, float lod) {
     if(has_displacement != 0) {
         float h = textureLod(sampler2D(t_Displ, s_Texture), p / tex_scale, lod).r;
-        return h - TEX_MIDLEVEL;
+        return clamp(h, 0., 1.) - TEX_MIDLEVEL;
     } else {
         return 0.;
     }
