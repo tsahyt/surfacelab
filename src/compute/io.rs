@@ -1,11 +1,9 @@
+use super::external::*;
 use crate::lang::*;
 use serde_derive::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use super::{
-    interpreter::{ExternalImage, ExternalImageSource},
-    ComputeManager,
-};
+use super::ComputeManager;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum StoredExternalImage {
@@ -34,24 +32,17 @@ where
     pub fn serialize(&self) -> Result<Vec<u8>, serde_cbor::Error> {
         log::info!("Serializing compute data");
         let stored_images = self
-            .external_images
-            .iter()
+            .external_data
+            .iter_images()
             .map(|(res, ext_image)| {
-                let color_space = ext_image.color_space;
-                match &ext_image.source {
-                    ExternalImageSource::Packed(img) => {
-                        let mut cursor = std::io::Cursor::new(Vec::new());
-                        img.write_to(&mut cursor, image::ImageOutputFormat::Png)
-                            .expect("Error writing packed image");
-                        let data = cursor.into_inner();
-
-                        StoredExternalImage::Packed {
-                            resource: res.clone(),
-                            data,
-                            color_space,
-                        }
-                    }
-                    ExternalImageSource::Disk(path) => StoredExternalImage::Disk {
+                let color_space = ext_image.satellite().color_space();
+                match &ext_image.source() {
+                    Source::Packed(data) => StoredExternalImage::Packed {
+                        resource: res.clone(),
+                        data: data.clone(),
+                        color_space,
+                    },
+                    Source::Disk(path) => StoredExternalImage::Disk {
                         resource: res.clone(),
                         path: path.clone(),
                         color_space,
@@ -83,8 +74,8 @@ where
                         color_space,
                         false,
                     )));
-                    self.external_images
-                        .insert(resource, ExternalImage::new(path, color_space));
+                    self.external_data
+                        .insert_image(resource, path, color_space);
                 }
                 StoredExternalImage::Packed {
                     resource,
@@ -96,10 +87,8 @@ where
                         color_space,
                         true,
                     )));
-                    let image = image::load_from_memory_with_format(&data, image::ImageFormat::Png)
-                        .expect("Error deserializing packed image");
-                    self.external_images
-                        .insert(resource, ExternalImage::new_packed(image, color_space));
+                    self.external_data
+                        .insert_image_packed(resource, data, color_space);
                 }
             }
         }

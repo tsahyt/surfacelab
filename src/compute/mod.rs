@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub mod export;
+pub mod external;
 pub mod interpreter;
 pub mod io;
 pub mod shaders;
@@ -76,8 +77,8 @@ struct ComputeManager<B: gpu::Backend> {
     /// Shader library containing all known shaders
     shader_library: shaders::ShaderLibrary<B>,
 
-    /// Storage for external images
-    external_images: HashMap<Resource<Img>, interpreter::ExternalImage>,
+    /// Storage for external data
+    external_data: external::Externals,
 
     /// Last known linearization of a graph
     linearizations: HashMap<Resource<Graph>, Rc<Linearization>>,
@@ -105,7 +106,7 @@ where
             gpu,
             sockets: Sockets::new(),
             shader_library,
-            external_images: HashMap::new(),
+            external_data: external::Externals::new(),
             linearizations: HashMap::new(),
             seq: 0,
             parent_size: 1024,
@@ -332,8 +333,8 @@ where
                     sender.send(self.add_image_resource(path)).unwrap();
                 }
                 UserIOEvent::SetImageColorSpace(res, cs) => {
-                    if let Some(img) = self.external_images.get_mut(res) {
-                        img.color_space(*cs);
+                    if let Some(img) = self.external_data.get_image_mut(res) {
+                        img.update_satellite(|i| i.set_color_space(*cs));
                         sender
                             .send(Lang::ComputeEvent(ComputeEvent::ImageColorSpaceSet(
                                 res.clone(),
@@ -343,7 +344,7 @@ where
                     }
                 }
                 UserIOEvent::PackImage(res) => {
-                    if let Some(img) = self.external_images.get_mut(res) {
+                    if let Some(img) = self.external_data.get_image_mut(res) {
                         img.pack().ok()?;
                         sender
                             .send(Lang::ComputeEvent(ComputeEvent::ImagePacked(res.clone())))
@@ -390,7 +391,7 @@ where
         match interpreter::Interpreter::new(
             &mut self.gpu,
             &mut self.sockets,
-            &mut self.external_images,
+            &mut self.external_data,
             &self.shader_library,
             &self.linearizations,
             self.seq,
@@ -425,7 +426,7 @@ where
     /// Reset the entire compute manager. This clears all socket data and external images.
     pub fn reset(&mut self) {
         self.sockets.clear(&mut self.gpu);
-        self.external_images.clear();
+        self.external_data.clear();
     }
 
     /// Adds an (unpacked) image resource from a path.
@@ -433,13 +434,8 @@ where
         let res = Resource::image(path.as_ref().file_name().unwrap());
         log::debug!("Adding image resource from path {:?} as {}", path, res);
 
-        self.external_images.insert(
-            res.clone(),
-            interpreter::ExternalImage::new(
-                std::path::PathBuf::from(path.as_ref()),
-                ColorSpace::Srgb,
-            ),
-        );
+        self.external_data
+            .insert_image(res.clone(), path, ColorSpace::Srgb);
 
         Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(
             res,

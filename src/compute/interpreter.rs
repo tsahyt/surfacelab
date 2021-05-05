@@ -1,10 +1,9 @@
-use super::export::*;
 use super::shaders::{BufferDim, IntermediateDataDescription, ShaderLibrary, Uniforms};
 use super::sockets::*;
 use super::Linearization;
-use crate::{gpu, lang::*, util::*};
+use super::{export::*, external::*};
+use crate::{gpu, lang::*};
 use itertools::Itertools;
-use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::rc::Rc;
@@ -12,97 +11,6 @@ use std::time::Instant;
 use thiserror::Error;
 
 const STACK_LIMIT: usize = 256;
-
-pub enum ExternalImageSource {
-    Packed(image::DynamicImage),
-    Disk(std::path::PathBuf),
-}
-
-impl ExternalImageSource {
-    pub fn get_image(&self) -> Result<Cow<image::DynamicImage>, image::ImageError> {
-        match self {
-            Self::Packed(img) => Ok(Cow::Borrowed(img)),
-            Self::Disk(path) => Ok(Cow::Owned(image::open(path)?)),
-        }
-    }
-
-    pub fn pack(&mut self) -> Result<(), image::ImageError> {
-        match self {
-            Self::Packed(..) => Ok(()),
-            Self::Disk(path) => {
-                *self = Self::Packed(image::open(path)?);
-                Ok(())
-            }
-        }
-    }
-}
-
-pub struct ExternalImage {
-    pub color_space: ColorSpace,
-    buffer: Option<Vec<u16>>,
-    dim: u32,
-    pub source: ExternalImageSource,
-}
-
-impl ExternalImage {
-    /// Create a new external image from disk with a given color space.
-    pub fn new(path: std::path::PathBuf, color_space: ColorSpace) -> Self {
-        Self {
-            color_space,
-            buffer: None,
-            dim: 0,
-            source: ExternalImageSource::Disk(path),
-        }
-    }
-
-    pub fn new_packed(image: image::DynamicImage, color_space: ColorSpace) -> Self {
-        Self {
-            color_space,
-            buffer: None,
-            dim: 0,
-            source: ExternalImageSource::Packed(image),
-        }
-    }
-
-    /// Ensure that the internal buffer is filled, according to the set source
-    /// and color space. Returns a reference to the buffer on success, as well
-    /// as the image size.
-    pub fn ensure_loaded(&mut self) -> Result<(&[u16], u32), image::ImageError> {
-        use image::GenericImageView;
-
-        if self.buffer.is_none() {
-            let img = self.source.get_image()?;
-            let dim = img.width().max(img.height());
-
-            let buf = match self.color_space {
-                ColorSpace::Srgb => load_rgba16f_image(&img, f16_from_u8_gamma, f16_from_u16_gamma),
-                ColorSpace::Linear => load_rgba16f_image(&img, f16_from_u8, f16_from_u16),
-            };
-
-            self.buffer = Some(buf);
-            self.dim = dim;
-        }
-
-        Ok((self.buffer.as_ref().unwrap(), self.dim))
-    }
-
-    /// Reset the color space of this image. This will free the internal buffer.
-    pub fn color_space(&mut self, color_space: ColorSpace) {
-        if color_space != self.color_space {
-            self.buffer = None;
-            self.color_space = color_space;
-        }
-    }
-
-    /// Determines whether this image requires (re)loading
-    pub fn needs_loading(&self) -> bool {
-        self.buffer.is_none()
-    }
-
-    pub fn pack(&mut self) -> Result<(), image::ImageError> {
-        self.source.pack()
-    }
-}
 
 #[derive(Debug, Error)]
 pub enum InterpretationError {
@@ -115,9 +23,12 @@ pub enum InterpretationError {
     /// An error occured during pipeline execution,
     #[error("An error occured during pipeline execution")]
     PipelineError(#[from] gpu::PipelineError),
-    /// Failed to read external image
-    #[error("Failed to read external image")]
-    ExternalImageRead,
+    /// An error occured relating to external data,
+    #[error("Failed to read external data")]
+    ExternalDataError(#[from] ExternalError),
+    /// External data not found
+    #[error("External data not found")]
+    ExternalDataNotFound,
     /// Hard OOM, i.e. OOM after cleanup
     #[error("Hard out of memory condition encountered")]
     HardOOM,
@@ -127,9 +38,6 @@ pub enum InterpretationError {
     /// Failed to find shader for operator
     #[error("Missing shader in shader library")]
     MissingShader,
-    /// Failed to load external image
-    #[error("Failed to load external image")]
-    ExternalImage(#[from] image::ImageError),
     /// Stack size limit reached during execution, likely the result of recursion
     #[error("Stack limit reached")]
     StackLimitReached,
@@ -216,8 +124,8 @@ pub struct Interpreter<'a, B: gpu::Backend> {
     /// Reference to socket data
     sockets: &'a mut Sockets<B>,
 
-    /// Storage for external images
-    external_images: &'a mut HashMap<Resource<Img>, ExternalImage>,
+    /// Storage for external data
+    external_data: &'a mut Externals,
 
     /// Reference to shader library
     shader_library: &'a ShaderLibrary<B>,
@@ -245,7 +153,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
     pub fn new(
         gpu: &'a mut gpu::compute::GPUCompute<B>,
         sockets: &'a mut Sockets<B>,
-        external_images: &'a mut HashMap<Resource<Img>, ExternalImage>,
+        external_data: &'a mut Externals,
         shader_library: &'a ShaderLibrary<B>,
         linearizations: &'a HashMap<Resource<Graph>, Rc<Linearization>>,
         seq: u64,
@@ -271,7 +179,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         Ok(Self {
             gpu,
             sockets,
-            external_images,
+            external_data,
             shader_library,
             linearizations,
             seq: seq + 1,
@@ -488,8 +396,8 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
         if !self.sockets.group_requires_recompute(res, parameter_hash)
             && !self
-                .external_images
-                .get(image_res)
+                .external_data
+                .get_image(image_res)
                 .map(|i| i.needs_loading())
                 .unwrap_or(false)
         {
@@ -498,7 +406,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         }
 
         let start_time = Instant::now();
-        if let Some(external_image) = self.external_images.get_mut(image_res) {
+        if let Some(external_image) = self.external_data.get_image_mut(image_res) {
             log::trace!("Uploading image to GPU");
             let (buf, size) = external_image.ensure_loaded()?;
             let socket_res = res.node_socket("image");
@@ -524,7 +432,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         } else {
             self.sockets
                 .update_timing_data(res, start_time.elapsed().as_secs_f64());
-            Err(InterpretationError::ExternalImageRead)
+            Err(InterpretationError::ExternalDataNotFound)
         }
     }
 
@@ -915,7 +823,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                     AtomicOperator::Image(Image { resource }) => {
                         self.execute_image(
                             res,
-                            &resource.ok_or(InterpretationError::ExternalImageRead)?,
+                            &resource.ok_or(InterpretationError::ExternalDataNotFound)?,
                         )?;
                     }
                     AtomicOperator::Input(..) => {
@@ -1010,100 +918,4 @@ where
 
         response
     }
-}
-
-/// Load an image from a dynamic image into a u16 buffer with f16 encoding, using the
-/// provided sampling functions. Those functions can be used to alter each
-/// sample if necessary, e.g. to perform gamma correction.
-fn load_rgba16f_image<F: Fn(u8) -> u16, G: Fn(u16) -> u16>(
-    img: &image::DynamicImage,
-    sample8: F,
-    sample16: G,
-) -> Vec<u16> {
-    use image::GenericImageView;
-
-    let mut loaded: Vec<u16> = Vec::with_capacity(img.width() as usize * img.height() as usize * 4);
-
-    match img {
-        image::DynamicImage::ImageLuma8(buf) => {
-            for image::Luma([l]) in buf.pixels() {
-                let x = sample8(*l);
-                loaded.push(x);
-                loaded.push(x);
-                loaded.push(x);
-                loaded.push(255);
-            }
-        }
-        image::DynamicImage::ImageLumaA8(buf) => {
-            for image::LumaA([l, a]) in buf.pixels() {
-                let x = sample8(*l);
-                loaded.push(x);
-                loaded.push(x);
-                loaded.push(x);
-                loaded.push(sample8(*a));
-            }
-        }
-        image::DynamicImage::ImageRgb8(buf) => {
-            for image::Rgb([r, g, b]) in buf.pixels() {
-                loaded.push(sample8(*r));
-                loaded.push(sample8(*g));
-                loaded.push(sample8(*b));
-                loaded.push(sample8(255));
-            }
-        }
-        image::DynamicImage::ImageRgba8(buf) => {
-            for sample in buf.as_flat_samples().as_slice().iter() {
-                loaded.push(sample8(*sample))
-            }
-        }
-        image::DynamicImage::ImageBgr8(buf) => {
-            for image::Bgr([b, g, r]) in buf.pixels() {
-                loaded.push(sample8(*r));
-                loaded.push(sample8(*g));
-                loaded.push(sample8(*b));
-                loaded.push(sample8(255));
-            }
-        }
-        image::DynamicImage::ImageBgra8(buf) => {
-            for image::Bgra([b, g, r, a]) in buf.pixels() {
-                loaded.push(sample8(*r));
-                loaded.push(sample8(*g));
-                loaded.push(sample8(*b));
-                loaded.push(sample8(*a));
-            }
-        }
-        image::DynamicImage::ImageLuma16(buf) => {
-            for image::Luma([l]) in buf.pixels() {
-                let x = sample16(*l);
-                loaded.push(x);
-                loaded.push(x);
-                loaded.push(x);
-                loaded.push(255);
-            }
-        }
-        image::DynamicImage::ImageLumaA16(buf) => {
-            for image::LumaA([l, a]) in buf.pixels() {
-                let x = sample16(*l);
-                loaded.push(x);
-                loaded.push(x);
-                loaded.push(x);
-                loaded.push(sample16(*a));
-            }
-        }
-        image::DynamicImage::ImageRgb16(buf) => {
-            for image::Rgb([r, g, b]) in buf.pixels() {
-                loaded.push(sample16(*r));
-                loaded.push(sample16(*g));
-                loaded.push(sample16(*b));
-                loaded.push(sample16(255));
-            }
-        }
-        image::DynamicImage::ImageRgba16(buf) => {
-            for sample in buf.as_flat_samples().as_slice().iter() {
-                loaded.push(sample16(*sample))
-            }
-        }
-    }
-
-    loaded
 }
