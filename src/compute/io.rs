@@ -74,8 +74,7 @@ where
                         color_space,
                         false,
                     )));
-                    self.external_data
-                        .insert_image(resource, path, color_space);
+                    self.external_data.insert_image(resource, path, color_space);
                 }
                 StoredExternalImage::Packed {
                     resource,

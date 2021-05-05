@@ -2540,6 +2540,7 @@ dependencies = [
  "strum_macros",
  "surfacelab-derive",
  "thiserror",
+ "tiny-skia",
  "toml",
  "unic-langid",
  "usvg",

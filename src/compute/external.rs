@@ -49,14 +49,15 @@ impl Source {
 
 pub trait External {
     type Extra;
+    type BufferElement;
 
-    fn fill_buffer(&mut self, raw: &[u8]) -> Result<Vec<u16>, ExternalError>;
+    fn fill_buffer(&mut self, raw: &[u8]) -> Result<Vec<Self::BufferElement>, ExternalError>;
     fn get_extra(&self) -> Self::Extra;
 }
 
 pub struct ExternalData<T: External> {
     /// Aligned buffer
-    buffer: Option<Vec<u16>>,
+    buffer: Option<Vec<T::BufferElement>>,
 
     /// Source of the data
     source: Source,
@@ -111,7 +112,7 @@ where
 
     /// Ensure that the internal buffer is filled, according to the satellite
     /// data. Returns a reference to the buffer on success.
-    pub fn ensure_loaded(&mut self) -> Result<(&[u16], T::Extra), ExternalError> {
+    pub fn ensure_loaded(&mut self) -> Result<(&[T::BufferElement], T::Extra), ExternalError> {
         if self.buffer.is_none() {
             let raw = self.source.get_data()?;
             let buf = self.satellite.fill_buffer(&raw)?;
@@ -151,6 +152,7 @@ impl ImageData {
 
 impl External for ImageData {
     type Extra = u32;
+    type BufferElement = u16;
 
     fn fill_buffer(&mut self, raw: &[u8]) -> Result<Vec<u16>, ExternalError> {
         use image::GenericImageView;
@@ -182,9 +184,15 @@ pub struct SvgData {}
 
 impl External for SvgData {
     type Extra = ();
+    type BufferElement = u8;
 
-    fn fill_buffer(&mut self, _raw: &[u8]) -> Result<Vec<u16>, ExternalError> {
-        todo!()
+    fn fill_buffer(&mut self, raw: &[u8]) -> Result<Vec<u8>, ExternalError> {
+        let tree = usvg::Tree::from_data(raw, &usvg::Options::default()).unwrap();
+        let pixmap_size = tree.svg_node().size.to_screen_size();
+        let mut pixmap = tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
+        resvg::render(&tree, usvg::FitTo::Original, pixmap.as_mut());
+
+        Ok(pixmap.take())
     }
 
     fn get_extra(&self) -> Self::Extra {}
