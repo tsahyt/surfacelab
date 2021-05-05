@@ -157,6 +157,7 @@ pub struct ResourceTree {
     root: id_tree::NodeId,
     graphs: id_tree::NodeId,
     images: id_tree::NodeId,
+    svgs: id_tree::NodeId,
 }
 
 impl Default for ResourceTree {
@@ -184,12 +185,19 @@ impl Default for ResourceTree {
                 UnderNode(&root),
             )
             .unwrap();
+        let svgs = t
+            .insert(
+                Node::new(ResourceTreeItem::Folder("SVGs".to_owned(), true)),
+                UnderNode(&root),
+            )
+            .unwrap();
 
         ResourceTree {
             tree: t,
             root,
             graphs,
             images,
+            svgs,
         }
     }
 }
@@ -202,6 +210,11 @@ impl ResourceTree {
 
     pub fn clear_images(&mut self) {
         self.remove_children_of(&self.images.clone())
+            .expect("Malformed resource tree");
+    }
+
+    pub fn clear_svgs(&mut self) {
+        self.remove_children_of(&self.svgs.clone())
             .expect("Malformed resource tree");
     }
 
@@ -263,9 +276,13 @@ impl ResourceTree {
         }
     }
 
-    pub fn insert_image(&mut self, image: r::Resource<r::Img>) {
+    pub fn insert_image(&mut self, image: r::Resource<r::Img>, packed: bool) {
         let rinfo = ResourceInfo {
-            location_status: Some(LocationStatus::Linked),
+            location_status: if packed {
+                Some(LocationStatus::Packed)
+            } else {
+                Some(LocationStatus::Linked)
+            },
             ..ResourceInfo::new(image, ResourceCategory::Image)
         };
 
@@ -273,6 +290,24 @@ impl ResourceTree {
             .insert(
                 id_tree::Node::new(ResourceTreeItem::ResourceInfo(rinfo)),
                 id_tree::InsertBehavior::UnderNode(&self.images),
+            )
+            .unwrap();
+    }
+
+    pub fn insert_svg(&mut self, image: r::Resource<r::Svg>, packed: bool) {
+        let rinfo = ResourceInfo {
+            location_status: if packed {
+                Some(LocationStatus::Packed)
+            } else {
+                Some(LocationStatus::Linked)
+            },
+            ..ResourceInfo::new(image, ResourceCategory::Svg)
+        };
+
+        self.tree
+            .insert(
+                id_tree::Node::new(ResourceTreeItem::ResourceInfo(rinfo)),
+                id_tree::InsertBehavior::UnderNode(&self.svgs),
             )
             .unwrap();
     }

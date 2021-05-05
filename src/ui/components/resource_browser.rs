@@ -296,7 +296,10 @@ impl<'a> ResourceBrowser<'a> {
                 state.update(|state| state.tree.clear_graphs());
             }
             Lang::ComputeEvent(ComputeEvent::Cleared) => {
-                state.update(|state| state.tree.clear_images());
+                state.update(|state| {
+                    state.tree.clear_images();
+                    state.tree.clear_svgs();
+                });
             }
             Lang::LayersEvent(LayersEvent::LayersAdded(res, _, _)) => {
                 state.update(|state| state.tree.insert_stack(res.clone()));
@@ -310,10 +313,18 @@ impl<'a> ResourceBrowser<'a> {
             Lang::LayersEvent(LayersEvent::LayerRemoved(res)) => {
                 state.update(|state| state.tree.remove_resource_and_children(res));
             }
-            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, _, _)) => {
-                state.update(|state| state.tree.insert_image(res.clone()));
+            Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, _, packed)) => {
+                state.update(|state| state.tree.insert_image(res.clone(), *packed));
             }
             Lang::ComputeEvent(ComputeEvent::ImagePacked(res)) => state.update(|state| {
+                state
+                    .tree
+                    .set_location_status(res, Some(LocationStatus::Packed))
+            }),
+            Lang::ComputeEvent(ComputeEvent::SvgResourceAdded(res, packed)) => {
+                state.update(|state| state.tree.insert_svg(res.clone(), *packed));
+            }
+            Lang::ComputeEvent(ComputeEvent::SvgPacked(res)) => state.update(|state| {
                 state
                     .tree
                     .set_location_status(res, Some(LocationStatus::Packed))
