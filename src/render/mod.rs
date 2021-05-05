@@ -290,8 +290,8 @@ where
                 self.reset_all();
                 response.extend(
                     self.renderers
-                        .keys()
-                        .map(|r| Lang::RenderEvent(RenderEvent::RendererRedrawn(*r))),
+                        .drain()
+                        .map(|(i, _)| Lang::RenderEvent(RenderEvent::RendererRemoved(i))),
                 );
             }
             Lang::IOEvent(IOEvent::RenderSettingsLoaded(data)) => {
@@ -588,8 +588,6 @@ where
         for output in gpu::render::ImageUse::iter() {
             self.disconnect_image(output);
         }
-
-        self.force_redraw_all();
     }
 
     pub fn redraw(&mut self, renderer_id: RendererID) {
