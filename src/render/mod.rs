@@ -312,10 +312,20 @@ where
                 self.resize_images(*new_size)
             }
             Lang::UIEvent(UIEvent::RendererRequested(id, monitor_size, view_size, ty)) => {
-                let view = self
-                    .new_renderer(*id, *monitor_size, *view_size, *ty)
-                    .ok()?;
-                let pbox = self.parameter_box(*id)?;
+                let (view, pbox) = match self.renderers.get(id) {
+                    Some(r) => {
+                        let view = gpu::BrokerImageView::from::<B>(r.target_view());
+                        let pbox = self.parameter_box(*id)?;
+                        (view, pbox)
+                    }
+                    None => {
+                        let view = self
+                            .new_renderer(*id, *monitor_size, *view_size, *ty)
+                            .ok()?;
+                        let pbox = self.parameter_box(*id)?;
+                        (view, pbox)
+                    }
+                };
                 response.push(Lang::RenderEvent(RenderEvent::RendererAdded(
                     *id, view, pbox,
                 )))
