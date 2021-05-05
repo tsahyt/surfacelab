@@ -10,6 +10,7 @@ pub enum ResourceCategory {
     Layer,
     Socket,
     Image,
+    Svg,
     Input,
     Output,
 }

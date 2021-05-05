@@ -37,6 +37,7 @@ impl IconName {
     pub const SEARCH: IconName = IconName("\u{f0a49}");
     pub const UPLOAD: IconName = IconName("\u{f0552}");
     pub const DOWNLOAD: IconName = IconName("\u{f01da}");
+    pub const SVG: IconName = IconName("\u{f0721}");
 }
 
 /// Create an icon button, i.e. a button with an icon in it. Uses an IconName

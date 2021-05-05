@@ -90,6 +90,7 @@ fn resource_icon(item: &ResourceTreeItem) -> IconName {
             ResourceCategory::Layer => IconName::NODE,
             ResourceCategory::Socket => IconName::SOCKET,
             ResourceCategory::Image => IconName::IMAGE,
+            ResourceCategory::Svg => IconName::SVG,
             ResourceCategory::Input => IconName::INPUT,
             ResourceCategory::Output => IconName::OUTPUT,
         },
