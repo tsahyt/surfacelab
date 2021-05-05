@@ -175,6 +175,7 @@ fn control_name(control: &Control) -> &'static str {
         Control::Enum { .. } => "list",
         Control::File { .. } => "file",
         Control::ImageResource { .. } => "img",
+        Control::SvgResource { .. } => "svg",
         Control::Ramp { .. } => "ramp",
         Control::Toggle { .. } => "bool",
         Control::Entry { .. } => "text",

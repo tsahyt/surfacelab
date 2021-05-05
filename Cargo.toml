@@ -44,6 +44,8 @@ smallvec = "1.4.2"
 statrs = "0.13.0"
 strum = "0.18.0"
 strum_macros = "0.18.0"
+resvg = "0.14.1"
+usvg = "0.14.1"
 surfacelab-derive = { version = "0.1.0", path = "surfacelab-derive" }
 thiserror = "1.0.23"
 toml = "0.5.8"

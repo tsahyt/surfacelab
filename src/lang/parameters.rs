@@ -993,6 +993,9 @@ pub enum Control {
     ImageResource {
         selected: Option<Resource<Img>>,
     },
+    SvgResource {
+        selected: Option<Resource<Svg>>,
+    },
     Ramp {
         steps: Vec<[f32; 4]>,
     },
@@ -1024,6 +1027,7 @@ impl Control {
             Self::Enum { selected, .. } => (*selected as u32).to_data(),
             Self::File { selected } => selected.to_data(),
             Self::ImageResource { selected } => selected.to_data(),
+            Self::SvgResource { selected } => selected.to_data(),
             Self::Ramp { steps } => steps.to_data(),
             Self::Toggle { def } => (if *def { 1_u32 } else { 0_u32 }).to_data(),
             Self::Entry { value } => value.to_data(),
@@ -1045,6 +1049,7 @@ impl Control {
             Self::ImageResource { selected } => {
                 *selected = <Option<Resource<Img>>>::from_data(data)
             }
+            Self::SvgResource { selected } => *selected = <Option<Resource<Svg>>>::from_data(data),
             Self::Ramp { steps } => *steps = <Vec<[f32; 4]>>::from_data(data),
             Self::Toggle { def } => *def = u32::from_data(data) == 1,
             Self::Entry { value } => *value = String::from_data(data),

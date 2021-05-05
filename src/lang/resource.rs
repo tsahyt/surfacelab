@@ -62,6 +62,15 @@ impl Scheme for Img {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Svg;
+
+impl Scheme for Svg {
+    fn scheme_name() -> &'static str {
+        "svg"
+    }
+}
+
 /// A Resource describes some thing in the system. This could refer to a node,
 /// or to a graph/layer stack, or to a socket of a node, or to a parameter, etc.
 ///

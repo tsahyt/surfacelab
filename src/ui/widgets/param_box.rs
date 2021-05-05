@@ -24,6 +24,7 @@ pub struct ControlCounts {
     pub enums: usize,
     pub files: usize,
     pub imgs: usize,
+    pub svgs: usize,
     pub ramps: usize,
     pub toggles: usize,
     pub entries: usize,
@@ -65,6 +66,9 @@ where
                 }
                 Control::ImageResource { .. } => {
                     counts.imgs += 1;
+                }
+                Control::SvgResource { .. } => {
+                    counts.svgs += 1;
                 }
                 Control::Ramp { .. } => {
                     counts.ramps += 1;
@@ -722,6 +726,7 @@ where
 
                         control_idx.imgs += 1;
                     }
+                    Control::SvgResource { .. } => {}
                     Control::Ramp { steps } => {
                         let control_id = state.controls.get(&TypeId::of::<ColorRamp>()).unwrap()
                             [control_idx.ramps];
