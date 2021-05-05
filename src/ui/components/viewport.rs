@@ -154,13 +154,13 @@ where
             ..
         } = args;
 
+        let renderer_id = state.ids.inner.index() as u64;
+
         if let Some(ev_buf) = self.event_buffer {
             for ev in ev_buf {
-                self.handle_event(ui, state, ev);
+                self.handle_event(ui, state, renderer_id, ev);
             }
         }
-
-        let renderer_id = state.ids.inner.index() as u64;
 
         // If there is a known render image, create a render view for it
         match state.render_image {
@@ -278,9 +278,15 @@ impl<'a, V, B> Viewport<'a, V, B>
 where
     B: crate::gpu::Backend,
 {
-    fn handle_event(&mut self, ui: &mut UiCell, state: &mut widget::State<State>, event: &Lang) {
+    fn handle_event(
+        &mut self,
+        ui: &mut UiCell,
+        state: &mut widget::State<State>,
+        renderer_id: u64,
+        event: &Lang,
+    ) {
         match event {
-            Lang::RenderEvent(RenderEvent::RendererAdded(_id, view, pbox)) => {
+            Lang::RenderEvent(RenderEvent::RendererAdded(id, view, pbox)) if *id == renderer_id => {
                 if let Some(view) = view.clone().to::<B>() {
                     if let Some(img) = self.renderer.create_image(
                         view,
@@ -295,12 +301,18 @@ where
                     }
                 }
             }
-            Lang::RenderEvent(RenderEvent::RendererRedrawn(_id)) => {
+            Lang::RenderEvent(RenderEvent::RendererRedrawn(id)) if *id == renderer_id => {
                 ui.needs_redraw();
             }
-            Lang::RenderEvent(RenderEvent::SettingsUpdated(_id, pbox)) => state.update(|state| {
-                state.parameters = Some(pbox.clone());
-            }),
+            Lang::RenderEvent(RenderEvent::RendererRemoved(id)) if *id == renderer_id => state
+                .update(|state| {
+                    state.render_image = RenderImage::None;
+                }),
+            Lang::RenderEvent(RenderEvent::SettingsUpdated(id, pbox)) if *id == renderer_id => {
+                state.update(|state| {
+                    state.parameters = Some(pbox.clone());
+                })
+            }
             _ => {}
         }
     }
