@@ -76,12 +76,15 @@ where
         monitor_dimensions: (u32, u32),
         viewport_dimensions: (u32, u32),
     ) -> Result<Self, InitializationError> {
-        Self::new(
+        let mut renderer = Self::new(
             gpu,
             monitor_dimensions,
             viewport_dimensions,
             Uniforms::default(),
-        )
+        )?;
+
+        renderer.view.resolution = [viewport_dimensions.0 as f32, viewport_dimensions.1 as f32];
+        Ok(renderer)
     }
 
     /// Set the camera center in absolute coordinates

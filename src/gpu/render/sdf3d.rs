@@ -394,6 +394,7 @@ where
             Uniforms::default(),
         )?;
 
+        renderer.view.resolution = [viewport_dimensions.0 as f32, viewport_dimensions.1 as f32];
         renderer.object_type = Some(ObjectType::Cube);
         renderer.shading_mode = Some(ShadingMode::Pbr);
 
