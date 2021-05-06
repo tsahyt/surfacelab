@@ -1,6 +1,6 @@
 use super::color_picker::ColorPicker;
 use super::color_ramp::ColorRamp;
-use super::img_resource_editor::ImageResourceEditor;
+use super::resource_editor::ResourceEditor;
 use super::size_control::SizeControl;
 
 use crate::lang::*;
@@ -169,7 +169,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .resize(counts.files, id_gen);
             state
                 .controls
-                .get_mut(&TypeId::of::<ImageResourceEditor>())
+                .get_mut(&TypeId::of::<ResourceEditor>())
                 .unwrap()
                 .resize(counts.imgs, id_gen);
             state
@@ -233,7 +233,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 < (counts.files)
             || state
                 .controls
-                .get(&TypeId::of::<ImageResourceEditor>())
+                .get(&TypeId::of::<ResourceEditor>())
                 .unwrap()
                 .len()
                 < (counts.imgs)
@@ -327,7 +327,7 @@ where
                 TypeId::of::<ColorPicker<Hsv>>() => widget::id::List::new(),
                 TypeId::of::<ColorRamp>() => widget::id::List::new(),
                 TypeId::of::<widget::Button<widget::button::Flat>>() => widget::id::List::new(),
-                TypeId::of::<ImageResourceEditor>() => widget::id::List::new(),
+                TypeId::of::<ResourceEditor>() => widget::id::List::new(),
                 TypeId::of::<widget::TextBox>() => widget::id::List::new(),
                 TypeId::of::<widget::Toggle>() => widget::id::List::new(),
                 TypeId::of::<SizeControl>() => widget::id::List::new(),
@@ -676,10 +676,10 @@ where
                     Control::ImageResource { selected } => {
                         let control_id = state
                             .controls
-                            .get(&TypeId::of::<ImageResourceEditor>())
+                            .get(&TypeId::of::<ResourceEditor>())
                             .unwrap()[control_idx.imgs];
 
-                        if let Some(event) = ImageResourceEditor::new(
+                        if let Some(event) = ResourceEditor::new(
                             self.image_resources,
                             selected.clone(),
                             self.language,
@@ -691,10 +691,10 @@ where
                         .h(40.0)
                         .set(control_id, ui)
                         {
-                            use super::img_resource_editor;
+                            use super::resource_editor;
 
                             match event {
-                                img_resource_editor::Event::SelectResource(new_selected) => {
+                                resource_editor::Event::SelectResource(new_selected) => {
                                     *selected = Some(new_selected.clone());
                                     ev.push(Event::ChangeParameter(
                                         parameter
@@ -702,19 +702,19 @@ where
                                             .transmit(self.resource, &selected.to_data()),
                                     ))
                                 }
-                                img_resource_editor::Event::AddFromFile(path) => {
+                                resource_editor::Event::AddFromFile(path) => {
                                     ev.push(Event::ChangeParameter(Lang::UserIOEvent(
                                         UserIOEvent::AddImageResource(path),
                                     )))
                                 }
-                                img_resource_editor::Event::SetColorSpace(cs) => {
+                                resource_editor::Event::SetColorSpace(cs) => {
                                     if let Some(res) = selected {
                                         ev.push(Event::ChangeParameter(Lang::UserIOEvent(
                                             UserIOEvent::SetImageColorSpace(res.clone(), cs),
                                         )))
                                     }
                                 }
-                                img_resource_editor::Event::PackImage => {
+                                resource_editor::Event::PackImage => {
                                     if let Some(res) = selected {
                                         ev.push(Event::ChangeParameter(Lang::UserIOEvent(
                                             UserIOEvent::PackImage(res.clone()),

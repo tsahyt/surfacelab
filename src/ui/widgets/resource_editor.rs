@@ -6,25 +6,25 @@ use conrod_core::*;
 use dialog::{DialogBox, FileSelection, FileSelectionMode};
 
 #[derive(WidgetCommon)]
-pub struct ImageResourceEditor<'a> {
+pub struct ResourceEditor<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     style: Style,
-    img_resources: &'a [(Resource<Img>, ColorSpace, bool)],
+    resources: &'a [(Resource<Img>, ColorSpace, bool)],
     language: &'a Language,
     resource: Option<Resource<Img>>,
 }
 
-impl<'a> ImageResourceEditor<'a> {
+impl<'a> ResourceEditor<'a> {
     pub fn new(
-        img_resources: &'a [(Resource<Img>, ColorSpace, bool)],
+        resources: &'a [(Resource<Img>, ColorSpace, bool)],
         resource: Option<Resource<Img>>,
         language: &'a Language,
     ) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
-            img_resources,
+            resources,
             language,
             resource,
         }
@@ -67,7 +67,7 @@ pub enum Event<'a> {
     PackImage,
 }
 
-impl<'a> Widget for ImageResourceEditor<'a> {
+impl<'a> Widget for ResourceEditor<'a> {
     type State = State;
     type Style = Style;
     type Event = Option<Event<'a>>;
@@ -94,12 +94,12 @@ impl<'a> Widget for ImageResourceEditor<'a> {
         } = args;
 
         let resources: Vec<_> = self
-            .img_resources
+            .resources
             .iter()
             .map(|(x, _, _)| x.to_string())
             .collect();
         let idx = self
-            .img_resources
+            .resources
             .iter()
             .position(|z| Some(&z.0) == self.resource.as_ref());
 
@@ -111,7 +111,7 @@ impl<'a> Widget for ImageResourceEditor<'a> {
             .padded_w_of(id, 24.0)
             .set(state.ids.resource, ui)
         {
-            res = Some(Event::SelectResource(&self.img_resources[new_selection].0));
+            res = Some(Event::SelectResource(&self.resources[new_selection].0));
         }
 
         for _press in icon_button(IconName::FOLDER_OPEN, style.icon_font(&ui.theme))
@@ -135,7 +135,7 @@ impl<'a> Widget for ImageResourceEditor<'a> {
             }
         }
 
-        let is_packed = idx.map(|i| self.img_resources[i].2).unwrap_or(false);
+        let is_packed = idx.map(|i| self.resources[i].2).unwrap_or(false);
 
         for _press in icon_button(
             if is_packed {
@@ -158,7 +158,7 @@ impl<'a> Widget for ImageResourceEditor<'a> {
             res = Some(Event::PackImage);
         }
 
-        let cs_idx = match idx.map(|i| self.img_resources[i].1) {
+        let cs_idx = match idx.map(|i| self.resources[i].1) {
             Some(ColorSpace::Srgb) => Some(0),
             Some(ColorSpace::Linear) => Some(1),
             None => None,
