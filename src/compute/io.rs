@@ -20,8 +20,21 @@ pub enum StoredExternalImage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum StoredExternalSvg {
+    Disk {
+        resource: Resource<resource::Svg>,
+        path: PathBuf,
+    },
+    Packed {
+        resource: Resource<resource::Svg>,
+        data: Vec<u8>,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ComputeData {
     stored_images: Vec<StoredExternalImage>,
+    stored_svgs: Vec<StoredExternalSvg>,
 }
 
 impl<B> ComputeManager<B>
@@ -51,7 +64,25 @@ where
             })
             .collect();
 
-        let compute_data = ComputeData { stored_images };
+        let stored_svgs = self
+            .external_data
+            .iter_svgs()
+            .map(|(res, ext_svg)| match &ext_svg.source() {
+                Source::Packed(data) => StoredExternalSvg::Packed {
+                    resource: res.clone(),
+                    data: data.clone(),
+                },
+                Source::Disk(path) => StoredExternalSvg::Disk {
+                    resource: res.clone(),
+                    path: path.clone(),
+                },
+            })
+            .collect();
+
+        let compute_data = ComputeData {
+            stored_images,
+            stored_svgs,
+        };
 
         serde_cbor::ser::to_vec_packed(&compute_data)
     }
@@ -88,6 +119,25 @@ where
                     )));
                     self.external_data
                         .insert_image_packed(resource, data, color_space);
+                }
+            }
+        }
+
+        for stored_svg in compute_data.stored_svgs.drain(0..) {
+            match stored_svg {
+                StoredExternalSvg::Disk { resource, path } => {
+                    evs.push(Lang::ComputeEvent(ComputeEvent::SvgResourceAdded(
+                        resource.clone(),
+                        false,
+                    )));
+                    self.external_data.insert_svg(resource, path);
+                }
+                StoredExternalSvg::Packed { resource, data } => {
+                    evs.push(Lang::ComputeEvent(ComputeEvent::SvgResourceAdded(
+                        resource.clone(),
+                        true,
+                    )));
+                    self.external_data.insert_svg_packed(resource, data);
                 }
             }
         }

@@ -280,6 +280,11 @@ impl Externals {
         self.images.iter()
     }
 
+    /// Obtain an iterator over all known SVGs
+    pub fn iter_svgs(&self) -> impl Iterator<Item = (&Resource<Svg>, &ExternalData<SvgData>)> {
+        self.svgs.iter()
+    }
+
     /// Get a reference to an external SVG if it exists.
     pub fn get_svg(&self, resource: &Resource<Svg>) -> Option<&ExternalData<SvgData>> {
         self.svgs.get(resource)
@@ -295,6 +300,14 @@ impl Externals {
         self.svgs.insert(
             resource,
             ExternalData::new(PathBuf::from(path.as_ref()), SvgData { dimensions: 1024 }),
+        );
+    }
+
+    /// Insert a new packed SVG
+    pub fn insert_svg_packed(&mut self, resource: Resource<Svg>, data: Vec<u8>) {
+        self.svgs.insert(
+            resource,
+            ExternalData::new_packed(data, SvgData { dimensions: 1024 }),
         );
     }
 }
