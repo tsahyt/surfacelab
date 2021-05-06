@@ -719,17 +719,19 @@ where
                                         UserIOEvent::AddImageResource(path),
                                     )))
                                 }
-                                resource_editor::Event::SetColorSpace(cs) => {
-                                    if let Some(res) = selected {
-                                        ev.push(Event::ChangeParameter(Lang::UserIOEvent(
-                                            UserIOEvent::SetImageColorSpace(res.clone(), cs),
-                                        )))
-                                    }
-                                }
                                 resource_editor::Event::Pack => {
                                     if let Some(res) = selected {
                                         ev.push(Event::ChangeParameter(Lang::UserIOEvent(
                                             UserIOEvent::PackImage(res.clone()),
+                                        )))
+                                    }
+                                }
+                                resource_editor::Event::TypeEvent(
+                                    resource_editor::ImgEvent::SetColorSpace(cs),
+                                ) => {
+                                    if let Some(res) = selected {
+                                        ev.push(Event::ChangeParameter(Lang::UserIOEvent(
+                                            UserIOEvent::SetImageColorSpace(res.clone(), cs),
                                         )))
                                     }
                                 }
@@ -769,19 +771,15 @@ where
                                         UserIOEvent::AddSvgResource(path),
                                     )))
                                 }
-                                resource_editor::Event::SetColorSpace(cs) => {
-                                    // if let Some(res) = selected {
-                                    //     ev.push(Event::ChangeParameter(Lang::UserIOEvent(
-                                    //         UserIOEvent::SetImageColorSpace(res.clone(), cs),
-                                    //     )))
-                                    // }
-                                }
                                 resource_editor::Event::Pack => {
-                                    // if let Some(res) = selected {
-                                    //     ev.push(Event::ChangeParameter(Lang::UserIOEvent(
-                                    //         UserIOEvent::PackImage(res.clone()),
-                                    //     )))
-                                    // }
+                                    if let Some(res) = selected {
+                                        ev.push(Event::ChangeParameter(Lang::UserIOEvent(
+                                            UserIOEvent::PackSvg(res.clone()),
+                                        )))
+                                    }
+                                }
+                                resource_editor::Event::TypeEvent(..) => {
+                                    unreachable!()
                                 }
                             }
                         }
