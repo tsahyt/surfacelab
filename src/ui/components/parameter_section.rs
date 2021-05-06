@@ -12,7 +12,7 @@ pub struct ParameterSection<'a> {
     sender: &'a BrokerSender<Lang>,
     description: &'a mut ParamBoxDescription<MessageWriters>,
     resource: &'a Resource<Node>,
-    image_resources: &'a [(Resource<Img>, ColorSpace, bool)],
+    image_resources: &'a [(Resource<Img>, (ColorSpace, bool))],
     parent_size: u32,
     style: Style,
 }
@@ -38,7 +38,7 @@ impl<'a> ParameterSection<'a> {
     }
 
     builder_methods! {
-        pub image_resources { image_resources = &'a [(Resource<Img>, ColorSpace, bool)] }
+        pub image_resources { image_resources = &'a [(Resource<Img>, (ColorSpace, bool))] }
         pub icon_font { style.icon_font = Some(text::font::Id) }
     }
 }

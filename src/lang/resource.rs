@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 pub type ResourcePart = String;
 
 /// The UTF-8 representation of a Scheme. Used for resource rendering
-pub trait Scheme {
+pub trait Scheme: PartialEq {
     fn scheme_name() -> &'static str;
 }
 

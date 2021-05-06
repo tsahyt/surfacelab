@@ -5,20 +5,79 @@ use crate::ui::{i18n::Language, util::*};
 use conrod_core::*;
 use dialog::{DialogBox, FileSelection, FileSelectionMode};
 
+pub trait EditableResource: Scheme + Sized + PartialEq {
+    type Extra;
+
+    fn open_action<'a>(language: &'a Language) -> Option<Event<'a, Self>>;
+    fn packable() -> bool {
+        true
+    }
+    fn is_packed(extra: &Self::Extra) -> bool;
+}
+
+impl EditableResource for Img {
+    type Extra = (ColorSpace, bool);
+
+    fn open_action<'a>(language: &'a Language) -> Option<Event<'a, Self>> {
+        match FileSelection::new(language.get_message("image-select"))
+            .title(language.get_message("image-select-title"))
+            .mode(FileSelectionMode::Open)
+            .show()
+        {
+            Ok(Some(path)) => Some(Event::AddFromFile(PathBuf::from(path))),
+            Err(e) => {
+                log::error!("Error during file selection {}", e);
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn is_packed(extra: &Self::Extra) -> bool {
+        extra.1
+    }
+}
+
+impl EditableResource for Svg {
+    type Extra = ();
+
+    fn open_action<'a>(language: &'a Language) -> Option<Event<'a, Self>> {
+        match FileSelection::new(language.get_message("svg-select"))
+            .title(language.get_message("svg-select-title"))
+            .mode(FileSelectionMode::Open)
+            .show()
+        {
+            Ok(Some(path)) => Some(Event::AddFromFile(PathBuf::from(path))),
+            Err(e) => {
+                log::error!("Error during file selection {}", e);
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn is_packed(extra: &Self::Extra) -> bool {
+        true
+    }
+}
+
 #[derive(WidgetCommon)]
-pub struct ResourceEditor<'a> {
+pub struct ResourceEditor<'a, S: EditableResource> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     style: Style,
-    resources: &'a [(Resource<Img>, ColorSpace, bool)],
+    resources: &'a [(Resource<S>, S::Extra)],
     language: &'a Language,
-    resource: Option<Resource<Img>>,
+    resource: Option<Resource<S>>,
 }
 
-impl<'a> ResourceEditor<'a> {
+impl<'a, S> ResourceEditor<'a, S>
+where
+    S: EditableResource,
+{
     pub fn new(
-        resources: &'a [(Resource<Img>, ColorSpace, bool)],
-        resource: Option<Resource<Img>>,
+        resources: &'a [(Resource<S>, S::Extra)],
+        resource: Option<Resource<S>>,
         language: &'a Language,
     ) -> Self {
         Self {
@@ -60,17 +119,20 @@ pub struct State {
     ids: Ids,
 }
 
-pub enum Event<'a> {
+pub enum Event<'a, S> {
     AddFromFile(PathBuf),
-    SelectResource(&'a Resource<Img>),
+    SelectResource(&'a Resource<S>),
     SetColorSpace(ColorSpace),
-    PackImage,
+    Pack,
 }
 
-impl<'a> Widget for ResourceEditor<'a> {
+impl<'a, S> Widget for ResourceEditor<'a, S>
+where
+    S: EditableResource,
+{
     type State = State;
     type Style = Style;
-    type Event = Option<Event<'a>>;
+    type Event = Option<Event<'a, S>>;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         State {
@@ -93,11 +155,7 @@ impl<'a> Widget for ResourceEditor<'a> {
             ..
         } = args;
 
-        let resources: Vec<_> = self
-            .resources
-            .iter()
-            .map(|(x, _, _)| x.to_string())
-            .collect();
+        let resources: Vec<_> = self.resources.iter().map(|(x, _)| x.to_string()).collect();
         let idx = self
             .resources
             .iter()
@@ -108,7 +166,7 @@ impl<'a> Widget for ResourceEditor<'a> {
             .h(16.0)
             .parent(id)
             .top_left_of(id)
-            .padded_w_of(id, 24.0)
+            .padded_w_of(id, 14.0 + if S::packable() { 10. } else { 0. })
             .set(state.ids.resource, ui)
         {
             res = Some(Event::SelectResource(&self.resources[new_selection].0));
@@ -124,45 +182,42 @@ impl<'a> Widget for ResourceEditor<'a> {
             .wh([20., 16.])
             .set(state.ids.add_button, ui)
         {
-            match FileSelection::new(self.language.get_message("image-select"))
-                .title(self.language.get_message("image-select-title"))
-                .mode(FileSelectionMode::Open)
-                .show()
+            res = S::open_action(self.language);
+        }
+
+        if S::packable() {
+            let is_packed = idx
+                .map(|i| S::is_packed(&self.resources[i].1))
+                .unwrap_or(false);
+
+            for _press in icon_button(
+                if is_packed {
+                    IconName::PACKAGE_CLOSED
+                } else {
+                    IconName::PACKAGE_OPEN
+                },
+                style.icon_font(&ui.theme),
+            )
+            .enabled(!is_packed)
+            .parent(id)
+            .left_from(state.ids.add_button, 4.)
+            .label_font_size(style.text_size(&ui.theme) + 2)
+            .border(0.)
+            .color(color::DARK_CHARCOAL)
+            .label_color(style.text_color(&ui.theme))
+            .wh([20., 16.])
+            .set(state.ids.pack_button, ui)
             {
-                Ok(Some(path)) => res = Some(Event::AddFromFile(PathBuf::from(path))),
-                Err(e) => log::error!("Error during file selection {}", e),
-                _ => {}
+                res = Some(Event::Pack);
             }
         }
 
-        let is_packed = idx.map(|i| self.resources[i].2).unwrap_or(false);
-
-        for _press in icon_button(
-            if is_packed {
-                IconName::PACKAGE_CLOSED
-            } else {
-                IconName::PACKAGE_OPEN
-            },
-            style.icon_font(&ui.theme),
-        )
-        .enabled(!is_packed)
-        .parent(id)
-        .left_from(state.ids.add_button, 4.)
-        .label_font_size(style.text_size(&ui.theme) + 2)
-        .border(0.)
-        .color(color::DARK_CHARCOAL)
-        .label_color(style.text_color(&ui.theme))
-        .wh([20., 16.])
-        .set(state.ids.pack_button, ui)
-        {
-            res = Some(Event::PackImage);
-        }
-
-        let cs_idx = match idx.map(|i| self.resources[i].1) {
-            Some(ColorSpace::Srgb) => Some(0),
-            Some(ColorSpace::Linear) => Some(1),
-            None => None,
-        };
+        // let cs_idx = match idx.map(|i| self.resources[i].1) {
+        //     Some(ColorSpace::Srgb) => Some(0),
+        //     Some(ColorSpace::Linear) => Some(1),
+        //     None => None,
+        // };
+        let cs_idx = None;
 
         if let Some(new_selection) = widget::DropDownList::new(&["sRGB", "Linear"], cs_idx)
             .label_font_size(style.text_size(&ui.theme))

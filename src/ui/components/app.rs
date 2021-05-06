@@ -121,7 +121,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     graphs: NodeCollections,
-    image_resources: Vec<(Resource<Img>, ColorSpace, bool)>,
+    image_resources: Vec<(Resource<Img>, (ColorSpace, bool))>,
     parent_size: u32,
 }
 
@@ -297,19 +297,19 @@ where
             }
             Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, cs, packed)) => {
                 state.update(|state| {
-                    state.image_resources.push((res.clone(), *cs, *packed));
+                    state.image_resources.push((res.clone(), (*cs, *packed)));
                 });
             }
             Lang::ComputeEvent(ComputeEvent::ImageColorSpaceSet(res, cs)) => {
                 state.update(|state| {
-                    if let Some(img) = state.image_resources.iter_mut().find(|(r, _, _)| r == res) {
-                        img.1 = *cs;
+                    if let Some(img) = state.image_resources.iter_mut().find(|(r, _)| r == res) {
+                        img.1 .0 = *cs;
                     }
                 })
             }
             Lang::ComputeEvent(ComputeEvent::ImagePacked(res)) => state.update(|state| {
-                if let Some(img) = state.image_resources.iter_mut().find(|(r, _, _)| r == res) {
-                    img.2 = true;
+                if let Some(img) = state.image_resources.iter_mut().find(|(r, _)| r == res) {
+                    img.1 .1 = true;
                 }
             }),
             Lang::ComputeEvent(ComputeEvent::Cleared) => state.update(|state| {

@@ -3,7 +3,7 @@ use super::color_ramp::ColorRamp;
 use super::resource_editor::ResourceEditor;
 use super::size_control::SizeControl;
 
-use crate::lang::*;
+use crate::lang::{resource, *};
 use crate::ui::i18n::Language;
 use crate::ui::util::*;
 
@@ -101,7 +101,7 @@ pub struct ParamBox<'a, T: MessageWriter> {
     style: Style,
     description: &'a mut ParamBoxDescription<T>,
     language: &'a Language,
-    image_resources: &'a [(Resource<Img>, ColorSpace, bool)],
+    image_resources: &'a [(Resource<Img>, (ColorSpace, bool))],
     parent_size: Option<u32>,
     presets: bool,
 }
@@ -169,9 +169,14 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 .resize(counts.files, id_gen);
             state
                 .controls
-                .get_mut(&TypeId::of::<ResourceEditor>())
+                .get_mut(&TypeId::of::<ResourceEditor<Img>>())
                 .unwrap()
                 .resize(counts.imgs, id_gen);
+            state
+                .controls
+                .get_mut(&TypeId::of::<ResourceEditor<resource::Svg>>())
+                .unwrap()
+                .resize(counts.svgs, id_gen);
             state
                 .controls
                 .get_mut(&TypeId::of::<widget::TextBox>())
@@ -233,10 +238,16 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
                 < (counts.files)
             || state
                 .controls
-                .get(&TypeId::of::<ResourceEditor>())
+                .get(&TypeId::of::<ResourceEditor<Img>>())
                 .unwrap()
                 .len()
                 < (counts.imgs)
+            || state
+                .controls
+                .get(&TypeId::of::<ResourceEditor<resource::Svg>>())
+                .unwrap()
+                .len()
+                < (counts.svgs)
             || state
                 .controls
                 .get(&TypeId::of::<widget::TextBox>())
@@ -259,7 +270,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
 
     builder_methods! {
         pub parent_size { parent_size = Some(u32) }
-        pub image_resources { image_resources = &'a [(Resource<Img>, ColorSpace, bool)] }
+        pub image_resources { image_resources = &'a [(Resource<Img>, (ColorSpace, bool))] }
         pub icon_font { style.icon_font = Some(text::font::Id) }
         pub text_size { style.text_size = Some(FontSize) }
         pub text_color { style.text_color = Some(Color) }
@@ -327,7 +338,8 @@ where
                 TypeId::of::<ColorPicker<Hsv>>() => widget::id::List::new(),
                 TypeId::of::<ColorRamp>() => widget::id::List::new(),
                 TypeId::of::<widget::Button<widget::button::Flat>>() => widget::id::List::new(),
-                TypeId::of::<ResourceEditor>() => widget::id::List::new(),
+                TypeId::of::<ResourceEditor<Img>>() => widget::id::List::new(),
+                TypeId::of::<ResourceEditor<resource::Svg>>() => widget::id::List::new(),
                 TypeId::of::<widget::TextBox>() => widget::id::List::new(),
                 TypeId::of::<widget::Toggle>() => widget::id::List::new(),
                 TypeId::of::<SizeControl>() => widget::id::List::new(),
@@ -676,7 +688,7 @@ where
                     Control::ImageResource { selected } => {
                         let control_id = state
                             .controls
-                            .get(&TypeId::of::<ResourceEditor>())
+                            .get(&TypeId::of::<ResourceEditor<Img>>())
                             .unwrap()[control_idx.imgs];
 
                         if let Some(event) = ResourceEditor::new(
@@ -714,7 +726,7 @@ where
                                         )))
                                     }
                                 }
-                                resource_editor::Event::PackImage => {
+                                resource_editor::Event::Pack => {
                                     if let Some(res) = selected {
                                         ev.push(Event::ChangeParameter(Lang::UserIOEvent(
                                             UserIOEvent::PackImage(res.clone()),
@@ -726,7 +738,56 @@ where
 
                         control_idx.imgs += 1;
                     }
-                    Control::SvgResource { .. } => {}
+                    Control::SvgResource { selected } => {
+                        let control_id = state
+                            .controls
+                            .get(&TypeId::of::<ResourceEditor<resource::Svg>>())
+                            .unwrap()[control_idx.imgs];
+
+                        if let Some(event) =
+                            ResourceEditor::new(&[], selected.clone(), self.language)
+                                .icon_font(style.icon_font(&ui.theme))
+                                .text_size(style.text_size(&ui.theme))
+                                .text_color(style.text_color(&ui.theme))
+                                .padded_w_of(id, 16.0)
+                                .h(40.0)
+                                .set(control_id, ui)
+                        {
+                            use super::resource_editor;
+
+                            match event {
+                                resource_editor::Event::SelectResource(new_selected) => {
+                                    *selected = Some(new_selected.clone());
+                                    ev.push(Event::ChangeParameter(
+                                        parameter
+                                            .transmitter
+                                            .transmit(self.resource, &selected.to_data()),
+                                    ))
+                                }
+                                resource_editor::Event::AddFromFile(path) => {
+                                    ev.push(Event::ChangeParameter(Lang::UserIOEvent(
+                                        UserIOEvent::AddSvgResource(path),
+                                    )))
+                                }
+                                resource_editor::Event::SetColorSpace(cs) => {
+                                    // if let Some(res) = selected {
+                                    //     ev.push(Event::ChangeParameter(Lang::UserIOEvent(
+                                    //         UserIOEvent::SetImageColorSpace(res.clone(), cs),
+                                    //     )))
+                                    // }
+                                }
+                                resource_editor::Event::Pack => {
+                                    // if let Some(res) = selected {
+                                    //     ev.push(Event::ChangeParameter(Lang::UserIOEvent(
+                                    //         UserIOEvent::PackImage(res.clone()),
+                                    //     )))
+                                    // }
+                                }
+                            }
+                        }
+
+                        control_idx.svgs += 1;
+                    }
                     Control::Ramp { steps } => {
                         let control_id = state.controls.get(&TypeId::of::<ColorRamp>()).unwrap()
                             [control_idx.ramps];
