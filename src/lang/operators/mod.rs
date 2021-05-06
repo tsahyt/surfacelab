@@ -13,6 +13,7 @@ use strum::VariantNames;
 use strum_macros::*;
 use surfacelab_derive::*;
 
+pub mod alpha_extract;
 pub mod ambient_occlusion;
 pub mod blend;
 pub mod blur;
@@ -36,6 +37,7 @@ pub mod transform;
 pub mod value;
 pub mod warp;
 
+pub use alpha_extract::*;
 pub use ambient_occlusion::*;
 pub use blend::*;
 pub use blur::*;
