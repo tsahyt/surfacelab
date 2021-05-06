@@ -180,22 +180,33 @@ impl Default for ImageData {
     }
 }
 
-pub struct SvgData {}
+pub struct SvgData {
+    dimensions: u32,
+}
 
 impl External for SvgData {
-    type Extra = ();
-    type BufferElement = u8;
+    type Extra = u32;
+    type BufferElement = u16;
 
-    fn fill_buffer(&mut self, raw: &[u8]) -> Result<Vec<u8>, ExternalError> {
+    fn fill_buffer(&mut self, raw: &[u8]) -> Result<Vec<u16>, ExternalError> {
         let tree = usvg::Tree::from_data(raw, &usvg::Options::default()).unwrap();
         let pixmap_size = tree.svg_node().size.to_screen_size();
         let mut pixmap = tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
         resvg::render(&tree, usvg::FitTo::Original, pixmap.as_mut());
 
-        Ok(pixmap.take())
+        self.dimensions = pixmap.width().max(pixmap.height());
+        let img_buf: image::RgbaImage =
+            image::ImageBuffer::from_vec(pixmap.width(), pixmap.height(), pixmap.take()).unwrap();
+        Ok(load_rgba16f_image(
+            &image::DynamicImage::ImageRgba8(img_buf),
+            f16_from_u8_gamma,
+            f16_from_u16_gamma,
+        ))
     }
 
-    fn get_extra(&self) -> Self::Extra {}
+    fn get_extra(&self) -> Self::Extra {
+        self.dimensions
+    }
 }
 
 pub struct Externals {
@@ -283,7 +294,7 @@ impl Externals {
     pub fn insert_svg<P: AsRef<Path> + Debug>(&mut self, resource: Resource<Svg>, path: P) {
         self.svgs.insert(
             resource,
-            ExternalData::new(PathBuf::from(path.as_ref()), SvgData {}),
+            ExternalData::new(PathBuf::from(path.as_ref()), SvgData { dimensions: 1024 }),
         );
     }
 }

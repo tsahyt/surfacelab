@@ -436,6 +436,65 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         }
     }
 
+    /// Execute an SVG operator.
+    fn execute_svg(
+        &mut self,
+        res: &Resource<Node>,
+        svg_res: &Resource<resource::Svg>,
+    ) -> Result<(), InterpretationError> {
+        log::trace!("Processing SVG operator {}", res);
+
+        let parameter_hash = {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+
+            let mut hasher = DefaultHasher::new();
+            svg_res.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        if !self.sockets.group_requires_recompute(res, parameter_hash)
+            && !self
+                .external_data
+                .get_svg(svg_res)
+                .map(|i| i.needs_loading())
+                .unwrap_or(false)
+        {
+            log::trace!("Reusing cached image");
+            return Ok(());
+        }
+
+        let start_time = Instant::now();
+        if let Some(external_image) = self.external_data.get_svg_mut(svg_res) {
+            log::trace!("Rasterising and uploading image to GPU");
+            let (buf, size) = external_image.ensure_loaded()?;
+            let socket_res = res.node_socket("image");
+
+            // Resize socket if necessary
+            if self.sockets.resize(&res, size, false) {
+                self.sockets.reinit_output_images(&res, self.gpu, size);
+            }
+
+            let image = self
+                .sockets
+                .get_output_image_mut(&socket_res)
+                .expect("Trying to process missing socket");
+            image.ensure_alloc()?;
+
+            self.gpu.upload_image(&image, buf)?;
+            self.sockets.set_last_hash(res, parameter_hash);
+            self.sockets.set_output_images_updated(res, self.seq);
+            self.sockets
+                .update_timing_data(res, start_time.elapsed().as_secs_f64());
+
+            Ok(())
+        } else {
+            self.sockets
+                .update_timing_data(res, start_time.elapsed().as_secs_f64());
+            Err(InterpretationError::ExternalDataNotFound)
+        }
+    }
+
     /// Execute an Input operator
     fn execute_input(&mut self, res: &Resource<Node>) -> Result<(), InterpretationError> {
         log::trace!("Processing Input operator at {}", res);
@@ -822,6 +881,12 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 match op {
                     AtomicOperator::Image(Image { resource }) => {
                         self.execute_image(
+                            res,
+                            &resource.ok_or(InterpretationError::ExternalDataNotFound)?,
+                        )?;
+                    }
+                    AtomicOperator::Svg(Svg { resource }) => {
+                        self.execute_svg(
                             res,
                             &resource.ok_or(InterpretationError::ExternalDataNotFound)?,
                         )?;
