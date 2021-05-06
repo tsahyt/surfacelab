@@ -5,10 +5,12 @@ surface-tab = Surface
 surface-file-select = Select a surface file
 base-name-select = Select a base name
 image-select = Select an image file
+svg-select = Select an SVG file
 surface-open-title = Open Surface
 surface-save-title = Save Surface
 surface-export-title = Export Surface
 image-select-title = Import Image
+svg-select-title = Import SVG
 
 convert-to-graph = Convert to Graph
 exposed-parameters = Exposed Parameters
@@ -89,6 +91,8 @@ transform = Transform
 image-resource = Image Resource
 image-path = Image Path
 color-space = Color Space
+
+svg-resource = SVG Resource
 
 output-type = Output Type
 input-type = Input Type

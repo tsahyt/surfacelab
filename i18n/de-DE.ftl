@@ -5,10 +5,12 @@ surface-tab = Oberfläche
 surface-file-select = Surface Datei wählen
 base-name-select = Basisnamen wählen
 image-select = Bild wählen
+svg-select = Vektorgrafik wählen
 surface-open-title = Surface öffnen
 surface-save-title = Surface speichern
 surface-export-title = Surface exportieren
 image-select-title = Bild importieren
+svg-select-title = Vektorgrafik importieren
 
 convert-to-graph = Zu Graph konvertieren
 exposed-parameters = Sichtbare Parameter
@@ -89,6 +91,8 @@ transform = Transformation
 image-resource = Bildresource
 image-path = Pfad
 color-space = Farbraum
+
+svg-resource = SVG Resource
 
 output-type = Outputtyp
 input-type = Inputtyp
