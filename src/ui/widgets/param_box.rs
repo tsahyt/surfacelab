@@ -102,6 +102,7 @@ pub struct ParamBox<'a, T: MessageWriter> {
     description: &'a mut ParamBoxDescription<T>,
     language: &'a Language,
     image_resources: &'a [(Resource<Img>, (ColorSpace, bool))],
+    svg_resources: &'a [(Resource<resource::Svg>, bool)],
     parent_size: Option<u32>,
     presets: bool,
 }
@@ -119,6 +120,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
             resource,
             language,
             image_resources: &[],
+            svg_resources: &[],
             parent_size: None,
             presets: false,
         }
@@ -271,6 +273,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
     builder_methods! {
         pub parent_size { parent_size = Some(u32) }
         pub image_resources { image_resources = &'a [(Resource<Img>, (ColorSpace, bool))] }
+        pub svg_resources { svg_resources = &'a [(Resource<resource::Svg>, bool)] }
         pub icon_font { style.icon_font = Some(text::font::Id) }
         pub text_size { style.text_size = Some(FontSize) }
         pub text_color { style.text_color = Some(Color) }
@@ -747,7 +750,7 @@ where
                             .unwrap()[control_idx.imgs];
 
                         if let Some(event) =
-                            ResourceEditor::new(&[], selected.clone(), self.language)
+                            ResourceEditor::new(self.svg_resources, selected.clone(), self.language)
                                 .icon_font(style.icon_font(&ui.theme))
                                 .text_size(style.text_size(&ui.theme))
                                 .text_color(style.text_color(&ui.theme))

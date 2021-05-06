@@ -13,6 +13,7 @@ pub struct ParameterSection<'a> {
     description: &'a mut ParamBoxDescription<MessageWriters>,
     resource: &'a Resource<Node>,
     image_resources: &'a [(Resource<Img>, (ColorSpace, bool))],
+    svg_resources: &'a [(Resource<resource::Svg>, bool)],
     parent_size: u32,
     style: Style,
 }
@@ -33,12 +34,14 @@ impl<'a> ParameterSection<'a> {
             resource,
             parent_size,
             image_resources: &[],
+            svg_resources: &[],
             style: Style::default(),
         }
     }
 
     builder_methods! {
         pub image_resources { image_resources = &'a [(Resource<Img>, (ColorSpace, bool))] }
+        pub svg_resources { svg_resources = &'a [(Resource<resource::Svg>, bool)] }
         pub icon_font { style.icon_font = Some(text::font::Id) }
     }
 }
@@ -85,6 +88,7 @@ impl<'a> Widget for ParameterSection<'a> {
 
         for ev in widgets::param_box::ParamBox::new(self.description, self.resource, self.language)
             .image_resources(&self.image_resources)
+            .svg_resources(&self.svg_resources)
             .parent_size(self.parent_size)
             .parent(id)
             .w_of(id)

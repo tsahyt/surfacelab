@@ -122,6 +122,7 @@ pub struct State {
     ids: Ids,
     graphs: NodeCollections,
     image_resources: Vec<(Resource<Img>, (ColorSpace, bool))>,
+    svg_resources: Vec<(Resource<resource::Svg>, bool)>,
     parent_size: u32,
 }
 
@@ -138,6 +139,7 @@ where
             ids: Ids::new(id_gen),
             graphs: NodeCollections::new(),
             image_resources: Vec::new(),
+            svg_resources: Vec::new(),
             parent_size: 1024,
         }
     }
@@ -310,6 +312,16 @@ where
             Lang::ComputeEvent(ComputeEvent::ImagePacked(res)) => state.update(|state| {
                 if let Some(img) = state.image_resources.iter_mut().find(|(r, _)| r == res) {
                     img.1 .1 = true;
+                }
+            }),
+            Lang::ComputeEvent(ComputeEvent::SvgResourceAdded(res, packed)) => {
+                state.update(|state| {
+                    state.svg_resources.push((res.clone(), *packed));
+                });
+            }
+            Lang::ComputeEvent(ComputeEvent::SvgPacked(res)) => state.update(|state| {
+                if let Some(svg) = state.svg_resources.iter_mut().find(|(r, _)| r == res) {
+                    svg.1 = true;
                 }
             }),
             Lang::ComputeEvent(ComputeEvent::Cleared) => state.update(|state| {
@@ -530,6 +542,7 @@ where
                     state.parent_size,
                 )
                 .image_resources(&state.image_resources)
+                .svg_resources(&state.svg_resources)
                 .icon_font(style.icon_font(&ui.theme))
                 .parent(state.ids.parameter_canvas)
                 .wh_of(state.ids.parameter_canvas)
