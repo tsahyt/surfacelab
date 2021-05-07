@@ -69,7 +69,7 @@ impl Default for Distance {
             clamp: 0,
             expand: 0,
             threshold: 0.5,
-            extent: 3.0,
+            extent: 0.0,
         }
     }
 }
