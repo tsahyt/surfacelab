@@ -15,7 +15,8 @@ layout(set = 0, binding = 0) uniform Params {
     float smoothness;
 };
 
-layout(set = 0, binding = 1, r32f) uniform image2D t_Out;
+layout(set = 0, binding = 1, r32f) uniform image2D t_Distance;
+layout(set = 0, binding = 2, rgba16f) uniform image2D t_Color;
 
 const uint METRIC_EUCLIDEAN = 0;
 const uint METRIC_MANHATTAN = 1;
@@ -371,9 +372,11 @@ vec4 voronoi(vec2 uv) {
 
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    ivec2 resolution = imageSize(t_Out);
+    ivec2 resolution = imageSize(t_Distance);
     vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
-    float n = voronoi(uv).w;
-    vec4 col = vec4(n, n, n, 1.);
-    imageStore(t_Out, idx, col);
+
+    vec4 v = voronoi(uv);
+
+    imageStore(t_Distance, idx, vec4(v.w, v.w, v.w, 1.));
+    imageStore(t_Color, idx, vec4(v.xyz, 1.));
 }

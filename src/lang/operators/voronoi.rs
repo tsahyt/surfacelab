@@ -135,7 +135,9 @@ impl Socketed for Voronoi {
     }
 
     fn outputs(&self) -> HashMap<String, OperatorType> {
-        hashmap! { "noise".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+        hashmap! {
+            "distance".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
+            "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
         }
     }
 
@@ -159,7 +161,11 @@ impl Shader for Voronoi {
                 },
                 OperatorDescriptor {
                     binding: 1,
-                    descriptor: OperatorDescriptorUse::OutputImage("noise"),
+                    descriptor: OperatorDescriptorUse::OutputImage("distance"),
+                },
+                OperatorDescriptor {
+                    binding: 2,
+                    descriptor: OperatorDescriptorUse::OutputImage("color"),
                 },
             ],
             specialization: Specialization::default(),
