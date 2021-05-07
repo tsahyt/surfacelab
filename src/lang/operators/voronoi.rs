@@ -4,6 +4,7 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
+use num_enum::UnsafeFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::VariantNames;
@@ -11,7 +12,7 @@ use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
-#[repr(C)]
+#[repr(u32)]
 #[derive(
     AsBytes,
     Clone,
@@ -23,6 +24,7 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     PartialEq,
+    UnsafeFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum DistanceMetric {
@@ -32,10 +34,17 @@ pub enum DistanceMetric {
     Minkowski = 3,
 }
 
+impl DistanceMetric {
+    pub fn has_exponent(self) -> bool {
+        matches!(self, Self::Minkowski)
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Voronoi {
     metric: DistanceMetric,
+    exponent: f32,
     scale: f32,
     octaves: f32,
     roughness: f32,
@@ -45,6 +54,7 @@ impl Default for Voronoi {
     fn default() -> Self {
         Self {
             metric: DistanceMetric::Euclidean,
+            exponent: 1.,
             scale: 3.0,
             octaves: 2.0,
             roughness: 0.5,
@@ -116,6 +126,25 @@ impl OperatorParamBox for Voronoi {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "exponent".to_string(),
+                        transmitter: Field(Voronoi::EXPONENT.to_string()),
+                        control: Control::Slider {
+                            value: self.scale,
+                            min: 0.,
+                            max: 16.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter("metric", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                unsafe { DistanceMetric::from_unchecked(*selected as u32) }
+                                    .has_exponent()
+                            } else {
+                                false
+                            }
+                        }),
                         presetable: true,
                     },
                     Parameter {

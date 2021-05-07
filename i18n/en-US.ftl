@@ -178,6 +178,7 @@ metric = Distance Metric
 euclidean = Euclidean
 manhattan = Manhattan
 chebyshev = Chebyshev
+minkowski = Minkowski
 threshold = Threshold
 extent = Extent
 border-mode = Border Mode
@@ -231,3 +232,5 @@ height = Height
 sides = Sides
 angle-factor = Angle Factor
 shell = Shell
+
+exponent = Exponent

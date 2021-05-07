@@ -3,14 +3,72 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform Params {
+    uint metric;
+    float exponent;
     float scale;
     float octaves;
     float roughness;
 };
 
+const uint METRIC_EUCLIDEAN = 0;
+const uint METRIC_MANHATTAN = 1;
+const uint METRIC_CHEBYSHEV = 2;
+const uint METRIC_MINKOWSKI = 3;
+
 layout(set = 0, binding = 1, r32f) uniform image2D t_Out;
 
 const float tau = 6.283185307;
+
+vec4 hash44(vec4 p4) {
+    p4 = fract(p4  * vec4(.1031, .1030, .0973, .1099));
+    p4 += dot(p4, p4.wzxy+33.33);
+    return fract((p4.xxyz+p4.yzzw)*p4.zywx);
+}
+
+float voronoi_distance(vec4 a, vec4 b) {
+    switch (metric) {
+        case METRIC_EUCLIDEAN:
+            return distance(a, b);
+        case METRIC_MANHATTAN:
+            return dot(abs(a - b), vec4(1.));
+        case METRIC_CHEBYSHEV:
+            vec4 c = abs(a - b);
+            return max(c.x, max(c.y, max(c.z, c.w)));
+        case METRIC_MINKOWSKI:
+            float d = dot(pow(abs(a - b), vec4(exponent)), vec4(1.));
+            return pow(d, 1. / exponent);
+        default:
+            return 0.;
+    }
+}
+
+vec4 voronoi_f1(vec4 p) {
+    vec4 cell = floor(p);
+    vec4 local = p - cell;
+
+    float min_distance = 8.;
+    vec4 target_offset, target_position;
+
+    for (int u = -1; u <= 1; u++) {
+        for (int k = -1; k <= 1; k++) {
+            for (int j = -1; j <= 1; j++) {
+                for (int i = -1; i <= 1; i++) {
+                    vec4 cell_offset = vec4(i, j, k, u);
+                    vec4 point_position = cell_offset + hash44(cell + cell_offset);
+                    float dist = voronoi_distance(local, point_position);
+
+                    if (dist < min_distance) {
+                        target_offset = cell_offset;
+                        min_distance = dist;
+                        target_position = point_position;
+                    }
+                }
+            }
+        }
+    }
+
+    return vec4(hash44(target_position).rgb, min_distance);
+}
 
 // Voronoi Fractal with Octaves, mirroring the fBm algorithm from Texturing &
 // Modelling: A Procedural Approach, 3rd edition, but using 4D Noise with a
@@ -27,7 +85,7 @@ float voronoi(vec2 uv) {
     vec4 p = vec4(cos(uv.x * tau), cos(uv.y * tau), sin(uv.x * tau), sin(uv.y * tau));
 
     for(i = 0; i <= octaves; ++i) {
-        float noise = 0.; // cnoise(p * fscale);
+        float noise = voronoi_f1(p * fscale).w;
         n += noise * amplitude;
         maxamp += amplitude;
         amplitude *= roughness;
@@ -35,7 +93,7 @@ float voronoi(vec2 uv) {
     }
 
     float remainder = fract(octaves);
-    n += remainder * 0. * amplitude;
+    n += remainder * voronoi_f1(p * fscale).w * amplitude;
 
     n /= maxamp + amplitude * remainder;
     n = (n + 1.0) / 2.0;

@@ -178,6 +178,7 @@ metric = Distanzmetrik
 euclidean = Euklidisch
 manhattan = Manhattan
 chebyshev = Tschebyschow
+minkowski = Minkowski
 threshold = Schwellenwert
 extent = Ausdehnung
 border-mode = Randmodus
@@ -230,3 +231,5 @@ height = Höhe
 sides = Seiten
 angle-factor = Winkelfaktor
 shell = Schale
+
+exponent = Exponent
