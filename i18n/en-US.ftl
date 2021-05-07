@@ -235,3 +235,11 @@ shell = Shell
 
 exponent = Exponent
 randomness = Randomness
+dimensions = Dimensions
+method = Method
+z = Z
+two-d = 2D
+three-d = 3D
+f1 = F1
+smooth-f1 = Smooth F1
+distance-to-edge = Distance To Edge

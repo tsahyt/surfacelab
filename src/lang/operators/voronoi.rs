@@ -40,26 +40,91 @@ impl DistanceMetric {
     }
 }
 
+#[repr(u32)]
+#[derive(
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    UnsafeFromPrimitive,
+)]
+#[strum(serialize_all = "kebab_case")]
+pub enum Method {
+    F1 = 0,
+    DistanceToEdge = 1,
+    SmoothF1 = 2,
+}
+
+impl Method {
+    pub fn has_metric(self) -> bool {
+        !matches!(self, Self::DistanceToEdge)
+    }
+
+    pub fn has_smoothness(self) -> bool {
+        matches!(self, Self::SmoothF1)
+    }
+}
+
+#[repr(u32)]
+#[derive(
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    UnsafeFromPrimitive,
+)]
+#[strum(serialize_all = "kebab_case")]
+pub enum Dimensions {
+    TwoD = 0,
+    ThreeD = 1,
+}
+
+impl Dimensions {
+    pub fn has_z(self) -> bool {
+        matches!(self, Self::ThreeD)
+    }
+}
+
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Voronoi {
+    dimensions: Dimensions,
+    method: Method,
     metric: DistanceMetric,
+    z: f32,
     exponent: f32,
-    scale: f32,
+    scale: i32,
     octaves: f32,
     roughness: f32,
     randomness: f32,
+    smoothness: f32,
 }
 
 impl Default for Voronoi {
     fn default() -> Self {
         Self {
+            dimensions: Dimensions::TwoD,
+            method: Method::F1,
             metric: DistanceMetric::Euclidean,
+            z: 0.,
             exponent: 1.,
-            scale: 3.0,
-            octaves: 2.0,
+            scale: 16,
+            octaves: 0.0,
             roughness: 0.5,
             randomness: 1.,
+            smoothness: 0.25,
         }
     }
 }
@@ -117,6 +182,28 @@ impl OperatorParamBox for Voronoi {
                 visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
+                        name: "dimensions".to_string(),
+                        transmitter: Field(Voronoi::DIMENSIONS.to_string()),
+                        control: Control::Enum {
+                            selected: self.dimensions as usize,
+                            variants: Dimensions::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "method".to_string(),
+                        transmitter: Field(Voronoi::METHOD.to_string()),
+                        control: Control::Enum {
+                            selected: self.method as usize,
+                            variants: Method::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
                         name: "metric".to_string(),
                         transmitter: Field(Voronoi::METRIC.to_string()),
                         control: Control::Enum {
@@ -127,14 +214,38 @@ impl OperatorParamBox for Voronoi {
                                 .collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::default(),
+                        visibility: VisibilityFunction::on_parameter("method", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                unsafe { Method::from_unchecked(*selected as u32) }.has_metric()
+                            } else {
+                                false
+                            }
+                        }),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "z".to_string(),
+                        transmitter: Field(Voronoi::Z.to_string()),
+                        control: Control::Slider {
+                            value: self.z,
+                            min: 0.,
+                            max: 16.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter("dimensions", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                unsafe { Dimensions::from_unchecked(*selected as u32) }.has_z()
+                            } else {
+                                false
+                            }
+                        }),
                         presetable: true,
                     },
                     Parameter {
                         name: "exponent".to_string(),
                         transmitter: Field(Voronoi::EXPONENT.to_string()),
                         control: Control::Slider {
-                            value: self.scale,
+                            value: self.exponent,
                             min: 0.,
                             max: 16.,
                         },
@@ -152,10 +263,10 @@ impl OperatorParamBox for Voronoi {
                     Parameter {
                         name: "scale".to_string(),
                         transmitter: Field(Voronoi::SCALE.to_string()),
-                        control: Control::Slider {
+                        control: Control::DiscreteSlider {
                             value: self.scale,
-                            min: 0.,
-                            max: 16.,
+                            min: 1,
+                            max: 256,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
@@ -195,6 +306,24 @@ impl OperatorParamBox for Voronoi {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "smoothness".to_string(),
+                        transmitter: Field(Voronoi::SMOOTHNESS.to_string()),
+                        control: Control::Slider {
+                            value: self.smoothness,
+                            min: 0.,
+                            max: 0.5,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter("method", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                unsafe { Method::from_unchecked(*selected as u32) }.has_smoothness()
+                            } else {
+                                false
+                            }
+                        }),
                         presetable: true,
                     },
                 ],
