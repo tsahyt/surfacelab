@@ -35,6 +35,7 @@ pub mod swizzle;
 pub mod threshold;
 pub mod transform;
 pub mod value;
+pub mod voronoi;
 pub mod warp;
 
 pub use alpha_extract::*;
@@ -59,6 +60,7 @@ pub use swizzle::*;
 pub use threshold::*;
 pub use transform::*;
 pub use value::*;
+pub use voronoi::*;
 pub use warp::*;
 
 /// Image operator to include external images into a node graph

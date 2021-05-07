@@ -1,0 +1,53 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    float scale;
+    float octaves;
+    float roughness;
+};
+
+layout(set = 0, binding = 1, r32f) uniform image2D t_Out;
+
+const float tau = 6.283185307;
+
+// Voronoi Fractal with Octaves, mirroring the fBm algorithm from Texturing &
+// Modelling: A Procedural Approach, 3rd edition, but using 4D Noise with a
+// wrapped around domain such that the result is tileable
+//
+// Each octave is attenuated by a factor of 'roughness', as in Blender.
+float voronoi(vec2 uv) {
+    float n = 0.;
+    float amplitude = 1.0;
+    float maxamp = 0.0;
+    float fscale = scale;
+
+    int i;
+    vec4 p = vec4(cos(uv.x * tau), cos(uv.y * tau), sin(uv.x * tau), sin(uv.y * tau));
+
+    for(i = 0; i <= octaves; ++i) {
+        float noise = 0.; // cnoise(p * fscale);
+        n += noise * amplitude;
+        maxamp += amplitude;
+        amplitude *= roughness;
+        fscale *= 2.0;
+    }
+
+    float remainder = fract(octaves);
+    n += remainder * 0. * amplitude;
+
+    n /= maxamp + amplitude * remainder;
+    n = (n + 1.0) / 2.0;
+
+    return n;
+}
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_Out);
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+    float n = voronoi(uv);
+    vec4 col = vec4(n, n, n, 1.);
+    imageStore(t_Out, idx, col);
+}
