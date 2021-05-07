@@ -8,6 +8,7 @@ layout(set = 0, binding = 0) uniform Params {
     float scale;
     float octaves;
     float roughness;
+    float randomness;
 };
 
 const uint METRIC_EUCLIDEAN = 0;
@@ -54,7 +55,7 @@ vec4 voronoi_f1(vec4 p) {
             for (int j = -1; j <= 1; j++) {
                 for (int i = -1; i <= 1; i++) {
                     vec4 cell_offset = vec4(i, j, k, u);
-                    vec4 point_position = cell_offset + hash44(cell + cell_offset);
+                    vec4 point_position = cell_offset + hash44(cell + cell_offset) * randomness;
                     float dist = voronoi_distance(local, point_position);
 
                     if (dist < min_distance) {

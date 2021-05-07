@@ -48,6 +48,7 @@ pub struct Voronoi {
     scale: f32,
     octaves: f32,
     roughness: f32,
+    randomness: f32,
 }
 
 impl Default for Voronoi {
@@ -58,6 +59,7 @@ impl Default for Voronoi {
             scale: 3.0,
             octaves: 2.0,
             roughness: 0.5,
+            randomness: 1.,
         }
     }
 }
@@ -176,6 +178,18 @@ impl OperatorParamBox for Voronoi {
                         transmitter: Field(Voronoi::ROUGHNESS.to_string()),
                         control: Control::Slider {
                             value: self.roughness,
+                            min: 0.,
+                            max: 1.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "randomness".to_string(),
+                        transmitter: Field(Voronoi::RANDOMNESS.to_string()),
+                        control: Control::Slider {
+                            value: self.randomness,
                             min: 0.,
                             max: 1.,
                         },

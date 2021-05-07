@@ -233,3 +233,4 @@ angle-factor = Winkelfaktor
 shell = Schale
 
 exponent = Exponent
+randomness = Zufälligkeit
