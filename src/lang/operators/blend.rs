@@ -33,13 +33,14 @@ pub enum BlendMode {
     Add = 2,
     Subtract = 3,
     Screen = 4,
-    Overlay = 5,
-    Darken = 6,
-    Lighten = 7,
-    InvertLighten = 8,
-    SmoothDarken = 9,
-    SmoothLighten = 10,
-    SmoothInvertLighten = 11,
+    Difference = 5,
+    Overlay = 6,
+    Darken = 7,
+    Lighten = 8,
+    InvertLighten = 9,
+    SmoothDarken = 10,
+    SmoothLighten = 11,
+    SmoothInvertLighten = 12,
 }
 
 impl BlendMode {

@@ -103,6 +103,7 @@ mix = Mischen
 multiply = Multiplizieren
 add = Addieren
 subtract = Abziehen
+difference = Differenz
 screen = Negativ Multiplizieren
 overlay = Überlagern
 darken = Abdunkeln

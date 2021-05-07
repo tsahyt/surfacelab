@@ -103,6 +103,7 @@ mix = Mix
 multiply = Multiply
 add = Add
 subtract = Subtract
+difference = Difference
 screen = Screen
 overlay = Overlay
 darken = Darken
