@@ -86,7 +86,10 @@ where
     B: Backend,
 {
     /// Size of the image memory region, in bytes
+    #[cfg(debug_assertions)]
     const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 128; // bytes
+    #[cfg(not(debug_assertions))]
+    const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 2048; // bytes
 
     /// Size of a single chunk, in bytes
     const CHUNK_SIZE: u64 = 256 * 256 * 4; // bytes
