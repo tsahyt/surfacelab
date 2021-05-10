@@ -171,9 +171,9 @@ where
                         modifiers: input::ModifierKey::CTRL,
                     },
                 ) => {
-                    state.update(|state|
-                                 { dbg!(state.undo_stack.pop()); }
-                    );
+                    state.update(|state| {
+                        dbg!(state.undo_stack.pop());
+                    });
                 }
                 _ => {}
             }

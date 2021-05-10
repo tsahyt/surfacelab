@@ -541,7 +541,7 @@ impl NodeManager {
                     }
                 }
             }
-            UserNodeEvent::ParameterChange(res, data) => {
+            UserNodeEvent::ParameterChange(res, _, data) => {
                 if let Some(graph) = self.graphs.get_mut(res.directory().unwrap()) {
                     if let Some(side_effect) = graph.parameter_change(res, data) {
                         response.push(side_effect);

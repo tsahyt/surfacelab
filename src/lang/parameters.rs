@@ -117,7 +117,7 @@ pub trait MessageWriter: Clone {
     type Resource;
 
     /// Create a message given a resource and associated data
-    fn transmit(&self, resource: &Self::Resource, data: &[u8]) -> super::Lang;
+    fn transmit(&self, resource: &Self::Resource, old_data: &[u8], data: &[u8]) -> super::Lang;
 
     fn as_field(&self) -> Option<&Field> {
         None
@@ -135,11 +135,11 @@ pub enum MessageWriters {
 impl MessageWriter for MessageWriters {
     type Resource = Resource<Node>;
 
-    fn transmit(&self, resource: &Self::Resource, data: &[u8]) -> super::Lang {
+    fn transmit(&self, resource: &Self::Resource, old_data: &[u8], data: &[u8]) -> super::Lang {
         match self {
-            MessageWriters::Field(x) => x.transmit(resource, data),
-            MessageWriters::ResourceField(x) => x.transmit(resource, data),
-            MessageWriters::LayerField(x) => x.transmit(resource, data),
+            MessageWriters::Field(x) => x.transmit(resource, old_data, data),
+            MessageWriters::ResourceField(x) => x.transmit(resource, old_data, data),
+            MessageWriters::LayerField(x) => x.transmit(resource, old_data, data),
         }
     }
 
@@ -177,9 +177,10 @@ pub struct Field(pub String);
 impl MessageWriter for Field {
     type Resource = Resource<Node>;
 
-    fn transmit(&self, resource: &Resource<Node>, data: &[u8]) -> super::Lang {
+    fn transmit(&self, resource: &Resource<Node>, old_data: &[u8], data: &[u8]) -> super::Lang {
         super::Lang::UserNodeEvent(super::UserNodeEvent::ParameterChange(
             Resource::parameter(resource.path(), &self.0),
+            old_data.to_vec(),
             data.to_vec(),
         ))
     }
@@ -199,7 +200,7 @@ pub enum ResourceField {
 impl MessageWriter for ResourceField {
     type Resource = Resource<Node>;
 
-    fn transmit(&self, resource: &Resource<Node>, data: &[u8]) -> super::Lang {
+    fn transmit(&self, resource: &Resource<Node>, _old_data: &[u8], data: &[u8]) -> super::Lang {
         match self {
             Self::Name => {
                 let mut res_new = resource.clone();
@@ -227,7 +228,7 @@ pub enum LayerField {
 impl MessageWriter for LayerField {
     type Resource = Resource<Node>;
 
-    fn transmit(&self, resource: &Self::Resource, data: &[u8]) -> super::Lang {
+    fn transmit(&self, resource: &Self::Resource, _old_data: &[u8], data: &[u8]) -> super::Lang {
         match self {
             Self::ConnectOutput(channel) => {
                 let (n_enabled, n_selected) = <(u32, u32)>::from_data(data);
@@ -263,7 +264,7 @@ pub enum GraphField {
 impl MessageWriter for GraphField {
     type Resource = Resource<Graph>;
 
-    fn transmit(&self, resource: &Resource<Graph>, data: &[u8]) -> super::Lang {
+    fn transmit(&self, resource: &Resource<Graph>, _old_data: &[u8], data: &[u8]) -> super::Lang {
         let mut res_new = resource.clone();
         res_new.rename_file(&String::from_data(data));
         super::Lang::UserGraphEvent(super::UserGraphEvent::RenameGraph(
@@ -303,7 +304,7 @@ pub enum RenderField {
 impl MessageWriter for RenderField {
     type Resource = super::RendererID;
 
-    fn transmit(&self, renderer: &super::RendererID, data: &[u8]) -> super::Lang {
+    fn transmit(&self, renderer: &super::RendererID, _old_data: &[u8], data: &[u8]) -> super::Lang {
         match self {
             RenderField::TextureScale => super::Lang::UserRenderEvent(
                 super::UserRenderEvent::TextureScale(*renderer, f32::from_data(data)),
@@ -387,7 +388,7 @@ pub enum SurfaceField {
 impl MessageWriter for SurfaceField {
     type Resource = ();
 
-    fn transmit(&self, _resource: &Self::Resource, data: &[u8]) -> super::Lang {
+    fn transmit(&self, _resource: &Self::Resource, _old_data: &[u8], data: &[u8]) -> super::Lang {
         super::Lang::UserIOEvent(super::UserIOEvent::SetParentSize(
             OperatorSize::from_data(data).absolute(1024),
         ))
@@ -538,8 +539,9 @@ where
 
         for param in self.parameters_mut() {
             if let Some(data) = preset.preset.remove(&param.name) {
+                let old = param.control.value();
                 param.control.set_value(&data);
-                events.push(param.transmitter.transmit(resource, &data));
+                events.push(param.transmitter.transmit(resource, &old, &data));
             }
         }
 

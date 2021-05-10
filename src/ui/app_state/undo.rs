@@ -1,4 +1,4 @@
-use crate::lang::Lang;
+use crate::lang::*;
 
 pub struct UndoAction(Vec<Lang>);
 
@@ -7,11 +7,16 @@ pub struct UndoStack {
 }
 
 impl UndoStack {
-    pub fn new() -> Self { Self { stack: Vec::new() } }
+    pub fn new() -> Self {
+        Self { stack: Vec::new() }
+    }
 
     /// Notify undo stack of a new event from the bus.
     pub fn notify_event(&mut self, event: &Lang) {
-        dbg!(event);
+        match event {
+            Lang::UserNodeEvent(UserNodeEvent::ParameterChange(param, from, to)) => {}
+            _ => {}
+        }
     }
 
     /// Pop an element off the undo stack.

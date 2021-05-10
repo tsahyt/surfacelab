@@ -556,8 +556,8 @@ pub enum UserNodeEvent {
     ConnectBetweenSockets(Resource<Node>, Resource<Socket>, Resource<Socket>),
     /// The user requests quick blending of the two given nodes using the given operator
     QuickCombine(Operator, Resource<Node>, Resource<Node>),
-    /// The user changes the given parameter to the supplied value.
-    ParameterChange(Resource<Param>, Vec<u8>),
+    /// The user changes the given parameter from the first value to the second value.
+    ParameterChange(Resource<Param>, Vec<u8>, Vec<u8>),
     /// The user repositions the node to the given coordinates.
     PositionNode(Resource<Node>, (f64, f64)),
     /// The user renames a node from a resource to another resource.

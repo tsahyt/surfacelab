@@ -547,11 +547,11 @@ where
                             .set(control_id, ui)
                         {
                             if (new - *value).abs() > std::f32::EPSILON {
-                                ev.push(Event::ChangeParameter(
-                                    parameter
-                                        .transmitter
-                                        .transmit(self.resource, &new.to_data()),
-                                ));
+                                ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
+                                    self.resource,
+                                    &value.to_data(),
+                                    &new.to_data(),
+                                )));
                                 *value = new;
                             }
                         }
@@ -572,11 +572,11 @@ where
                         {
                             let new = new as i32;
                             if new != *value {
-                                ev.push(Event::ChangeParameter(
-                                    parameter
-                                        .transmitter
-                                        .transmit(self.resource, &new.to_data()),
-                                ));
+                                ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
+                                    self.resource,
+                                    &value.to_data(),
+                                    &new.to_data(),
+                                )));
                                 *value = new as i32;
                             }
                         }
@@ -598,12 +598,13 @@ where
                                 .h(256.0)
                                 .set(control_id, ui)
                         {
-                            *value = [new_x, new_y];
-                            ev.push(Event::ChangeParameter(
-                                parameter
-                                    .transmitter
-                                    .transmit(self.resource, &value.to_data()),
-                            ));
+                            let new = [new_x, new_y];
+                            ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
+                                self.resource,
+                                &value.to_data(),
+                                &new.to_data(),
+                            )));
+                            *value = new;
                         }
                         top_margin += 256.0;
                         control_idx.xy_pads += 1;
@@ -621,12 +622,12 @@ where
                         {
                             let rgb = LinSrgb::from(new_color);
                             let new = [rgb.red, rgb.green, rgb.blue];
+                            ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
+                                self.resource,
+                                &value.to_data(),
+                                &new.to_data(),
+                            )));
                             *value = new;
-                            ev.push(Event::ChangeParameter(
-                                parameter
-                                    .transmitter
-                                    .transmit(self.resource, &new.to_data()),
-                            ));
                         }
                         control_idx.rgb_colors += 1;
                     }
@@ -644,11 +645,11 @@ where
                                 .h(16.0)
                                 .set(control_id, ui)
                         {
-                            ev.push(Event::ChangeParameter(
-                                parameter
-                                    .transmitter
-                                    .transmit(self.resource, &(new_selection as u32).to_data()),
-                            ));
+                            ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
+                                self.resource,
+                                &(*selected as u32).to_data(),
+                                &(new_selection as u32).to_data(),
+                            )));
                             *selected = new_selection;
                         }
                         control_idx.enums += 1;
@@ -675,12 +676,15 @@ where
                                 .show()
                             {
                                 Ok(Some(path)) => {
-                                    *selected = Some(std::path::PathBuf::from(&path));
+                                    let new = Some(std::path::PathBuf::from(&path));
                                     ev.push(Event::ChangeParameter(
-                                        parameter
-                                            .transmitter
-                                            .transmit(self.resource, &selected.to_data()),
+                                        parameter.transmitter.transmit(
+                                            self.resource,
+                                            &selected.to_data(),
+                                            &new.to_data(),
+                                        ),
                                     ));
+                                    *selected = new;
                                 }
                                 Err(e) => log::error!("Error during file selection {}", e),
                                 _ => {}
@@ -710,12 +714,15 @@ where
 
                             match event {
                                 resource_editor::Event::SelectResource(new_selected) => {
-                                    *selected = Some(new_selected.clone());
+                                    let new = Some(new_selected.clone());
                                     ev.push(Event::ChangeParameter(
-                                        parameter
-                                            .transmitter
-                                            .transmit(self.resource, &selected.to_data()),
-                                    ))
+                                        parameter.transmitter.transmit(
+                                            self.resource,
+                                            &selected.to_data(),
+                                            &new.to_data(),
+                                        ),
+                                    ));
+                                    *selected = new;
                                 }
                                 resource_editor::Event::AddFromFile(path) => {
                                     ev.push(Event::ChangeParameter(Lang::UserIOEvent(
@@ -762,12 +769,15 @@ where
 
                             match event {
                                 resource_editor::Event::SelectResource(new_selected) => {
-                                    *selected = Some(new_selected.clone());
+                                    let new = Some(new_selected.clone());
                                     ev.push(Event::ChangeParameter(
-                                        parameter
-                                            .transmitter
-                                            .transmit(self.resource, &selected.to_data()),
-                                    ))
+                                        parameter.transmitter.transmit(
+                                            self.resource,
+                                            &selected.to_data(),
+                                            &new.to_data(),
+                                        ),
+                                    ));
+                                    *selected = new;
                                 }
                                 resource_editor::Event::AddFromFile(path) => {
                                     ev.push(Event::ChangeParameter(Lang::UserIOEvent(
@@ -799,6 +809,8 @@ where
                             .set(control_id, ui)
                         {
                             use super::color_ramp;
+
+                            let old = steps.to_data();
                             match event {
                                 color_ramp::Event::ChangeStep(i, step) => {
                                     steps[i] = step;
@@ -848,11 +860,11 @@ where
                                 }
                             }
 
-                            ev.push(Event::ChangeParameter(
-                                parameter
-                                    .transmitter
-                                    .transmit(self.resource, &steps.to_data()),
-                            ))
+                            ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
+                                self.resource,
+                                &old,
+                                &steps.to_data(),
+                            )))
                         }
                         control_idx.ramps += 1;
                     }
@@ -865,9 +877,11 @@ where
                             .h(16.0)
                             .set(control_id, ui)
                         {
+                            let old = *value;
                             *value = !*value;
                             ev.push(Event::ChangeParameter(parameter.transmitter.transmit(
                                 self.resource,
+                                &(if old { 1_u32 } else { 0_u32 }).to_data(),
                                 &(if *value { 1_u32 } else { 0_u32 }).to_data(),
                             )));
                         }
@@ -885,14 +899,17 @@ where
                             .set(control_id, ui)
                         {
                             match event {
-                                widget::text_box::Event::Update(new) => *value = new,
-                                widget::text_box::Event::Enter => {
+                                widget::text_box::Event::Update(new) => {
                                     ev.push(Event::ChangeParameter(
-                                        parameter
-                                            .transmitter
-                                            .transmit(self.resource, &value.to_data()),
+                                        parameter.transmitter.transmit(
+                                            self.resource,
+                                            &value.to_data(),
+                                            &new.to_data(),
+                                        ),
                                     ));
+                                    *value = new;
                                 }
+                                _ => {}
                             }
                         }
                         control_idx.entries += 1;
@@ -928,10 +945,13 @@ where
                                 .h(16.0)
                                 .set(toggle_id, ui)
                             {
+                                let old = enabled.clone();
                                 *enabled = !*enabled;
                                 ev.push(Event::ChangeParameter(
                                     parameter.transmitter.transmit(
                                         self.resource,
+                                        &((if old { 1_u32 } else { 0_u32 }), (*selected as u32))
+                                            .to_data(),
                                         &(
                                             (if *enabled { 1_u32 } else { 0_u32 }),
                                             (*selected as u32),
@@ -956,9 +976,13 @@ where
                             .h(16.0)
                             .set(enum_id, ui)
                             {
+                                let old = selected.clone();
+                                *selected = new_selection;
                                 ev.push(Event::ChangeParameter(
                                     parameter.transmitter.transmit(
                                         self.resource,
+                                        &((if *enabled { 1_u32 } else { 0_u32 }), (old as u32))
+                                            .to_data(),
                                         &(
                                             (if *enabled { 1_u32 } else { 0_u32 }),
                                             (*selected as u32),
@@ -966,7 +990,6 @@ where
                                             .to_data(),
                                     ),
                                 ));
-                                *selected = new_selection;
                             }
 
                             control_idx.toggles += 1;
@@ -993,29 +1016,36 @@ where
 
                         for event in ctrl.set(control_id, ui) {
                             use super::size_control;
+                            let old = size.clone();
                             match event {
                                 size_control::Event::ToAbsolute => {
                                     *size = OperatorSize::AbsoluteSize(1024);
                                     ev.push(Event::ChangeParameter(
-                                        parameter
-                                            .transmitter
-                                            .transmit(self.resource, &size.to_data()),
+                                        parameter.transmitter.transmit(
+                                            self.resource,
+                                            &old.to_data(),
+                                            &size.to_data(),
+                                        ),
                                     ));
                                 }
                                 size_control::Event::ToRelative => {
                                     *size = OperatorSize::RelativeToParent(0);
                                     ev.push(Event::ChangeParameter(
-                                        parameter
-                                            .transmitter
-                                            .transmit(self.resource, &size.to_data()),
+                                        parameter.transmitter.transmit(
+                                            self.resource,
+                                            &old.to_data(),
+                                            &size.to_data(),
+                                        ),
                                     ));
                                 }
                                 size_control::Event::NewSize(new) => {
                                     *size = new;
                                     ev.push(Event::ChangeParameter(
-                                        parameter
-                                            .transmitter
-                                            .transmit(self.resource, &new.to_data()),
+                                        parameter.transmitter.transmit(
+                                            self.resource,
+                                            &old.to_data(),
+                                            &new.to_data(),
+                                        ),
                                     ));
                                 }
                             }
