@@ -172,7 +172,11 @@ where
                     },
                 ) => {
                     state.update(|state| {
-                        dbg!(state.undo_stack.pop());
+                        if let Some(mut evs) = state.undo_stack.pop() {
+                            for ev in evs.drain(0..) {
+                                self.app_data.sender.send(ev).unwrap();
+                            }
+                        }
                     });
                 }
                 _ => {}
