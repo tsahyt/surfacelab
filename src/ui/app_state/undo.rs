@@ -23,10 +23,25 @@ impl UndoAction {
     pub fn from_event(event: &Lang) -> Option<Self> {
         match event {
             Lang::UserNodeEvent(UserNodeEvent::ParameterChange(res, from, to)) => {
-                Some(Self::Building(Box::new(ParameterChangeBuilder::new(
+                Some(Self::Building(Box::new(IncrementalChangeAction::new(
                     res.clone(),
                     from.clone(),
                     to.clone(),
+                    |r, _, ev| match ev {
+                        Lang::UserNodeEvent(UserNodeEvent::ParameterChange(new_res, _, new))
+                            if new_res == r =>
+                        {
+                            Some(new.clone())
+                        }
+                        _ => None,
+                    },
+                    |r, from, to| {
+                        Some(vec![Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+                            r.clone(),
+                            to.clone(),
+                            from.clone(),
+                        ))])
+                    },
                 ))))
             }
             _ => None,
@@ -62,7 +77,10 @@ pub struct UndoStack {
 
 impl UndoStack {
     pub fn new() -> Self {
-        Self { stack: Vec::new(), ignore: HashSet::new() }
+        Self {
+            stack: Vec::new(),
+            ignore: HashSet::new(),
+        }
     }
 
     /// Notify undo stack of a new event from the bus.
@@ -98,43 +116,50 @@ impl UndoStack {
             UndoAction::Complete(evs) => {
                 // self.ignore.union(evs.iter().cloned().collect());
                 Some(evs)
-            },
+            }
             _ => None,
         })
     }
 }
 
-#[derive(Debug)]
-struct ParameterChangeBuilder {
-    res: Resource<Param>,
-    first: Vec<u8>,
-    last: Vec<u8>,
+/// An incremental change action is a buildable undo action that is constructed
+/// from successive small changes, e.g. changing a parameter or moving the
+/// camera. It can always take more events.
+struct IncrementalChangeAction<R, T> {
+    update: Box<dyn Fn(&R, &T, &Lang) -> Option<T> + Send>,
+    finalize: Box<dyn Fn(&R, &T, &T) -> Option<Vec<Lang>> + Send>,
+    reference: R,
+    initial: T,
+    last: T,
 }
 
-impl ParameterChangeBuilder {
-    fn new(res: Resource<Param>, first: Vec<u8>, last: Vec<u8>) -> Self {
-        Self { res, first, last }
+impl<R, T> IncrementalChangeAction<R, T> {
+    fn new<F, G>(reference: R, initial: T, last: T, update: F, finalize: G) -> Self
+    where
+        F: Fn(&R, &T, &Lang) -> Option<T> + 'static + Send,
+        G: Fn(&R, &T, &T) -> Option<Vec<Lang>> + 'static + Send,
+    {
+        Self {
+            update: Box::new(update),
+            finalize: Box::new(finalize),
+            reference,
+            initial,
+            last,
+        }
     }
 }
 
-impl UndoBuilder for ParameterChangeBuilder {
+impl<R, T> UndoBuilder for IncrementalChangeAction<R, T> {
     fn build(&self) -> Option<Vec<Lang>> {
-        Some(vec![Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-            self.res.clone(),
-            self.last.clone(),
-            self.first.clone(),
-        ))])
+        (self.finalize)(&self.reference, &self.initial, &self.last)
     }
 
     fn next(&mut self, event: &Lang) -> bool {
-        match event {
-            Lang::UserNodeEvent(UserNodeEvent::ParameterChange(res, _, new))
-                if res == &self.res =>
-            {
-                self.last = new.clone();
-                true
-            }
-            _ => false,
+        if let Some(new) = (self.update)(&self.reference, &self.last, event) {
+            self.last = new;
+            true
+        } else {
+            false
         }
     }
 
