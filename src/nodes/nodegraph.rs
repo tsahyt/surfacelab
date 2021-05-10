@@ -1154,6 +1154,7 @@ impl NodeCollection for NodeGraph {
     /// Linearization may fail when a node is missing inputs, and will return
     /// None in this case.
     fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, UsePoints)> {
+        use itertools::Itertools;
         use petgraph::visit::EdgeRef;
 
         enum Action<'a> {
@@ -1240,7 +1241,9 @@ impl NodeCollection for NodeGraph {
                                 creation: step,
                             });
 
-                        if let Some(thumbnail_output) = node.operator.outputs().keys().next() {
+                        if let Some(thumbnail_output) =
+                            node.operator.outputs().keys().sorted().next()
+                        {
                             traversal
                                 .push(Instruction::Thumbnail(res.node_socket(thumbnail_output)));
                         }
