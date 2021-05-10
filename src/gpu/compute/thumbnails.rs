@@ -45,7 +45,9 @@ where
     fn drop(&mut self) {
         let n = self.memory.len() * Self::THUMBNAIL_CHUNK_LENGTH;
         for i in 0..n {
-            self.free(ThumbnailIndex(Some(i)));
+            if self.views[i].is_some() {
+                self.free(ThumbnailIndex(Some(i)));
+            }
         }
 
         let lock = self.gpu.lock().unwrap();
