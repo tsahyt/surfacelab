@@ -28,7 +28,6 @@ const uint DIMENSIONS_3D = 1;
 
 const uint METHOD_F1 = 0;
 const uint METHOD_DIST = 1;
-const uint METHOD_SMOOTH_F1 = 2;
 
 vec2 hash22(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
@@ -171,38 +170,6 @@ vec4 voronoi_3d_dist(vec3 p, float scale) {
     return vec4(hash33(target), min_distance);
 }
 
-vec4 voronoi_3d_smooth_f1(vec3 p, float scale) {
-    vec3 cell = floor(p);
-    vec3 local = p - cell;
-
-    float smooth_distance = 8.;
-    vec3 smooth_color = vec3(0.);
-
-    for (int k = -1; k <= 1; k++) {
-        for (int j = -1; j <= 1; j++) {
-            for (int i = -1; i <= 1; i++) {
-                vec3 cell_offset = vec3(i, j, k);
-                vec3 neighbour = voronoi_neighbour(cell, cell_offset, scale);
-                vec3 point_position = cell_offset + hash33(neighbour) * randomness;
-
-                float dist = voronoi_distance(local, point_position);
-                float h = smoothstep(
-                    0., 1.,
-                    0.5 + 0.5 * (smooth_distance - dist) / smoothness
-                );
-                float correction_factor = smoothness * h * (1. - h);
-                smooth_distance = mix(smooth_distance, dist, h) - correction_factor;
-                correction_factor /= 1. + 3. * smoothness;
-
-                vec3 cell_color = hash33(neighbour);
-                smooth_color = mix(smooth_color, cell_color, h) - correction_factor;
-            }
-        }
-    }
-
-    return vec4(smooth_color, smooth_distance);
-}
-
 vec4 voronoi_2d_f1(vec2 p, float scale) {
     vec2 cell = floor(p);
     vec2 local = p - cell;
@@ -276,45 +243,12 @@ vec4 voronoi_2d_dist(vec2 p, float scale) {
     return vec4(hash32(target), min_distance);
 }
 
-vec4 voronoi_2d_smooth_f1(vec2 p, float scale) {
-    vec2 cell = floor(p);
-    vec2 local = p - cell;
-
-    float smooth_distance = 8.;
-    vec3 smooth_color = vec3(0.);
-
-    for (int j = -1; j <= 1; j++) {
-        for (int i = -1; i <= 1; i++) {
-            vec2 cell_offset = vec2(i, j);
-            vec2 neighbour = voronoi_neighbour(cell, cell_offset, scale);
-            vec2 point_position = cell_offset + hash22(neighbour) * randomness;
-
-            float dist = voronoi_distance(local, point_position);
-
-            float h = smoothstep(
-                0., 1.,
-                0.5 + 0.5 * (smooth_distance - dist) / smoothness
-            );
-            float correction_factor = smoothness * h * (1. - h);
-            smooth_distance = mix(smooth_distance, dist, h) - correction_factor;
-            correction_factor /= 1. + 3. * smoothness;
-
-            vec3 cell_color = hash32(neighbour);
-            smooth_color = mix(smooth_color, cell_color, h) - correction_factor;
-        }
-    }
-
-    return vec4(smooth_color, smooth_distance);
-}
-
 vec4 voronoi_3d(vec3 p, float scale) {
     switch (method) {
         case METHOD_F1:
             return voronoi_3d_f1(p, scale);
         case METHOD_DIST:
             return voronoi_3d_dist(p, scale);
-        case METHOD_SMOOTH_F1:
-            return voronoi_3d_smooth_f1(p, scale);
         default:
             return vec4(0.);
     }
@@ -326,8 +260,6 @@ vec4 voronoi_2d(vec2 p, float scale) {
             return voronoi_2d_f1(p, scale);
         case METHOD_DIST:
             return voronoi_2d_dist(p, scale);
-        case METHOD_SMOOTH_F1:
-            return voronoi_2d_smooth_f1(p, scale);
         default:
             return vec4(0.);
     }

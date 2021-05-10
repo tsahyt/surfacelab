@@ -58,16 +58,11 @@ impl DistanceMetric {
 pub enum Method {
     F1 = 0,
     DistanceToEdge = 1,
-    SmoothF1 = 2,
 }
 
 impl Method {
     pub fn has_metric(self) -> bool {
         !matches!(self, Self::DistanceToEdge)
-    }
-
-    pub fn has_smoothness(self) -> bool {
-        matches!(self, Self::SmoothF1)
     }
 }
 
@@ -109,7 +104,6 @@ pub struct Voronoi {
     octaves: f32,
     roughness: f32,
     randomness: f32,
-    smoothness: f32,
 }
 
 impl Default for Voronoi {
@@ -124,7 +118,6 @@ impl Default for Voronoi {
             octaves: 0.0,
             roughness: 0.5,
             randomness: 1.,
-            smoothness: 0.25,
         }
     }
 }
@@ -312,24 +305,6 @@ impl OperatorParamBox for Voronoi {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
-                        presetable: true,
-                    },
-                    Parameter {
-                        name: "smoothness".to_string(),
-                        transmitter: Field(Voronoi::SMOOTHNESS.to_string()),
-                        control: Control::Slider {
-                            value: self.smoothness,
-                            min: 0.,
-                            max: 0.5,
-                        },
-                        expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("method", |c| {
-                            if let Control::Enum { selected, .. } = c {
-                                unsafe { Method::from_unchecked(*selected as u32) }.has_smoothness()
-                            } else {
-                                false
-                            }
-                        }),
                         presetable: true,
                     },
                 ],
