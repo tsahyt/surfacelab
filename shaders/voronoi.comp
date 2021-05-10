@@ -93,7 +93,7 @@ vec3 voronoi_neighbour(vec3 cell, vec3 cell_offset, float scale) {
 
 vec4 voronoi_3d_f1(vec3 p, float scale) {
     vec3 cell = floor(p);
-    vec3 local = p - cell;
+    vec3 local = fract(p);
 
     float min_distance = 8.;
     vec3 target;
@@ -120,7 +120,7 @@ vec4 voronoi_3d_f1(vec3 p, float scale) {
 
 vec4 voronoi_3d_f2(vec3 p, float scale) {
     vec3 cell = floor(p);
-    vec3 local = p - cell;
+    vec3 local = fract(p);
 
     float distance_f1 = 8.;
     float distance_f2 = 8.;
@@ -153,7 +153,7 @@ vec4 voronoi_3d_f2(vec3 p, float scale) {
 
 vec4 voronoi_3d_dist(vec3 p, float scale) {
     vec3 cell = floor(p);
-    vec3 local = p - cell;
+    vec3 local = fract(p);
 
     float min_distance = 8.;
     vec3 target;
@@ -206,7 +206,7 @@ vec4 voronoi_3d_dist(vec3 p, float scale) {
 
 vec4 voronoi_2d_f1(vec2 p, float scale) {
     vec2 cell = floor(p);
-    vec2 local = p - cell;
+    vec2 local = fract(p);
 
     float min_distance = 8.;
     vec2 target;
@@ -231,7 +231,7 @@ vec4 voronoi_2d_f1(vec2 p, float scale) {
 
 vec4 voronoi_2d_f2(vec2 p, float scale) {
     vec2 cell = floor(p);
-    vec2 local = p - cell;
+    vec2 local = fract(p);
 
     float distance_f1 = 8.;
     float distance_f2 = 8.;
@@ -262,7 +262,7 @@ vec4 voronoi_2d_f2(vec2 p, float scale) {
 
 vec4 voronoi_2d_dist(vec2 p, float scale) {
     vec2 cell = floor(p);
-    vec2 local = p - cell;
+    vec2 local = fract(p);
 
     float min_distance = 8.;
     vec2 to_closest;
