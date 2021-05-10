@@ -55,7 +55,7 @@ winit = "0.24.0"
 zerocopy = "0.3.0"
 
 [build-dependencies]
-shaderc = "0.6"
+shaderc = "0.7.2"
 
 [dev-dependencies]
 approx = "0.3.2"
