@@ -254,7 +254,7 @@ impl<'a> Widget for ResourceRow<'a> {
                 .color(style.color(&ui.theme).alpha(0.3))
                 .font_id(style.icon_font(&ui.theme))
                 .font_size(style.text_size(&ui.theme))
-                .mid_right_of(args.id)
+                .mid_right_with_margin(8.)
                 .set(state.ids.status_icons, ui);
         }
 
