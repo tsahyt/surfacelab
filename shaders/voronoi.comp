@@ -1,4 +1,4 @@
-#version 460
+#version 450
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
@@ -84,11 +84,11 @@ float voronoi_distance(vec3 a, vec3 b) {
 }
 
 vec2 voronoi_neighbour(vec2 cell, vec2 cell_offset, float scale) {
-    return mod(cell + cell_offset, scale);
+    return mod(cell + cell_offset + 0.5, scale) - 0.5;
 }
 
 vec3 voronoi_neighbour(vec3 cell, vec3 cell_offset, float scale) {
-    return vec3(mod(cell.xy + cell_offset.xy, scale), cell.z + cell_offset.z);
+    return vec3(voronoi_neighbour(cell.xy, cell_offset.xy, scale), cell.z + cell_offset.z);
 }
 
 vec4 voronoi_3d_f1(vec3 p, float scale) {
