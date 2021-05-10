@@ -25,17 +25,16 @@ impl UndoAction {
             Lang::UserNodeEvent(UserNodeEvent::ParameterChange(res, from, to)) => {
                 Some(Self::Building(Box::new(IncrementalChangeAction::new(
                     res.clone(),
-                    from.clone(),
-                    to.clone(),
-                    |r, _, ev| match ev {
+                    (from.clone(), to.clone()),
+                    |r, (from, _), ev| match ev {
                         Lang::UserNodeEvent(UserNodeEvent::ParameterChange(new_res, _, new))
                             if new_res == r =>
                         {
-                            Some(new.clone())
+                            Some((from.clone(), new.clone()))
                         }
                         _ => None,
                     },
-                    |r, from, to| {
+                    |r, (from, to)| {
                         Some(vec![Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
                             r.clone(),
                             to.clone(),
@@ -48,7 +47,6 @@ impl UndoAction {
                 Some(Self::Building(Box::new(IncrementalChangeAction::new(
                     *renderer,
                     (*theta, *phi),
-                    (*theta, *phi),
                     |r, (theta, phi), ev| match ev {
                         Lang::UserRenderEvent(UserRenderEvent::Rotate(new_r, t, p))
                             if r == new_r =>
@@ -57,7 +55,7 @@ impl UndoAction {
                         }
                         _ => None,
                     },
-                    |r, _, (theta, phi)| {
+                    |r, (theta, phi)| {
                         Some(vec![Lang::UserRenderEvent(UserRenderEvent::Rotate(
                             *r, -theta, -phi,
                         ))])
@@ -144,39 +142,38 @@ impl UndoStack {
 
 /// An incremental change action is a buildable undo action that is constructed
 /// from successive small changes, e.g. changing a parameter or moving the
-/// camera. It can always take more events.
+/// camera. It can always take more events. This mimics a fold across time,
+/// potentially updating an accumulator with each new event.
 struct IncrementalChangeAction<R, T> {
     update: Box<dyn Fn(&R, &T, &Lang) -> Option<T> + Send>,
-    finalize: Box<dyn Fn(&R, &T, &T) -> Option<Vec<Lang>> + Send>,
+    finalize: Box<dyn Fn(&R, &T) -> Option<Vec<Lang>> + Send>,
     reference: R,
-    initial: T,
-    last: T,
+    acc: T,
 }
 
 impl<R, T> IncrementalChangeAction<R, T> {
-    fn new<F, G>(reference: R, initial: T, last: T, update: F, finalize: G) -> Self
+    fn new<F, G>(reference: R, initial: T, update: F, finalize: G) -> Self
     where
         F: Fn(&R, &T, &Lang) -> Option<T> + 'static + Send,
-        G: Fn(&R, &T, &T) -> Option<Vec<Lang>> + 'static + Send,
+        G: Fn(&R, &T) -> Option<Vec<Lang>> + 'static + Send,
     {
         Self {
             update: Box::new(update),
             finalize: Box::new(finalize),
             reference,
-            initial,
-            last,
+            acc: initial,
         }
     }
 }
 
 impl<R, T> UndoBuilder for IncrementalChangeAction<R, T> {
     fn build(&self) -> Option<Vec<Lang>> {
-        (self.finalize)(&self.reference, &self.initial, &self.last)
+        (self.finalize)(&self.reference, &self.acc)
     }
 
     fn next(&mut self, event: &Lang) -> bool {
-        if let Some(new) = (self.update)(&self.reference, &self.last, event) {
-            self.last = new;
+        if let Some(new) = (self.update)(&self.reference, &self.acc, event) {
+            self.acc = new;
             true
         } else {
             false
