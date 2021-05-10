@@ -8,7 +8,7 @@ layout(set = 0, binding = 0) uniform Params {
     uint metric;
     float z_coord;
     float exponent;
-    uint scale;
+    int scale;
     float octaves;
     float roughness;
     float randomness;
@@ -83,6 +83,14 @@ float voronoi_distance(vec3 a, vec3 b) {
     }
 }
 
+vec2 voronoi_neighbour(vec2 cell, vec2 cell_offset) {
+    return mod(cell + cell_offset, float(scale));
+}
+
+vec3 voronoi_neighbour(vec3 cell, vec3 cell_offset) {
+    return vec3(mod(cell.xy + cell_offset.xy, scale), cell.z + cell_offset.z);
+}
+
 vec4 voronoi_3d_f1(vec3 p) {
     vec3 cell = floor(p);
     vec3 local = p - cell;
@@ -94,7 +102,7 @@ vec4 voronoi_3d_f1(vec3 p) {
         for (int j = -1; j <= 1; j++) {
             for (int i = -1; i <= 1; i++) {
                 vec3 cell_offset = vec3(i, j, k);
-                vec3 neighbour = vec3(mod(cell.xy + cell_offset.xy, scale), cell.z + cell_offset.z);
+                vec3 neighbour = voronoi_neighbour(cell, cell_offset);
 
                 vec3 point_position = cell_offset + hash33(neighbour) * randomness;
                 float dist = voronoi_distance(local, point_position);
@@ -122,7 +130,7 @@ vec4 voronoi_3d_dist(vec3 p) {
         for (int j = -1; j <= 1; j++) {
             for (int i = -1; i <= 1; i++) {
                 vec3 cell_offset = vec3(i, j, k);
-                vec3 neighbour = vec3(mod(cell.xy + cell_offset.xy, scale), cell.z + cell_offset.z);
+                vec3 neighbour = voronoi_neighbour(cell, cell_offset);
 
                 vec3 point_position = cell_offset + hash33(neighbour) * randomness;
                 float dist = distance(local, point_position);
@@ -144,7 +152,7 @@ vec4 voronoi_3d_dist(vec3 p) {
         for (int j = -1; j <= 1; j++) {
             for (int i = -1; i <= 1; i++) {
                 vec3 cell_offset = vec3(i, j, k);
-                vec3 neighbour = vec3(mod(cell.xy + cell_offset.xy, scale), cell.z + cell_offset.z);
+                vec3 neighbour = voronoi_neighbour(cell, cell_offset);
 
                 vec3 to_point =
                     cell_offset + hash33(neighbour) * randomness - local;
@@ -174,7 +182,7 @@ vec4 voronoi_3d_smooth_f1(vec3 p) {
         for (int j = -1; j <= 1; j++) {
             for (int i = -1; i <= 1; i++) {
                 vec3 cell_offset = vec3(i, j, k);
-                vec3 neighbour = vec3(mod(cell.xy + cell_offset.xy, scale), cell.z + cell_offset.z);
+                vec3 neighbour = voronoi_neighbour(cell, cell_offset);
                 vec3 point_position = cell_offset + hash33(neighbour) * randomness;
 
                 float dist = voronoi_distance(local, point_position);
@@ -205,7 +213,7 @@ vec4 voronoi_2d_f1(vec2 p) {
     for (int j = -1; j <= 1; j++) {
         for (int i = -1; i <= 1; i++) {
             vec2 cell_offset = vec2(i, j);
-            vec2 neighbour = mod(cell + cell_offset, scale);
+            vec2 neighbour = voronoi_neighbour(cell, cell_offset);
             vec2 point_position = cell_offset + hash22(neighbour) * randomness;
 
             float dist = voronoi_distance(local, point_position);
@@ -231,7 +239,7 @@ vec4 voronoi_2d_dist(vec2 p) {
     for (int j = -1; j <= 1; j++) {
         for (int i = -1; i <= 1; i++) {
             vec2 cell_offset = vec2(i, j);
-            vec2 neighbour = mod(cell + cell_offset, scale);
+            vec2 neighbour = voronoi_neighbour(cell, cell_offset);
             vec2 point_position = cell_offset + hash22(neighbour) * randomness;
 
             float dist = distance(local, point_position);
@@ -251,7 +259,7 @@ vec4 voronoi_2d_dist(vec2 p) {
     for (int j = -1; j <= 1; j++) {
         for (int i = -1; i <= 1; i++) {
             vec2 cell_offset = vec2(i, j);
-            vec2 neighbour = mod(cell + cell_offset, scale);
+            vec2 neighbour = voronoi_neighbour(cell, cell_offset);
             vec2 to_point =
                 cell_offset + hash22(neighbour) * randomness - local;
 
@@ -278,7 +286,7 @@ vec4 voronoi_2d_smooth_f1(vec2 p) {
     for (int j = -1; j <= 1; j++) {
         for (int i = -1; i <= 1; i++) {
             vec2 cell_offset = vec2(i, j);
-            vec2 neighbour = mod(cell + cell_offset, scale);
+            vec2 neighbour = voronoi_neighbour(cell, cell_offset);
             vec2 point_position = cell_offset + hash22(neighbour) * randomness;
 
             float dist = voronoi_distance(local, point_position);
