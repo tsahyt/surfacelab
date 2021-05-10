@@ -44,6 +44,26 @@ impl UndoAction {
                     },
                 ))))
             }
+            Lang::UserRenderEvent(UserRenderEvent::Rotate(renderer, theta, phi)) => {
+                Some(Self::Building(Box::new(IncrementalChangeAction::new(
+                    *renderer,
+                    (*theta, *phi),
+                    (*theta, *phi),
+                    |r, (theta, phi), ev| match ev {
+                        Lang::UserRenderEvent(UserRenderEvent::Rotate(new_r, t, p))
+                            if r == new_r =>
+                        {
+                            Some((theta + t, phi + p))
+                        }
+                        _ => None,
+                    },
+                    |r, _, (theta, phi)| {
+                        Some(vec![Lang::UserRenderEvent(UserRenderEvent::Rotate(
+                            *r, -theta, -phi,
+                        ))])
+                    },
+                ))))
+            }
             _ => None,
         }
     }
