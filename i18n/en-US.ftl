@@ -241,6 +241,6 @@ z = Z
 two-d = 2D
 three-d = 3D
 f1 = F1
-smooth-f1 = Smooth F1
+f2 = F2
 distance-to-edge = Distance To Edge
 smoothness = Smoothness

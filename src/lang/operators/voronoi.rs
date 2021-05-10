@@ -57,7 +57,8 @@ impl DistanceMetric {
 #[strum(serialize_all = "kebab_case")]
 pub enum Method {
     F1 = 0,
-    DistanceToEdge = 1,
+    F2 = 1,
+    DistanceToEdge = 2,
 }
 
 impl Method {

@@ -240,6 +240,6 @@ z = Z
 two-d = 2D
 three-d = 3D
 f1 = F1
-smooth-f1 = Weich F1
+f2 = F2
 distance-to-edge = Abstand zur Kante
 smoothness = Weichheit
