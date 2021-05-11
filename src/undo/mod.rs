@@ -41,7 +41,7 @@ pub fn start_undo_thread(broker: &mut broker::Broker<Lang>) -> thread::JoinHandl
         .expect("Failed to start Undo manager thread!")
 }
 
-trait UndoBuilder {
+pub trait UndoBuilder {
     /// Complete the building process, yielding events for a complete undo action
     fn build(&self) -> Option<Vec<Lang>>;
 
@@ -53,7 +53,7 @@ trait UndoBuilder {
     fn more(&self) -> bool;
 }
 
-enum UndoAction {
+pub enum UndoAction {
     Complete(Vec<Lang>),
     Building(Box<dyn UndoBuilder + Send>),
 }
@@ -62,44 +62,10 @@ impl UndoAction {
     pub fn from_event(event: &Lang) -> Option<Self> {
         match event {
             Lang::UserNodeEvent(UserNodeEvent::ParameterChange(res, from, to)) => {
-                Some(Self::Building(Box::new(IncrementalChangeAction::new(
-                    res.clone(),
-                    (from.clone(), to.clone()),
-                    |r, (from, _), ev| match ev {
-                        Lang::UserNodeEvent(UserNodeEvent::ParameterChange(new_res, _, new))
-                            if new_res == r =>
-                        {
-                            Some((from.clone(), new.clone()))
-                        }
-                        _ => None,
-                    },
-                    |r, (from, to)| {
-                        Some(vec![Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-                            r.clone(),
-                            to.clone(),
-                            from.clone(),
-                        ))])
-                    },
-                ))))
+                Some(parameter_change_action(res, from, to))
             }
             Lang::UserRenderEvent(UserRenderEvent::Rotate(renderer, theta, phi)) => {
-                Some(Self::Building(Box::new(IncrementalChangeAction::new(
-                    *renderer,
-                    (*theta, *phi),
-                    |r, (theta, phi), ev| match ev {
-                        Lang::UserRenderEvent(UserRenderEvent::Rotate(new_r, t, p))
-                            if r == new_r =>
-                        {
-                            Some((theta + t, phi + p))
-                        }
-                        _ => None,
-                    },
-                    |r, (theta, phi)| {
-                        Some(vec![Lang::UserRenderEvent(UserRenderEvent::Rotate(
-                            *r, -theta, -phi,
-                        ))])
-                    },
-                ))))
+                Some(camera_rotate_action(*renderer, *theta, *phi))
             }
             _ => None,
         }

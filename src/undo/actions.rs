@@ -1,6 +1,6 @@
-use crate::lang::Lang;
+use crate::lang::*;
 
-use super::UndoBuilder;
+use super::{UndoAction, UndoBuilder};
 
 /// An incremental change action is a buildable undo action that is constructed
 /// from successive small changes, e.g. changing a parameter or moving the
@@ -45,4 +45,44 @@ impl<R, T> UndoBuilder for IncrementalChangeAction<R, T> {
     fn more(&self) -> bool {
         true
     }
+}
+
+pub fn parameter_change_action(res: &Resource<Param>, from: &[u8], to: &[u8]) -> UndoAction {
+    UndoAction::Building(Box::new(IncrementalChangeAction::new(
+        res.clone(),
+        (from.to_vec(), to.to_vec()),
+        |r, (from, _), ev| match ev {
+            Lang::UserNodeEvent(UserNodeEvent::ParameterChange(new_res, _, new))
+                if new_res == r =>
+            {
+                Some((from.clone(), new.clone()))
+            }
+            _ => None,
+        },
+        |r, (from, to)| {
+            Some(vec![Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+                r.clone(),
+                to.clone(),
+                from.clone(),
+            ))])
+        },
+    )))
+}
+
+pub fn camera_rotate_action(renderer: RendererID, theta: f32, phi: f32) -> UndoAction {
+    UndoAction::Building(Box::new(IncrementalChangeAction::new(
+        renderer,
+        (theta, phi),
+        |r, (theta, phi), ev| match ev {
+            Lang::UserRenderEvent(UserRenderEvent::Rotate(new_r, t, p)) if r == new_r => {
+                Some((theta + *t, phi + *p))
+            }
+            _ => None,
+        },
+        |r, (theta, phi)| {
+            Some(vec![Lang::UserRenderEvent(UserRenderEvent::Rotate(
+                *r, -theta, -phi,
+            ))])
+        },
+    )))
 }
