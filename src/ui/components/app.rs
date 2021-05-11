@@ -389,7 +389,7 @@ where
                     ))
                 });
             }
-            GraphEvent::NodeRemoved(res) => {
+            GraphEvent::NodeRemoved(res, _, _) => {
                 state.update(|state| state.graphs.remove_node(res));
             }
             GraphEvent::NodeRenamed(from, to) => {

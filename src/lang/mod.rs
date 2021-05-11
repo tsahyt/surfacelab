@@ -544,6 +544,8 @@ pub enum UserNodeEvent {
         (f64, f64),
         Option<Resource<Socket>>,
     ),
+    /// The user requests creation of a new node with a specific resource.
+    NewNodeNamed(Resource<Node>, Operator, (f64, f64)),
     /// The user requests the removal of a given node.
     RemoveNode(Resource<Node>),
     /// The user requests a connection between the two sockets. Requires the
@@ -625,7 +627,7 @@ pub enum GraphEvent {
     /// `u32` denotes the pixel size of the socket.
     OutputSocketAdded(Resource<Socket>, OperatorType, bool, u32),
     /// A node has been removed from the system
-    NodeRemoved(Resource<Node>),
+    NodeRemoved(Resource<Node>, Operator, (f64, f64)),
     /// A node has been renamed/moved from a resource to a resource.
     NodeRenamed(Resource<Node>, Resource<Node>),
     /// A node has been resized to the new given size. The bool indicates

@@ -39,7 +39,7 @@ pub struct Node {
     /// Node operator
     pub operator: Operator,
     /// Node position, stored here such that it can be retrieved from a file
-    position: (f64, f64),
+    pub position: (f64, f64),
     /// Operator size of this node, possibly overridden by size request.
     size: OperatorSize,
     /// Type variables of this node, with their assignments
@@ -921,9 +921,11 @@ impl NodeGraph {
             evs.extend(rconns.iter().map(|c| {
                 Lang::GraphEvent(GraphEvent::DisconnectedSockets(c.0.clone(), c.1.clone()))
             }));
-            evs.push(Lang::GraphEvent(GraphEvent::NodeRemoved(Resource::node(
-                [&self.name, node].iter().collect::<std::path::PathBuf>(),
-            ))));
+            evs.push(Lang::GraphEvent(GraphEvent::NodeRemoved(
+                Resource::node([&self.name, node].iter().collect::<std::path::PathBuf>()),
+                rnode.operator.clone(),
+                rnode.position.clone(),
+            )));
 
             let (new_node, _) = new.new_node(&rnode.operator, parent_size);
             new.resize_node(&new_node, rnode.size, parent_size);

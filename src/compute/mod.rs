@@ -236,7 +236,7 @@ where
                 GraphEvent::ComplexOperatorUpdated(node, _, _) => {
                     self.sockets.set_force(node);
                 }
-                GraphEvent::NodeRemoved(res) => {
+                GraphEvent::NodeRemoved(res, _, _) => {
                     for socket in self
                         .sockets
                         .remove_all_for_group(res, &mut self.gpu)

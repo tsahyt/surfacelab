@@ -363,6 +363,9 @@ impl NodeManager {
                     }
                 }
             }
+            UserNodeEvent::NewNodeNamed(node, op, pos) => {
+
+            }
             UserNodeEvent::RemoveNode(res) => {
                 let node = res.file().unwrap();
                 let graph = res.directory().unwrap();
@@ -381,7 +384,11 @@ impl NodeManager {
                                     ))
                                 })
                                 .collect();
-                            response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(res.clone())));
+                            response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(
+                                res.clone(),
+                                node.operator.clone(),
+                                node.position.clone(),
+                            )));
                             if let nodegraph::Node {
                                 operator:
                                     Operator::AtomicOperator(AtomicOperator::Output(Output {

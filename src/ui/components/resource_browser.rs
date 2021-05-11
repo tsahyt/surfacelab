@@ -312,7 +312,7 @@ impl<'a> ResourceBrowser<'a> {
             Lang::GraphEvent(GraphEvent::NodeAdded(res, _, _, _, _)) => {
                 state.update(|state| state.tree.insert_node(res.clone()));
             }
-            Lang::GraphEvent(GraphEvent::NodeRemoved(res)) => {
+            Lang::GraphEvent(GraphEvent::NodeRemoved(res, _, _)) => {
                 state.update(|state| state.tree.remove_resource_and_children(res));
             }
             Lang::GraphEvent(GraphEvent::NodeRenamed(from, to)) => {

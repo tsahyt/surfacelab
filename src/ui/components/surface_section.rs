@@ -233,7 +233,7 @@ impl<'a> SurfaceSection<'a> {
                     state.output_resources.push(res.clone());
                 });
             }
-            Lang::GraphEvent(GraphEvent::NodeRemoved(res)) => {
+            Lang::GraphEvent(GraphEvent::NodeRemoved(res, _, _)) => {
                 if let Some(idx) = state.output_resources.iter().position(|r| r == res) {
                     state.update(|state| {
                         state.output_resources.remove(idx);
