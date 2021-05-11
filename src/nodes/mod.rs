@@ -1386,7 +1386,7 @@ impl Default for NodeManager {
 /// Designed to exist once in the system.
 pub fn start_nodes_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::JoinHandle<()> {
     log::info!("Starting Node Manager");
-    let (sender, receiver, disconnector) = broker.subscribe();
+    let (sender, receiver, disconnector) = broker.subscribe("nodes");
 
     thread::Builder::new()
         .name("nodes".to_string())
@@ -1398,11 +1398,8 @@ pub fn start_nodes_thread(broker: &mut broker::Broker<lang::Lang>) -> thread::Jo
                     None => break,
                     Some(response) => {
                         for ev in response {
-                            if let Err(e) = sender.send(ev) {
-                                log::error!(
-                                    "Node Manager lost connection to application bus! {}",
-                                    e
-                                );
+                            if sender.send(ev).is_none() {
+                                log::error!("Node Manager lost connection to application bus!");
                             }
                         }
                     }

@@ -11,7 +11,7 @@ pub fn start_io_thread(
     broker: &mut broker::Broker<Lang>,
     config: Configuration,
 ) -> thread::JoinHandle<()> {
-    let (sender, receiver, disconnector) = broker.subscribe();
+    let (sender, receiver, disconnector) = broker.subscribe("io");
     thread::Builder::new()
         .name("io".to_string())
         .spawn(move || {

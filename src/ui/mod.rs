@@ -165,7 +165,7 @@ pub fn start_ui_thread<B: gpu::Backend>(
     gpu: Arc<Mutex<gpu::GPU<B>>>,
     config: &config::Configuration,
 ) -> thread::JoinHandle<()> {
-    let (sender, receiver, _disconnector) = broker.subscribe();
+    let (sender, receiver, _disconnector) = broker.subscribe("ui");
     let start_config = config.clone();
     thread::Builder::new()
         .name("ui".to_string())
