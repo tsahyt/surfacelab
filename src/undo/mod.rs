@@ -1,6 +1,37 @@
-use std::collections::HashSet;
+use std::thread;
 
-use crate::lang::*;
+use crate::{broker, lang::*};
+
+pub fn start_undo_thread(broker: &mut broker::Broker<Lang>) -> thread::JoinHandle<()> {
+    let (sender, receiver, disconnector) = broker.subscribe("undo");
+    thread::Builder::new()
+        .name("undo".to_string())
+        .spawn(move || {
+            log::info!("Starting Undo manager");
+
+            let mut undo_stack = UndoStack::new();
+
+            for event in receiver {
+                match &*event {
+                    Lang::UserIOEvent(UserIOEvent::Undo) => {
+                        if let Some(mut evs) = undo_stack.pop() {
+                            log::debug!("Performing undo");
+                            for ev in evs.drain(0..) {
+                                sender.send(ev).unwrap()
+                            }
+                        } else {
+                            log::debug!("Undo stack empty");
+                        }
+                    }
+                    event => undo_stack.notify_event(event),
+                }
+            }
+
+            log::info!("Undo manager terminating");
+            disconnector.disconnect();
+        })
+        .expect("Failed to start Undo manager thread!")
+}
 
 trait UndoBuilder {
     /// Complete the building process, yielding events for a complete undo action
@@ -90,15 +121,11 @@ impl UndoAction {
 
 pub struct UndoStack {
     stack: Vec<UndoAction>,
-    ignore: HashSet<Lang>,
 }
 
 impl UndoStack {
     pub fn new() -> Self {
-        Self {
-            stack: Vec::new(),
-            ignore: HashSet::new(),
-        }
+        Self { stack: Vec::new() }
     }
 
     /// Notify undo stack of a new event from the bus.

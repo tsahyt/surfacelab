@@ -121,7 +121,6 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     graphs: NodeCollections,
-    undo_stack: UndoStack,
     image_resources: Vec<(Resource<Img>, (ColorSpace, bool))>,
     svg_resources: Vec<(Resource<resource::Svg>, bool)>,
     parent_size: u32,
@@ -139,7 +138,6 @@ where
         State {
             ids: Ids::new(id_gen),
             graphs: NodeCollections::new(),
-            undo_stack: UndoStack::new(),
             image_resources: Vec::new(),
             svg_resources: Vec::new(),
             parent_size: 1024,
@@ -171,13 +169,10 @@ where
                         modifiers: input::ModifierKey::CTRL,
                     },
                 ) => {
-                    state.update(|state| {
-                        if let Some(mut evs) = state.undo_stack.pop() {
-                            for ev in evs.drain(0..) {
-                                self.app_data.sender.send(ev).unwrap();
-                            }
-                        }
-                    });
+                    self.app_data
+                        .sender
+                        .send(Lang::UserIOEvent(UserIOEvent::Undo))
+                        .unwrap();
                 }
                 _ => {}
             }
@@ -305,8 +300,6 @@ where
 {
     /// Handle UI event
     fn handle_event(&mut self, state: &mut widget::State<State>, event: &Lang) {
-        state.update(|state| state.undo_stack.notify_event(event));
-
         match event {
             Lang::ComputeEvent(ComputeEvent::ThumbnailCreated(res, thmb)) => {
                 if let Some(t) = thmb.clone().to::<B>() {
