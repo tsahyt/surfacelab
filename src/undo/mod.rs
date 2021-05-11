@@ -75,6 +75,9 @@ impl UndoAction {
             Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(sink)) => {
                 Some(disconnect_sink_action(sink))
             }
+            Lang::UserNodeEvent(UserNodeEvent::ConnectBetweenSockets(node, source, sink)) => {
+                Some(connect_between_sockets_action(node, source, sink))
+            }
             _ => None,
         }
     }

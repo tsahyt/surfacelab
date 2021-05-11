@@ -363,9 +363,7 @@ impl NodeManager {
                     }
                 }
             }
-            UserNodeEvent::NewNodeNamed(node, op, pos) => {
-
-            }
+            UserNodeEvent::NewNodeNamed(node, op, pos) => {}
             UserNodeEvent::RemoveNode(res) => {
                 let node = res.file().unwrap();
                 let graph = res.directory().unwrap();

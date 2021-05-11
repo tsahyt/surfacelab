@@ -280,3 +280,65 @@ pub fn remove_node_action(node: &Resource<Node>) -> UndoAction {
         },
     )))
 }
+
+pub fn connect_between_sockets_action(
+    node: &Resource<Node>,
+    source: &Resource<Socket>,
+    sink: &Resource<Socket>,
+) -> UndoAction {
+    use itertools::Itertools;
+
+    enum BetweenSocketsData {
+        Connection(Resource<Socket>),
+        Disconnection(Resource<Socket>, Resource<Socket>),
+    }
+
+    fn cmp_between_sockets_data(
+        a: &BetweenSocketsData,
+        b: &BetweenSocketsData,
+    ) -> std::cmp::Ordering {
+        match (a, b) {
+            (BetweenSocketsData::Connection(..), BetweenSocketsData::Disconnection(..)) => {
+                std::cmp::Ordering::Less
+            }
+            (BetweenSocketsData::Disconnection(..), BetweenSocketsData::Connection(..)) => {
+                std::cmp::Ordering::Greater
+            }
+            _ => std::cmp::Ordering::Equal,
+        }
+    }
+    UndoAction::Building(Box::new(CallMultiResponseAction::new(
+        (node.clone(), source.clone(), sink.clone()),
+        |(node, original_source, original_sink), event| match event {
+            Lang::GraphEvent(GraphEvent::ConnectedSockets(source, sink))
+                if source.is_socket_of(node) || sink.is_socket_of(node) =>
+            {
+                Some(BetweenSocketsData::Connection(sink.clone()))
+            }
+            Lang::GraphEvent(GraphEvent::DisconnectedSockets(source, sink))
+                if source == original_source && sink == original_sink =>
+            {
+                Some(BetweenSocketsData::Disconnection(
+                    source.clone(),
+                    sink.clone(),
+                ))
+            }
+            _ => None,
+        },
+        |(_, _, _), data| {
+            Some(
+                data.iter()
+                    .sorted_by(|a, b| cmp_between_sockets_data(a, b))
+                    .map(|x| match x {
+                        BetweenSocketsData::Connection(sink) => {
+                            Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(sink.clone()))
+                        }
+                        BetweenSocketsData::Disconnection(source, sink) => Lang::UserNodeEvent(
+                            UserNodeEvent::ConnectSockets(source.clone(), sink.clone()),
+                        ),
+                    })
+                    .collect(),
+            )
+        },
+    )))
+}
