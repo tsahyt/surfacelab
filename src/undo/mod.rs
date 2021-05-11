@@ -78,6 +78,9 @@ impl UndoAction {
             Lang::UserNodeEvent(UserNodeEvent::ConnectBetweenSockets(node, source, sink)) => {
                 Some(connect_between_sockets_action(node, source, sink))
             }
+            Lang::UserNodeEvent(UserNodeEvent::QuickCombine(op, _, _)) => {
+                Some(quick_combine_action(op))
+            }
             _ => None,
         }
     }

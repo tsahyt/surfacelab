@@ -342,3 +342,16 @@ pub fn connect_between_sockets_action(
         },
     )))
 }
+
+pub fn quick_combine_action(operator: &Operator) -> UndoAction {
+    UndoAction::Building(Box::new(CallResponseAction::new(
+        operator.clone(),
+        |op, event| match event {
+            Lang::GraphEvent(GraphEvent::NodeAdded(node, added_op, _, _, _)) if op == added_op => {
+                Some(node.clone())
+            }
+            _ => None,
+        },
+        |_, node| vec![Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node.clone()))],
+    )))
+}
