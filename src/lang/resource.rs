@@ -156,6 +156,11 @@ impl Resource<Node> {
             phantom_data: std::marker::PhantomData,
         }
     }
+
+    /// Determine whether this socket is a socket of the given node
+    pub fn is_node_of(&self, graph: &Resource<Graph>) -> bool {
+        self.resource_path.starts_with(&graph.resource_path)
+    }
 }
 
 impl Resource<Graph> {

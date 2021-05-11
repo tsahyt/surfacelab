@@ -47,6 +47,51 @@ impl<R, T> UndoBuilder for IncrementalChangeAction<R, T> {
     }
 }
 
+/// An action that can be built from a single response to a call. It can take
+/// events until the value has been filled.
+pub struct CallResponseAction<R, T> {
+    fill: Box<dyn Fn(&R, &Lang) -> Option<T> + Send>,
+    finalize: Box<dyn Fn(&R, &T) -> Vec<Lang> + Send>,
+    reference: R,
+    value: Option<T>,
+}
+
+impl<R, T> CallResponseAction<R, T> {
+    pub fn new<F, G>(reference: R, fill: F, finalize: G) -> Self
+    where
+        F: Fn(&R, &Lang) -> Option<T> + 'static + Send,
+        G: Fn(&R, &T) -> Vec<Lang> + 'static + Send,
+    {
+        Self {
+            fill: Box::new(fill),
+            finalize: Box::new(finalize),
+            reference,
+            value: None,
+        }
+    }
+}
+
+impl<R, T> UndoBuilder for CallResponseAction<R, T> {
+    fn build(&self) -> Option<Vec<Lang>> {
+        self.value
+            .as_ref()
+            .map(|v| (self.finalize)(&self.reference, v))
+    }
+
+    fn next(&mut self, event: &Lang) -> bool {
+        if let Some(v) = (self.fill)(&self.reference, event) {
+            self.value = Some(v);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn more(&self) -> bool {
+        self.value.is_none()
+    }
+}
+
 pub fn parameter_change_action(res: &Resource<Param>, from: &[u8], to: &[u8]) -> UndoAction {
     UndoAction::Building(Box::new(IncrementalChangeAction::new(
         res.clone(),
@@ -84,5 +129,18 @@ pub fn camera_rotate_action(renderer: RendererID, theta: f32, phi: f32) -> UndoA
                 *r, -theta, -phi,
             ))])
         },
+    )))
+}
+
+pub fn new_node_action(graph: &Resource<Graph>) -> UndoAction {
+    UndoAction::Building(Box::new(CallResponseAction::new(
+        graph.clone(),
+        |graph, event| match event {
+            Lang::GraphEvent(GraphEvent::NodeAdded(res, _, _, _, _)) if res.is_node_of(&graph) => {
+                Some(res.clone())
+            }
+            _ => None,
+        },
+        |_, node| vec![Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node.clone()))],
     )))
 }
