@@ -124,6 +124,10 @@ pub trait MessageWriter: Clone {
     }
 }
 
+pub trait ResourcedParameter: MessageWriter {
+    fn transmitter_matches(&self, param: &Resource<Param>) -> bool;
+}
+
 /// Various combined MessageWriters, for use in mixed parameter boxes
 #[derive(Clone, Debug, PartialEq)]
 pub enum MessageWriters {
@@ -148,6 +152,15 @@ impl MessageWriter for MessageWriters {
             MessageWriters::Field(x) => Some(x),
             MessageWriters::ResourceField(_) => None,
             MessageWriters::LayerField(_) => None,
+        }
+    }
+}
+
+impl ResourcedParameter for MessageWriters {
+    fn transmitter_matches(&self, param: &Resource<Param>) -> bool {
+        match self {
+            MessageWriters::Field(f) => f.transmitter_matches(param),
+            _ => false,
         }
     }
 }
@@ -187,6 +200,12 @@ impl MessageWriter for Field {
 
     fn as_field(&self) -> Option<&Field> {
         Some(self)
+    }
+}
+
+impl ResourcedParameter for Field {
+    fn transmitter_matches(&self, param: &Resource<Param>) -> bool {
+        &self.0 == param.fragment().unwrap()
     }
 }
 
@@ -619,6 +638,20 @@ where
     /// Obtain a mutable iterator over all parameters.
     pub fn parameters_mut(&mut self) -> BoxParameters<'_, T> {
         BoxParameters::new(&mut self.categories)
+    }
+}
+
+impl<T> ParamBoxDescription<T>
+where
+    T: ResourcedParameter,
+{
+    pub fn update_parameter(&mut self, param: &Resource<Param>, value: &[u8]) {
+        if let Some(p) = self
+            .parameters_mut()
+            .find(|p| p.transmitter.transmitter_matches(param))
+        {
+            p.control.set_value(value);
+        }
     }
 }
 

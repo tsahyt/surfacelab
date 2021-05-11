@@ -396,4 +396,17 @@ impl Collection for Layers {
                 .find(|i| &self.layers.get(i).unwrap().data().resource == element);
         }
     }
+
+    fn update_parameter(&mut self, param: &Resource<r::Param>, value: &[u8]) {
+        let layer_res = param.parameter_node();
+        if let Some(node_id) = self
+            .layers
+            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+            .unwrap()
+            .find(|i| &self.layers.get(i).unwrap().data().resource == &layer_res)
+        {
+            let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+            layer.operator_pbox.update_parameter(param, value);
+        }
+    }
 }

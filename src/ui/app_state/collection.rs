@@ -28,6 +28,7 @@ pub trait Collection {
     ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)>;
     fn active_resource(&self) -> Option<&Resource<r::Node>>;
     fn set_active(&mut self, element: &Resource<r::Node>);
+    fn update_parameter(&mut self, param: &Resource<r::Param>, value: &[u8]);
 }
 
 #[enum_dispatch(Collection)]
@@ -418,6 +419,13 @@ impl NodeCollections {
     pub fn move_layer_down(&mut self, layer: &Resource<r::Node>) {
         if let Some(target) = self.target_layers_from_node(&layer) {
             target.move_down(layer);
+        }
+    }
+
+    /// Update a parameter in a parameter box
+    pub fn update_parameter(&mut self, param: &Resource<r::Param>, value: &[u8]) {
+        if let Some(target) = self.target_collection_from_node(&param.parameter_node()) {
+            target.update_parameter(param, value);
         }
     }
 }

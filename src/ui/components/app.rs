@@ -351,6 +351,12 @@ where
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(s)) => {
                 state.update(|state| state.parent_size = *s);
             }
+            Lang::UserNodeEvent(UserNodeEvent::ParameterChange(param, _, value)) => {
+                state.update(|state| {
+                    // This event must have originated outside the UI (e.g. undo), thus we have to update
+                    state.graphs.update_parameter(param, value);
+                })
+            }
             _ => {}
         }
     }

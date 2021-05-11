@@ -13,6 +13,10 @@ pub fn start_undo_thread(broker: &mut broker::Broker<Lang>) -> thread::JoinHandl
 
             for event in receiver {
                 match &*event {
+                    Lang::UserIOEvent(UserIOEvent::OpenSurface(..))
+                    | Lang::UserIOEvent(UserIOEvent::NewSurface) => {
+                        undo_stack.clear();
+                    }
                     Lang::UserIOEvent(UserIOEvent::Undo) => {
                         if let Some(mut evs) = undo_stack.pop() {
                             log::debug!("Performing undo");
@@ -128,6 +132,10 @@ impl UndoStack {
         Self { stack: Vec::new() }
     }
 
+    pub fn clear(&mut self) {
+        self.stack.clear()
+    }
+
     /// Notify undo stack of a new event from the bus.
     pub fn notify_event(&mut self, event: &Lang) {
         match self.stack.last_mut() {
@@ -158,10 +166,7 @@ impl UndoStack {
 
         // Fetch action and return
         self.stack.pop().and_then(|x| match x {
-            UndoAction::Complete(evs) => {
-                // self.ignore.union(evs.iter().cloned().collect());
-                Some(evs)
-            }
+            UndoAction::Complete(evs) => Some(evs),
             _ => None,
         })
     }

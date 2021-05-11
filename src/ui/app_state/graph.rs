@@ -588,6 +588,12 @@ impl Collection for Graph {
     fn set_active(&mut self, element: &Resource<r::Node>) {
         self.active_element = Some(element.clone())
     }
+
+    fn update_parameter(&mut self, param: &Resource<r::Param>, value: &[u8]) {
+        if let Some(node) = self.nodes.get_mut(&param.parameter_node()) {
+            node.param_box.update_parameter(param, value);
+        }
+    }
 }
 
 impl Default for Graph {
