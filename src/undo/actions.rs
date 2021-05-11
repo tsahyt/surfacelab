@@ -92,6 +92,50 @@ impl<R, T> UndoBuilder for CallResponseAction<R, T> {
     }
 }
 
+/// An action that can be built from a multiple responses to a call.
+pub struct CallMultiResponseAction<R, T> {
+    fill: Box<dyn Fn(&R, &Lang) -> Option<T> + Send>,
+    finalize: Box<dyn Fn(&R, &T) -> Vec<Lang> + Send>,
+    reference: R,
+    value: Option<T>,
+}
+
+impl<R, T> CallMultiResponseAction<R, T> {
+    pub fn new<F, G>(reference: R, fill: F, finalize: G) -> Self
+    where
+        F: Fn(&R, &Lang) -> Option<T> + 'static + Send,
+        G: Fn(&R, &T) -> Vec<Lang> + 'static + Send,
+    {
+        Self {
+            fill: Box::new(fill),
+            finalize: Box::new(finalize),
+            reference,
+            value: None,
+        }
+    }
+}
+
+impl<R, T> UndoBuilder for CallMultiResponseAction<R, T> {
+    fn build(&self) -> Option<Vec<Lang>> {
+        self.value
+            .as_ref()
+            .map(|v| (self.finalize)(&self.reference, v))
+    }
+
+    fn next(&mut self, event: &Lang) -> bool {
+        if let Some(v) = (self.fill)(&self.reference, event) {
+            self.value = Some(v);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn more(&self) -> bool {
+        self.value.is_none()
+    }
+}
+
 pub fn parameter_change_action(res: &Resource<Param>, from: &[u8], to: &[u8]) -> UndoAction {
     UndoAction::Building(Box::new(IncrementalChangeAction::new(
         res.clone(),
@@ -142,5 +186,25 @@ pub fn new_node_action(graph: &Resource<Graph>) -> UndoAction {
             _ => None,
         },
         |_, node| vec![Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node.clone()))],
+    )))
+}
+
+pub fn disconnect_sink_action(sink: &Resource<Socket>) -> UndoAction {
+    UndoAction::Building(Box::new(CallResponseAction::new(
+        sink.clone(),
+        |sink, event| match event {
+            Lang::GraphEvent(GraphEvent::DisconnectedSockets(source, other_sink))
+                if sink == other_sink =>
+            {
+                Some(source.clone())
+            }
+            _ => None,
+        },
+        |sink, source| {
+            vec![Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
+                source.clone(),
+                sink.clone(),
+            ))]
+        },
     )))
 }
