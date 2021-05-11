@@ -208,3 +208,22 @@ pub fn disconnect_sink_action(sink: &Resource<Socket>) -> UndoAction {
         },
     )))
 }
+
+pub fn connect_sockets_action(source: &Resource<Socket>, sink: &Resource<Socket>) -> UndoAction {
+    UndoAction::Building(Box::new(CallResponseAction::new(
+        (source.clone(), sink.clone()),
+        |(u_source, u_sink), event| match event {
+            Lang::GraphEvent(GraphEvent::ConnectedSockets(source, sink))
+                if u_source == source && u_sink == sink =>
+            {
+                Some(())
+            }
+            _ => None,
+        },
+        |(_, sink), _| {
+            vec![Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
+                sink.clone(),
+            ))]
+        },
+    )))
+}
