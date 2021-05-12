@@ -87,6 +87,9 @@ impl UndoAction {
             Lang::UserGraphEvent(UserGraphEvent::Extract(ns)) => {
                 Some(extract_action(ns))
             }
+            Lang::UserGraphEvent(UserGraphEvent::AddGraph) => {
+                Some(add_graph_action())
+            }
             _ => None,
         }
     }

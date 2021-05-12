@@ -402,3 +402,14 @@ pub fn extract_action(nodes: &[Resource<Node>]) -> UndoAction {
         }
     )))
 }
+
+pub fn add_graph_action() -> UndoAction {
+    UndoAction::Building(Box::new(CallResponseAction::new(
+        (),
+        |_, event| match event {
+            Lang::GraphEvent(GraphEvent::GraphAdded(g)) => Some(g.clone()),
+            _ => None
+        },
+        |_, g| vec![Lang::UserGraphEvent(UserGraphEvent::DeleteGraph(g.clone()))]
+    )))
+}
