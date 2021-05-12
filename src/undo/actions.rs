@@ -386,3 +386,19 @@ pub fn rename_node_action(from: &Resource<Node>, to: &Resource<Node>) -> UndoAct
         },
     )))
 }
+
+pub fn extract_action(nodes: &[Resource<Node>]) -> UndoAction {
+    UndoAction::Building(Box::new(CallResponseAction::new(
+        nodes[0].node_graph(),
+        |graph, event| match event {
+            Lang::GraphEvent(GraphEvent::NodeAdded(res, Operator::ComplexOperator(op), _, _, _))
+                if res.is_node_of(graph) => {
+                    Some((res.clone(), op.clone()))
+                }
+            _ => None
+        },
+        |_, (node, op)| {
+            vec![Lang::UserGraphEvent(UserGraphEvent::Inject(node.clone(), op.clone()))]
+        }
+    )))
+}

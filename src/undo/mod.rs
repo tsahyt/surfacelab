@@ -84,6 +84,9 @@ impl UndoAction {
             Lang::UserNodeEvent(UserNodeEvent::RenameNode(from, to)) => {
                 Some(rename_node_action(from, to))
             }
+            Lang::UserGraphEvent(UserGraphEvent::Extract(ns)) => {
+                Some(extract_action(ns))
+            }
             _ => None,
         }
     }

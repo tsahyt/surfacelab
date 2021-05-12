@@ -832,6 +832,9 @@ impl NodeManager {
                     }
                 }
             }
+            UserGraphEvent::Inject(node, op) => {
+
+            }
         };
 
         response
