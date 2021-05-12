@@ -408,13 +408,14 @@ impl<'a> LayerEditor<'a> {
             Lang::GraphEvent(GraphEvent::GraphRenamed(from, to)) => {
                 state.update(|state| {
                     let old_op = Operator::ComplexOperator(ComplexOperator::new(from.clone()));
-                    state.operators.remove(
+                    if let Some(idx) =
                         state
                             .operators
                             .iter()
-                            .position(|x| x == &old_op)
-                            .expect("Missing old operator"),
-                    );
+                            .position(|x| x == &old_op) {
+                                state.operators.remove(idx
+                                );
+                            }
                     state
                         .operators
                         .push(Operator::ComplexOperator(ComplexOperator::new(to.clone())));

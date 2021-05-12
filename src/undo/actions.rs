@@ -426,4 +426,31 @@ impl UndoAction {
             |_, g| vec![Lang::UserGraphEvent(UserGraphEvent::DeleteGraph(g.clone()))],
         )))
     }
+
+    pub fn rename_graph_action(from: &Resource<Graph>, to: &Resource<Graph>) -> Self {
+        Self::Building(Box::new(IncrementalChangeAction::new(
+            (),
+            (from.clone(), to.clone()),
+            |_, (z_from, z_to), event| match event {
+                Lang::GraphEvent(GraphEvent::GraphRenamed(from, to))
+                    if from == z_from && to == z_to =>
+                {
+                    Some((from.clone(), to.clone()))
+                }
+                Lang::GraphEvent(GraphEvent::GraphRenamed(from, to)) if from == z_to => {
+                    Some((z_from.clone(), to.clone()))
+                }
+                Lang::UserGraphEvent(UserGraphEvent::RenameGraph(from, _)) if from == z_to => {
+                    Some((z_from.clone(), z_to.clone()))
+                }
+                _ => None,
+            },
+            |_, (from, to)| {
+                Some(vec![Lang::UserGraphEvent(UserGraphEvent::RenameGraph(
+                    to.clone(),
+                    from.clone(),
+                ))])
+            },
+        )))
+    }
 }

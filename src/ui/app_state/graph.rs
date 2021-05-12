@@ -499,9 +499,8 @@ impl Graph {
 
 impl Collection for Graph {
     fn rename_collection(&mut self, to: &Resource<r::Graph>) {
-        self.param_box.categories[0].parameters[0].control = Control::Entry {
-            value: to.file().unwrap().to_string(),
-        };
+        self.param_box
+            .update_parameter_by_transmitter(GraphField::Name, &to.file().unwrap().to_data());
 
         for gp in self.exposed_parameters.iter_mut().map(|x| &mut x.1) {
             gp.parameter.set_graph(to.path());
