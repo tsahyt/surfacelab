@@ -361,3 +361,28 @@ pub fn quick_combine_action(operator: &Operator) -> UndoAction {
         |_, node| vec![Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node.clone()))],
     )))
 }
+
+pub fn rename_node_action(from: &Resource<Node>, to: &Resource<Node>) -> UndoAction {
+    UndoAction::Building(Box::new(IncrementalChangeAction::new(
+        (),
+        (from.clone(), to.clone()),
+        |_, (z_from, z_to), event| match event {
+            Lang::GraphEvent(GraphEvent::NodeRenamed(from, to)) if from == z_from && to == z_to => {
+                Some((from.clone(), to.clone()))
+            }
+            Lang::GraphEvent(GraphEvent::NodeRenamed(from, to)) if from == z_to => {
+                Some((z_from.clone(), to.clone()))
+            }
+            Lang::UserNodeEvent(UserNodeEvent::RenameNode(from, _)) if from == z_to => {
+                Some((z_from.clone(), z_to.clone()))
+            }
+            _ => None,
+        },
+        |_, (from, to)| {
+            Some(vec![Lang::UserNodeEvent(UserNodeEvent::RenameNode(
+                to.clone(),
+                from.clone(),
+            ))])
+        },
+    )))
+}

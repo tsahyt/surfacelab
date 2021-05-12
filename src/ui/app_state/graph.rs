@@ -410,6 +410,10 @@ impl Graph {
     pub fn rename_node(&mut self, from: &Resource<Node>, to: &Resource<Node>) {
         if let Some(mut node) = self.nodes.remove(from) {
             node.resource = to.clone();
+            node.param_box.update_parameter_by_transmitter(
+                MessageWriters::ResourceField(ResourceField::Name),
+                &to.file().unwrap().to_data(),
+            );
 
             // Change resource in R-Tree Node object
             match self

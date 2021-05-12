@@ -113,7 +113,7 @@ impl ParamSubstitution {
 /// the message creation process, which should describe the "recipient" of the
 /// message.
 #[enum_dispatch]
-pub trait MessageWriter: Clone {
+pub trait MessageWriter: Clone + PartialEq {
     type Resource;
 
     /// Create a message given a resource and associated data
@@ -639,6 +639,22 @@ where
     pub fn parameters_mut(&mut self) -> BoxParameters<'_, T> {
         BoxParameters::new(&mut self.categories)
     }
+
+    /// Update a parameter identified by a predicate. Will update only the *first* matching parameter!
+    pub fn update_parameter_by<F: Fn(&Parameter<T>) -> bool>(
+        &mut self,
+        predicate: F,
+        value: &[u8],
+    ) {
+        if let Some(p) = self.parameters_mut().find(|p| predicate(p)) {
+            p.control.set_value(value);
+        }
+    }
+
+    /// Update a parameter identified by its transmitter
+    pub fn update_parameter_by_transmitter(&mut self, transmitter: T, value: &[u8]) {
+        self.update_parameter_by(|p| p.transmitter == transmitter, value)
+    }
 }
 
 impl<T> ParamBoxDescription<T>
@@ -646,12 +662,7 @@ where
     T: ResourcedParameter,
 {
     pub fn update_parameter(&mut self, param: &Resource<Param>, value: &[u8]) {
-        if let Some(p) = self
-            .parameters_mut()
-            .find(|p| p.transmitter.transmitter_matches(param))
-        {
-            p.control.set_value(value);
-        }
+        self.update_parameter_by(|p| p.transmitter.transmitter_matches(param), value)
     }
 }
 

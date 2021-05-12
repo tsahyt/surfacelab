@@ -81,6 +81,9 @@ impl UndoAction {
             Lang::UserNodeEvent(UserNodeEvent::QuickCombine(op, _, _)) => {
                 Some(quick_combine_action(op))
             }
+            Lang::UserNodeEvent(UserNodeEvent::RenameNode(from, to)) => {
+                Some(rename_node_action(from, to))
+            }
             _ => None,
         }
     }
