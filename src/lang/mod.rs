@@ -779,7 +779,7 @@ pub enum SurfaceEvent {
     /// The system reports having declared an export specification.
     ExportSpecDeclared(ExportSpec),
     /// The system reports having removed an export specification
-    ExportSpecRemoved(String),
+    ExportSpecRemoved(ExportSpec),
     /// The parent size has been set
     ParentSizeSet(u32),
 }
@@ -933,7 +933,7 @@ impl ExportFormat {
 }
 
 /// Export specifications
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExportSpec {
     pub name: String,
     pub node: Resource<Node>,
@@ -1060,8 +1060,9 @@ pub enum UserIOEvent {
     RemoveSvgResource(Resource<resource::Svg>),
     /// The user requests setting the parent size.
     SetParentSize(u32),
-    /// The user requests declaration of a new export specification.
-    NewExportSpec(ExportSpec),
+    /// The user requests declaration of a new export specification. The bool
+    /// declares that the provided name should be kept.
+    NewExportSpec(ExportSpec, bool),
     /// The user requests updating of an export specification with new data.
     /// This may include a name change.
     UpdateExportSpec(String, ExportSpec),

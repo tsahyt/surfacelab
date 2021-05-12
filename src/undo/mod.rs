@@ -99,6 +99,12 @@ impl UndoAction {
             Lang::UserIOEvent(UserIOEvent::AddSvgResource(path)) => {
                 Some(Self::add_svg_resource_action(path))
             }
+            Lang::UserIOEvent(UserIOEvent::NewExportSpec(spec, _)) => {
+                Some(Self::new_export_spec_action(spec))
+            }
+            Lang::UserIOEvent(UserIOEvent::RemoveExportSpec(spec_name)) => {
+                Some(Self::remove_export_spec_action(spec_name))
+            }
             _ => None,
         }
     }

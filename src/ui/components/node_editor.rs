@@ -208,6 +208,7 @@ impl<'a> Widget for NodeEditor<'a> {
                         self.sender
                             .send(Lang::UserIOEvent(UserIOEvent::NewExportSpec(
                                 ExportSpec::from(&node.resource),
+                                false,
                             )))
                             .unwrap();
                     }

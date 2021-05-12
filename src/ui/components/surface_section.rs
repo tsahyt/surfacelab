@@ -130,6 +130,7 @@ impl<'a> Widget for SurfaceSection<'a> {
                 self.sender
                     .send(Lang::UserIOEvent(UserIOEvent::NewExportSpec(
                         ExportSpec::from(res),
+                        false,
                     )))
                     .unwrap()
             }
@@ -197,11 +198,11 @@ impl<'a> SurfaceSection<'a> {
             Lang::SurfaceEvent(SurfaceEvent::ExportSpecDeclared(spec)) => state.update(|state| {
                 state.export_entries.push(spec.clone());
             }),
-            Lang::SurfaceEvent(SurfaceEvent::ExportSpecRemoved(name)) => state.update(|state| {
+            Lang::SurfaceEvent(SurfaceEvent::ExportSpecRemoved(removed)) => state.update(|state| {
                 if let Some(idx) = state
                     .export_entries
                     .iter()
-                    .position(|spec| &spec.name == name)
+                    .position(|spec| &spec.name == &removed.name)
                 {
                     state.export_entries.remove(idx);
                 }

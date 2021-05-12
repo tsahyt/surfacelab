@@ -1238,7 +1238,7 @@ impl NodeManager {
                     Vec::new(),
                 )));
             }
-            UserIOEvent::NewExportSpec(new) => {
+            UserIOEvent::NewExportSpec(new, keep_name) => {
                 let mut new = new.clone();
 
                 if let Some(out_ty) = self
@@ -1246,7 +1246,9 @@ impl NodeManager {
                     .get(new.node.node_graph().file().unwrap())
                     .and_then(|graph| graph.output_type(&new.node))
                 {
-                    new.name = out_ty.to_string();
+                    if !keep_name {
+                        new.name = out_ty.to_string();
+                    }
                     self.export_specs.push(new.clone());
                     response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecDeclared(new)));
                 }
@@ -1258,11 +1260,9 @@ impl NodeManager {
             }
             UserIOEvent::RemoveExportSpec(name) => {
                 if let Some(idx) = self.export_specs.iter().position(|spec| &spec.name == name) {
-                    self.export_specs.remove(idx);
+                    let spec = self.export_specs.remove(idx);
+                    response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecRemoved(spec)));
                 }
-                response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecRemoved(
-                    name.clone(),
-                )));
             }
             UserIOEvent::SetImageColorSpace(_, _) => {
                 // Color space changes should trigger a recompute of the current graph.

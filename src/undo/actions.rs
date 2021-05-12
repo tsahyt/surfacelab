@@ -491,4 +491,41 @@ impl UndoAction {
             },
         )))
     }
+
+    pub fn new_export_spec_action(spec: &ExportSpec) -> Self {
+        Self::Building(Box::new(CallResponseAction::new(
+            spec.clone(),
+            |u_spec, event| match event {
+                Lang::SurfaceEvent(SurfaceEvent::ExportSpecDeclared(spec))
+                    if u_spec.node == spec.node =>
+                {
+                    Some(spec.name.clone())
+                }
+                _ => None,
+            },
+            |_, name| {
+                vec![Lang::UserIOEvent(UserIOEvent::RemoveExportSpec(
+                    name.clone(),
+                ))]
+            },
+        )))
+    }
+
+    pub fn remove_export_spec_action(name: &str) -> Self {
+        Self::Building(Box::new(CallResponseAction::new(
+            name.to_string(),
+            |name, event| match event {
+                Lang::SurfaceEvent(SurfaceEvent::ExportSpecRemoved(spec)) if &spec.name == name => {
+                    Some(spec.clone())
+                }
+                _ => None,
+            },
+            |_, spec| {
+                vec![Lang::UserIOEvent(UserIOEvent::NewExportSpec(
+                    spec.clone(),
+                    true,
+                ))]
+            },
+        )))
+    }
 }
