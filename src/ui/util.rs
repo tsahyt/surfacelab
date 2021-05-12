@@ -40,6 +40,7 @@ impl IconName {
     pub const SVG: IconName = IconName("\u{f0721}");
     pub const UNDO: IconName = IconName("\u{f054c}");
     pub const REDO: IconName = IconName("\u{f044e}");
+    pub const RELOAD: IconName = IconName("\u{f0453}");
 }
 
 /// Create an icon button, i.e. a button with an icon in it. Uses an IconName

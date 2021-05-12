@@ -73,12 +73,14 @@ pub enum Event {
     Clicked,
     DeleteRequested,
     PackRequested,
+    ReloadRequested,
 }
 
 #[derive(Clone, Copy)]
 pub enum ContextAction {
     Delete,
     Pack,
+    Reload,
 }
 
 fn resource_icon(item: &ResourceTreeItem) -> IconName {
@@ -114,6 +116,7 @@ fn resource_context_actions(
                         },
                         ContextAction::Pack,
                     ),
+                    (IconName::RELOAD, ContextAction::Reload),
                 ]
                 .into_iter(),
             ),
@@ -246,7 +249,10 @@ impl<'a> Widget for ResourceRow<'a> {
                 Some(ContextAction::Pack) => {
                     res = Some(Event::PackRequested);
                 }
-                _ => {}
+                Some(ContextAction::Reload) => {
+                    res = Some(Event::ReloadRequested);
+                }
+                None => {}
             }
         } else {
             widget::Text::new(&resource_status(&self.res_item))

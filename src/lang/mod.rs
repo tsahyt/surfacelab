@@ -1054,12 +1054,16 @@ pub enum UserIOEvent {
     PackImage(Resource<Img>),
     /// The user seeks to remove an image resource
     RemoveImageResource(Resource<Img>),
+    /// The user requests reloading of an external image resource
+    ReloadImageResource(Resource<Img>),
     /// The user seeks to add an SVG resource from a file.
     AddSvgResource(PathBuf),
     /// The user requests packing of an SVG resource.
     PackSvg(Resource<resource::Svg>),
     /// The user seeks to remove an SVG resource
     RemoveSvgResource(Resource<resource::Svg>),
+    /// The user requests reloading of an external image resource
+    ReloadSvgResource(Resource<resource::Svg>),
     /// The user requests setting the parent size.
     SetParentSize(u32),
     /// The user requests declaration of a new export specification. The bool

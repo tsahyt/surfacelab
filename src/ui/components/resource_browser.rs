@@ -302,6 +302,27 @@ impl<'a> Widget for ResourceBrowser<'a> {
                         }
                     }
                 }
+                Some(resource_row::Event::ReloadRequested) => {
+                    if let Some(image) = data.get_resource() {
+                        if let Some(ResourceCategory::Image) = data.category() {
+                            self.sender
+                                .send(Lang::UserIOEvent(UserIOEvent::ReloadImageResource(
+                                    image.clone(),
+                                )))
+                                .unwrap()
+                        }
+                    }
+
+                    if let Some(svg) = data.get_resource() {
+                        if let Some(ResourceCategory::Svg) = data.category() {
+                            self.sender
+                                .send(Lang::UserIOEvent(UserIOEvent::ReloadSvgResource(
+                                    svg.clone(),
+                                )))
+                                .unwrap()
+                        }
+                    }
+                }
             }
         }
 

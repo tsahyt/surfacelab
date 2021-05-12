@@ -335,6 +335,9 @@ where
                 UserIOEvent::RemoveImageResource(res) => {
                     sender.send(self.remove_image_resource(res)).unwrap();
                 }
+                UserIOEvent::ReloadImageResource(res) => {
+                    self.external_data.invalidate_image(res);
+                }
                 UserIOEvent::SetImageColorSpace(res, cs) => {
                     if let Some(img) = self.external_data.get_image_mut(res) {
                         img.update_satellite(|i| i.set_color_space(*cs));
@@ -367,6 +370,9 @@ where
                 }
                 UserIOEvent::RemoveSvgResource(res) => {
                     sender.send(self.remove_svg_resource(res)).unwrap();
+                }
+                UserIOEvent::ReloadSvgResource(res) => {
+                    self.external_data.invalidate_svg(res);
                 }
                 _ => {}
             },

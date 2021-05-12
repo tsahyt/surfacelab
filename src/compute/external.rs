@@ -135,6 +135,11 @@ where
     pub fn source(&self) -> &Source {
         &self.source
     }
+
+    /// Invalidates the external data, forcing a reload on next compute
+    pub fn invalidate(&mut self) {
+        self.buffer = None;
+    }
 }
 
 pub struct ImageData {
@@ -291,6 +296,13 @@ impl Externals {
             .and_then(|img| img.source.path())
     }
 
+    /// Invalidates an image, forcing a reload on next compute
+    pub fn invalidate_image(&mut self, resource: &Resource<Img>) {
+        if let Some(img) = self.images.get_mut(resource) {
+            img.invalidate()
+        }
+    }
+
     /// Obtain an iterator over all known images
     pub fn iter_images(&self) -> impl Iterator<Item = (&Resource<Img>, &ExternalData<ImageData>)> {
         self.images.iter()
@@ -330,6 +342,13 @@ impl Externals {
     /// Remove an image
     pub fn remove_svg(&mut self, resource: &Resource<Svg>) -> Option<PathBuf> {
         self.svgs.remove(resource).and_then(|svg| svg.source.path())
+    }
+
+    /// Invalidates an SVG, forcing a reload on next compute
+    pub fn invalidate_svg(&mut self, resource: &Resource<Svg>) {
+        if let Some(svg) = self.svgs.get_mut(resource) {
+            svg.invalidate()
+        }
     }
 }
 

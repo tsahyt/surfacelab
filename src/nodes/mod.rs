@@ -1269,8 +1269,11 @@ impl NodeManager {
                     response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecRemoved(spec)));
                 }
             }
-            UserIOEvent::SetImageColorSpace(_, _) => {
-                // Color space changes should trigger a recompute of the current graph.
+            UserIOEvent::SetImageColorSpace(_, _)
+            | UserIOEvent::ReloadImageResource(..)
+            | UserIOEvent::ReloadSvgResource(..) => {
+                // Various IO changes should trigger a subsequent recompute
+                // without incurring any other work in nodes.
                 response.push(Lang::GraphEvent(GraphEvent::Recompute(
                     self.active_graph.clone(),
                     Vec::new(),
