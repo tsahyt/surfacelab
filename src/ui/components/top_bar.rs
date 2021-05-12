@@ -67,6 +67,8 @@ pub enum SurfaceTool {
     OpenSurface,
     SaveSurface,
     ExportSurface,
+    Undo,
+    Redo,
 }
 
 impl<'a> Widget for TopBar<'a> {
@@ -106,6 +108,8 @@ impl<'a> Widget for TopBar<'a> {
                 (IconName::FOLDER_OPEN, SurfaceTool::OpenSurface),
                 (IconName::CONTENT_SAVE, SurfaceTool::SaveSurface),
                 (IconName::EXPORT, SurfaceTool::ExportSurface),
+                (IconName::UNDO, SurfaceTool::Undo),
+                (IconName::REDO, SurfaceTool::Redo),
             ]
             .iter()
             .copied(),
@@ -164,6 +168,16 @@ impl<'a> Widget for TopBar<'a> {
                         .send(Lang::UserIOEvent(UserIOEvent::RunExports(e_path)))
                         .unwrap();
                 }
+            }
+            Some(SurfaceTool::Undo) => {
+                self.sender
+                    .send(Lang::UserIOEvent(UserIOEvent::Undo))
+                    .unwrap();
+            }
+            Some(SurfaceTool::Redo) => {
+                self.sender
+                    .send(Lang::UserIOEvent(UserIOEvent::Redo))
+                    .unwrap();
             }
             _ => {}
         }

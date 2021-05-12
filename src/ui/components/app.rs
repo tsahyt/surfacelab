@@ -159,7 +159,7 @@ where
             }
         }
 
-        // Catch undo events globally
+        // Catch undo and redo events globally
         for ev in ui.global_input().events().ui() {
             match ev {
                 event::Ui::Press(
@@ -172,6 +172,18 @@ where
                     self.app_data
                         .sender
                         .send(Lang::UserIOEvent(UserIOEvent::Undo))
+                        .unwrap();
+                }
+                event::Ui::Press(
+                    _,
+                    event::Press {
+                        button: event::Button::Keyboard(input::Key::Z),
+                        modifiers: input::ModifierKey::CTRL_SHIFT,
+                    },
+                ) => {
+                    self.app_data
+                        .sender
+                        .send(Lang::UserIOEvent(UserIOEvent::Redo))
                         .unwrap();
                 }
                 _ => {}

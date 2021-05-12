@@ -1071,6 +1071,8 @@ pub enum UserIOEvent {
     Quit,
     /// The user requests an undo
     Undo,
+    /// The user requests a redo
+    Redo,
     /// The user resized the window
     ResizeWindow(u32, u32),
 }
