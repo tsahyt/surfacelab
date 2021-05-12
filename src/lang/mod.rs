@@ -537,15 +537,15 @@ pub enum UserNodeEvent {
     /// The user requests creation of a new node inside a given graph, using
     /// this operator, at layout position. The optional socket specifies an
     /// existing socket to be connected to a suitable socket on the new node
-    /// after creation.
+    /// after creation. The optional string specifies a name to be requested.
+    /// This request may not be filled if a node of this name already exists!
     NewNode(
         Resource<Graph>,
         Operator,
         (f64, f64),
         Option<Resource<Socket>>,
+        Option<String>,
     ),
-    /// The user requests creation of a new node with a specific resource.
-    NewNodeNamed(Resource<Node>, Operator, (f64, f64)),
     /// The user requests the removal of a given node.
     RemoveNode(Resource<Node>),
     /// The user requests a connection between the two sockets. Requires the

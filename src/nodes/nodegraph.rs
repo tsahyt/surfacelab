@@ -173,8 +173,16 @@ impl NodeGraph {
     }
 
     /// Add a new node to the node graph, defined by the operator.
-    pub fn new_node(&mut self, op: &Operator, parent_size: u32) -> (String, u32) {
-        let node_id = self.next_free_name(op.default_name());
+    pub fn new_node(
+        &mut self,
+        op: &Operator,
+        parent_size: u32,
+        name: Option<&str>,
+    ) -> (String, u32) {
+        let node_id = match name {
+            Some(n) if !self.indices.contains_left(&n.to_string()) => n.to_string(),
+            _ => self.next_free_name(op.default_name()),
+        };
 
         log::trace!(
             "Adding {:?} to node graph with identifier {:?}",
@@ -537,7 +545,8 @@ impl NodeGraph {
             .ok_or(NodeGraphError::InvalidConnection)?;
 
         // Construct blend node
-        let (combine_node, combine_size) = self.new_node(&combine_op.clone().into(), parent_size);
+        let (combine_node, combine_size) =
+            self.new_node(&combine_op.clone().into(), parent_size, None);
         let combine_res = self.graph_resource().graph_node(&combine_node);
         let combine_pos = {
             let pos_1 = &self.graph.node_weight(node_1_idx).unwrap().position;
@@ -927,10 +936,9 @@ impl NodeGraph {
                 rnode.position.clone(),
             )));
 
-            let (new_node, _) = new.new_node(&rnode.operator, parent_size);
+            let (new_node, _) = new.new_node(&rnode.operator, parent_size, Some(node));
             new.resize_node(&new_node, rnode.size, parent_size);
             new.position_node(&new_node, rnode.position.0, rnode.position.1);
-            new.rename_node(&new_node, node);
 
             complex_pos.0 += rnode.position.0;
             complex_pos.1 += rnode.position.1;
@@ -964,6 +972,7 @@ impl NodeGraph {
                                 },
                             })),
                             parent_size,
+                            None,
                         );
                         new.connect_sockets(&new_input, "data", sink_node, sink_socket)?;
                         inputs.push((
@@ -979,6 +988,7 @@ impl NodeGraph {
                                 output_type: OutputType::from(ty),
                             })),
                             parent_size,
+                            None,
                         );
                         new.connect_sockets(source_node, source_socket, &new_output, "data")?;
                         outputs.push((
@@ -1023,7 +1033,7 @@ impl NodeGraph {
                 .collect();
             co
         });
-        let (complex_node, _) = self.new_node(&complex_op, parent_size);
+        let (complex_node, _) = self.new_node(&complex_op, parent_size, None);
         let complex_res = self.graph_resource().graph_node(&complex_node);
         let complex_pbox = self.element_param_box(&complex_res).merge(
             new.param_box_description(complex_op.title().to_owned())

@@ -67,7 +67,7 @@ impl UndoAction {
             Lang::UserRenderEvent(UserRenderEvent::Rotate(renderer, theta, phi)) => {
                 Some(camera_rotate_action(*renderer, *theta, *phi))
             }
-            Lang::UserNodeEvent(UserNodeEvent::NewNode(g, _, _, _)) => Some(new_node_action(g)),
+            Lang::UserNodeEvent(UserNodeEvent::NewNode(g, _, _, _, _)) => Some(new_node_action(g)),
             Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node)) => Some(remove_node_action(node)),
             Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(source, sink)) => {
                 Some(connect_sockets_action(source, sink))

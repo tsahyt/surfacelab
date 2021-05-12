@@ -315,7 +315,7 @@ impl MaskStack {
         let mut last_socket: Option<(String, String)> = None;
 
         for mask in self.stack.iter().filter(|m| m.blend_options.enabled) {
-            let mask_node = graph.new_node(&mask.operator, parent_size).0;
+            let mask_node = graph.new_node(&mask.operator, parent_size, None).0;
             graph.position_node(&mask_node, x, -SLICE_WIDTH);
             x += SLICE_WIDTH;
 
@@ -330,7 +330,7 @@ impl MaskStack {
             if let Some((background_node, background_socket)) = &last_socket {
                 let blend_op =
                     Operator::from(AtomicOperator::from(mask.blend_options.blend_operator()));
-                let blend_node = graph.new_node(&blend_op, parent_size).0;
+                let blend_node = graph.new_node(&blend_op, parent_size, None).0;
                 graph.position_node(&blend_node, x, 0.0);
                 x += SLICE_WIDTH;
 
@@ -1178,7 +1178,7 @@ impl LayerStack {
         for layer in self.layers.iter() {
             let op = layer.operator();
 
-            let layer_node = graph.new_node(op, parent_size).0;
+            let layer_node = graph.new_node(op, parent_size, None).0;
             graph.position_node(&layer_node, x, 0.0);
             x += SLICE_WIDTH;
 
@@ -1210,7 +1210,7 @@ impl LayerStack {
             {
                 if let Some((background_node, background_socket)) = last_socket.get(channel) {
                     let blend_op = Operator::from(layer.get_blend_options().blend_operator());
-                    let blend_node = graph.new_node(&blend_op, parent_size).0;
+                    let blend_node = graph.new_node(&blend_op, parent_size, None).0;
                     graph.position_node(&blend_node, x, (i + 1) as f64 * SLICE_WIDTH);
 
                     graph
@@ -1242,7 +1242,7 @@ impl LayerStack {
             let output_op = Operator::from(AtomicOperator::Output(Output {
                 output_type: OutputType::from(channel),
             }));
-            let output_node = graph.new_node(&output_op, parent_size).0;
+            let output_node = graph.new_node(&output_op, parent_size, None).0;
             graph.position_node(&output_node, x, 0.0);
 
             let (node, socket) = last_socket.get(&channel)?;

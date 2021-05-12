@@ -236,8 +236,8 @@ pub fn remove_node_action(node: &Resource<Node>) -> UndoAction {
 
     fn cmp_removal_data(a: &RemovalData, b: &RemovalData) -> std::cmp::Ordering {
         match (a, b) {
-            (RemovalData::NodeData(..), _) => std::cmp::Ordering::Greater,
-            (_, RemovalData::NodeData(..)) => std::cmp::Ordering::Less,
+            (RemovalData::NodeData(..), _) => std::cmp::Ordering::Less,
+            (_, RemovalData::NodeData(..)) => std::cmp::Ordering::Greater,
             _ => std::cmp::Ordering::Equal,
         }
     }
@@ -265,9 +265,15 @@ pub fn remove_node_action(node: &Resource<Node>) -> UndoAction {
                     data.iter()
                         .sorted_by(|a, b| cmp_removal_data(a, b))
                         .map(|x| match x {
-                            RemovalData::NodeData(op, pos) => Lang::UserNodeEvent(
-                                UserNodeEvent::NewNodeNamed(node.clone(), op.clone(), pos.clone()),
-                            ),
+                            RemovalData::NodeData(op, pos) => {
+                                Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                                    node.node_graph(),
+                                    op.clone(),
+                                    pos.clone(),
+                                    None,
+                                    node.file().map(|x| x.to_string()),
+                                ))
+                            }
                             RemovalData::Connection(source, sink) => Lang::UserNodeEvent(
                                 UserNodeEvent::ConnectSockets(source.clone(), sink.clone()),
                             ),

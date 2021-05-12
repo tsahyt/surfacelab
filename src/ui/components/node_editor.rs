@@ -179,6 +179,7 @@ impl<'a> Widget for NodeEditor<'a> {
                                 op,
                                 (pt[0], pt[1]),
                                 socket.clone(),
+                                None,
                             ))
                         }))
                     });

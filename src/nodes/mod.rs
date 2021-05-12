@@ -270,7 +270,7 @@ impl NodeManager {
         let mut response = vec![];
 
         match event {
-            UserNodeEvent::NewNode(graph_res, op, pos, socket) => {
+            UserNodeEvent::NewNode(graph_res, op, pos, socket, name) => {
                 let graph_name = graph_res.path().to_str().unwrap();
                 let op = self.complete_operator(op);
                 let mut update_co = None;
@@ -280,7 +280,7 @@ impl NodeManager {
                     self.graphs.get_mut(graph_name)
                 {
                     // Add node to graph
-                    let (node_id, size) = graph.new_node(&op, self.parent_size);
+                    let (node_id, size) = graph.new_node(&op, self.parent_size, name.as_deref());
                     graph.position_node(&node_id, pos.0, pos.1);
                     let resource = Resource::node(
                         [graph_name, &node_id]
@@ -363,7 +363,6 @@ impl NodeManager {
                     }
                 }
             }
-            UserNodeEvent::NewNodeNamed(node, op, pos) => {}
             UserNodeEvent::RemoveNode(res) => {
                 let node = res.file().unwrap();
                 let graph = res.directory().unwrap();
