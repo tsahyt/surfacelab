@@ -780,6 +780,8 @@ pub enum SurfaceEvent {
     ExportSpecDeclared(ExportSpec),
     /// The system reports having removed an export specification
     ExportSpecRemoved(ExportSpec),
+    /// The system has updated an export spec from the first to the second.
+    ExportSpecUpdated(ExportSpec, ExportSpec),
     /// The parent size has been set
     ParentSizeSet(u32),
 }

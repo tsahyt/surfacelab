@@ -1255,7 +1255,12 @@ impl NodeManager {
             }
             UserIOEvent::UpdateExportSpec(name, new) => {
                 if let Some(idx) = self.export_specs.iter().position(|spec| &spec.name == name) {
+                    let old = self.export_specs[idx].clone();
                     self.export_specs[idx] = new.clone();
+                    response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSpecUpdated(
+                        old,
+                        self.export_specs[idx].clone(),
+                    )));
                 }
             }
             UserIOEvent::RemoveExportSpec(name) => {

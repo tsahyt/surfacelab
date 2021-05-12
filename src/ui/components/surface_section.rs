@@ -207,6 +207,17 @@ impl<'a> SurfaceSection<'a> {
                     state.export_entries.remove(idx);
                 }
             }),
+            Lang::SurfaceEvent(SurfaceEvent::ExportSpecUpdated(from, to)) => {
+                state.update(|state| {
+                    if let Some(entry) = state
+                        .export_entries
+                        .iter_mut()
+                        .find(|spec| &spec.name == &from.name)
+                    {
+                        *entry = to.clone();
+                    }
+                })
+            }
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
                 state.update(|state| {
                     state.parameters.categories[0].parameters[0]

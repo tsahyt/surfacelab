@@ -157,24 +157,6 @@ impl UndoAction {
         )))
     }
 
-    pub fn camera_rotate_action(renderer: RendererID, theta: f32, phi: f32) -> Self {
-        Self::Building(Box::new(IncrementalChangeAction::new(
-            renderer,
-            (theta, phi),
-            |r, (theta, phi), ev| match ev {
-                Lang::UserRenderEvent(UserRenderEvent::Rotate(new_r, t, p)) if r == new_r => {
-                    Some((theta + *t, phi + *p))
-                }
-                _ => None,
-            },
-            |r, (theta, phi)| {
-                Some(vec![Lang::UserRenderEvent(UserRenderEvent::Rotate(
-                    *r, -theta, -phi,
-                ))])
-            },
-        )))
-    }
-
     pub fn new_node_action(graph: &Resource<Graph>) -> Self {
         Self::Building(Box::new(CallResponseAction::new(
             graph.clone(),
@@ -525,6 +507,35 @@ impl UndoAction {
                     spec.clone(),
                     true,
                 ))]
+            },
+        )))
+    }
+
+    pub fn update_export_spec_action(name: &str, spec: &ExportSpec) -> Self {
+        Self::Building(Box::new(IncrementalChangeAction::new(
+            name.to_string(),
+            (spec.clone(), spec.clone()),
+            |initial_name, (initial, current), event| match event {
+                Lang::SurfaceEvent(SurfaceEvent::ExportSpecUpdated(from, to))
+                    if &from.name == initial_name && to == current =>
+                {
+                    Some((from.clone(), to.clone()))
+                }
+                Lang::SurfaceEvent(SurfaceEvent::ExportSpecUpdated(from, to))
+                    if from == current =>
+                {
+                    Some((initial.clone(), to.clone()))
+                }
+                Lang::UserIOEvent(UserIOEvent::UpdateExportSpec(n, _)) if n == &current.name => {
+                    Some((initial.clone(), current.clone()))
+                }
+                _ => None,
+            },
+            |_, (initial, last)| {
+                Some(vec![Lang::UserIOEvent(UserIOEvent::UpdateExportSpec(
+                    last.name.clone(),
+                    initial.clone(),
+                ))])
             },
         )))
     }

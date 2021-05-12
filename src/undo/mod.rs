@@ -64,9 +64,6 @@ impl UndoAction {
             Lang::UserNodeEvent(UserNodeEvent::ParameterChange(res, from, to)) => {
                 Some(Self::parameter_change_action(res, from, to))
             }
-            Lang::UserRenderEvent(UserRenderEvent::Rotate(renderer, theta, phi)) => {
-                Some(Self::camera_rotate_action(*renderer, *theta, *phi))
-            }
             Lang::UserNodeEvent(UserNodeEvent::NewNode(g, _, _, _, _)) => {
                 Some(Self::new_node_action(g))
             }
@@ -104,6 +101,9 @@ impl UndoAction {
             }
             Lang::UserIOEvent(UserIOEvent::RemoveExportSpec(spec_name)) => {
                 Some(Self::remove_export_spec_action(spec_name))
+            }
+            Lang::UserIOEvent(UserIOEvent::UpdateExportSpec(name, spec)) => {
+                Some(Self::update_export_spec_action(name, spec))
             }
             _ => None,
         }
