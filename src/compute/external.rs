@@ -45,6 +45,15 @@ impl Source {
             Self::Disk(path) => Ok(Cow::Owned(std::fs::read(path)?)),
         }
     }
+
+    /// Get the path of this source data if available. Will return none iff the
+    /// source is packed.
+    pub fn path(self) -> Option<std::path::PathBuf> {
+        match self {
+            Source::Packed(_) => None,
+            Source::Disk(p) => Some(p),
+        }
+    }
 }
 
 pub trait External {
@@ -275,6 +284,13 @@ impl Externals {
         );
     }
 
+    /// Remove an image
+    pub fn remove_image(&mut self, resource: &Resource<Img>) -> Option<PathBuf> {
+        self.images
+            .remove(resource)
+            .and_then(|img| img.source.path())
+    }
+
     /// Obtain an iterator over all known images
     pub fn iter_images(&self) -> impl Iterator<Item = (&Resource<Img>, &ExternalData<ImageData>)> {
         self.images.iter()
@@ -309,6 +325,11 @@ impl Externals {
             resource,
             ExternalData::new_packed(data, SvgData { dimensions: 1024 }),
         );
+    }
+
+    /// Remove an image
+    pub fn remove_svg(&mut self, resource: &Resource<Svg>) -> Option<PathBuf> {
+        self.svgs.remove(resource).and_then(|svg| svg.source.path())
     }
 }
 

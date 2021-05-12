@@ -453,4 +453,42 @@ impl UndoAction {
             },
         )))
     }
+
+    pub fn add_image_resource_action(path: &std::path::PathBuf) -> Self {
+        Self::Building(Box::new(CallResponseAction::new(
+            path.clone(),
+            |path, event| match event {
+                Lang::ComputeEvent(ComputeEvent::ImageResourceAdded(res, _, false))
+                    if res.file() == path.file_name().and_then(|x| x.to_str()) =>
+                {
+                    Some(res.clone())
+                }
+                _ => None,
+            },
+            |_, res| {
+                vec![Lang::UserIOEvent(UserIOEvent::RemoveImageResource(
+                    res.clone(),
+                ))]
+            },
+        )))
+    }
+
+    pub fn add_svg_resource_action(path: &std::path::PathBuf) -> Self {
+        Self::Building(Box::new(CallResponseAction::new(
+            path.clone(),
+            |path, event| match event {
+                Lang::ComputeEvent(ComputeEvent::SvgResourceAdded(res, false))
+                    if res.file() == path.file_name().and_then(|x| x.to_str()) =>
+                {
+                    Some(res.clone())
+                }
+                _ => None,
+            },
+            |_, res| {
+                vec![Lang::UserIOEvent(UserIOEvent::RemoveSvgResource(
+                    res.clone(),
+                ))]
+            },
+        )))
+    }
 }

@@ -345,6 +345,14 @@ where
                     img.1 .1 = true;
                 }
             }),
+            Lang::ComputeEvent(ComputeEvent::ImageResourceRemoved(res, _)) => {
+                state.update(|state| {
+                    if let Some(img) = state.image_resources.iter_mut().position(|(r, _)| r == res)
+                    {
+                        state.image_resources.remove(img);
+                    }
+                })
+            }
             Lang::ComputeEvent(ComputeEvent::SvgResourceAdded(res, packed)) => {
                 state.update(|state| {
                     state.svg_resources.push((res.clone(), *packed));
@@ -353,6 +361,11 @@ where
             Lang::ComputeEvent(ComputeEvent::SvgPacked(res)) => state.update(|state| {
                 if let Some(svg) = state.svg_resources.iter_mut().find(|(r, _)| r == res) {
                     svg.1 = true;
+                }
+            }),
+            Lang::ComputeEvent(ComputeEvent::SvgResourceRemoved(res, _)) => state.update(|state| {
+                if let Some(img) = state.svg_resources.iter_mut().position(|(r, _)| r == res) {
+                    state.svg_resources.remove(img);
                 }
             }),
             Lang::ComputeEvent(ComputeEvent::Cleared) => state.update(|state| {

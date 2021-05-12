@@ -93,6 +93,12 @@ impl UndoAction {
                 Some(Self::rename_graph_action(from, to))
             }
             Lang::UserGraphEvent(UserGraphEvent::AddGraph) => Some(Self::add_graph_action()),
+            Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {
+                Some(Self::add_image_resource_action(path))
+            }
+            Lang::UserIOEvent(UserIOEvent::AddSvgResource(path)) => {
+                Some(Self::add_svg_resource_action(path))
+            }
             _ => None,
         }
     }

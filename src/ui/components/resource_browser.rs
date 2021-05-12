@@ -265,9 +265,23 @@ impl<'a> Widget for ResourceBrowser<'a> {
                         }
                     }
 
-                    if let Some(_img) = data.get_resource::<Img>() {
+                    if let Some(img) = data.get_resource::<Img>() {
                         if let Some(ResourceCategory::Image) = data.category() {
-                            unimplemented!();
+                            self.sender
+                                .send(Lang::UserIOEvent(UserIOEvent::RemoveImageResource(
+                                    img.clone(),
+                                )))
+                                .unwrap();
+                        }
+                    }
+
+                    if let Some(svg) = data.get_resource::<resource::Svg>() {
+                        if let Some(ResourceCategory::Svg) = data.category() {
+                            self.sender
+                                .send(Lang::UserIOEvent(UserIOEvent::RemoveSvgResource(
+                                    svg.clone(),
+                                )))
+                                .unwrap();
                         }
                     }
                 }
@@ -347,8 +361,14 @@ impl<'a> ResourceBrowser<'a> {
                     .tree
                     .set_location_status(res, Some(LocationStatus::Packed))
             }),
+            Lang::ComputeEvent(ComputeEvent::ImageResourceRemoved(res, _)) => {
+                state.update(|state| state.tree.remove_resource_and_children(res));
+            }
             Lang::ComputeEvent(ComputeEvent::SvgResourceAdded(res, packed)) => {
                 state.update(|state| state.tree.insert_svg(res.clone(), *packed));
+            }
+            Lang::ComputeEvent(ComputeEvent::SvgResourceRemoved(res, _)) => {
+                state.update(|state| state.tree.remove_resource_and_children(res));
             }
             Lang::ComputeEvent(ComputeEvent::SvgPacked(res)) => state.update(|state| {
                 state

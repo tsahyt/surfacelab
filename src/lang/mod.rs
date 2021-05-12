@@ -1050,10 +1050,14 @@ pub enum UserIOEvent {
     SetImageColorSpace(Resource<Img>, ColorSpace),
     /// The user requests packing of an image.
     PackImage(Resource<Img>),
+    /// The user seeks to remove an image resource
+    RemoveImageResource(Resource<Img>),
     /// The user seeks to add an SVG resource from a file.
     AddSvgResource(PathBuf),
     /// The user requests packing of an SVG resource.
     PackSvg(Resource<resource::Svg>),
+    /// The user seeks to remove an SVG resource
+    RemoveSvgResource(Resource<resource::Svg>),
     /// The user requests setting the parent size.
     SetParentSize(u32),
     /// The user requests declaration of a new export specification.
@@ -1109,6 +1113,8 @@ pub enum ComputeEvent {
     ThumbnailUpdated(Resource<Node>),
     /// An image resource has been registered. The bool describes whether the resource is packed.
     ImageResourceAdded(Resource<Img>, ColorSpace, bool),
+    /// An image resource has been unregistered.
+    ImageResourceRemoved(Resource<Img>, Option<PathBuf>),
     /// Image colorspace has been changed.
     ImageColorSpaceSet(Resource<Img>, ColorSpace),
     /// Image has been packed
@@ -1117,6 +1123,8 @@ pub enum ComputeEvent {
     SvgResourceAdded(Resource<resource::Svg>, bool),
     /// SVG has been packed
     SvgPacked(Resource<resource::Svg>),
+    /// An SVG resource has been unregistered.
+    SvgResourceRemoved(Resource<resource::Svg>, Option<PathBuf>),
     /// Compute data has been serialized
     Serialized(Vec<u8>),
     /// Compute data has been cleared,

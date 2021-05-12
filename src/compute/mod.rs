@@ -332,6 +332,9 @@ where
                 UserIOEvent::AddImageResource(path) => {
                     sender.send(self.add_image_resource(path)).unwrap();
                 }
+                UserIOEvent::RemoveImageResource(res) => {
+                    sender.send(self.remove_image_resource(res)).unwrap();
+                }
                 UserIOEvent::SetImageColorSpace(res, cs) => {
                     if let Some(img) = self.external_data.get_image_mut(res) {
                         img.update_satellite(|i| i.set_color_space(*cs));
@@ -361,6 +364,9 @@ where
                             .send(Lang::ComputeEvent(ComputeEvent::SvgPacked(res.clone())))
                             .unwrap();
                     }
+                }
+                UserIOEvent::RemoveSvgResource(res) => {
+                    sender.send(self.remove_svg_resource(res)).unwrap();
                 }
                 _ => {}
             },
@@ -455,6 +461,15 @@ where
         ))
     }
 
+    /// Removes an image resource
+    fn remove_image_resource(&mut self, res: &Resource<Img>) -> Lang {
+        log::debug!("Removing image resource {}", res);
+
+        let path = self.external_data.remove_image(res);
+
+        Lang::ComputeEvent(ComputeEvent::ImageResourceRemoved(res.clone(), path))
+    }
+
     /// Adds an (unpacked) SVG resource from a path.
     fn add_svg_resource<P: AsRef<Path> + std::fmt::Debug>(&mut self, path: P) -> Lang {
         let res = Resource::svg(path.as_ref().file_name().unwrap());
@@ -463,5 +478,14 @@ where
         self.external_data.insert_svg(res.clone(), path);
 
         Lang::ComputeEvent(ComputeEvent::SvgResourceAdded(res, false))
+    }
+
+    /// Removes an SVG resource
+    fn remove_svg_resource(&mut self, res: &Resource<resource::Svg>) -> Lang {
+        log::debug!("Removing SVG resource {}", res);
+
+        let path = self.external_data.remove_svg(res);
+
+        Lang::ComputeEvent(ComputeEvent::SvgResourceRemoved(res.clone(), path))
     }
 }
