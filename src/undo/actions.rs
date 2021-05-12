@@ -134,282 +134,296 @@ impl<R, T> UndoBuilder for CallMultiResponseAction<R, T> {
     }
 }
 
-pub fn parameter_change_action(res: &Resource<Param>, from: &[u8], to: &[u8]) -> UndoAction {
-    UndoAction::Building(Box::new(IncrementalChangeAction::new(
-        res.clone(),
-        (from.to_vec(), to.to_vec()),
-        |r, (from, _), ev| match ev {
-            Lang::UserNodeEvent(UserNodeEvent::ParameterChange(new_res, _, new))
-                if new_res == r =>
-            {
-                Some((from.clone(), new.clone()))
-            }
-            _ => None,
-        },
-        |r, (from, to)| {
-            Some(vec![Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
-                r.clone(),
-                to.clone(),
-                from.clone(),
-            ))])
-        },
-    )))
-}
-
-pub fn camera_rotate_action(renderer: RendererID, theta: f32, phi: f32) -> UndoAction {
-    UndoAction::Building(Box::new(IncrementalChangeAction::new(
-        renderer,
-        (theta, phi),
-        |r, (theta, phi), ev| match ev {
-            Lang::UserRenderEvent(UserRenderEvent::Rotate(new_r, t, p)) if r == new_r => {
-                Some((theta + *t, phi + *p))
-            }
-            _ => None,
-        },
-        |r, (theta, phi)| {
-            Some(vec![Lang::UserRenderEvent(UserRenderEvent::Rotate(
-                *r, -theta, -phi,
-            ))])
-        },
-    )))
-}
-
-pub fn new_node_action(graph: &Resource<Graph>) -> UndoAction {
-    UndoAction::Building(Box::new(CallResponseAction::new(
-        graph.clone(),
-        |graph, event| match event {
-            Lang::GraphEvent(GraphEvent::NodeAdded(res, _, _, _, _)) if res.is_node_of(&graph) => {
-                Some(res.clone())
-            }
-            _ => None,
-        },
-        |_, node| vec![Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node.clone()))],
-    )))
-}
-
-pub fn disconnect_sink_action(sink: &Resource<Socket>) -> UndoAction {
-    UndoAction::Building(Box::new(CallResponseAction::new(
-        sink.clone(),
-        |sink, event| match event {
-            Lang::GraphEvent(GraphEvent::DisconnectedSockets(source, other_sink))
-                if sink == other_sink =>
-            {
-                Some(source.clone())
-            }
-            _ => None,
-        },
-        |sink, source| {
-            vec![Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
-                source.clone(),
-                sink.clone(),
-            ))]
-        },
-    )))
-}
-
-pub fn connect_sockets_action(source: &Resource<Socket>, sink: &Resource<Socket>) -> UndoAction {
-    UndoAction::Building(Box::new(CallResponseAction::new(
-        (source.clone(), sink.clone()),
-        |(u_source, u_sink), event| match event {
-            Lang::GraphEvent(GraphEvent::ConnectedSockets(source, sink))
-                if u_source == source && u_sink == sink =>
-            {
-                Some(())
-            }
-            _ => None,
-        },
-        |(_, sink), _| {
-            vec![Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
-                sink.clone(),
-            ))]
-        },
-    )))
-}
-
-pub fn remove_node_action(node: &Resource<Node>) -> UndoAction {
-    use itertools::Itertools;
-
-    enum RemovalData {
-        NodeData(Operator, (f64, f64)),
-        Connection(Resource<Socket>, Resource<Socket>),
+impl UndoAction {
+    pub fn parameter_change_action(res: &Resource<Param>, from: &[u8], to: &[u8]) -> Self {
+        Self::Building(Box::new(IncrementalChangeAction::new(
+            res.clone(),
+            (from.to_vec(), to.to_vec()),
+            |r, (from, _), ev| match ev {
+                Lang::UserNodeEvent(UserNodeEvent::ParameterChange(new_res, _, new))
+                    if new_res == r =>
+                {
+                    Some((from.clone(), new.clone()))
+                }
+                _ => None,
+            },
+            |r, (from, to)| {
+                Some(vec![Lang::UserNodeEvent(UserNodeEvent::ParameterChange(
+                    r.clone(),
+                    to.clone(),
+                    from.clone(),
+                ))])
+            },
+        )))
     }
 
-    fn cmp_removal_data(a: &RemovalData, b: &RemovalData) -> std::cmp::Ordering {
-        match (a, b) {
-            (RemovalData::NodeData(..), _) => std::cmp::Ordering::Less,
-            (_, RemovalData::NodeData(..)) => std::cmp::Ordering::Greater,
-            _ => std::cmp::Ordering::Equal,
+    pub fn camera_rotate_action(renderer: RendererID, theta: f32, phi: f32) -> Self {
+        Self::Building(Box::new(IncrementalChangeAction::new(
+            renderer,
+            (theta, phi),
+            |r, (theta, phi), ev| match ev {
+                Lang::UserRenderEvent(UserRenderEvent::Rotate(new_r, t, p)) if r == new_r => {
+                    Some((theta + *t, phi + *p))
+                }
+                _ => None,
+            },
+            |r, (theta, phi)| {
+                Some(vec![Lang::UserRenderEvent(UserRenderEvent::Rotate(
+                    *r, -theta, -phi,
+                ))])
+            },
+        )))
+    }
+
+    pub fn new_node_action(graph: &Resource<Graph>) -> Self {
+        Self::Building(Box::new(CallResponseAction::new(
+            graph.clone(),
+            |graph, event| match event {
+                Lang::GraphEvent(GraphEvent::NodeAdded(res, _, _, _, _))
+                    if res.is_node_of(&graph) =>
+                {
+                    Some(res.clone())
+                }
+                _ => None,
+            },
+            |_, node| vec![Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node.clone()))],
+        )))
+    }
+
+    pub fn disconnect_sink_action(sink: &Resource<Socket>) -> Self {
+        Self::Building(Box::new(CallResponseAction::new(
+            sink.clone(),
+            |sink, event| match event {
+                Lang::GraphEvent(GraphEvent::DisconnectedSockets(source, other_sink))
+                    if sink == other_sink =>
+                {
+                    Some(source.clone())
+                }
+                _ => None,
+            },
+            |sink, source| {
+                vec![Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(
+                    source.clone(),
+                    sink.clone(),
+                ))]
+            },
+        )))
+    }
+
+    pub fn connect_sockets_action(source: &Resource<Socket>, sink: &Resource<Socket>) -> Self {
+        Self::Building(Box::new(CallResponseAction::new(
+            (source.clone(), sink.clone()),
+            |(u_source, u_sink), event| match event {
+                Lang::GraphEvent(GraphEvent::ConnectedSockets(source, sink))
+                    if u_source == source && u_sink == sink =>
+                {
+                    Some(())
+                }
+                _ => None,
+            },
+            |(_, sink), _| {
+                vec![Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(
+                    sink.clone(),
+                ))]
+            },
+        )))
+    }
+
+    pub fn remove_node_action(node: &Resource<Node>) -> Self {
+        use itertools::Itertools;
+
+        enum RemovalData {
+            NodeData(Operator, (f64, f64)),
+            Connection(Resource<Socket>, Resource<Socket>),
         }
+
+        fn cmp_removal_data(a: &RemovalData, b: &RemovalData) -> std::cmp::Ordering {
+            match (a, b) {
+                (RemovalData::NodeData(..), _) => std::cmp::Ordering::Less,
+                (_, RemovalData::NodeData(..)) => std::cmp::Ordering::Greater,
+                _ => std::cmp::Ordering::Equal,
+            }
+        }
+
+        Self::Building(Box::new(CallMultiResponseAction::new(
+            node.clone(),
+            |node, event| match event {
+                Lang::GraphEvent(GraphEvent::NodeRemoved(res, op, pos)) if node == res => {
+                    Some(RemovalData::NodeData(op.clone(), pos.clone()))
+                }
+                Lang::GraphEvent(GraphEvent::DisconnectedSockets(source, sink))
+                    if source.is_socket_of(node) || sink.is_socket_of(node) =>
+                {
+                    Some(RemovalData::Connection(source.clone(), sink.clone()))
+                }
+                _ => None,
+            },
+            |node, data| {
+                if data
+                    .iter()
+                    .find(|x| matches!(x, RemovalData::NodeData(..)))
+                    .is_some()
+                {
+                    Some(
+                        data.iter()
+                            .sorted_by(|a, b| cmp_removal_data(a, b))
+                            .map(|x| match x {
+                                RemovalData::NodeData(op, pos) => {
+                                    Lang::UserNodeEvent(UserNodeEvent::NewNode(
+                                        node.node_graph(),
+                                        op.clone(),
+                                        pos.clone(),
+                                        None,
+                                        node.file().map(|x| x.to_string()),
+                                    ))
+                                }
+                                RemovalData::Connection(source, sink) => Lang::UserNodeEvent(
+                                    UserNodeEvent::ConnectSockets(source.clone(), sink.clone()),
+                                ),
+                            })
+                            .collect(),
+                    )
+                } else {
+                    None
+                }
+            },
+        )))
     }
 
-    UndoAction::Building(Box::new(CallMultiResponseAction::new(
-        node.clone(),
-        |node, event| match event {
-            Lang::GraphEvent(GraphEvent::NodeRemoved(res, op, pos)) if node == res => {
-                Some(RemovalData::NodeData(op.clone(), pos.clone()))
+    pub fn connect_between_sockets_action(
+        node: &Resource<Node>,
+        source: &Resource<Socket>,
+        sink: &Resource<Socket>,
+    ) -> Self {
+        use itertools::Itertools;
+
+        enum BetweenSocketsData {
+            Connection(Resource<Socket>),
+            Disconnection(Resource<Socket>, Resource<Socket>),
+        }
+
+        fn cmp_between_sockets_data(
+            a: &BetweenSocketsData,
+            b: &BetweenSocketsData,
+        ) -> std::cmp::Ordering {
+            match (a, b) {
+                (BetweenSocketsData::Connection(..), BetweenSocketsData::Disconnection(..)) => {
+                    std::cmp::Ordering::Less
+                }
+                (BetweenSocketsData::Disconnection(..), BetweenSocketsData::Connection(..)) => {
+                    std::cmp::Ordering::Greater
+                }
+                _ => std::cmp::Ordering::Equal,
             }
-            Lang::GraphEvent(GraphEvent::DisconnectedSockets(source, sink))
-                if source.is_socket_of(node) || sink.is_socket_of(node) =>
-            {
-                Some(RemovalData::Connection(source.clone(), sink.clone()))
-            }
-            _ => None,
-        },
-        |node, data| {
-            if data
-                .iter()
-                .find(|x| matches!(x, RemovalData::NodeData(..)))
-                .is_some()
-            {
+        }
+        Self::Building(Box::new(CallMultiResponseAction::new(
+            (node.clone(), source.clone(), sink.clone()),
+            |(node, original_source, original_sink), event| match event {
+                Lang::GraphEvent(GraphEvent::ConnectedSockets(source, sink))
+                    if source.is_socket_of(node) || sink.is_socket_of(node) =>
+                {
+                    Some(BetweenSocketsData::Connection(sink.clone()))
+                }
+                Lang::GraphEvent(GraphEvent::DisconnectedSockets(source, sink))
+                    if source == original_source && sink == original_sink =>
+                {
+                    Some(BetweenSocketsData::Disconnection(
+                        source.clone(),
+                        sink.clone(),
+                    ))
+                }
+                _ => None,
+            },
+            |(_, _, _), data| {
                 Some(
                     data.iter()
-                        .sorted_by(|a, b| cmp_removal_data(a, b))
+                        .sorted_by(|a, b| cmp_between_sockets_data(a, b))
                         .map(|x| match x {
-                            RemovalData::NodeData(op, pos) => {
-                                Lang::UserNodeEvent(UserNodeEvent::NewNode(
-                                    node.node_graph(),
-                                    op.clone(),
-                                    pos.clone(),
-                                    None,
-                                    node.file().map(|x| x.to_string()),
-                                ))
-                            }
-                            RemovalData::Connection(source, sink) => Lang::UserNodeEvent(
+                            BetweenSocketsData::Connection(sink) => Lang::UserNodeEvent(
+                                UserNodeEvent::DisconnectSinkSocket(sink.clone()),
+                            ),
+                            BetweenSocketsData::Disconnection(source, sink) => Lang::UserNodeEvent(
                                 UserNodeEvent::ConnectSockets(source.clone(), sink.clone()),
                             ),
                         })
                         .collect(),
                 )
-            } else {
-                None
-            }
-        },
-    )))
-}
-
-pub fn connect_between_sockets_action(
-    node: &Resource<Node>,
-    source: &Resource<Socket>,
-    sink: &Resource<Socket>,
-) -> UndoAction {
-    use itertools::Itertools;
-
-    enum BetweenSocketsData {
-        Connection(Resource<Socket>),
-        Disconnection(Resource<Socket>, Resource<Socket>),
+            },
+        )))
     }
 
-    fn cmp_between_sockets_data(
-        a: &BetweenSocketsData,
-        b: &BetweenSocketsData,
-    ) -> std::cmp::Ordering {
-        match (a, b) {
-            (BetweenSocketsData::Connection(..), BetweenSocketsData::Disconnection(..)) => {
-                std::cmp::Ordering::Less
-            }
-            (BetweenSocketsData::Disconnection(..), BetweenSocketsData::Connection(..)) => {
-                std::cmp::Ordering::Greater
-            }
-            _ => std::cmp::Ordering::Equal,
-        }
-    }
-    UndoAction::Building(Box::new(CallMultiResponseAction::new(
-        (node.clone(), source.clone(), sink.clone()),
-        |(node, original_source, original_sink), event| match event {
-            Lang::GraphEvent(GraphEvent::ConnectedSockets(source, sink))
-                if source.is_socket_of(node) || sink.is_socket_of(node) =>
-            {
-                Some(BetweenSocketsData::Connection(sink.clone()))
-            }
-            Lang::GraphEvent(GraphEvent::DisconnectedSockets(source, sink))
-                if source == original_source && sink == original_sink =>
-            {
-                Some(BetweenSocketsData::Disconnection(
-                    source.clone(),
-                    sink.clone(),
-                ))
-            }
-            _ => None,
-        },
-        |(_, _, _), data| {
-            Some(
-                data.iter()
-                    .sorted_by(|a, b| cmp_between_sockets_data(a, b))
-                    .map(|x| match x {
-                        BetweenSocketsData::Connection(sink) => {
-                            Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(sink.clone()))
-                        }
-                        BetweenSocketsData::Disconnection(source, sink) => Lang::UserNodeEvent(
-                            UserNodeEvent::ConnectSockets(source.clone(), sink.clone()),
-                        ),
-                    })
-                    .collect(),
-            )
-        },
-    )))
-}
-
-pub fn quick_combine_action(operator: &Operator) -> UndoAction {
-    UndoAction::Building(Box::new(CallResponseAction::new(
-        operator.clone(),
-        |op, event| match event {
-            Lang::GraphEvent(GraphEvent::NodeAdded(node, added_op, _, _, _)) if op == added_op => {
-                Some(node.clone())
-            }
-            _ => None,
-        },
-        |_, node| vec![Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node.clone()))],
-    )))
-}
-
-pub fn rename_node_action(from: &Resource<Node>, to: &Resource<Node>) -> UndoAction {
-    UndoAction::Building(Box::new(IncrementalChangeAction::new(
-        (),
-        (from.clone(), to.clone()),
-        |_, (z_from, z_to), event| match event {
-            Lang::GraphEvent(GraphEvent::NodeRenamed(from, to)) if from == z_from && to == z_to => {
-                Some((from.clone(), to.clone()))
-            }
-            Lang::GraphEvent(GraphEvent::NodeRenamed(from, to)) if from == z_to => {
-                Some((z_from.clone(), to.clone()))
-            }
-            Lang::UserNodeEvent(UserNodeEvent::RenameNode(from, _)) if from == z_to => {
-                Some((z_from.clone(), z_to.clone()))
-            }
-            _ => None,
-        },
-        |_, (from, to)| {
-            Some(vec![Lang::UserNodeEvent(UserNodeEvent::RenameNode(
-                to.clone(),
-                from.clone(),
-            ))])
-        },
-    )))
-}
-
-pub fn extract_action(nodes: &[Resource<Node>]) -> UndoAction {
-    UndoAction::Building(Box::new(CallResponseAction::new(
-        nodes[0].node_graph(),
-        |graph, event| match event {
-            Lang::GraphEvent(GraphEvent::NodeAdded(res, Operator::ComplexOperator(op), _, _, _))
-                if res.is_node_of(graph) => {
-                    Some((res.clone(), op.clone()))
+    pub fn quick_combine_action(operator: &Operator) -> Self {
+        Self::Building(Box::new(CallResponseAction::new(
+            operator.clone(),
+            |op, event| match event {
+                Lang::GraphEvent(GraphEvent::NodeAdded(node, added_op, _, _, _))
+                    if op == added_op =>
+                {
+                    Some(node.clone())
                 }
-            _ => None
-        },
-        |_, (node, op)| {
-            vec![Lang::UserGraphEvent(UserGraphEvent::Inject(node.clone(), op.clone()))]
-        }
-    )))
-}
+                _ => None,
+            },
+            |_, node| vec![Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node.clone()))],
+        )))
+    }
 
-pub fn add_graph_action() -> UndoAction {
-    UndoAction::Building(Box::new(CallResponseAction::new(
-        (),
-        |_, event| match event {
-            Lang::GraphEvent(GraphEvent::GraphAdded(g)) => Some(g.clone()),
-            _ => None
-        },
-        |_, g| vec![Lang::UserGraphEvent(UserGraphEvent::DeleteGraph(g.clone()))]
-    )))
+    pub fn rename_node_action(from: &Resource<Node>, to: &Resource<Node>) -> Self {
+        Self::Building(Box::new(IncrementalChangeAction::new(
+            (),
+            (from.clone(), to.clone()),
+            |_, (z_from, z_to), event| match event {
+                Lang::GraphEvent(GraphEvent::NodeRenamed(from, to))
+                    if from == z_from && to == z_to =>
+                {
+                    Some((from.clone(), to.clone()))
+                }
+                Lang::GraphEvent(GraphEvent::NodeRenamed(from, to)) if from == z_to => {
+                    Some((z_from.clone(), to.clone()))
+                }
+                Lang::UserNodeEvent(UserNodeEvent::RenameNode(from, _)) if from == z_to => {
+                    Some((z_from.clone(), z_to.clone()))
+                }
+                _ => None,
+            },
+            |_, (from, to)| {
+                Some(vec![Lang::UserNodeEvent(UserNodeEvent::RenameNode(
+                    to.clone(),
+                    from.clone(),
+                ))])
+            },
+        )))
+    }
+
+    pub fn extract_action(nodes: &[Resource<Node>]) -> Self {
+        Self::Building(Box::new(CallResponseAction::new(
+            nodes[0].node_graph(),
+            |graph, event| match event {
+                Lang::GraphEvent(GraphEvent::NodeAdded(
+                    res,
+                    Operator::ComplexOperator(op),
+                    _,
+                    _,
+                    _,
+                )) if res.is_node_of(graph) => Some((res.clone(), op.clone())),
+                _ => None,
+            },
+            |_, (node, op)| {
+                vec![Lang::UserGraphEvent(UserGraphEvent::Inject(
+                    node.clone(),
+                    op.clone(),
+                ))]
+            },
+        )))
+    }
+
+    pub fn add_graph_action() -> Self {
+        Self::Building(Box::new(CallResponseAction::new(
+            (),
+            |_, event| match event {
+                Lang::GraphEvent(GraphEvent::GraphAdded(g)) => Some(g.clone()),
+                _ => None,
+            },
+            |_, g| vec![Lang::UserGraphEvent(UserGraphEvent::DeleteGraph(g.clone()))],
+        )))
+    }
 }

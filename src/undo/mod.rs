@@ -62,34 +62,34 @@ impl UndoAction {
     pub fn from_event(event: &Lang) -> Option<Self> {
         match event {
             Lang::UserNodeEvent(UserNodeEvent::ParameterChange(res, from, to)) => {
-                Some(parameter_change_action(res, from, to))
+                Some(Self::parameter_change_action(res, from, to))
             }
             Lang::UserRenderEvent(UserRenderEvent::Rotate(renderer, theta, phi)) => {
-                Some(camera_rotate_action(*renderer, *theta, *phi))
+                Some(Self::camera_rotate_action(*renderer, *theta, *phi))
             }
-            Lang::UserNodeEvent(UserNodeEvent::NewNode(g, _, _, _, _)) => Some(new_node_action(g)),
-            Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node)) => Some(remove_node_action(node)),
+            Lang::UserNodeEvent(UserNodeEvent::NewNode(g, _, _, _, _)) => {
+                Some(Self::new_node_action(g))
+            }
+            Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node)) => {
+                Some(Self::remove_node_action(node))
+            }
             Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(source, sink)) => {
-                Some(connect_sockets_action(source, sink))
+                Some(Self::connect_sockets_action(source, sink))
             }
             Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(sink)) => {
-                Some(disconnect_sink_action(sink))
+                Some(Self::disconnect_sink_action(sink))
             }
             Lang::UserNodeEvent(UserNodeEvent::ConnectBetweenSockets(node, source, sink)) => {
-                Some(connect_between_sockets_action(node, source, sink))
+                Some(Self::connect_between_sockets_action(node, source, sink))
             }
             Lang::UserNodeEvent(UserNodeEvent::QuickCombine(op, _, _)) => {
-                Some(quick_combine_action(op))
+                Some(Self::quick_combine_action(op))
             }
             Lang::UserNodeEvent(UserNodeEvent::RenameNode(from, to)) => {
-                Some(rename_node_action(from, to))
+                Some(Self::rename_node_action(from, to))
             }
-            Lang::UserGraphEvent(UserGraphEvent::Extract(ns)) => {
-                Some(extract_action(ns))
-            }
-            Lang::UserGraphEvent(UserGraphEvent::AddGraph) => {
-                Some(add_graph_action())
-            }
+            Lang::UserGraphEvent(UserGraphEvent::Extract(ns)) => Some(Self::extract_action(ns)),
+            Lang::UserGraphEvent(UserGraphEvent::AddGraph) => Some(Self::add_graph_action()),
             _ => None,
         }
     }

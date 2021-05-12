@@ -601,7 +601,7 @@ pub enum UserGraphEvent {
     Extract(Vec<Resource<Node>>),
     /// The user requests injection of a complex operator into the current
     /// graph, replacing the complex operator.
-    Inject(Resource<Node>, ComplexOperator)
+    Inject(Resource<Node>, ComplexOperator),
 }
 
 /// Events concerning graphs, not directly coming from user input.
