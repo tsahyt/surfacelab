@@ -105,6 +105,15 @@ impl UndoAction {
             Lang::UserIOEvent(UserIOEvent::UpdateExportSpec(name, spec)) => {
                 Some(Self::update_export_spec_action(name, spec))
             }
+            Lang::UserLayersEvent(UserLayersEvent::AddLayers) => {
+                Some(Self::add_layers_action())
+            }
+            Lang::UserLayersEvent(UserLayersEvent::PushLayer(g, _, _)) => {
+                Some(Self::push_layer_action(g))
+            },
+            Lang::UserLayersEvent(UserLayersEvent::PushMask(parent, _)) => {
+                Some(Self::push_mask_action(parent))
+            },
             _ => None,
         }
     }

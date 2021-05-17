@@ -539,4 +539,57 @@ impl UndoAction {
             },
         )))
     }
+
+    pub fn add_layers_action() -> UndoAction {
+        Self::Building(Box::new(CallResponseAction::new(
+            (),
+            |_, event| match event {
+                Lang::LayersEvent(LayersEvent::LayersAdded(res, _, _)) => Some(res.clone()),
+                _ => None,
+            },
+            |_, res| {
+                vec![Lang::UserLayersEvent(UserLayersEvent::DeleteLayers(
+                    res.clone(),
+                ))]
+            },
+        )))
+    }
+
+    pub fn push_layer_action(graph: &Resource<Graph>) -> UndoAction {
+        Self::Building(Box::new(CallResponseAction::new(
+            graph.clone(),
+            |g, event| match event {
+                Lang::LayersEvent(LayersEvent::LayerPushed(res, _, _, _, _, _, _, _))
+                    if res.is_node_of(g) =>
+                {
+                    Some(res.clone())
+                }
+                _ => None,
+            },
+            |_, res| {
+                vec![Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
+                    res.clone(),
+                ))]
+            },
+        )))
+    }
+
+    pub fn push_mask_action(parent: &Resource<Node>) -> UndoAction {
+        Self::Building(Box::new(CallResponseAction::new(
+            parent.clone(),
+            |p, event| match event {
+                Lang::LayersEvent(LayersEvent::MaskPushed(parent_node, res, _, _, _, _, _, _))
+                    if parent_node == p =>
+                {
+                    Some(res.clone())
+                }
+                _ => None,
+            },
+            |_, res| {
+                vec![Lang::UserLayersEvent(UserLayersEvent::RemoveMask(
+                    res.clone(),
+                ))]
+            },
+        )))
+    }
 }
