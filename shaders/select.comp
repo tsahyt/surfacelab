@@ -3,14 +3,32 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform Params {
+    uint mode;
     uint smooth_edge;
     uint invert;
     float threshold;
+    float bandwidth;
 };
+
+const uint MODE_THRESHOLD = 0;
+const uint MODE_BAND = 1;
 
 layout(set = 0, binding = 1) uniform texture2D t_Color1;
 layout(set = 0, binding = 2) uniform sampler Sampler;
-layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
+layout(set = 0, binding = 3, r32f) uniform image2D t_Out;
+
+float run(vec2 uv) {
+    float value = texture(sampler2D(t_Color1, Sampler), uv).r;
+
+    switch(mode) {
+        case MODE_THRESHOLD:
+            return step(threshold, value);
+        case MODE_BAND:
+            return step(abs(value - threshold), bandwidth / 2.);
+        default:
+            return 0.;
+    }
+}
 
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
@@ -25,14 +43,12 @@ void main() {
         for(int x = - 2; x <= 2; ++x) {
             for(int y = - 2; y <= 2; ++y) {
                 vec2 uv_ = uv + vec2(x, y) * sub_sample;
-                float value = texture(sampler2D(t_Color1, Sampler), uv_).r;
-                new += step(threshold, value);
+                new += run(uv_);
             }
         }
         new /= 25.;
     } else {
-        float value = texture(sampler2D(t_Color1, Sampler), uv).r;
-        new = step(threshold, value);
+        new = run(uv);
     }
 
     if(invert != 0) {

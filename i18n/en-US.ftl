@@ -244,3 +244,6 @@ f1 = F1
 f2 = F2
 distance-to-edge = Distance To Edge
 smoothness = Smoothness
+
+band = Band
+bandwidth = Bandwidth

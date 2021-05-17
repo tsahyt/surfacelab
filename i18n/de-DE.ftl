@@ -243,3 +243,6 @@ f1 = F1
 f2 = F2
 distance-to-edge = Abstand zur Kante
 smoothness = Weichheit
+
+band = Band
+bandwidth = Bandbreite

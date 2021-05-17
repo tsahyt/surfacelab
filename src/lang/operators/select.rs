@@ -4,30 +4,63 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
+use num_enum::UnsafeFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum::VariantNames;
+use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
 
-#[repr(C)]
-#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
-pub struct Threshold {
-    pub smooth: ParameterBool,
-    pub invert: ParameterBool,
-    pub threshold: f32,
+#[repr(u32)]
+#[derive(
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    UnsafeFromPrimitive,
+)]
+#[strum(serialize_all = "kebab_case")]
+pub enum SelectMode {
+    Threshold = 0,
+    Band = 1,
 }
 
-impl Default for Threshold {
+impl SelectMode {
+    pub fn has_bandwidth(self) -> bool {
+        matches!(self, Self::Band)
+    }
+}
+
+#[repr(C)]
+#[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
+pub struct Select {
+    select_mode: SelectMode,
+    smooth: ParameterBool,
+    invert: ParameterBool,
+    threshold: f32,
+    bandwidth: f32,
+}
+
+impl Default for Select {
     fn default() -> Self {
         Self {
+            select_mode: SelectMode::Threshold,
             smooth: 0,
             invert: 0,
             threshold: 0.5,
+            bandwidth: 0.,
         }
     }
 }
 
-impl Socketed for Threshold {
+impl Socketed for Select {
     fn inputs(&self) -> HashMap<String, OperatorType> {
         hashmap! {
             "in".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
@@ -41,18 +74,18 @@ impl Socketed for Threshold {
     }
 
     fn default_name(&self) -> &str {
-        "threshold"
+        "select"
     }
 
     fn title(&self) -> &str {
-        "Threshold"
+        "Select"
     }
 }
 
-impl Shader for Threshold {
+impl Shader for Select {
     fn operator_passes(&self) -> Vec<OperatorPassDescription> {
         vec![OperatorPassDescription::RunShader(OperatorShader {
-            spirv: shader!("threshold"),
+            spirv: shader!("select"),
             descriptors: &[
                 OperatorDescriptor {
                     binding: 0,
@@ -80,19 +113,30 @@ impl Shader for Threshold {
     }
 }
 
-impl OperatorParamBox for Threshold {
+impl OperatorParamBox for Select {
     fn param_box_description(&self) -> ParamBoxDescription<Field> {
         ParamBoxDescription {
             box_title: self.title().to_string(),
-            preset_tag: Some("threshold".to_string()),
+            preset_tag: Some("select".to_string()),
             categories: vec![ParamCategory {
                 name: "basic-parameters",
                 is_open: true,
                 visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
+                        name: "mode".to_string(),
+                        transmitter: Field(Select::SELECT_MODE.to_string()),
+                        control: Control::Enum {
+                            selected: self.select_mode as usize,
+                            variants: SelectMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
                         name: "smooth-edge".to_string(),
-                        transmitter: Field(Threshold::SMOOTH.to_string()),
+                        transmitter: Field(Select::SMOOTH.to_string()),
                         control: Control::Toggle {
                             def: self.smooth == 1,
                         },
@@ -102,7 +146,7 @@ impl OperatorParamBox for Threshold {
                     },
                     Parameter {
                         name: "invert".to_string(),
-                        transmitter: Field(Threshold::INVERT.to_string()),
+                        transmitter: Field(Select::INVERT.to_string()),
                         control: Control::Toggle {
                             def: self.invert == 1,
                         },
@@ -112,7 +156,7 @@ impl OperatorParamBox for Threshold {
                     },
                     Parameter {
                         name: "threshold".to_string(),
-                        transmitter: Field(Threshold::THRESHOLD.to_string()),
+                        transmitter: Field(Select::THRESHOLD.to_string()),
                         control: Control::Slider {
                             value: self.threshold,
                             min: 0.,
@@ -120,6 +164,25 @@ impl OperatorParamBox for Threshold {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "bandwidth".to_string(),
+                        transmitter: Field(Select::BANDWIDTH.to_string()),
+                        control: Control::Slider {
+                            value: self.bandwidth,
+                            min: 0.,
+                            max: 1.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter("mode", |c| {
+                            if let Control::Enum { selected, .. } = c {
+                                unsafe { SelectMode::from_unchecked(*selected as u32) }
+                                    .has_bandwidth()
+                            } else {
+                                false
+                            }
+                        }),
                         presetable: true,
                     },
                 ],
