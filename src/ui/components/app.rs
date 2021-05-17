@@ -401,6 +401,12 @@ where
                     state.graphs.update_layer_enabled(layer, *enabled);
                 })
             }
+            Lang::UserGraphEvent(UserGraphEvent::RefieldParameter(graph, field, to)) => {
+                state.update(|state| state.graphs.update_parameter_field(graph, field, to))
+            }
+            Lang::UserGraphEvent(UserGraphEvent::RetitleParameter(graph, field, _, to)) => {
+                state.update(|state| state.graphs.update_parameter_title(graph, field, to))
+            }
             _ => {}
         }
     }
@@ -460,8 +466,12 @@ where
             GraphEvent::ParameterExposed(graph, param) => {
                 state.update(|state| state.graphs.parameter_exposed(graph, param.clone()));
             }
-            GraphEvent::ParameterConcealed(graph, field) => {
-                state.update(|state| state.graphs.parameter_concealed(graph, field));
+            GraphEvent::ParameterConcealed(graph, graph_parameter) => {
+                state.update(|state| {
+                    state
+                        .graphs
+                        .parameter_concealed(graph, &graph_parameter.graph_field)
+                });
             }
             _ => {}
         }

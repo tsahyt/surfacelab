@@ -91,6 +91,18 @@ impl UndoAction {
             }
             Lang::UserGraphEvent(UserGraphEvent::AddGraph)
             | Lang::UserLayersEvent(UserLayersEvent::Convert(..)) => Some(Self::add_graph_action()),
+            Lang::UserGraphEvent(UserGraphEvent::ExposeParameter(param, _, _, _)) => {
+                Some(Self::expose_parameter_action(param))
+            }
+            Lang::UserGraphEvent(UserGraphEvent::ConcealParameter(graph, field)) => {
+                Some(Self::conceal_parameter_action(graph, field))
+            }
+            Lang::UserGraphEvent(UserGraphEvent::RefieldParameter(graph, field, to)) => {
+                Some(Self::refield_parameter_action(graph, field, to))
+            }
+            Lang::UserGraphEvent(UserGraphEvent::RetitleParameter(graph, field, from, to)) => {
+                Some(Self::retitle_parameter_action(graph, field, from, to))
+            }
             Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {
                 Some(Self::add_image_resource_action(path))
             }

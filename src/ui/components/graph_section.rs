@@ -151,21 +151,22 @@ impl<'a> Widget for GraphSection<'a> {
                             )))
                             .unwrap();
                     }
-                    exposed_param_row::Event::UpdateTitle => {
+                    exposed_param_row::Event::UpdateTitle(from, to) => {
                         self.sender
                             .send(Lang::UserGraphEvent(UserGraphEvent::RetitleParameter(
                                 active_graph.clone(),
                                 exposed_params[row.i].0.clone(),
-                                exposed_params[row.i].1.title.to_owned(),
+                                from,
+                                to,
                             )))
                             .unwrap();
                     }
-                    exposed_param_row::Event::UpdateField => {
+                    exposed_param_row::Event::UpdateField(from, to) => {
                         self.sender
                             .send(Lang::UserGraphEvent(UserGraphEvent::RefieldParameter(
                                 active_graph.clone(),
-                                exposed_params[row.i].0.clone(),
-                                exposed_params[row.i].1.graph_field.to_owned(),
+                                from,
+                                to,
                             )))
                             .unwrap();
                     }

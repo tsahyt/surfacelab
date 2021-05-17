@@ -379,6 +379,33 @@ impl NodeCollections {
         }
     }
 
+    /// Update an exposed parameter field when changed from outside the UI
+    pub fn update_parameter_field(&mut self, graph: &Resource<r::Graph>, field: &str, to: &str) {
+        if let Some(target) = self.target_collection_from_collection(graph) {
+            if let Some((f, p)) = target
+                .exposed_parameters()
+                .iter_mut()
+                .find(|(f, _)| f == field)
+            {
+                *f = to.to_string();
+                p.graph_field = to.to_string();
+            }
+        }
+    }
+
+    /// Update an exposed parameter title when changed from outside the UI
+    pub fn update_parameter_title(&mut self, graph: &Resource<r::Graph>, field: &str, to: &str) {
+        if let Some(target) = self.target_collection_from_collection(graph) {
+            if let Some((_, p)) = target
+                .exposed_parameters()
+                .iter_mut()
+                .find(|(f, _)| f == field)
+            {
+                p.title = to.to_string();
+            }
+        }
+    }
+
     pub fn update_complex_operator(
         &mut self,
         node: &Resource<r::Node>,

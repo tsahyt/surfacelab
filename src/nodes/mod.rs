@@ -44,8 +44,8 @@ trait ExposedParameters: NodeCollection {
     }
 
     /// Conceal a parameter
-    fn conceal_parameter(&mut self, graph_field: &str) {
-        self.exposed_parameters_mut().remove(graph_field);
+    fn conceal_parameter(&mut self, graph_field: &str) -> Option<GraphParameter> {
+        self.exposed_parameters_mut().remove(graph_field)
     }
 
     /// Retitle a parameter
@@ -730,18 +730,16 @@ impl NodeManager {
                         .graphs
                         .get_mut(graph_res.path_str().unwrap())
                         .expect("Node Graph not found");
-                    graph.conceal_parameter(graph_field);
-                    response.push(lang::Lang::GraphEvent(
-                        lang::GraphEvent::ParameterConcealed(
-                            graph_res.clone(),
-                            graph_field.clone(),
-                        ),
-                    ));
+                    if let Some(param) = graph.conceal_parameter(graph_field) {
+                        response.push(lang::Lang::GraphEvent(
+                            lang::GraphEvent::ParameterConcealed(graph_res.clone(), param),
+                        ));
+                    }
                     graph.complex_operator_stub()
                 };
                 response.append(&mut self.update_complex_operators(graph_res, &op_stub));
             }
-            UserGraphEvent::RetitleParameter(graph_res, graph_field, new_title) => {
+            UserGraphEvent::RetitleParameter(graph_res, graph_field, _, new_title) => {
                 let graph = self
                     .graphs
                     .get_mut(graph_res.path_str().unwrap())

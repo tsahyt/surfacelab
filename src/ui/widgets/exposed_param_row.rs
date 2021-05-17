@@ -56,8 +56,8 @@ widget_ids! {
 
 pub enum Event {
     ConcealParameter,
-    UpdateTitle,
-    UpdateField,
+    UpdateTitle(String, String),
+    UpdateField(String, String),
 }
 
 impl<'a> Widget for ExposedParamRow<'a> {
@@ -127,13 +127,10 @@ impl<'a> Widget for ExposedParamRow<'a> {
             .h(16.0)
             .set(state.field, ui)
         {
-            match event {
-                widget::text_box::Event::Update(new) => {
-                    self.param.graph_field = new;
-                }
-                widget::text_box::Event::Enter => {
-                    ev = Some(Event::UpdateField);
-                }
+            if let widget::text_box::Event::Update(new) = event {
+                let old = self.param.title.clone();
+                self.param.graph_field = new.clone();
+                ev = Some(Event::UpdateField(old, new));
             }
         }
 
@@ -152,13 +149,10 @@ impl<'a> Widget for ExposedParamRow<'a> {
             .h(16.0)
             .set(state.title, ui)
         {
-            match event {
-                widget::text_box::Event::Update(new) => {
-                    self.param.title = new;
-                }
-                widget::text_box::Event::Enter => {
-                    ev = Some(Event::UpdateTitle);
-                }
+            if let widget::text_box::Event::Update(new) = event {
+                let old = self.param.title.clone();
+                self.param.title = new.clone();
+                ev = Some(Event::UpdateTitle(old, new))
             }
         }
 

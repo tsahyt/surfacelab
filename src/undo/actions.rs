@@ -652,4 +652,94 @@ impl UndoAction {
             from,
         ))])
     }
+
+    pub fn expose_parameter_action(param: &Resource<Param>) -> UndoAction {
+        Self::Building(Box::new(CallResponseAction::new(
+            param.clone(),
+            |param, event| match event {
+                Lang::GraphEvent(GraphEvent::ParameterExposed(graph, graph_param))
+                    if &graph_param.parameter == param =>
+                {
+                    Some((graph.clone(), graph_param.graph_field.clone()))
+                }
+                _ => None,
+            },
+            |_, (graph, field)| {
+                vec![Lang::UserGraphEvent(UserGraphEvent::ConcealParameter(
+                    graph.clone(),
+                    field.clone(),
+                ))]
+            },
+        )))
+    }
+
+    pub fn conceal_parameter_action(graph: &Resource<Graph>, field: &str) -> UndoAction {
+        Self::Building(Box::new(CallResponseAction::new(
+            (graph.clone(), field.to_string()),
+            |(graph, field), event| match event {
+                Lang::GraphEvent(GraphEvent::ParameterConcealed(g, param))
+                    if graph == g && field == &param.graph_field =>
+                {
+                    Some(param.clone())
+                }
+                _ => None,
+            },
+            |_, param| {
+                vec![Lang::UserGraphEvent(UserGraphEvent::ExposeParameter(
+                    param.parameter.clone(),
+                    param.graph_field.clone(),
+                    param.title.clone(),
+                    param.control.clone(),
+                ))]
+            },
+        )))
+    }
+
+    pub fn refield_parameter_action(graph: &Resource<Graph>, from: &str, to: &str) -> UndoAction {
+        Self::Building(Box::new(IncrementalChangeAction::new(
+            graph.clone(),
+            (from.to_string(), to.to_string()),
+            |graph, (initial, _), event| match event {
+                Lang::UserGraphEvent(UserGraphEvent::RefieldParameter(g, _, to)) if g == graph => {
+                    Some((initial.clone(), to.to_string()))
+                }
+                _ => None,
+            },
+            |graph, (from, to)| {
+                Some(vec![Lang::UserGraphEvent(
+                    UserGraphEvent::RefieldParameter(graph.clone(), to.clone(), from.clone()),
+                )])
+            },
+        )))
+    }
+
+    pub fn retitle_parameter_action(
+        graph: &Resource<Graph>,
+        field: &str,
+        from: &str,
+        to: &str,
+    ) -> UndoAction {
+        Self::Building(Box::new(IncrementalChangeAction::new(
+            (graph.clone(), field.to_string()),
+            (from.to_string(), to.to_string()),
+            |(graph, field), (initial, _), event| match event {
+                Lang::UserGraphEvent(UserGraphEvent::RetitleParameter(g, f, _, to))
+                    if g == graph && f == field =>
+                {
+                    Some((initial.clone(), to.to_string()))
+                }
+                _ => None,
+            },
+            |(graph, field), (from, to)| {
+                Some(vec![Lang::UserGraphEvent(
+                    UserGraphEvent::RetitleParameter(
+                        graph.clone(),
+                        field.clone(),
+                        to.clone(),
+                        from.clone(),
+                    ),
+                )])
+            },
+        )))
+    }
 }

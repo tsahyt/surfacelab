@@ -592,11 +592,11 @@ pub enum UserGraphEvent {
     /// The user asks to conceal a parameter in a graph, identified by its graph
     /// field.
     ConcealParameter(Resource<Graph>, String),
-    /// The user renames a graph field from a string to a string.
+    /// The user renames a graph field identified by a graph and a string to a string.
     RefieldParameter(Resource<Graph>, String, String),
-    /// The user renames the human readable title of a graph field from a string
-    /// to a string.
-    RetitleParameter(Resource<Graph>, String, String),
+    /// The user renames the human readable title of a graph field identified by
+    /// a graph and a string from a string to a string.
+    RetitleParameter(Resource<Graph>, String, String, String),
     /// The user requests extraction of the following nodes from this graph into a new graph
     Extract(Vec<Resource<Node>>),
     /// The user requests injection of a complex operator into the current
@@ -661,7 +661,7 @@ pub enum GraphEvent {
     ParameterExposed(Resource<Graph>, GraphParameter),
     /// A parameter has been concealed for a given graph, identified by its
     /// graph field.
-    ParameterConcealed(Resource<Graph>, String),
+    ParameterConcealed(Resource<Graph>, GraphParameter),
     /// An output has been removed.
     OutputRemoved(Resource<Node>, OutputType),
     /// *All* graphs have been cleared in the system.
