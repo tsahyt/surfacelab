@@ -245,5 +245,6 @@ f2 = F2
 distance-to-edge = Distance To Edge
 smoothness = Smoothness
 
+select-mode = Select Mode
 band = Band
 bandwidth = Bandwidth

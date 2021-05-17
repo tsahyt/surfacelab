@@ -124,7 +124,7 @@ impl OperatorParamBox for Select {
                 visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
-                        name: "mode".to_string(),
+                        name: "select-mode".to_string(),
                         transmitter: Field(Select::SELECT_MODE.to_string()),
                         control: Control::Enum {
                             selected: self.select_mode as usize,
@@ -175,7 +175,7 @@ impl OperatorParamBox for Select {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("mode", |c| {
+                        visibility: VisibilityFunction::on_parameter("select-mode", |c| {
                             if let Control::Enum { selected, .. } = c {
                                 unsafe { SelectMode::from_unchecked(*selected as u32) }
                                     .has_bandwidth()

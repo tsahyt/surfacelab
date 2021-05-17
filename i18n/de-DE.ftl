@@ -125,8 +125,7 @@ red-only = Nur Rot
 green-only = Nur Grün
 blue-only = Nur Blau
 
-scale = Skalierung
-octaves = Oktaven
+scale = Skalierung octaves = Oktaven
 
 gradient = Gradient
 
@@ -244,5 +243,6 @@ f2 = F2
 distance-to-edge = Abstand zur Kante
 smoothness = Weichheit
 
+select-mode = Selektionsmodus
 band = Band
 bandwidth = Bandbreite
