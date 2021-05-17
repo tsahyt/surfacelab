@@ -89,7 +89,8 @@ impl UndoAction {
             Lang::UserGraphEvent(UserGraphEvent::RenameGraph(from, to)) => {
                 Some(Self::rename_graph_action(from, to))
             }
-            Lang::UserGraphEvent(UserGraphEvent::AddGraph) => Some(Self::add_graph_action()),
+            Lang::UserGraphEvent(UserGraphEvent::AddGraph)
+            | Lang::UserLayersEvent(UserLayersEvent::Convert(..)) => Some(Self::add_graph_action()),
             Lang::UserIOEvent(UserIOEvent::AddImageResource(path)) => {
                 Some(Self::add_image_resource_action(path))
             }
