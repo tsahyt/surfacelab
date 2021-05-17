@@ -592,4 +592,36 @@ impl UndoAction {
             },
         )))
     }
+
+    pub fn set_layer_opacity_action(layer: &Resource<Node>, from: f32, to: f32) -> UndoAction {
+        Self::Building(Box::new(IncrementalChangeAction::new(
+            layer.clone(),
+            (from, to),
+            |layer, (initial, _), event| match event {
+                Lang::UserLayersEvent(UserLayersEvent::SetOpacity(l, _, to)) if l == layer => {
+                    Some((*initial, *to))
+                }
+                _ => None,
+            },
+            |layer, (from, to)| {
+                Some(vec![Lang::UserLayersEvent(UserLayersEvent::SetOpacity(
+                    layer.clone(),
+                    *to,
+                    *from,
+                ))])
+            },
+        )))
+    }
+
+    pub fn set_layer_blend_mode_action(
+        layer: &Resource<Node>,
+        from: BlendMode,
+        to: BlendMode,
+    ) -> UndoAction {
+        Self::Complete(vec![Lang::UserLayersEvent(UserLayersEvent::SetBlendMode(
+            layer.clone(),
+            to,
+            from,
+        ))])
+    }
 }

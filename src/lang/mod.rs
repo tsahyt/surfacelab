@@ -709,10 +709,12 @@ pub enum UserLayersEvent {
     /// The user requests setting the input for a layer denoted by the input
     /// socket to the given material channel.
     SetInput(Resource<Socket>, MaterialChannel),
-    /// The user requests setting the opacity of the given layer or mask
-    SetOpacity(Resource<Node>, f32),
-    /// The user requests setting the blend mode of the given layer or mask
-    SetBlendMode(Resource<Node>, BlendMode),
+    /// The user requests setting the opacity of the given layer or mask from
+    /// the first value to the second value
+    SetOpacity(Resource<Node>, f32, f32),
+    /// The user requests setting the blend mode of the given layer or mask from
+    /// the first value to the second value
+    SetBlendMode(Resource<Node>, BlendMode, BlendMode),
     /// The user requests changing the title of the given layer or mask
     SetTitle(Resource<Node>, String),
     /// The user seeks to enable/disable the given layer or mask

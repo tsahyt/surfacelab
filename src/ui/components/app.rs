@@ -376,12 +376,21 @@ where
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(s)) => {
                 state.update(|state| state.parent_size = *s);
             }
+            // The following user events must be fake user events coming from outside of the UI
             Lang::UserNodeEvent(UserNodeEvent::ParameterChange(param, _, value)) => {
                 state.update(|state| {
-                    // This event must have originated outside the UI (e.g. undo), thus we have to update
                     state.graphs.update_parameter(param, value);
                 })
             }
+            Lang::UserLayersEvent(UserLayersEvent::SetOpacity(layer, _, opacity)) => {
+                state.update(|state| {
+                    state.graphs.update_layer_opacity(layer, *opacity);
+                })
+            }
+            Lang::UserLayersEvent(UserLayersEvent::SetBlendMode(layer, _, blend_mode)) => state
+                .update(|state| {
+                    state.graphs.update_layer_blend_mode(layer, *blend_mode);
+                }),
             _ => {}
         }
     }

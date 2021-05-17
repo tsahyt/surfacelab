@@ -211,11 +211,13 @@ impl<'a> Widget for LayerEditor<'a> {
             {
                 use strum::IntoEnumIterator;
 
+                let old_mode = BlendMode::iter().nth(active_layer.blend_mode).unwrap();
                 active_layer.blend_mode = new_selection;
 
                 self.sender
                     .send(Lang::UserLayersEvent(UserLayersEvent::SetBlendMode(
                         active_layer.resource.clone(),
+                        old_mode,
                         BlendMode::iter().nth(new_selection).unwrap(),
                     )))
                     .unwrap();
@@ -230,11 +232,13 @@ impl<'a> Widget for LayerEditor<'a> {
                 .parent(id)
                 .set(state.ids.opacity, ui)
             {
+                let old_opacity = active_layer.opacity;
                 active_layer.opacity = new_value;
 
                 self.sender
                     .send(Lang::UserLayersEvent(UserLayersEvent::SetOpacity(
                         active_layer.resource.clone(),
+                        old_opacity,
                         new_value,
                     )))
                     .unwrap();

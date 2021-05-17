@@ -253,6 +253,32 @@ impl Layers {
                 .expect("Failed to swap nodes");
         }
     }
+
+    /// Update the opacity when set from outside of the UI
+    pub fn update_opacity(&mut self, layer: &Resource<r::Node>, opacity: f32) {
+        if let Some(node_id) = self
+            .layers
+            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+            .unwrap()
+            .find(|i| &self.layers.get(i).unwrap().data().resource == layer)
+        {
+            let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+            layer.opacity = opacity;
+        }
+    }
+
+    /// Update the blend mode when set from outside of the UI
+    pub fn update_blend_mode(&mut self, layer: &Resource<r::Node>, blend_mode: BlendMode) {
+        if let Some(node_id) = self
+            .layers
+            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+            .unwrap()
+            .find(|i| &self.layers.get(i).unwrap().data().resource == layer)
+        {
+            let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+            layer.blend_mode = blend_mode as usize;
+        }
+    }
 }
 
 impl Collection for Layers {

@@ -1071,7 +1071,7 @@ impl NodeManager {
                     }
                 }
             }
-            UserLayersEvent::SetOpacity(layer_res, opacity) => {
+            UserLayersEvent::SetOpacity(layer_res, _, opacity) => {
                 if let Some(ManagedNodeCollection::LayerStack(ls)) =
                     self.graphs.get_mut(layer_res.directory().unwrap())
                 {
@@ -1088,7 +1088,7 @@ impl NodeManager {
                     }
                 }
             }
-            UserLayersEvent::SetBlendMode(layer_res, blend_mode) => {
+            UserLayersEvent::SetBlendMode(layer_res, _, blend_mode) => {
                 if let Some(ManagedNodeCollection::LayerStack(ls)) =
                     self.graphs.get_mut(layer_res.directory().unwrap())
                 {

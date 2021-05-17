@@ -428,4 +428,18 @@ impl NodeCollections {
             target.update_parameter(param, value);
         }
     }
+
+    /// Update the opacity of a layer when set from outside the UI
+    pub fn update_layer_opacity(&mut self, layer: &Resource<r::Node>, opacity: f32) {
+        if let Some(target) = self.target_layers_from_node(&layer) {
+            target.update_opacity(layer, opacity);
+        }
+    }
+
+    /// Update the blend mode of a layer when set from outside the UI
+    pub fn update_layer_blend_mode(&mut self, layer: &Resource<r::Node>, blend_mode: BlendMode) {
+        if let Some(target) = self.target_layers_from_node(&layer) {
+            target.update_blend_mode(layer, blend_mode);
+        }
+    }
 }
