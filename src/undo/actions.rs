@@ -624,4 +624,32 @@ impl UndoAction {
             from,
         ))])
     }
+
+    pub fn set_layer_title_action(layer: &Resource<Node>, from: &str, to: &str) -> UndoAction {
+        Self::Building(Box::new(IncrementalChangeAction::new(
+            layer.clone(),
+            (from.to_string(), to.to_string()),
+            |layer, (initial, _), event| match event {
+                Lang::UserLayersEvent(UserLayersEvent::SetTitle(l, _, to)) if l == layer => {
+                    Some((initial.clone(), to.to_string()))
+                }
+                _ => None,
+            },
+            |layer, (from, to)| {
+                Some(vec![Lang::UserLayersEvent(UserLayersEvent::SetTitle(
+                    layer.clone(),
+                    to.clone(),
+                    from.clone(),
+                ))])
+            },
+        )))
+    }
+
+    pub fn set_layer_enabled_action(layer: &Resource<Node>, from: bool, to: bool) -> UndoAction {
+        Self::Complete(vec![Lang::UserLayersEvent(UserLayersEvent::SetEnabled(
+            layer.clone(),
+            to,
+            from,
+        ))])
+    }
 }

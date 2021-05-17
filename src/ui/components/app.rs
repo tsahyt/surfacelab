@@ -391,6 +391,16 @@ where
                 .update(|state| {
                     state.graphs.update_layer_blend_mode(layer, *blend_mode);
                 }),
+            Lang::UserLayersEvent(UserLayersEvent::SetTitle(layer, _, title)) => {
+                state.update(|state| {
+                    state.graphs.update_layer_title(layer, title);
+                })
+            }
+            Lang::UserLayersEvent(UserLayersEvent::SetEnabled(layer, _, enabled)) => {
+                state.update(|state| {
+                    state.graphs.update_layer_enabled(layer, *enabled);
+                })
+            }
             _ => {}
         }
     }

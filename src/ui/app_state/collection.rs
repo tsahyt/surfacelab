@@ -442,4 +442,18 @@ impl NodeCollections {
             target.update_blend_mode(layer, blend_mode);
         }
     }
+
+    /// Update the title of a layer when set from outside the UI
+    pub fn update_layer_title(&mut self, layer: &Resource<r::Node>, title: &str) {
+        if let Some(target) = self.target_layers_from_node(&layer) {
+            target.update_title(layer, title);
+        }
+    }
+
+    /// Update the blend mode of a layer when set from outside the UI
+    pub fn update_layer_enabled(&mut self, layer: &Resource<r::Node>, enabled: bool) {
+        if let Some(target) = self.target_layers_from_node(&layer) {
+            target.update_enabled(layer, enabled);
+        }
+    }
 }

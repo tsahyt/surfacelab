@@ -715,10 +715,12 @@ pub enum UserLayersEvent {
     /// The user requests setting the blend mode of the given layer or mask from
     /// the first value to the second value
     SetBlendMode(Resource<Node>, BlendMode, BlendMode),
-    /// The user requests changing the title of the given layer or mask
-    SetTitle(Resource<Node>, String),
-    /// The user seeks to enable/disable the given layer or mask
-    SetEnabled(Resource<Node>, bool),
+    /// The user requests changing the title of the given layer or mask from the
+    /// first value to the second value
+    SetTitle(Resource<Node>, String, String),
+    /// The user seeks to enable/disable the given layer or mask from the first
+    /// value to the second value
+    SetEnabled(Resource<Node>, bool, bool),
     /// The user requests conversion of this layer stack to a graph
     Convert(Resource<Graph>),
 }

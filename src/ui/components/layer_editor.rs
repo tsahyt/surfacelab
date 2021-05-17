@@ -300,19 +300,22 @@ impl<'a> Widget for LayerEditor<'a> {
                     layer_row::Event::ActiveElement => {
                         active_collection.active_element = Some(node_id);
                     }
-                    layer_row::Event::Retitled(new) => {
+                    layer_row::Event::Retitled(old, new) => {
                         self.sender
                             .send(Lang::UserLayersEvent(UserLayersEvent::SetTitle(
                                 data.resource.to_owned(),
+                                old,
                                 new,
                             )))
                             .unwrap();
                     }
                     layer_row::Event::ToggleEnabled => {
+                        let old = data.enabled;
                         data.enabled = !data.enabled;
                         self.sender
                             .send(Lang::UserLayersEvent(UserLayersEvent::SetEnabled(
                                 data.resource.to_owned(),
+                                old,
                                 data.enabled,
                             )))
                             .unwrap();

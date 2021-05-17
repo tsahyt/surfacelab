@@ -74,7 +74,7 @@ pub struct State {
 
 pub enum Event {
     ActiveElement,
-    Retitled(String),
+    Retitled(String, String),
     ToggleEnabled,
     ToggleExpanded,
     MoveUp,
@@ -162,7 +162,7 @@ impl<'a> Widget for LayerRow<'a> {
             {
                 match ev {
                     widget::text_box::Event::Update(new) => {
-                        event = Some(Event::Retitled(new.clone()));
+                        event = Some(Event::Retitled(self.layer.title.clone(), new.clone()));
                         self.layer.title = new
                     }
                     widget::text_box::Event::Enter => {

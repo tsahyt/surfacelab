@@ -1105,14 +1105,14 @@ impl NodeManager {
                     }
                 }
             }
-            UserLayersEvent::SetTitle(layer_res, title) => {
+            UserLayersEvent::SetTitle(layer_res, _, title) => {
                 if let Some(ManagedNodeCollection::LayerStack(ls)) =
                     self.graphs.get_mut(layer_res.directory().unwrap())
                 {
                     ls.set_title(layer_res, title);
                 }
             }
-            UserLayersEvent::SetEnabled(layer_res, enabled) => {
+            UserLayersEvent::SetEnabled(layer_res, _, enabled) => {
                 if let Some(ManagedNodeCollection::LayerStack(ls)) =
                     self.graphs.get_mut(layer_res.directory().unwrap())
                 {

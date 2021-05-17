@@ -279,6 +279,32 @@ impl Layers {
             layer.blend_mode = blend_mode as usize;
         }
     }
+
+    /// Update the enabled toggle when set from outside of the UI
+    pub fn update_enabled(&mut self, layer: &Resource<r::Node>, enabled: bool) {
+        if let Some(node_id) = self
+            .layers
+            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+            .unwrap()
+            .find(|i| &self.layers.get(i).unwrap().data().resource == layer)
+        {
+            let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+            layer.enabled = enabled;
+        }
+    }
+
+    /// Update the title when set from outside of the UI
+    pub fn update_title(&mut self, layer: &Resource<r::Node>, title: &str) {
+        if let Some(node_id) = self
+            .layers
+            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
+            .unwrap()
+            .find(|i| &self.layers.get(i).unwrap().data().resource == layer)
+        {
+            let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+            layer.title = title.to_string();
+        }
+    }
 }
 
 impl Collection for Layers {

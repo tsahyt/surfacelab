@@ -118,6 +118,12 @@ impl UndoAction {
             Lang::UserLayersEvent(UserLayersEvent::SetBlendMode(layer, from, to)) => {
                 Some(Self::set_layer_blend_mode_action(layer, *from, *to))
             }
+            Lang::UserLayersEvent(UserLayersEvent::SetTitle(layer, from, to)) => {
+                Some(Self::set_layer_title_action(layer, from, to))
+            }
+            Lang::UserLayersEvent(UserLayersEvent::SetEnabled(layer, from, to)) => {
+                Some(Self::set_layer_enabled_action(layer, *from, *to))
+            }
             _ => None,
         }
     }
