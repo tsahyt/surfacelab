@@ -982,6 +982,25 @@ impl VisibilityFunction {
     ) -> Self {
         Self::from_raw(move |cs| cs.iter().any(|(n, c)| if n == name { f(c) } else { false }))
     }
+
+    pub fn on_parameter_enum<
+        T: std::convert::TryFrom<u32>,
+        F: Fn(T) -> bool + 'static + Send + Sync,
+    >(
+        name: &'static str,
+        f: F,
+    ) -> Self {
+        Self::on_parameter(name, move |c| {
+            if let Control::Enum { selected, .. } = c {
+                match T::try_from(*selected as u32) {
+                    Ok(t) => f(t),
+                    _ => false,
+                }
+            } else {
+                false
+            }
+        })
+    }
 }
 
 impl Default for VisibilityFunction {

@@ -4,7 +4,7 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
-use num_enum::UnsafeFromPrimitive;
+use num_enum::TryFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::VariantNames;
@@ -24,7 +24,7 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     PartialEq,
-    UnsafeFromPrimitive,
+    TryFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum BlendMode {
@@ -50,16 +50,6 @@ impl BlendMode {
             Self::SmoothDarken | Self::SmoothLighten | Self::SmoothInvertLighten
         )
     }
-}
-
-fn sharpness_visibility() -> VisibilityFunction {
-    VisibilityFunction::on_parameter("blend-mode", |c| {
-        if let Control::Enum { selected, .. } = c {
-            unsafe { BlendMode::from_unchecked(*selected as u32) }.has_sharpness()
-        } else {
-            false
-        }
-    })
 }
 
 #[repr(C)]
@@ -192,7 +182,10 @@ impl OperatorParamBox for Blend {
                             max: 64.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: sharpness_visibility(),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "blend-mode",
+                            |t: BlendMode| t.has_sharpness(),
+                        ),
                         presetable: true,
                     },
                 ],
@@ -322,7 +315,10 @@ impl OperatorParamBox for BlendMasked {
                             max: 64.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: sharpness_visibility(),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "blend-mode",
+                            |t: BlendMode| t.has_sharpness(),
+                        ),
                         presetable: true,
                     },
                 ],

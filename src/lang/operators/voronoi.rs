@@ -4,7 +4,7 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
-use num_enum::UnsafeFromPrimitive;
+use num_enum::TryFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::VariantNames;
@@ -24,7 +24,7 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     PartialEq,
-    UnsafeFromPrimitive,
+    TryFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum DistanceMetric {
@@ -52,7 +52,7 @@ impl DistanceMetric {
     Serialize,
     Deserialize,
     PartialEq,
-    UnsafeFromPrimitive,
+    TryFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum Method {
@@ -79,7 +79,7 @@ impl Method {
     Serialize,
     Deserialize,
     PartialEq,
-    UnsafeFromPrimitive,
+    TryFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum Dimensions {
@@ -214,12 +214,8 @@ impl OperatorParamBox for Voronoi {
                                 .collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("method", |c| {
-                            if let Control::Enum { selected, .. } = c {
-                                unsafe { Method::from_unchecked(*selected as u32) }.has_metric()
-                            } else {
-                                false
-                            }
+                        visibility: VisibilityFunction::on_parameter_enum("method", |t: Method| {
+                            t.has_metric()
                         }),
                         presetable: true,
                     },
@@ -232,13 +228,10 @@ impl OperatorParamBox for Voronoi {
                             max: 16.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("dimensions", |c| {
-                            if let Control::Enum { selected, .. } = c {
-                                unsafe { Dimensions::from_unchecked(*selected as u32) }.has_z()
-                            } else {
-                                false
-                            }
-                        }),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "dimensions",
+                            |t: Dimensions| t.has_z(),
+                        ),
                         presetable: true,
                     },
                     Parameter {
@@ -250,14 +243,10 @@ impl OperatorParamBox for Voronoi {
                             max: 16.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("metric", |c| {
-                            if let Control::Enum { selected, .. } = c {
-                                unsafe { DistanceMetric::from_unchecked(*selected as u32) }
-                                    .has_exponent()
-                            } else {
-                                false
-                            }
-                        }),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "metric",
+                            |t: DistanceMetric| t.has_exponent(),
+                        ),
                         presetable: true,
                     },
                     Parameter {

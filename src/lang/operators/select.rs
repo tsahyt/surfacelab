@@ -4,7 +4,7 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
-use num_enum::UnsafeFromPrimitive;
+use num_enum::TryFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::VariantNames;
@@ -24,7 +24,7 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     PartialEq,
-    UnsafeFromPrimitive,
+    TryFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum SelectMode {
@@ -175,14 +175,10 @@ impl OperatorParamBox for Select {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("select-mode", |c| {
-                            if let Control::Enum { selected, .. } = c {
-                                unsafe { SelectMode::from_unchecked(*selected as u32) }
-                                    .has_bandwidth()
-                            } else {
-                                false
-                            }
-                        }),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "select-mode",
+                            |t: SelectMode| t.has_bandwidth(),
+                        ),
                         presetable: true,
                     },
                 ],

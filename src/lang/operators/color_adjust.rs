@@ -4,7 +4,7 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
-use num_enum::UnsafeFromPrimitive;
+use num_enum::TryFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::VariantNames;
@@ -24,7 +24,7 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     PartialEq,
-    UnsafeFromPrimitive,
+    TryFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum ColorAdjustMode {
@@ -187,14 +187,10 @@ impl OperatorParamBox for ColorAdjust {
                             max: 2.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("adjust-mode", |c| {
-                            if let Control::Enum { selected, .. } = c {
-                                unsafe { ColorAdjustMode::from_unchecked(*selected as u32) }
-                                    .has_saturation()
-                            } else {
-                                false
-                            }
-                        }),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "adjust-mode",
+                            |t: ColorAdjustMode| t.has_saturation(),
+                        ),
                         presetable: true,
                     },
                     Parameter {
@@ -206,14 +202,10 @@ impl OperatorParamBox for ColorAdjust {
                             max: 2.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("adjust-mode", |c| {
-                            if let Control::Enum { selected, .. } = c {
-                                unsafe { ColorAdjustMode::from_unchecked(*selected as u32) }
-                                    .has_chroma()
-                            } else {
-                                false
-                            }
-                        }),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "adjust-mode",
+                            |t: ColorAdjustMode| t.has_chroma(),
+                        ),
                         presetable: true,
                     },
                     Parameter {
@@ -225,14 +217,10 @@ impl OperatorParamBox for ColorAdjust {
                             max: 2.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("adjust-mode", |c| {
-                            if let Control::Enum { selected, .. } = c {
-                                unsafe { ColorAdjustMode::from_unchecked(*selected as u32) }
-                                    .has_value()
-                            } else {
-                                false
-                            }
-                        }),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "adjust-mode",
+                            |t: ColorAdjustMode| t.has_value(),
+                        ),
                         presetable: true,
                     },
                     Parameter {
@@ -244,14 +232,10 @@ impl OperatorParamBox for ColorAdjust {
                             max: 2.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("adjust-mode", |c| {
-                            if let Control::Enum { selected, .. } = c {
-                                unsafe { ColorAdjustMode::from_unchecked(*selected as u32) }
-                                    .has_lightness()
-                            } else {
-                                false
-                            }
-                        }),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "adjust-mode",
+                            |t: ColorAdjustMode| t.has_lightness(),
+                        ),
                         presetable: true,
                     },
                 ],

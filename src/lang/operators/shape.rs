@@ -4,7 +4,7 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
-use num_enum::UnsafeFromPrimitive;
+use num_enum::TryFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::VariantNames;
@@ -24,7 +24,7 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     PartialEq,
-    UnsafeFromPrimitive,
+    TryFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum ShapeType {
@@ -229,14 +229,10 @@ impl OperatorParamBox for Shape {
                                 max: 1.,
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
-                            visibility: VisibilityFunction::on_parameter("shape-type", |c| {
-                                if let Control::Enum { selected, .. } = c {
-                                    unsafe { ShapeType::from_unchecked(*selected as u32) }
-                                        .has_radius()
-                                } else {
-                                    false
-                                }
-                            }),
+                            visibility: VisibilityFunction::on_parameter_enum(
+                                "shape-type",
+                                |t: ShapeType| t.has_radius(),
+                            ),
                             presetable: true,
                         },
                         Parameter {
@@ -248,14 +244,10 @@ impl OperatorParamBox for Shape {
                                 max: 1.,
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
-                            visibility: VisibilityFunction::on_parameter("shape-type", |c| {
-                                if let Control::Enum { selected, .. } = c {
-                                    unsafe { ShapeType::from_unchecked(*selected as u32) }
-                                        .has_width()
-                                } else {
-                                    false
-                                }
-                            }),
+                            visibility: VisibilityFunction::on_parameter_enum(
+                                "shape-type",
+                                |t: ShapeType| t.has_width(),
+                            ),
                             presetable: true,
                         },
                         Parameter {
@@ -267,14 +259,10 @@ impl OperatorParamBox for Shape {
                                 max: 1.,
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
-                            visibility: VisibilityFunction::on_parameter("shape-type", |c| {
-                                if let Control::Enum { selected, .. } = c {
-                                    unsafe { ShapeType::from_unchecked(*selected as u32) }
-                                        .has_height()
-                                } else {
-                                    false
-                                }
-                            }),
+                            visibility: VisibilityFunction::on_parameter_enum(
+                                "shape-type",
+                                |t: ShapeType| t.has_height(),
+                            ),
                             presetable: true,
                         },
                         Parameter {
@@ -286,14 +274,10 @@ impl OperatorParamBox for Shape {
                                 max: 32,
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
-                            visibility: VisibilityFunction::on_parameter("shape-type", |c| {
-                                if let Control::Enum { selected, .. } = c {
-                                    unsafe { ShapeType::from_unchecked(*selected as u32) }
-                                        .has_sides()
-                                } else {
-                                    false
-                                }
-                            }),
+                            visibility: VisibilityFunction::on_parameter_enum(
+                                "shape-type",
+                                |t: ShapeType| t.has_sides(),
+                            ),
                             presetable: true,
                         },
                         Parameter {
@@ -305,14 +289,10 @@ impl OperatorParamBox for Shape {
                                 max: 1.,
                             },
                             expose_status: Some(ExposeStatus::Unexposed),
-                            visibility: VisibilityFunction::on_parameter("shape-type", |c| {
-                                if let Control::Enum { selected, .. } = c {
-                                    unsafe { ShapeType::from_unchecked(*selected as u32) }
-                                        .has_angle_factor()
-                                } else {
-                                    false
-                                }
-                            }),
+                            visibility: VisibilityFunction::on_parameter_enum(
+                                "shape-type",
+                                |t: ShapeType| t.has_angle_factor(),
+                            ),
                             presetable: true,
                         },
                     ],

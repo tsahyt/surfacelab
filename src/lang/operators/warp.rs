@@ -4,7 +4,7 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
-use num_enum::UnsafeFromPrimitive;
+use num_enum::TryFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use strum::VariantNames;
@@ -24,7 +24,7 @@ use zerocopy::AsBytes;
     Serialize,
     Deserialize,
     PartialEq,
-    UnsafeFromPrimitive,
+    TryFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
 pub enum WarpMode {
@@ -157,13 +157,10 @@ impl OperatorParamBox for Warp {
                             max: std::f32::consts::TAU,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter("warp-mode", |c| {
-                            if let Control::Enum { selected, .. } = c {
-                                unsafe { WarpMode::from_unchecked(*selected as u32) }.has_angle()
-                            } else {
-                                false
-                            }
-                        }),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "warp-mode",
+                            |t: WarpMode| t.has_angle(),
+                        ),
                         presetable: true,
                     },
                 ],
