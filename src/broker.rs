@@ -39,8 +39,15 @@ impl<T> NamedSender<T> {
         Self { name, inner }
     }
 
+    /// Send a message to the broker
     pub fn send(&self, msg: T) -> Option<()> {
         self.inner.send((self.name, msg)).ok()
+    }
+
+    /// Send a message to the broker anonymously. This will result in the
+    /// message getting echoed back at the calling thread!
+    pub fn send_anonymous(&self, msg: T) -> Option<()> {
+        self.inner.send(("", msg)).ok()
     }
 }
 

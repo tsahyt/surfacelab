@@ -46,14 +46,16 @@ fn scheduler_setup(sender: broker::BrokerSender<Lang>) -> clokwerk::ScheduleHand
     let sender_arc = std::sync::Arc::new(sender);
     let mut scheduler = Scheduler::new();
 
+    // The scheduler should send messages anonymously such that they can also be
+    // intercepted by the IO component, since they share a sender.
     scheduler
         .every(2.minutes())
         .run(enclose!((sender_arc => sender) move ||
-                      sender.send(Lang::ScheduleEvent(ScheduleEvent::Autosave)).unwrap()));
+                      sender.send_anonymous(Lang::ScheduleEvent(ScheduleEvent::Autosave)).unwrap()));
     scheduler
         .every(5.seconds())
         .run(enclose!((sender_arc => sender) move ||
-                      sender.send(Lang::ScheduleEvent(ScheduleEvent::VramUsage)).unwrap()));
+                      sender.send_anonymous(Lang::ScheduleEvent(ScheduleEvent::VramUsage)).unwrap()));
 
     scheduler.watch_thread(std::time::Duration::from_secs(1))
 }
