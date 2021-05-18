@@ -1,4 +1,4 @@
-use super::{resource::*, ImageType, OperatorSize, OperatorType};
+use super::{resource::*, ImageType, OperatorSize, OperatorType, TypeVariable};
 use enum_dispatch::*;
 use serde_derive::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -964,23 +964,38 @@ pub struct Parameter<T: MessageWriter> {
 
 #[derive(Clone)]
 pub struct VisibilityFunction {
-    inner: Arc<dyn Fn(&[(String, Control)]) -> bool + Send + Sync>,
+    inner: Arc<
+        dyn Fn(&[(String, Control)], Option<&HashMap<TypeVariable, ImageType>>) -> bool
+            + Send
+            + Sync,
+    >,
 }
 
 impl VisibilityFunction {
-    pub fn from_raw<F: Fn(&[(String, Control)]) -> bool + 'static + Send + Sync>(f: F) -> Self {
+    pub fn from_raw<
+        F: Fn(&[(String, Control)], Option<&HashMap<TypeVariable, ImageType>>) -> bool
+            + 'static
+            + Send
+            + Sync,
+    >(
+        f: F,
+    ) -> Self {
         Self { inner: Arc::new(f) }
     }
 
-    pub fn run(&self, data: &[(String, Control)]) -> bool {
-        (self.inner)(data)
+    pub fn run(
+        &self,
+        data: &[(String, Control)],
+        ty_vars: Option<&HashMap<TypeVariable, ImageType>>,
+    ) -> bool {
+        (self.inner)(data, ty_vars)
     }
 
     pub fn on_parameter<F: Fn(&Control) -> bool + 'static + Send + Sync>(
         name: &'static str,
         f: F,
     ) -> Self {
-        Self::from_raw(move |cs| cs.iter().any(|(n, c)| if n == name { f(c) } else { false }))
+        Self::from_raw(move |cs, _| cs.iter().any(|(n, c)| if n == name { f(c) } else { false }))
     }
 
     pub fn on_parameter_enum<
@@ -1001,12 +1016,23 @@ impl VisibilityFunction {
             }
         })
     }
+
+    pub fn on_type_variable<F: Fn(ImageType) -> bool + 'static + Send + Sync>(
+        var: TypeVariable,
+        f: F,
+    ) -> Self {
+        Self::from_raw(move |_, vs| {
+            vs.and_then(|vs| vs.get(&var))
+                .map(|t| f(*t))
+                .unwrap_or(false)
+        })
+    }
 }
 
 impl Default for VisibilityFunction {
     fn default() -> Self {
         Self {
-            inner: Arc::new(|_| true),
+            inner: Arc::new(|_, _| true),
         }
     }
 }
@@ -1021,7 +1047,7 @@ impl std::ops::BitAnd for VisibilityFunction {
     type Output = VisibilityFunction;
 
     fn bitand(self, rhs: Self) -> Self::Output {
-        Self::from_raw(move |x| self.run(x) && rhs.run(x))
+        Self::from_raw(move |x, t| self.run(x, t) && rhs.run(x, t))
     }
 }
 
@@ -1029,7 +1055,7 @@ impl std::ops::BitOr for VisibilityFunction {
     type Output = VisibilityFunction;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        Self::from_raw(move |x| self.run(x) || rhs.run(x))
+        Self::from_raw(move |x, t| self.run(x, t) || rhs.run(x, t))
     }
 }
 
@@ -1037,7 +1063,7 @@ impl std::ops::Not for VisibilityFunction {
     type Output = VisibilityFunction;
 
     fn not(self) -> Self::Output {
-        Self::from_raw(move |x| !self.run(x))
+        Self::from_raw(move |x, t| !self.run(x, t))
     }
 }
 

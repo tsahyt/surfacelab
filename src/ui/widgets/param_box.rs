@@ -103,6 +103,7 @@ pub struct ParamBox<'a, T: MessageWriter> {
     language: &'a Language,
     image_resources: &'a [(Resource<Img>, (ColorSpace, bool))],
     svg_resources: &'a [(Resource<resource::Svg>, bool)],
+    type_variables: Option<&'a HashMap<TypeVariable, ImageType>>,
     parent_size: Option<u32>,
     presets: bool,
 }
@@ -121,6 +122,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
             language,
             image_resources: &[],
             svg_resources: &[],
+            type_variables: None,
             parent_size: None,
             presets: false,
         }
@@ -274,6 +276,7 @@ impl<'a, T: MessageWriter> ParamBox<'a, T> {
         pub parent_size { parent_size = Some(u32) }
         pub image_resources { image_resources = &'a [(Resource<Img>, (ColorSpace, bool))] }
         pub svg_resources { svg_resources = &'a [(Resource<resource::Svg>, bool)] }
+        pub type_variables { type_variables = Some(&'a HashMap<TypeVariable, ImageType>) }
         pub icon_font { style.icon_font = Some(text::font::Id) }
         pub text_size { style.text_size = Some(FontSize) }
         pub text_color { style.text_color = Some(Color) }
@@ -443,12 +446,13 @@ where
         let description = self.description;
         let language = self.language;
         let controls = description.controls();
+        let ty_vars = self.type_variables;
 
         for (j, category) in description
             .categories
             .iter_mut()
             .enumerate()
-            .filter(|(_, category)| category.visibility.run(&controls))
+            .filter(|(_, category)| category.visibility.run(&controls, ty_vars))
         {
             widget::Text::new(&self.language.get_message(category.name))
                 .parent(id)
@@ -492,7 +496,7 @@ where
                 message_count += 1;
 
                 // Skip parameter if it's not visible under current conditions
-                if !parameter.visibility.run(&controls) {
+                if !parameter.visibility.run(&controls, ty_vars) {
                     continue;
                 }
 

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::broker::BrokerSender;
 use crate::lang::*;
 use crate::ui::{i18n::Language, widgets};
@@ -14,6 +16,7 @@ pub struct ParameterSection<'a> {
     resource: &'a Resource<Node>,
     image_resources: &'a [(Resource<Img>, (ColorSpace, bool))],
     svg_resources: &'a [(Resource<resource::Svg>, bool)],
+    type_variables: Option<&'a HashMap<TypeVariable, ImageType>>,
     parent_size: u32,
     style: Style,
 }
@@ -35,6 +38,7 @@ impl<'a> ParameterSection<'a> {
             parent_size,
             image_resources: &[],
             svg_resources: &[],
+            type_variables: None,
             style: Style::default(),
         }
     }
@@ -42,6 +46,7 @@ impl<'a> ParameterSection<'a> {
     builder_methods! {
         pub image_resources { image_resources = &'a [(Resource<Img>, (ColorSpace, bool))] }
         pub svg_resources { svg_resources = &'a [(Resource<resource::Svg>, bool)] }
+        pub type_variables { type_variables = Some(&'a HashMap<TypeVariable, ImageType>) }
         pub icon_font { style.icon_font = Some(text::font::Id) }
     }
 }
@@ -86,19 +91,24 @@ impl<'a> Widget for ParameterSection<'a> {
             ..
         } = args;
 
-        for ev in widgets::param_box::ParamBox::new(self.description, self.resource, self.language)
-            .image_resources(&self.image_resources)
-            .svg_resources(&self.svg_resources)
-            .parent_size(self.parent_size)
-            .parent(id)
-            .w_of(id)
-            .mid_top()
-            .icon_font(style.icon_font(&ui.theme))
-            .text_size(10)
-            .text_color(color::WHITE)
-            .presets(true)
-            .set(state.ids.param_box, ui)
-        {
+        let mut pbox =
+            widgets::param_box::ParamBox::new(self.description, self.resource, self.language)
+                .image_resources(&self.image_resources)
+                .svg_resources(&self.svg_resources)
+                .parent_size(self.parent_size)
+                .parent(id)
+                .w_of(id)
+                .mid_top()
+                .icon_font(style.icon_font(&ui.theme))
+                .text_size(10)
+                .text_color(color::WHITE)
+                .presets(true);
+
+        if let Some(ty_vars) = self.type_variables {
+            pbox = pbox.type_variables(&ty_vars);
+        }
+
+        for ev in pbox.set(state.ids.param_box, ui) {
             let resp = match ev {
                 widgets::param_box::Event::ChangeParameter(event) => event,
                 widgets::param_box::Event::ExposeParameter(field, name, control) => {

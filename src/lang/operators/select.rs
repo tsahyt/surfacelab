@@ -46,6 +46,7 @@ pub struct Select {
     invert: ParameterBool,
     threshold: f32,
     bandwidth: f32,
+    color: [f32; 3],
 }
 
 impl Default for Select {
@@ -56,6 +57,7 @@ impl Default for Select {
             invert: 0,
             threshold: 0.5,
             bandwidth: 0.,
+            color: [0.5; 3],
         }
     }
 }
@@ -167,7 +169,9 @@ impl OperatorParamBox for Select {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::default(),
+                        visibility: VisibilityFunction::on_type_variable(0, |t| {
+                            matches!(t, ImageType::Grayscale)
+                        }),
                         presetable: true,
                     },
                     Parameter {
@@ -183,6 +187,16 @@ impl OperatorParamBox for Select {
                             "select-mode",
                             |t: SelectMode| t.has_bandwidth(),
                         ),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "color".to_string(),
+                        transmitter: Field(Select::COLOR.to_string()),
+                        control: Control::RgbColor { value: self.color },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_type_variable(0, |t| {
+                            matches!(t, ImageType::Rgb)
+                        }),
                         presetable: true,
                     },
                 ],

@@ -25,7 +25,11 @@ pub trait Collection {
     );
     fn active_element(
         &mut self,
-    ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)>;
+    ) -> Option<(
+        &Resource<r::Node>,
+        &mut ParamBoxDescription<MessageWriters>,
+        &HashMap<TypeVariable, ImageType>,
+    )>;
     fn active_resource(&self) -> Option<&Resource<r::Node>>;
     fn set_active(&mut self, element: &Resource<r::Node>);
     fn update_parameter(&mut self, param: &Resource<r::Param>, value: &[u8]);
@@ -84,7 +88,11 @@ impl NodeCollections {
 
     pub fn active_parameters(
         &mut self,
-    ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)> {
+    ) -> Option<(
+        &Resource<r::Node>,
+        &mut ParamBoxDescription<MessageWriters>,
+        &HashMap<TypeVariable, ImageType>,
+    )> {
         match &mut self.active_collection {
             NodeCollection::Graph(g) => g.active_element(),
             NodeCollection::Layers(l) => l.active_element(),

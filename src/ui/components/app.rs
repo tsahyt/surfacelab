@@ -612,7 +612,7 @@ where
         use components::parameter_section;
 
         state.update(|state| {
-            if let Some((resource, description)) = state.graphs.active_parameters() {
+            if let Some((resource, description, ty_vars)) = state.graphs.active_parameters() {
                 parameter_section::ParameterSection::new(
                     &self.app_data.language,
                     &self.app_data.sender,
@@ -622,6 +622,7 @@ where
                 )
                 .image_resources(&state.image_resources)
                 .svg_resources(&state.svg_resources)
+                .type_variables(&ty_vars)
                 .icon_font(style.icon_font(&ui.theme))
                 .parent(state.ids.parameter_canvas)
                 .wh_of(state.ids.parameter_canvas)

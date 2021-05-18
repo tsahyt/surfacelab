@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::lang::resource as r;
 use crate::lang::*;
 
@@ -18,6 +20,7 @@ pub struct Layer {
     pub enabled: bool,
     pub is_mask: bool,
     pub expanded: bool,
+    pub type_variables: HashMap<TypeVariable, ImageType>,
 }
 
 impl Layer {
@@ -33,6 +36,7 @@ impl Layer {
             enabled: false,
             is_mask: false,
             expanded: true,
+            type_variables: HashMap::new(),
         }
     }
 
@@ -58,6 +62,7 @@ impl Layer {
             enabled: true,
             is_mask: false,
             expanded: true,
+            type_variables: HashMap::new(),
         }
     }
 
@@ -79,6 +84,7 @@ impl Layer {
             enabled: true,
             is_mask: true,
             expanded: true,
+            type_variables: HashMap::new(),
         }
     }
 
@@ -172,6 +178,7 @@ impl Layers {
             .unwrap()
             .find(|i| &self.layers.get(i).unwrap().data().resource == &layer)?;
         let layer = self.layers.get_mut(&node_id).unwrap().data_mut();
+
         let chans = layer
             .operator_pbox
             .categories
@@ -424,11 +431,19 @@ impl Collection for Layers {
 
     fn active_element(
         &mut self,
-    ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)> {
+    ) -> Option<(
+        &Resource<r::Node>,
+        &mut ParamBoxDescription<MessageWriters>,
+        &HashMap<TypeVariable, ImageType>,
+    )> {
         let idx = self.active_element.as_ref()?;
         let layer = self.layers.get_mut(&idx).ok()?;
         let data = layer.data_mut();
-        Some((&data.resource, &mut data.operator_pbox))
+        Some((
+            &data.resource,
+            &mut data.operator_pbox,
+            &data.type_variables,
+        ))
     }
 
     fn active_resource(&self) -> Option<&Resource<r::Node>> {

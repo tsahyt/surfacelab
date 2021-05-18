@@ -579,9 +579,13 @@ impl Collection for Graph {
 
     fn active_element(
         &mut self,
-    ) -> Option<(&Resource<r::Node>, &mut ParamBoxDescription<MessageWriters>)> {
+    ) -> Option<(
+        &Resource<r::Node>,
+        &mut ParamBoxDescription<MessageWriters>,
+        &HashMap<TypeVariable, ImageType>,
+    )> {
         let node = self.nodes.get_mut(self.active_element.as_ref()?)?;
-        Some((&node.resource, &mut node.param_box))
+        Some((&node.resource, &mut node.param_box, &node.type_variables))
     }
 
     fn active_resource(&self) -> Option<&Resource<r::Node>> {
