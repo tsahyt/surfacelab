@@ -76,7 +76,7 @@ impl Default for Image {
 }
 
 impl Socketed for Image {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {}
     }
 
@@ -226,9 +226,9 @@ impl Default for Output {
 }
 
 impl Socketed for Output {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "data".to_string() => OperatorType::Monomorphic(self.output_type.into())
+            "data".to_string() => (OperatorType::Monomorphic(self.output_type.into()), false)
         }
     }
 
@@ -317,7 +317,7 @@ impl Default for Input {
 }
 
 impl Socketed for Input {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {}
     }
 

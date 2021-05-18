@@ -204,8 +204,11 @@ impl Parameters for ComplexOperator {
 }
 
 impl Socketed for ComplexOperator {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
-        self.inputs.iter().map(|(k, v)| (k.clone(), v.0)).collect()
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
+        self.inputs
+            .iter()
+            .map(|(k, v)| (k.clone(), (v.0, false)))
+            .collect()
     }
 
     fn outputs(&self) -> HashMap<String, OperatorType> {
@@ -289,7 +292,7 @@ impl Operator {
         let ty = self
             .inputs()
             .get(socket)
-            .cloned()
+            .map(|x| x.0)
             .or_else(|| self.outputs().get(socket).cloned())
             .ok_or(MonomorphizationError::MissingSocket)?;
         match ty {

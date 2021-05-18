@@ -24,7 +24,7 @@ impl Default for Rgb {
 }
 
 impl Socketed for Rgb {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {}
     }
 

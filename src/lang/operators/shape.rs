@@ -92,7 +92,7 @@ impl Default for Shape {
 }
 
 impl Socketed for Shape {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {}
     }
 

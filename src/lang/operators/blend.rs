@@ -73,10 +73,10 @@ impl Default for Blend {
 }
 
 impl Socketed for Blend {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "background".to_string() => OperatorType::Polymorphic(0),
-            "foreground".to_string() => OperatorType::Polymorphic(0)
+            "background".to_string() => (OperatorType::Polymorphic(0), false),
+            "foreground".to_string() => (OperatorType::Polymorphic(0), false)
         }
     }
 
@@ -213,11 +213,11 @@ impl Default for BlendMasked {
 }
 
 impl Socketed for BlendMasked {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "mask".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
-            "background".to_string() => OperatorType::Polymorphic(0),
-            "foreground".to_string() => OperatorType::Polymorphic(0)
+            "mask".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
+            "background".to_string() => (OperatorType::Polymorphic(0), false),
+            "foreground".to_string() => (OperatorType::Polymorphic(0), false)
         }
     }
 

@@ -401,7 +401,7 @@ impl NodeGraph {
             .inputs()
             .iter()
             .sorted_by_key(|x| x.0)
-            .find_map(|(socket, ty)| {
+            .find_map(|(socket, (ty, _))| {
                 if source_type.can_unify(ty) {
                     Some(socket.clone())
                 } else {
@@ -511,7 +511,7 @@ impl NodeGraph {
             )
             .cartesian_product(combine_op.inputs().iter().sorted_by_key(|x| x.0))
             .cartesian_product(combine_op.inputs().iter().sorted_by_key(|x| x.0))
-            .find_map(|((((s1, t1), (s2, t2)), (s3, t3)), (s4, t4))| {
+            .find_map(|((((s1, t1), (s2, t2)), (s3, (t3, _))), (s4, (t4, _)))| {
                 if s3 == s4 {
                     None
                 } else {
@@ -660,7 +660,7 @@ impl NodeGraph {
             .type_variables
             .clone();
 
-        if let Some(sink_ty) = self
+        if let Some((sink_ty, _)) = self
             .graph
             .node_weight(other_idx)
             .unwrap()
@@ -707,7 +707,7 @@ impl NodeGraph {
                 .inputs()
                 .iter()
                 .sorted_by_key(|x| x.0)
-                .find_map(|(s, t)| {
+                .find_map(|(s, (t, _))| {
                     if t.can_unify_with(source_ty, &node_data.type_variables, &other_tyvars) {
                         Some(s.clone())
                     } else {
@@ -767,7 +767,9 @@ impl NodeGraph {
 
         // Demonomorphize if nothing else keeps the type variable occupied
         let node = self.graph.node_weight(sink_path).unwrap();
-        if let OperatorType::Polymorphic(tvar) = node.operator.inputs().get(sink_socket).unwrap() {
+        if let (OperatorType::Polymorphic(tvar), _) =
+            node.operator.inputs().get(sink_socket).unwrap()
+        {
             let others: HashSet<String> =
                 HashSet::from_iter(node.operator.sockets_by_type_variable(*tvar));
 
@@ -1114,7 +1116,7 @@ impl NodeCollection for NodeGraph {
         for idx in self.outputs.iter() {
             let res = self.node_resource(idx);
             let name = res.file().unwrap().to_string();
-            let ty = *self
+            let (ty, _) = *self
                 .graph
                 .node_weight(*idx)
                 .unwrap()
@@ -1417,6 +1419,7 @@ impl NodeCollection for NodeGraph {
                     .operator
                     .inputs()
                     .iter()
+                    .map(|(s, x)| (s, &x.0))
                     .chain(node.operator.outputs().iter())
                     .filter(|(_, t)| **t == OperatorType::Polymorphic(*tvar.0))
                     .map(|x| self.node_resource(&idx).node_socket(x.0))

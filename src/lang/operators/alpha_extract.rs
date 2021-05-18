@@ -20,9 +20,9 @@ impl Default for AlphaExtract {
 }
 
 impl Socketed for AlphaExtract {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "in".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
+            "in".to_string() => (OperatorType::Monomorphic(ImageType::Rgb), false)
         }
     }
 

@@ -58,10 +58,10 @@ impl Default for Warp {
 }
 
 impl Socketed for Warp {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "in".to_string() => OperatorType::Polymorphic(0),
-            "intensity".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+            "in".to_string() => (OperatorType::Polymorphic(0), false),
+            "intensity".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false)
         }
     }
 

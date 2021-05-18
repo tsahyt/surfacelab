@@ -78,9 +78,9 @@ impl Default for ColorAdjust {
 }
 
 impl Socketed for ColorAdjust {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "color_in".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
+            "color_in".to_string() => (OperatorType::Monomorphic(ImageType::Rgb), false)
         }
     }
 

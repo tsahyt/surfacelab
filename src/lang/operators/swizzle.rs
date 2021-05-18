@@ -29,9 +29,9 @@ impl Default for Swizzle {
 }
 
 impl Socketed for Swizzle {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "color_in".to_string() => OperatorType::Polymorphic(0)
+            "color_in".to_string() => (OperatorType::Polymorphic(0), false)
         }
     }
 

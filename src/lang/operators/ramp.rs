@@ -61,9 +61,9 @@ impl Uniforms for Ramp {
 }
 
 impl Socketed for Ramp {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "factor".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+            "factor".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false)
         }
     }
 

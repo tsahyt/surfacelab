@@ -63,9 +63,9 @@ impl Default for Select {
 }
 
 impl Socketed for Select {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "in".to_string() => OperatorType::Polymorphic(0)
+            "in".to_string() => (OperatorType::Polymorphic(0), false)
         }
     }
 

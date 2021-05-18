@@ -22,9 +22,9 @@ impl Default for NormalMap {
 }
 
 impl Socketed for NormalMap {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "height".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+            "height".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false)
         }
     }
 

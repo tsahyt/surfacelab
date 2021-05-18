@@ -75,9 +75,9 @@ impl Default for Distance {
 }
 
 impl Socketed for Distance {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "in".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+            "in".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false)
         }
     }
 

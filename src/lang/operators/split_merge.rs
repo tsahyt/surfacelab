@@ -20,9 +20,9 @@ impl Default for Split {
 }
 
 impl Socketed for Split {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
+            "color".to_string() => (OperatorType::Monomorphic(ImageType::Rgb), false),
         }
     }
 
@@ -99,11 +99,11 @@ impl Default for Merge {
 }
 
 impl Socketed for Merge {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "red".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
-            "green".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
-            "blue".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
+            "red".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
+            "green".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
+            "blue".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
         }
     }
 

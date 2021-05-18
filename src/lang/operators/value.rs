@@ -22,7 +22,7 @@ impl Default for Value {
 }
 
 impl Socketed for Value {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {}
     }
 

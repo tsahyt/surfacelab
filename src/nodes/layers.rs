@@ -573,7 +573,7 @@ impl From<Operator> for Layer {
             type_variables: source
                 .inputs()
                 .drain()
-                .filter_map(|(_, t)| match t {
+                .filter_map(|(_, (t, _))| match t {
                     OperatorType::Polymorphic(v) => {
                         Some((v, ImageType::from(MaterialChannel::Displacement)))
                     }

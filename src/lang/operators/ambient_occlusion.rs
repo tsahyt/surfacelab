@@ -57,9 +57,9 @@ impl Default for AmbientOcclusion {
 }
 
 impl Socketed for AmbientOcclusion {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "height".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+            "height".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false)
         }
     }
 

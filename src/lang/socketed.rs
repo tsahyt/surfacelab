@@ -12,8 +12,9 @@ pub use super::{ImageType, OperatorType, TypeVariable};
 /// operators and complex operators.
 pub trait Socketed {
     /// Get the input sockets of this Socketed type, in the form of a HashMap
-    /// from Strings (socket names) to their types.
-    fn inputs(&self) -> HashMap<String, OperatorType>;
+    /// from Strings (socket names) to their types and whether the input is
+    /// optional.
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)>;
 
     /// Get the output sockets of this Socketed type, in the form of a HashMap
     /// from Strings (socket names) to their types.
@@ -23,6 +24,7 @@ pub trait Socketed {
     fn sockets_by_type_variable(&self, var: TypeVariable) -> Vec<String> {
         self.inputs()
             .iter()
+            .map(|(s, (t, _))| (s, t))
             .chain(self.outputs().iter())
             .filter(|(_, t)| **t == OperatorType::Polymorphic(var))
             .map(|x| x.0.to_owned())
@@ -34,6 +36,7 @@ pub trait Socketed {
     fn type_variable_from_socket(&self, socket: &str) -> Option<TypeVariable> {
         self.inputs()
             .iter()
+            .map(|(s, (t, _))| (s, t))
             .chain(self.outputs().iter())
             .filter(|(s, _)| s.as_str() == socket)
             .map(|x| x.1)
@@ -71,6 +74,7 @@ pub trait Socketed {
     fn type_variables(&self) -> Vec<TypeVariable> {
         self.inputs()
             .values()
+            .map(|x| &x.0)
             .chain(self.outputs().values())
             .filter_map(|x| TypeVariable::try_from(*x).ok())
             .collect()

@@ -22,10 +22,10 @@ impl Default for NormalBlend {
 }
 
 impl Socketed for NormalBlend {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "base".to_string() => OperatorType::Monomorphic(ImageType::Rgb),
-            "detail".to_string() => OperatorType::Monomorphic(ImageType::Rgb)
+            "base".to_string() => (OperatorType::Monomorphic(ImageType::Rgb), false),
+            "detail".to_string() => (OperatorType::Monomorphic(ImageType::Rgb), false),
         }
     }
 

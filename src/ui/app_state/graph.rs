@@ -86,7 +86,7 @@ impl NodeData {
         let mut inputs: Vec<_> = operator
             .inputs()
             .iter()
-            .map(|(a, b)| (a.clone(), *b))
+            .map(|(a, b)| (a.clone(), b.0))
             .collect();
         inputs.sort();
         let mut outputs: Vec<_> = operator
@@ -117,7 +117,7 @@ impl NodeData {
         let mut inputs: Vec<_> = operator
             .inputs()
             .iter()
-            .map(|(a, b)| (a.clone(), *b))
+            .map(|(a, b)| (a.clone(), b.0))
             .collect();
         inputs.sort();
         self.inputs = inputs;

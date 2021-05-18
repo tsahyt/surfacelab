@@ -28,7 +28,7 @@ impl Default for Checker {
 }
 
 impl Socketed for Checker {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {}
     }
 

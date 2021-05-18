@@ -51,9 +51,9 @@ impl Default for Grayscale {
 }
 
 impl Socketed for Grayscale {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "color".to_string() => OperatorType::Monomorphic(ImageType::Rgb),
+            "color".to_string() => (OperatorType::Monomorphic(ImageType::Rgb), false),
         }
     }
 

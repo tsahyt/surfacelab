@@ -61,9 +61,9 @@ impl Default for Range {
 }
 
 impl Socketed for Range {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "input".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
+            "input".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
         }
     }
 

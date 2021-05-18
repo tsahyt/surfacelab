@@ -19,7 +19,7 @@ impl Default for Svg {
 }
 
 impl Socketed for Svg {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {}
     }
 

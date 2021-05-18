@@ -124,7 +124,7 @@ impl Default for Voronoi {
 }
 
 impl Socketed for Voronoi {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {}
     }
 

@@ -28,7 +28,7 @@ impl Default for PerlinNoise {
 }
 
 impl Socketed for PerlinNoise {
-    fn inputs(&self) -> HashMap<String, OperatorType> {
+    fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {}
     }
 
