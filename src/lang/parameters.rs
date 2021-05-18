@@ -998,6 +998,30 @@ impl Debug for VisibilityFunction {
     }
 }
 
+impl std::ops::BitAnd for VisibilityFunction {
+    type Output = VisibilityFunction;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self::from_raw(move |x| self.run(x) && rhs.run(x))
+    }
+}
+
+impl std::ops::BitOr for VisibilityFunction {
+    type Output = VisibilityFunction;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self::from_raw(move |x| self.run(x) || rhs.run(x))
+    }
+}
+
+impl std::ops::Not for VisibilityFunction {
+    type Output = VisibilityFunction;
+
+    fn not(self) -> Self::Output {
+        Self::from_raw(move |x| !self.run(x))
+    }
+}
+
 /// We hold these truths to be self-evident, that all VisibilityFunctions are
 /// created equal.
 impl PartialEq for VisibilityFunction {
