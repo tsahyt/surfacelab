@@ -236,6 +236,7 @@ pub struct Image<B: Backend> {
     view: ManuallyDrop<Option<B::ImageView>>,
     alloc: Option<Alloc<B>>,
     format: hal::format::Format,
+    image_type: lang::ImageType,
 }
 
 /// Equality on images is defined as pointer equality of the underlying raw
@@ -318,6 +319,7 @@ where
             view: ManuallyDrop::new(None),
             alloc: None,
             format,
+            image_type: ty,
         })
     }
 
@@ -462,6 +464,11 @@ where
     /// Get the image format
     pub fn get_format(&self) -> hal::format::Format {
         self.format
+    }
+
+    /// Get the image's image type.
+    pub fn get_image_type(&self) -> lang::ImageType {
+        self.image_type
     }
 }
 

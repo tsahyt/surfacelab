@@ -63,7 +63,7 @@ impl Default for Select {
 impl Socketed for Select {
     fn inputs(&self) -> HashMap<String, OperatorType> {
         hashmap! {
-            "in".to_string() => OperatorType::Monomorphic(ImageType::Grayscale)
+            "in".to_string() => OperatorType::Polymorphic(0)
         }
     }
 
@@ -93,14 +93,18 @@ impl Shader for Select {
                 },
                 OperatorDescriptor {
                     binding: 1,
-                    descriptor: OperatorDescriptorUse::InputImage("in"),
+                    descriptor: OperatorDescriptorUse::Occupancy,
                 },
                 OperatorDescriptor {
                     binding: 2,
-                    descriptor: OperatorDescriptorUse::Sampler,
+                    descriptor: OperatorDescriptorUse::InputImage("in"),
                 },
                 OperatorDescriptor {
                     binding: 3,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 4,
                     descriptor: OperatorDescriptorUse::OutputImage("out"),
                 },
             ],

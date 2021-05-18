@@ -1,7 +1,10 @@
-use super::shaders::{BufferDim, IntermediateDataDescription, ShaderLibrary, Uniforms};
-use super::sockets::*;
-use super::Linearization;
-use super::{export::*, external::*};
+use super::{
+    export::*,
+    external::*,
+    shaders::{BufferDim, IntermediateDataDescription, ShaderLibrary, Uniforms},
+    sockets::*,
+    Linearization,
+};
 use crate::{gpu, lang::*};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -645,6 +648,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             })
             .collect();
 
+        // Build structures for intermediate data
         let mut intermediate_images = HashMap::new();
         let mut intermediate_buffers = HashMap::new();
         for (name, descr) in self
@@ -697,13 +701,31 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             }
         }
 
-        // fill uniforms and execute operator passes
+        // Build input occupancy vector
+        let occupancy: Vec<_> = op
+            .inputs()
+            .keys()
+            .sorted()
+            .map(
+                |socket| match sockets.get_input_image(&res.node_socket(&socket)) {
+                    Some(img) => match img.get_image_type() {
+                        ImageType::Grayscale => gpu::compute::InputOccupancy::OccupiedGrayscale,
+                        ImageType::Rgb => gpu::compute::InputOccupancy::OccupiedRgb,
+                    },
+                    None => gpu::compute::InputOccupancy::Unoccupied,
+                },
+            )
+            .collect();
+
+        // Fill uniforms and execute operator passes
         let passes = self
             .shader_library
             .passes_for(&op)
             .ok_or(InterpretationError::MissingShader)?;
 
         self.gpu.fill_uniforms(&op.uniforms())?;
+        self.gpu.fill_occupancy(&occupancy)?;
+
         for pass in passes {
             let writers = pass.descriptor_writers(
                 self.gpu.uniform_buffer(),

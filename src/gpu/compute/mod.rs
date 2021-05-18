@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex, MutexGuard};
 use thiserror::Error;
+use zerocopy::AsBytes;
 
 pub mod allocator;
 pub mod thumbnails;
@@ -19,6 +20,14 @@ pub use thumbnails::ThumbnailIndex;
 use super::{
     load_shader, Backend, DownloadError, PipelineError, Shader, ShaderError, ShaderType, GPU,
 };
+
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, AsBytes)]
+pub enum InputOccupancy {
+    OccupiedGrayscale = 0,
+    OccupiedRgb = 1,
+    Unoccupied = 2,
+}
 
 /// GPU side compute component
 pub struct GPUCompute<B: Backend> {
@@ -266,6 +275,34 @@ where
                 uniforms.len() as usize,
             );
             lock.device.unmap_memory(&self.uniform_mem);
+        }
+
+        Ok(())
+    }
+
+    /// Fill the occupancy buffer with the given data. The data must fit into
+    /// OCCUPANCY_BUFFER_SIZE. Ordering is to be taken care of on a case by case
+    /// basis.
+    pub fn fill_occupancy(&self, occupancy: &[InputOccupancy]) -> Result<(), PipelineError> {
+        let raw = occupancy.as_bytes();
+
+        debug_assert!(raw.len() <= Self::OCCUPANCY_BUFFER_SIZE as usize);
+
+        let lock = self.gpu.lock().unwrap();
+
+        unsafe {
+            let mapping = lock
+                .device
+                .map_memory(
+                    &self.occupancy_mem,
+                    hal::memory::Segment {
+                        offset: 0,
+                        size: Some(Self::UNIFORM_BUFFER_SIZE),
+                    },
+                )
+                .map_err(|_| PipelineError::UniformMapping)?;
+            std::ptr::copy_nonoverlapping(raw.as_ptr() as *const u8, mapping, raw.len() as usize);
+            lock.device.unmap_memory(&self.occupancy_mem);
         }
 
         Ok(())

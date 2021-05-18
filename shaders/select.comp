@@ -13,12 +13,28 @@ layout(set = 0, binding = 0) uniform Params {
 const uint MODE_THRESHOLD = 0;
 const uint MODE_BAND = 1;
 
-layout(set = 0, binding = 1) uniform texture2D t_Color1;
-layout(set = 0, binding = 2) uniform sampler Sampler;
-layout(set = 0, binding = 3, r32f) uniform image2D t_Out;
+layout(set = 0, binding = 1) uniform Occupancy {
+    uint input_occupancy;
+};
+
+const uint OCCUPANCY_GRAYSCALE = 0;
+const uint OCCUPANCY_COLOR = 1;
+
+layout(set = 0, binding = 2) uniform texture2D t_Color1;
+layout(set = 0, binding = 3) uniform sampler Sampler;
+layout(set = 0, binding = 4, r32f) uniform image2D t_Out;
 
 float run(vec2 uv) {
-    float value = texture(sampler2D(t_Color1, Sampler), uv).r;
+    float value = 0;
+
+    switch(input_occupancy) {
+        case OCCUPANCY_GRAYSCALE:
+            value = texture(sampler2D(t_Color1, Sampler), uv).r;
+            break;
+        case OCCUPANCY_COLOR:
+            value = texture(sampler2D(t_Color1, Sampler), uv).g;
+            break;
+    }
 
     switch(mode) {
         case MODE_THRESHOLD:
