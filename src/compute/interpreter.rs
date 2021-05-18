@@ -707,6 +707,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         for pass in passes {
             let writers = pass.descriptor_writers(
                 self.gpu.uniform_buffer(),
+                self.gpu.occupancy_buffer(),
                 self.gpu.sampler(),
                 &inputs,
                 &outputs,

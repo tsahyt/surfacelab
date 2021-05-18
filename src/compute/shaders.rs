@@ -24,6 +24,8 @@ pub enum OperatorDescriptorUse {
     Sampler,
     /// Uniform buffer
     Uniforms,
+    /// Occupancy buffer
+    Occupancy,
 }
 
 /// Simplified description of a descriptor for use in operators
@@ -54,7 +56,8 @@ impl OperatorShader {
     /// Return an iterator describing the descriptor set layout of this shader
     pub fn layout(&self) -> impl Iterator<Item = gpu::DescriptorSetLayoutBinding> {
         self.descriptors.iter().map(|desc| match desc.descriptor {
-            OperatorDescriptorUse::OutputImage(..) => gpu::DescriptorSetLayoutBinding {
+            OperatorDescriptorUse::OutputImage(..)
+            | OperatorDescriptorUse::IntermediateImage(..) => gpu::DescriptorSetLayoutBinding {
                 binding: desc.binding,
                 ty: gpu::DescriptorType::Image {
                     ty: gpu::ImageDescriptorType::Storage { read_only: false },
@@ -69,15 +72,6 @@ impl OperatorShader {
                     ty: gpu::ImageDescriptorType::Sampled {
                         with_sampler: false,
                     },
-                },
-                count: 1,
-                stage_flags: gpu::ShaderStageFlags::COMPUTE,
-                immutable_samplers: false,
-            },
-            OperatorDescriptorUse::IntermediateImage(..) => gpu::DescriptorSetLayoutBinding {
-                binding: desc.binding,
-                ty: gpu::DescriptorType::Image {
-                    ty: gpu::ImageDescriptorType::Storage { read_only: false },
                 },
                 count: 1,
                 stage_flags: gpu::ShaderStageFlags::COMPUTE,
@@ -102,18 +96,20 @@ impl OperatorShader {
                 stage_flags: gpu::ShaderStageFlags::COMPUTE,
                 immutable_samplers: false,
             },
-            OperatorDescriptorUse::Uniforms => gpu::DescriptorSetLayoutBinding {
-                binding: desc.binding,
-                ty: gpu::DescriptorType::Buffer {
-                    ty: gpu::BufferDescriptorType::Uniform,
-                    format: gpu::BufferDescriptorFormat::Structured {
-                        dynamic_offset: false,
+            OperatorDescriptorUse::Uniforms | OperatorDescriptorUse::Occupancy => {
+                gpu::DescriptorSetLayoutBinding {
+                    binding: desc.binding,
+                    ty: gpu::DescriptorType::Buffer {
+                        ty: gpu::BufferDescriptorType::Uniform,
+                        format: gpu::BufferDescriptorFormat::Structured {
+                            dynamic_offset: false,
+                        },
                     },
-                },
-                count: 1,
-                stage_flags: gpu::ShaderStageFlags::COMPUTE,
-                immutable_samplers: false,
-            },
+                    count: 1,
+                    stage_flags: gpu::ShaderStageFlags::COMPUTE,
+                    immutable_samplers: false,
+                }
+            }
         })
     }
 
@@ -124,6 +120,7 @@ impl OperatorShader {
         &self,
         desc_set: &'a B::DescriptorSet,
         uniforms: &'a B::Buffer,
+        occupancy: &'a B::Buffer,
         sampler: &'a B::Sampler,
         inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
         outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
@@ -138,6 +135,12 @@ impl OperatorShader {
                     binding: desc.binding,
                     array_offset: 0,
                     descriptors: vec![gpu::Descriptor::Buffer(uniforms, gpu::SubRange::WHOLE)],
+                },
+                OperatorDescriptorUse::Occupancy => gpu::DescriptorSetWrite {
+                    set: desc_set,
+                    binding: desc.binding,
+                    array_offset: 0,
+                    descriptors: vec![gpu::Descriptor::Buffer(occupancy, gpu::SubRange::WHOLE)],
                 },
                 OperatorDescriptorUse::Sampler => gpu::DescriptorSetWrite {
                     set: desc_set,
@@ -342,6 +345,7 @@ where
     pub fn descriptor_writers<'a>(
         &'a self,
         uniforms: &'a B::Buffer,
+        occupancy: &'a B::Buffer,
         sampler: &'a B::Sampler,
         inputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
         outputs: &'a HashMap<String, &'a gpu::compute::Image<B>>,
@@ -357,6 +361,7 @@ where
                 .writers(
                     descriptors,
                     uniforms,
+                    occupancy,
                     sampler,
                     inputs,
                     outputs,

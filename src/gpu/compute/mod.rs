@@ -26,6 +26,8 @@ pub struct GPUCompute<B: Backend> {
     command_pool: ManuallyDrop<B::CommandPool>,
 
     // Uniforms and Sampler
+    occupancy_buf: ManuallyDrop<B::Buffer>,
+    occupancy_mem: ManuallyDrop<B::Memory>,
     uniform_buf: ManuallyDrop<B::Buffer>,
     uniform_mem: ManuallyDrop<B::Memory>,
     sampler: ManuallyDrop<B::Sampler>,
@@ -63,8 +65,9 @@ impl<B> GPUCompute<B>
 where
     B: Backend,
 {
-    /// Size of the uniform buffer for compute shaders, in bytes
+    /// Size of the buffers for compute shaders, in bytes
     const UNIFORM_BUFFER_SIZE: u64 = 2048;
+    const OCCUPANCY_BUFFER_SIZE: u64 = 1024;
 
     /// Create a new GPUCompute instance.
     pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, InitializationError> {
@@ -109,6 +112,27 @@ where
         }
 
         let (uniform_buf, uniform_mem) = buffer_builder.build::<B>(&lock.device)?;
+
+        // Repeat the same for the occupancy buffer
+        let mut buffer_builder = BasicBufferBuilder::new(&lock.memory_properties.memory_types);
+        buffer_builder
+            .bytes(Self::OCCUPANCY_BUFFER_SIZE)
+            .usage(hal::buffer::Usage::TRANSFER_DST | hal::buffer::Usage::UNIFORM);
+
+        if buffer_builder
+            .memory_type(
+                hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::DEVICE_LOCAL,
+            )
+            .is_none()
+        {
+            buffer_builder
+                .memory_type(
+                    hal::memory::Properties::CPU_VISIBLE | hal::memory::Properties::COHERENT,
+                )
+                .expect("Failed to find appropriate memory type for uniforms");
+        }
+
+        let (occupancy_buf, occupancy_mem) = buffer_builder.build::<B>(&lock.device)?;
 
         // Descriptor Pool. We need to set out resource limits here. Since we
         // keep descriptor sets around for each shader after creation, we need a
@@ -166,6 +190,8 @@ where
             gpu: gpu.clone(),
             command_pool: ManuallyDrop::new(command_pool),
 
+            occupancy_buf: ManuallyDrop::new(occupancy_buf),
+            occupancy_mem: ManuallyDrop::new(occupancy_mem),
             uniform_buf: ManuallyDrop::new(uniform_buf),
             uniform_mem: ManuallyDrop::new(uniform_mem),
             sampler: ManuallyDrop::new(sampler),
@@ -395,6 +421,11 @@ where
     /// Borrow the uniform buffer
     pub fn uniform_buffer(&self) -> &B::Buffer {
         &self.uniform_buf
+    }
+
+    /// Borrow the occupancy buffer
+    pub fn occupancy_buffer(&self) -> &B::Buffer {
+        &self.occupancy_buf
     }
 
     /// Borrow the sampler
@@ -795,6 +826,10 @@ where
         unsafe {
             lock.device
                 .destroy_fence(ManuallyDrop::take(&mut self.fence));
+            lock.device
+                .free_memory(ManuallyDrop::take(&mut self.occupancy_mem));
+            lock.device
+                .destroy_buffer(ManuallyDrop::take(&mut self.occupancy_buf));
             lock.device
                 .free_memory(ManuallyDrop::take(&mut self.uniform_mem));
             lock.device
