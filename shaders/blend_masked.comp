@@ -4,15 +4,22 @@ layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform Params {
     uint mode;
+    float mix_factor;
     float sharpness;
     uint clamp_output;
 };
 
-layout(set = 0, binding = 1) uniform texture2D t_mask;
-layout(set = 0, binding = 2) uniform texture2D t_Color1;
-layout(set = 0, binding = 3) uniform texture2D t_Color2;
-layout(set = 0, binding = 4) uniform sampler Sampler;
-layout(set = 0, binding = 5, rgba16f) uniform image2D t_Out;
+layout(set = 0, binding = 1) uniform Occupancy {
+    uint background_occ;
+    uint foreground_occ;
+    uint mask_occ;
+};
+
+layout(set = 0, binding = 2) uniform texture2D t_mask;
+layout(set = 0, binding = 3) uniform texture2D t_Color1;
+layout(set = 0, binding = 4) uniform texture2D t_Color2;
+layout(set = 0, binding = 5) uniform sampler Sampler;
+layout(set = 0, binding = 6, rgba16f) uniform image2D t_Out;
 
 const uint MODE_MIX = 0;
 const uint MODE_MULTIPLY = 1;
@@ -87,7 +94,14 @@ void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     ivec2 resolution = imageSize(t_Out);
     vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
-    float mask = texture(sampler2D(t_mask, Sampler), uv).r;
+
+    float mask = 0.;
+    if(mask_occ != 2) {
+        mask = texture(sampler2D(t_mask, Sampler), uv).r;
+    } else {
+        mask = mix_factor;
+    }
+
     vec4 col1 = texture(sampler2D(t_Color1, Sampler), uv);
     vec4 col2 = texture(sampler2D(t_Color2, Sampler), uv);
 

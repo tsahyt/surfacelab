@@ -889,14 +889,21 @@ impl NodeGraph {
         )))
     }
 
-    /// Helper function to determine whether all inputs of a node have
-    /// connections.
+    /// Helper function to determine whether all non-optional inputs of a node
+    /// have connections.
     fn all_node_inputs_connected(&self, idx: graph::NodeIndex) -> bool {
-        self.graph.node_weight(idx).unwrap().operator.inputs().len()
-            == self
-                .graph
-                .edges_directed(idx, petgraph::EdgeDirection::Incoming)
-                .count()
+        let op_inputs = self.graph.node_weight(idx).unwrap().operator.inputs();
+        let connected_inputs: Vec<_> = self
+            .graph
+            .edges_directed(idx, petgraph::EdgeDirection::Incoming)
+            .map(|e| &e.weight().1)
+            .collect();
+        let mut required_inputs =
+            op_inputs
+                .iter()
+                .filter_map(|(s, (_, optional))| if !optional { Some(s) } else { None });
+
+        required_inputs.all(|s| connected_inputs.contains(&s))
     }
 
     /// Extract the nodes determined by the iterator and construct a new graph

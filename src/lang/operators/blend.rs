@@ -198,6 +198,7 @@ impl OperatorParamBox for Blend {
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct BlendMasked {
     pub blend_mode: BlendMode,
+    pub mix: f32,
     pub sharpness: f32,
     pub clamp_output: ParameterBool,
 }
@@ -206,6 +207,7 @@ impl Default for BlendMasked {
     fn default() -> Self {
         Self {
             blend_mode: BlendMode::Mix,
+            mix: 0.5,
             sharpness: 16.0,
             clamp_output: 0,
         }
@@ -215,9 +217,9 @@ impl Default for BlendMasked {
 impl Socketed for BlendMasked {
     fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "mask".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
             "background".to_string() => (OperatorType::Polymorphic(0), false),
-            "foreground".to_string() => (OperatorType::Polymorphic(0), false)
+            "foreground".to_string() => (OperatorType::Polymorphic(0), false),
+            "mask".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), true),
         }
     }
 
@@ -247,22 +249,26 @@ impl Shader for BlendMasked {
                 },
                 OperatorDescriptor {
                     binding: 1,
-                    descriptor: OperatorDescriptorUse::InputImage("mask"),
+                    descriptor: OperatorDescriptorUse::Occupancy,
                 },
                 OperatorDescriptor {
                     binding: 2,
-                    descriptor: OperatorDescriptorUse::InputImage("background"),
+                    descriptor: OperatorDescriptorUse::InputImage("mask"),
                 },
                 OperatorDescriptor {
                     binding: 3,
-                    descriptor: OperatorDescriptorUse::InputImage("foreground"),
+                    descriptor: OperatorDescriptorUse::InputImage("background"),
                 },
                 OperatorDescriptor {
                     binding: 4,
-                    descriptor: OperatorDescriptorUse::Sampler,
+                    descriptor: OperatorDescriptorUse::InputImage("foreground"),
                 },
                 OperatorDescriptor {
                     binding: 5,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 6,
                     descriptor: OperatorDescriptorUse::OutputImage("color"),
                 },
             ],
@@ -291,6 +297,18 @@ impl OperatorParamBox for BlendMasked {
                         control: Control::Enum {
                             selected: self.blend_mode as usize,
                             variants: BlendMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "mix".to_string(),
+                        transmitter: Field(BlendMasked::MIX.to_string()),
+                        control: Control::Slider {
+                            value: self.mix,
+                            min: 0.,
+                            max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),

@@ -153,7 +153,13 @@ impl OperatorShader {
                     binding: desc.binding,
                     array_offset: 0,
                     descriptors: vec![gpu::Descriptor::Image(
-                        inputs.get(socket).unwrap().get_view().unwrap(),
+                        // This workaround requires that operators have at least
+                        // one non-optional input!
+                        inputs
+                            .get(socket)
+                            .or_else(|| inputs.values().next())
+                            .and_then(|i| i.get_view())
+                            .unwrap(),
                         gpu::Layout::ShaderReadOnlyOptimal,
                     )],
                 },

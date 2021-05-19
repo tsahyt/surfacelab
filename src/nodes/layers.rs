@@ -475,6 +475,7 @@ impl LayerBlendOptions {
         if self.has_masks() {
             AtomicOperator::BlendMasked(BlendMasked {
                 blend_mode: self.blend_mode,
+                mix: 0.5,
                 sharpness: 16.0,
                 clamp_output: 1,
             })

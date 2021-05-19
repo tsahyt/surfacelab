@@ -609,11 +609,11 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 .ensure_alloc()?;
         }
 
-        // In debug builds, ensure that all input images exist and are backed
-        debug_assert!(op.inputs().iter().all(|(socket, _)| {
+        // In debug builds, ensure that all mandatory input images exist and are backed
+        debug_assert!(op.inputs().iter().all(|(socket, (_, optional))| {
             let socket_res = res.node_socket(&socket);
             let output = self.sockets.get_input_image(&socket_res);
-            output.is_some() && output.unwrap().is_backed()
+            *optional || (output.is_some() && output.unwrap().is_backed())
         }));
 
         // Potentially skip execution if group recompute is not required
@@ -630,11 +630,11 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         let inputs: HashMap<_, _> = op
             .inputs()
             .keys()
-            .map(|socket| {
-                (
+            .filter_map(|socket| {
+                Some((
                     socket.clone(),
-                    sockets.get_input_image(&res.node_socket(&socket)).unwrap(),
-                )
+                    sockets.get_input_image(&res.node_socket(&socket))?,
+                ))
             })
             .collect();
         let outputs: HashMap<_, _> = op
