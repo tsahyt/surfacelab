@@ -49,7 +49,8 @@ impl Default for Blur {
 impl Socketed for Blur {
     fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "in".to_string() => (OperatorType::Polymorphic(0), false)
+            "in".to_string() => (OperatorType::Polymorphic(0), false),
+            "mask".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), true),
         }
     }
 
@@ -75,22 +76,30 @@ const BLUR_DESCRIPTORS: &'static [OperatorDescriptor] = &[
     },
     OperatorDescriptor {
         binding: 1,
-        descriptor: OperatorDescriptorUse::InputImage("in"),
+        descriptor: OperatorDescriptorUse::Occupancy,
     },
     OperatorDescriptor {
         binding: 2,
-        descriptor: OperatorDescriptorUse::Sampler,
+        descriptor: OperatorDescriptorUse::InputImage("in"),
     },
     OperatorDescriptor {
         binding: 3,
-        descriptor: OperatorDescriptorUse::IntermediateImage("tmp1"),
+        descriptor: OperatorDescriptorUse::InputImage("mask"),
     },
     OperatorDescriptor {
         binding: 4,
-        descriptor: OperatorDescriptorUse::IntermediateImage("tmp2"),
+        descriptor: OperatorDescriptorUse::Sampler,
     },
     OperatorDescriptor {
         binding: 5,
+        descriptor: OperatorDescriptorUse::IntermediateImage("tmp1"),
+    },
+    OperatorDescriptor {
+        binding: 6,
+        descriptor: OperatorDescriptorUse::IntermediateImage("tmp2"),
+    },
+    OperatorDescriptor {
+        binding: 7,
         descriptor: OperatorDescriptorUse::OutputImage("out"),
     },
 ];

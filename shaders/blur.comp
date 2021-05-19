@@ -12,11 +12,17 @@ layout(set = 0, binding = 0) uniform Params {
     float sigma;
 };
 
-layout(set = 0, binding = 1) uniform texture2D t_In;
-layout(set = 0, binding = 2) uniform sampler Sampler;
-layout(set = 0, binding = 3, rgba16f) uniform image2D t_Tmp1;
-layout(set = 0, binding = 4, rgba16f) uniform image2D t_Tmp2;
-layout(set = 0, binding = 5, rgba16f) uniform image2D t_Out;
+layout(set = 0, binding = 1) uniform Occupancy {
+    uint occ_in;
+    uint occ_mask;
+};
+
+layout(set = 0, binding = 2) uniform texture2D t_In;
+layout(set = 0, binding = 3) uniform texture2D t_Mask;
+layout(set = 0, binding = 4) uniform sampler Sampler;
+layout(set = 0, binding = 5, rgba16f) uniform image2D t_Tmp1;
+layout(set = 0, binding = 6, rgba16f) uniform image2D t_Tmp2;
+layout(set = 0, binding = 7, rgba16f) uniform image2D t_Out;
 
 // Return the box size for a given sigma.
 int box_size(float sigma) {
@@ -28,8 +34,7 @@ int box_size(float sigma) {
     return w;
 }
 
-// Perform the row passes on the intermediate image, i.e. blurring with constant y
-void row_passes() {
+void row_passes_fixed() {
     int y = int(gl_GlobalInvocationID.x);
     int r = (box_size(sigma) - 1) / 2;
     vec4 c = vec4(0.);
@@ -91,8 +96,7 @@ void row_passes() {
     }
 }
 
-// Perform the column passes on the intermediate image, i.e. blurring with constant x.
-void column_passes() {
+void column_passes_fixed() {
     int x = int(gl_GlobalInvocationID.x);
     int r = (box_size(sigma) - 1) / 2;
     vec4 c = vec4(0.);
@@ -145,6 +149,16 @@ void column_passes() {
 
         imageStore(t_Out, ivec2(x, y), c / (r + r + 1));
     }
+}
+
+// Perform the row passes on the intermediate image, i.e. blurring with constant y
+void row_passes() {
+    row_passes_fixed();
+}
+
+// Perform the column passes on the intermediate image, i.e. blurring with constant x.
+void column_passes() {
+    column_passes_fixed();
 }
 
 void main() {
