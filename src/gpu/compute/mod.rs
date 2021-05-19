@@ -297,7 +297,7 @@ where
                     &self.occupancy_mem,
                     hal::memory::Segment {
                         offset: 0,
-                        size: Some(Self::UNIFORM_BUFFER_SIZE),
+                        size: Some(Self::OCCUPANCY_BUFFER_SIZE),
                     },
                 )
                 .map_err(|_| PipelineError::UniformMapping)?;
