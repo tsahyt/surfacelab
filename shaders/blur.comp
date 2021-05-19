@@ -38,6 +38,7 @@ int box_size(float sigma) {
 
 float norm_pdf(float x, float sigma)
 {
+    sigma = max(0.0001, sigma);
     return 0.39894 * exp(- 0.5 * x * x / (sigma * sigma)) / sigma;
 }
 
