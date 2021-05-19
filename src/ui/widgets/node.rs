@@ -18,7 +18,7 @@ pub struct Node<'a> {
     selected: SelectionState,
     view_socket: Option<String>,
     thumbnail: Option<image::Id>,
-    inputs: &'a [(String, OperatorType)],
+    inputs: &'a [(String, (OperatorType, bool))],
     outputs: &'a [(String, OperatorType)],
     title: &'a str,
     type_variables: &'a HashMap<TypeVariable, ImageType>,
@@ -62,7 +62,7 @@ pub enum Event {
 impl<'a> Node<'a> {
     pub fn new(
         type_variables: &'a HashMap<TypeVariable, ImageType>,
-        inputs: &'a [(String, OperatorType)],
+        inputs: &'a [(String, (OperatorType, bool))],
         outputs: &'a [(String, OperatorType)],
         title: &'a str,
     ) -> Self {
@@ -120,7 +120,7 @@ impl State {
     pub fn renew_sockets(
         &mut self,
         id_gen: &mut widget::id::Generator,
-        inputs: &[(String, OperatorType)],
+        inputs: &[(String, (OperatorType, bool))],
         outputs: &[(String, OperatorType)],
     ) {
         let input_ids = self
@@ -149,7 +149,10 @@ impl State {
     }
 }
 
-fn hash_sockets(inputs: &[(String, OperatorType)], outputs: &[(String, OperatorType)]) -> u64 {
+fn hash_sockets(
+    inputs: &[(String, (OperatorType, bool))],
+    outputs: &[(String, OperatorType)],
+) -> u64 {
     use std::hash::*;
 
     let mut s = std::collections::hash_map::DefaultHasher::new();
@@ -245,13 +248,13 @@ impl<'a> Widget for Node<'a> {
 
         let mut margin = margin_initial;
 
-        for (input, ty) in self.inputs.iter() {
+        for (input, (ty, optional)) in self.inputs.iter() {
             margin += margin_skip;
 
             let w_id = state.input_sockets.get(input).copied().unwrap();
             widget::BorderedRectangle::new(socket_size)
                 .border(border_width)
-                .color(operator_type_color(ty, self.type_variables))
+                .color(operator_type_color(ty, self.type_variables, *optional))
                 .parent(state.ids.rectangle)
                 .top_left_with_margins(margin, 0.0)
                 .set(w_id, ui);
@@ -324,7 +327,7 @@ impl<'a> Widget for Node<'a> {
                 } else {
                     border_width
                 })
-                .color(operator_type_color(ty, self.type_variables))
+                .color(operator_type_color(ty, self.type_variables, false))
                 .parent(state.ids.rectangle)
                 .top_right_with_margins(margin, 0.0)
                 .set(w_id, ui);
@@ -412,8 +415,9 @@ impl<'a> Widget for Node<'a> {
 fn operator_type_color(
     optype: &OperatorType,
     variables: &HashMap<TypeVariable, ImageType>,
+    optional: bool,
 ) -> color::Color {
-    match optype {
+    let base_color = match optype {
         OperatorType::Monomorphic(ImageType::Grayscale) => color::LIGHT_GREEN,
         OperatorType::Monomorphic(ImageType::Rgb) => color::LIGHT_ORANGE,
         OperatorType::Polymorphic(v) => match variables.get(v) {
@@ -426,5 +430,11 @@ fn operator_type_color(
                 _ => color::DARK_BLUE,
             },
         },
+    };
+
+    if optional {
+        base_color.complement()
+    } else {
+        base_color
     }
 }

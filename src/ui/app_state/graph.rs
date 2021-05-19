@@ -69,7 +69,7 @@ pub struct NodeData {
     pub callee: Option<Resource<r::Graph>>,
     pub thumbnail: Option<image::Id>,
     pub title: String,
-    pub inputs: Vec<(String, OperatorType)>,
+    pub inputs: Vec<(String, (OperatorType, bool))>,
     pub outputs: Vec<(String, OperatorType)>,
     pub exportable: bool,
     pub type_variables: HashMap<TypeVariable, ImageType>,
@@ -86,7 +86,7 @@ impl NodeData {
         let mut inputs: Vec<_> = operator
             .inputs()
             .iter()
-            .map(|(a, b)| (a.clone(), b.0))
+            .map(|(a, b)| (a.clone(), b.clone()))
             .collect();
         inputs.sort();
         let mut outputs: Vec<_> = operator
@@ -117,7 +117,7 @@ impl NodeData {
         let mut inputs: Vec<_> = operator
             .inputs()
             .iter()
-            .map(|(a, b)| (a.clone(), b.0))
+            .map(|(a, b)| (a.clone(), b.clone()))
             .collect();
         inputs.sort();
         self.inputs = inputs;
@@ -171,8 +171,9 @@ impl NodeData {
     pub fn socket_at_position(&self, position: Point, radius2: f64) -> Option<&str> {
         self.inputs
             .iter()
-            .chain(self.outputs.iter())
-            .find(|(socket, _)| {
+            .map(|x| &x.0)
+            .chain(self.outputs.iter().map(|x| &x.0))
+            .find(|socket| {
                 if let Some(socket_pos) = self.socket_position(socket) {
                     ((position[0] - socket_pos[0]).powi(2) + (position[1] - socket_pos[1]).powi(2))
                         < radius2
@@ -180,7 +181,7 @@ impl NodeData {
                     false
                 }
             })
-            .map(|x| x.0.as_ref())
+            .map(String::as_ref)
     }
 }
 
@@ -398,8 +399,13 @@ impl Graph {
     /// Set type variable present at given socket.
     pub fn set_type_variable(&mut self, socket: &Resource<Socket>, ty: Option<ImageType>) {
         if let Some(node) = self.nodes.get_mut(&socket.socket_node()) {
+            let input_tys: Vec<_> = node
+                .inputs
+                .iter()
+                .map(|(s, (t, _))| (s.clone(), *t))
+                .collect();
             if let Some(var) = type_variable_from_socket_iter(
-                node.inputs.iter().chain(node.outputs.iter()),
+                input_tys.iter().chain(node.outputs.iter()),
                 socket.fragment().unwrap(),
             ) {
                 node.set_type_variable(var, ty)
