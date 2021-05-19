@@ -455,6 +455,7 @@ impl MaskStack {
 
 /// Options for blending a layer on top of the underlying stack.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+
 pub struct LayerBlendOptions {
     /// Mask stack to use. The empty mask stack is effectively ignored.
     mask: MaskStack,
@@ -472,21 +473,12 @@ impl LayerBlendOptions {
     /// Create a blend operator from the given blend options. The output will
     /// *always* be clamped!
     pub fn blend_operator(&self) -> AtomicOperator {
-        if self.has_masks() {
-            AtomicOperator::BlendMasked(BlendMasked {
-                blend_mode: self.blend_mode,
-                mix: 0.5,
-                sharpness: 16.0,
-                clamp_output: 1,
-            })
-        } else {
-            AtomicOperator::Blend(Blend {
-                blend_mode: self.blend_mode,
-                mix: self.opacity,
-                sharpness: 16.0,
-                clamp_output: 1,
-            })
-        }
+        AtomicOperator::Blend(Blend {
+            blend_mode: self.blend_mode,
+            mix: self.opacity,
+            sharpness: 16.0,
+            clamp_output: 1,
+        })
     }
 
     /// True if and only if the layer has a nonempty mask stack
