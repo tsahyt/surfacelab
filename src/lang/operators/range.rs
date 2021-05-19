@@ -145,7 +145,7 @@ impl OperatorParamBox for Range {
                         presetable: true,
                     },
                     Parameter {
-                        name: "smooth-edge".to_string(),
+                        name: "supersample".to_string(),
                         transmitter: Field(Range::SMOOTH.to_string()),
                         control: Control::Toggle {
                             def: self.smooth == 1,

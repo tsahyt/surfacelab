@@ -184,7 +184,7 @@ border-mode = Randmodus
 closed = Geschlossen
 open = Offen
 
-smooth-edge = Kantenglättung
+supersample = Erhöhte Abtastung
 
 warp-mode = Warp Modus
 push = Drücken

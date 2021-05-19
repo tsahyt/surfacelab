@@ -185,7 +185,7 @@ border-mode = Border Mode
 closed = Closed
 open = Open
 
-smooth-edge = Edge Smoothing
+supersample = Supersample
 invert = Invert
 
 warp-mode = Warp Mode
