@@ -1233,6 +1233,28 @@ impl NodeCollection for NodeGraph {
                     let res = self.node_resource(&nx);
 
                     if mode == LinearizationMode::FullTraversal || !use_points.contains_key(&res) {
+                        // Clear all optional unconnected sockets
+                        for socket in
+                            node.operator
+                                .inputs()
+                                .iter()
+                                .filter_map(|(s, (_, optional))| {
+                                    if *optional
+                                        && self
+                                            .graph
+                                            .edges_directed(nx, petgraph::Direction::Incoming)
+                                            .find(|e| &e.weight().1 == s)
+                                            .is_none()
+                                    {
+                                        Some(s)
+                                    } else {
+                                        None
+                                    }
+                                })
+                        {
+                            traversal.push(Instruction::ClearInput(res.node_socket(&socket)));
+                        }
+
                         match &node.operator {
                             Operator::AtomicOperator(op) => {
                                 traversal.push(Instruction::Execute(res.clone(), op.to_owned()));

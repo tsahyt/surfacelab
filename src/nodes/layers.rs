@@ -1325,6 +1325,22 @@ impl super::NodeCollection for LayerStack {
 
             let resource = self.layer_resource(layer);
 
+            // Clear all optional sockets that have no inputs
+            for socket in layer
+                .operator
+                .inputs()
+                .iter()
+                .filter_map(|(s, (_, optional))| {
+                    if *optional && !layer.input_sockets.contains_key(s) {
+                        Some(s)
+                    } else {
+                        None
+                    }
+                })
+            {
+                linearization.push(Instruction::ClearInput(resource.node_socket(socket)));
+            }
+
             match &layer.operator {
                 Operator::AtomicOperator(aop) => {
                     // Move inputs. Nop for fill layers
@@ -1441,13 +1457,22 @@ impl super::NodeCollection for LayerStack {
                         resource.node_socket(socket),
                         blend_res.node_socket("foreground"),
                     ));
-                    if let Some(mask_res) = layer.blend_options.top_mask(
+
+                    // Handle mask or lack thereof
+                    match layer.blend_options.top_mask(
                         |mask| self.mask_resource(mask),
                         |mask| self.mask_blend_resource(mask),
                     ) {
-                        linearization
-                            .push(Instruction::Move(mask_res, blend_res.node_socket("mask")));
+                        Some(mask_res) => {
+                            linearization
+                                .push(Instruction::Move(mask_res, blend_res.node_socket("mask")));
+                        }
+                        None => {
+                            linearization
+                                .push(Instruction::ClearInput(blend_res.node_socket("mask")));
+                        }
                     }
+
                     linearization.push(Instruction::Execute(
                         blend_res.clone(),
                         layer.blend_options.blend_operator(),

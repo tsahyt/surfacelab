@@ -474,6 +474,16 @@ where
         }
     }
 
+    /// Clear an input socket. This will remove the given socket from the input
+    /// map of its socket group. If it is not present, this is a no operation.
+    /// This function is obviously idempotent.
+    pub fn clear_input(&mut self, socket: &Resource<Socket>) {
+        let node = socket.socket_node();
+        if let Some(group) = self.0.get_mut(&node) {
+            group.inputs.remove(socket.fragment().unwrap());
+        }
+    }
+
     /// Get the size of the images associated with this group
     pub fn get_image_size(&self, res: &Resource<Node>) -> &GroupSize {
         &self.0.get(&res).unwrap().size

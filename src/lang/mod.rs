@@ -331,6 +331,8 @@ pub enum Instruction {
     Call(Resource<Node>, ComplexOperator),
     /// Move data from socket to socket
     Move(Resource<Socket>, Resource<Socket>),
+    /// Clear an input socket
+    ClearInput(Resource<Socket>),
     /// Copy data from socket to socket
     Copy(Resource<Socket>, Resource<Socket>),
     /// Generate a thumbnail for the given socket

@@ -893,6 +893,11 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
                 self.sockets.connect_input(from, to);
             }
+            Instruction::ClearInput(socket) => {
+                log::trace!("Clearing input socket {}", socket);
+
+                self.sockets.clear_input(socket);
+            }
             Instruction::Execute(res, op) => {
                 let mut op = op.clone();
                 if let Some(subs) = substitutions.get(res) {
