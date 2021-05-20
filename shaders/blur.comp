@@ -30,7 +30,7 @@ const float EPSILON = 0.001;
 const float SQRT_2 = 1.414213562;
 
 // Return the box size for a given sigma.
-int box_size(float sigma) {
+int box_size(float sigma, uint quality) {
     sigma *= imageSize(t_Out).x / 1024.;
     float n = quality * 2 + 1;
     float w_exact = sqrt(4 * sigma * sigma / n + 1.0);
@@ -45,16 +45,10 @@ float norm_pdf(float x, float sigma) {
     return 0.39894 * exp(- 0.5 * x * x / (sigma * sigma)) / sigma;
 }
 
-vec2 hash22(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
-    p3 += dot(p3, p3.yzx+33.33);
-    return fract((p3.xx+p3.yz)*p3.zy);
-}
-
 void row_passes_fixed(float sigma, uint quality) {
     ivec2 resolution = imageSize(t_Out);
     int y = int(gl_GlobalInvocationID.x);
-    int r = (box_size(sigma) - 1) / 2;
+    int r = (box_size(sigma, quality) - 1) / 2;
     vec4 c = vec4(0.);
 
     // Pass 1, t_In -> t_Tmp1, sampled
@@ -114,7 +108,7 @@ void row_passes_fixed(float sigma, uint quality) {
 
 void column_passes_fixed(float sigma, uint quality) {
     int x = int(gl_GlobalInvocationID.x);
-    int r = (box_size(sigma) - 1) / 2;
+    int r = (box_size(sigma, quality) - 1) / 2;
     vec4 c = vec4(0.);
 
     for(uint q = 0; q < quality; ++q) {
@@ -167,34 +161,7 @@ void column_passes_fixed(float sigma, uint quality) {
     }
 }
 
-void row_pass_variable_high() {
-    ivec2 resolution = imageSize(t_Out);
-    int y = int(gl_GlobalInvocationID.x);
-
-    // Variable size blur with increased step size
-    for(int x = 0; x < resolution.x; ++x) {
-        vec4 c = vec4(0.);
-        float z = 0.;
-        vec2 uv = vec2(x, y) / vec2(resolution);
-        float m = max(texture(sampler2D(t_Mask, Sampler), uv).r, EPSILON);
-
-        int k_size = int(sigma * 2.);
-        for(int i = - k_size; i <= k_size; i++) {
-            float weight_i = norm_pdf(i, m * sigma);
-            for(int j = - k_size; j <= k_size; j++) {
-                float weight_j = norm_pdf(j, m * sigma);
-
-                c += weight_i * weight_j *
-                    texture(sampler2D(t_In, Sampler), vec2(x + i, y + j) / vec2(resolution));
-                z += weight_i * weight_j;
-            }
-        }
-
-        imageStore(t_Out, ivec2(x, y), c / z);
-    }
-}
-
-void row_pass_variable() {
+void row_passes_variable() {
     ivec2 resolution = imageSize(t_Out);
     int y = int(gl_GlobalInvocationID.x);
 
@@ -206,15 +173,16 @@ void row_pass_variable() {
         float m = max(texture(sampler2D(t_Mask, Sampler), uv).r, EPSILON);
 
         float k_size = m * sigma;
-        float s_size = k_size / 4.;
+        float s_size = max(quality == 1 ? k_size / 8. : k_size / 4., 3.);
 
         for(float i = - k_size; i <= k_size; i += s_size) {
             float weight_i = norm_pdf(i, m * sigma);
             for(float j = - k_size; j <= k_size; j += s_size) {
                 float weight_j = norm_pdf(j, m * sigma);
+                vec2 p = vec2(i, j);
 
                 c += weight_i * weight_j *
-                    texture(sampler2D(t_In, Sampler), uv + (vec2(i, j) / vec2(resolution)));
+                    texture(sampler2D(t_In, Sampler), uv + (p / vec2(resolution)));
                 z += weight_i * weight_j;
             }
         }
@@ -224,7 +192,7 @@ void row_pass_variable() {
 
     // Fast blur with small sigma to fix stair stepping due to undersampling
     vec4 c = vec4(0.);
-    int r = (box_size(sigma / 6.) - 1) / 2;
+    int r = (box_size(clamp(quality == 1 ? sigma / 8. : sigma / 4., 3., 7.), 1) - 1) / 2;
 
     // Pass 1, t_Tmp2 -> t_Tmp1
     for(int k = -r; k < r + 1; k++) {
@@ -274,6 +242,59 @@ void row_pass_variable() {
     }
 }
 
+void column_passes_variable() {
+    int x = int(gl_GlobalInvocationID.x);
+    int r = (box_size(clamp(quality == 1 ? sigma / 8. : sigma / 4., 3., 7.), 1) - 1) / 2;
+    vec4 c = vec4(0.);
+
+    // Pass 1, t_Tmp1 -> t_Tmp2
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(x, k) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+    }
+
+    for(int y = 0; y < imageSize(t_Tmp2).y; ++y) {
+        ivec2 idx = ivec2(x, y + r + 1) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+        idx = ivec2(x, y - r) % imageSize(t_Tmp1);
+        c -= imageLoad(t_Tmp1, idx);
+
+        imageStore(t_Tmp2, ivec2(x, y), c / (r + r + 1));
+    }
+
+    // Pass 2, t_Tmp2 -> t_Tmp1
+    c = vec4(0.);
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(x, k) % imageSize(t_Tmp2);
+        c += imageLoad(t_Tmp2, idx);
+    }
+
+    for(int y = 0; y < imageSize(t_Tmp1).y; ++y) {
+        ivec2 idx = ivec2(x, y + r + 1) % imageSize(t_Tmp2);
+        c += imageLoad(t_Tmp2, idx);
+        idx = ivec2(x, y - r) % imageSize(t_Tmp2);
+        c -= imageLoad(t_Tmp2, idx);
+
+        imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
+    }
+
+    // Pass 3, t_Tmp1 -> t_Tmp2
+    c = vec4(0.);
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(x, k) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+    }
+
+    for(int y = 0; y < imageSize(t_Out).y; ++y) {
+        ivec2 idx = ivec2(x, y + r + 1) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+        idx = ivec2(x, y - r) % imageSize(t_Tmp1);
+        c -= imageLoad(t_Tmp1, idx);
+
+        imageStore(t_Out, ivec2(x, y), c / (r + r + 1));
+    }
+}
+
 // Perform the first passes on the intermediate image
 void pass_1() {
     switch(occ_mask) {
@@ -281,11 +302,8 @@ void pass_1() {
             row_passes_fixed(sigma, quality);
             break;
         default:
-            if(quality == 0) {
-                row_pass_variable();
-            } else {
-                row_pass_variable();
-            }
+            row_passes_variable();
+            break;
     }
 }
 
@@ -296,11 +314,8 @@ void pass_2() {
             column_passes_fixed(sigma, quality);
             break;
         default:
-            if(quality == 0) {
-                column_passes_fixed(sigma / 6., 1);
-            } else {
-                return;
-            };
+            column_passes_variable();
+            break;
     }
 }
 
