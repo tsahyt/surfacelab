@@ -195,6 +195,8 @@ directional = Directional
 slope-blur = Slope Blur
 intensity = Intensity
 iterations = Iterations
+min = Minimum
+max = Maximum
 angle = Angle
 
 spread-distance = Distance

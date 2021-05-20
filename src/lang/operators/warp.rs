@@ -34,6 +34,27 @@ pub enum WarpMode {
     SlopeBlur = 3,
 }
 
+#[repr(u32)]
+#[derive(
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    TryFromPrimitive,
+)]
+#[strum(serialize_all = "kebab_case")]
+pub enum BlendMode {
+    Mix = 0,
+    Min = 1,
+    Max = 2,
+}
+
 impl WarpMode {
     fn has_angle(&self) -> bool {
         matches!(self, Self::Directional)
@@ -42,12 +63,17 @@ impl WarpMode {
     fn has_iterations(&self) -> bool {
         matches!(self, Self::SlopeBlur)
     }
+
+    fn has_blend_mode(&self) -> bool {
+        matches!(self, Self::SlopeBlur)
+    }
 }
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Warp {
     pub mode: WarpMode,
+    pub blend_mode: BlendMode,
     pub intensity: f32,
     pub angle: f32,
     pub iterations: i32,
@@ -57,6 +83,7 @@ impl Default for Warp {
     fn default() -> Self {
         Self {
             mode: WarpMode::Push,
+            blend_mode: BlendMode::Mix,
             intensity: 1.,
             angle: 0.,
             iterations: 32,
@@ -141,6 +168,20 @@ impl OperatorParamBox for Warp {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "blend-mode".to_string(),
+                        transmitter: Field(Warp::BLEND_MODE.to_string()),
+                        control: Control::Enum {
+                            selected: self.blend_mode as usize,
+                            variants: BlendMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "warp-mode",
+                            |t: WarpMode| t.has_blend_mode(),
+                        ),
                         presetable: true,
                     },
                     Parameter {

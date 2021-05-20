@@ -4,6 +4,7 @@ layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform Params {
     uint mode;
+    uint blend_mode;
     float intensity;
     float angle;
     int iterations;
@@ -13,6 +14,10 @@ const uint MODE_PUSH = 0;
 const uint MODE_PULL = 1;
 const uint MODE_DIRECTIONAL = 2;
 const uint MODE_SLOPEBLUR = 3;
+
+const uint BLEND_MODE_MIX = 0;
+const uint BLEND_MODE_MIN = 1;
+const uint BLEND_MODE_MAX = 2;
 
 layout(set = 0, binding = 1) uniform texture2D t_Input;
 layout(set = 0, binding = 2) uniform texture2D t_Strength;
@@ -70,13 +75,33 @@ vec4 directional(vec2 uv) {
 vec4 slope_blur(ivec2 idx, vec2 uv) {
     vec4 color = vec4(0.);
 
+    if(blend_mode == BLEND_MODE_MIN) {
+        color = vec4(1000.);
+    }
+
     for(int i = 0; i < iterations; i++) {
         vec2 gradient = gradient(idx);
         uv += gradient * intensity * (intensity / iterations);
-        color += texture(sampler2D(t_Input, Sampler), uv);
+        vec4 x = texture(sampler2D(t_Input, Sampler), uv);
+
+        switch(blend_mode) {
+            case BLEND_MODE_MIX:
+                color += x;
+                break;
+            case BLEND_MODE_MIN:
+                color = min(color, x);
+                break;
+            case BLEND_MODE_MAX:
+                color = max(color, x);
+                break;
+        }
     }
 
-    return vec4(color.rgb / iterations, 1.);
+    if(blend_mode == BLEND_MODE_MIX) {
+        color /= iterations;
+    }
+
+    return vec4(color.rgb, 1.);
 }
 
 void main() {

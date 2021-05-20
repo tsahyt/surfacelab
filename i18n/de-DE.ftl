@@ -190,7 +190,11 @@ warp-mode = Warp Modus
 push = Drücken
 pull = Ziehen
 directional = Gerichtet
+slope-blur = Slope Blur
 intensity = Intensität
+iterations = Iterationen
+min = Minimum
+max = Maximum
 angle = Winkel
 
 spread-distance = Distanz
