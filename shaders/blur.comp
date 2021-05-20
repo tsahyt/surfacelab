@@ -28,6 +28,7 @@ layout(set = 0, binding = 7, rgba16f) uniform image2D t_Out;
 
 const float EPSILON = 0.001;
 const float SQRT_2 = 1.414213562;
+const float PI = 3.14159265359;
 
 // Return the box size for a given sigma.
 int box_size(float sigma, uint quality) {
@@ -161,6 +162,21 @@ void column_passes_fixed(float sigma, uint quality) {
     }
 }
 
+float radical_inverse_vdc(uint bits)
+{
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
+vec2 hammersley(uint i, uint N)
+{
+    return vec2(float(i)/float(N), radical_inverse_vdc(i));
+}
+
 void row_passes_variable() {
     ivec2 resolution = imageSize(t_Out);
     int y = int(gl_GlobalInvocationID.x);
@@ -173,18 +189,17 @@ void row_passes_variable() {
         float m = max(texture(sampler2D(t_Mask, Sampler), uv).r, EPSILON);
 
         float k_size = m * sigma;
-        float s_size = max(quality == 1 ? k_size / 8. : k_size / 4., 3.);
+        int samples = quality == 0 ? 32 : 64;
 
-        for(float i = - k_size; i <= k_size; i += s_size) {
-            float weight_i = norm_pdf(i, m * sigma);
-            for(float j = - k_size; j <= k_size; j += s_size) {
-                float weight_j = norm_pdf(j, m * sigma);
-                vec2 p = vec2(i, j);
+        for(int i = 0; i < samples; ++i) {
+            vec2 p = m * sigma * (hammersley(i, samples) * 2. - 1.);
 
-                c += weight_i * weight_j *
-                    texture(sampler2D(t_In, Sampler), uv + (p / vec2(resolution)));
-                z += weight_i * weight_j;
-            }
+            float weight_i = norm_pdf(p.x, m * sigma);
+            float weight_j = norm_pdf(p.y, m * sigma);
+
+            c += weight_i * weight_j *
+                texture(sampler2D(t_In, Sampler), uv + (p / vec2(resolution)));
+            z += weight_i * weight_j;
         }
 
         imageStore(t_Tmp2, ivec2(x, y), c / z);
