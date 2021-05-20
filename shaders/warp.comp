@@ -6,11 +6,13 @@ layout(set = 0, binding = 0) uniform Params {
     uint mode;
     float intensity;
     float angle;
+    int iterations;
 };
 
 const uint MODE_PUSH = 0;
 const uint MODE_PULL = 1;
 const uint MODE_DIRECTIONAL = 2;
+const uint MODE_SLOPEBLUR = 3;
 
 layout(set = 0, binding = 1) uniform texture2D t_Input;
 layout(set = 0, binding = 2) uniform texture2D t_Strength;
@@ -65,6 +67,18 @@ vec4 directional(vec2 uv) {
     return texture(sampler2D(t_Input, Sampler), uv + direction * intensity * dist);
 }
 
+vec4 slope_blur(ivec2 idx, vec2 uv) {
+    vec4 color = vec4(0.);
+
+    for(int i = 0; i < iterations; i++) {
+        vec2 gradient = gradient(idx);
+        uv += gradient * intensity * (intensity / iterations);
+        color += texture(sampler2D(t_Input, Sampler), uv);
+    }
+
+    return vec4(color.rgb / iterations, 1.);
+}
+
 void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     ivec2 resolution = imageSize(t_Out);
@@ -81,6 +95,9 @@ void main() {
             break;
         case MODE_DIRECTIONAL:
             res = directional(uv);
+            break;
+        case MODE_SLOPEBLUR:
+            res = slope_blur(idx, uv);
             break;
     }
 

@@ -31,11 +31,16 @@ pub enum WarpMode {
     Push = 0,
     Pull = 1,
     Directional = 2,
+    SlopeBlur = 3,
 }
 
 impl WarpMode {
     fn has_angle(&self) -> bool {
         matches!(self, Self::Directional)
+    }
+
+    fn has_iterations(&self) -> bool {
+        matches!(self, Self::SlopeBlur)
     }
 }
 
@@ -45,6 +50,7 @@ pub struct Warp {
     pub mode: WarpMode,
     pub intensity: f32,
     pub angle: f32,
+    pub iterations: i32,
 }
 
 impl Default for Warp {
@@ -53,6 +59,7 @@ impl Default for Warp {
             mode: WarpMode::Push,
             intensity: 1.,
             angle: 0.,
+            iterations: 32,
         }
     }
 }
@@ -160,6 +167,21 @@ impl OperatorParamBox for Warp {
                         visibility: VisibilityFunction::on_parameter_enum(
                             "warp-mode",
                             |t: WarpMode| t.has_angle(),
+                        ),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "iterations".to_string(),
+                        transmitter: Field(Warp::ITERATIONS.to_string()),
+                        control: Control::DiscreteSlider {
+                            value: self.iterations,
+                            min: 1,
+                            max: 128,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "warp-mode",
+                            |t: WarpMode| t.has_iterations(),
                         ),
                         presetable: true,
                     },

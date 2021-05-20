@@ -192,7 +192,9 @@ warp-mode = Warp Mode
 push = Push
 pull = Pull
 directional = Directional
+slope-blur = Slope Blur
 intensity = Intensity
+iterations = Iterations
 angle = Angle
 
 spread-distance = Distance
