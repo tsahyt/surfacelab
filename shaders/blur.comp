@@ -45,7 +45,7 @@ float norm_pdf(float x, float sigma) {
     return 0.39894 * exp(- 0.5 * x * x / (sigma * sigma)) / sigma;
 }
 
-void row_passes_fixed(float sigma) {
+void row_passes_fixed(float sigma, uint quality) {
     ivec2 resolution = imageSize(t_Out);
     int y = int(gl_GlobalInvocationID.x);
     int r = (box_size(sigma) - 1) / 2;
@@ -106,7 +106,7 @@ void row_passes_fixed(float sigma) {
     }
 }
 
-void column_passes_fixed(float sigma) {
+void column_passes_fixed(float sigma, uint quality) {
     int x = int(gl_GlobalInvocationID.x);
     int r = (box_size(sigma) - 1) / 2;
     vec4 c = vec4(0.);
@@ -161,7 +161,34 @@ void column_passes_fixed(float sigma) {
     }
 }
 
-void row_pass_variable() {
+void row_pass_variable_high() {
+    ivec2 resolution = imageSize(t_Out);
+    int y = int(gl_GlobalInvocationID.x);
+
+    // Variable size blur with increased step size
+    for(int x = 0; x < resolution.x; ++x) {
+        vec4 c = vec4(0.);
+        float z = 0.;
+        vec2 uv = vec2(x, y) / vec2(resolution);
+        float m = max(texture(sampler2D(t_Mask, Sampler), uv).r, EPSILON);
+
+        int k_size = int(sigma * 2.);
+        for(int i = - k_size; i <= k_size; i++) {
+            float weight_i = norm_pdf(i, m * sigma);
+            for(int j = - k_size; j <= k_size; j++) {
+                float weight_j = norm_pdf(j, m * sigma);
+
+                c += weight_i * weight_j *
+                    texture(sampler2D(t_In, Sampler), vec2(x + i, y + j) / vec2(resolution));
+                z += weight_i * weight_j;
+            }
+        }
+
+        imageStore(t_Out, ivec2(x, y), c / z);
+    }
+}
+
+void row_pass_variable_low() {
     ivec2 resolution = imageSize(t_Out);
     int y = int(gl_GlobalInvocationID.x);
 
@@ -178,7 +205,8 @@ void row_pass_variable() {
             for(int j = - k_size; j <= k_size; j += 5) {
                 float weight_j = norm_pdf(j, m * sigma);
 
-                c += weight_i * weight_j * texture(sampler2D(t_In, Sampler), vec2(x + i, y + j) / vec2(resolution));
+                c += weight_i * weight_j *
+                    texture(sampler2D(t_In, Sampler), vec2(x + i, y + j) / vec2(resolution));
                 z += weight_i * weight_j;
             }
         }
@@ -242,10 +270,14 @@ void row_pass_variable() {
 void pass_1() {
     switch(occ_mask) {
         case OCCUPANCY_UNOCCUPIED:
-            row_passes_fixed(sigma);
+            row_passes_fixed(sigma, quality);
             break;
         default:
-            row_pass_variable();
+            if(quality == 0) {
+                row_pass_variable_low();
+            } else {
+                row_pass_variable_high();
+            }
     }
 }
 
@@ -253,11 +285,14 @@ void pass_1() {
 void pass_2() {
     switch(occ_mask) {
         case OCCUPANCY_UNOCCUPIED:
-            column_passes_fixed(sigma);
+            column_passes_fixed(sigma, quality);
             break;
         default:
-            column_passes_fixed(5.);
-            return;
+            if(quality == 0) {
+                column_passes_fixed(5., 1);
+            } else {
+                return;
+            };
     }
 }
 
