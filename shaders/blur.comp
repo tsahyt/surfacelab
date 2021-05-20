@@ -45,6 +45,12 @@ float norm_pdf(float x, float sigma) {
     return 0.39894 * exp(- 0.5 * x * x / (sigma * sigma)) / sigma;
 }
 
+vec2 hash22(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yzx+33.33);
+    return fract((p3.xx+p3.yz)*p3.zy);
+}
+
 void row_passes_fixed(float sigma, uint quality) {
     ivec2 resolution = imageSize(t_Out);
     int y = int(gl_GlobalInvocationID.x);
@@ -188,7 +194,7 @@ void row_pass_variable_high() {
     }
 }
 
-void row_pass_variable_low() {
+void row_pass_variable() {
     ivec2 resolution = imageSize(t_Out);
     int y = int(gl_GlobalInvocationID.x);
 
@@ -199,14 +205,16 @@ void row_pass_variable_low() {
         vec2 uv = vec2(x, y) / vec2(resolution);
         float m = max(texture(sampler2D(t_Mask, Sampler), uv).r, EPSILON);
 
-        int k_size = int(30);
-        for(int i = - k_size; i <= k_size; i += 5) {
+        float k_size = m * sigma;
+        float s_size = k_size / 4.;
+
+        for(float i = - k_size; i <= k_size; i += s_size) {
             float weight_i = norm_pdf(i, m * sigma);
-            for(int j = - k_size; j <= k_size; j += 5) {
+            for(float j = - k_size; j <= k_size; j += s_size) {
                 float weight_j = norm_pdf(j, m * sigma);
 
                 c += weight_i * weight_j *
-                    texture(sampler2D(t_In, Sampler), vec2(x + i, y + j) / vec2(resolution));
+                    texture(sampler2D(t_In, Sampler), uv + (vec2(i, j) / vec2(resolution)));
                 z += weight_i * weight_j;
             }
         }
@@ -216,7 +224,7 @@ void row_pass_variable_low() {
 
     // Fast blur with small sigma to fix stair stepping due to undersampling
     vec4 c = vec4(0.);
-    int r = (box_size(5.) - 1) / 2;
+    int r = (box_size(sigma / 6.) - 1) / 2;
 
     // Pass 1, t_Tmp2 -> t_Tmp1
     for(int k = -r; k < r + 1; k++) {
@@ -274,9 +282,9 @@ void pass_1() {
             break;
         default:
             if(quality == 0) {
-                row_pass_variable_low();
+                row_pass_variable();
             } else {
-                row_pass_variable_high();
+                row_pass_variable();
             }
     }
 }
@@ -289,7 +297,7 @@ void pass_2() {
             break;
         default:
             if(quality == 0) {
-                column_passes_fixed(5., 1);
+                column_passes_fixed(sigma / 6., 1);
             } else {
                 return;
             };
