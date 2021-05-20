@@ -26,6 +26,9 @@ layout(set = 0, binding = 5, rgba16f) uniform image2D t_Tmp1;
 layout(set = 0, binding = 6, rgba16f) uniform image2D t_Tmp2;
 layout(set = 0, binding = 7, rgba16f) uniform image2D t_Out;
 
+const float EPSILON = 0.001;
+const float SQRT_2 = 1.414213562;
+
 // Return the box size for a given sigma.
 int box_size(float sigma) {
     sigma *= imageSize(t_Out).x / 1024.;
@@ -36,13 +39,13 @@ int box_size(float sigma) {
     return w;
 }
 
-float norm_pdf(float x, float sigma)
-{
-    sigma = max(0.0001, sigma);
+// TODO: Consider replacing with incremental Gaussian
+// https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-40-incremental-computation-gaussian
+float norm_pdf(float x, float sigma) {
     return 0.39894 * exp(- 0.5 * x * x / (sigma * sigma)) / sigma;
 }
 
-void row_passes_fixed() {
+void row_passes_fixed(float sigma) {
     ivec2 resolution = imageSize(t_Out);
     int y = int(gl_GlobalInvocationID.x);
     int r = (box_size(sigma) - 1) / 2;
@@ -103,28 +106,7 @@ void row_passes_fixed() {
     }
 }
 
-void row_passes_variable() {
-    ivec2 resolution = imageSize(t_Out);
-    int y = int(gl_GlobalInvocationID.x);
-
-    for(int x = 0; x < resolution.x; ++x) {
-        vec4 c = vec4(0.);
-        float z = 0.;
-        vec2 uv = vec2(x, y) / vec2(resolution);
-        float m = texture(sampler2D(t_Mask, Sampler), uv).r;
-
-        for(int r = 0; r <= 30; ++r) {
-            float weight = norm_pdf(float(r), m * sigma);
-            c += weight * texture(sampler2D(t_In, Sampler), vec2(x + r, y) / vec2(resolution));
-            c += weight * texture(sampler2D(t_In, Sampler), vec2(x - r, y) / vec2(resolution));
-            z += weight;
-        }
-
-        imageStore(t_Tmp1, ivec2(x, y), c / (2. * z));
-    }
-}
-
-void column_passes_fixed() {
+void column_passes_fixed(float sigma) {
     int x = int(gl_GlobalInvocationID.x);
     int r = (box_size(sigma) - 1) / 2;
     vec4 c = vec4(0.);
@@ -179,56 +161,113 @@ void column_passes_fixed() {
     }
 }
 
-void column_passes_variable() {
+void row_pass_variable() {
     ivec2 resolution = imageSize(t_Out);
-    int x = int(gl_GlobalInvocationID.x);
+    int y = int(gl_GlobalInvocationID.x);
 
-    for(int y = 0; y < resolution.y; ++y) {
+    // Variable size blur with increased step size
+    for(int x = 0; x < resolution.x; ++x) {
         vec4 c = vec4(0.);
         float z = 0.;
         vec2 uv = vec2(x, y) / vec2(resolution);
-        float m = texture(sampler2D(t_Mask, Sampler), uv).r;
+        float m = max(texture(sampler2D(t_Mask, Sampler), uv).r, EPSILON);
 
-        for(int r = 0; r <= 30; ++r) {
-            float weight = norm_pdf(float(r), m * sigma);
-            c += weight * imageLoad(t_Tmp1, ivec2(x, y + r) % resolution);
-            c += weight * imageLoad(t_Tmp1, ivec2(x, y - r) % resolution);
-            z += weight;
+        int k_size = int(30);
+        for(int i = - k_size; i <= k_size; i += 5) {
+            float weight_i = norm_pdf(i, m * sigma);
+            for(int j = - k_size; j <= k_size; j += 5) {
+                float weight_j = norm_pdf(j, m * sigma);
+
+                c += weight_i * weight_j * texture(sampler2D(t_In, Sampler), vec2(x + i, y + j) / vec2(resolution));
+                z += weight_i * weight_j;
+            }
         }
 
-        imageStore(t_Out, ivec2(x, y), c / (2. * z));
+        imageStore(t_Tmp2, ivec2(x, y), c / z);
+    }
+
+    // Fast blur with small sigma to fix stair stepping due to undersampling
+    vec4 c = vec4(0.);
+    int r = (box_size(5.) - 1) / 2;
+
+    // Pass 1, t_Tmp2 -> t_Tmp1
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(k, y) % imageSize(t_Tmp2);
+        c += imageLoad(t_Tmp2, idx);
+    }
+
+    for(int x = 0; x < imageSize(t_Tmp1).x; ++x) {
+        ivec2 idx = ivec2(x + r + 1, y) % imageSize(t_Tmp2);
+        c += imageLoad(t_Tmp2, idx);
+        idx = ivec2(x - r, y) % imageSize(t_Tmp2);
+        c -= imageLoad(t_Tmp2, idx);
+
+        imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
+    }
+
+    // Pass 2, t_Tmp2 -> t_Tmp1
+    c = vec4(0.);
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(k, y) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+    }
+
+    for(int x = 0; x < imageSize(t_Tmp2).x; ++x) {
+        ivec2 idx = ivec2(x + r + 1, y) % imageSize(t_Tmp1);
+        c += imageLoad(t_Tmp1, idx);
+        idx = ivec2(x - r, y) % imageSize(t_Tmp1);
+        c -= imageLoad(t_Tmp1, idx);
+
+        imageStore(t_Tmp2, ivec2(x, y), c / (r + r + 1));
+    }
+
+    // Pass 3, t_Tmp2 -> t_Tmp1
+    c = vec4(0.);
+    for(int k = -r; k < r + 1; k++) {
+        ivec2 idx = ivec2(k, y) % imageSize(t_Tmp2);
+        c += imageLoad(t_Tmp2, idx);
+    }
+
+    for(int x = 0; x < imageSize(t_Tmp1).x; ++x) {
+        ivec2 idx = ivec2(x + r + 1, y) % imageSize(t_Tmp2);
+        c += imageLoad(t_Tmp2, idx);
+        idx = ivec2(x - r, y) % imageSize(t_Tmp2);
+        c -= imageLoad(t_Tmp2, idx);
+
+        imageStore(t_Tmp1, ivec2(x, y), c / (r + r + 1));
     }
 }
 
-// Perform the row passes on the intermediate image, i.e. blurring with constant y
-void row_passes() {
+// Perform the first passes on the intermediate image
+void pass_1() {
     switch(occ_mask) {
         case OCCUPANCY_UNOCCUPIED:
-            row_passes_fixed();
+            row_passes_fixed(sigma);
             break;
         default:
-            row_passes_variable();
+            row_pass_variable();
     }
 }
 
-// Perform the column passes on the intermediate image, i.e. blurring with constant x.
-void column_passes() {
+// Perform the second passes on the intermediate image
+void pass_2() {
     switch(occ_mask) {
         case OCCUPANCY_UNOCCUPIED:
-            column_passes_fixed();
+            column_passes_fixed(sigma);
             break;
         default:
-            column_passes_variable();
+            column_passes_fixed(5.);
+            return;
     }
 }
 
 void main() {
     switch(PASS_DIRECTION) {
         case 0:
-            row_passes();
+            pass_1();
             return;
         case 1:
-            column_passes();
+            pass_2();
             return;
     }
 }
