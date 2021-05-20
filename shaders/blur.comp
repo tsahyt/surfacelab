@@ -189,7 +189,7 @@ void row_passes_variable() {
         float m = max(texture(sampler2D(t_Mask, Sampler), uv).r, EPSILON);
 
         float k_size = m * sigma;
-        int samples = quality == 0 ? 32 : 64;
+        int samples = quality == 0 ? 40 : 80;
 
         for(int i = 0; i < samples; ++i) {
             vec2 p = m * sigma * (hammersley(i, samples) * 2. - 1.);
@@ -207,7 +207,7 @@ void row_passes_variable() {
 
     // Fast blur with small sigma to fix stair stepping due to undersampling
     vec4 c = vec4(0.);
-    int r = (box_size(clamp(quality == 1 ? sigma / 8. : sigma / 4., 3., 7.), 1) - 1) / 2;
+    int r = (box_size(clamp(quality == 1 ? sigma / 8. : sigma / 4., 2., 7.), 1) - 1) / 2;
 
     // Pass 1, t_Tmp2 -> t_Tmp1
     for(int k = -r; k < r + 1; k++) {
@@ -259,7 +259,7 @@ void row_passes_variable() {
 
 void column_passes_variable() {
     int x = int(gl_GlobalInvocationID.x);
-    int r = (box_size(clamp(quality == 1 ? sigma / 8. : sigma / 4., 3., 7.), 1) - 1) / 2;
+    int r = (box_size(clamp(quality == 1 ? sigma / 8. : sigma / 4., 2., 7.), 1) - 1) / 2;
     vec4 c = vec4(0.);
 
     // Pass 1, t_Tmp1 -> t_Tmp2
