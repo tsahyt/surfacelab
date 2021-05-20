@@ -181,7 +181,7 @@ void row_passes_variable() {
     ivec2 resolution = imageSize(t_Out);
     int y = int(gl_GlobalInvocationID.x);
 
-    // Variable size blur with increased step size
+    // Variable size blur sampled via Hammersley sequence
     for(int x = 0; x < resolution.x; ++x) {
         vec4 c = vec4(0.);
         float z = 0.;
