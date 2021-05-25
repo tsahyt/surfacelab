@@ -86,50 +86,46 @@ where
     B: Backend,
 {
     /// Size of the image memory region, in bytes
-    #[cfg(debug_assertions)]
-    const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 128; // bytes
-    #[cfg(not(debug_assertions))]
-    const IMAGE_MEMORY_SIZE: u64 = 1024 * 1024 * 2048; // bytes
-
-    /// Size of a single chunk, in bytes
     const CHUNK_SIZE: u64 = 256 * 256 * 4; // bytes
 
-    /// Number of chunks in the image memory region
-    const N_CHUNKS: u64 = Self::IMAGE_MEMORY_SIZE / Self::CHUNK_SIZE;
-
-    pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, hal::device::AllocationError> {
+    pub fn new(
+        gpu: Arc<Mutex<GPU<B>>>,
+        heap_pct: f32,
+    ) -> Result<Self, hal::device::AllocationError> {
         let lock = gpu.lock().unwrap();
+
+        let memory_type: hal::MemoryTypeId = lock
+            .memory_properties
+            .memory_types
+            .iter()
+            .position(|mem_type| {
+                mem_type
+                    .properties
+                    .contains(hal::memory::Properties::DEVICE_LOCAL)
+            })
+            .expect("Unable to find device local memory for compute")
+            .into();
+
+        let heap_size = lock.memory_properties.memory_heaps[memory_type.0];
+        let allocator_size = (heap_size as f32 * heap_pct) as u64;
+        let n_chunks = allocator_size / Self::CHUNK_SIZE;
 
         // Preallocate a block of memory for compute images in device local
         // memory. This serves as memory for all images used in compute other
         // than for image nodes, which are uploaded separately.
-        let image_mem = unsafe {
-            let memory_type = lock
-                .memory_properties
-                .memory_types
-                .iter()
-                .position(|mem_type| {
-                    mem_type
-                        .properties
-                        .contains(hal::memory::Properties::DEVICE_LOCAL)
-                })
-                .expect("Unable to find device local memory for compute")
-                .into();
-            lock.device
-                .allocate_memory(memory_type, Self::IMAGE_MEMORY_SIZE)?
-        };
+        let image_mem = unsafe { lock.device.allocate_memory(memory_type, allocator_size)? };
 
         Ok(Self {
             gpu: gpu.clone(),
             allocs: Cell::new(unsafe { AllocId::new_unchecked(1) }),
             image_mem: ManuallyDrop::new(image_mem),
-            image_mem_chunks: (0..Self::N_CHUNKS)
+            image_mem_chunks: (0..n_chunks)
                 .map(|id| Chunk {
                     offset: Self::CHUNK_SIZE * id,
                     alloc: None,
                 })
                 .collect(),
-            usage: AllocatorUsage::new(Self::IMAGE_MEMORY_SIZE as usize),
+            usage: AllocatorUsage::new(allocator_size as usize),
         })
     }
 

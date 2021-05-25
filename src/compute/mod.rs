@@ -21,10 +21,11 @@ use sockets::*;
 pub fn start_compute_thread<B: gpu::Backend>(
     broker: &mut broker::Broker<Lang>,
     gpu: Arc<Mutex<gpu::GPU<B>>>,
+    config: &config::Configuration,
 ) -> thread::JoinHandle<()> {
     log::info!("Starting GPU Compute Handler");
     let (sender, receiver, disconnector) = broker.subscribe("compute");
-    match gpu::compute::GPUCompute::new(gpu) {
+    match gpu::compute::GPUCompute::new(gpu, config.compute_vram_pct) {
         Err(e) => {
             log::error!("Failed to initialize GPU Compute: {:?}", e);
             panic!("Critical Error");

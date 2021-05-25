@@ -79,10 +79,10 @@ where
     const OCCUPANCY_BUFFER_SIZE: u64 = 1024;
 
     /// Create a new GPUCompute instance.
-    pub fn new(gpu: Arc<Mutex<GPU<B>>>) -> Result<Self, InitializationError> {
+    pub fn new(gpu: Arc<Mutex<GPU<B>>>, allocator_pct: f32) -> Result<Self, InitializationError> {
         log::info!("Obtaining GPU Compute Resources");
 
-        let allocator = allocator::ComputeAllocator::new(gpu.clone())?;
+        let allocator = allocator::ComputeAllocator::new(gpu.clone(), allocator_pct)?;
 
         // Thumbnail Data. Produce this first before we lock the GPU for the
         // rest of the constructor, otherwise we get a deadlock.
