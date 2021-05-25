@@ -32,12 +32,12 @@ layout(set = 0, binding = 4, r32f) uniform image2D t_Out;
 
 const float SQRT3 = 1.73205080757;
 
-// RGB to Y'CbCr conversion matrix according to ITU-R BT.709
-const mat3 bt709 = mat3(
-    vec3(0.2126, 0.7152, 0.0722),
-    vec3(- 0.1146, - 0.3854, 0.5),
-    vec3(0.5, - 0.4542, - 0.0458)
-);
+vec3 rgb_to_ycbcr(vec3 rgb) {
+    float y = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+    float cb = (rgb.b - y) * 0.565;
+    float cr = (rgb.r - y) * 0.713;
+    return vec3(y, cb, cr);
+}
 
 float run_grayscale(vec2 uv) {
     float value = texture(sampler2D(t_Color1, Sampler), uv).r;
@@ -53,11 +53,8 @@ float run_grayscale(vec2 uv) {
 }
 
 float chroma_key(vec3 c, vec3 k) {
-    c = bt709 * c;
-    k = bt709 * k;
-
-    c = (c * 2.) - 1.;
-    k = (k * 2.) - 1.;
+    c = rgb_to_ycbcr(c) * 2. - 1.;
+    k = rgb_to_ycbcr(k) * 2. - 1.;
 
     float theta = atan(k.z, k.y);
 
@@ -65,15 +62,13 @@ float chroma_key(vec3 c, vec3 k) {
     float x_angle = c.y * cos(theta) + c.z * sin(theta);
     float z_angle = c.z * cos(theta) - c.y * sin(theta);
 
-    float kfg = x_angle - abs(z_angle) / tan(threshold / 2.);
+    float kfg = x_angle - (abs(z_angle) / tan(threshold / 2.));
 
     return step(kfg, 0.);
 }
 
 float luma_key(vec3 c) {
-    c = bt709 * c;
-
-    return step(threshold, c.x);
+    return step(threshold, rgb_to_ycbcr(c).x);
 }
 
 float run_rgb(vec2 uv) {
