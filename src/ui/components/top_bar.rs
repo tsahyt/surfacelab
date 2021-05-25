@@ -202,7 +202,7 @@ impl<'a> Widget for TopBar<'a> {
         }
 
         let status_text = format!(
-            "VRAM: {:.1}MB/{:.1}MB ({:.2}%)",
+            "Compute VRAM: {:.1}MB/{:.1}MB ({:.2}%)",
             state.vram_usage.0, state.vram_usage.1, state.vram_usage.2
         );
 
