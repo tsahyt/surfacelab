@@ -27,21 +27,49 @@ use zerocopy::AsBytes;
     TryFromPrimitive,
 )]
 #[strum(serialize_all = "kebab_case")]
-pub enum SelectMode {
+pub enum SelectModeGrayscale {
     Threshold = 0,
     Band = 1,
 }
 
-impl SelectMode {
+impl SelectModeGrayscale {
     pub fn has_bandwidth(self) -> bool {
         matches!(self, Self::Band)
+    }
+}
+
+#[repr(u32)]
+#[derive(
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    TryFromPrimitive,
+)]
+#[strum(serialize_all = "kebab_case")]
+pub enum SelectModeColor {
+    Euclidean = 0,
+    Chrominance = 1,
+    Luminance = 2,
+}
+
+impl SelectModeColor {
+    pub fn has_threshold(self) -> bool {
+        matches!(self, Self::Euclidean)
     }
 }
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Select {
-    select_mode: SelectMode,
+    select_mode_grayscale: SelectModeGrayscale,
+    select_mode_color: SelectModeColor,
     smooth: ParameterBool,
     invert: ParameterBool,
     threshold: f32,
@@ -52,7 +80,8 @@ pub struct Select {
 impl Default for Select {
     fn default() -> Self {
         Self {
-            select_mode: SelectMode::Threshold,
+            select_mode_grayscale: SelectModeGrayscale::Threshold,
+            select_mode_color: SelectModeColor::Chrominance,
             smooth: 0,
             invert: 0,
             threshold: 0.5,
@@ -130,14 +159,35 @@ impl OperatorParamBox for Select {
                 visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
-                        name: "select-mode".to_string(),
-                        transmitter: Field(Select::SELECT_MODE.to_string()),
+                        name: "select-mode-grayscale".to_string(),
+                        transmitter: Field(Select::SELECT_MODE_GRAYSCALE.to_string()),
                         control: Control::Enum {
-                            selected: self.select_mode as usize,
-                            variants: SelectMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                            selected: self.select_mode_grayscale as usize,
+                            variants: SelectModeGrayscale::VARIANTS
+                                .iter()
+                                .map(|x| x.to_string())
+                                .collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::default(),
+                        visibility: VisibilityFunction::on_type_variable(0, |t| {
+                            matches!(t, ImageType::Grayscale)
+                        }),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "select-mode-color".to_string(),
+                        transmitter: Field(Select::SELECT_MODE_COLOR.to_string()),
+                        control: Control::Enum {
+                            selected: self.select_mode_color as usize,
+                            variants: SelectModeColor::VARIANTS
+                                .iter()
+                                .map(|x| x.to_string())
+                                .collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_type_variable(0, |t| {
+                            matches!(t, ImageType::Rgb)
+                        }),
                         presetable: true,
                     },
                     Parameter {
@@ -171,6 +221,8 @@ impl OperatorParamBox for Select {
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::on_type_variable(0, |t| {
                             matches!(t, ImageType::Grayscale)
+                        }) | VisibilityFunction::on_parameter_enum("select-mode-color", |t: SelectModeColor| {
+                            t.has_threshold()
                         }),
                         presetable: true,
                     },
@@ -183,9 +235,11 @@ impl OperatorParamBox for Select {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_parameter_enum(
-                            "select-mode",
-                            |t: SelectMode| t.has_bandwidth(),
+                        visibility: VisibilityFunction::on_type_variable(0, |t| {
+                            matches!(t, ImageType::Rgb)
+                        }) & VisibilityFunction::on_parameter_enum(
+                            "select-mode-grayscale",
+                            |t: SelectModeGrayscale| t.has_bandwidth(),
                         ),
                         presetable: true,
                     },

@@ -247,6 +247,8 @@ f2 = F2
 distance-to-edge = Abstand zur Kante
 smoothness = Weichheit
 
-select-mode = Selektionsmodus
+select-mode-grayscale = Selektionsmodus
+select-mode-color = Selektionsmodus
+chrominance = Chroma
 band = Band
 bandwidth = Bandbreite

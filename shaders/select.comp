@@ -3,7 +3,8 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform Params {
-    uint mode;
+    uint grayscale_mode;
+    uint color_mode;
     uint smooth_edge;
     uint invert;
     float threshold;
@@ -11,8 +12,12 @@ layout(set = 0, binding = 0) uniform Params {
     vec3 color;
 };
 
-const uint MODE_THRESHOLD = 0;
-const uint MODE_BAND = 1;
+const uint GRAYSCALE_MODE_THRESHOLD = 0;
+const uint GRAYSCALE_MODE_BAND = 1;
+
+const uint COLOR_MODE_EUCLIDEAN = 0;
+const uint COLOR_MODE_CHROMINANCE = 1;
+const uint COLOR_MODE_LUMINANCE = 2;
 
 layout(set = 0, binding = 1) uniform Occupancy {
     uint input_occupancy;
@@ -25,21 +30,63 @@ layout(set = 0, binding = 2) uniform texture2D t_Color1;
 layout(set = 0, binding = 3) uniform sampler Sampler;
 layout(set = 0, binding = 4, r32f) uniform image2D t_Out;
 
+const float SQRT3 = 1.73205080757;
+
+// RGB to Y'CbCr conversion matrix according to ITU-R BT.709
+const mat3 bt709 = mat3(
+    vec3(0.2126, 0.7152, 0.0722),
+    vec3(- 0.1146, - 0.3854, 0.5),
+    vec3(0.5, - 0.4542, - 0.0458)
+);
+
 float run_grayscale(vec2 uv) {
     float value = texture(sampler2D(t_Color1, Sampler), uv).r;
 
-    switch(mode) {
-        case MODE_THRESHOLD:
+    switch(grayscale_mode) {
+        case GRAYSCALE_MODE_THRESHOLD:
             return step(threshold, value);
-        case MODE_BAND:
+        case GRAYSCALE_MODE_BAND:
             return step(abs(value - threshold), bandwidth / 2.);
         default:
             return 0.;
     }
 }
 
+float chroma_key(vec3 c, vec3 k) {
+    c = bt709 * c;
+    k = bt709 * k;
+
+    c = (c * 2.) - 1.;
+    k = (k * 2.) - 1.;
+
+    float theta = atan(k.z, k.y);
+
+    // Rotate Cb and Cr into X/Z Space
+    float x_angle = c.y * cos(theta) + c.z * sin(theta);
+    float z_angle = c.z * cos(theta) - c.y * sin(theta);
+
+    float kfg = x_angle - abs(z_angle) / tan(0.1 / 2.);
+
+    return step(kfg, 0.);
+}
+
+float luma_key(vec3 c) {
+    c = bt709 * c;
+
+    return step(threshold, c.x);
+}
+
 float run_rgb(vec2 uv) {
     vec3 col = texture(sampler2D(t_Color1, Sampler), uv).rgb;
+
+    switch(color_mode) {
+        case COLOR_MODE_EUCLIDEAN:
+            return step(threshold * SQRT3, distance(col, color));
+        case COLOR_MODE_CHROMINANCE:
+            return chroma_key(col, color);
+        case COLOR_MODE_LUMINANCE:
+            return luma_key(col);
+    }
 
     return 0.;
 }

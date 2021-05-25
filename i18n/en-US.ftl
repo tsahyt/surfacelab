@@ -249,6 +249,8 @@ f2 = F2
 distance-to-edge = Distance To Edge
 smoothness = Smoothness
 
-select-mode = Select Mode
+select-mode-grayscale = Select Mode
+select-mode-color = Select Mode
+chrominance = Chrominance
 band = Band
 bandwidth = Bandwidth
