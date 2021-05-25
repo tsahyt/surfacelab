@@ -60,21 +60,21 @@ pub enum SelectModeColor {
 }
 
 impl SelectModeColor {
-    pub fn has_threshold(self) -> bool {
-        matches!(self, Self::Euclidean)
+    pub fn has_color(self) -> bool {
+        !matches!(self, Self::Luminance)
     }
 }
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Select {
+    color: [f32; 3],
     select_mode_grayscale: SelectModeGrayscale,
     select_mode_color: SelectModeColor,
     smooth: ParameterBool,
     invert: ParameterBool,
     threshold: f32,
     bandwidth: f32,
-    color: [f32; 3],
 }
 
 impl Default for Select {
@@ -219,11 +219,7 @@ impl OperatorParamBox for Select {
                             max: 1.,
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::on_type_variable(0, |t| {
-                            matches!(t, ImageType::Grayscale)
-                        }) | VisibilityFunction::on_parameter_enum("select-mode-color", |t: SelectModeColor| {
-                            t.has_threshold()
-                        }),
+                        visibility: VisibilityFunction::default(),
                         presetable: true,
                     },
                     Parameter {
@@ -250,7 +246,10 @@ impl OperatorParamBox for Select {
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::on_type_variable(0, |t| {
                             matches!(t, ImageType::Rgb)
-                        }),
+                        }) & VisibilityFunction::on_parameter_enum(
+                            "select-mode-color",
+                            |t: SelectModeColor| t.has_color(),
+                        ),
                         presetable: true,
                     },
                 ],

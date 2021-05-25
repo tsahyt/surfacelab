@@ -3,13 +3,13 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform Params {
+    vec3 color;
     uint grayscale_mode;
     uint color_mode;
     uint smooth_edge;
     uint invert;
     float threshold;
     float bandwidth;
-    vec3 color;
 };
 
 const uint GRAYSCALE_MODE_THRESHOLD = 0;
@@ -65,7 +65,7 @@ float chroma_key(vec3 c, vec3 k) {
     float x_angle = c.y * cos(theta) + c.z * sin(theta);
     float z_angle = c.z * cos(theta) - c.y * sin(theta);
 
-    float kfg = x_angle - abs(z_angle) / tan(0.1 / 2.);
+    float kfg = x_angle - abs(z_angle) / tan(threshold / 2.);
 
     return step(kfg, 0.);
 }
