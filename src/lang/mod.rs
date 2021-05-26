@@ -703,6 +703,8 @@ pub enum UserLayersEvent {
     /// The user requests to move the specified layer or mask downwards in the
     /// stack.
     MoveDown(Resource<Node>),
+    /// The user requests moving a layer (or mask) to a position in the stack
+    PositionLayer(Resource<Node>, usize),
     /// The user requests setting the output of a layer to the given material
     /// channel to the specified output as enumerated. The boolean denotes
     /// whether the channel is enabled or not.

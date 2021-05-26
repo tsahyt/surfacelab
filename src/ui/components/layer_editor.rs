@@ -361,7 +361,15 @@ impl<'a> Widget for LayerEditor<'a> {
                         });
                     }
                     layer_row::Event::Drop => {
-                        state.update(|state| state.drag = None);
+                        if let Some(drag) = &state.drag {
+                            self.sender
+                                .send(Lang::UserLayersEvent(UserLayersEvent::PositionLayer(
+                                    drag.element.clone(),
+                                    drag.position as usize,
+                                )))
+                                .unwrap();
+                            state.update(|state| state.drag = None);
+                        }
                     }
                 }
             }
@@ -371,11 +379,13 @@ impl<'a> Widget for LayerEditor<'a> {
             s.set(ui);
         }
 
+        // If dragging, draw an indicator where the drag will land
         if let Some(drag) = &state.drag {
             let rect = ui.rect_of(state.ids.list).unwrap();
-            let limits = active_collection.drag_limits(&drag.element);
+            let limits = active_collection.drag_limits();
 
-            let y = rect.y.end - drag.position.clamp(limits.start, limits.end) as f64 * ROW_HEIGHT;
+            let y = rect.y.end
+                - (drag.position + 1).clamp(limits.start, limits.end) as f64 * ROW_HEIGHT;
 
             widget::Line::abs([rect.x.start, y], [rect.x.end, y])
                 .parent(id)

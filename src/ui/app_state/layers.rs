@@ -315,8 +315,9 @@ impl Layers {
 
     /// Return the limits of where a node can be legally dragged. This does not
     /// necessarily guarantee that the result is completely valid!
-    pub fn drag_limits(&self, layer: &Resource<r::Node>) -> std::ops::Range<i32> {
-        0..10
+    pub fn drag_limits(&self) -> std::ops::Range<i32> {
+        let root_id = self.layers.root_node_id().unwrap();
+        0..self.layers.traverse_pre_order_ids(root_id).unwrap().count() as i32 - 1
     }
 }
 

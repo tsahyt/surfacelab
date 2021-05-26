@@ -1161,6 +1161,9 @@ impl NodeManager {
                     }
                 }
             }
+            UserLayersEvent::PositionLayer(layer_res, position) => {
+                dbg!(layer_res, position);
+            }
             UserLayersEvent::Convert(graph_res) => {
                 if let Some(ManagedNodeCollection::LayerStack(ls)) =
                     self.graphs.get(graph_res.path_str().unwrap())
