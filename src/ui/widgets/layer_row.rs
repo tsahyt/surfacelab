@@ -70,6 +70,7 @@ widget_ids! {
 pub struct State {
     ids: Ids,
     editing_title: bool,
+    dragging: bool,
 }
 
 pub enum Event {
@@ -79,6 +80,8 @@ pub enum Event {
     ToggleExpanded,
     MoveUp,
     MoveDown,
+    Drag(Point),
+    Drop,
 }
 
 impl<'a> Widget for LayerRow<'a> {
@@ -90,6 +93,7 @@ impl<'a> Widget for LayerRow<'a> {
         Self::State {
             ids: Ids::new(id_gen),
             editing_title: false,
+            dragging: false,
         }
     }
 
@@ -108,17 +112,44 @@ impl<'a> Widget for LayerRow<'a> {
         } = args;
         let mut event = None;
 
+        let background_alpha = {
+            let dragging_alpha: f32 = if state.dragging { 0.35 } else { 0. };
+            let mask_alpha: f32 = if self.layer.is_mask { 0.25 } else { 0. };
+            dragging_alpha.max(mask_alpha)
+        };
+
+        let background_color = if state.dragging {
+            color::DARK_RED
+        } else {
+            color::BLACK
+        }
+        .with_alpha(background_alpha);
+
         widget::Rectangle::fill([rect.w(), rect.h()])
-            .color(color::rgba(
-                0.,
-                0.,
-                0.,
-                if self.layer.is_mask { 0.25 } else { 0.0 },
-            ))
+            .color(background_color)
             .middle()
             .parent(id)
-            .graphics_for(id)
             .set(state.ids.background, ui);
+
+        for ev in ui.widget_input(state.ids.background).events() {
+            match ev {
+                event::Widget::Release(r) if r.mouse().is_some() && state.dragging => {
+                    state.update(|state| state.dragging = false);
+                    event = Some(Event::Drop);
+                }
+                event::Widget::Click(_) => {
+                    event = Some(Event::ActiveElement);
+                }
+                event::Widget::DoubleClick(_) => {
+                    state.update(|state| state.editing_title = true);
+                }
+                event::Widget::Drag(d) => {
+                    event = Some(Event::Drag(d.total_delta_xy));
+                    state.update(|state| state.dragging = true);
+                }
+                _ => {}
+            }
+        }
 
         if self.toggleable {
             for _press in util::icon_button(
@@ -135,7 +166,7 @@ impl<'a> Widget for LayerRow<'a> {
             .border(0.0)
             .w_h(32.0, 32.0)
             .mid_left_with_margin(8.0)
-            .parent(id)
+            .parent(state.ids.background)
             .set(state.ids.visibility_button, ui)
             {
                 event = Some(Event::ToggleEnabled);
@@ -146,8 +177,8 @@ impl<'a> Widget for LayerRow<'a> {
             widget::Image::new(image_id)
                 .w_h(32.0, 32.0)
                 .top_left_with_margins(8.0, 48.0)
-                .parent(id)
-                .graphics_for(id)
+                .parent(state.ids.background)
+                .graphics_for(state.ids.background)
                 .set(state.ids.thumbnail, ui);
         }
 
@@ -155,7 +186,7 @@ impl<'a> Widget for LayerRow<'a> {
             for ev in widget::TextBox::new(&self.layer.title)
                 .font_size(style.title_size(&ui.theme))
                 .mid_left_with_margin(88.0)
-                .parent(id)
+                .parent(state.ids.background)
                 .h(16.0)
                 .w(rect.w() - 128.0)
                 .set(state.ids.title_edit, ui)
@@ -179,16 +210,8 @@ impl<'a> Widget for LayerRow<'a> {
                 })
                 .font_size(style.title_size(&ui.theme))
                 .mid_left_with_margin(88.0)
-                .parent(id)
+                .parent(state.ids.background)
                 .set(state.ids.title, ui);
-        }
-
-        for _dblclick in ui
-            .widget_input(state.ids.title)
-            .events()
-            .filter(|ev| matches!(ev, event::Widget::DoubleClick(_)))
-        {
-            state.update(|state| state.editing_title = true)
         }
 
         for _click in util::icon_button(util::IconName::UP, style.icon_font(&ui.theme))
@@ -198,7 +221,7 @@ impl<'a> Widget for LayerRow<'a> {
             .border(0.0)
             .w_h(16.0, 16.0)
             .top_right_with_margin(8.0)
-            .parent(id)
+            .parent(state.ids.background)
             .set(state.ids.move_up, ui)
         {
             event = Some(Event::MoveUp);
@@ -211,7 +234,7 @@ impl<'a> Widget for LayerRow<'a> {
             .border(0.0)
             .w_h(16.0, 16.0)
             .bottom_right_with_margin(8.0)
-            .parent(id)
+            .parent(state.ids.background)
             .set(state.ids.move_down, ui)
         {
             event = Some(Event::MoveDown);
@@ -222,7 +245,7 @@ impl<'a> Widget for LayerRow<'a> {
             .font_size(style.icon_size_large(&ui.theme))
             .font_id(style.icon_font(&ui.theme))
             .mid_right_with_margin(32.0)
-            .parent(id)
+            .parent(state.ids.background)
             .set(state.ids.layer_type, ui);
 
         for _click in ui.widget_input(id).clicks() {
@@ -244,7 +267,7 @@ impl<'a> Widget for LayerRow<'a> {
             .border(0.0)
             .w_h(32.0, 32.0)
             .mid_right_with_margin(64.0)
-            .parent(id)
+            .parent(state.ids.background)
             .set(state.ids.expander_button, ui)
             {
                 event = Some(Event::ToggleExpanded);

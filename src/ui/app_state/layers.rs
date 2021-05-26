@@ -312,6 +312,12 @@ impl Layers {
             layer.title = title.to_string();
         }
     }
+
+    /// Return the limits of where a node can be legally dragged. This does not
+    /// necessarily guarantee that the result is completely valid!
+    pub fn drag_limits(&self, layer: &Resource<r::Node>) -> std::ops::Range<i32> {
+        0..10
+    }
 }
 
 impl Collection for Layers {

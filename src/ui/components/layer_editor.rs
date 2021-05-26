@@ -13,6 +13,8 @@ use strum::VariantNames;
 
 use conrod_core::*;
 
+const ROW_HEIGHT: f64 = 48.0;
+
 #[derive(WidgetCommon)]
 pub struct LayerEditor<'a> {
     #[conrod(common_builder)]
@@ -61,13 +63,21 @@ widget_ids! {
         context_toolbar,
         list,
         operator_list,
+        drag_marker,
     }
+}
+
+#[derive(Debug)]
+struct DragState {
+    element: Resource<Node>,
+    position: i32,
 }
 
 pub struct State {
     ids: Ids,
     modal: Option<LayerFilter>,
     operators: Vec<Operator>,
+    drag: Option<DragState>,
 }
 
 #[derive(Copy, Clone)]
@@ -95,6 +105,7 @@ impl<'a> Widget for LayerEditor<'a> {
                 .iter()
                 .map(|x| Operator::from(x.clone()))
                 .collect(),
+            drag: None,
         }
     }
 
@@ -266,7 +277,7 @@ impl<'a> Widget for LayerEditor<'a> {
 
         let (mut rows, scrollbar) = tree::Tree::without_root(&active_collection.layers)
             .parent(id)
-            .item_size(48.0)
+            .item_size(ROW_HEIGHT)
             .padded_w_of(id, 8.0)
             .middle_of(id)
             .h(512.0)
@@ -276,6 +287,7 @@ impl<'a> Widget for LayerEditor<'a> {
 
         while let Some(row) = rows.next(ui) {
             let node_id = row.node_id.clone();
+            let i = row.i;
             let toggleable = !active_collection.is_base_layer(&node_id);
             let expandable = active_collection.expandable(&node_id);
             let data = &mut active_collection
@@ -337,12 +349,37 @@ impl<'a> Widget for LayerEditor<'a> {
                             )))
                             .unwrap();
                     }
+                    layer_row::Event::Drag(total_xy) => {
+                        state.update(|state| match &mut state.drag {
+                            None => {
+                                state.drag = Some(DragState {
+                                    element: data.resource.clone(),
+                                    position: i as i32 - (total_xy[1] / ROW_HEIGHT) as i32,
+                                })
+                            }
+                            Some(ds) => ds.position = i as i32 - (total_xy[1] / ROW_HEIGHT) as i32,
+                        });
+                    }
+                    layer_row::Event::Drop => {
+                        state.update(|state| state.drag = None);
+                    }
                 }
             }
         }
 
         if let Some(s) = scrollbar {
             s.set(ui);
+        }
+
+        if let Some(drag) = &state.drag {
+            let rect = ui.rect_of(state.ids.list).unwrap();
+            let limits = active_collection.drag_limits(&drag.element);
+
+            let y = rect.y.end - drag.position.clamp(limits.start, limits.end) as f64 * ROW_HEIGHT;
+
+            widget::Line::abs([rect.x.start, y], [rect.x.end, y])
+                .parent(id)
+                .set(state.ids.drag_marker, ui);
         }
 
         if let Some(filter) = state.modal.as_ref().cloned() {

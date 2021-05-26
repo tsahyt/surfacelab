@@ -158,12 +158,14 @@ where
 pub struct Items<S> {
     queue: VecDeque<(id_tree::NodeId, usize)>,
     items: widget::list::Items<widget::list::Down, S>,
+    yielded: usize,
 }
 
 pub struct Item<S> {
     pub node_id: id_tree::NodeId,
     pub item: widget::list::Item<widget::list::Down, S>,
     pub level: usize,
+    pub i: usize,
 }
 
 impl<S> Items<S>
@@ -173,10 +175,12 @@ where
     pub fn next(&mut self, ui: &Ui) -> Option<Item<S>> {
         self.queue.pop_front().map(|(node_id, level)| {
             let item = self.items.next(ui).unwrap();
+            self.yielded += 1;
             Item {
                 node_id,
                 item,
                 level,
+                i: self.yielded - 1,
             }
         })
     }
@@ -189,6 +193,7 @@ where
         Self {
             queue: visible_tree_items_queue(tree, skip_root),
             items,
+            yielded: 0,
         }
     }
 }
