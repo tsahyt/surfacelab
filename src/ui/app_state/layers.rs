@@ -316,9 +316,60 @@ impl Layers {
     /// Return an iterator of valid drop positions as currently visible in the
     /// tree. The iterator is guaranteed to be sorted.
     pub fn drag_limits(&self, res: &Resource<r::Node>) -> impl Iterator<Item = usize> {
-        let root_id = self.layers.root_node_id().unwrap();
+        use std::collections::VecDeque;
 
-        0..self.layers.traverse_pre_order_ids(root_id).unwrap().count() as usize
+        let tree = &self.layers;
+
+        let mut stack: Vec<(id_tree::NodeId, usize)> = Vec::with_capacity(tree.height());
+        let mut queue: VecDeque<usize> = VecDeque::new();
+        let mut pos = 0;
+
+        if let Some(root) = tree.root_node_id() {
+            let parent = tree
+                .traverse_pre_order(root)
+                .unwrap()
+                .find_map(|n| {
+                    if &n.data().resource == res {
+                        Some(n.parent().unwrap())
+                    } else {
+                        None
+                    }
+                })
+                .unwrap()
+                .clone();
+            stack.push((root.clone(), 0));
+
+            while !stack.is_empty() {
+                let (current, level) = stack.pop().unwrap();
+                if level > 0
+                    && tree
+                        .get(&current)
+                        .unwrap()
+                        .parent()
+                        .map(|p| p == &parent)
+                        .unwrap_or(false)
+                {
+                    queue.push_back(pos);
+                }
+                if tree
+                    .get(&current)
+                    .expect("Invalid node ID in tree")
+                    .data()
+                    .expanded
+                {
+                    stack.extend(
+                        tree.children_ids(&current)
+                            .unwrap()
+                            .cloned()
+                            .map(|n| (n, level + 1)),
+                    );
+                }
+
+                pos += 1;
+            }
+        }
+
+        queue.into_iter()
     }
 }
 

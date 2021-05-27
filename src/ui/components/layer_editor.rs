@@ -364,7 +364,7 @@ impl<'a> Widget for LayerEditor<'a> {
                     }
                     layer_row::Event::Drop => {
                         if let Some(drag) = &state.drag {
-                            let limits = active_collection.drag_limits();
+                            let limits = active_collection.drag_limits(&drag.element);
                             let pos = limits
                                 .map(|x| (x, (x as i32 - drag.position).abs()))
                                 .min_by_key(|x| x.1)
@@ -390,7 +390,7 @@ impl<'a> Widget for LayerEditor<'a> {
         // If dragging, draw an indicator where the drag will land
         if let Some(drag) = &state.drag {
             let rect = ui.rect_of(state.ids.list).unwrap();
-            let limits = active_collection.drag_limits();
+            let limits = active_collection.drag_limits(&drag.element);
             let pos = limits
                 .map(|x| (x, (x as i32 - drag.position).abs()))
                 .min_by_key(|x| x.1)
