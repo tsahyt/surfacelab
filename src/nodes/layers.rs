@@ -1148,6 +1148,19 @@ impl LayerStack {
         }
     }
 
+    /// Attempt moving a layer (or mask) to a specified position in the stack's
+    /// canonical order.
+    pub fn position_layer(&mut self, res: &Resource<Node>, position: usize) -> Option<()> {
+        if res.path_str().unwrap().contains("mask") {
+            let parent_resource = layer_resource_from_mask_resource(res);
+            let current_idx = *self.resources.get(parent_resource.file()?)?;
+            None
+        } else {
+            let current_idx = *self.resources.get(res.file()?)?;
+            Some(())
+        }
+    }
+
     fn swap_resources(&mut self, a: &str, b: &str) {
         debug_assert!(a != b);
         let idx_a = self.resources.get_mut(a).expect("Unknown resource") as *mut usize;

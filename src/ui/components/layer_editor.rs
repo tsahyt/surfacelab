@@ -354,18 +354,26 @@ impl<'a> Widget for LayerEditor<'a> {
                             None => {
                                 state.drag = Some(DragState {
                                     element: data.resource.clone(),
-                                    position: i as i32 - (total_xy[1] / ROW_HEIGHT) as i32,
+                                    position: 1 + i as i32 - (total_xy[1] / ROW_HEIGHT) as i32,
                                 })
                             }
-                            Some(ds) => ds.position = i as i32 - (total_xy[1] / ROW_HEIGHT) as i32,
+                            Some(ds) => {
+                                ds.position = 1 + i as i32 - (total_xy[1] / ROW_HEIGHT) as i32
+                            }
                         });
                     }
                     layer_row::Event::Drop => {
                         if let Some(drag) = &state.drag {
+                            let limits = active_collection.drag_limits();
+                            let pos = limits
+                                .map(|x| (x, (x as i32 - drag.position).abs()))
+                                .min_by_key(|x| x.1)
+                                .unwrap()
+                                .0;
                             self.sender
                                 .send(Lang::UserLayersEvent(UserLayersEvent::PositionLayer(
                                     drag.element.clone(),
-                                    drag.position as usize,
+                                    pos as usize,
                                 )))
                                 .unwrap();
                             state.update(|state| state.drag = None);
@@ -383,9 +391,13 @@ impl<'a> Widget for LayerEditor<'a> {
         if let Some(drag) = &state.drag {
             let rect = ui.rect_of(state.ids.list).unwrap();
             let limits = active_collection.drag_limits();
+            let pos = limits
+                .map(|x| (x, (x as i32 - drag.position).abs()))
+                .min_by_key(|x| x.1)
+                .unwrap()
+                .0;
 
-            let y = rect.y.end
-                - (drag.position + 1).clamp(limits.start, limits.end) as f64 * ROW_HEIGHT;
+            let y = rect.y.end - pos as f64 * ROW_HEIGHT;
 
             widget::Line::abs([rect.x.start, y], [rect.x.end, y])
                 .parent(id)
