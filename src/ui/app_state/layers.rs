@@ -341,13 +341,13 @@ impl Layers {
 
             while !stack.is_empty() {
                 let (current, level) = stack.pop().unwrap();
-                if level > 0
-                    && tree
-                        .get(&current)
-                        .unwrap()
-                        .parent()
-                        .map(|p| p == &parent)
-                        .unwrap_or(false)
+                if tree
+                    .get(&current)
+                    .unwrap()
+                    .parent()
+                    .map(|p| p == &parent)
+                    .unwrap_or(false)
+                    || current == parent
                 {
                     queue.push_back(pos);
                 }
@@ -370,6 +370,45 @@ impl Layers {
         }
 
         queue.into_iter()
+    }
+
+    /// Return a LayerDropTarget describing the given resource in a given
+    /// desired target position relative to the current stack.
+    pub fn drag_target(&self, res: &Resource<r::Node>, target: usize) -> LayerDropTarget {
+        let canonical = super::super::widgets::tree::visible_tree_items_queue(&self.layers, true);
+
+        if target == 0 {
+            LayerDropTarget::Above(
+                self.layers
+                    .get(&canonical[target].0)
+                    .unwrap()
+                    .data()
+                    .resource
+                    .clone(),
+            )
+        } else {
+            let target_res = &self
+                .layers
+                .get(&canonical[target - 1].0)
+                .unwrap()
+                .data()
+                .resource;
+
+            if res.path_str().unwrap().contains("mask")
+                && !target_res.path_str().unwrap().contains("mask")
+            {
+                LayerDropTarget::Above(
+                    self.layers
+                        .get(&canonical[target + 1].0)
+                        .unwrap()
+                        .data()
+                        .resource
+                        .clone(),
+                )
+            } else {
+                LayerDropTarget::Below(target_res.clone())
+            }
+        }
     }
 }
 

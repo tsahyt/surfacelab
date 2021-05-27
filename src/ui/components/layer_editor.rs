@@ -373,7 +373,7 @@ impl<'a> Widget for LayerEditor<'a> {
                             self.sender
                                 .send(Lang::UserLayersEvent(UserLayersEvent::PositionLayer(
                                     drag.element.clone(),
-                                    pos as usize,
+                                    active_collection.drag_target(&drag.element, pos),
                                 )))
                                 .unwrap();
                             state.update(|state| state.drag = None);

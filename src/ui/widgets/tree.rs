@@ -10,7 +10,7 @@ fn visible_tree_items<T: Expandable>(tree: &id_tree::Tree<T>, skip_root: bool) -
     visible_tree_items_queue(tree, skip_root).len()
 }
 
-fn visible_tree_items_queue<T: Expandable>(
+pub fn visible_tree_items_queue<T: Expandable>(
     tree: &id_tree::Tree<T>,
     skip_root: bool,
 ) -> VecDeque<(id_tree::NodeId, usize)> {

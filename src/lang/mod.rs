@@ -678,6 +678,12 @@ pub enum LayerType {
     Fx,
 }
 
+#[derive(Debug)]
+pub enum LayerDropTarget {
+    Below(Resource<Node>),
+    Above(Resource<Node>),
+}
+
 /// Events concerning layer operation triggered by the user, such as adding,
 /// removing, reordering, etc. These events should be treated as unsanitized,
 /// since they are user generated.
@@ -704,7 +710,7 @@ pub enum UserLayersEvent {
     /// stack.
     MoveDown(Resource<Node>),
     /// The user requests moving a layer (or mask) to a position in the stack
-    PositionLayer(Resource<Node>, usize),
+    PositionLayer(Resource<Node>, LayerDropTarget),
     /// The user requests setting the output of a layer to the given material
     /// channel to the specified output as enumerated. The boolean denotes
     /// whether the channel is enabled or not.
