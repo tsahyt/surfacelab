@@ -295,6 +295,13 @@ impl NodeCollections {
         }
     }
 
+    /// Reposition a layer in the stack
+    pub fn position_layer(&mut self, layer: &Resource<Node>, pos: &LayerDropTarget) {
+        if let Some(target) = self.target_layers_from_node(&layer) {
+            target.position_layer(layer, pos);
+        }
+    }
+
     /// Add a node to a graph, based on the resource data given. This is a NOP
     /// if the parent graph is a layer.
     pub fn add_node(&mut self, node: graph::NodeData) {

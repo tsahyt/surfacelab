@@ -514,6 +514,7 @@ where
                     Layer::mask(res.clone(), title, pbox.clone(), *bmode as usize, *opacity);
                 state.update(|state| state.graphs.push_layer_under(layer, for_layer));
             }
+            LayersEvent::LayerPositioned(res, target) => {}
         }
     }
 

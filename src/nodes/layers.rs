@@ -998,16 +998,21 @@ impl LayerStack {
         if res.path_str().unwrap().contains("mask") {
             self.position_mask(res, position)
         } else {
-            // let ins_position = match position {
-            //     LayerDropTarget::Below(target) => self.resources.get(target.file()?).cloned(),
-            //     LayerDropTarget::Above(target) => {
-            //         self.resources.get(target.file()?).map(|x| *x + 1)
-            //     }
-            // }?;
-            // let layer = self.layers.remove(*self.resources.get(res.file()?)?);
-            // self.layers.insert(ins_position, layer);
+            let layer = self
+                .layers
+                .remove(self.layers.iter().position(|(r, _)| r == res)?);
+            let mut target = self
+                .layers
+                .iter()
+                .position(|(r, _)| position.target() == r)?;
 
-            // dbg!(&self.layers);
+            if let LayerDropTarget::Above(_) = position {
+                target += 1
+            }
+
+            self.layers.insert(target, layer);
+
+            dbg!(&self.layers);
 
             Some(())
         }

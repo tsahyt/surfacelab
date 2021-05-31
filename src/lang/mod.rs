@@ -684,6 +684,15 @@ pub enum LayerDropTarget {
     Above(Resource<Node>),
 }
 
+impl LayerDropTarget {
+    pub fn target(&self) -> &Resource<Node> {
+        match self {
+            LayerDropTarget::Below(t) => t,
+            LayerDropTarget::Above(t) => t,
+        }
+    }
+}
+
 /// Events concerning layer operation triggered by the user, such as adding,
 /// removing, reordering, etc. These events should be treated as unsanitized,
 /// since they are user generated.
@@ -774,6 +783,7 @@ pub enum LayersEvent {
         ParamBoxDescription<MessageWriters>,
         u32,
     ),
+    LayerPositioned(Resource<Node>, LayerDropTarget),
 }
 
 /// Events concerning surfaces, not directly coming from user input.

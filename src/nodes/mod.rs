@@ -1131,7 +1131,12 @@ impl NodeManager {
                 if let Some(ManagedNodeCollection::LayerStack(ls)) =
                     self.graphs.get_mut(layer_res.directory().unwrap())
                 {
-                    if ls.position_layer(layer_res, position).is_some() {}
+                    if ls.position_layer(layer_res, position).is_some() {
+                        response.push(Lang::LayersEvent(LayersEvent::LayerPositioned(
+                            layer_res.clone(),
+                            position.clone(),
+                        )))
+                    }
                 }
             }
             UserLayersEvent::Convert(graph_res) => {

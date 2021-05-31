@@ -348,6 +348,8 @@ impl Layers {
             }
         }
     }
+
+    pub fn position_layer(&mut self, layer: &Resource<Node>, target: &LayerDropTarget) {}
 }
 
 impl Collection for Layers {
