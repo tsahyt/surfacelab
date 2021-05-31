@@ -514,12 +514,6 @@ where
                     Layer::mask(res.clone(), title, pbox.clone(), *bmode as usize, *opacity);
                 state.update(|state| state.graphs.push_layer_under(layer, for_layer));
             }
-            LayersEvent::MovedUp(res) => {
-                state.update(|state| state.graphs.move_layer_up(res));
-            }
-            LayersEvent::MovedDown(res) => {
-                state.update(|state| state.graphs.move_layer_down(res));
-            }
         }
     }
 

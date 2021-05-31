@@ -1127,8 +1127,6 @@ impl NodeManager {
                     }
                 }
             }
-            UserLayersEvent::MoveUp(layer_res) => {}
-            UserLayersEvent::MoveDown(layer_res) => {}
             UserLayersEvent::PositionLayer(layer_res, position) => {
                 if let Some(ManagedNodeCollection::LayerStack(ls)) =
                     self.graphs.get_mut(layer_res.directory().unwrap())

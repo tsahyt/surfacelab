@@ -445,18 +445,6 @@ impl NodeCollections {
         }
     }
 
-    pub fn move_layer_up(&mut self, layer: &Resource<r::Node>) {
-        if let Some(target) = self.target_layers_from_node(&layer) {
-            target.move_up(layer);
-        }
-    }
-
-    pub fn move_layer_down(&mut self, layer: &Resource<r::Node>) {
-        if let Some(target) = self.target_layers_from_node(&layer) {
-            target.move_down(layer);
-        }
-    }
-
     /// Update a parameter in a parameter box
     pub fn update_parameter(&mut self, param: &Resource<r::Param>, value: &[u8]) {
         if let Some(target) = self.target_collection_from_node(&param.parameter_node()) {

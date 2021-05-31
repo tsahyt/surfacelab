@@ -199,68 +199,6 @@ impl Layers {
         Some(())
     }
 
-    pub fn move_up(&mut self, layer: &Resource<r::Node>) {
-        use id_tree::SwapBehavior::*;
-        let node_id = self
-            .layers
-            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
-            .unwrap()
-            .find(|i| &self.layers.get(i).unwrap().data().resource == layer)
-            .expect("Unknown layer");
-        let parent = self
-            .layers
-            .get(&node_id)
-            .unwrap()
-            .parent()
-            .expect("Trying to move node without parent");
-
-        let traversal: Vec<_> = self
-            .layers
-            .traverse_level_order_ids(&parent)
-            .unwrap()
-            .skip(1)
-            .collect();
-        if let Some([_, next]) = traversal[..].windows(2).find(|xs| match xs {
-            [c, _] => c == &node_id,
-            _ => false,
-        }) {
-            self.layers
-                .swap_nodes(&node_id, next, TakeChildren)
-                .expect("Failed to swap nodes");
-        }
-    }
-
-    pub fn move_down(&mut self, layer: &Resource<r::Node>) {
-        use id_tree::SwapBehavior::*;
-        let node_id = self
-            .layers
-            .traverse_pre_order_ids(self.layers.root_node_id().unwrap())
-            .unwrap()
-            .find(|i| &self.layers.get(i).unwrap().data().resource == layer)
-            .expect("Unknown layer");
-        let parent = self
-            .layers
-            .get(&node_id)
-            .unwrap()
-            .parent()
-            .expect("Trying to move node without parent");
-
-        let traversal: Vec<_> = self
-            .layers
-            .traverse_level_order_ids(&parent)
-            .unwrap()
-            .skip(1)
-            .collect();
-        if let Some([previous, _]) = traversal[..].windows(2).find(|xs| match xs {
-            [_, c] => c == &node_id,
-            _ => false,
-        }) {
-            self.layers
-                .swap_nodes(&node_id, previous, TakeChildren)
-                .expect("Failed to swap nodes");
-        }
-    }
-
     /// Update the opacity when set from outside of the UI
     pub fn update_opacity(&mut self, layer: &Resource<r::Node>, opacity: f32) {
         if let Some(node_id) = self

@@ -335,20 +335,6 @@ impl<'a> Widget for LayerEditor<'a> {
                     layer_row::Event::ToggleExpanded => {
                         data.toggle_expanded();
                     }
-                    layer_row::Event::MoveUp => {
-                        self.sender
-                            .send(Lang::UserLayersEvent(UserLayersEvent::MoveUp(
-                                data.resource.clone(),
-                            )))
-                            .unwrap();
-                    }
-                    layer_row::Event::MoveDown => {
-                        self.sender
-                            .send(Lang::UserLayersEvent(UserLayersEvent::MoveDown(
-                                data.resource.clone(),
-                            )))
-                            .unwrap();
-                    }
                     layer_row::Event::Drag(total_xy) => {
                         state.update(|state| match &mut state.drag {
                             None => {

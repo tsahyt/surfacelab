@@ -703,12 +703,6 @@ pub enum UserLayersEvent {
     RemoveLayer(Resource<Node>),
     /// The user requests removal of a mask.
     RemoveMask(Resource<Node>),
-    /// The user requests to move the specified layer or mask upwards in the
-    /// stack.
-    MoveUp(Resource<Node>),
-    /// The user requests to move the specified layer or mask downwards in the
-    /// stack.
-    MoveDown(Resource<Node>),
     /// The user requests moving a layer (or mask) to a position in the stack
     PositionLayer(Resource<Node>, LayerDropTarget),
     /// The user requests setting the output of a layer to the given material
@@ -780,10 +774,6 @@ pub enum LayersEvent {
         ParamBoxDescription<MessageWriters>,
         u32,
     ),
-    /// A layer/mask has been moved up one position in the stack.
-    MovedUp(Resource<Node>),
-    /// A layer/mask has been moved down one position in the stack.
-    MovedDown(Resource<Node>),
 }
 
 /// Events concerning surfaces, not directly coming from user input.

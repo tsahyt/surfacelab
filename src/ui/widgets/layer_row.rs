@@ -62,8 +62,6 @@ widget_ids! {
         title,
         title_edit,
         background,
-        move_up,
-        move_down,
     }
 }
 
@@ -78,8 +76,6 @@ pub enum Event {
     Retitled(String, String),
     ToggleEnabled,
     ToggleExpanded,
-    MoveUp,
-    MoveDown,
     Drag(Point),
     Drop,
 }
@@ -212,32 +208,6 @@ impl<'a> Widget for LayerRow<'a> {
                 .mid_left_with_margin(88.0)
                 .parent(state.ids.background)
                 .set(state.ids.title, ui);
-        }
-
-        for _click in util::icon_button(util::IconName::UP, style.icon_font(&ui.theme))
-            .color(color::TRANSPARENT)
-            .label_font_size(style.icon_size(&ui.theme))
-            .label_color(style.color(&ui.theme))
-            .border(0.0)
-            .w_h(16.0, 16.0)
-            .top_right_with_margin(8.0)
-            .parent(state.ids.background)
-            .set(state.ids.move_up, ui)
-        {
-            event = Some(Event::MoveUp);
-        }
-
-        for _click in util::icon_button(util::IconName::DOWN, style.icon_font(&ui.theme))
-            .color(color::TRANSPARENT)
-            .label_font_size(style.icon_size(&ui.theme))
-            .label_color(style.color(&ui.theme))
-            .border(0.0)
-            .w_h(16.0, 16.0)
-            .bottom_right_with_margin(8.0)
-            .parent(state.ids.background)
-            .set(state.ids.move_down, ui)
-        {
-            event = Some(Event::MoveDown);
         }
 
         widget::Text::new(self.layer.icon.0)
