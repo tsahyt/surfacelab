@@ -1127,46 +1127,13 @@ impl NodeManager {
                     }
                 }
             }
-            UserLayersEvent::MoveUp(layer_res) => {
-                if let Some(ManagedNodeCollection::LayerStack(ls)) =
-                    self.graphs.get_mut(layer_res.directory().unwrap())
-                {
-                    if ls.move_up(layer_res) {
-                        response.push(Lang::LayersEvent(LayersEvent::MovedUp(layer_res.clone())));
-
-                        if let Some(linearize) = self.relinearize(&self.active_graph) {
-                            response.push(linearize);
-                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                                self.active_graph.clone(),
-                                Vec::new(),
-                            )));
-                        }
-                    }
-                }
-            }
-            UserLayersEvent::MoveDown(layer_res) => {
-                if let Some(ManagedNodeCollection::LayerStack(ls)) =
-                    self.graphs.get_mut(layer_res.directory().unwrap())
-                {
-                    if ls.move_down(layer_res) {
-                        response.push(Lang::LayersEvent(LayersEvent::MovedDown(layer_res.clone())));
-
-                        if let Some(linearize) = self.relinearize(&self.active_graph) {
-                            response.push(linearize);
-                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                                self.active_graph.clone(),
-                                Vec::new(),
-                            )));
-                        }
-                    }
-                }
-            }
+            UserLayersEvent::MoveUp(layer_res) => {}
+            UserLayersEvent::MoveDown(layer_res) => {}
             UserLayersEvent::PositionLayer(layer_res, position) => {
                 if let Some(ManagedNodeCollection::LayerStack(ls)) =
                     self.graphs.get_mut(layer_res.directory().unwrap())
                 {
-                    dbg!(position);
-                    ls.position_layer(layer_res, position);
+                    if ls.position_layer(layer_res, position).is_some() {}
                 }
             }
             UserLayersEvent::Convert(graph_res) => {

@@ -90,66 +90,16 @@ impl Default for MaskBlendOptions {
 /// specific types of operators, and cannot have masks itself.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct MaskStack {
-    stack: Vec<Mask>,
-    resources: HashMap<String, usize>,
+    stack: Vec<(Resource<Node>, Mask)>,
 }
 
 impl MaskStack {
     pub fn new() -> Self {
-        Self {
-            stack: Vec::new(),
-            resources: HashMap::new(),
-        }
-    }
-
-    /// Move a mask up, i.e. closer to the back of the vector if possible.
-    pub fn move_up(&mut self, mask: &Resource<Node>) -> bool {
-        if let Some(idx) = self.resources.get(mask.file().unwrap()).copied() {
-            let n = self.stack.len();
-            if idx == n - 1 {
-                false
-            } else {
-                self.stack.swap(idx, idx + 1);
-
-                if self.can_linearize() {
-                    let other_name = self.stack[idx].name.clone();
-                    self.swap_resources(mask.file().unwrap(), &other_name);
-                    true
-                } else {
-                    self.stack.swap(idx, idx + 1);
-                    false
-                }
-            }
-        } else {
-            false
-        }
-    }
-
-    /// Move a mask down, i.e. closer to the front of the vector if possible.
-    pub fn move_down(&mut self, mask: &Resource<Node>) -> bool {
-        if let Some(idx) = self.resources.get(mask.file().unwrap()).copied() {
-            if idx == 0 {
-                false
-            } else {
-                self.stack.swap(idx, idx - 1);
-
-                if self.can_linearize() {
-                    let other_name = self.stack[idx].name.clone();
-                    self.swap_resources(mask.file().unwrap(), &other_name);
-                    true
-                } else {
-                    self.stack.swap(idx, idx - 1);
-                    false
-                }
-            }
-        } else {
-            false
-        }
+        Self { stack: Vec::new() }
     }
 
     pub fn can_linearize(&self) -> bool {
         self.linearize_into(
-            |_| Resource::node(""),
             |_| Resource::node(""),
             &mut Vec::new(),
             &mut HashMap::new(),
@@ -164,9 +114,8 @@ impl MaskStack {
     /// references, and resource naming functions are passed as closures.
     ///
     /// Will return None if an error occurs.
-    pub fn linearize_into<F: Fn(&Mask) -> Resource<Node>, G: Fn(&Mask) -> Resource<Node>>(
+    pub fn linearize_into<G: Fn(&Mask) -> Resource<Node>>(
         &self,
-        mask_resource: F,
         blend_resource: G,
         linearization: &mut Linearization,
         use_points: &mut HashMap<Resource<Node>, UsePoint>,
@@ -174,10 +123,8 @@ impl MaskStack {
     ) -> Option<()> {
         let mut last_socket: Option<Resource<Socket>> = None;
 
-        for mask in self.stack.iter().filter(|m| m.blend_options.enabled) {
+        for (resource, mask) in self.stack.iter().filter(|m| m.1.blend_options.enabled) {
             *step += 1;
-
-            let resource: Resource<Node> = mask_resource(mask);
 
             match &mask.operator {
                 Operator::AtomicOperator(aop) => {
@@ -314,7 +261,7 @@ impl MaskStack {
     ) -> Option<(String, String)> {
         let mut last_socket: Option<(String, String)> = None;
 
-        for mask in self.stack.iter().filter(|m| m.blend_options.enabled) {
+        for (_, mask) in self.stack.iter().filter(|m| m.1.blend_options.enabled) {
             let mask_node = graph.new_node(&mask.operator, parent_size, None).0;
             graph.position_node(&mask_node, x, -SLICE_WIDTH);
             x += SLICE_WIDTH;
@@ -361,16 +308,14 @@ impl MaskStack {
             return None;
         }
 
-        self.stack.push(mask);
-        self.resources
-            .insert(resource.file().unwrap().to_owned(), self.stack.len() - 1);
+        self.stack.push((resource, mask));
 
         Some(())
     }
 
     /// Iterator over all masks in the stack
     pub fn iter(&self) -> impl Iterator<Item = &Mask> {
-        self.stack.iter()
+        self.stack.iter().map(|x| &x.1)
     }
 
     /// Get size of the mask stack
@@ -385,71 +330,41 @@ impl MaskStack {
 
     /// Get the operator for a specific mask, specified by resource, if it exists.
     pub fn get_operator(&self, mask: &Resource<Node>) -> Option<&Operator> {
-        self.resources
-            .get(mask.file().unwrap())
-            .map(|idx| &self.stack[*idx].operator)
-    }
-
-    /// Swap two resources.
-    fn swap_resources(&mut self, a: &str, b: &str) {
-        debug_assert!(a != b);
-        let idx_a = self.resources.get_mut(a).expect("Unknown resource") as *mut usize;
-        let idx_b = self.resources.get_mut(b).expect("Unknown resource") as *mut usize;
-        unsafe {
-            std::ptr::swap(idx_a, idx_b);
-        }
+        self.stack
+            .iter()
+            .find_map(|(r, m)| if r == mask { Some(&m.operator) } else { None })
     }
 
     pub fn set_mask_parameter(&mut self, param: &Resource<Param>, data: &[u8]) {
-        if let Some(mask) = self
-            .resources
-            .get(param.file().unwrap())
-            .copied()
-            .and_then(|idx| self.stack.get_mut(idx))
-        {
+        if let Some((_, mask)) = self.stack.iter_mut().find(|(r, _)| param.is_param_of(r)) {
             let field = param.fragment().unwrap();
             mask.operator.set_parameter(field, data);
         }
     }
 
     pub fn set_mask_opacity(&mut self, mask: &Resource<Node>, opacity: f32) {
-        if let Some(mask) = self
-            .resources
-            .get(mask.file().unwrap())
-            .copied()
-            .and_then(|idx| self.stack.get_mut(idx))
-        {
+        if let Some((_, mask)) = self.stack.iter_mut().find(|(r, _)| r == mask) {
             mask.blend_options.opacity = opacity;
         }
     }
 
     pub fn set_mask_blend_mode(&mut self, mask: &Resource<Node>, blend_mode: BlendMode) {
-        if let Some(mask) = self
-            .resources
-            .get(mask.file().unwrap())
-            .copied()
-            .and_then(|idx| self.stack.get_mut(idx))
-        {
+        if let Some((_, mask)) = self.stack.iter_mut().find(|(r, _)| r == mask) {
             mask.blend_options.blend_mode = blend_mode;
         }
     }
 
     pub fn set_mask_enabled(&mut self, mask: &Resource<Node>, enabled: bool) {
-        if let Some(mask) = self
-            .resources
-            .get(mask.file().unwrap())
-            .copied()
-            .and_then(|idx| self.stack.get_mut(idx))
-        {
+        if let Some((_, mask)) = self.stack.iter_mut().find(|(r, _)| r == mask) {
             mask.blend_options.enabled = enabled;
         }
     }
 
     pub fn remove_mask(&mut self, mask: &Resource<Node>) -> Option<Mask> {
-        self.resources
-            .get(mask.file().unwrap())
-            .copied()
-            .map(|idx| self.stack.remove(idx))
+        self.stack
+            .iter_mut()
+            .position(|(r, _)| r == mask)
+            .map(|p| self.stack.remove(p).1)
     }
 }
 
@@ -668,14 +583,6 @@ impl Layer {
         self.blend_options.mask.push(mask, resource)
     }
 
-    pub fn move_mask_up(&mut self, mask: &Resource<Node>) -> bool {
-        self.blend_options.mask.move_up(mask)
-    }
-
-    pub fn move_mask_down(&mut self, mask: &Resource<Node>) -> bool {
-        self.blend_options.mask.move_down(mask)
-    }
-
     pub fn remove_mask(&mut self, mask: &Resource<Node>) -> Option<Mask> {
         self.blend_options.mask.remove_mask(mask)
     }
@@ -725,8 +632,7 @@ impl Layer {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LayerStack {
     name: String,
-    layers: Vec<Layer>,
-    resources: HashMap<String, usize>,
+    layers: Vec<(Resource<Node>, Layer)>,
     parameters: HashMap<String, GraphParameter>,
 }
 
@@ -735,7 +641,6 @@ impl LayerStack {
         LayerStack {
             name: name.to_owned(),
             layers: Vec::new(),
-            resources: HashMap::new(),
             parameters: HashMap::new(),
         }
     }
@@ -743,12 +648,20 @@ impl LayerStack {
     /// Obtain the next free resource name given a base, see node graph for
     /// analogous function
     fn next_free_name(&self, base_name: &str) -> String {
+        use std::collections::HashSet;
+
         let mut resource = String::new();
+
+        let knowns: HashSet<String> = self
+            .layers
+            .iter()
+            .map(|x| x.0.file().unwrap().to_string())
+            .collect();
 
         for i in 1.. {
             let name = format!("{}.{}", base_name, i);
 
-            if !self.resources.contains_key(&name) {
+            if !knowns.contains(&name) {
                 resource = name;
                 break;
             }
@@ -783,10 +696,8 @@ impl LayerStack {
     }
 
     /// Push a new layer onto the stack.
-    fn push(&mut self, layer: Layer, resource: &Resource<Node>) {
-        self.layers.push(layer);
-        self.resources
-            .insert(resource.file().unwrap().to_owned(), self.layers.len() - 1);
+    fn push(&mut self, layer: Layer, resource: Resource<Node>) {
+        self.layers.push((resource, layer));
     }
 
     /// Push a new layer onto the stack
@@ -799,7 +710,7 @@ impl LayerStack {
         let resource = Resource::node(&format!("{}/{}", self.name, self.next_free_name(base_name)));
         layer.name = resource.file().unwrap().to_owned();
         layer.layer_type = layer_type;
-        self.push(layer, &resource);
+        self.push(layer, resource.clone());
         resource
     }
 
@@ -810,15 +721,14 @@ impl LayerStack {
         for_layer: &Resource<Node>,
         base_name: &str,
     ) -> Option<Resource<Node>> {
-        if let Some(idx) = self.resources.get(for_layer.file().unwrap()) {
-            let base_name = format!("{}.mask.{}", for_layer.file().unwrap(), base_name);
-            let name = self.next_free_name(&base_name);
+        let base_name = format!("{}.mask.{}", for_layer.file().unwrap(), base_name);
+        let name = self.next_free_name(&base_name);
+
+        if let Some((_, layer)) = self.layers.iter_mut().find(|(r, _)| r == for_layer) {
             mask.name = name.to_owned();
 
             let resource = Resource::node(&format!("{}/{}", self.name, name));
-
-            self.layers[*idx].push_mask(mask, resource.clone())?;
-
+            layer.push_mask(mask, resource.clone())?;
             Some(resource)
         } else {
             None
@@ -827,30 +737,27 @@ impl LayerStack {
 
     /// Remove a layer by resource
     pub fn remove_layer(&mut self, resource: &Resource<Node>) -> Option<Layer> {
-        if let Some(index) = self.resources.remove(resource.file().unwrap()) {
-            let layer = self.layers.remove(index);
-
-            for idx in self.resources.values_mut().filter(|i| **i >= index) {
-                *idx -= 1;
-            }
-
-            Some(layer)
-        } else {
-            None
-        }
+        self.layers
+            .iter()
+            .position(|(r, _)| r == resource)
+            .map(|p| self.layers.remove(p).1)
     }
 
     /// Remove a mask by resource
     pub fn remove_mask(&mut self, resource: &Resource<Node>) -> Option<Mask> {
         let parent_resource = layer_resource_from_mask_resource(resource);
-        let idx = self.resources.get(parent_resource.file().unwrap())?;
-        self.layers[*idx].remove_mask(resource)
+        self.layers.iter_mut().find_map(|(r, l)| {
+            if r == &parent_resource {
+                l.remove_mask(resource)
+            } else {
+                None
+            }
+        })
     }
 
     /// Reset the layer stack, removing all layers
     pub fn reset(&mut self) {
         self.layers.clear();
-        self.resources.clear();
     }
 
     /// Obtain the output resource for a material channel
@@ -870,8 +777,7 @@ impl LayerStack {
         &self,
         layer: &Resource<Node>,
     ) -> Vec<(Resource<Socket>, OperatorType, bool)> {
-        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            let l = &self.layers[*idx];
+        if let Some((_, l)) = self.layers.iter().find(|(r, _)| r == layer) {
             l.operator
                 .outputs()
                 .iter()
@@ -897,11 +803,8 @@ impl LayerStack {
         layer: &Resource<Node>,
         mask: &Resource<Node>,
     ) -> Vec<(Resource<Socket>, OperatorType, bool)> {
-        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            let op = self.layers[*idx]
-                .get_masks()
-                .get_operator(mask)
-                .expect("Unknown mask");
+        if let Some((_, l)) = self.layers.iter().find(|(r, _)| r == layer) {
+            let op = l.get_masks().get_operator(mask).expect("Unknown mask");
             op.outputs()
                 .iter()
                 .map(|(s, t)| (mask.node_socket(s), *t, op.external_data()))
@@ -927,8 +830,7 @@ impl LayerStack {
 
     /// Return all blend sockets of the given layer
     pub fn blend_sockets(&self, layer: &Resource<Node>) -> Vec<(Resource<Socket>, OperatorType)> {
-        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            let layer = &self.layers[*idx];
+        if let Some((_, layer)) = self.layers.iter().find(|(r, _)| r == layer) {
             MaterialChannel::iter()
                 .map(|channel| {
                     (
@@ -944,8 +846,8 @@ impl LayerStack {
 
     /// Set the title, i.e. human readable name, of a layer
     pub fn set_title(&mut self, layer: &Resource<Node>, title: &str) {
-        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            self.layers[*idx].set_title(title);
+        if let Some((_, layer)) = self.layers.iter_mut().find(|(r, _)| r == layer) {
+            layer.set_title(title);
         }
     }
 
@@ -956,9 +858,8 @@ impl LayerStack {
         channel: MaterialChannel,
         socket_index: usize,
     ) {
-        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            let l = &mut self.layers[*idx];
-            let socket = l
+        if let Some((_, layer)) = self.layers.iter_mut().find(|(r, _)| r == layer) {
+            let socket = layer
                 .operator
                 .outputs()
                 .keys()
@@ -966,7 +867,7 @@ impl LayerStack {
                 .nth(socket_index)
                 .cloned()
                 .unwrap();
-            l.output_sockets.insert(channel, socket);
+            layer.output_sockets.insert(channel, socket);
         }
     }
 
@@ -977,8 +878,11 @@ impl LayerStack {
         layer_socket: &Resource<Socket>,
         channel: MaterialChannel,
     ) -> Vec<(Resource<Socket>, ImageType)> {
-        if let Some(idx) = self.resources.get(layer_socket.file().unwrap()) {
-            let l = &mut self.layers[*idx];
+        if let Some((_, l)) = self
+            .layers
+            .iter_mut()
+            .find(|(r, _)| layer_socket.is_socket_of(r))
+        {
             if let LayerType::Fx = l.layer_type {
                 l.input_sockets
                     .insert(layer_socket.fragment().unwrap().to_owned(), channel);
@@ -995,8 +899,7 @@ impl LayerStack {
     }
 
     pub fn type_sanitize_layer(&mut self, layer: &Resource<Node>) -> Vec<MaterialChannel> {
-        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            let l = &mut self.layers[*idx];
+        if let Some((_, l)) = self.layers.iter_mut().find(|(r, _)| r == layer) {
             l.type_sanitize_outputs()
         } else {
             vec![]
@@ -1010,8 +913,7 @@ impl LayerStack {
         channel: MaterialChannel,
         visibility: bool,
     ) {
-        if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            let l = &mut self.layers[*idx];
+        if let Some((_, l)) = self.layers.iter_mut().find(|(r, _)| r == layer) {
             if visibility {
                 l.blend_options.channels.insert(channel);
             } else {
@@ -1024,8 +926,8 @@ impl LayerStack {
     pub fn set_layer_opacity(&mut self, layer: &Resource<Node>, opacity: f32) {
         if layer.path_str().unwrap().contains("mask") {
             self.set_mask_opacity(layer, opacity);
-        } else if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            self.layers[*idx].set_opacity(opacity);
+        } else if let Some((_, layer)) = self.layers.iter_mut().find(|(r, _)| r == layer) {
+            layer.set_opacity(opacity);
         }
     }
 
@@ -1033,8 +935,8 @@ impl LayerStack {
     fn set_mask_opacity(&mut self, mask: &Resource<Node>, opacity: f32) {
         let parent_resource = layer_resource_from_mask_resource(mask);
 
-        if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
-            self.layers[*idx].set_mask_opacity(mask, opacity);
+        if let Some((_, l)) = self.layers.iter_mut().find(|(r, _)| r == &parent_resource) {
+            l.set_mask_opacity(mask, opacity);
         }
     }
 
@@ -1042,8 +944,8 @@ impl LayerStack {
     pub fn set_layer_blend_mode(&mut self, layer: &Resource<Node>, blend_mode: BlendMode) {
         if layer.path_str().unwrap().contains("mask") {
             self.set_mask_blend_mode(layer, blend_mode);
-        } else if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            self.layers[*idx].set_blend_mode(blend_mode)
+        } else if let Some((_, layer)) = self.layers.iter_mut().find(|(r, _)| r == layer) {
+            layer.set_blend_mode(blend_mode)
         }
     }
 
@@ -1051,8 +953,8 @@ impl LayerStack {
     fn set_mask_blend_mode(&mut self, mask: &Resource<Node>, blend_mode: BlendMode) {
         let parent_resource = layer_resource_from_mask_resource(mask);
 
-        if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
-            self.layers[*idx].set_mask_blend_mode(mask, blend_mode);
+        if let Some((_, l)) = self.layers.iter_mut().find(|(r, _)| r == &parent_resource) {
+            l.set_mask_blend_mode(mask, blend_mode);
         }
     }
 
@@ -1060,8 +962,8 @@ impl LayerStack {
     pub fn set_layer_enabled(&mut self, layer: &Resource<Node>, enabled: bool) {
         if layer.path_str().unwrap().contains("mask") {
             self.set_mask_enabled(layer, enabled);
-        } else if let Some(idx) = self.resources.get(layer.file().unwrap()) {
-            self.layers[*idx].set_enabled(enabled);
+        } else if let Some((_, layer)) = self.layers.iter_mut().find(|(r, _)| r == layer) {
+            layer.set_enabled(enabled);
         }
     }
 
@@ -1069,8 +971,8 @@ impl LayerStack {
     fn set_mask_enabled(&mut self, mask: &Resource<Node>, enabled: bool) {
         let parent_resource = layer_resource_from_mask_resource(mask);
 
-        if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
-            self.layers[*idx].set_mask_enabled(mask, enabled);
+        if let Some((_, l)) = self.layers.iter_mut().find(|(r, _)| r == &parent_resource) {
+            l.set_mask_enabled(mask, enabled);
         }
     }
 
@@ -1081,71 +983,9 @@ impl LayerStack {
         self.linearize(super::LinearizationMode::TopoSort).is_some()
     }
 
-    /// Move a layer up one position in the stack, i.e. closer to the back of
-    /// the vector. Returns true if successful.
-    pub fn move_up(&mut self, layer: &Resource<Node>) -> bool {
-        if layer.path_str().unwrap().contains("mask") {
-            self.move_mask_up(layer)
-        } else if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
-            if idx == self.layers.len() - 1 {
-                false
-            } else {
-                self.layers.swap(idx, idx + 1);
-                if self.can_linearize() {
-                    self.swap_resources(layer.file().unwrap(), &self.layers[idx].name().to_owned());
-                    true
-                } else {
-                    self.layers.swap(idx, idx + 1);
-                    false
-                }
-            }
-        } else {
-            false
-        }
-    }
-
-    /// Move a mask up if possible. Returns true on success.
-    fn move_mask_up(&mut self, mask: &Resource<Node>) -> bool {
-        let parent_resource = layer_resource_from_mask_resource(mask);
-
-        if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
-            self.layers[*idx].move_mask_up(mask)
-        } else {
-            false
-        }
-    }
-
-    /// Move a layer down one position in the stack. Returns true if successful.
-    pub fn move_down(&mut self, layer: &Resource<Node>) -> bool {
-        if layer.path_str().unwrap().contains("mask") {
-            self.move_mask_down(layer)
-        } else if let Some(idx) = self.resources.get(layer.file().unwrap()).copied() {
-            if idx == 0 {
-                false
-            } else {
-                self.layers.swap(idx, idx - 1);
-                if self.can_linearize() {
-                    self.swap_resources(layer.file().unwrap(), &self.layers[idx].name().to_owned());
-                    true
-                } else {
-                    self.layers.swap(idx, idx - 1);
-                    false
-                }
-            }
-        } else {
-            false
-        }
-    }
-
-    /// Move a mask down if possible. Returns true on success.
-    fn move_mask_down(&mut self, mask: &Resource<Node>) -> bool {
-        let parent_resource = layer_resource_from_mask_resource(mask);
-
-        if let Some(idx) = self.resources.get(parent_resource.file().unwrap()) {
-            self.layers[*idx].move_mask_down(mask)
-        } else {
-            false
-        }
+    /// Attempt positioning a mask according to the LayerDropTarget.
+    fn position_mask(&mut self, res: &Resource<Node>, position: &LayerDropTarget) -> Option<()> {
+        Some(())
     }
 
     /// Attempt moving a layer (or mask) to a specified position in the stack's
@@ -1155,15 +995,21 @@ impl LayerStack {
         res: &Resource<Node>,
         position: &LayerDropTarget,
     ) -> Option<()> {
-        None
-    }
+        if res.path_str().unwrap().contains("mask") {
+            self.position_mask(res, position)
+        } else {
+            // let ins_position = match position {
+            //     LayerDropTarget::Below(target) => self.resources.get(target.file()?).cloned(),
+            //     LayerDropTarget::Above(target) => {
+            //         self.resources.get(target.file()?).map(|x| *x + 1)
+            //     }
+            // }?;
+            // let layer = self.layers.remove(*self.resources.get(res.file()?)?);
+            // self.layers.insert(ins_position, layer);
 
-    fn swap_resources(&mut self, a: &str, b: &str) {
-        debug_assert!(a != b);
-        let idx_a = self.resources.get_mut(a).expect("Unknown resource") as *mut usize;
-        let idx_b = self.resources.get_mut(b).expect("Unknown resource") as *mut usize;
-        unsafe {
-            std::ptr::swap(idx_a, idx_b);
+            // dbg!(&self.layers);
+
+            Some(())
         }
     }
 
@@ -1171,14 +1017,19 @@ impl LayerStack {
     pub fn to_graph(&self, parent_size: u32) -> Option<super::nodegraph::NodeGraph> {
         use super::nodegraph::*;
 
-        let mut x = -(self.layers.iter().map(|l| l.graph_width()).sum::<usize>() as f64 / 2.0)
+        let mut x = -(self
+            .layers
+            .iter()
+            .map(|(_, l)| l.graph_width())
+            .sum::<usize>() as f64
+            / 2.0)
             * SLICE_WIDTH;
 
         let mut last_socket: HashMap<MaterialChannel, (String, String)> = HashMap::new();
         let mut last_mask: Option<(String, String)>;
         let mut graph = NodeGraph::new(&format!("{}_graph", self.name));
 
-        for layer in self.layers.iter() {
+        for (_, layer) in self.layers.iter() {
             let op = layer.operator();
 
             let layer_node = graph.new_node(op, parent_size, None).0;
@@ -1279,7 +1130,7 @@ impl super::NodeCollection for LayerStack {
         let channels = self
             .layers
             .iter()
-            .map(|l| l.get_output_channels())
+            .map(|(_, l)| l.get_output_channels())
             .fold(EnumSet::empty(), |z, c| z.union(c));
 
         HashMap::from_iter(channels.iter().map(|channel| {
@@ -1297,7 +1148,7 @@ impl super::NodeCollection for LayerStack {
         let channels = self
             .layers
             .iter()
-            .map(|l| l.get_output_channels())
+            .map(|(_, l)| l.get_output_channels())
             .fold(EnumSet::empty(), |z, c| z.union(c));
         channels
             .iter()
@@ -1325,15 +1176,13 @@ impl super::NodeCollection for LayerStack {
 
         let mut last_socket: HashMap<MaterialChannel, Resource<Socket>> = HashMap::new();
 
-        for layer in self.layers.iter() {
+        for (resource, layer) in self.layers.iter() {
             // Skip if disabled
             if !layer.blend_options.enabled || layer.blend_options.channels.is_empty() {
                 continue;
             }
 
             step += 1;
-
-            let resource = self.layer_resource(layer);
 
             // Clear all optional sockets that have no inputs
             for socket in layer
@@ -1425,7 +1274,6 @@ impl super::NodeCollection for LayerStack {
 
             if layer.blend_options.has_masks() {
                 layer.blend_options.mask.linearize_into(
-                    |mask| self.mask_resource(mask),
                     |mask| self.mask_blend_resource(mask),
                     &mut linearization,
                     &mut use_points,
@@ -1537,21 +1385,20 @@ impl super::NodeCollection for LayerStack {
 
             let mut parent_resource = resource.clone();
             parent_resource.rename_file(&res_file[..pos]);
+            let parent_node = parent_resource.parameter_node();
 
-            if let Some(idx) = self
-                .resources
-                .get(parent_resource.parameter_node().file().unwrap())
-            {
-                self.layers[*idx].set_mask_parameter(resource, data);
+            if let Some((_, layer)) = self.layers.iter_mut().find(|(r, _)| r == &parent_node) {
+                layer.set_mask_parameter(resource, data);
             }
         } else {
             let field = resource.fragment().unwrap();
 
-            if let Some(idx) = self
-                .resources
-                .get(resource.parameter_node().file().unwrap())
+            if let Some((_, layer)) = self
+                .layers
+                .iter_mut()
+                .find(|(r, _)| resource.is_param_of(r))
             {
-                self.layers[*idx].operator.set_parameter(field, data);
+                layer.operator.set_parameter(field, data);
             }
         }
 
@@ -1566,7 +1413,7 @@ impl super::NodeCollection for LayerStack {
     ) -> (Vec<super::ComplexOperatorUpdate>, Vec<GraphEvent>) {
         let mut updated = Vec::new();
 
-        for layer in self.layers.iter_mut() {
+        for (_, layer) in self.layers.iter_mut() {
             let complex = match &mut layer.operator {
                 Operator::ComplexOperator(co) if &co.graph == graph => co,
                 _ => continue,
@@ -1602,10 +1449,10 @@ impl super::NodeCollection for LayerStack {
 
     fn resize_all(&mut self, parent_size: u32) -> Vec<Lang> {
         let mut evs = vec![];
-        for layer in &self.layers {
+        for (res, layer) in self.layers.iter() {
             // Main Layer
             evs.push(Lang::GraphEvent(GraphEvent::NodeResized(
-                self.layer_resource(layer),
+                res.clone(),
                 layer
                     .operator()
                     .size_request()
@@ -1650,10 +1497,8 @@ impl super::NodeCollection for LayerStack {
     fn rebuild_events(&self, parent_size: u32) -> Vec<Lang> {
         self.layers
             .iter()
-            .map(|layer| {
+            .map(|(res, layer)| {
                 let mut evs = Vec::new();
-
-                let res = self.layer_resource(layer);
 
                 let mut sockets = self.layer_sockets(&res);
                 let mut blend_sockets = self.blend_sockets(&res);
@@ -1707,9 +1552,8 @@ impl super::NodeCollection for LayerStack {
     }
 
     fn element_param_box(&self, element: &Resource<Node>) -> ParamBoxDescription<MessageWriters> {
-        if let Some(idx) = self.resources.get(element.file().unwrap()) {
-            let l = &self.layers[*idx];
-            match l.layer_type {
+        match self.layers.iter().find(|(r, _)| r == element) {
+            Some((_, l)) => match l.layer_type {
                 LayerType::Fill => {
                     ParamBoxDescription::fill_layer_parameters(&l.operator, &l.output_sockets)
                         .transmitters_into()
@@ -1717,9 +1561,8 @@ impl super::NodeCollection for LayerStack {
                 LayerType::Fx => {
                     ParamBoxDescription::fx_layer_parameters(&l.operator).transmitters_into()
                 }
-            }
-        } else {
-            ParamBoxDescription::empty()
+            },
+            None => ParamBoxDescription::empty(),
         }
     }
 }

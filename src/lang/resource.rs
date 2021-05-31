@@ -204,6 +204,11 @@ impl Resource<Param> {
             phantom_data: std::marker::PhantomData,
         }
     }
+
+    /// Determine whether this parameter is a parameter of the given node
+    pub fn is_param_of(&self, node: &Resource<Node>) -> bool {
+        self.resource_path.starts_with(&node.resource_path)
+    }
 }
 
 impl Resource<Socket> {
