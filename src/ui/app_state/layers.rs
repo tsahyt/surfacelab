@@ -254,8 +254,6 @@ impl Layers {
     /// Return an iterator of valid drop positions as currently visible in the
     /// tree. The iterator is guaranteed to be sorted.
     pub fn drag_limits(&self, res: &Resource<r::Node>) -> impl Iterator<Item = usize> {
-        use std::collections::VecDeque;
-
         let tree = &self.layers;
 
         let mut stack: Vec<(id_tree::NodeId, usize)> = Vec::with_capacity(tree.height());
@@ -390,12 +388,14 @@ impl Layers {
         let layer_idx = linear.iter().position(|l| &l.resource == layer).unwrap();
 
         let mut last_mask_idx = layer_idx;
-        while linear
-            .get(last_mask_idx + 1)
-            .map(|l| l.is_mask)
-            .unwrap_or(false)
-        {
-            last_mask_idx += 1;
+        if !linear[layer_idx].is_mask {
+            while linear
+                .get(last_mask_idx + 1)
+                .map(|l| l.is_mask)
+                .unwrap_or(false)
+            {
+                last_mask_idx += 1;
+            }
         }
 
         let mut layers: Vec<_> = linear.drain(layer_idx..last_mask_idx + 1).collect();

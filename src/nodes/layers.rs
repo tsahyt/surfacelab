@@ -366,6 +366,28 @@ impl MaskStack {
             .position(|(r, _)| r == mask)
             .map(|p| self.stack.remove(p).1)
     }
+
+    pub fn position_mask(
+        &mut self,
+        res: &Resource<Node>,
+        position: &LayerDropTarget,
+    ) -> Option<()> {
+        let mask = self
+            .stack
+            .remove(self.stack.iter().position(|(r, _)| r == res)?);
+        let mut target = self
+            .stack
+            .iter()
+            .position(|(r, _)| position.target() == r)?;
+
+        if let LayerDropTarget::Above(_) = position {
+            target += 1
+        }
+
+        self.stack.insert(target, mask);
+
+        Some(())
+    }
 }
 
 /// Options for blending a layer on top of the underlying stack.
@@ -573,6 +595,10 @@ impl Layer {
 
     pub fn get_masks(&self) -> &MaskStack {
         &self.blend_options.mask
+    }
+
+    pub fn get_masks_mut(&mut self) -> &mut MaskStack {
+        &mut self.blend_options.mask
     }
 
     pub fn has_masks(&self) -> bool {
@@ -983,11 +1009,6 @@ impl LayerStack {
         self.linearize(super::LinearizationMode::TopoSort).is_some()
     }
 
-    /// Attempt positioning a mask according to the LayerDropTarget.
-    fn position_mask(&mut self, res: &Resource<Node>, position: &LayerDropTarget) -> Option<()> {
-        Some(())
-    }
-
     /// Attempt moving a layer (or mask) to a specified position in the stack's
     /// canonical order.
     pub fn position_layer(
@@ -996,7 +1017,12 @@ impl LayerStack {
         position: &LayerDropTarget,
     ) -> Option<()> {
         if res.path_str().unwrap().contains("mask") {
-            self.position_mask(res, position)
+            let parent_resource = layer_resource_from_mask_resource(res);
+
+            self.layers
+                .iter_mut()
+                .find(|(r, _)| r == &parent_resource)
+                .and_then(|l| l.1.get_masks_mut().position_mask(res, position))
         } else {
             let layer = self
                 .layers
