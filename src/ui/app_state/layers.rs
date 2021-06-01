@@ -349,6 +349,8 @@ impl Layers {
         }
     }
 
+    /// Return contents of layer tree in canonical order, with all drawers
+    /// expanded.
     fn canonical_order(&self) -> VecDeque<id_tree::NodeId> {
         let mut stack: Vec<(id_tree::NodeId, usize)> = Vec::new();
         let mut queue: VecDeque<_> = VecDeque::new();
@@ -385,7 +387,19 @@ impl Layers {
             .collect();
 
         // Modify list to reflect changes
-        let layer = linear.remove(linear.iter().position(|l| &l.resource == layer).unwrap());
+        let layer_idx = linear.iter().position(|l| &l.resource == layer).unwrap();
+
+        let mut last_mask_idx = layer_idx;
+        while linear
+            .get(last_mask_idx + 1)
+            .map(|l| l.is_mask)
+            .unwrap_or(false)
+        {
+            last_mask_idx += 1;
+        }
+
+        let mut layers: Vec<_> = linear.drain(layer_idx..last_mask_idx + 1).collect();
+
         let mut target_idx = linear
             .iter()
             .position(|l| target.target() == &l.resource)
@@ -393,25 +407,38 @@ impl Layers {
 
         if let LayerDropTarget::Below(_) = target {
             target_idx += 1;
+
+            if !layers[0].is_mask {
+                while linear.get(target_idx).map(|l| l.is_mask).unwrap_or(false) {
+                    target_idx += 1;
+                }
+            }
         }
 
-        linear.insert(target_idx, layer);
+        linear.splice(target_idx..target_idx, layers.drain(0..));
 
         // Recreate tree
         let mut tree = TreeBuilder::new()
             .with_root(Node::new(Layer::root_layer()))
             .with_node_capacity(linear.len() + 1)
             .build();
-        let mut cursor = tree.root_node_id().unwrap().clone();
+        let mut mask_buf = Vec::new();
+        let root = tree.root_node_id().unwrap().clone();
 
         for layer in linear.drain(0..).rev() {
             if !layer.is_mask {
-                cursor = tree.root_node_id().unwrap().clone()
-            }
+                let cursor = tree
+                    .insert(Node::new(layer), InsertBehavior::UnderNode(&root))
+                    .unwrap()
+                    .clone();
 
-            cursor = tree
-                .insert(Node::new(layer), InsertBehavior::UnderNode(&cursor))
-                .unwrap();
+                for mask in mask_buf.drain(0..) {
+                    tree.insert(Node::new(mask), InsertBehavior::UnderNode(&cursor))
+                        .unwrap();
+                }
+            } else {
+                mask_buf.push(layer);
+            }
         }
 
         // Replace original tree
