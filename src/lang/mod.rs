@@ -678,7 +678,7 @@ pub enum LayerType {
     Fx,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum LayerDropTarget {
     Below(Resource<Node>),
     Above(Resource<Node>),

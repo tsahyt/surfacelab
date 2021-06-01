@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use crate::lang::resource as r;
 use crate::lang::*;
@@ -349,7 +349,74 @@ impl Layers {
         }
     }
 
-    pub fn position_layer(&mut self, layer: &Resource<Node>, target: &LayerDropTarget) {}
+    fn canonical_order(&self) -> VecDeque<id_tree::NodeId> {
+        let mut stack: Vec<(id_tree::NodeId, usize)> = Vec::new();
+        let mut queue: VecDeque<_> = VecDeque::new();
+
+        if let Some(root) = self.layers.root_node_id() {
+            stack.push((root.clone(), 0));
+
+            while !stack.is_empty() {
+                let (current, level) = stack.pop().unwrap();
+                if level > 0 {
+                    queue.push_back(current.clone());
+                }
+                stack.extend(
+                    self.layers
+                        .children_ids(&current)
+                        .unwrap()
+                        .cloned()
+                        .map(|n| (n, level + 1)),
+                );
+            }
+        }
+
+        queue
+    }
+
+    pub fn position_layer(&mut self, layer: &Resource<Node>, target: &LayerDropTarget) {
+        use id_tree::*;
+
+        // Convert Tree to linear list
+        let mut linear: Vec<Layer> = self
+            .canonical_order()
+            .iter()
+            .map(|n| self.layers.get(n).unwrap().data().clone())
+            .collect();
+
+        // Modify list to reflect changes
+        let layer = linear.remove(linear.iter().position(|l| &l.resource == layer).unwrap());
+        let mut target_idx = linear
+            .iter()
+            .position(|l| target.target() == &l.resource)
+            .unwrap();
+
+        if let LayerDropTarget::Below(_) = target {
+            target_idx += 1;
+        }
+
+        linear.insert(target_idx, layer);
+
+        // Recreate tree
+        let mut tree = TreeBuilder::new()
+            .with_root(Node::new(Layer::root_layer()))
+            .with_node_capacity(linear.len() + 1)
+            .build();
+        let mut cursor = tree.root_node_id().unwrap().clone();
+
+        for layer in linear.drain(0..).rev() {
+            if !layer.is_mask {
+                cursor = tree.root_node_id().unwrap().clone()
+            }
+
+            cursor = tree
+                .insert(Node::new(layer), InsertBehavior::UnderNode(&cursor))
+                .unwrap();
+        }
+
+        // Replace original tree
+        self.layers = tree;
+    }
 }
 
 impl Collection for Layers {

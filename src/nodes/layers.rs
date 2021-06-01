@@ -1012,8 +1012,6 @@ impl LayerStack {
 
             self.layers.insert(target, layer);
 
-            dbg!(&self.layers);
-
             Some(())
         }
     }
