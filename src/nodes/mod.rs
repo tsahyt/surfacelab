@@ -1135,7 +1135,15 @@ impl NodeManager {
                         response.push(Lang::LayersEvent(LayersEvent::LayerPositioned(
                             layer_res.clone(),
                             position.clone(),
-                        )))
+                        )));
+
+                        if let Some(linearize) = self.relinearize(&self.active_graph) {
+                            response.push(linearize);
+                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                self.active_graph.clone(),
+                                Vec::new(),
+                            )));
+                        }
                     }
                 }
             }
