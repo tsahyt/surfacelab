@@ -335,7 +335,7 @@ impl Layers {
             {
                 LayerDropTarget::Above(
                     self.layers
-                        .get(&canonical[target + 1].0)
+                        .get(&canonical[target].0)
                         .unwrap()
                         .data()
                         .resource
