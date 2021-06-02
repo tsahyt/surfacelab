@@ -1,5 +1,5 @@
 use crate::ui::app_state::Layer;
-use crate::ui::util;
+use crate::ui::{util, widgets::toolbar};
 use conrod_core::*;
 
 #[derive(WidgetCommon)]
@@ -62,6 +62,7 @@ widget_ids! {
         title,
         title_edit,
         background,
+        toolbar,
     }
 }
 
@@ -71,6 +72,39 @@ pub struct State {
     dragging: bool,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum ContextAction {
+    Delete,
+    AddMask,
+    ToggleExpanded,
+}
+
+fn context_actions(
+    is_mask: bool,
+    base_layer: bool,
+    expanded: Option<bool>,
+) -> Vec<(util::IconName, ContextAction)> {
+    let mut actions = Vec::new();
+
+    if let Some(expanded) = expanded {
+        actions.push((
+            if expanded {
+                util::IconName::DOWN
+            } else {
+                util::IconName::RIGHT
+            },
+            ContextAction::ToggleExpanded,
+        ))
+    }
+    if !is_mask && !base_layer {
+        actions.push((util::IconName::MASK, ContextAction::AddMask));
+    }
+
+    actions.push((util::IconName::TRASH, ContextAction::Delete));
+
+    actions
+}
+
 pub enum Event {
     ActiveElement,
     Retitled(String, String),
@@ -78,6 +112,8 @@ pub enum Event {
     ToggleExpanded,
     Drag(Point),
     Drop,
+    AddMask,
+    Delete,
 }
 
 impl<'a> Widget for LayerRow<'a> {
@@ -107,6 +143,8 @@ impl<'a> Widget for LayerRow<'a> {
             ..
         } = args;
         let mut event = None;
+
+        let hovering = rect.is_over(ui.global_input().current.mouse.xy);
 
         let background_alpha = {
             let dragging_alpha: f32 = if state.dragging { 0.35 } else { 0. };
@@ -214,7 +252,7 @@ impl<'a> Widget for LayerRow<'a> {
             .color(style.color(&ui.theme))
             .font_size(style.icon_size_large(&ui.theme))
             .font_id(style.icon_font(&ui.theme))
-            .mid_right_with_margin(32.0)
+            .mid_right_with_margin(8.0)
             .parent(state.ids.background)
             .set(state.ids.layer_type, ui);
 
@@ -222,26 +260,42 @@ impl<'a> Widget for LayerRow<'a> {
             event = Some(Event::ActiveElement);
         }
 
-        if self.expandable {
-            for _click in util::icon_button(
-                if self.layer.expanded {
-                    util::IconName::DOWN
-                } else {
-                    util::IconName::RIGHT
-                },
-                style.icon_font(&ui.theme),
+        if hovering {
+            match toolbar::Toolbar::flow_left(
+                context_actions(
+                    self.layer.is_mask,
+                    !self.toggleable,
+                    if self.expandable {
+                        Some(self.layer.expanded)
+                    } else {
+                        None
+                    },
+                )
+                .into_iter(),
             )
-            .color(color::TRANSPARENT)
-            .label_font_size(style.icon_size_large(&ui.theme))
-            .label_color(style.color(&ui.theme))
-            .border(0.0)
-            .w_h(32.0, 32.0)
-            .mid_right_with_margin(64.0)
-            .parent(state.ids.background)
-            .set(state.ids.expander_button, ui)
+            .icon_font(style.icon_font(&ui.theme))
+            .icon_color(style.color(&ui.theme))
+            .button_color(color::TRANSPARENT)
+            .button_size(16.0)
+            .icon_size(style.icon_size(&ui.theme))
+            .parent(id)
+            .mid_right_with_margin(40.0)
+            .h(16.0)
+            .set(state.ids.toolbar, ui)
             {
-                event = Some(Event::ToggleExpanded);
+                Some(ContextAction::AddMask) => event = Some(Event::AddMask),
+                Some(ContextAction::Delete) => event = Some(Event::Delete),
+                Some(ContextAction::ToggleExpanded) => event = Some(Event::ToggleExpanded),
+                None => {}
             }
+        } else if self.expandable && !self.layer.expanded {
+            widget::Text::new(util::IconName::RIGHT.0)
+                .color(style.color(&ui.theme))
+                .font_size(style.icon_size(&ui.theme))
+                .font_id(style.icon_font(&ui.theme))
+                .mid_right_with_margin(40.0)
+                .parent(state.ids.background)
+                .set(state.ids.layer_type, ui);
         }
 
         event

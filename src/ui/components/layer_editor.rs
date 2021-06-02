@@ -86,12 +86,6 @@ pub enum MainTool {
     NewFx,
 }
 
-#[derive(Copy, Clone)]
-pub enum ContextTool {
-    Delete,
-    NewMask,
-}
-
 impl<'a> Widget for LayerEditor<'a> {
     type State = State;
     type Style = Style;
@@ -163,54 +157,11 @@ impl<'a> Widget for LayerEditor<'a> {
             _ => panic!("Layers UI built for graph"),
         };
 
-        if let Some((is_base, active_layer)) =
-            active_collection
-                .active_element
-                .clone()
-                .and_then(|node_id| {
-                    Some((
-                        active_collection.is_base_layer(&node_id),
-                        active_collection.layers.get_mut(&node_id).ok()?.data_mut(),
-                    ))
-                })
+        if let Some(active_layer) = active_collection
+            .active_element
+            .clone()
+            .and_then(|node_id| Some(active_collection.layers.get_mut(&node_id).ok()?.data_mut()))
         {
-            let mut context_tools = vec![(IconName::TRASH, ContextTool::Delete)];
-
-            if !is_base && !active_layer.is_mask {
-                context_tools.push((IconName::MASK, ContextTool::NewMask));
-            }
-
-            match toolbar::Toolbar::flow_left(context_tools.drain(0..))
-                .icon_font(style.icon_font(&ui.theme))
-                .icon_color(color::WHITE)
-                .button_color(color::DARK_CHARCOAL)
-                .parent(id)
-                .w(64.0 + 8.0)
-                .h(32.0)
-                .top_right_with_margins(8.0, 0.0)
-                .set(state.ids.context_toolbar, ui)
-            {
-                Some(ContextTool::Delete) => {
-                    self.sender
-                        .send(if active_layer.is_mask {
-                            Lang::UserLayersEvent(UserLayersEvent::RemoveMask(
-                                active_layer.resource.clone(),
-                            ))
-                        } else {
-                            Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
-                                active_layer.resource.clone(),
-                            ))
-                        })
-                        .unwrap();
-                }
-                Some(ContextTool::NewMask) => {
-                    state.update(|state| {
-                        state.modal = Some(LayerFilter::Mask(active_layer.resource.clone()))
-                    });
-                }
-                _ => {}
-            }
-
             if let Some(new_selection) =
                 widget::DropDownList::new(&blend_modes, Some(active_layer.blend_mode))
                     .label_font_size(10)
@@ -288,7 +239,7 @@ impl<'a> Widget for LayerEditor<'a> {
         while let Some(row) = rows.next(ui) {
             let node_id = row.node_id.clone();
             let i = row.i;
-            let toggleable = !active_collection.is_base_layer(&node_id);
+            let is_base = active_collection.is_base_layer(&node_id);
             let expandable = active_collection.expandable(&node_id);
             let data = &mut active_collection
                 .layers
@@ -300,7 +251,7 @@ impl<'a> Widget for LayerEditor<'a> {
                 data,
                 Some(row.node_id) == active_collection.active_element,
             )
-            .toggleable(toggleable)
+            .toggleable(!is_base)
             .expandable(expandable)
             .color(color::WHITE)
             .icon_size(10)
@@ -364,6 +315,24 @@ impl<'a> Widget for LayerEditor<'a> {
                                 .unwrap();
                             state.update(|state| state.drag = None);
                         }
+                    }
+                    layer_row::Event::Delete => {
+                        self.sender
+                            .send(if data.is_mask {
+                                Lang::UserLayersEvent(UserLayersEvent::RemoveMask(
+                                    data.resource.clone(),
+                                ))
+                            } else {
+                                Lang::UserLayersEvent(UserLayersEvent::RemoveLayer(
+                                    data.resource.clone(),
+                                ))
+                            })
+                            .unwrap();
+                    }
+                    layer_row::Event::AddMask => {
+                        state.update(|state| {
+                            state.modal = Some(LayerFilter::Mask(data.resource.clone()))
+                        });
                     }
                 }
             }
