@@ -1016,6 +1016,11 @@ impl LayerStack {
         res: &Resource<Node>,
         position: &LayerDropTarget,
     ) -> Option<()> {
+        // First, ensure that this is a proper move, otherwise the reordering
+        // algorithm will mess up the stack, fail later, and everything is
+        // terrible.
+        if res == position.target() { return None; }
+
         if res.path_str().unwrap().contains("mask") {
             let parent_resource = layer_resource_from_mask_resource(res);
 
