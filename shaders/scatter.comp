@@ -6,6 +6,7 @@ layout(set = 0, binding = 0) uniform Params {
     uint edge_mode;
     uint blend_mode;
     uint adjust_levels;
+    uint supersample;
     int scale;
     float randomness;
     float random_rot;
@@ -145,7 +146,22 @@ void main() {
     ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     ivec2 resolution = imageSize(t_Out);
     vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
-    vec4 col = vec4(scatter(uv), 1.);
 
-    imageStore(t_Out, idx, col);
+    vec3 col = vec3(0.);
+
+    if(supersample != 0) {
+        vec2 sub_sample = 0.25 / vec2(resolution);
+
+        for(int x = - 2; x <= 2; ++x) {
+            for(int y = - 2; y <= 2; ++y) {
+                vec2 uv_ = uv + vec2(x, y) * sub_sample;
+                col += scatter(uv_);
+            }
+        }
+        col /= 25.;
+    } else {
+        col = scatter(uv);
+    }
+
+    imageStore(t_Out, idx, vec4(col, 1.));
 }

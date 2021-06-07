@@ -66,6 +66,7 @@ pub struct Scatter {
     edge_mode: EdgeMode,
     blend_mode: BlendMode,
     adjust_levels: ParameterBool,
+    supersample: ParameterBool,
     scale: i32,
     randomness: f32,
     random_rot: f32,
@@ -78,6 +79,7 @@ impl Default for Scatter {
             edge_mode: EdgeMode::Clamp,
             blend_mode: BlendMode::Max,
             adjust_levels: 1,
+            supersample: 0,
             scale: 8,
             randomness: 0.5,
             random_rot: 1.,
@@ -196,6 +198,16 @@ impl OperatorParamBox for Scatter {
                             "blend-mode",
                             |t: BlendMode| t.has_adjust_levels(),
                         ),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "supersample".to_string(),
+                        transmitter: Field(Scatter::SUPERSAMPLE.to_string()),
+                        control: Control::Toggle {
+                            def: self.supersample == 1,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
                         presetable: true,
                     },
                     Parameter {
