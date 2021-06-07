@@ -91,6 +91,7 @@ impl Socketed for Scatter {
         hashmap! {
             "pattern".to_string() => (OperatorType::Polymorphic(0), false),
             "probability".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), true),
+            "size".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), true),
         }
     }
 
@@ -132,10 +133,14 @@ impl Shader for Scatter {
                 },
                 OperatorDescriptor {
                     binding: 4,
-                    descriptor: OperatorDescriptorUse::Sampler,
+                    descriptor: OperatorDescriptorUse::InputImage("size"),
                 },
                 OperatorDescriptor {
                     binding: 5,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 6,
                     descriptor: OperatorDescriptorUse::OutputImage("out"),
                 },
             ],

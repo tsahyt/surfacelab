@@ -25,12 +25,14 @@ const uint OCCUPANCY_UNOCCUPIED = 2;
 layout(set = 0, binding = 1) uniform Occupancy {
     uint occ_pattern;
     uint occ_probability;
+    uint occ_size;
 };
 
 layout(set = 0, binding = 2) uniform texture2D t_Pattern;
 layout(set = 0, binding = 3) uniform texture2D t_Probability;
-layout(set = 0, binding = 4) uniform sampler Sampler;
-layout(set = 0, binding = 5, rgba16f) uniform image2D t_Out;
+layout(set = 0, binding = 4) uniform texture2D t_Size;
+layout(set = 0, binding = 5) uniform sampler Sampler;
+layout(set = 0, binding = 6, rgba16f) uniform image2D t_Out;
 
 const float TAU = 6.283185307;
 const float INF = 1. / 0.;
@@ -51,6 +53,14 @@ vec4 hash42(vec2 p) {
 float probability(vec2 p) {
     if(occ_probability != OCCUPANCY_UNOCCUPIED) {
         return texture(sampler2D(t_Probability, Sampler), p).r;
+    } else {
+        return 1.;
+    }
+}
+
+float size(vec2 p) {
+    if(occ_size != OCCUPANCY_UNOCCUPIED) {
+        return texture(sampler2D(t_Size, Sampler), p).r;
     } else {
         return 1.;
     }
@@ -108,6 +118,7 @@ vec3 scatter(vec2 uv) {
             vec4 local_hash = hash42(local_id);
 
             float probability_threshold = probability((local_id + .5) / scale);
+            float local_size = size((local_id + .5) / scale);
 
             if(length(local_hash) / 2. > probability_threshold) {
                 continue;
@@ -115,7 +126,7 @@ vec3 scatter(vec2 uv) {
 
             vec2 local_uv = cell_uv + offset;
 
-            local_uv = ((2 * local_uv - 1.) / clamp(local_hash.w, random_scale, 1.0) + 1.) / 2.;
+            local_uv = ((2 * local_uv - 1.) / (local_size * clamp(local_hash.w, random_scale, 1.0)) + 1.) / 2.;
             local_uv -= (2 * local_hash.xy - 1.) * randomness;
             local_uv = (rot(local_hash.z * TAU * random_rot) * (2 * local_uv - 1.) + 1.) / 2.;
 
