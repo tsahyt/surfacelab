@@ -9,9 +9,17 @@ layout(set = 0, binding = 0) uniform Params {
     float random_scale;
 };
 
-layout(set = 0, binding = 1) uniform texture2D t_Pattern;
-layout(set = 0, binding = 2) uniform sampler Sampler;
-layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
+const uint OCCUPANCY_UNOCCUPIED = 2;
+
+layout(set = 0, binding = 1) uniform Occupancy {
+    uint occ_pattern;
+    uint occ_probability;
+};
+
+layout(set = 0, binding = 2) uniform texture2D t_Pattern;
+layout(set = 0, binding = 3) uniform texture2D t_Probability;
+layout(set = 0, binding = 4) uniform sampler Sampler;
+layout(set = 0, binding = 5, rgba16f) uniform image2D t_Out;
 
 const float TAU = 6.283185307;
 
@@ -28,8 +36,12 @@ vec4 hash42(vec2 p) {
     return fract((p4.xxyz+p4.yzzw)*p4.zywx);
 }
 
-float density(vec2 p) {
-    return 1.;
+float probability(vec2 p) {
+    if(occ_probability != OCCUPANCY_UNOCCUPIED) {
+        return texture(sampler2D(t_Probability, Sampler), p).r;
+    } else {
+        return 1.;
+    }
 }
 
 vec3 pattern(vec2 uv) {
@@ -56,9 +68,9 @@ vec3 scatter(vec2 uv) {
             vec2 local_id = neighbour(cell_id, offset, scale);
             vec4 local_hash = hash42(local_id);
 
-            float density_threshold = density((local_id + .5) / scale);
+            float probability_threshold = probability((local_id + .5) / scale);
 
-            if(length(local_hash) / 2. > density_threshold) {
+            if(length(local_hash) / 2. > probability_threshold) {
                 continue;
             }
 

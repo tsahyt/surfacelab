@@ -32,7 +32,8 @@ impl Default for Scatter {
 impl Socketed for Scatter {
     fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "pattern".to_string() => (OperatorType::Polymorphic(0), false)
+            "pattern".to_string() => (OperatorType::Polymorphic(0), false),
+            "probability".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), true),
         }
     }
 
@@ -62,14 +63,22 @@ impl Shader for Scatter {
                 },
                 OperatorDescriptor {
                     binding: 1,
-                    descriptor: OperatorDescriptorUse::InputImage("pattern"),
+                    descriptor: OperatorDescriptorUse::Occupancy,
                 },
                 OperatorDescriptor {
                     binding: 2,
-                    descriptor: OperatorDescriptorUse::Sampler,
+                    descriptor: OperatorDescriptorUse::InputImage("pattern"),
                 },
                 OperatorDescriptor {
                     binding: 3,
+                    descriptor: OperatorDescriptorUse::InputImage("probability"),
+                },
+                OperatorDescriptor {
+                    binding: 4,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 5,
                     descriptor: OperatorDescriptorUse::OutputImage("out"),
                 },
             ],
