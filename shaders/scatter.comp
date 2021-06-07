@@ -1,0 +1,85 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    int scale;
+    float randomness;
+    float random_rot;
+    float random_scale;
+};
+
+layout(set = 0, binding = 1) uniform texture2D t_Pattern;
+layout(set = 0, binding = 2) uniform sampler Sampler;
+layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
+
+const float TAU = 6.283185307;
+
+mat2 rot(float theta) {
+    return mat2(
+        vec2(cos(theta), - sin(theta)),
+        vec2(sin(theta), cos(theta))
+    );
+}
+
+vec4 hash42(vec2 p) {
+    vec4 p4 = fract(vec4(p.xyxy) * vec4(.1031, .1030, .0973, .1099));
+    p4 += dot(p4, p4.wzxy+33.33);
+    return fract((p4.xxyz+p4.yzzw)*p4.zywx);
+}
+
+float density(vec2 p) {
+    return 1.;
+}
+
+vec3 pattern(vec2 uv) {
+    uv = clamp(uv, 0., 1.);
+    return texture(sampler2D(t_Pattern, Sampler), uv).rgb;
+}
+
+vec2 neighbour(vec2 cell, vec2 offset, float scale) {
+    return mod(cell - offset + 0.5, scale) - 0.5;
+}
+
+vec3 scatter(vec2 uv) {
+    uv *= scale;
+
+    vec2 cell_uv = fract(uv);
+    vec2 cell_id = floor(uv);
+
+    vec3 c = vec3(0.);
+
+    // Sample 3x3 Neighborhood
+    for(int i = - 1; i <= 1; ++i) {
+        for(int j = - 1; j <= 1; ++j) {
+            vec2 offset = vec2(i, j);
+            vec2 local_id = neighbour(cell_id, offset, scale);
+            vec4 local_hash = hash42(local_id);
+
+            float density_threshold = density((local_id + .5) / scale);
+
+            if(length(local_hash) / 2. > density_threshold) {
+                continue;
+            }
+
+            vec2 local_uv = cell_uv + offset;
+
+            local_uv = ((2 * local_uv - 1.) / clamp(local_hash.w, random_scale, 1.0) + 1.) / 2.;
+            local_uv -= (2 * local_hash.xy - 1.) * randomness;
+            local_uv = (rot(local_hash.z * TAU * random_rot) * (2 * local_uv - 1.) + 1.) / 2.;
+
+            c += pattern(local_uv);
+        }
+    }
+
+    return c;
+}
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_Out);
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+    vec4 col = vec4(scatter(uv), 1.);
+
+    imageStore(t_Out, idx, col);
+}
