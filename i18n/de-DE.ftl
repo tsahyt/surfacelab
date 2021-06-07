@@ -252,3 +252,10 @@ select-mode-color = Selektionsmodus
 chrominance = Chroma
 band = Band
 bandwidth = Bandbreite
+
+random-rot = Zufällige Rotation
+random-size = Zufällige Größe
+adjust-levels = Wertkorrektur
+edge-mode = Kantenmodus
+tile = Wiederholen
+solid = Fest

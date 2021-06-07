@@ -3,11 +3,22 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0) uniform Params {
+    uint edge_mode;
+    uint blend_mode;
+    uint adjust_levels;
     int scale;
     float randomness;
     float random_rot;
     float random_scale;
 };
+
+const uint EDGE_MODE_CLAMP = 0;
+const uint EDGE_MODE_TILE = 1;
+const uint EDGE_MODE_SOLID = 2;
+
+const uint BLEND_MODE_ADD = 0;
+const uint BLEND_MODE_MAX = 1;
+const uint BLEND_MODE_MIN = 2;
 
 const uint OCCUPANCY_UNOCCUPIED = 2;
 
@@ -22,6 +33,7 @@ layout(set = 0, binding = 4) uniform sampler Sampler;
 layout(set = 0, binding = 5, rgba16f) uniform image2D t_Out;
 
 const float TAU = 6.283185307;
+const float INF = 1. / 0.;
 
 mat2 rot(float theta) {
     return mat2(
@@ -45,12 +57,35 @@ float probability(vec2 p) {
 }
 
 vec3 pattern(vec2 uv) {
-    uv = clamp(uv, 0., 1.);
-    return texture(sampler2D(t_Pattern, Sampler), uv).rgb;
+    switch(edge_mode) {
+        case EDGE_MODE_CLAMP:
+            uv = clamp(uv, 0., 1.);
+        case EDGE_MODE_TILE:
+            return texture(sampler2D(t_Pattern, Sampler), uv).rgb;
+        case EDGE_MODE_SOLID:
+            if(fract(uv) != uv) {
+                return vec3(0.);
+            } else {
+                return texture(sampler2D(t_Pattern, Sampler), uv).rgb;
+            }
+    }
 }
 
 vec2 neighbour(vec2 cell, vec2 offset, float scale) {
     return mod(cell - offset + 0.5, scale) - 0.5;
+}
+
+vec3 blend(vec3 a, vec3 b) {
+    switch(blend_mode) {
+        case BLEND_MODE_ADD:
+            return a + b;
+        case BLEND_MODE_MAX:
+            return max(a, b);
+        case BLEND_MODE_MIN:
+            return min(a, b);
+    }
+
+    return vec3(0.);
 }
 
 vec3 scatter(vec2 uv) {
@@ -60,6 +95,10 @@ vec3 scatter(vec2 uv) {
     vec2 cell_id = floor(uv);
 
     vec3 c = vec3(0.);
+
+    if(blend_mode == BLEND_MODE_MIN) {
+        c = vec3(INF);
+    }
 
     // Sample 3x3 Neighborhood
     for(int i = - 1; i <= 1; ++i) {
@@ -80,8 +119,12 @@ vec3 scatter(vec2 uv) {
             local_uv -= (2 * local_hash.xy - 1.) * randomness;
             local_uv = (rot(local_hash.z * TAU * random_rot) * (2 * local_uv - 1.) + 1.) / 2.;
 
-            c += pattern(local_uv);
+            c = blend(c, pattern(local_uv));
         }
+    }
+
+    if(blend_mode == BLEND_MODE_ADD && adjust_levels != 0) {
+        c /= 9;
     }
 
     return c;

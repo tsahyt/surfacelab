@@ -254,3 +254,10 @@ select-mode-color = Select Mode
 chrominance = Chrominance
 band = Band
 bandwidth = Bandwidth
+
+random-rot = Random Rotation
+random-size = Random Size
+adjust-levels = Adjust Levels
+edge-mode = Edge Mode
+tile = Tile
+solid = Solid

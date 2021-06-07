@@ -4,27 +4,84 @@ use crate::compute::shaders::*;
 use crate::shader;
 
 use maplit::hashmap;
+use num_enum::TryFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum::VariantNames;
+use strum_macros::*;
 use surfacelab_derive::*;
 use zerocopy::AsBytes;
+
+#[repr(u32)]
+#[derive(
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    TryFromPrimitive,
+)]
+#[strum(serialize_all = "kebab_case")]
+pub enum EdgeMode {
+    Clamp = 0,
+    Tile = 1,
+    Solid = 2,
+}
+
+#[repr(u32)]
+#[derive(
+    AsBytes,
+    Clone,
+    Copy,
+    Debug,
+    EnumIter,
+    EnumVariantNames,
+    EnumString,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    TryFromPrimitive,
+)]
+#[strum(serialize_all = "kebab_case")]
+pub enum BlendMode {
+    Add = 0,
+    Max = 1,
+    Min = 2,
+}
+
+impl BlendMode {
+    pub fn has_adjust_levels(self) -> bool {
+        matches!(self, Self::Add)
+    }
+}
 
 #[repr(C)]
 #[derive(AsBytes, Clone, Copy, Debug, Serialize, Deserialize, Parameters, PartialEq)]
 pub struct Scatter {
+    edge_mode: EdgeMode,
+    blend_mode: BlendMode,
+    adjust_levels: ParameterBool,
     scale: i32,
     randomness: f32,
     random_rot: f32,
-    random_scale: f32,
+    random_size: f32,
 }
 
 impl Default for Scatter {
     fn default() -> Self {
         Self {
+            edge_mode: EdgeMode::Clamp,
+            blend_mode: BlendMode::Max,
+            adjust_levels: 1,
             scale: 8,
             randomness: 0.5,
             random_rot: 1.,
-            random_scale: 1.,
+            random_size: 1.,
         }
     }
 }
@@ -102,6 +159,41 @@ impl OperatorParamBox for Scatter {
                 visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
+                        name: "edge-mode".to_string(),
+                        transmitter: Field(Scatter::EDGE_MODE.to_string()),
+                        control: Control::Enum {
+                            selected: self.edge_mode as usize,
+                            variants: EdgeMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "blend-mode".to_string(),
+                        transmitter: Field(Scatter::BLEND_MODE.to_string()),
+                        control: Control::Enum {
+                            selected: self.blend_mode as usize,
+                            variants: BlendMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "adjust-levels".to_string(),
+                        transmitter: Field(Scatter::ADJUST_LEVELS.to_string()),
+                        control: Control::Toggle {
+                            def: self.adjust_levels == 1,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "blend-mode",
+                            |t: BlendMode| t.has_adjust_levels(),
+                        ),
+                        presetable: true,
+                    },
+                    Parameter {
                         name: "scale".to_string(),
                         transmitter: Field(Scatter::SCALE.to_string()),
                         control: Control::DiscreteSlider {
@@ -138,10 +230,10 @@ impl OperatorParamBox for Scatter {
                         presetable: true,
                     },
                     Parameter {
-                        name: "random-scale".to_string(),
-                        transmitter: Field(Scatter::RANDOM_SCALE.to_string()),
+                        name: "random-size".to_string(),
+                        transmitter: Field(Scatter::RANDOM_SIZE.to_string()),
                         control: Control::Slider {
-                            value: self.random_scale,
+                            value: self.random_size,
                             min: 0.,
                             max: 1.,
                         },
