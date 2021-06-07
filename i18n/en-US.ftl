@@ -261,3 +261,4 @@ adjust-levels = Adjust Levels
 edge-mode = Edge Mode
 tile = Tile
 solid = Solid
+density = Density

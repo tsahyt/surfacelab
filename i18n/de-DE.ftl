@@ -259,3 +259,4 @@ adjust-levels = Wertkorrektur
 edge-mode = Kantenmodus
 tile = Wiederholen
 solid = Fest
+density = Dichte

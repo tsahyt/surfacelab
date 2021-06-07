@@ -8,6 +8,7 @@ layout(set = 0, binding = 0) uniform Params {
     uint adjust_levels;
     uint supersample;
     int scale;
+    float density;
     float randomness;
     float random_rot;
     float random_scale;
@@ -118,7 +119,7 @@ vec3 scatter(vec2 uv) {
             vec2 local_id = neighbour(cell_id, offset, scale);
             vec4 local_hash = hash42(local_id);
 
-            float probability_threshold = probability((local_id + .5) / scale);
+            float probability_threshold = probability((local_id + .5) / scale) * density;
             float local_size = size((local_id + .5) / scale);
 
             if(length(local_hash) / 2. > probability_threshold) {
