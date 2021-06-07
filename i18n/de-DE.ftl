@@ -260,3 +260,4 @@ edge-mode = Kantenmodus
 tile = Wiederholen
 solid = Fest
 density = Dichte
+size = Größe

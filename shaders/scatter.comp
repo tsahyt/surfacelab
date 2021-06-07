@@ -8,6 +8,7 @@ layout(set = 0, binding = 0) uniform Params {
     uint adjust_levels;
     uint supersample;
     int scale;
+    float global_size;
     float density;
     float randomness;
     float random_rot;
@@ -120,7 +121,7 @@ vec3 scatter(vec2 uv) {
             vec4 local_hash = hash42(local_id);
 
             float probability_threshold = probability((local_id + .5) / scale) * density;
-            float local_size = size((local_id + .5) / scale);
+            float local_size = size((local_id + .5) / scale) * global_size;
 
             if(length(local_hash) / 2. > probability_threshold) {
                 continue;

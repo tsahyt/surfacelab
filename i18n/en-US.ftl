@@ -262,3 +262,4 @@ edge-mode = Edge Mode
 tile = Tile
 solid = Solid
 density = Density
+size = Size
