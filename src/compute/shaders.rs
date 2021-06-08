@@ -278,6 +278,22 @@ where
                 let source_size = input_images[*source].get_size() as i32;
                 let target_size = intermediate_images[*target].get_size() as i32;
 
+                cmd_buffer.pipeline_barrier(
+                    gfx_hal::pso::PipelineStage::TOP_OF_PIPE..gfx_hal::pso::PipelineStage::TRANSFER,
+                    gfx_hal::memory::Dependencies::empty(),
+                    &[
+                        input_images[*source].barrier_to(
+                            &input_images_locks[*source],
+                            gfx_hal::image::Access::TRANSFER_READ,
+                            gfx_hal::image::Layout::TransferSrcOptimal,
+                        ),
+                        intermediate_images[*target].barrier_to(
+                            &intermediate_images_locks[*target],
+                            gfx_hal::image::Access::TRANSFER_WRITE,
+                            gfx_hal::image::Layout::TransferDstOptimal,
+                        ),
+                    ],
+                );
                 cmd_buffer.blit_image(
                     &input_images_locks[*source],
                     input_images[*source].get_layout(),
@@ -310,6 +326,24 @@ where
                                 },
                         }
                     }),
+                );
+                cmd_buffer.pipeline_barrier(
+                    gfx_hal::pso::PipelineStage::TRANSFER
+                        ..gfx_hal::pso::PipelineStage::COMPUTE_SHADER,
+                    gfx_hal::memory::Dependencies::empty(),
+                    &[
+                        input_images[*source].barrier_to(
+                            &input_images_locks[*source],
+                            gfx_hal::image::Access::SHADER_READ,
+                            gfx_hal::image::Layout::ShaderReadOnlyOptimal,
+                        ),
+                        intermediate_images[*target].barrier_to(
+                            &intermediate_images_locks[*target],
+                            gfx_hal::image::Access::SHADER_READ
+                                | gfx_hal::image::Access::SHADER_WRITE,
+                            gfx_hal::image::Layout::General,
+                        ),
+                    ],
                 );
             },
             Self::SynchronizeImage(descs) => unsafe {
