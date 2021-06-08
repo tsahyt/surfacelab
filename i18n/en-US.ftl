@@ -257,6 +257,7 @@ bandwidth = Bandwidth
 
 random-rot = Random Rotation
 random-size = Random Size
+random-intensity = Random Intensity
 adjust-levels = Adjust Levels
 edge-mode = Edge Mode
 tile = Tile

@@ -69,10 +69,12 @@ pub struct Scatter {
     supersample: ParameterBool,
     scale: i32,
     size: f32,
+    intensity: f32,
     density: f32,
     randomness: f32,
     random_rot: f32,
     random_size: f32,
+    random_intensity: f32,
 }
 
 impl Default for Scatter {
@@ -84,10 +86,12 @@ impl Default for Scatter {
             supersample: 0,
             scale: 8,
             size: 1.,
+            intensity: 1.,
             density: 1.,
             randomness: 0.5,
             random_rot: 1.,
-            random_size: 1.,
+            random_size: 0.,
+            random_intensity: 1.,
         }
     }
 }
@@ -95,9 +99,10 @@ impl Default for Scatter {
 impl Socketed for Scatter {
     fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "pattern".to_string() => (OperatorType::Polymorphic(0), false),
+            "image".to_string() => (OperatorType::Polymorphic(0), false),
             "probability".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), true),
             "size".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), true),
+            "intensity".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), true),
         }
     }
 
@@ -131,7 +136,7 @@ impl Shader for Scatter {
                 },
                 OperatorDescriptor {
                     binding: 2,
-                    descriptor: OperatorDescriptorUse::InputImage("pattern"),
+                    descriptor: OperatorDescriptorUse::InputImage("image"),
                 },
                 OperatorDescriptor {
                     binding: 3,
@@ -143,10 +148,14 @@ impl Shader for Scatter {
                 },
                 OperatorDescriptor {
                     binding: 5,
-                    descriptor: OperatorDescriptorUse::Sampler,
+                    descriptor: OperatorDescriptorUse::InputImage("intensity"),
                 },
                 OperatorDescriptor {
                     binding: 6,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 7,
                     descriptor: OperatorDescriptorUse::OutputImage("out"),
                 },
             ],
@@ -239,6 +248,18 @@ impl OperatorParamBox for Scatter {
                         presetable: true,
                     },
                     Parameter {
+                        name: "intensity".to_string(),
+                        transmitter: Field(Scatter::INTENSITY.to_string()),
+                        control: Control::Slider {
+                            value: self.density,
+                            min: 0.,
+                            max: 1.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
                         name: "density".to_string(),
                         transmitter: Field(Scatter::DENSITY.to_string()),
                         control: Control::Slider {
@@ -279,6 +300,18 @@ impl OperatorParamBox for Scatter {
                         transmitter: Field(Scatter::RANDOM_SIZE.to_string()),
                         control: Control::Slider {
                             value: self.random_size,
+                            min: 0.,
+                            max: 1.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "random-intensity".to_string(),
+                        transmitter: Field(Scatter::RANDOM_INTENSITY.to_string()),
+                        control: Control::Slider {
+                            value: self.density,
                             min: 0.,
                             max: 1.,
                         },

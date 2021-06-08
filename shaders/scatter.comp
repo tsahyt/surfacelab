@@ -9,10 +9,12 @@ layout(set = 0, binding = 0) uniform Params {
     uint supersample;
     int scale;
     float global_size;
+    float global_intensity;
     float density;
     float randomness;
     float random_rot;
     float random_scale;
+    float random_intensity;
 };
 
 const uint EDGE_MODE_CLAMP = 0;
@@ -26,7 +28,8 @@ const uint BLEND_MODE_MIN = 2;
 const uint OCCUPANCY_UNOCCUPIED = 2;
 
 layout(set = 0, binding = 1) uniform Occupancy {
-    uint occ_pattern;
+    uint occ_image;
+    uint occ_intensity;
     uint occ_probability;
     uint occ_size;
 };
@@ -34,8 +37,9 @@ layout(set = 0, binding = 1) uniform Occupancy {
 layout(set = 0, binding = 2) uniform texture2D t_Pattern;
 layout(set = 0, binding = 3) uniform texture2D t_Probability;
 layout(set = 0, binding = 4) uniform texture2D t_Size;
-layout(set = 0, binding = 5) uniform sampler Sampler;
-layout(set = 0, binding = 6, rgba16f) uniform image2D t_Out;
+layout(set = 0, binding = 5) uniform texture2D t_Intensity;
+layout(set = 0, binding = 6) uniform sampler Sampler;
+layout(set = 0, binding = 7, rgba16f) uniform image2D t_Out;
 
 const float TAU = 6.283185307;
 const float INF = 1. / 0.;
@@ -64,6 +68,14 @@ float probability(vec2 p) {
 float size(vec2 p) {
     if(occ_size != OCCUPANCY_UNOCCUPIED) {
         return texture(sampler2D(t_Size, Sampler), p).r;
+    } else {
+        return 1.;
+    }
+}
+
+float intensity(vec2 p) {
+    if(occ_intensity != OCCUPANCY_UNOCCUPIED) {
+        return texture(sampler2D(t_Intensity, Sampler), p).r;
     } else {
         return 1.;
     }
@@ -119,21 +131,23 @@ vec3 scatter(vec2 uv) {
             vec2 offset = vec2(i, j);
             vec2 local_id = neighbour(cell_id, offset, scale);
             vec4 local_hash = hash42(local_id);
+            vec4 local_hash2 = hash42(local_hash.xz);
 
             float probability_threshold = probability((local_id + .5) / scale) * density;
             float local_size = size((local_id + .5) / scale) * global_size;
+            float local_intensity = intensity((local_id + .5) / scale) * global_intensity;
 
-            if(length(local_hash) / 2. > probability_threshold) {
+            if(local_hash2.x > probability_threshold) {
                 continue;
             }
 
             vec2 local_uv = cell_uv + offset;
 
-            local_uv = ((2 * local_uv - 1.) / (local_size * clamp(local_hash.w, random_scale, 1.0)) + 1.) / 2.;
+            local_uv = ((2 * local_uv - 1.) / (local_size * clamp(local_hash.w, 1. - random_scale, 1.0)) + 1.) / 2.;
             local_uv -= (2 * local_hash.xy - 1.) * randomness;
             local_uv = (rot(local_hash.z * TAU * random_rot) * (2 * local_uv - 1.) + 1.) / 2.;
 
-            c = blend(c, pattern(local_uv));
+            c = blend(c, pattern(local_uv) * clamp(local_hash2.y, 1. - random_intensity, 1.) * local_intensity);
         }
     }
 
