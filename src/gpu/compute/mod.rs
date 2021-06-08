@@ -387,11 +387,12 @@ where
         intermediate_images: J,
         buffer_builder: F,
     ) where
-        I: Iterator<Item = &'a Image<B>> + Clone,
+        I: Iterator<Item = (&'a String, &'a Image<B>)> + Clone,
         O: Iterator<Item = &'a Image<B>> + Clone,
         J: Iterator<Item = (&'a String, &'a Image<B>)> + Clone,
         F: FnOnce(
             u32,
+            &std::collections::HashMap<String, MutexGuard<B::Image>>,
             &std::collections::HashMap<String, MutexGuard<B::Image>>,
             &mut B::CommandBuffer,
         ),
@@ -401,9 +402,9 @@ where
             lock.device.reset_fence(&self.fence).unwrap();
         }
 
-        let input_locks: SmallVec<[_; 6]> = input_images
+        let input_locks: HashMap<_, _> = input_images
             .clone()
-            .map(|i| i.get_raw().lock().unwrap())
+            .map(|(name, i)| (name.to_string(), i.get_raw().lock().unwrap()))
             .collect();
         let output_locks: SmallVec<[_; 2]> = output_images
             .clone()
@@ -415,9 +416,9 @@ where
             .collect();
 
         let pre_barriers = {
-            let input_barriers = input_images.enumerate().map(|(k, i)| {
+            let input_barriers = input_images.map(|(n, i)| {
                 i.barrier_to(
-                    &input_locks[k],
+                    &input_locks[n],
                     hal::image::Access::SHADER_READ,
                     hal::image::Layout::ShaderReadOnlyOptimal,
                 )
@@ -449,7 +450,12 @@ where
                 hal::memory::Dependencies::empty(),
                 pre_barriers,
             );
-            buffer_builder(image_size, &intermediate_locks, &mut command_buffer);
+            buffer_builder(
+                image_size,
+                &input_locks,
+                &intermediate_locks,
+                &mut command_buffer,
+            );
             command_buffer.finish();
             command_buffer
         };

@@ -123,48 +123,61 @@ impl Socketed for Scatter {
 
 impl Shader for Scatter {
     fn operator_passes(&self) -> Vec<OperatorPassDescription> {
-        vec![OperatorPassDescription::RunShader(OperatorShader {
-            spirv: shader!("scatter"),
-            descriptors: &[
-                OperatorDescriptor {
-                    binding: 0,
-                    descriptor: OperatorDescriptorUse::Uniforms,
+        vec![
+            OperatorPassDescription::GenerateMips("image", "mips"),
+            OperatorPassDescription::RunShader(OperatorShader {
+                spirv: shader!("scatter"),
+                descriptors: &[
+                    OperatorDescriptor {
+                        binding: 0,
+                        descriptor: OperatorDescriptorUse::Uniforms,
+                    },
+                    OperatorDescriptor {
+                        binding: 1,
+                        descriptor: OperatorDescriptorUse::Occupancy,
+                    },
+                    OperatorDescriptor {
+                        binding: 2,
+                        descriptor: OperatorDescriptorUse::IntermediateImage("mips"),
+                    },
+                    OperatorDescriptor {
+                        binding: 3,
+                        descriptor: OperatorDescriptorUse::InputImage("probability"),
+                    },
+                    OperatorDescriptor {
+                        binding: 4,
+                        descriptor: OperatorDescriptorUse::InputImage("size"),
+                    },
+                    OperatorDescriptor {
+                        binding: 5,
+                        descriptor: OperatorDescriptorUse::InputImage("intensity"),
+                    },
+                    OperatorDescriptor {
+                        binding: 6,
+                        descriptor: OperatorDescriptorUse::Sampler,
+                    },
+                    OperatorDescriptor {
+                        binding: 7,
+                        descriptor: OperatorDescriptorUse::OutputImage("out"),
+                    },
+                ],
+                specialization: Specialization::default(),
+                shape: OperatorShape::PerPixel {
+                    local_x: 8,
+                    local_y: 8,
                 },
-                OperatorDescriptor {
-                    binding: 1,
-                    descriptor: OperatorDescriptorUse::Occupancy,
-                },
-                OperatorDescriptor {
-                    binding: 2,
-                    descriptor: OperatorDescriptorUse::InputImage("image"),
-                },
-                OperatorDescriptor {
-                    binding: 3,
-                    descriptor: OperatorDescriptorUse::InputImage("probability"),
-                },
-                OperatorDescriptor {
-                    binding: 4,
-                    descriptor: OperatorDescriptorUse::InputImage("size"),
-                },
-                OperatorDescriptor {
-                    binding: 5,
-                    descriptor: OperatorDescriptorUse::InputImage("intensity"),
-                },
-                OperatorDescriptor {
-                    binding: 6,
-                    descriptor: OperatorDescriptorUse::Sampler,
-                },
-                OperatorDescriptor {
-                    binding: 7,
-                    descriptor: OperatorDescriptorUse::OutputImage("out"),
-                },
-            ],
-            specialization: Specialization::default(),
-            shape: OperatorShape::PerPixel {
-                local_x: 8,
-                local_y: 8,
-            },
-        })]
+            }),
+        ]
+    }
+
+    fn intermediate_data(&self) -> HashMap<String, IntermediateDataDescription> {
+        hashmap! {
+            "mips".to_string() => IntermediateDataDescription::Image {
+                size: FromSocketOr::FromSocket("image"),
+                ty: FromSocketOr::FromSocket("image"),
+                mips: true
+            }
+        }
     }
 }
 

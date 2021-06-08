@@ -7,14 +7,6 @@ use std::sync::{Arc, Mutex};
 use std::{cell::Cell, ops::Range};
 use thiserror::Error;
 
-pub const COLOR_RANGE: hal::image::SubresourceRange = hal::image::SubresourceRange {
-    aspects: hal::format::Aspects::COLOR,
-    level_start: 0,
-    level_count: Some(1),
-    layer_start: 0,
-    layer_count: Some(1),
-};
-
 /// Memory allocation ID.
 type AllocId = std::num::NonZeroU64;
 
@@ -229,6 +221,8 @@ pub struct Image<B: Backend> {
     size: u32,
     /// The byte size of the image
     bytes: u64,
+    /// The number of MIP levels
+    mip_levels: u8,
     /// Pixel width
     px_width: u8,
     /// The raw underlying image
@@ -329,6 +323,7 @@ where
         Ok(Self {
             parent,
             size,
+            mip_levels,
             bytes,
             px_width,
             raw: ManuallyDrop::new(Arc::new(Mutex::new(image))),
@@ -360,7 +355,7 @@ where
                 hal::image::ViewKind::D2,
                 self.format,
                 hal::format::Swizzle::NO,
-                COLOR_RANGE.clone(),
+                hal::image::SubresourceRange::default(),
             )
         }?;
         unsafe {
@@ -389,7 +384,7 @@ where
             states: (old_access, old_layout)..(access, layout),
             target: image,
             families: None,
-            range: COLOR_RANGE.clone(),
+            range: hal::image::SubresourceRange::default(),
         }
     }
 
@@ -486,6 +481,11 @@ where
     /// Get the image's image type.
     pub fn get_image_type(&self) -> lang::ImageType {
         self.image_type
+    }
+
+    /// Get a reference to the image's mip levels.
+    pub fn get_mip_levels(&self) -> u8 {
+        self.mip_levels
     }
 }
 

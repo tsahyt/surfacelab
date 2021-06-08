@@ -661,16 +661,17 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             match descr {
                 IntermediateDataDescription::Image { size, ty, mips } => {
                     let size = match size {
-                        FromSocketOr::FromSocket(_) => {
-                            sockets.get_image_size(res).allocation_size()
-                        }
+                        FromSocketOr::FromSocket(s) => sockets
+                            .get_socket_image_size(&res.node_socket(s))
+                            .allocation_size(),
                         FromSocketOr::Independent(s) => *s,
                     };
                     let ty = match ty {
                         FromSocketOr::FromSocket(s) => self
                             .sockets
                             .get_output_image_type(&res.node_socket(s))
-                            .expect("Invalid output socket"),
+                            .or(self.sockets.get_input_image_type(&res.node_socket(s)))
+                            .expect("Invalid socket"),
                         FromSocketOr::Independent(t) => *t,
                     };
                     let mut img = self.gpu.create_compute_image(size, ty, false, *mips)?;
@@ -741,13 +742,15 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
 
         self.gpu.run_compute(
             sockets.get_image_size(res).allocation_size(),
-            inputs.values().unique().copied(),
+            inputs.iter().unique().map(|(a, b)| (a, *b)),
             outputs.values().copied(),
             intermediate_images.iter(),
-            |img_size, intermediates_locks, cmd_buffer| {
+            |img_size, input_locks, intermediates_locks, cmd_buffer| {
                 for pass in passes {
                     pass.build_commands(
                         img_size,
+                        &inputs,
+                        input_locks,
                         &intermediate_images,
                         intermediates_locks,
                         &intermediate_buffers,

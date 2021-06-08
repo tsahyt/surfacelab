@@ -17,8 +17,7 @@ pub enum OperatorDescriptorUse {
     /// Input images are compute results of the shader
     OutputImage(&'static str),
     /// Intermediate images are used for temporary storage and persist between
-    /// operator passes. The bool describes whether space for MIP levels must be
-    /// reserved
+    /// operator passes.
     IntermediateImage(&'static str),
     /// Intermediate buffers are used for temporary storage of non-image data
     IntermediateBuffer(&'static str),
@@ -241,6 +240,8 @@ where
     pub fn build_commands<'a, L>(
         &self,
         image_size: u32,
+        input_images: &'a HashMap<String, &gpu::compute::Image<B>>,
+        input_images_locks: &'a HashMap<String, L>,
         intermediate_images: &'a HashMap<String, gpu::compute::Image<B>>,
         intermediate_images_locks: &'a HashMap<String, L>,
         intermediate_buffers: &'a HashMap<String, gpu::compute::TempBuffer<B>>,
@@ -274,36 +275,40 @@ where
                 });
             },
             Self::GenerateMips(source, target) => unsafe {
-                let source_size = todo!();
+                let source_size = input_images[*source].get_size() as i32;
                 let target_size = intermediate_images[*target].get_size() as i32;
 
                 cmd_buffer.blit_image(
-                    todo!("source image lock"),
-                    todo!("source layout"),
+                    &input_images_locks[*source],
+                    input_images[*source].get_layout(),
                     &intermediate_images_locks[*target],
                     intermediate_images[*target].get_layout(),
                     gfx_hal::image::Filter::Linear,
-                    (0..3).map(|level| gfx_hal::command::ImageBlit {
-                        src_subresource: gfx_hal::image::SubresourceLayers {
-                            aspects: gfx_hal::format::Aspects::COLOR,
-                            level: 0,
-                            layers: 0..1,
-                        },
-                        src_bounds: gfx_hal::image::Offset { x: 0, y: 0, z: 0 }..gfx_hal::image::Offset {
-                            x: source_size,
-                            y: source_size,
-                            z: 1,
-                        },
-                        dst_subresource: gfx_hal::image::SubresourceLayers {
-                            aspects: gfx_hal::format::Aspects::COLOR,
-                            level,
-                            layers: 0..1,
-                        },
-                        dst_bounds: gfx_hal::image::Offset { x: 0, y: 0, z: 0 }..gfx_hal::image::Offset {
-                            x: target_size >> level,
-                            y: target_size >> level,
-                            z: 1,
-                        },
+                    (0..intermediate_images[*target].get_mip_levels()).map(|level| {
+                        gfx_hal::command::ImageBlit {
+                            src_subresource: gfx_hal::image::SubresourceLayers {
+                                aspects: gfx_hal::format::Aspects::COLOR,
+                                level: 0,
+                                layers: 0..1,
+                            },
+                            src_bounds: gfx_hal::image::Offset { x: 0, y: 0, z: 0 }
+                                ..gfx_hal::image::Offset {
+                                    x: source_size,
+                                    y: source_size,
+                                    z: 1,
+                                },
+                            dst_subresource: gfx_hal::image::SubresourceLayers {
+                                aspects: gfx_hal::format::Aspects::COLOR,
+                                level,
+                                layers: 0..1,
+                            },
+                            dst_bounds: gfx_hal::image::Offset { x: 0, y: 0, z: 0 }
+                                ..gfx_hal::image::Offset {
+                                    x: target_size >> level,
+                                    y: target_size >> level,
+                                    z: 1,
+                                },
+                        }
                     }),
                 );
             },

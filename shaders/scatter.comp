@@ -179,5 +179,7 @@ void main() {
         col = scatter(uv);
     }
 
+    col = textureLod(sampler2D(t_Pattern, Sampler), uv, global_size * 8.).rgb;
+
     imageStore(t_Out, idx, vec4(col, 1.));
 }

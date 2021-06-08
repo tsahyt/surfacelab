@@ -489,6 +489,21 @@ where
         &self.0.get(&res).unwrap().size
     }
 
+    /// Get the size of the images associated with this socket. The socket can
+    /// be either an input or an output. If it is a known input the sizing
+    /// information from its originating socket group will be returned.
+    ///
+    /// Will panic if the group is unknown
+    pub fn get_socket_image_size(&self, socket: &Resource<Socket>) -> &GroupSize {
+        let local_group = socket.socket_node();
+        let g = self.0.get(&local_group).unwrap();
+        if let Some(other) = g.inputs.get(socket.fragment().unwrap()) {
+            self.get_image_size(&other.socket_node())
+        } else {
+            self.get_image_size(&local_group)
+        }
+    }
+
     /// Get the size of the images associated with this group, mutably
     pub fn get_image_size_mut(&mut self, res: &Resource<Node>) -> &mut GroupSize {
         &mut self.0.get_mut(&res).unwrap().size
