@@ -274,7 +274,38 @@ where
                 });
             },
             Self::GenerateMips(source, target) => unsafe {
-                // cmd_buffer.blit_image(src, src_layout, dst, dst_layout, filter, regions)
+                let source_size = todo!();
+                let target_size = intermediate_images[*target].get_size() as i32;
+
+                cmd_buffer.blit_image(
+                    todo!("source image lock"),
+                    todo!("source layout"),
+                    &intermediate_images_locks[*target],
+                    intermediate_images[*target].get_layout(),
+                    gfx_hal::image::Filter::Linear,
+                    (0..3).map(|level| gfx_hal::command::ImageBlit {
+                        src_subresource: gfx_hal::image::SubresourceLayers {
+                            aspects: gfx_hal::format::Aspects::COLOR,
+                            level: 0,
+                            layers: 0..1,
+                        },
+                        src_bounds: gfx_hal::image::Offset { x: 0, y: 0, z: 0 }..gfx_hal::image::Offset {
+                            x: source_size,
+                            y: source_size,
+                            z: 1,
+                        },
+                        dst_subresource: gfx_hal::image::SubresourceLayers {
+                            aspects: gfx_hal::format::Aspects::COLOR,
+                            level,
+                            layers: 0..1,
+                        },
+                        dst_bounds: gfx_hal::image::Offset { x: 0, y: 0, z: 0 }..gfx_hal::image::Offset {
+                            x: target_size >> level,
+                            y: target_size >> level,
+                            z: 1,
+                        },
+                    }),
+                );
             },
             Self::SynchronizeImage(descs) => unsafe {
                 cmd_buffer.pipeline_barrier(
