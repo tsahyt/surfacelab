@@ -213,6 +213,7 @@ where
                                         .allocation_size(),
                                     *ty,
                                     *external_data,
+                                    false,
                                 )
                                 .unwrap();
                             self.sockets.add_output_socket(
@@ -275,7 +276,10 @@ where
                             .get_image_size(&res.socket_node())
                             .allocation_size();
                         // Polymorphic operators never have external data.
-                        let img = self.gpu.create_compute_image(size, *ty, false).unwrap();
+                        let img = self
+                            .gpu
+                            .create_compute_image(size, *ty, false, false)
+                            .unwrap();
                         // The socket is a known output, and thus the actual
                         // size should also already be known!
                         self.sockets

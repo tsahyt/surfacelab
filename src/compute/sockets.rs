@@ -26,7 +26,7 @@ where
     /// immediately backed by memory.
     pub fn reinit_image(&mut self, gpu: &gpu::compute::GPUCompute<B>, size: u32) {
         self.image = gpu
-            .create_compute_image(size, self.ty, self.transfer_dst)
+            .create_compute_image(size, self.ty, self.transfer_dst, false)
             .unwrap();
     }
 }

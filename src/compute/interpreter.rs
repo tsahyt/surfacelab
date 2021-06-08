@@ -659,7 +659,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             use super::shaders::FromSocketOr;
 
             match descr {
-                IntermediateDataDescription::Image { size, ty } => {
+                IntermediateDataDescription::Image { size, ty, mips } => {
                     let size = match size {
                         FromSocketOr::FromSocket(_) => {
                             sockets.get_image_size(res).allocation_size()
@@ -673,7 +673,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                             .expect("Invalid output socket"),
                         FromSocketOr::Independent(t) => *t,
                     };
-                    let mut img = self.gpu.create_compute_image(size, ty, false)?;
+                    let mut img = self.gpu.create_compute_image(size, ty, false, *mips)?;
                     img.ensure_alloc()?;
                     intermediate_images.insert(name.clone(), img);
                 }

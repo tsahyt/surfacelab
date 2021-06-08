@@ -135,10 +135,12 @@ impl Shader for Blur {
             "tmp1".to_string() => IntermediateDataDescription::Image {
                 size: FromSocketOr::FromSocket("out"),
                 ty: FromSocketOr::FromSocket("out"),
+                mips: false,
             },
             "tmp2".to_string() => IntermediateDataDescription::Image {
                 size: FromSocketOr::FromSocket("out"),
                 ty: FromSocketOr::FromSocket("out"),
+                mips: false,
             },
         }
     }

@@ -223,15 +223,27 @@ where
 
 /// A compute image, which may or may not be allocated.
 pub struct Image<B: Backend> {
+    /// The parent allocator, for deallocation on drop
     parent: Arc<Mutex<ComputeAllocator<B>>>,
+    /// The pixel size of the image
     size: u32,
+    /// The byte size of the image
+    bytes: u64,
+    /// Pixel width
     px_width: u8,
+    /// The raw underlying image
     raw: ManuallyDrop<Arc<Mutex<B::Image>>>,
+    /// The current layout of the underlying image
     layout: Cell<hal::image::Layout>,
+    /// The current access flags of the underlying image
     access: Cell<hal::image::Access>,
+    /// The corresponding image view
     view: ManuallyDrop<Option<B::ImageView>>,
+    /// Corresponding allocator data if any
     alloc: Option<Alloc<B>>,
+    /// The image format
     format: hal::format::Format,
+    /// The type of the image, connected to the format
     image_type: lang::ImageType,
 }
 
@@ -268,6 +280,7 @@ where
         size: u32,
         ty: lang::ImageType,
         transfer_dst: bool,
+        mips: bool,
     ) -> Result<Self, AllocatorError> {
         // Determine formats and sizes
         let format = match ty {
@@ -287,11 +300,17 @@ where
             _ => panic!("Unsupported compute image format!"),
         };
 
+        let mip_levels = if mips {
+            size.next_power_of_two().trailing_zeros() as u8
+        } else {
+            1
+        };
+
         // Create device image
         let image = unsafe {
             device.create_image(
                 hal::image::Kind::D2(size, size, 1, 1),
-                1,
+                mip_levels,
                 format,
                 hal::image::Tiling::Optimal,
                 hal::image::Usage::SAMPLED
@@ -305,9 +324,12 @@ where
             )
         }?;
 
+        let bytes = unsafe { device.get_image_requirements(&image) }.size;
+
         Ok(Self {
             parent,
             size,
+            bytes,
             px_width,
             raw: ManuallyDrop::new(Arc::new(Mutex::new(image))),
             layout: Cell::new(hal::image::Layout::Undefined),
@@ -378,9 +400,8 @@ where
         let mut parent_lock = self.parent.lock().unwrap();
 
         // Handle memory manager
-        let bytes = self.size as u64 * self.size as u64 * self.px_width as u64;
         let (offset, chunks) = parent_lock
-            .find_free_memory(bytes)
+            .find_free_memory(self.bytes)
             .ok_or(AllocatorError::OutOfMemory)?;
         let alloc = parent_lock.allocate_memory(chunks);
 
@@ -388,7 +409,7 @@ where
             "Allocated memory for {}x{} image ({} bytes, id {})",
             self.size,
             self.size,
-            bytes,
+            self.bytes,
             alloc,
         );
 

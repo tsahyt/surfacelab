@@ -16,7 +16,9 @@ pub enum OperatorDescriptorUse {
     InputImage(&'static str),
     /// Input images are compute results of the shader
     OutputImage(&'static str),
-    /// Intermediate images are used for temporary storage and persist between operator passes
+    /// Intermediate images are used for temporary storage and persist between
+    /// operator passes. The bool describes whether space for MIP levels must be
+    /// reserved
     IntermediateImage(&'static str),
     /// Intermediate buffers are used for temporary storage of non-image data
     IntermediateBuffer(&'static str),
@@ -211,6 +213,8 @@ pub enum SynchronizeDescription {
 pub enum OperatorPassDescription {
     /// Run a shader as an operator pass
     RunShader(OperatorShader),
+    /// Generate MIP levels for an image in a specified intermediate image,
+    GenerateMips(&'static str, &'static str),
     /// Synchronize image according to description
     SynchronizeImage(&'static [SynchronizeDescription]),
     /// Synchronize buffer according to description
@@ -224,6 +228,7 @@ pub enum OperatorPass<B: gpu::Backend> {
         pipeline: gpu::compute::ComputePipeline<B>,
         descriptors: B::DescriptorSet,
     },
+    GenerateMips(&'static str, &'static str),
     SynchronizeImage(&'static [SynchronizeDescription]),
     SynchronizeBuffer(&'static [SynchronizeDescription]),
 }
@@ -267,6 +272,9 @@ where
                         [image_size / *local_size as u32, 1, 1]
                     }
                 });
+            },
+            Self::GenerateMips(source, target) => unsafe {
+                // cmd_buffer.blit_image(src, src_layout, dst, dst_layout, filter, regions)
             },
             Self::SynchronizeImage(descs) => unsafe {
                 cmd_buffer.pipeline_barrier(
@@ -400,6 +408,9 @@ where
                     descriptors: desc_set,
                 })
             }
+            OperatorPassDescription::GenerateMips(source, img) => {
+                Ok(Self::GenerateMips(source, img))
+            }
             OperatorPassDescription::SynchronizeImage(desc) => Ok(Self::SynchronizeImage(desc)),
             OperatorPassDescription::SynchronizeBuffer(desc) => Ok(Self::SynchronizeBuffer(desc)),
         }
@@ -428,6 +439,8 @@ pub enum IntermediateDataDescription {
         size: FromSocketOr<u32>,
         /// Type of the intermediate image.
         ty: FromSocketOr<ImageType>,
+        /// Whether the image supports MIP levels
+        mips: bool,
     },
     Buffer {
         /// Dimensions of the buffer

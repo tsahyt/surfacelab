@@ -156,6 +156,7 @@ impl Shader for Distance {
             "g".to_string() => IntermediateDataDescription::Image {
                 size: FromSocketOr::FromSocket("out"),
                 ty: FromSocketOr::FromSocket("out"),
+                mips: false,
             },
             "s".to_string() => IntermediateDataDescription::Buffer {
                 dim: BufferDim::Square(FromSocketOr::FromSocket("out")),

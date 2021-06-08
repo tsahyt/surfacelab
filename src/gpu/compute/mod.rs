@@ -239,9 +239,17 @@ where
         size: u32,
         ty: lang::ImageType,
         transfer_dst: bool,
+        mips: bool,
     ) -> Result<Image<B>, AllocatorError> {
         let lock = self.gpu.lock().unwrap();
-        Image::new(&lock.device, self.allocator.clone(), size, ty, transfer_dst)
+        Image::new(
+            &lock.device,
+            self.allocator.clone(),
+            size,
+            ty,
+            transfer_dst,
+            mips,
+        )
     }
 
     /// Create a new temporary buffer in compute memory, with the given size.
