@@ -259,7 +259,7 @@ impl OperatorParamBox for Scatter {
                         name: "size".to_string(),
                         transmitter: Field(Scatter::SIZE.to_string()),
                         control: Control::Slider {
-                            value: self.density,
+                            value: self.size,
                             min: 0.,
                             max: 2.,
                         },
@@ -286,7 +286,7 @@ impl OperatorParamBox for Scatter {
                         name: "intensity".to_string(),
                         transmitter: Field(Scatter::INTENSITY.to_string()),
                         control: Control::Slider {
-                            value: self.density,
+                            value: self.intensity,
                             min: 0.,
                             max: 1.,
                         },
@@ -346,7 +346,7 @@ impl OperatorParamBox for Scatter {
                         name: "random-intensity".to_string(),
                         transmitter: Field(Scatter::RANDOM_INTENSITY.to_string()),
                         control: Control::Slider {
-                            value: self.density,
+                            value: self.random_intensity,
                             min: 0.,
                             max: 1.,
                         },
