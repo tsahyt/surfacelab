@@ -728,7 +728,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         self.gpu.fill_occupancy(&occupancy)?;
 
         for pass in passes {
-            let writers = pass.descriptor_writers(
+            self.gpu.write_descriptor_sets(pass.descriptor_writers(
                 self.gpu.uniform_buffer(),
                 self.gpu.occupancy_buffer(),
                 self.gpu.sampler(),
@@ -736,13 +736,12 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
                 &outputs,
                 &intermediate_images,
                 &intermediate_buffers,
-            );
-            self.gpu.write_descriptor_sets(writers);
+            ));
         }
 
         self.gpu.run_compute(
             sockets.get_image_size(res).allocation_size(),
-            inputs.iter().unique().map(|(a, b)| (a, *b)),
+            inputs.iter().map(|(a, b)| (a, *b)).unique_by(|x| x.1),
             outputs.values().copied(),
             intermediate_images.iter(),
             |img_size, input_locks, intermediates_locks, cmd_buffer| {
