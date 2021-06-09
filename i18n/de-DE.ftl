@@ -256,6 +256,7 @@ bandwidth = Bandbreite
 random-rot = Zufällige Rotation
 random-size = Zufällige Größe
 random-intensity = Zufällige Intensität
+random-offset = Zufällige Versetzung
 adjust-levels = Wertkorrektur
 edge-mode = Kantenmodus
 tile = Wiederholen

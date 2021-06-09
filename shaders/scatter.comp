@@ -16,6 +16,7 @@ layout(set = 0, binding = 0) uniform Params {
     float random_rot;
     float random_scale;
     float random_intensity;
+    float random_offset;
 };
 
 const uint EDGE_MODE_CLAMP = 0;
@@ -159,6 +160,10 @@ vec3 scatter(vec2 uv) {
                 v = smoothstep(local_size, local_size - local_size * falloff, length(local_uv));
                 s += v;
                 s2 += v * v;
+            }
+
+            if(edge_mode == EDGE_MODE_TILE) {
+                local_uv += local_hash2.zw * random_offset;
             }
 
             c = blend(c, v * pattern(local_uv) * clamp(local_hash2.y, 1. - random_intensity, 1.) * local_intensity);

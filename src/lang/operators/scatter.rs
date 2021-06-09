@@ -33,6 +33,12 @@ pub enum EdgeMode {
     Solid = 2,
 }
 
+impl EdgeMode {
+    pub fn has_random_offset(self) -> bool {
+        matches!(self, Self::Tile)
+    }
+}
+
 #[repr(u32)]
 #[derive(
     AsBytes,
@@ -81,6 +87,7 @@ pub struct Scatter {
     random_rot: f32,
     random_size: f32,
     random_intensity: f32,
+    random_offset: f32,
 }
 
 impl Default for Scatter {
@@ -99,6 +106,7 @@ impl Default for Scatter {
             random_rot: 0.,
             random_size: 0.,
             random_intensity: 0.,
+            random_offset: 0.5,
         }
     }
 }
@@ -352,6 +360,21 @@ impl OperatorParamBox for Scatter {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "random-offset".to_string(),
+                        transmitter: Field(Scatter::RANDOM_OFFSET.to_string()),
+                        control: Control::Slider {
+                            value: self.random_offset,
+                            min: 0.,
+                            max: 2.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "edge-mode",
+                            |t: EdgeMode| t.has_random_offset(),
+                        ),
                         presetable: true,
                     },
                 ],
