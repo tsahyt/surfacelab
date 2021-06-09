@@ -179,10 +179,10 @@ vec3 scatter(vec2 uv) {
     }
 
     if(blend_mode == BLEND_MODE_CA) {
-        vec3 mean = textureLod(sampler2D(t_Pattern, Sampler), vec2(0., 0.), 20.).rgb;
-        mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(0., 1.), 20.).rgb;
-        mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(1., 1.), 20.).rgb;
-        mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(1., 0.), 20.).rgb;
+        vec3 mean = textureLod(sampler2D(t_Pattern, Sampler), vec2(0.2, 0.2), 20.).rgb;
+        mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(0.0, 0.8), 20.).rgb;
+        mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(0.8, 0.8), 20.).rgb;
+        mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(0.8, 0.0), 20.).rgb;
         mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(0.5, 0.5), 20.).rgb;
 
         mean /= 5;
