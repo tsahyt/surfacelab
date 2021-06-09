@@ -17,8 +17,9 @@ pub enum OperatorDescriptorUse {
     /// Input images are compute results of the shader
     OutputImage(&'static str),
     /// Intermediate images are used for temporary storage and persist between
-    /// operator passes.
-    IntermediateImage(&'static str),
+    /// operator passes. The bool describes whether the image is to be treated
+    /// as a sampled image.
+    IntermediateImage(&'static str, bool),
     /// Intermediate buffers are used for temporary storage of non-image data
     IntermediateBuffer(&'static str),
     /// The sampler to use on input images
@@ -58,7 +59,7 @@ impl OperatorShader {
     pub fn layout(&self) -> impl Iterator<Item = gpu::DescriptorSetLayoutBinding> {
         self.descriptors.iter().map(|desc| match desc.descriptor {
             OperatorDescriptorUse::OutputImage(..)
-            | OperatorDescriptorUse::IntermediateImage(..) => gpu::DescriptorSetLayoutBinding {
+            | OperatorDescriptorUse::IntermediateImage(_, false) => gpu::DescriptorSetLayoutBinding {
                 binding: desc.binding,
                 ty: gpu::DescriptorType::Image {
                     ty: gpu::ImageDescriptorType::Storage { read_only: false },
@@ -67,7 +68,8 @@ impl OperatorShader {
                 stage_flags: gpu::ShaderStageFlags::COMPUTE,
                 immutable_samplers: false,
             },
-            OperatorDescriptorUse::InputImage(..) => gpu::DescriptorSetLayoutBinding {
+            OperatorDescriptorUse::InputImage(..)
+            | OperatorDescriptorUse::IntermediateImage(_, true) => gpu::DescriptorSetLayoutBinding {
                 binding: desc.binding,
                 ty: gpu::DescriptorType::Image {
                     ty: gpu::ImageDescriptorType::Sampled {
@@ -173,7 +175,7 @@ impl OperatorShader {
                         gpu::Layout::General,
                     )],
                 },
-                OperatorDescriptorUse::IntermediateImage(name) => gpu::DescriptorSetWrite {
+                OperatorDescriptorUse::IntermediateImage(name, _) => gpu::DescriptorSetWrite {
                     set: desc_set,
                     binding: desc.binding,
                     array_offset: 0,

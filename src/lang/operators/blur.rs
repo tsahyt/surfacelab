@@ -92,11 +92,11 @@ const BLUR_DESCRIPTORS: &'static [OperatorDescriptor] = &[
     },
     OperatorDescriptor {
         binding: 5,
-        descriptor: OperatorDescriptorUse::IntermediateImage("tmp1"),
+        descriptor: OperatorDescriptorUse::IntermediateImage("tmp1", false),
     },
     OperatorDescriptor {
         binding: 6,
-        descriptor: OperatorDescriptorUse::IntermediateImage("tmp2"),
+        descriptor: OperatorDescriptorUse::IntermediateImage("tmp2", false),
     },
     OperatorDescriptor {
         binding: 7,

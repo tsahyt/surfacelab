@@ -111,7 +111,7 @@ const DISTANCE_DESCRIPTORS: &'static [OperatorDescriptor] = &[
     },
     OperatorDescriptor {
         binding: 3,
-        descriptor: OperatorDescriptorUse::IntermediateImage("g"),
+        descriptor: OperatorDescriptorUse::IntermediateImage("g", false),
     },
     OperatorDescriptor {
         binding: 4,

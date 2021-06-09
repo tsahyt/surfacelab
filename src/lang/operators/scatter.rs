@@ -138,7 +138,7 @@ impl Shader for Scatter {
                     },
                     OperatorDescriptor {
                         binding: 2,
-                        descriptor: OperatorDescriptorUse::IntermediateImage("mips"),
+                        descriptor: OperatorDescriptorUse::IntermediateImage("mips", true),
                     },
                     OperatorDescriptor {
                         binding: 3,
