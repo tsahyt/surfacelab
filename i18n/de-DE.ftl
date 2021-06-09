@@ -262,3 +262,4 @@ tile = Wiederholen
 solid = Fest
 density = Dichte
 size = Größe
+contrast-adjusted = Kontrastangepasst

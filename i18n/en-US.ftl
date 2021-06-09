@@ -264,3 +264,4 @@ tile = Tile
 solid = Solid
 density = Density
 size = Size
+contrast-adjusted = Contrast Adjusted Blend

@@ -52,11 +52,16 @@ pub enum BlendMode {
     Add = 0,
     Max = 1,
     Min = 2,
+    ContrastAdjusted = 3,
 }
 
 impl BlendMode {
     pub fn has_adjust_levels(self) -> bool {
         matches!(self, Self::Add)
+    }
+
+    pub fn has_falloff(self) -> bool {
+        matches!(self, Self::ContrastAdjusted)
     }
 }
 
@@ -71,6 +76,7 @@ pub struct Scatter {
     size: f32,
     intensity: f32,
     density: f32,
+    falloff: f32,
     randomness: f32,
     random_rot: f32,
     random_size: f32,
@@ -88,10 +94,11 @@ impl Default for Scatter {
             size: 1.,
             intensity: 1.,
             density: 1.,
+            falloff: 1.,
             randomness: 0.5,
-            random_rot: 1.,
+            random_rot: 0.,
             random_size: 0.,
-            random_intensity: 1.,
+            random_intensity: 0.,
         }
     }
 }
@@ -258,6 +265,21 @@ impl OperatorParamBox for Scatter {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "falloff".to_string(),
+                        transmitter: Field(Scatter::FALLOFF.to_string()),
+                        control: Control::Slider {
+                            value: self.falloff,
+                            min: 0.,
+                            max: 1.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "blend-mode",
+                            |t: BlendMode| t.has_falloff(),
+                        ),
                         presetable: true,
                     },
                     Parameter {

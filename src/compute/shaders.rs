@@ -59,27 +59,31 @@ impl OperatorShader {
     pub fn layout(&self) -> impl Iterator<Item = gpu::DescriptorSetLayoutBinding> {
         self.descriptors.iter().map(|desc| match desc.descriptor {
             OperatorDescriptorUse::OutputImage(..)
-            | OperatorDescriptorUse::IntermediateImage(_, false) => gpu::DescriptorSetLayoutBinding {
-                binding: desc.binding,
-                ty: gpu::DescriptorType::Image {
-                    ty: gpu::ImageDescriptorType::Storage { read_only: false },
-                },
-                count: 1,
-                stage_flags: gpu::ShaderStageFlags::COMPUTE,
-                immutable_samplers: false,
-            },
-            OperatorDescriptorUse::InputImage(..)
-            | OperatorDescriptorUse::IntermediateImage(_, true) => gpu::DescriptorSetLayoutBinding {
-                binding: desc.binding,
-                ty: gpu::DescriptorType::Image {
-                    ty: gpu::ImageDescriptorType::Sampled {
-                        with_sampler: false,
+            | OperatorDescriptorUse::IntermediateImage(_, false) => {
+                gpu::DescriptorSetLayoutBinding {
+                    binding: desc.binding,
+                    ty: gpu::DescriptorType::Image {
+                        ty: gpu::ImageDescriptorType::Storage { read_only: false },
                     },
-                },
-                count: 1,
-                stage_flags: gpu::ShaderStageFlags::COMPUTE,
-                immutable_samplers: false,
-            },
+                    count: 1,
+                    stage_flags: gpu::ShaderStageFlags::COMPUTE,
+                    immutable_samplers: false,
+                }
+            }
+            OperatorDescriptorUse::InputImage(..)
+            | OperatorDescriptorUse::IntermediateImage(_, true) => {
+                gpu::DescriptorSetLayoutBinding {
+                    binding: desc.binding,
+                    ty: gpu::DescriptorType::Image {
+                        ty: gpu::ImageDescriptorType::Sampled {
+                            with_sampler: false,
+                        },
+                    },
+                    count: 1,
+                    stage_flags: gpu::ShaderStageFlags::COMPUTE,
+                    immutable_samplers: false,
+                }
+            }
             OperatorDescriptorUse::IntermediateBuffer(..) => gpu::DescriptorSetLayoutBinding {
                 binding: desc.binding,
                 ty: gpu::DescriptorType::Buffer {

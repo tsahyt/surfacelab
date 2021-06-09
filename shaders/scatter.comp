@@ -11,6 +11,7 @@ layout(set = 0, binding = 0) uniform Params {
     float global_size;
     float global_intensity;
     float density;
+    float falloff;
     float randomness;
     float random_rot;
     float random_scale;
@@ -24,6 +25,7 @@ const uint EDGE_MODE_SOLID = 2;
 const uint BLEND_MODE_ADD = 0;
 const uint BLEND_MODE_MAX = 1;
 const uint BLEND_MODE_MIN = 2;
+const uint BLEND_MODE_CA = 3;
 
 const uint OCCUPANCY_UNOCCUPIED = 2;
 
@@ -102,6 +104,7 @@ vec2 neighbour(vec2 cell, vec2 offset, float scale) {
 
 vec3 blend(vec3 a, vec3 b) {
     switch(blend_mode) {
+        case BLEND_MODE_CA:
         case BLEND_MODE_ADD:
             return a + b;
         case BLEND_MODE_MAX:
@@ -120,14 +123,21 @@ vec3 scatter(vec2 uv) {
     vec2 cell_id = floor(uv);
 
     vec3 c = vec3(0.);
+    float s = 0.;
+    float s2 = 0.;
 
     if(blend_mode == BLEND_MODE_MIN) {
         c = vec3(INF);
     }
 
+    int n = 1;
+    if(edge_mode == EDGE_MODE_TILE || global_size > 1.) {
+        n = 2;
+    }
+
     // Sample 3x3 Neighborhood
-    for(int i = - 1; i <= 1; ++i) {
-        for(int j = - 1; j <= 1; ++j) {
+    for(int i = - n; i <= n; ++i) {
+        for(int j = - n; j <= n; ++j) {
             vec2 offset = vec2(i, j);
             vec2 local_id = neighbour(cell_id, offset, scale);
             vec4 local_hash = hash42(local_id);
@@ -147,12 +157,24 @@ vec3 scatter(vec2 uv) {
             local_uv -= (2 * local_hash.xy - 1.) * randomness;
             local_uv = (rot(local_hash.z * TAU * random_rot) * (2 * local_uv - 1.) + 1.) / 2.;
 
-            c = blend(c, pattern(local_uv) * clamp(local_hash2.y, 1. - random_intensity, 1.) * local_intensity);
+            float v = 1.;
+            if(blend_mode == BLEND_MODE_CA) {
+                v = smoothstep(local_size, local_size - local_size * falloff, length(local_uv));
+                s += v;
+                s2 += v * v;
+            }
+
+            c = blend(c, v * pattern(local_uv) * clamp(local_hash2.y, 1. - random_intensity, 1.) * local_intensity);
         }
     }
 
     if(blend_mode == BLEND_MODE_ADD && adjust_levels != 0) {
         c /= 9;
+    }
+
+    if(blend_mode == BLEND_MODE_CA) {
+        vec3 mean = textureLod(sampler2D(t_Pattern, Sampler), uv, 10.).rgb;
+        c = mean + (c - s * mean) / sqrt(s2);
     }
 
     return c;
@@ -178,8 +200,6 @@ void main() {
     } else {
         col = scatter(uv);
     }
-
-    col = textureLod(sampler2D(t_Pattern, Sampler), uv, global_size * 8.).rgb;
 
     imageStore(t_Out, idx, vec4(col, 1.));
 }
