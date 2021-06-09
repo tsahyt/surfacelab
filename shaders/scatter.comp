@@ -46,6 +46,7 @@ layout(set = 0, binding = 7, rgba16f) uniform image2D t_Out;
 
 const float TAU = 6.283185307;
 const float INF = 1. / 0.;
+const float SQRT2 = sqrt(2.);
 
 mat2 rot(float theta) {
     return mat2(
@@ -131,13 +132,16 @@ vec3 scatter(vec2 uv) {
         c = vec3(INF);
     }
 
-    int n = int(ceil(2 * global_size * global_size));
+    int n = 1;
+    if(blend_mode == BLEND_MODE_CA || edge_mode != EDGE_MODE_SOLID) {
+        n = int(ceil(sqrt(2 * global_size * global_size)));
+    }
 
-    // Sample 3x3 Neighborhood
+    // Sample Neighborhood
     for(int i = - n; i <= n; ++i) {
         for(int j = - n; j <= n; ++j) {
             vec2 offset = vec2(i, j);
-            vec2 local_id = neighbour(cell_id, offset, scale);
+            vec2 local_id = neighbour(cell_id, offset, scale) + 1;
             vec4 local_hash = hash42(local_id);
             vec4 local_hash2 = hash42(local_hash.xz);
 
@@ -156,7 +160,7 @@ vec3 scatter(vec2 uv) {
             local_uv = (rot(local_hash.z * TAU * random_rot) * (2 * local_uv - 1.) + 1.) / 2.;
 
             float v = 1.;
-            if(blend_mode == BLEND_MODE_CA) {
+            if(blend_mode == BLEND_MODE_CA || edge_mode == EDGE_MODE_TILE) {
                 v = smoothstep(local_size, local_size - local_size * falloff, length(local_uv));
                 s += v;
                 s2 += v * v;
@@ -175,7 +179,14 @@ vec3 scatter(vec2 uv) {
     }
 
     if(blend_mode == BLEND_MODE_CA) {
-        vec3 mean = textureLod(sampler2D(t_Pattern, Sampler), uv, 20.).rgb;
+        vec3 mean = textureLod(sampler2D(t_Pattern, Sampler), vec2(0., 0.), 20.).rgb;
+        mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(0., 1.), 20.).rgb;
+        mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(1., 1.), 20.).rgb;
+        mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(1., 0.), 20.).rgb;
+        mean += textureLod(sampler2D(t_Pattern, Sampler), vec2(0.5, 0.5), 20.).rgb;
+
+        mean /= 5;
+
         c = mean + (c - s * mean) / sqrt(s2);
     }
 
