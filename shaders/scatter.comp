@@ -130,10 +130,7 @@ vec3 scatter(vec2 uv) {
         c = vec3(INF);
     }
 
-    int n = 1;
-    if(edge_mode == EDGE_MODE_TILE || global_size > 1.) {
-        n = 2;
-    }
+    int n = int(ceil(2 * global_size * global_size));
 
     // Sample 3x3 Neighborhood
     for(int i = - n; i <= n; ++i) {
@@ -173,7 +170,7 @@ vec3 scatter(vec2 uv) {
     }
 
     if(blend_mode == BLEND_MODE_CA) {
-        vec3 mean = textureLod(sampler2D(t_Pattern, Sampler), uv, 10.).rgb;
+        vec3 mean = textureLod(sampler2D(t_Pattern, Sampler), uv, 20.).rgb;
         c = mean + (c - s * mean) / sqrt(s2);
     }
 
