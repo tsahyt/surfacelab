@@ -191,6 +191,7 @@ push = Drücken
 pull = Ziehen
 directional = Gerichtet
 slope-blur = Slope Blur
+slope-blur-inv = Slope Blur (Invertiert)
 intensity = Intensität
 iterations = Iterationen
 min = Minimum

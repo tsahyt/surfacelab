@@ -193,6 +193,7 @@ push = Push
 pull = Pull
 directional = Directional
 slope-blur = Slope Blur
+slope-blur-inv = Slope Blur (Inverted)
 intensity = Intensity
 iterations = Iterations
 min = Minimum

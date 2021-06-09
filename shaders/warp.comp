@@ -14,6 +14,7 @@ const uint MODE_PUSH = 0;
 const uint MODE_PULL = 1;
 const uint MODE_DIRECTIONAL = 2;
 const uint MODE_SLOPEBLUR = 3;
+const uint MODE_SLOPEBLUR_INV = 4;
 
 const uint BLEND_MODE_MIX = 0;
 const uint BLEND_MODE_MIN = 1;
@@ -81,6 +82,11 @@ vec4 slope_blur(ivec2 idx, vec2 uv) {
 
     for(int i = 0; i < iterations; i++) {
         vec2 gradient = gradient(idx);
+
+        if(mode == MODE_SLOPEBLUR_INV) {
+            gradient *= - 1.0;
+        }
+
         uv += gradient * intensity * (intensity / iterations);
         vec4 x = texture(sampler2D(t_Input, Sampler), uv);
 
@@ -122,6 +128,7 @@ void main() {
             res = directional(uv);
             break;
         case MODE_SLOPEBLUR:
+        case MODE_SLOPEBLUR_INV:
             res = slope_blur(idx, uv);
             break;
     }

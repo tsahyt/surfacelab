@@ -32,6 +32,7 @@ pub enum WarpMode {
     Pull = 1,
     Directional = 2,
     SlopeBlur = 3,
+    SlopeBlurInv = 4,
 }
 
 #[repr(u32)]
@@ -61,11 +62,11 @@ impl WarpMode {
     }
 
     fn has_iterations(&self) -> bool {
-        matches!(self, Self::SlopeBlur)
+        matches!(self, Self::SlopeBlur | Self::SlopeBlurInv)
     }
 
     fn has_blend_mode(&self) -> bool {
-        matches!(self, Self::SlopeBlur)
+        matches!(self, Self::SlopeBlur | Self::SlopeBlurInv)
     }
 }
 
