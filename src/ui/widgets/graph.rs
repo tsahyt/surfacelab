@@ -17,6 +17,7 @@ pub struct Graph<'a> {
     #[conrod(common_builder)]
     common: widget::CommonBuilder,
     graph: &'a crate::ui::app_state::graph::Graph,
+    enabled: bool,
     style: Style,
 }
 
@@ -96,6 +97,7 @@ impl<'a> Graph<'a> {
             common: widget::CommonBuilder::default(),
             graph,
             style: Style::default(),
+            enabled: true,
         }
     }
 
@@ -171,6 +173,7 @@ impl<'a> Graph<'a> {
     }
 
     builder_methods! {
+        pub enabled { enabled = bool }
         pub edge_color { style.edge_color = Some(Color) }
         pub edge_thickness { style.edge_thickness = Some(Scalar) }
         pub edge_drag_color_fail { style.edge_drag_color_fail = Some(Color) }
@@ -240,9 +243,6 @@ impl<'a> Widget for Graph<'a> {
 
         // Update camera
         self.camera_handling(ui, state, id);
-
-        // Update selection
-        self.rect_selection_handling(ui, state, id);
 
         // Create Grid
         super::grid::Grid::new()
@@ -483,6 +483,15 @@ impl<'a> Widget for Graph<'a> {
                 }
             }
         }
+
+        // Skip everything after this point if enabled isn't set, rendering the
+        // widget display only
+        if !self.enabled {
+            return evs;
+        }
+
+        // Update selection
+        self.rect_selection_handling(ui, state, id);
 
         // Handle operations on the selection
         for press in ui.widget_input(id).presses().key() {

@@ -100,6 +100,7 @@ impl<'a> Widget for NodeEditor<'a> {
         let mut collection_change: Option<Resource<Graph>> = None;
 
         for event in graph::Graph::new(&collection)
+            .enabled(state.add_modal.is_none())
             .node_title_color(color::LIGHT_CHARCOAL)
             .node_title_size(14)
             .node_active_color(Color::Rgba(0.9, 0.4, 0.15, 1.0))
