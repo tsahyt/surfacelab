@@ -57,7 +57,7 @@ impl EdgeMode {
 pub enum BlendMode {
     Add = 0,
     Max = 1,
-    ContrastAdjusted = 3,
+    ContrastAdjusted = 2,
 }
 
 impl BlendMode {
@@ -66,6 +66,14 @@ impl BlendMode {
     }
 
     pub fn has_falloff(self) -> bool {
+        matches!(self, Self::ContrastAdjusted)
+    }
+
+    pub fn has_edge_mode(self) -> bool {
+        !matches!(self, Self::ContrastAdjusted)
+    }
+
+    pub fn has_random_offset(self) -> bool {
         matches!(self, Self::ContrastAdjusted)
     }
 }
@@ -206,17 +214,6 @@ impl OperatorParamBox for Scatter {
                 visibility: VisibilityFunction::default(),
                 parameters: vec![
                     Parameter {
-                        name: "edge-mode".to_string(),
-                        transmitter: Field(Scatter::EDGE_MODE.to_string()),
-                        control: Control::Enum {
-                            selected: self.edge_mode as usize,
-                            variants: EdgeMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
-                        },
-                        expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::default(),
-                        presetable: true,
-                    },
-                    Parameter {
                         name: "blend-mode".to_string(),
                         transmitter: Field(Scatter::BLEND_MODE.to_string()),
                         control: Control::Enum {
@@ -225,6 +222,20 @@ impl OperatorParamBox for Scatter {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "edge-mode".to_string(),
+                        transmitter: Field(Scatter::EDGE_MODE.to_string()),
+                        control: Control::Enum {
+                            selected: self.edge_mode as usize,
+                            variants: EdgeMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::on_parameter_enum(
+                            "blend-mode",
+                            |t: BlendMode| t.has_edge_mode(),
+                        ),
                         presetable: true,
                     },
                     Parameter {
@@ -371,6 +382,9 @@ impl OperatorParamBox for Scatter {
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
                         visibility: VisibilityFunction::on_parameter_enum(
+                            "blend-mode",
+                            |t: BlendMode| t.has_random_offset(),
+                        ) | VisibilityFunction::on_parameter_enum(
                             "edge-mode",
                             |t: EdgeMode| t.has_random_offset(),
                         ),

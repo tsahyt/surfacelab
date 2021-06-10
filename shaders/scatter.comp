@@ -25,7 +25,7 @@ const uint EDGE_MODE_SOLID = 2;
 
 const uint BLEND_MODE_ADD = 0;
 const uint BLEND_MODE_MAX = 1;
-const uint BLEND_MODE_CA = 3;
+const uint BLEND_MODE_CA = 2;
 
 const uint OCCUPANCY_UNOCCUPIED = 2;
 
@@ -85,7 +85,12 @@ float intensity(vec2 p) {
 }
 
 vec3 pattern(vec2 uv) {
-    switch(edge_mode) {
+    uint em = edge_mode;
+    if(blend_mode == BLEND_MODE_CA) {
+        em = EDGE_MODE_TILE;
+    }
+
+    switch(em) {
         case EDGE_MODE_CLAMP:
             uv = clamp(uv, 0., 1.);
         case EDGE_MODE_TILE:
@@ -126,7 +131,7 @@ vec3 scatter(vec2 uv) {
     float s2 = 0.;
 
     int n = 1;
-    if(blend_mode == BLEND_MODE_CA || edge_mode != EDGE_MODE_SOLID) {
+    if(blend_mode == BLEND_MODE_CA) {
         n = max(int(ceil(4 * global_size - 3)) + 1, 2);
     }
 
@@ -157,9 +162,6 @@ vec3 scatter(vec2 uv) {
                 v = smoothstep(local_size, local_size - local_size * falloff, length(local_uv));
                 s += v;
                 s2 += v * v;
-            }
-
-            if(edge_mode == EDGE_MODE_TILE) {
                 local_uv += local_hash2.zw * random_offset;
             }
 
