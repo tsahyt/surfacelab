@@ -97,8 +97,7 @@ const float LUT_SIZE = 64.;
 #define LOD_BIAS .5
 #define SHADOW_LOD_OFFSET 2.
 
-float hash13(vec3 p3)
-{
+float hash13(vec3 p3) {
     p3 = fract(p3 * .1031);
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
@@ -302,22 +301,19 @@ vec3 triplanar_normal_map(vec3 p, vec3 n, float lod) {
     return nrm_front + nrm_side + nrm_top;
 }
 
-float sdBox(vec3 p, vec3 b)
-{
+float sdBox(vec3 p, vec3 b) {
     vec3 q = abs(p) - b;
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
-float sdCappedCylinder(vec3 p, float h, float dia)
-{
+float sdCappedCylinder(vec3 p, float h, float dia) {
     vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(dia, h);
     return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
 }
 
 // Special normals function for cube. Used to get proper triplanar projection on
 // undistorted cube.
-vec3 cubeNormal(vec3 p, float s)
-{
+vec3 cubeNormal(vec3 p, float s) {
     return sign(p) * normalize(max(abs(p) - vec3(s), 0.0));
 }
 
@@ -360,8 +356,7 @@ float sdf(vec3 p, float lod) {
     return 0.;
 }
 
-vec2 intsSphere(vec3 ro, vec3 rd, float ra)
-{
+vec2 intsSphere(vec3 ro, vec3 rd, float ra) {
     float b = dot(ro, rd);
     float c = dot(ro, ro) - ra * ra;
     float h = b*b - c;
@@ -370,8 +365,7 @@ vec2 intsSphere(vec3 ro, vec3 rd, float ra)
     return vec2(-b-h, -b+h);
 }
 
-vec2 intsBox(vec3 ro, vec3 rd, vec3 boxSize)
-{
+vec2 intsBox(vec3 ro, vec3 rd, vec3 boxSize) {
     vec3 m = 1.0 / rd; // can precompute if traversing a set of aligned boxes
     vec3 n = m * ro;   // can precompute if traversing a set of aligned boxes
     vec3 k = abs(m) * boxSize;
@@ -391,7 +385,7 @@ vec2 outer_bound(vec3 ro, vec3 rd, float d) {
         case OBJECT_TYPE_CUBE:
             return intsBox(ro, rd, vec3(1. + d));
         case OBJECT_TYPE_SPHERE:
-            return intsSphere(ro, rd, 2. + d);
+            return intsSphere(ro, rd, 1. + d);
         case OBJECT_TYPE_CYLINDER:
             return intsBox(ro, rd, vec3(2., 2. * PI / 3., 2.) + vec3(d));
     }
@@ -423,10 +417,10 @@ float rayMarch(vec3 ro, vec3 rd) {
     vec2 bound = outer_bound(ro, rd, displacement_amount);
     float t = bound.x;
 
+    if (t < 0 || length(ro + t * rd) > MAX_DIST) { return INFINITY; }
     if (ro.y < displacement_amount) {
         t = 0;
     }
-    if (t < 0 || length(ro + t * rd) > MAX_DIST) { return INFINITY; }
 
     float bias = max(1, 4 * displacement_amount);
 
