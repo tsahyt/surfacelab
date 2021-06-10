@@ -25,7 +25,6 @@ const uint EDGE_MODE_SOLID = 2;
 
 const uint BLEND_MODE_ADD = 0;
 const uint BLEND_MODE_MAX = 1;
-const uint BLEND_MODE_MIN = 2;
 const uint BLEND_MODE_CA = 3;
 
 const uint OCCUPANCY_UNOCCUPIED = 2;
@@ -111,8 +110,6 @@ vec3 blend(vec3 a, vec3 b) {
             return a + b;
         case BLEND_MODE_MAX:
             return max(a, b);
-        case BLEND_MODE_MIN:
-            return min(a, b);
     }
 
     return vec3(0.);
@@ -128,13 +125,9 @@ vec3 scatter(vec2 uv) {
     float s = 0.;
     float s2 = 0.;
 
-    if(blend_mode == BLEND_MODE_MIN) {
-        c = vec3(INF);
-    }
-
     int n = 1;
     if(blend_mode == BLEND_MODE_CA || edge_mode != EDGE_MODE_SOLID) {
-        n = int(ceil(sqrt(2 * global_size * global_size)));
+        n = max(int(ceil(4 * global_size - 3)) + 1, 2);
     }
 
     // Sample Neighborhood
