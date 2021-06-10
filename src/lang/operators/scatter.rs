@@ -57,7 +57,6 @@ impl EdgeMode {
 pub enum BlendMode {
     Add = 0,
     Max = 1,
-    Min = 2,
     ContrastAdjusted = 3,
 }
 
