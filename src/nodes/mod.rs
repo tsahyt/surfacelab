@@ -413,6 +413,19 @@ impl NodeManager {
                     response.append(&mut self.update_complex_operators(&res, &stub));
                 }
             }
+            UserNodeEvent::DissolveNode(res) => {
+                let node = res.file().unwrap();
+                let graph = res.directory().unwrap();
+
+                if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
+                    match graph.dissolve_node(node) {
+                        Ok(mut evs) => {
+                            response.append(&mut evs);
+                        }
+                        Err(e) => log::error!("{}", e)
+                    }
+                }
+            }
             UserNodeEvent::ConnectSockets(from, to) => {
                 let from_node = from.file().unwrap();
                 let from_socket = from.fragment().unwrap();

@@ -279,6 +279,17 @@ impl NodeGraph {
         Ok((node_data, es, co_change))
     }
 
+    /// Dissolve a node, rerouting its "primary" input source to its "primary"
+    /// output sink on a best guess basis.
+    ///
+    /// **Errors** if the node doesn't exist, or if the operation cannot be
+    /// performed because the node does not have inputs and outputs.
+    pub fn dissolve_node(&mut self, resource: &str) -> Result<Vec<Lang>, NodeGraphError> {
+        log::trace!("Dissolving {}", resource);
+
+        Ok(vec![])
+    }
+
     /// Connect two sockets in the node graph. If there is already a connection
     /// on the sink, it will be replaced!
     ///

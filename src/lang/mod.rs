@@ -551,6 +551,8 @@ pub enum UserNodeEvent {
     ),
     /// The user requests the removal of a given node.
     RemoveNode(Resource<Node>),
+    /// The user requests dissolving of the given node.
+    DissolveNode(Resource<Node>),
     /// The user requests a connection between the two sockets. Requires the
     /// first socket to be the source and the second to be the sink, i.e. order
     /// matters!

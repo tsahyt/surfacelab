@@ -81,6 +81,7 @@ pub enum Event {
     QuickCombine(Resource<Node>, Resource<Node>, bool),
     SocketClear(Resource<Socket>),
     NodeDelete(Resource<Node>),
+    NodeDissolve(Resource<Node>),
     NodeEnter(Resource<Node>),
     ActiveElement(Resource<Node>),
     AddNode(Point, Option<Resource<Socket>>),
@@ -503,6 +504,15 @@ impl<'a> Widget for Graph<'a> {
                             .get_selection()
                             .cloned()
                             .map(|res| Event::NodeDelete(res)),
+                    );
+                }
+                (input::Key::X, input::ModifierKey::CTRL) => {
+                    evs.extend(
+                        state
+                            .selection
+                            .get_selection()
+                            .cloned()
+                            .map(|res| Event::NodeDissolve(res)),
                     );
                 }
                 (input::Key::G, input::ModifierKey::CTRL) => {

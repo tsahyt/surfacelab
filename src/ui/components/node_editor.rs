@@ -159,6 +159,11 @@ impl<'a> Widget for NodeEditor<'a> {
                         .send(Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node)))
                         .unwrap();
                 }
+                graph::Event::NodeDissolve(node) => {
+                    self.sender
+                        .send(Lang::UserNodeEvent(UserNodeEvent::DissolveNode(node)))
+                        .unwrap();
+                }
                 graph::Event::NodeEnter(node) => {
                     collection_change = collection.nodes.get(&node).unwrap().callee.clone();
                 }
