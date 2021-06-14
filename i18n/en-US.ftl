@@ -113,6 +113,7 @@ invert-lighten = Invert Lighten
 smooth-darken = Smooth Darken
 smooth-lighten = Smooth Lighten
 smooth-invert-lighten = Smooth Invert Lighten
+smooth-difference = Smooth Difference
 clamp = Clamp
 sharpness = Sharpness
 

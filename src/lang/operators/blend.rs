@@ -41,6 +41,7 @@ pub enum BlendMode {
     SmoothDarken = 10,
     SmoothLighten = 11,
     SmoothInvertLighten = 12,
+    SmoothDifference = 13,
 }
 
 impl BlendMode {

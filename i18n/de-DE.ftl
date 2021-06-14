@@ -113,6 +113,7 @@ invert-lighten = Invers Aufhellen
 smooth-darken = Weich Abdunkeln
 smooth-lighten = Weich Aufhellen
 smooth-invert-lighten = Weich Invers Aufhellen
+smooth-difference = Weiche Differenz
 clamp = Festhalten
 sharpness = Schärfe
 
