@@ -44,6 +44,7 @@ finite-plane = Endliche Ebene
 cube = Würfel
 sphere = Kugel
 cylinder = Zylinder
+infinite-cylinder = Endloser Zylinder
 displacement-amount = Displacementstärke
 tex-scale = Texturskalierung
 environment = Umgebungslicht

@@ -825,6 +825,7 @@ pub enum ObjectType {
     Cube = 2,
     Sphere = 3,
     Cylinder = 4,
+    InfiniteCylinder = 5,
 }
 
 /// Shading modes supported by the SDF 3D renderer

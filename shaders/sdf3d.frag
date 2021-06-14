@@ -10,6 +10,7 @@ const uint OBJECT_TYPE_FINITEPLANE = 1;
 const uint OBJECT_TYPE_CUBE = 2;
 const uint OBJECT_TYPE_SPHERE = 3;
 const uint OBJECT_TYPE_CYLINDER = 4;
+const uint OBJECT_TYPE_INFCYLINDER = 5;
 
 layout(constant_id = 1) const uint SHADING_MODE = 0;
 
@@ -311,6 +312,10 @@ float sdCappedCylinder(vec3 p, float h, float dia) {
     return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
 }
 
+float sdCylinder(vec3 p, vec3 c) {
+  return length(p.xz - c.xy) - c.z;
+}
+
 // Special normals function for cube. Used to get proper triplanar projection on
 // undistorted cube.
 vec3 cubeNormal(vec3 p, float s) {
@@ -349,8 +354,10 @@ float sdf(vec3 p, float lod) {
         case OBJECT_TYPE_CYLINDER:
             height = heightfield(cylinder_mapping(p), lod) * displacement_amount;
             height = mix(height, 0., smoothstep(2 * PI / 3 - 0.1, 2 * PI / 3, abs(p.y)));
-            float cylinderDist = sdCappedCylinder(p, 2 * PI / 3 - 0.1, 1.9) - 0.1;
-            return cylinderDist - height;
+            return sdCappedCylinder(p, 2 * PI / 3 - 0.1, 1.9) - 0.1 - height;
+        case OBJECT_TYPE_INFCYLINDER:
+            height = heightfield(cylinder_mapping(p), lod) * displacement_amount;
+            return sdCylinder(p, vec3(0., 0., 2.)) - height;
     }
 
     return 0.;
@@ -388,6 +395,8 @@ vec2 outer_bound(vec3 ro, vec3 rd, float d) {
             return intsSphere(ro, rd, 1. + d);
         case OBJECT_TYPE_CYLINDER:
             return intsBox(ro, rd, vec3(2., 2. * PI / 3., 2.) + vec3(d));
+        case OBJECT_TYPE_INFCYLINDER:
+            return intsBox(ro, rd, vec3(2., MAX_DIST, 2.) + vec3(d));
     }
 
     return vec2(0.);
@@ -689,6 +698,7 @@ vec3 render_matcap(vec3 ro, vec3 rd, vec3 look_at) {
             alpha_ = alpha(sphere_mapping(p), lod_by_distance(d));
             break;
         case OBJECT_TYPE_CYLINDER:
+        case OBJECT_TYPE_INFCYLINDER:
             alpha_ = alpha(cylinder_mapping(p), lod_by_distance(d));
             break;
     }
@@ -712,6 +722,7 @@ vec3 render_matcap(vec3 ro, vec3 rd, vec3 look_at) {
             normal_ = normal_map(sphere_mapping(p), lod_by_distance(d));
             break;
         case OBJECT_TYPE_CYLINDER:
+        case OBJECT_TYPE_INFCYLINDER:
             normal_ = normal_map(cylinder_mapping(p), lod_by_distance(d));
             break;
     }
@@ -763,6 +774,7 @@ vec3 render(vec3 ro, vec3 rd) {
             alpha_ = alpha(sphere_mapping(p), lod_by_distance(d));
             break;
         case OBJECT_TYPE_CYLINDER:
+        case OBJECT_TYPE_INFCYLINDER:
             alpha_ = alpha(cylinder_mapping(p), lod_by_distance(d));
             break;
     }
@@ -803,6 +815,7 @@ vec3 render(vec3 ro, vec3 rd) {
             baked_ao_ = baked_ao(sphere_mapping(p), lod_by_distance(d));
             break;
         case OBJECT_TYPE_CYLINDER:
+        case OBJECT_TYPE_INFCYLINDER:
             albedo_ = albedo(cylinder_mapping(p), lod_by_distance(d));
             metallic_ = metallic(cylinder_mapping(p), lod_by_distance(d));
             roughness_ = roughness(cylinder_mapping(p), lod_by_distance(d));

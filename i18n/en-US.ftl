@@ -44,6 +44,7 @@ finite-plane = Finite Plane
 cube = Cube
 sphere = Sphere
 cylinder = Cylinder
+infinite-cylinder = Infinite Cylinder
 displacement-amount = Displacement Amount
 tex-scale = Texture Scale
 environment = Environment
