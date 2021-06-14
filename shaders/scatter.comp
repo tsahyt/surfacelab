@@ -155,7 +155,7 @@ vec3 scatter(vec2 uv) {
 
             local_uv = ((2 * local_uv - 1.) / (local_size * clamp(local_hash.w, 1. - random_scale, 1.0)) + 1.) / 2.;
             local_uv -= (2 * local_hash.xy - 1.) * randomness;
-            local_uv = (rot(local_hash.z * TAU * random_rot) * (2 * local_uv - 1.) + 1.) / 2.;
+            local_uv = (rot((2. * local_hash.z - 1.) * TAU * random_rot) * (2 * local_uv - 1.) + 1.) / 2.;
 
             float v = 1.;
             if(blend_mode == BLEND_MODE_CA || edge_mode == EDGE_MODE_TILE) {
