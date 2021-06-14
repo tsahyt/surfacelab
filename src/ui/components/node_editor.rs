@@ -101,6 +101,7 @@ impl<'a> Widget for NodeEditor<'a> {
 
         for event in graph::Graph::new(&collection)
             .enabled(state.add_modal.is_none())
+            .icon_font(style.icon_font(&ui.theme))
             .node_title_color(color::LIGHT_CHARCOAL)
             .node_title_size(14)
             .node_active_color(Color::Rgba(0.9, 0.4, 0.15, 1.0))

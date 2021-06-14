@@ -1,4 +1,6 @@
+use super::super::util::IconName;
 use super::node;
+use super::toolbar;
 use conrod_core::*;
 use std::collections::HashMap;
 
@@ -23,6 +25,8 @@ pub struct Graph<'a> {
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
 pub struct Style {
+    #[conrod(default = "theme.font_id.unwrap()")]
+    icon_font: Option<text::font::Id>,
     #[conrod(default = "color::LIGHT_GRAY")]
     edge_color: Option<Color>,
     #[conrod(default = "3.0")]
@@ -55,6 +59,7 @@ widget_ids! {
         floating_noodle,
         highlight_noodle,
         blend_line,
+        toolbar,
     }
 }
 
@@ -90,6 +95,14 @@ pub enum Event {
     ExportSetup(Vec<Resource<Node>>),
     SocketView(Resource<Socket>),
     SocketViewClear,
+}
+
+#[derive(Clone, Debug, Copy)]
+pub enum ToolbarAction {
+    Align,
+    Delete,
+    Extract,
+    Export,
 }
 
 impl<'a> Graph<'a> {
@@ -175,6 +188,7 @@ impl<'a> Graph<'a> {
 
     builder_methods! {
         pub enabled { enabled = bool }
+        pub icon_font { style.icon_font = Some(text::font::Id) }
         pub edge_color { style.edge_color = Some(Color) }
         pub edge_thickness { style.edge_thickness = Some(Scalar) }
         pub edge_drag_color_fail { style.edge_drag_color_fail = Some(Color) }
@@ -533,6 +547,27 @@ impl<'a> Widget for Graph<'a> {
                 _ => {}
             }
         }
+
+        toolbar::Toolbar::flow_left(
+            [
+                (IconName::ALIGN, ToolbarAction::Align),
+                (IconName::TRASH, ToolbarAction::Delete),
+                (IconName::PACKAGE, ToolbarAction::Extract),
+                (IconName::EXPORT, ToolbarAction::Export),
+            ]
+            .iter()
+            .copied(),
+        )
+        .icon_font(style.icon_font(&ui.theme))
+        .icon_color(color::WHITE)
+        .button_color(color::DARK_CHARCOAL)
+        .border(1.0)
+        .parent(id)
+        .top_right_with_margin(8.)
+        .h(32.0)
+        .w_of(id)
+        .auto_hide(true)
+        .set(state.ids.toolbar, ui);
 
         // Dragging of nodes processed separately to apply operation to the
         // entire selection set

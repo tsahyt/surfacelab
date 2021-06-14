@@ -40,6 +40,7 @@ where
     tools: I,
     style: Style,
     direction: std::marker::PhantomData<D>,
+    auto_hide: bool,
 }
 
 impl<T, I> Toolbar<T, FlowRight, I>
@@ -53,6 +54,7 @@ where
             style: Style::default(),
             tools,
             direction: std::marker::PhantomData,
+            auto_hide: false,
         }
     }
 }
@@ -68,6 +70,7 @@ where
             style: Style::default(),
             tools,
             direction: std::marker::PhantomData,
+            auto_hide: false,
         }
     }
 }
@@ -82,6 +85,8 @@ where
         pub icon_size { style.icon_size = Some(FontSize) }
         pub icon_color { style.icon_color = Some(Color) }
         pub button_color { style.button_color = Some(Color) }
+        pub border { style.border = Some(Scalar) }
+        pub auto_hide { auto_hide = bool }
     }
 }
 
@@ -97,6 +102,8 @@ pub struct Style {
     icon_color: Option<Color>,
     #[conrod(default = "theme.shape_color")]
     button_color: Option<Color>,
+    #[conrod(default = "0.0")]
+    border: Option<Scalar>,
 }
 
 widget_ids! {
@@ -137,11 +144,16 @@ where
             ui,
             id,
             style,
+            rect,
             ..
         } = args;
 
         let size = style.button_size(&ui.theme);
         let icon_size = style.icon_size(&ui.theme);
+
+        if self.auto_hide && !rect.is_over(ui.global_input().start.mouse.xy) {
+            return res;
+        }
 
         state.update(|state| {
             let mut walker = state.ids.buttons.walk();
@@ -155,7 +167,7 @@ where
                     .label_font_size(icon_size)
                     .label_color(style.icon_color(&ui.theme))
                     .color(style.button_color(&ui.theme))
-                    .border(0.0)
+                    .border(style.border(&ui.theme))
                     .wh([size, size])
                     .parent(id);
 

@@ -41,6 +41,8 @@ impl IconName {
     pub const UNDO: IconName = IconName("\u{f054c}");
     pub const REDO: IconName = IconName("\u{f044e}");
     pub const RELOAD: IconName = IconName("\u{f0453}");
+    pub const ALIGN: IconName = IconName("\u{f11c6}");
+    pub const PACKAGE: IconName = IconName("\u{f03d3}");
 }
 
 /// Create an icon button, i.e. a button with an icon in it. Uses an IconName
