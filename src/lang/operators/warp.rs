@@ -96,7 +96,7 @@ impl Socketed for Warp {
     fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
             "in".to_string() => (OperatorType::Polymorphic(0), false),
-            "intensity".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false)
+            "intensity".to_string() => (OperatorType::Polymorphic(1), false)
         }
     }
 
@@ -126,18 +126,22 @@ impl Shader for Warp {
                 },
                 OperatorDescriptor {
                     binding: 1,
-                    descriptor: OperatorDescriptorUse::InputImage("in"),
+                    descriptor: OperatorDescriptorUse::Occupancy,
                 },
                 OperatorDescriptor {
                     binding: 2,
-                    descriptor: OperatorDescriptorUse::InputImage("intensity"),
+                    descriptor: OperatorDescriptorUse::InputImage("in"),
                 },
                 OperatorDescriptor {
                     binding: 3,
-                    descriptor: OperatorDescriptorUse::Sampler,
+                    descriptor: OperatorDescriptorUse::InputImage("intensity"),
                 },
                 OperatorDescriptor {
                     binding: 4,
+                    descriptor: OperatorDescriptorUse::Sampler,
+                },
+                OperatorDescriptor {
+                    binding: 5,
                     descriptor: OperatorDescriptorUse::OutputImage("out"),
                 },
             ],
@@ -168,7 +172,9 @@ impl OperatorParamBox for Warp {
                             variants: WarpMode::VARIANTS.iter().map(|x| x.to_string()).collect(),
                         },
                         expose_status: Some(ExposeStatus::Unexposed),
-                        visibility: VisibilityFunction::default(),
+                        visibility: VisibilityFunction::on_type_variable(1, |t| {
+                            matches!(t, ImageType::Grayscale)
+                        }),
                         presetable: true,
                     },
                     Parameter {

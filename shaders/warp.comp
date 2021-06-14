@@ -20,10 +20,18 @@ const uint BLEND_MODE_MIX = 0;
 const uint BLEND_MODE_MIN = 1;
 const uint BLEND_MODE_MAX = 2;
 
-layout(set = 0, binding = 1) uniform texture2D t_Input;
-layout(set = 0, binding = 2) uniform texture2D t_Strength;
-layout(set = 0, binding = 3) uniform sampler Sampler;
-layout(set = 0, binding = 4, rgba16f) uniform image2D t_Out;
+layout(set = 0, binding = 1) uniform Occupancy {
+    uint occ_inp;
+    uint occ_strength;
+};
+
+const uint OCCUPANCY_GRAYSCALE = 0;
+const uint OCCUPANCY_RGB = 1;
+
+layout(set = 0, binding = 2) uniform texture2D t_Input;
+layout(set = 0, binding = 3) uniform texture2D t_Strength;
+layout(set = 0, binding = 4) uniform sampler Sampler;
+layout(set = 0, binding = 5, rgba16f) uniform image2D t_Out;
 
 float fetch_height(ivec2 texel) {
     ivec2 resolution = imageSize(t_Out);
@@ -73,6 +81,11 @@ vec4 directional(vec2 uv) {
     return texture(sampler2D(t_Input, Sampler), uv + direction * intensity * dist);
 }
 
+vec4 vector(vec2 uv) {
+    vec2 v = texture(sampler2D(t_Strength, Sampler), uv).rg;
+    return texture(sampler2D(t_Input, Sampler), uv + (v * intensity));
+}
+
 vec4 slope_blur(ivec2 idx, vec2 uv) {
     vec4 color = vec4(0.);
 
@@ -117,20 +130,24 @@ void main() {
 
     vec4 res;
 
-    switch(mode) {
-        case MODE_PUSH:
-            res = push(idx, uv);
-            break;
-        case MODE_PULL:
-            res = pull(idx, uv);
-            break;
-        case MODE_DIRECTIONAL:
-            res = directional(uv);
-            break;
-        case MODE_SLOPEBLUR:
-        case MODE_SLOPEBLUR_INV:
-            res = slope_blur(idx, uv);
-            break;
+    if(occ_strength == OCCUPANCY_RGB) {
+        res = vector(uv);
+    } else {
+        switch(mode) {
+            case MODE_PUSH:
+                res = push(idx, uv);
+                break;
+            case MODE_PULL:
+                res = pull(idx, uv);
+                break;
+            case MODE_DIRECTIONAL:
+                res = directional(uv);
+                break;
+            case MODE_SLOPEBLUR:
+            case MODE_SLOPEBLUR_INV:
+                res = slope_blur(idx, uv);
+                break;
+        }
     }
 
     imageStore(t_Out, idx, res);

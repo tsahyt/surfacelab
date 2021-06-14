@@ -422,7 +422,7 @@ impl NodeManager {
                         Ok(mut evs) => {
                             response.append(&mut evs);
                         }
-                        Err(e) => log::error!("{}", e)
+                        Err(e) => log::error!("{}", e),
                     }
                 }
             }
