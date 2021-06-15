@@ -421,6 +421,22 @@ impl NodeManager {
                     match graph.dissolve_node(node) {
                         Ok(mut evs) => {
                             response.append(&mut evs);
+
+                            if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
+                                |(instructions, last_use)| {
+                                    lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
+                                        graph.graph_resource(),
+                                        instructions,
+                                        last_use,
+                                    ))
+                                },
+                            ) {
+                                response.push(instrs);
+                                response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                                    self.active_graph.clone(),
+                                    Vec::new(),
+                                )));
+                            }
                         }
                         Err(e) => log::error!("{}", e),
                     }
