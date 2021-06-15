@@ -70,6 +70,9 @@ impl UndoAction {
             Lang::UserNodeEvent(UserNodeEvent::RemoveNode(node)) => {
                 Some(Self::remove_node_action(node))
             }
+            Lang::UserNodeEvent(UserNodeEvent::DissolveNode(node)) => {
+                Some(Self::remove_node_action(node))
+            }
             Lang::UserNodeEvent(UserNodeEvent::ConnectSockets(source, sink)) => {
                 Some(Self::connect_sockets_action(source, sink))
             }
