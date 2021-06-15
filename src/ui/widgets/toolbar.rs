@@ -4,6 +4,7 @@ use conrod_core::*;
 pub struct FlowRight;
 pub struct FlowLeft;
 pub struct FlowDown;
+pub struct FlowUp;
 
 pub trait Direction {
     fn position_button(
