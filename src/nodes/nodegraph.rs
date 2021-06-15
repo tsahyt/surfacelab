@@ -11,7 +11,7 @@ use crate::lang::*;
 use thiserror::Error;
 
 use bimap::BiHashMap;
-use petgraph::graph;
+use petgraph::{graph, visit::EdgeRef};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
@@ -211,8 +211,6 @@ impl NodeGraph {
         &mut self,
         resource: &str,
     ) -> Result<(Node, Connections, bool), NodeGraphError> {
-        use petgraph::visit::EdgeRef;
-
         let mut co_change = false;
         let node = *self
             .indices
@@ -285,9 +283,81 @@ impl NodeGraph {
     /// **Errors** if the node doesn't exist, or if the operation cannot be
     /// performed because the node does not have inputs and outputs.
     pub fn dissolve_node(&mut self, resource: &str) -> Result<Vec<Lang>, NodeGraphError> {
+        use itertools::Itertools;
+
         log::trace!("Dissolving {}", resource);
 
-        Ok(vec![])
+        let node_idx = *self
+            .indices
+            .get_by_left(&resource.to_string())
+            .ok_or_else(|| NodeGraphError::NodeNotFound(resource.to_string()))?;
+
+        // Find a best guess pair of sockets to connect after removal
+        let incoming: Vec<_> = self
+            .graph
+            .edges_directed(node_idx, petgraph::EdgeDirection::Incoming)
+            .filter_map(|e| match self.socket_type(resource, &e.weight().1) {
+                Ok(ty) => Some((
+                    self.indices.get_by_right(&e.source()).unwrap().clone(),
+                    e.weight().0.clone(),
+                    ty,
+                )),
+                _ => None,
+            })
+            .collect();
+        let outgoing: Vec<_> = self
+            .graph
+            .edges_directed(node_idx, petgraph::EdgeDirection::Outgoing)
+            .filter_map(|e| match self.socket_type(resource, &e.weight().0) {
+                Ok(ty) => Some((
+                    self.indices.get_by_right(&e.target()).unwrap().clone(),
+                    e.weight().1.clone(),
+                    ty,
+                )),
+                _ => None,
+            })
+            .collect();
+        let pair = incoming
+            .iter()
+            .sorted_by_key(|x| &x.1)
+            .cartesian_product(outgoing.iter().sorted_by_key(|x| &x.1))
+            .find(|(i, o)| i.2 == o.2)
+            .ok_or(NodeGraphError::InvalidConnection)?;
+
+        let mut res = Vec::new();
+
+        // Remove old node
+        let node_resource = self.node_resource(&node_idx);
+        let (node, cs, _) = self.remove_node(resource)?;
+
+        // Note that we don't have to deal with the removed output case here,
+        // since there cannot be a valid pair above if the node is an output
+        res.extend(
+            cs.iter().map(|c| {
+                Lang::GraphEvent(GraphEvent::DisconnectedSockets(c.0.clone(), c.1.clone()))
+            }),
+        );
+        res.push(Lang::GraphEvent(GraphEvent::NodeRemoved(
+            node_resource,
+            node.operator.clone(),
+            node.position.clone(),
+        )));
+
+        // Perform new connection
+        res.extend(
+            self.connect_sockets(&pair.0 .0, &pair.0 .1, &pair.1 .0, &pair.1 .1)?
+                .drain(0..),
+        );
+        res.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+            self.graph_resource()
+                .graph_node(&pair.0 .0)
+                .node_socket(&pair.0 .1),
+            self.graph_resource()
+                .graph_node(&pair.1 .0)
+                .node_socket(&pair.1 .1),
+        )));
+
+        Ok(res)
     }
 
     /// Connect two sockets in the node graph. If there is already a connection
@@ -746,8 +816,6 @@ impl NodeGraph {
         sink_node: &str,
         sink_socket: &str,
     ) -> Result<Vec<Lang>, NodeGraphError> {
-        use petgraph::visit::EdgeRef;
-
         let sink_path = *self
             .indices
             .get_by_left(&sink_node.to_string())
@@ -1187,7 +1255,6 @@ impl NodeCollection for NodeGraph {
     /// None in this case.
     fn linearize(&self, mode: LinearizationMode) -> Option<(Linearization, UsePoints)> {
         use itertools::Itertools;
-        use petgraph::visit::EdgeRef;
 
         enum Action<'a> {
             /// Traverse deeper into the node graph, coming from the given label
