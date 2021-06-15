@@ -2,8 +2,8 @@ use crate::ui::util::*;
 use conrod_core::*;
 
 pub struct FlowRight;
-
 pub struct FlowLeft;
+pub struct FlowDown;
 
 pub trait Direction {
     fn position_button(
@@ -27,6 +27,24 @@ impl Direction for FlowLeft {
         offset: f64,
     ) -> widget::Button<widget::button::Flat> {
         btn.mid_right_with_margin(offset)
+    }
+}
+
+impl Direction for FlowDown {
+    fn position_button(
+        btn: widget::Button<widget::button::Flat>,
+        offset: f64,
+    ) -> widget::Button<widget::button::Flat> {
+        btn.mid_top_with_margin(offset)
+    }
+}
+
+impl Direction for FlowUp {
+    fn position_button(
+        btn: widget::Button<widget::button::Flat>,
+        offset: f64,
+    ) -> widget::Button<widget::button::Flat> {
+        btn.mid_bottom_with_margin(offset)
     }
 }
 
@@ -65,6 +83,38 @@ where
 {
     /// Construct a toolbar which grows towards the left.
     pub fn flow_left(tools: I) -> Self {
+        Self {
+            common: widget::CommonBuilder::default(),
+            style: Style::default(),
+            tools,
+            direction: std::marker::PhantomData,
+            auto_hide: false,
+        }
+    }
+}
+
+impl<T, I> Toolbar<T, FlowDown, I>
+where
+    I: Iterator<Item = (IconName, T)>,
+{
+    /// Construct a toolbar which grows downwards.
+    pub fn flow_down(tools: I) -> Self {
+        Self {
+            common: widget::CommonBuilder::default(),
+            style: Style::default(),
+            tools,
+            direction: std::marker::PhantomData,
+            auto_hide: false,
+        }
+    }
+}
+
+impl<T, I> Toolbar<T, FlowUp, I>
+where
+    I: Iterator<Item = (IconName, T)>,
+{
+    /// Construct a toolbar which grows upwards.
+    pub fn flow_up(tools: I) -> Self {
         Self {
             common: widget::CommonBuilder::default(),
             style: Style::default(),
