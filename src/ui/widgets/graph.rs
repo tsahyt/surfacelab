@@ -98,11 +98,12 @@ pub enum Event {
 }
 
 #[derive(Clone, Debug, Copy)]
-pub enum ToolbarAction {
+pub enum SelectionAction {
     Align,
     Delete,
+    Dissolve,
     Extract,
-    Export,
+    ExportSetup,
 }
 
 impl<'a> Graph<'a> {
@@ -507,53 +508,37 @@ impl<'a> Widget for Graph<'a> {
 
         // Update selection
         self.rect_selection_handling(ui, state, id);
+        let mut selection_action = None;
 
         // Handle operations on the selection
         for press in ui.widget_input(id).presses().key() {
             match (press.key, press.modifiers) {
                 (input::Key::X, input::ModifierKey::NO_MODIFIER) => {
-                    evs.extend(
-                        state
-                            .selection
-                            .get_selection()
-                            .cloned()
-                            .map(|res| Event::NodeDelete(res)),
-                    );
+                    selection_action = Some(SelectionAction::Delete);
                 }
                 (input::Key::X, input::ModifierKey::CTRL) => {
-                    evs.extend(
-                        state
-                            .selection
-                            .get_selection()
-                            .cloned()
-                            .map(|res| Event::NodeDissolve(res)),
-                    );
+                    selection_action = Some(SelectionAction::Dissolve);
                 }
                 (input::Key::G, input::ModifierKey::CTRL) => {
-                    evs.push(Event::Extract(
-                        state.selection.get_selection().cloned().collect(),
-                    ));
+                    selection_action = Some(SelectionAction::Extract);
                 }
                 (input::Key::E, input::ModifierKey::NO_MODIFIER) => {
-                    evs.push(Event::ExportSetup(
-                        state.selection.get_selection().cloned().collect(),
-                    ));
+                    selection_action = Some(SelectionAction::ExportSetup);
                 }
                 (input::Key::A, input::ModifierKey::NO_MODIFIER) => {
-                    evs.push(Event::AlignNodes(
-                        state.selection.get_selection().cloned().collect(),
-                    ));
+                    selection_action = Some(SelectionAction::Align);
                 }
                 _ => {}
             }
         }
 
-        toolbar::Toolbar::flow_down(
+        selection_action = selection_action.or(toolbar::Toolbar::flow_down(
             [
-                (IconName::ALIGN, ToolbarAction::Align),
-                (IconName::TRASH, ToolbarAction::Delete),
-                (IconName::PACKAGE, ToolbarAction::Extract),
-                (IconName::EXPORT, ToolbarAction::Export),
+                (IconName::ALIGN, SelectionAction::Align),
+                (IconName::TRASH, SelectionAction::Delete),
+                (IconName::RAYSTARTEND, SelectionAction::Dissolve),
+                (IconName::PACKAGE, SelectionAction::Extract),
+                (IconName::EXPORT, SelectionAction::ExportSetup),
             ]
             .iter()
             .copied(),
@@ -567,7 +552,44 @@ impl<'a> Widget for Graph<'a> {
         .h_of(id)
         .w(32.0)
         .auto_hide(true)
-        .set(state.ids.toolbar, ui);
+        .set(state.ids.toolbar, ui));
+
+        match selection_action {
+            Some(SelectionAction::Align) => {
+                evs.push(Event::AlignNodes(
+                    state.selection.get_selection().cloned().collect(),
+                ));
+            }
+            Some(SelectionAction::Delete) => {
+                evs.extend(
+                    state
+                        .selection
+                        .get_selection()
+                        .cloned()
+                        .map(|res| Event::NodeDelete(res)),
+                );
+            }
+            Some(SelectionAction::Dissolve) => {
+                evs.extend(
+                    state
+                        .selection
+                        .get_selection()
+                        .cloned()
+                        .map(|res| Event::NodeDissolve(res)),
+                );
+            }
+            Some(SelectionAction::Extract) => {
+                evs.push(Event::Extract(
+                    state.selection.get_selection().cloned().collect(),
+                ));
+            }
+            Some(SelectionAction::ExportSetup) => {
+                evs.push(Event::ExportSetup(
+                    state.selection.get_selection().cloned().collect(),
+                ));
+            }
+            None => {}
+        }
 
         // Dragging of nodes processed separately to apply operation to the
         // entire selection set
