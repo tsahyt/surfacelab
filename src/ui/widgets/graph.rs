@@ -548,7 +548,7 @@ impl<'a> Widget for Graph<'a> {
             }
         }
 
-        toolbar::Toolbar::flow_left(
+        toolbar::Toolbar::flow_down(
             [
                 (IconName::ALIGN, ToolbarAction::Align),
                 (IconName::TRASH, ToolbarAction::Delete),
@@ -563,9 +563,9 @@ impl<'a> Widget for Graph<'a> {
         .button_color(color::DARK_CHARCOAL)
         .border(1.0)
         .parent(id)
-        .top_right_with_margin(8.)
-        .h(32.0)
-        .w_of(id)
+        .top_left_with_margin(8.)
+        .h_of(id)
+        .w(32.0)
         .auto_hide(true)
         .set(state.ids.toolbar, ui);
 
