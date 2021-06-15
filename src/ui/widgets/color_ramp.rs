@@ -122,7 +122,7 @@ impl<'a> Widget for ColorRamp<'a> {
             let step_pos = step[3] as f64 * (wh.0 - 64.);
             let step_color = color::rgb(step[0], step[1], step[2]);
 
-            widget::BorderedRectangle::new([4., 48.])
+            widget::BorderedRectangle::new([8., 48.])
                 .border(if i == state.selected { 1.0 } else { 0.0 })
                 .parent(id)
                 .top_left_with_margins(0., step_pos - 2.)
