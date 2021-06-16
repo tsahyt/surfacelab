@@ -85,6 +85,7 @@ layer-type-mismatch = Kein passender Sockel gefunden
 
 surface-attributes = Oberflächenattribute
 parent-size = Oberflächendimensionen
+export-size = Exportdimensionen
 
 basic-parameters = Basisparameter
 transform = Transformation

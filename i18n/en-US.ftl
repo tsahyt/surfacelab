@@ -85,6 +85,7 @@ layer-type-mismatch = No suitable socket found
 
 surface-attributes = Surface Attributes
 parent-size = Parent Size
+export-size = Export Size
 
 basic-parameters = Basic Parameters
 transform = Transform

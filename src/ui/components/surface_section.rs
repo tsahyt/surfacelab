@@ -110,7 +110,7 @@ impl<'a> Widget for SurfaceSection<'a> {
 
         widget::Text::new(&self.language.get_message("export-spec"))
             .parent(id)
-            .mid_top_with_margin(96.0)
+            .mid_top_with_margin(160.0)
             .color(color::WHITE)
             .font_size(12)
             .set(state.ids.export_label, ui);
@@ -118,7 +118,7 @@ impl<'a> Widget for SurfaceSection<'a> {
         for _ev in icon_button(IconName::PLUS, style.icon_font(&ui.theme))
             .enabled(!state.output_resources.is_empty())
             .parent(id)
-            .top_right_with_margins(96.0, 8.0)
+            .top_right_with_margins(160.0, 8.0)
             .border(0.)
             .color(color::DARK_CHARCOAL)
             .label_color(color::WHITE)
@@ -141,7 +141,7 @@ impl<'a> Widget for SurfaceSection<'a> {
             .padded_w_of(id, 8.0)
             .item_size(120.)
             .h(120. * state.export_entries.len() as f64)
-            .mid_top_with_margin(120.0)
+            .mid_top_with_margin(184.0)
             .set(state.ids.export_list, ui);
 
         state.update(|state| {

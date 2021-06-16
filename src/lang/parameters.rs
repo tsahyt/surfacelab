@@ -402,6 +402,7 @@ impl MessageWriter for RenderField {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SurfaceField {
     Resize,
+    ExportSize,
 }
 
 impl MessageWriter for SurfaceField {
@@ -910,17 +911,30 @@ impl ParamBoxDescription<SurfaceField> {
                 name: "surface-attributes",
                 is_open: true,
                 visibility: VisibilityFunction::default(),
-                parameters: vec![Parameter {
-                    name: "parent-size".to_string(),
-                    control: Control::Size {
-                        size: OperatorSize::AbsoluteSize(1024),
-                        allow_relative: false,
+                parameters: vec![
+                    Parameter {
+                        name: "parent-size".to_string(),
+                        control: Control::Size {
+                            size: OperatorSize::AbsoluteSize(1024),
+                            allow_relative: false,
+                        },
+                        transmitter: SurfaceField::Resize,
+                        expose_status: None,
+                        visibility: VisibilityFunction::default(),
+                        presetable: false,
                     },
-                    transmitter: SurfaceField::Resize,
-                    expose_status: None,
-                    visibility: VisibilityFunction::default(),
-                    presetable: false,
-                }],
+                    Parameter {
+                        name: "export-size".to_string(),
+                        control: Control::Size {
+                            size: OperatorSize::AbsoluteSize(1024),
+                            allow_relative: false,
+                        },
+                        transmitter: SurfaceField::ExportSize,
+                        expose_status: None,
+                        visibility: VisibilityFunction::default(),
+                        presetable: false,
+                    },
+                ],
             }],
         }
     }
