@@ -10,6 +10,7 @@ layout(set = 0, binding = 1) uniform Occupancy {
     uint has_normal;
     uint has_displacement;
     uint has_metallic;
+    uint has_ao;
     uint has_alpha;
     uint has_view;
     uint view_type;
@@ -39,7 +40,7 @@ const uint CHANNEL_NORMAL = 2;
 const uint CHANNEL_ROUGHNESS = 3;
 const uint CHANNEL_METALLIC = 4;
 const uint CHANNEL_ALPHA = 5;
-const uint CHANNEL_VIEW = 6;
+const uint CHANNEL_AMBIENTOCCLUSION = 6;
 
 const uint VIEWTYPE_GRAYSCALE = 0;
 const uint VIEWTYPE_RGB = 1;
@@ -53,7 +54,19 @@ void main() {
     uv.y *= - 1.0;
 
     vec3 col;
-    if (channel == CHANNEL_DISPLACEMENT && has_displacement != 0) {
+
+    // Default to showing the view socket if available
+    if (has_view != 0) {
+        switch (view_type) {
+            case 0:
+                col = vec3(pow(texture(sampler2D(t_View, s_Texture), uv).r, 2.2));
+                break;
+            case 1:
+                col = vec3(texture(sampler2D(t_View, s_Texture), uv).rgb);
+                break;
+        }
+    } // Otherwise show the selected channel
+    else if (channel == CHANNEL_DISPLACEMENT && has_displacement != 0) {
         col = vec3(pow(texture(sampler2D(t_Displ, s_Texture), uv).r, 2.2));
     } else if (channel == CHANNEL_ALBEDO && has_albedo != 0) {
         col = texture(sampler2D(t_Albedo, s_Texture), uv).rgb;
@@ -65,15 +78,8 @@ void main() {
         col = vec3(pow(texture(sampler2D(t_Metallic, s_Texture), uv).r, 2.2));
     } else if (channel == CHANNEL_ALPHA && has_alpha != 0) {
         col = vec3(pow(texture(sampler2D(t_Alpha, s_Texture), uv).r, 2.2));
-    } else if (channel == CHANNEL_VIEW && has_view != 0) {
-        switch (view_type) {
-            case 0:
-                col = vec3(pow(texture(sampler2D(t_View, s_Texture), uv).r, 2.2));
-                break;
-            case 1:
-                col = vec3(texture(sampler2D(t_View, s_Texture), uv).rgb);
-                break;
-        }
+    } else if (channel == CHANNEL_AMBIENTOCCLUSION && has_ao != 0) {
+        col = vec3(pow(texture(sampler2D(t_AO, s_Texture), uv).r, 2.2));
     } else {
         col = vec3(0.,0.,0.);
     }

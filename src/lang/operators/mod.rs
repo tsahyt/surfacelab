@@ -199,6 +199,7 @@ impl From<MaterialChannel> for OutputType {
             MaterialChannel::Roughness => OutputType::Roughness,
             MaterialChannel::Metallic => OutputType::Metallic,
             MaterialChannel::Alpha => OutputType::Alpha,
+            MaterialChannel::AmbientOcclusion => OutputType::AmbientOcclusion,
         }
     }
 }

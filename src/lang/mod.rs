@@ -410,6 +410,7 @@ impl From<MaterialChannel> for ImageType {
             MaterialChannel::Roughness => ImageType::Grayscale,
             MaterialChannel::Metallic => ImageType::Grayscale,
             MaterialChannel::Alpha => ImageType::Grayscale,
+            MaterialChannel::AmbientOcclusion => ImageType::Grayscale,
         }
     }
 }
@@ -1166,15 +1167,17 @@ pub enum RendererType {
 }
 
 /// Supported PBR material channels
+#[repr(u32)]
 #[allow(clippy::derive_hash_xor_eq)]
-#[derive(EnumSetType, EnumIter, Debug, Hash, Serialize, Deserialize, Display)]
+#[derive(AsBytes, EnumSetType, EnumIter, Debug, Hash, Serialize, Deserialize, Display)]
 pub enum MaterialChannel {
-    Displacement,
-    Albedo,
-    Normal,
-    Roughness,
-    Metallic,
-    Alpha,
+    Displacement = 0,
+    Albedo = 1,
+    Normal = 2,
+    Roughness = 3,
+    Metallic = 4,
+    Alpha = 5,
+    AmbientOcclusion = 6,
 }
 
 impl MaterialChannel {
@@ -1194,6 +1197,7 @@ impl MaterialChannel {
             MaterialChannel::Normal => "nor",
             MaterialChannel::Displacement => "dsp",
             MaterialChannel::Alpha => "alpha",
+            MaterialChannel::AmbientOcclusion => "ao",
         }
     }
 }

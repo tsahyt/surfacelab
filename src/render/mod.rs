@@ -350,6 +350,15 @@ where
             Lang::ComputeEvent(ComputeEvent::SocketViewReady(img, layout, access, size, ty)) => {
                 self.transfer_socket_view(img, *layout, *access, *size as i32, *ty);
             }
+            Lang::UserNodeEvent(UserNodeEvent::ViewSocket(None)) => {
+                self.disconnect_image(gpu::render::ImageUse::View(ImageType::Grayscale));
+                self.force_redraw_all();
+                response.extend(
+                    self.renderers
+                        .keys()
+                        .map(|r| Lang::RenderEvent(RenderEvent::RendererRedrawn(*r))),
+                );
+            }
             Lang::GraphEvent(GraphEvent::OutputRemoved(_res, out_ty)) => {
                 use std::convert::TryInto;
 
@@ -743,16 +752,7 @@ where
 
     pub fn set_channel(&mut self, renderer_id: RendererID, channel: MaterialChannel) {
         if let Some(r) = self.renderers.get_mut(&renderer_id) {
-            r.update_2d(|r| {
-                r.set_channel(match channel {
-                    MaterialChannel::Displacement => 0,
-                    MaterialChannel::Albedo => 1,
-                    MaterialChannel::Normal => 2,
-                    MaterialChannel::Roughness => 3,
-                    MaterialChannel::Metallic => 4,
-                    MaterialChannel::Alpha => 5,
-                })
-            });
+            r.update_2d(|r| r.set_channel(channel));
             r.reset_sampling();
         }
     }

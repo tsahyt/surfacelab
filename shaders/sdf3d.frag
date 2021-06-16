@@ -28,6 +28,7 @@ layout(set = 0, binding = 1) uniform Occupancy {
     uint has_ao;
     uint has_alpha;
     uint has_view;
+    uint view_type;
 };
 
 layout(set = 0, binding = 2) uniform Camera {

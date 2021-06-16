@@ -1,9 +1,9 @@
 use super::{GPURender, InitializationError, Renderer};
-use crate::shader;
 use crate::{
     gpu::{Backend, GPU},
     lang::{ParamBoxDescription, RenderField},
 };
+use crate::{lang::MaterialChannel, shader};
 use serde_derive::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use zerocopy::AsBytes;
@@ -21,7 +21,7 @@ pub struct Uniforms {
     resolution: [f32; 2],
     pan: [f32; 2],
     zoom: f32,
-    channel: u32,
+    channel: MaterialChannel,
 }
 
 impl Default for Uniforms {
@@ -30,7 +30,7 @@ impl Default for Uniforms {
             resolution: [1024.0, 1024.0],
             pan: [0., 0.],
             zoom: 1.,
-            channel: 5,
+            channel: MaterialChannel::Displacement,
         }
     }
 }
@@ -105,7 +105,7 @@ where
     }
 
     /// Set the channel to be displayed
-    pub fn set_channel(&mut self, channel: u32) {
+    pub fn set_channel(&mut self, channel: MaterialChannel) {
         self.view.channel = channel;
     }
 }
