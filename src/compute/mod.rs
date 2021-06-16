@@ -90,6 +90,9 @@ struct ComputeManager<B: gpu::Backend> {
     /// Current system-wide parent size
     parent_size: u32,
 
+    /// Current system-wide export size if set
+    export_size: Option<u32>,
+
     /// A special socket that the user wants to view, with a seq number for when
     /// it was last updated
     view_socket: Option<(Resource<Socket>, u64)>,
@@ -111,6 +114,7 @@ where
             linearizations: HashMap::new(),
             seq: 0,
             parent_size: 1024,
+            export_size: None,
             view_socket: None,
         }
     }
@@ -334,6 +338,9 @@ where
                         .send(Lang::ComputeEvent(ComputeEvent::Cleared))
                         .unwrap();
                 }
+                UserIOEvent::SetExportSize(s) => {
+                    self.export_size = Some(*s);
+                }
                 UserIOEvent::AddImageResource(path) => {
                     sender.send(self.add_image_resource(path)).unwrap();
                 }
@@ -424,7 +431,11 @@ where
             &self.linearizations,
             self.seq,
             graph,
-            self.parent_size,
+            if export_specs.is_empty() {
+                self.parent_size
+            } else {
+                self.export_size.unwrap_or(self.parent_size)
+            },
             &mut self.view_socket,
             &export_specs,
         ) {

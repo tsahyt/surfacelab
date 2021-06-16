@@ -1085,6 +1085,8 @@ pub enum UserIOEvent {
     ReloadSvgResource(Resource<resource::Svg>),
     /// The user requests setting the parent size.
     SetParentSize(u32),
+    /// The user requests setting the export size.
+    SetExportSize(u32),
     /// The user requests declaration of a new export specification. The bool
     /// declares that the provided name should be kept.
     NewExportSpec(ExportSpec, bool),
