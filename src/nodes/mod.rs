@@ -342,25 +342,7 @@ impl NodeManager {
                 }
 
                 if relinearize {
-                    if let Some(ManagedNodeCollection::NodeGraph(graph)) =
-                        self.graphs.get_mut(graph_name)
-                    {
-                        if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
-                            |(instructions, last_use)| {
-                                lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
-                                    graph.graph_resource(),
-                                    instructions,
-                                    last_use,
-                                ))
-                            },
-                        ) {
-                            response.push(instrs);
-                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                                self.active_graph.clone(),
-                                Vec::new(),
-                            )));
-                        }
-                    }
+                    self.relinearize(&mut response, &graph_res, Some(&self.active_graph));
                 }
             }
             UserNodeEvent::RemoveNode(res) => {
@@ -421,22 +403,11 @@ impl NodeManager {
                     match graph.dissolve_node(node) {
                         Ok(mut evs) => {
                             response.append(&mut evs);
-
-                            if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
-                                |(instructions, last_use)| {
-                                    lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
-                                        graph.graph_resource(),
-                                        instructions,
-                                        last_use,
-                                    ))
-                                },
-                            ) {
-                                response.push(instrs);
-                                response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                                    self.active_graph.clone(),
-                                    Vec::new(),
-                                )));
-                            }
+                            self.relinearize(
+                                &mut response,
+                                &res.node_graph(),
+                                Some(&self.active_graph),
+                            );
                         }
                         Err(e) => log::error!("{}", e),
                     }
@@ -459,22 +430,11 @@ impl NodeManager {
                                 to.clone(),
                             )));
                             response.append(&mut res);
-
-                            if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
-                                |(instructions, last_use)| {
-                                    lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
-                                        graph.graph_resource(),
-                                        instructions,
-                                        last_use,
-                                    ))
-                                },
-                            ) {
-                                response.push(instrs);
-                                response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                                    self.active_graph.clone(),
-                                    Vec::new(),
-                                )));
-                            }
+                            self.relinearize(
+                                &mut response,
+                                &from.socket_node().node_graph(),
+                                Some(&self.active_graph),
+                            );
                         }
                         Err(e) => log::error!("{}", e),
                     }
@@ -498,22 +458,11 @@ impl NodeManager {
                     ) {
                         Ok(mut res) => {
                             response.append(&mut res);
-
-                            if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
-                                |(instructions, last_use)| {
-                                    lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
-                                        graph.graph_resource(),
-                                        instructions,
-                                        last_use,
-                                    ))
-                                },
-                            ) {
-                                response.push(instrs);
-                                response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                                    self.active_graph.clone(),
-                                    Vec::new(),
-                                )));
-                            }
+                            self.relinearize(
+                                &mut response,
+                                &node.node_graph(),
+                                Some(&self.active_graph),
+                            );
                         }
                         Err(e) => log::error!("{}", e),
                     }
@@ -579,21 +528,11 @@ impl NodeManager {
                     if let Some(side_effect) = graph.parameter_change(res, data) {
                         response.push(side_effect);
                     }
-                    if let Some(instrs) = graph.linearize(LinearizationMode::TopoSort).map(
-                        |(instructions, last_use)| {
-                            lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
-                                graph.graph_resource(),
-                                instructions,
-                                last_use,
-                            ))
-                        },
-                    ) {
-                        response.push(instrs);
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                            Vec::new(),
-                        )));
-                    }
+                    self.relinearize(
+                        &mut response,
+                        &res.parameter_node().node_graph(),
+                        Some(&self.active_graph),
+                    );
                 }
             }
             UserNodeEvent::PositionNode(res, (x, y)) => {
@@ -667,17 +606,9 @@ impl NodeManager {
                 )));
             }
             UserGraphEvent::ChangeGraph(res) => {
-                if let Some(instrs) = self.relinearize(&self.active_graph) {
-                    response.push(instrs);
-                }
+                self.relinearize(&mut response, &self.active_graph, None);
                 self.active_graph = res.clone();
-                if let Some(instrs) = self.relinearize(&self.active_graph) {
-                    response.push(instrs);
-                    response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                        self.active_graph.clone(),
-                        Vec::new(),
-                    )));
-                }
+                self.relinearize(&mut response, &self.active_graph, Some(&self.active_graph));
             }
             UserGraphEvent::RenameGraph(from, to) => {
                 if let Some(mut graph) = self.graphs.remove(from.path().to_str().unwrap()) {
@@ -693,7 +624,6 @@ impl NodeManager {
 
                     // Creating a new complex operator representing this graph
                     let operator = graph.complex_operator_stub();
-                    let instructions = graph.linearize(LinearizationMode::TopoSort);
 
                     self.graphs.insert(new_name.to_string(), graph);
                     response.push(lang::Lang::GraphEvent(lang::GraphEvent::GraphRenamed(
@@ -702,13 +632,7 @@ impl NodeManager {
                     )));
 
                     // Publish linearization of newly named graph
-                    if let Some((instrs, last_use)) = instructions {
-                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                            to.clone(),
-                            instrs,
-                            last_use,
-                        )));
-                    }
+                    self.relinearize(&mut response, &to, Some(&self.active_graph));
 
                     // Update all graphs and linearizations that call the renamed graph
                     response.append(&mut self.update_complex_operators(&from, &operator));
@@ -811,7 +735,6 @@ impl NodeManager {
 
                 if let Some((g, mut evs)) = new_graph {
                     // Insert new graph
-                    let sub_instructions = g.linearize(LinearizationMode::TopoSort);
                     let sub_graph_res = g.graph_resource();
                     self.graphs.insert(
                         sub_graph_res.path_str().unwrap().to_string(),
@@ -831,32 +754,9 @@ impl NodeManager {
 
                     response.append(&mut evs);
 
-                    // Publish subgraph linearization
-                    if let Some((instrs, last_use)) = sub_instructions {
-                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                            sub_graph_res.clone(),
-                            instrs,
-                            last_use,
-                        )));
-                    }
-
-                    // Relinearize the original graph and recompute
-                    if let Some((instrs, last_use)) = self
-                        .graphs
-                        .get_mut(graph_res.path_str().unwrap())
-                        .unwrap()
-                        .linearize(LinearizationMode::TopoSort)
-                    {
-                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                            graph_res.clone(),
-                            instrs,
-                            last_use,
-                        )));
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            graph_res,
-                            Vec::new(),
-                        )));
-                    }
+                    // Publish subgraph linearization and recompute old graph
+                    self.relinearize(&mut response, &sub_graph_res, None);
+                    self.relinearize(&mut response, &graph_res, Some(&graph_res));
                 }
             }
             UserGraphEvent::Inject(node, op) => {}
@@ -911,7 +811,6 @@ impl NodeManager {
                         ls.push_layer(layers::Layer::from(op.clone()), *ty, op.default_name());
                     log::debug!("Added {:?} layer {}", ty, res);
 
-                    let lin = ls.linearize(LinearizationMode::FullTraversal);
                     let mut sockets = ls.layer_sockets(&res);
                     let mut blend_sockets = ls.blend_sockets(&res);
                     let pbox = self.element_param_box(&op, &res);
@@ -938,13 +837,7 @@ impl NodeManager {
                             self.parent_size,
                         ))
                     }));
-                    if let Some((linearization, last_use)) = lin {
-                        response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                            graph_res.to_owned(),
-                            linearization,
-                            last_use,
-                        )))
-                    }
+                    self.relinearize(&mut response, &graph_res, None);
                 }
             }
             UserLayersEvent::PushMask(for_layer, op) => {
@@ -987,13 +880,7 @@ impl NodeManager {
                                 self.parent_size,
                             ))
                         }));
-                        if let Some((linearization, last_use)) = lin {
-                            response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                                for_layer.node_graph(),
-                                linearization,
-                                last_use,
-                            )))
-                        }
+                        self.relinearize(&mut response, &for_layer.node_graph(), None);
                     }
                 }
             }
@@ -1007,13 +894,7 @@ impl NodeManager {
                         )));
                     }
 
-                    if let Some(linearize) = self.relinearize(&self.active_graph) {
-                        response.push(linearize);
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                            Vec::new(),
-                        )));
-                    }
+                    self.relinearize(&mut response, &self.active_graph, Some(&self.active_graph));
                 }
             }
             UserLayersEvent::RemoveMask(mask_res) => {
@@ -1026,13 +907,7 @@ impl NodeManager {
                         )));
                     }
 
-                    if let Some(linearize) = self.relinearize(&self.active_graph) {
-                        response.push(linearize);
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                            Vec::new(),
-                        )));
-                    }
+                    self.relinearize(&mut response, &self.active_graph, Some(&self.active_graph));
                 }
             }
             UserLayersEvent::SetOutput(layer_res, channel, selected, enabled) => {
@@ -1053,13 +928,7 @@ impl NodeManager {
                     ls.set_output_channel(layer_res, *channel, *enabled);
                     update_co = Some(ls.complex_operator_stub());
 
-                    if let Some(linearize) = self.relinearize(&self.active_graph) {
-                        response.push(linearize);
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                            Vec::new(),
-                        )));
-                    }
+                    self.relinearize(&mut response, &self.active_graph, Some(&self.active_graph));
                 }
 
                 if let Some(stub) = update_co {
@@ -1089,13 +958,7 @@ impl NodeManager {
                             }),
                     );
 
-                    if let Some(linearize) = self.relinearize(&self.active_graph) {
-                        response.push(linearize);
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                            Vec::new(),
-                        )));
-                    }
+                    self.relinearize(&mut response, &self.active_graph, Some(&self.active_graph));
                 }
             }
             UserLayersEvent::SetOpacity(layer_res, _, opacity) => {
@@ -1106,13 +969,7 @@ impl NodeManager {
 
                     ls.set_layer_opacity(layer_res, *opacity);
 
-                    if let Some(linearize) = self.relinearize(&self.active_graph) {
-                        response.push(linearize);
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                            Vec::new(),
-                        )));
-                    }
+                    self.relinearize(&mut response, &self.active_graph, Some(&self.active_graph));
                 }
             }
             UserLayersEvent::SetBlendMode(layer_res, _, blend_mode) => {
@@ -1123,13 +980,7 @@ impl NodeManager {
 
                     ls.set_layer_blend_mode(layer_res, *blend_mode);
 
-                    if let Some(linearize) = self.relinearize(&self.active_graph) {
-                        response.push(linearize);
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                            Vec::new(),
-                        )));
-                    }
+                    self.relinearize(&mut response, &self.active_graph, Some(&self.active_graph));
                 }
             }
             UserLayersEvent::SetTitle(layer_res, _, title) => {
@@ -1147,13 +998,7 @@ impl NodeManager {
 
                     ls.set_layer_enabled(layer_res, *enabled);
 
-                    if let Some(linearize) = self.relinearize(&self.active_graph) {
-                        response.push(linearize);
-                        response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                            self.active_graph.clone(),
-                            Vec::new(),
-                        )));
-                    }
+                    self.relinearize(&mut response, &self.active_graph, Some(&self.active_graph));
                 }
             }
             UserLayersEvent::PositionLayer(layer_res, position) => {
@@ -1166,13 +1011,11 @@ impl NodeManager {
                             position.clone(),
                         )));
 
-                        if let Some(linearize) = self.relinearize(&self.active_graph) {
-                            response.push(linearize);
-                            response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                                self.active_graph.clone(),
-                                Vec::new(),
-                            )));
-                        }
+                        self.relinearize(
+                            &mut response,
+                            &self.active_graph,
+                            Some(&self.active_graph),
+                        );
                     }
                 }
             }
@@ -1182,7 +1025,6 @@ impl NodeManager {
                 {
                     if let Some(graph) = ls.to_graph(self.parent_size) {
                         let mut evs = graph.rebuild_events(self.parent_size);
-                        let linearization = graph.linearize(LinearizationMode::TopoSort);
                         let new_graph_res = graph.graph_resource();
 
                         self.graphs.insert(
@@ -1202,13 +1044,7 @@ impl NodeManager {
                         )));
                         response.extend(evs.drain(0..));
 
-                        if let Some((instrs, last_use)) = linearization {
-                            response.push(Lang::GraphEvent(GraphEvent::Relinearized(
-                                new_graph_res,
-                                instrs,
-                                last_use,
-                            )))
-                        }
+                        self.relinearize(&mut response, &new_graph_res, None);
                     }
                 }
             }
@@ -1372,11 +1208,18 @@ impl NodeManager {
         response
     }
 
-    /// Run the linearization procedure on a graph.
-    fn relinearize(&self, graph: &lang::Resource<lang::Graph>) -> Option<lang::Lang> {
-        self.graphs
-            .get(graph.path_str().unwrap())?
-            .linearize(LinearizationMode::TopoSort)
+    /// Run the linearization procedure on a graph and push results to the
+    /// supplied response vector.
+    fn relinearize(
+        &self,
+        response: &mut Vec<lang::Lang>,
+        graph: &lang::Resource<lang::Graph>,
+        recompute: Option<&lang::Resource<lang::Graph>>,
+    ) {
+        if let Some(relin) = self
+            .graphs
+            .get(graph.path_str().unwrap())
+            .and_then(|g| g.linearize(LinearizationMode::TopoSort))
             .map(|(instructions, last_use)| {
                 lang::Lang::GraphEvent(lang::GraphEvent::Relinearized(
                     graph.clone(),
@@ -1384,6 +1227,15 @@ impl NodeManager {
                     last_use,
                 ))
             })
+        {
+            response.push(relin);
+            if let Some(g) = recompute {
+                response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                    g.clone(),
+                    Vec::new(),
+                )));
+            }
+        }
     }
 
     fn complete_operator(&self, op: &Operator) -> Operator {
