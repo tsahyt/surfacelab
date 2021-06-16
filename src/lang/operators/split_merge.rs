@@ -28,9 +28,9 @@ impl Socketed for Split {
 
     fn outputs(&self) -> HashMap<String, OperatorType> {
         hashmap! {
-            "red".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
-            "green".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
-            "blue".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
+            "x/r".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
+            "y/g".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
+            "z/b".to_string() => OperatorType::Monomorphic(ImageType::Grayscale),
         }
     }
 
@@ -58,15 +58,15 @@ impl Shader for Split {
                 },
                 OperatorDescriptor {
                     binding: 2,
-                    descriptor: OperatorDescriptorUse::OutputImage("red"),
+                    descriptor: OperatorDescriptorUse::OutputImage("x/r"),
                 },
                 OperatorDescriptor {
                     binding: 3,
-                    descriptor: OperatorDescriptorUse::OutputImage("green"),
+                    descriptor: OperatorDescriptorUse::OutputImage("y/g"),
                 },
                 OperatorDescriptor {
                     binding: 4,
-                    descriptor: OperatorDescriptorUse::OutputImage("blue"),
+                    descriptor: OperatorDescriptorUse::OutputImage("z/b"),
                 },
             ],
             specialization: Specialization::default(),
@@ -101,9 +101,9 @@ impl Default for Merge {
 impl Socketed for Merge {
     fn inputs(&self) -> HashMap<String, (OperatorType, bool)> {
         hashmap! {
-            "red".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
-            "green".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
-            "blue".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
+            "x/r".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
+            "y/g".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
+            "z/b".to_string() => (OperatorType::Monomorphic(ImageType::Grayscale), false),
         }
     }
 
@@ -129,15 +129,15 @@ impl Shader for Merge {
             descriptors: &[
                 OperatorDescriptor {
                     binding: 0,
-                    descriptor: OperatorDescriptorUse::InputImage("red"),
+                    descriptor: OperatorDescriptorUse::InputImage("x/r"),
                 },
                 OperatorDescriptor {
                     binding: 1,
-                    descriptor: OperatorDescriptorUse::InputImage("green"),
+                    descriptor: OperatorDescriptorUse::InputImage("y/g"),
                 },
                 OperatorDescriptor {
                     binding: 2,
-                    descriptor: OperatorDescriptorUse::InputImage("blue"),
+                    descriptor: OperatorDescriptorUse::InputImage("z/b"),
                 },
                 OperatorDescriptor {
                     binding: 3,
