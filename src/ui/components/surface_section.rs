@@ -92,10 +92,13 @@ impl<'a> Widget for SurfaceSection<'a> {
             }
         }
 
+        let pbox_height = param_box::param_box_height(&state.parameters, None);
+
         state.update(|state| {
             for ev in param_box::ParamBox::new(&mut state.parameters, &(), &self.language)
                 .parent(id)
                 .w_of(id)
+                .h(pbox_height)
                 .mid_top()
                 .text_color(color::WHITE)
                 .icon_font(style.icon_font(&ui.theme))
@@ -110,7 +113,7 @@ impl<'a> Widget for SurfaceSection<'a> {
 
         widget::Text::new(&self.language.get_message("export-spec"))
             .parent(id)
-            .mid_top_with_margin(160.0)
+            .mid_top_with_margin(pbox_height + 8.)
             .color(color::WHITE)
             .font_size(12)
             .set(state.ids.export_label, ui);
@@ -118,7 +121,7 @@ impl<'a> Widget for SurfaceSection<'a> {
         for _ev in icon_button(IconName::PLUS, style.icon_font(&ui.theme))
             .enabled(!state.output_resources.is_empty())
             .parent(id)
-            .top_right_with_margins(160.0, 8.0)
+            .top_right_with_margins(pbox_height + 8., 8.)
             .border(0.)
             .color(color::DARK_CHARCOAL)
             .label_color(color::WHITE)
@@ -141,7 +144,7 @@ impl<'a> Widget for SurfaceSection<'a> {
             .padded_w_of(id, 8.0)
             .item_size(120.)
             .h(120. * state.export_entries.len() as f64)
-            .mid_top_with_margin(184.0)
+            .mid_top_with_margin(pbox_height + 8. + 24.)
             .set(state.ids.export_list, ui);
 
         state.update(|state| {

@@ -1067,3 +1067,44 @@ where
         ev
     }
 }
+
+/// Determine the height of a parameter box by scanning through its description,
+/// given an optional set of type variables to take into account for visibility.
+pub fn param_box_height<T: MessageWriter>(
+    description: &ParamBoxDescription<T>,
+    ty_vars: Option<&HashMap<TypeVariable, ImageType>>,
+) -> f64 {
+    let controls = description.controls();
+
+    let mut h = 16.;
+
+    for category in description
+        .categories
+        .iter()
+        .filter(|category| category.visibility.run(&controls, ty_vars))
+    {
+        h += 16.;
+
+        if !category.is_open {
+            h += 16.;
+            continue;
+        }
+
+        for parameter in category.parameters.iter() {
+            if !parameter.visibility.run(&controls, ty_vars) {
+                continue;
+            }
+
+            h += match &parameter.control {
+                Control::XYPad { .. } => 256.0,
+                Control::RgbColor { .. } => 256.0,
+                Control::Ramp { .. } => 256.0,
+                _ => 0.,
+            };
+
+            h += 64.;
+        }
+    }
+
+    h
+}
