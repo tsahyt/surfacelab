@@ -549,8 +549,8 @@ impl<'a> Widget for Graph<'a> {
         .border(1.0)
         .parent(id)
         .top_left_with_margin(8.)
-        .h_of(id)
         .w(32.0)
+        .h(224.0)
         .auto_hide(true)
         .set(state.ids.toolbar, ui));
 
