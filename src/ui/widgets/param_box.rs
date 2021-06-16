@@ -633,6 +633,7 @@ where
                             )));
                             *value = new;
                         }
+                        top_margin += 256.0;
                         control_idx.rgb_colors += 1;
                     }
                     Control::Enum { selected, variants } => {
@@ -870,6 +871,7 @@ where
                                 &steps.to_data(),
                             )))
                         }
+                        top_margin += 256.0;
                         control_idx.ramps += 1;
                     }
                     Control::Toggle { def: value } => {
