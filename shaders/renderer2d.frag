@@ -34,6 +34,8 @@ layout(set = 0, binding = 12) uniform textureCube environment_map;
 layout(set = 0, binding = 13) uniform texture2D brdf_lut;
 layout(set = 0, binding = 14) uniform texture2D matcap;
 
+const float PI = 3.141592654;
+
 const uint CHANNEL_DISPLACEMENT = 0;
 const uint CHANNEL_ALBEDO = 1;
 const uint CHANNEL_NORMAL = 2;
@@ -45,7 +47,6 @@ const uint CHANNEL_AMBIENTOCCLUSION = 6;
 const uint VIEWTYPE_GRAYSCALE = 0;
 const uint VIEWTYPE_RGB = 1;
 
-const float TEX_SCALE = 1.0;
 const float TEX_GRID = 0.01;
 
 void main() {
@@ -84,9 +85,9 @@ void main() {
         col = vec3(0.,0.,0.);
     }
 
-    if (fract(uv.x) < TEX_GRID || fract(uv.y) < TEX_GRID) {
-        col += vec3(0.3, 0.8, 0.);
-    }
+    float grid = min(sin(fract(uv.x) * PI), sin(fract(uv.y) * PI));
+    grid = smoothstep(0.01, 0.0075, grid);
+    col = mix(col, vec3(1.), grid);
 
     outColor = vec4(col, 1.0);
 }
