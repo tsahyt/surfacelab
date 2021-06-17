@@ -355,34 +355,8 @@ impl NodeManager {
 
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
                     match graph.remove_node(node) {
-                        Ok((node, removed_conns, co_change)) => {
-                            response = removed_conns
-                                .iter()
-                                .map(|c| {
-                                    Lang::GraphEvent(GraphEvent::DisconnectedSockets(
-                                        c.0.clone(),
-                                        c.1.clone(),
-                                    ))
-                                })
-                                .collect();
-                            response.push(Lang::GraphEvent(GraphEvent::NodeRemoved(
-                                res.clone(),
-                                node.operator.clone(),
-                                node.position.clone(),
-                            )));
-                            if let nodegraph::Node {
-                                operator:
-                                    Operator::AtomicOperator(AtomicOperator::Output(Output {
-                                        output_type,
-                                    })),
-                                ..
-                            } = node
-                            {
-                                response.push(Lang::GraphEvent(GraphEvent::OutputRemoved(
-                                    res.clone(),
-                                    output_type,
-                                )))
-                            }
+                        Ok((_, _, mut evs, co_change)) => {
+                            response.append(&mut evs);
 
                             if co_change {
                                 let co_stub = graph.complex_operator_stub();

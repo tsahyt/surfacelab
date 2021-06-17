@@ -210,8 +210,9 @@ impl NodeGraph {
     pub fn remove_node(
         &mut self,
         resource: &str,
-    ) -> Result<(Node, Connections, bool), NodeGraphError> {
+    ) -> Result<(Node, Connections, Vec<Lang>, bool), NodeGraphError> {
         let mut co_change = false;
+        let mut is_output = None;
         let node = *self
             .indices
             .get_by_left(&resource.to_string())
@@ -228,9 +229,10 @@ impl NodeGraph {
         // Remove from output vector
         let operator = &self.graph.node_weight(node).unwrap().operator;
         match operator {
-            Operator::AtomicOperator(AtomicOperator::Output(Output { .. })) => {
+            Operator::AtomicOperator(AtomicOperator::Output(Output { output_type })) => {
                 self.outputs.remove(&node);
                 co_change = true;
+                is_output = Some(output_type.clone());
             }
             Operator::AtomicOperator(AtomicOperator::Input(..)) => {
                 co_change = true;
@@ -274,7 +276,26 @@ impl NodeGraph {
             }
         }
 
-        Ok((node_data, es, co_change))
+        // Create messages
+        let mut evs = Vec::new();
+        evs.extend(
+            es.iter()
+                .cloned()
+                .map(|c| Lang::GraphEvent(GraphEvent::DisconnectedSockets(c.0, c.1))),
+        );
+        evs.push(Lang::GraphEvent(GraphEvent::NodeRemoved(
+            self.graph_resource().graph_node(resource),
+            node_data.operator.clone(),
+            node_data.position.clone(),
+        )));
+        if let Some(ty) = is_output {
+            evs.push(Lang::GraphEvent(GraphEvent::OutputRemoved(
+                self.graph_resource().graph_node(resource),
+                ty,
+            )));
+        }
+
+        Ok((node_data, es, evs, co_change))
     }
 
     /// Dissolve a node, rerouting its "primary" input source to its "primary"
@@ -327,21 +348,11 @@ impl NodeGraph {
         let mut res = Vec::new();
 
         // Remove old node
-        let node_resource = self.node_resource(&node_idx);
-        let (node, cs, _) = self.remove_node(resource)?;
-
         // Note that we don't have to deal with the removed output case here,
         // since there cannot be a valid pair above if the node is an output
-        res.extend(
-            cs.iter().map(|c| {
-                Lang::GraphEvent(GraphEvent::DisconnectedSockets(c.0.clone(), c.1.clone()))
-            }),
-        );
-        res.push(Lang::GraphEvent(GraphEvent::NodeRemoved(
-            node_resource,
-            node.operator.clone(),
-            node.position.clone(),
-        )));
+        let (_, _, mut removal_evs, _) = self.remove_node(resource)?;
+
+        res.append(&mut removal_evs);
 
         // Perform new connection
         res.extend(
@@ -1013,16 +1024,8 @@ impl NodeGraph {
 
         // Move nodes to new graph and record positions for later
         for node in nodes {
-            let (rnode, mut rconns, _) = self.remove_node(node)?;
-
-            evs.extend(rconns.iter().map(|c| {
-                Lang::GraphEvent(GraphEvent::DisconnectedSockets(c.0.clone(), c.1.clone()))
-            }));
-            evs.push(Lang::GraphEvent(GraphEvent::NodeRemoved(
-                Resource::node([&self.name, node].iter().collect::<std::path::PathBuf>()),
-                rnode.operator.clone(),
-                rnode.position.clone(),
-            )));
+            let (rnode, mut rconns, mut revs, _) = self.remove_node(node)?;
+            evs.append(&mut revs);
 
             let (new_node, _) = new.new_node(&rnode.operator, parent_size, Some(node));
             new.resize_node(&new_node, rnode.size, parent_size);
