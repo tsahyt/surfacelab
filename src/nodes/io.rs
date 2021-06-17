@@ -1,5 +1,5 @@
 use crate::lang::{
-    ExportSpec, GraphEvent, Lang, LayersEvent, Resource, SurfaceEvent, UserGraphEvent,
+    ExportSpec, GraphEvent, Lang, LayersEvent, OperatorSize, Resource, SurfaceEvent, UserGraphEvent,
 };
 use crate::nodes::{LinearizationMode, ManagedNodeCollection, NodeCollection, NodeManager};
 use serde_derive::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 #[derive(Debug, Serialize, Deserialize)]
 struct NodeData<'a> {
     parent_size: u32,
-    export_size: Option<u32>,
+    export_size: OperatorSize,
     export_specs: Cow<'a, Vec<ExportSpec>>,
     graphs: Cow<'a, HashMap<String, ManagedNodeCollection>>,
 }
@@ -47,10 +47,9 @@ impl NodeManager {
             self.parent_size,
             false,
         )));
-
-        if let Some(es) = self.export_size {
-            events.push(Lang::SurfaceEvent(SurfaceEvent::ExportSizeSet(es)))
-        }
+        events.push(Lang::SurfaceEvent(SurfaceEvent::ExportSizeSet(
+            self.export_size,
+        )));
 
         for (name, graph) in self.graphs.iter() {
             let res = Resource::graph(&name);

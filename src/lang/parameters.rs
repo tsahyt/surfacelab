@@ -414,7 +414,7 @@ impl MessageWriter for SurfaceField {
                 super::UserIOEvent::SetParentSize(OperatorSize::from_data(data).absolute(1024)),
             ),
             SurfaceField::ExportSize => super::Lang::UserIOEvent(
-                super::UserIOEvent::SetExportSize(OperatorSize::from_data(data).absolute(1024)),
+                super::UserIOEvent::SetExportSize(OperatorSize::from_data(data)),
             ),
         }
     }
@@ -931,8 +931,8 @@ impl ParamBoxDescription<SurfaceField> {
                     Parameter {
                         name: "export-size".to_string(),
                         control: Control::Size {
-                            size: OperatorSize::AbsoluteSize(1024),
-                            allow_relative: false,
+                            size: OperatorSize::RelativeToParent(0),
+                            allow_relative: true,
                         },
                         transmitter: SurfaceField::ExportSize,
                         expose_status: None,

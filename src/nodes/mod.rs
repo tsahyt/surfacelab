@@ -194,7 +194,7 @@ impl Default for ManagedNodeCollection {
 /// in the current surface file.
 struct NodeManager {
     parent_size: u32,
-    export_size: Option<u32>,
+    export_size: OperatorSize,
     export_specs: Vec<lang::ExportSpec>,
     graphs: HashMap<String, ManagedNodeCollection>,
     active_graph: lang::Resource<lang::Graph>,
@@ -205,7 +205,7 @@ impl NodeManager {
     pub fn new() -> Self {
         NodeManager {
             parent_size: 1024,
-            export_size: None,
+            export_size: OperatorSize::RelativeToParent(0),
             export_specs: Vec::new(),
             graphs: hashmap! { "base".to_string() => ManagedNodeCollection::default() },
             active_graph: lang::Resource::graph("base"),
@@ -1081,8 +1081,11 @@ impl NodeManager {
                 self.update_parent_size(&mut response, *size, true, false);
             }
             UserIOEvent::SetExportSize(size) => {
-                log::trace!("Surface export size changed to {0}x{0}", size);
-                self.export_size = Some(*size);
+                log::trace!(
+                    "Surface export size changed to {0}x{0}",
+                    size.absolute(self.parent_size)
+                );
+                self.export_size = *size;
                 response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSizeSet(*size)));
             }
             UserIOEvent::NewExportSpec(new, keep_name) => {
@@ -1131,11 +1134,10 @@ impl NodeManager {
 
                 // Temporarily change parent size if required to meet export size.
                 let mut export_size_set = false;
-                if let Some(es) = self.export_size {
-                    if es != self.parent_size {
-                        self.update_parent_size(&mut response, es, false, true);
-                        export_size_set = true;
-                    }
+                let es = self.export_size.absolute(self.parent_size);
+                if es != self.parent_size {
+                    self.update_parent_size(&mut response, es, false, true);
+                    export_size_set = true;
                 }
 
                 for (graph, export) in self

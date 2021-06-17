@@ -665,6 +665,7 @@ where
             surface_section::SurfaceSection::new(&self.app_data.language, &self.app_data.sender)
                 .event_buffer(self.event_buffer.unwrap())
                 .icon_font(style.icon_font(&ui.theme))
+                .parent_size(state.parent_size)
                 .parent(state.ids.surface_settings_canvas)
                 .wh_of(state.ids.surface_settings_canvas)
                 .middle_of(state.ids.surface_settings_canvas)

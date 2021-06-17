@@ -804,7 +804,7 @@ pub enum SurfaceEvent {
     /// be expected to be temporary, i.e. is for export reasons.
     ParentSizeSet(u32, bool),
     /// The export size has been set.
-    ExportSizeSet(u32),
+    ExportSizeSet(OperatorSize),
 }
 
 /// Renderers are indexed by an ID, internally merely a `u64`.
@@ -1089,7 +1089,7 @@ pub enum UserIOEvent {
     /// The user requests setting the parent size.
     SetParentSize(u32),
     /// The user requests setting the export size.
-    SetExportSize(u32),
+    SetExportSize(OperatorSize),
     /// The user requests declaration of a new export specification. The bool
     /// declares that the provided name should be kept.
     NewExportSpec(ExportSpec, bool),

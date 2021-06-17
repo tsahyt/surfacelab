@@ -17,6 +17,7 @@ pub struct SurfaceSection<'a> {
     language: &'a Language,
     sender: &'a BrokerSender<Lang>,
     event_buffer: Option<&'a [Arc<Lang>]>,
+    parent_size: u32,
     style: Style,
 }
 
@@ -27,6 +28,7 @@ impl<'a> SurfaceSection<'a> {
             language,
             sender,
             event_buffer: None,
+            parent_size: 1024,
             style: Style::default(),
         }
     }
@@ -34,6 +36,7 @@ impl<'a> SurfaceSection<'a> {
     builder_methods! {
         pub icon_font { style.icon_font = Some(text::font::Id) }
         pub event_buffer { event_buffer = Some(&'a [Arc<Lang>]) }
+        pub parent_size { parent_size = u32 }
     }
 }
 
@@ -99,6 +102,7 @@ impl<'a> Widget for SurfaceSection<'a> {
                 .parent(id)
                 .w_of(id)
                 .h(pbox_height)
+                .parent_size(self.parent_size)
                 .mid_top()
                 .text_color(color::WHITE)
                 .icon_font(style.icon_font(&ui.theme))
@@ -231,10 +235,9 @@ impl<'a> SurfaceSection<'a> {
             }
             Lang::SurfaceEvent(SurfaceEvent::ExportSizeSet(size)) => {
                 state.update(|state| {
-                    state.parameters.update_parameter_by_transmitter(
-                        SurfaceField::ExportSize,
-                        &OperatorSize::AbsoluteSize(*size).to_data(),
-                    );
+                    state
+                        .parameters
+                        .update_parameter_by_transmitter(SurfaceField::ExportSize, &size.to_data());
                 });
             }
             Lang::LayersEvent(LayersEvent::LayersAdded(_, _, outs)) => state.update(|state| {
