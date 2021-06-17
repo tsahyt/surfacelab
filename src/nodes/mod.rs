@@ -194,6 +194,7 @@ impl Default for ManagedNodeCollection {
 /// in the current surface file.
 struct NodeManager {
     parent_size: u32,
+    export_size: Option<u32>,
     export_specs: Vec<lang::ExportSpec>,
     graphs: HashMap<String, ManagedNodeCollection>,
     active_graph: lang::Resource<lang::Graph>,
@@ -204,6 +205,7 @@ impl NodeManager {
     pub fn new() -> Self {
         NodeManager {
             parent_size: 1024,
+            export_size: None,
             export_specs: Vec::new(),
             graphs: hashmap! { "base".to_string() => ManagedNodeCollection::default() },
             active_graph: lang::Resource::graph("base"),
@@ -1074,18 +1076,13 @@ impl NodeManager {
                 ))));
             }
             UserIOEvent::SetParentSize(size) => {
-                log::trace!("Surface parent size changed to {}", size);
+                log::trace!("Surface parent size changed to {0}x{0}", size);
                 self.parent_size = *size;
-                for g in self.graphs.values_mut() {
-                    response.append(&mut g.resize_all(self.parent_size));
-                }
-
-                // Recompute on size change
-                response.push(Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(*size)));
-                response.push(Lang::GraphEvent(GraphEvent::Recompute(
-                    self.active_graph.clone(),
-                    Vec::new(),
-                )));
+                self.update_parent_size(&mut response, *size, true);
+            }
+            UserIOEvent::SetExportSize(size) => {
+                log::trace!("Surface export size changed to {0}x{0}", size);
+                self.export_size = Some(*size);
             }
             UserIOEvent::NewExportSpec(new, keep_name) => {
                 let mut new = new.clone();
@@ -1130,6 +1127,16 @@ impl NodeManager {
             }
             UserIOEvent::RunExports(base) => {
                 use itertools::Itertools;
+
+                // Temporarily change parent size if required to meet export size.
+                let mut export_size_set = false;
+                if let Some(es) = self.export_size {
+                    if es != self.parent_size {
+                        self.update_parent_size(&mut response, es, false);
+                        export_size_set = true;
+                    }
+                }
+
                 for (graph, export) in self
                     .export_specs
                     .iter()
@@ -1148,11 +1155,33 @@ impl NodeManager {
                 {
                     response.push(Lang::GraphEvent(GraphEvent::Recompute(graph, export)))
                 }
+
+                // Change back parent size if it was previously altered.
+                if export_size_set {
+                    self.update_parent_size(&mut response, self.parent_size, false);
+                }
             }
             _ => {}
         }
 
         Some(response)
+    }
+
+    // Push messages required for a parent size change. This does *not* change
+    // the actual parent size data.
+    fn update_parent_size(&mut self, response: &mut Vec<Lang>, size: u32, recompute: bool) {
+        for g in self.graphs.values_mut() {
+            response.append(&mut g.resize_all(size));
+        }
+
+        // Recompute on size change
+        response.push(Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)));
+        if recompute {
+            response.push(Lang::GraphEvent(GraphEvent::Recompute(
+                self.active_graph.clone(),
+                Vec::new(),
+            )));
+        }
     }
 
     /// Construct update events for complex operators after a change to a graph.
