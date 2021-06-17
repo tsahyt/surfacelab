@@ -359,14 +359,6 @@ impl NodeGraph {
             self.connect_sockets(&pair.0 .0, &pair.0 .1, &pair.1 .0, &pair.1 .1)?
                 .drain(0..),
         );
-        res.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-            self.graph_resource()
-                .graph_node(&pair.0 .0)
-                .node_socket(&pair.0 .1),
-            self.graph_resource()
-                .graph_node(&pair.1 .0)
-                .node_socket(&pair.1 .1),
-        )));
 
         Ok(res)
     }
@@ -464,6 +456,16 @@ impl NodeGraph {
             (source_socket.to_string(), sink_socket.to_string()),
         );
 
+        // Add connection to events
+        response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
+            self.graph_resource()
+                .graph_node(source_node)
+                .node_socket(source_socket),
+            self.graph_resource()
+                .graph_node(sink_node)
+                .node_socket(sink_socket),
+        )));
+
         Ok(response)
     }
 
@@ -526,23 +528,6 @@ impl NodeGraph {
             sink_node,
             sink_socket,
         )?);
-
-        response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-            self.graph_resource()
-                .graph_node(source_node)
-                .node_socket(source_socket),
-            self.graph_resource()
-                .graph_node(node)
-                .node_socket(&node_input_socket),
-        )));
-        response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-            self.graph_resource()
-                .graph_node(node)
-                .node_socket(&node_output_socket),
-            self.graph_resource()
-                .graph_node(sink_node)
-                .node_socket(sink_socket),
-        )));
 
         Ok(response)
     }
@@ -672,12 +657,6 @@ impl NodeGraph {
                 &combine_node,
                 &sink_socket_2,
             )?);
-            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                self.graph_resource()
-                    .graph_node(node_2)
-                    .node_socket(&source_socket_2),
-                combine_res.node_socket(&sink_socket_2),
-            )));
 
             // Route node 1 output to background
             response.append(&mut self.connect_sockets(
@@ -686,12 +665,6 @@ impl NodeGraph {
                 &combine_node,
                 &sink_socket_1,
             )?);
-            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                self.graph_resource()
-                    .graph_node(node_1)
-                    .node_socket(&source_socket_1),
-                combine_res.node_socket(&sink_socket_1),
-            )));
         } else {
             // Route node 1 output to background
             response.append(&mut self.connect_sockets(
@@ -700,12 +673,6 @@ impl NodeGraph {
                 &combine_node,
                 &sink_socket_1,
             )?);
-            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                self.graph_resource()
-                    .graph_node(node_1)
-                    .node_socket(&source_socket_1),
-                combine_res.node_socket(&sink_socket_1),
-            )));
 
             // Route node 2 output to foreground
             response.append(&mut self.connect_sockets(
@@ -714,12 +681,6 @@ impl NodeGraph {
                 &combine_node,
                 &sink_socket_2,
             )?);
-            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                self.graph_resource()
-                    .graph_node(node_2)
-                    .node_socket(&source_socket_2),
-                combine_res.node_socket(&sink_socket_2),
-            )));
         }
 
         Ok(response)
@@ -778,12 +739,6 @@ impl NodeGraph {
 
             // Perform connection
             response.append(&mut self.connect_sockets(node, &socket, other_node, other_socket)?);
-            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                self.graph_resource().graph_node(node).node_socket(&socket),
-                self.graph_resource()
-                    .graph_node(other_node)
-                    .node_socket(other_socket),
-            )));
         } else if let Some(source_ty) = self
             .graph
             .node_weight(other_idx)
@@ -810,12 +765,6 @@ impl NodeGraph {
 
             // Perform connection
             response.append(&mut self.connect_sockets(other_node, other_socket, node, &socket)?);
-            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                self.graph_resource()
-                    .graph_node(other_node)
-                    .node_socket(other_socket),
-                self.graph_resource().graph_node(node).node_socket(&socket),
-            )));
         }
 
         Ok(response)
@@ -1142,13 +1091,12 @@ impl NodeGraph {
 
         // Redo the input/output connections, create output sockets
         for (input, source_node, source_socket, _) in inputs {
-            self.connect_sockets(&source_node, &source_socket, &complex_node, &input)?;
-            evs.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                self.graph_resource()
-                    .graph_node(&source_node)
-                    .node_socket(&source_socket),
-                complex_res.node_socket(&input),
-            )));
+            evs.append(&mut self.connect_sockets(
+                &source_node,
+                &source_socket,
+                &complex_node,
+                &input,
+            )?);
         }
 
         for (output, sink_node, sink_socket, ty) in outputs {
@@ -1158,13 +1106,12 @@ impl NodeGraph {
                 true,
                 parent_size,
             )));
-            self.connect_sockets(&complex_node, &output, &sink_node, &sink_socket)?;
-            evs.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                complex_res.node_socket(&output),
-                self.graph_resource()
-                    .graph_node(&sink_node)
-                    .node_socket(&sink_socket),
-            )));
+            evs.append(&mut self.connect_sockets(
+                &complex_node,
+                &output,
+                &sink_node,
+                &sink_socket,
+            )?);
         }
 
         Ok((new, evs))

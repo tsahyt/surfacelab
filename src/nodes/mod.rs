@@ -401,10 +401,6 @@ impl NodeManager {
                 if let Some(ManagedNodeCollection::NodeGraph(graph)) = self.graphs.get_mut(graph) {
                     match graph.connect_sockets(from_node, from_socket, to_node, to_socket) {
                         Ok(mut res) => {
-                            response.push(Lang::GraphEvent(GraphEvent::ConnectedSockets(
-                                from.clone(),
-                                to.clone(),
-                            )));
                             response.append(&mut res);
                             self.relinearize(
                                 &mut response,
