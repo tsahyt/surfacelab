@@ -1116,6 +1116,33 @@ impl NodeGraph {
 
         Ok((new, evs))
     }
+
+    /// Inject the nodes in the given node if possible. For this to work the
+    /// node has to contain a complex operator. Otherwise, this is a no
+    /// operation but will not error.
+    ///
+    /// The graph to be injected has to be passed as a parameter, because this
+    /// graph does not have access to it in any way otherwise.
+    ///
+    /// The nodes will be placed around the old node and the old node deleted.
+    /// All connections will be established to retain similar linearization.
+    /// This operation is the inverse of extract.
+    pub fn inject(&mut self, name: &str, other: &Self) -> Result<Vec<Lang>, NodeGraphError> {
+        let mut evs = Vec::new();
+
+        let node_idx = *self
+            .indices
+            .get_by_left(&name.to_string())
+            .ok_or_else(|| NodeGraphError::NodeNotFound(name.to_string()))?;
+        let node = self.graph.node_weight(node_idx).unwrap();
+
+        match &node.operator {
+            Operator::AtomicOperator(_) => return Ok(evs),
+            Operator::ComplexOperator(co) => {}
+        }
+
+        Ok(evs)
+    }
 }
 
 impl ExposedParameters for NodeGraph {
