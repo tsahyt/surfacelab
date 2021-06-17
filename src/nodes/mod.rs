@@ -1083,6 +1083,7 @@ impl NodeManager {
             UserIOEvent::SetExportSize(size) => {
                 log::trace!("Surface export size changed to {0}x{0}", size);
                 self.export_size = Some(*size);
+                response.push(Lang::SurfaceEvent(SurfaceEvent::ExportSizeSet(*size)));
             }
             UserIOEvent::NewExportSpec(new, keep_name) => {
                 let mut new = new.clone();

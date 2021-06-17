@@ -803,6 +803,8 @@ pub enum SurfaceEvent {
     /// The parent size has been set. The bool determines whether the change can
     /// be expected to be temporary, i.e. is for export reasons.
     ParentSizeSet(u32, bool),
+    /// The export size has been set.
+    ExportSizeSet(u32),
 }
 
 /// Renderers are indexed by an ID, internally merely a `u64`.

@@ -223,9 +223,18 @@ impl<'a> SurfaceSection<'a> {
             }
             Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size, false)) => {
                 state.update(|state| {
-                    state.parameters.categories[0].parameters[0]
-                        .control
-                        .set_value(&OperatorSize::AbsoluteSize(*size).to_data())
+                    state.parameters.update_parameter_by_transmitter(
+                        SurfaceField::ParentSize,
+                        &OperatorSize::AbsoluteSize(*size).to_data(),
+                    );
+                });
+            }
+            Lang::SurfaceEvent(SurfaceEvent::ExportSizeSet(size)) => {
+                state.update(|state| {
+                    state.parameters.update_parameter_by_transmitter(
+                        SurfaceField::ExportSize,
+                        &OperatorSize::AbsoluteSize(*size).to_data(),
+                    );
                 });
             }
             Lang::LayersEvent(LayersEvent::LayersAdded(_, _, outs)) => state.update(|state| {

@@ -401,7 +401,7 @@ impl MessageWriter for RenderField {
 /// A MessageWriter for setting surface properties
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SurfaceField {
-    Resize,
+    ParentSize,
     ExportSize,
 }
 
@@ -410,9 +410,9 @@ impl MessageWriter for SurfaceField {
 
     fn transmit(&self, _resource: &Self::Resource, _old_data: &[u8], data: &[u8]) -> super::Lang {
         match self {
-            SurfaceField::Resize => super::Lang::UserIOEvent(super::UserIOEvent::SetParentSize(
-                OperatorSize::from_data(data).absolute(1024),
-            )),
+            SurfaceField::ParentSize => super::Lang::UserIOEvent(
+                super::UserIOEvent::SetParentSize(OperatorSize::from_data(data).absolute(1024)),
+            ),
             SurfaceField::ExportSize => super::Lang::UserIOEvent(
                 super::UserIOEvent::SetExportSize(OperatorSize::from_data(data).absolute(1024)),
             ),
@@ -923,7 +923,7 @@ impl ParamBoxDescription<SurfaceField> {
                             size: OperatorSize::AbsoluteSize(1024),
                             allow_relative: false,
                         },
-                        transmitter: SurfaceField::Resize,
+                        transmitter: SurfaceField::ParentSize,
                         expose_status: None,
                         visibility: VisibilityFunction::default(),
                         presetable: false,

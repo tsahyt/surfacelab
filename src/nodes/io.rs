@@ -10,6 +10,7 @@ use std::collections::HashMap;
 #[derive(Debug, Serialize, Deserialize)]
 struct NodeData<'a> {
     parent_size: u32,
+    export_size: Option<u32>,
     export_specs: Cow<'a, Vec<ExportSpec>>,
     graphs: Cow<'a, HashMap<String, ManagedNodeCollection>>,
 }
@@ -20,6 +21,7 @@ impl NodeManager {
         log::info!("Serializing node data");
         let surf = NodeData {
             parent_size: self.parent_size,
+            export_size: self.export_size,
             export_specs: Cow::Borrowed(&self.export_specs),
             graphs: Cow::Borrowed(&self.graphs),
         };
@@ -36,6 +38,7 @@ impl NodeManager {
         self.graphs = node_data.graphs.into_owned();
         self.export_specs = node_data.export_specs.into_owned();
         self.parent_size = node_data.parent_size;
+        self.export_size = node_data.export_size;
 
         // Rebuild events for all graphs in the node data
         let mut events = Vec::new();
@@ -44,6 +47,10 @@ impl NodeManager {
             self.parent_size,
             false,
         )));
+
+        if let Some(es) = self.export_size {
+            events.push(Lang::SurfaceEvent(SurfaceEvent::ExportSizeSet(es)))
+        }
 
         for (name, graph) in self.graphs.iter() {
             let res = Resource::graph(&name);
