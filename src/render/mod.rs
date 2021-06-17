@@ -308,7 +308,7 @@ where
                 let data = self.renderers.values().next()?.serialize_settings().ok()?;
                 response.push(Lang::RenderEvent(RenderEvent::Serialized(data)));
             }
-            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(new_size)) => {
+            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(new_size, false)) => {
                 self.resize_images(*new_size)
             }
             Lang::UIEvent(UIEvent::RendererRequested(id, monitor_size, view_size, ty)) => {

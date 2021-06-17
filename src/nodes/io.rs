@@ -42,6 +42,7 @@ impl NodeManager {
 
         events.push(Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(
             self.parent_size,
+            false,
         )));
 
         for (name, graph) in self.graphs.iter() {

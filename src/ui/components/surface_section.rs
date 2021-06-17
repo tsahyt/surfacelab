@@ -221,7 +221,7 @@ impl<'a> SurfaceSection<'a> {
                     }
                 })
             }
-            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
+            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size, false)) => {
                 state.update(|state| {
                     state.parameters.categories[0].parameters[0]
                         .control

@@ -389,7 +389,7 @@ where
             Lang::UserNodeEvent(UserNodeEvent::ViewSocket(socket)) => {
                 self.view_socket = socket.as_ref().map(|s| (s.clone(), u64::MIN));
             }
-            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)) => {
+            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size, _)) => {
                 self.parent_size = *size;
             }
             Lang::ScheduleEvent(ScheduleEvent::VramUsage) => {

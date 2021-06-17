@@ -800,8 +800,9 @@ pub enum SurfaceEvent {
     ExportSpecRemoved(ExportSpec),
     /// The system has updated an export spec from the first to the second.
     ExportSpecUpdated(ExportSpec, ExportSpec),
-    /// The parent size has been set
-    ParentSizeSet(u32),
+    /// The parent size has been set. The bool determines whether the change can
+    /// be expected to be temporary, i.e. is for export reasons.
+    ParentSizeSet(u32, bool),
 }
 
 /// Renderers are indexed by an ID, internally merely a `u64`.

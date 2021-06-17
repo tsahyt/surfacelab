@@ -1078,7 +1078,7 @@ impl NodeManager {
             UserIOEvent::SetParentSize(size) => {
                 log::trace!("Surface parent size changed to {0}x{0}", size);
                 self.parent_size = *size;
-                self.update_parent_size(&mut response, *size, true);
+                self.update_parent_size(&mut response, *size, true, false);
             }
             UserIOEvent::SetExportSize(size) => {
                 log::trace!("Surface export size changed to {0}x{0}", size);
@@ -1132,7 +1132,7 @@ impl NodeManager {
                 let mut export_size_set = false;
                 if let Some(es) = self.export_size {
                     if es != self.parent_size {
-                        self.update_parent_size(&mut response, es, false);
+                        self.update_parent_size(&mut response, es, false, true);
                         export_size_set = true;
                     }
                 }
@@ -1158,7 +1158,7 @@ impl NodeManager {
 
                 // Change back parent size if it was previously altered.
                 if export_size_set {
-                    self.update_parent_size(&mut response, self.parent_size, false);
+                    self.update_parent_size(&mut response, self.parent_size, false, true);
                 }
             }
             _ => {}
@@ -1169,13 +1169,21 @@ impl NodeManager {
 
     // Push messages required for a parent size change. This does *not* change
     // the actual parent size data.
-    fn update_parent_size(&mut self, response: &mut Vec<Lang>, size: u32, recompute: bool) {
+    fn update_parent_size(
+        &mut self,
+        response: &mut Vec<Lang>,
+        size: u32,
+        recompute: bool,
+        temporary: bool,
+    ) {
         for g in self.graphs.values_mut() {
             response.append(&mut g.resize_all(size));
         }
 
         // Recompute on size change
-        response.push(Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(size)));
+        response.push(Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(
+            size, temporary,
+        )));
         if recompute {
             response.push(Lang::GraphEvent(GraphEvent::Recompute(
                 self.active_graph.clone(),

@@ -373,7 +373,7 @@ where
             }),
             Lang::GraphEvent(ev) => self.handle_graph_event(state, ev),
             Lang::LayersEvent(ev) => self.handle_layers_event(state, ev),
-            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(s)) => {
+            Lang::SurfaceEvent(SurfaceEvent::ParentSizeSet(s, false)) => {
                 state.update(|state| state.parent_size = *s);
             }
             // The following user events must be fake user events coming from outside of the UI
