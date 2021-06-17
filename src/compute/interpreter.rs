@@ -162,6 +162,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
         seq: u64,
         graph: &Resource<Graph>,
         parent_size: u32,
+        export_size: Option<u32>,
         view_socket: &'a mut Option<(Resource<Socket>, u64)>,
         export_specs: &'a HashMap<Resource<Node>, &'a (ExportSpec, std::path::PathBuf)>,
     ) -> Result<Self, InterpretationError> {
@@ -174,7 +175,7 @@ impl<'a, B: gpu::Backend> Interpreter<'a, B> {
             linearization,
             std::iter::empty(),
             None,
-            parent_size,
+            export_size.unwrap_or(parent_size),
         ))
         .flatten()
         .collect();

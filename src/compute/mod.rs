@@ -339,6 +339,7 @@ where
                         .unwrap();
                 }
                 UserIOEvent::SetExportSize(s) => {
+                    log::trace!("Set export size to {}x{}", s, s);
                     self.export_size = Some(*s);
                 }
                 UserIOEvent::AddImageResource(path) => {
@@ -431,10 +432,11 @@ where
             &self.linearizations,
             self.seq,
             graph,
+            self.parent_size,
             if export_specs.is_empty() {
-                self.parent_size
+                None
             } else {
-                self.export_size.unwrap_or(self.parent_size)
+                self.export_size
             },
             &mut self.view_socket,
             &export_specs,
