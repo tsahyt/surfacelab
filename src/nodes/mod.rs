@@ -769,6 +769,10 @@ impl NodeManager {
                         ManagedNodeCollection::NodeGraph(other_graph),
                     );
                 }
+
+                // Relinearize
+                let graph_res = res.node_graph();
+                self.relinearize(&mut response, &graph_res, Some(&graph_res));
             }
         };
 
