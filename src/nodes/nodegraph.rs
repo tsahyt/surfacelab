@@ -1196,14 +1196,23 @@ impl NodeGraph {
                         | Operator::AtomicOperator(AtomicOperator::Output { .. }) => {}
                         _ => {
                             let (new_name, size) = self.new_node(operator, parent_size, Some(r));
+                            let resource = self.graph_resource().graph_node(&new_name);
                             self.position_node(&new_name, position.0, position.1);
                             evs.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-                                self.graph_resource().graph_node(&new_name),
+                                resource.clone(),
                                 operator.clone(),
                                 ParamBoxDescription::empty(),
                                 Some(position),
                                 size,
                             )));
+                            for (socket, imgtype) in operator.outputs().iter() {
+                                evs.push(Lang::GraphEvent(GraphEvent::OutputSocketAdded(
+                                    resource.node_socket(socket),
+                                    *imgtype,
+                                    operator.external_data(),
+                                    size as u32,
+                                )));
+                            }
                             name_map.insert(r.clone(), new_name);
                         }
                     }
