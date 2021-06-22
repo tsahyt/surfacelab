@@ -174,6 +174,7 @@ impl<'a> Widget for NodeEditor<'a> {
                             .send(Lang::UserGraphEvent(UserGraphEvent::Inject(
                                 node,
                                 g.clone(),
+                                true,
                             )))
                             .unwrap();
                     }

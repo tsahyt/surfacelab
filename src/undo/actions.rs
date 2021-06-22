@@ -393,6 +393,7 @@ impl UndoAction {
                 vec![Lang::UserGraphEvent(UserGraphEvent::Inject(
                     node.clone(),
                     op.graph.clone(),
+                    false,
                 ))]
             },
         )))

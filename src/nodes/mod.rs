@@ -731,7 +731,7 @@ impl NodeManager {
                     self.relinearize(&mut response, &graph_res, Some(&graph_res));
                 }
             }
-            UserGraphEvent::Inject(res, other_graph) => {
+            UserGraphEvent::Inject(res, other_graph, reposition) => {
                 let node = res.file().unwrap();
                 let graph = res.directory().unwrap();
                 let other = other_graph.path_str().unwrap();
@@ -742,7 +742,7 @@ impl NodeManager {
                 {
                     // Perform inject
                     if let Some(ManagedNodeCollection::NodeGraph(g)) = self.graphs.get_mut(graph) {
-                        match g.inject(self.parent_size, node, &other_graph) {
+                        match g.inject(self.parent_size, node, &other_graph, *reposition) {
                             Ok(mut evs) => {
                                 // Rebuild parameter boxes for node added events before publishing
                                 for ev in evs.iter_mut() {

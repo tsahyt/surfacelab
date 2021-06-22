@@ -1132,6 +1132,7 @@ impl NodeGraph {
         parent_size: u32,
         name: &str,
         other: &Self,
+        reposition: bool,
     ) -> Result<Vec<Lang>, NodeGraphError> {
         use statrs::statistics::Statistics;
 
@@ -1172,7 +1173,7 @@ impl NodeGraph {
                 let mut name_map = HashMap::new();
 
                 // Determine average position for offsetting
-                let pos_offset = {
+                let pos_offset = if reposition {
                     let poss = other
                         .graph
                         .node_indices()
@@ -1181,6 +1182,8 @@ impl NodeGraph {
                         node.position.0 - poss.clone().map(|x| x.0).mean(),
                         node.position.1 - poss.map(|x| x.1).mean(),
                     )
+                } else {
+                    (0., 0.)
                 };
 
                 // Insert all nodes from other graph except inputs and outputs
