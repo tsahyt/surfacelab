@@ -1151,9 +1151,9 @@ impl NodeGraph {
                     .edges_directed(node_idx, petgraph::Direction::Incoming)
                     .map(|e| {
                         (
-                            e.source(),
+                            self.indices.get_by_right(&e.source()).unwrap().clone(),
                             e.weight().0.clone(),
-                            co.inputs[&e.weight().1].1.clone(),
+                            co.inputs[&e.weight().1].1.file().unwrap().to_string(),
                         )
                     })
                     .collect();
@@ -1162,15 +1162,16 @@ impl NodeGraph {
                     .edges_directed(node_idx, petgraph::Direction::Outgoing)
                     .map(|e| {
                         (
-                            e.target(),
+                            self.indices.get_by_right(&e.target()).unwrap().clone(),
                             e.weight().1.clone(),
-                            co.outputs[&e.weight().0].1.clone(),
+                            co.outputs[&e.weight().0].1.file().unwrap().to_string(),
                         )
                     })
                     .collect();
 
                 let mut name_map = HashMap::new();
 
+                // Determine average position for offsetting
                 let pos_offset = {
                     let poss = other
                         .graph
@@ -1182,39 +1183,95 @@ impl NodeGraph {
                     )
                 };
 
+                // Insert all nodes from other graph except inputs and outputs
                 for idx in other.graph.node_indices() {
                     let n = other.graph.node_weight(idx).unwrap();
                     let r = other.indices.get_by_right(&idx).unwrap();
 
-                    let (new_name, size) = self.new_node(&n.operator, parent_size, Some(r));
-                    self.position_node(
-                        &new_name,
-                        n.position.0 + pos_offset.0,
-                        n.position.1 + pos_offset.1,
-                    );
-                    evs.push(Lang::GraphEvent(GraphEvent::NodeAdded(
-                        self.graph_resource().graph_node(&new_name),
-                        n.operator.clone(),
-                        ParamBoxDescription::empty(),
-                        Some(n.position.clone()),
-                        size,
-                    )));
-                    name_map.insert(r.clone(), new_name);
+                    let operator = &n.operator;
+                    let position = (n.position.0 + pos_offset.0, n.position.1 + pos_offset.1);
+
+                    match operator {
+                        Operator::AtomicOperator(AtomicOperator::Input { .. })
+                        | Operator::AtomicOperator(AtomicOperator::Output { .. }) => {}
+                        _ => {
+                            let (new_name, size) = self.new_node(operator, parent_size, Some(r));
+                            self.position_node(&new_name, position.0, position.1);
+                            evs.push(Lang::GraphEvent(GraphEvent::NodeAdded(
+                                self.graph_resource().graph_node(&new_name),
+                                operator.clone(),
+                                ParamBoxDescription::empty(),
+                                Some(position),
+                                size,
+                            )));
+                            name_map.insert(r.clone(), new_name);
+                        }
+                    }
                 }
 
+                // Insert all edges that can be inserted
                 for edge in other.graph.edge_indices() {
                     let (from, to) = other.graph.edge_endpoints(edge).unwrap();
                     let from_name = other.indices.get_by_right(&from).unwrap();
                     let to_name = other.indices.get_by_right(&to).unwrap();
                     let (from_socket, to_socket) = other.graph.edge_weight(edge).unwrap();
 
-                    evs.append(&mut self.connect_sockets(
-                        &name_map[from_name],
-                        from_socket,
-                        &name_map[to_name],
-                        to_socket,
-                    )?);
+                    if let Some((from_name_here, to_name_here)) =
+                        name_map.get(from_name).zip(name_map.get(to_name))
+                    {
+                        evs.append(&mut self.connect_sockets(
+                            from_name_here,
+                            from_socket,
+                            to_name_here,
+                            to_socket,
+                        )?);
+                    }
                 }
+
+                // Perform connections through inputs
+                for (node, socket, input) in incoming {
+                    let input_idx = other.indices.get_by_left(&input).unwrap();
+                    for edge in other
+                        .graph
+                        .edges_directed(*input_idx, petgraph::Direction::Outgoing)
+                    {
+                        if let Some(target_node) =
+                            name_map.get(other.indices.get_by_right(&edge.target()).unwrap())
+                        {
+                            evs.append(&mut self.connect_sockets(
+                                &node,
+                                &socket,
+                                target_node,
+                                &edge.weight().1,
+                            )?);
+                        }
+                    }
+                }
+
+                // Perform connections through outputs
+                for (node, socket, output) in outgoing {
+                    let output_idx = other.indices.get_by_left(&output).unwrap();
+
+                    // This should only run once!
+                    for edge in other
+                        .graph
+                        .edges_directed(*output_idx, petgraph::Direction::Incoming)
+                    {
+                        if let Some(source_node) =
+                            name_map.get(other.indices.get_by_right(&edge.source()).unwrap())
+                        {
+                            evs.append(&mut self.connect_sockets(
+                                source_node,
+                                &edge.weight().0,
+                                &node,
+                                &socket,
+                            )?);
+                        }
+                    }
+                }
+
+                // Delete complex operator node
+                evs.append(&mut self.remove_node(name)?.2);
             }
         }
 
