@@ -1127,7 +1127,14 @@ impl NodeGraph {
     /// The nodes will be placed around the old node and the old node deleted.
     /// All connections will be established to retain similar linearization.
     /// This operation is the inverse of extract.
-    pub fn inject(&mut self, name: &str, other: &Self) -> Result<Vec<Lang>, NodeGraphError> {
+    pub fn inject(
+        &mut self,
+        parent_size: u32,
+        name: &str,
+        other: &Self,
+    ) -> Result<Vec<Lang>, NodeGraphError> {
+        use statrs::statistics::Statistics;
+
         let mut evs = Vec::new();
 
         let node_idx = *self
@@ -1138,7 +1145,77 @@ impl NodeGraph {
 
         match &node.operator {
             Operator::AtomicOperator(_) => return Ok(evs),
-            Operator::ComplexOperator(co) => {}
+            Operator::ComplexOperator(co) => {
+                let incoming: Vec<_> = self
+                    .graph
+                    .edges_directed(node_idx, petgraph::Direction::Incoming)
+                    .map(|e| {
+                        (
+                            e.source(),
+                            e.weight().0.clone(),
+                            co.inputs[&e.weight().1].1.clone(),
+                        )
+                    })
+                    .collect();
+                let outgoing: Vec<_> = self
+                    .graph
+                    .edges_directed(node_idx, petgraph::Direction::Outgoing)
+                    .map(|e| {
+                        (
+                            e.target(),
+                            e.weight().1.clone(),
+                            co.outputs[&e.weight().0].1.clone(),
+                        )
+                    })
+                    .collect();
+
+                let mut name_map = HashMap::new();
+
+                let pos_offset = {
+                    let poss = other
+                        .graph
+                        .node_indices()
+                        .map(|i| other.graph.node_weight(i).unwrap().position);
+                    (
+                        node.position.0 - poss.clone().map(|x| x.0).mean(),
+                        node.position.1 - poss.map(|x| x.1).mean(),
+                    )
+                };
+
+                for idx in other.graph.node_indices() {
+                    let n = other.graph.node_weight(idx).unwrap();
+                    let r = other.indices.get_by_right(&idx).unwrap();
+
+                    let (new_name, size) = self.new_node(&n.operator, parent_size, Some(r));
+                    self.position_node(
+                        &new_name,
+                        n.position.0 + pos_offset.0,
+                        n.position.1 + pos_offset.1,
+                    );
+                    evs.push(Lang::GraphEvent(GraphEvent::NodeAdded(
+                        self.graph_resource().graph_node(&new_name),
+                        n.operator.clone(),
+                        ParamBoxDescription::empty(),
+                        Some(n.position.clone()),
+                        size,
+                    )));
+                    name_map.insert(r.clone(), new_name);
+                }
+
+                for edge in other.graph.edge_indices() {
+                    let (from, to) = other.graph.edge_endpoints(edge).unwrap();
+                    let from_name = other.indices.get_by_right(&from).unwrap();
+                    let to_name = other.indices.get_by_right(&to).unwrap();
+                    let (from_socket, to_socket) = other.graph.edge_weight(edge).unwrap();
+
+                    evs.append(&mut self.connect_sockets(
+                        &name_map[from_name],
+                        from_socket,
+                        &name_map[to_name],
+                        to_socket,
+                    )?);
+                }
+            }
         }
 
         Ok(evs)

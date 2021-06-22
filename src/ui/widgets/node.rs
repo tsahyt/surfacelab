@@ -53,6 +53,7 @@ pub enum Event {
     NodeDragStop(input::ModifierKey),
     NodeDelete,
     NodeEnter,
+    NodeInject,
     SocketView(String),
     SocketDrag(Point, Point),
     SocketClear(String),
@@ -404,6 +405,7 @@ impl<'a> Widget for Node<'a> {
                 .filter_map(|press| match press.key {
                     input::Key::X => Some(Event::NodeDelete),
                     input::Key::Tab => Some(Event::NodeEnter),
+                    input::Key::I => Some(Event::NodeInject),
                     _ => None,
                 }),
         );

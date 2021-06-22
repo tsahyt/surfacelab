@@ -731,22 +731,28 @@ impl NodeManager {
                     self.relinearize(&mut response, &graph_res, Some(&graph_res));
                 }
             }
-            UserGraphEvent::Inject(res, op) => {
+            UserGraphEvent::Inject(res, other_graph) => {
                 let node = res.file().unwrap();
                 let graph = res.directory().unwrap();
-                let other = op.graph.directory().unwrap();
+                let other = other_graph.path_str().unwrap();
 
                 // Fetch other graph in a move, to sidestep double borrow
-                if let Some(ManagedNodeCollection::NodeGraph(other_graph)) = self.graphs.remove(other) {
+                if let Some(ManagedNodeCollection::NodeGraph(other_graph)) =
+                    self.graphs.remove(other)
+                {
                     // Perform inject
                     if let Some(ManagedNodeCollection::NodeGraph(g)) = self.graphs.get_mut(graph) {
-                        if let Ok(mut evs) = g.inject(node, &other_graph) {
-                            response.append(&mut evs);
+                        match g.inject(self.parent_size, node, &other_graph) {
+                            Ok(mut evs) => response.append(&mut evs),
+                            Err(e) => log::error!("{}", e),
                         }
                     }
 
                     // Reinsert other graph
-                    self.graphs.insert(other.to_string(), ManagedNodeCollection::NodeGraph(other_graph));
+                    self.graphs.insert(
+                        other.to_string(),
+                        ManagedNodeCollection::NodeGraph(other_graph),
+                    );
                 }
             }
         };

@@ -88,6 +88,7 @@ pub enum Event {
     NodeDelete(Resource<Node>),
     NodeDissolve(Resource<Node>),
     NodeEnter(Resource<Node>),
+    NodeInject(Resource<Node>),
     ActiveElement(Resource<Node>),
     AddNode(Point, Option<Resource<Socket>>),
     Extract(Vec<Resource<Node>>),
@@ -395,6 +396,9 @@ impl<'a> Widget for Graph<'a> {
                             }
                             node::Event::NodeEnter => {
                                 evs.push(Event::NodeEnter(node.resource.clone()));
+                            }
+                            node::Event::NodeInject => {
+                                evs.push(Event::NodeInject(node.resource.clone()));
                             }
                             node::Event::SocketDrag(from, to) => {
                                 state.update(|state| {

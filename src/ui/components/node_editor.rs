@@ -168,6 +168,16 @@ impl<'a> Widget for NodeEditor<'a> {
                 graph::Event::NodeEnter(node) => {
                     collection_change = collection.nodes.get(&node).unwrap().callee.clone();
                 }
+                graph::Event::NodeInject(node) => {
+                    if let Some(g) = &collection.nodes.get(&node).unwrap().callee {
+                        self.sender
+                            .send(Lang::UserGraphEvent(UserGraphEvent::Inject(
+                                node,
+                                g.clone(),
+                            )))
+                            .unwrap();
+                    }
+                }
                 graph::Event::SocketClear(socket) => {
                     self.sender
                         .send(Lang::UserNodeEvent(UserNodeEvent::DisconnectSinkSocket(

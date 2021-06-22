@@ -605,9 +605,9 @@ pub enum UserGraphEvent {
     RetitleParameter(Resource<Graph>, String, String, String),
     /// The user requests extraction of the following nodes from this graph into a new graph
     Extract(Vec<Resource<Node>>),
-    /// The user requests injection of a complex operator into the current
-    /// graph, replacing the complex operator.
-    Inject(Resource<Node>, ComplexOperator),
+    /// The user requests injection of a graph into the current graph, replacing
+    /// the node.
+    Inject(Resource<Node>, Resource<Graph>),
 }
 
 /// Events concerning graphs, not directly coming from user input.
