@@ -743,7 +743,22 @@ impl NodeManager {
                     // Perform inject
                     if let Some(ManagedNodeCollection::NodeGraph(g)) = self.graphs.get_mut(graph) {
                         match g.inject(self.parent_size, node, &other_graph) {
-                            Ok(mut evs) => response.append(&mut evs),
+                            Ok(mut evs) => {
+                                // Rebuild parameter boxes for node added events before publishing
+                                for ev in evs.iter_mut() {
+                                    if let Lang::GraphEvent(GraphEvent::NodeAdded(
+                                        res,
+                                        op,
+                                        pbox,
+                                        _,
+                                        _,
+                                    )) = ev
+                                    {
+                                        *pbox = self.element_param_box(&op, res)
+                                    }
+                                }
+                                response.append(&mut evs)
+                            }
                             Err(e) => log::error!("{}", e),
                         }
                     }
