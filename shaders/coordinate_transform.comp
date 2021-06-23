@@ -1,0 +1,74 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform Params {
+    uint from_space;
+    uint to_space;
+    uint supersample;
+};
+
+const uint SPACE_CARTESIAN = 0;
+const uint SPACE_POLAR = 1;
+
+layout(set = 0, binding = 1) uniform texture2D t_Color1;
+layout(set = 0, binding = 2) uniform sampler Sampler;
+layout(set = 0, binding = 3, rgba16f) uniform image2D t_Out;
+
+const float PI = 3.141592654;
+
+vec2 polar_to_cartesian(vec2 polar) {
+    float angle = polar.y * 2. * PI;
+    float dist = polar.x * 0.5;
+
+    float x = dist * cos(angle);
+    float y = dist * sin(angle);
+
+    return 0.5 - vec2(x, y);
+}
+
+vec2 cartesian_to_polar(vec2 cartesian) {
+    cartesian -= 0.5;
+
+    float r = 2 * length(cartesian);
+    float theta = atan(cartesian.y, cartesian.x);
+
+    // Normalize angle to 0..1
+    theta = (theta + PI) / (2. * PI);
+
+    return vec2(r, theta);
+}
+
+vec4 run(vec2 uv) {
+    if (from_space == SPACE_CARTESIAN && to_space == SPACE_POLAR) {
+        uv = cartesian_to_polar(uv);
+    } else if (from_space == SPACE_POLAR && to_space == SPACE_CARTESIAN) {
+        uv = polar_to_cartesian(uv);
+    }
+
+    return texture(sampler2D(t_Color1, Sampler), uv.xy);
+}
+
+void main() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 resolution = imageSize(t_Out);
+    vec2 uv = vec2(float(idx.x) / float(resolution.x), float(idx.y) / float(resolution.y));
+
+    vec4 col = vec4(0.);
+
+    if(supersample != 0) {
+        vec2 sub_sample = 0.25 / vec2(resolution);
+
+        for(int x = - 2; x <= 2; ++x) {
+            for(int y = - 2; y <= 2; ++y) {
+                vec2 uv_ = uv + vec2(x, y) * sub_sample;
+                col += run(uv_);
+            }
+        }
+        col /= 25.;
+    } else {
+        col = run(uv);
+    }
+
+    imageStore(t_Out, idx, col);
+}

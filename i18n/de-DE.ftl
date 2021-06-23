@@ -268,3 +268,8 @@ solid = Fest
 density = Dichte
 size = Größe
 contrast-adjusted = Kontrastangepasst
+
+from-space = Von Koordinatenraum
+to-space = Nach Koordinatenraum
+cartesian = Kartesisch
+polar = Polar

@@ -270,3 +270,8 @@ solid = Solid
 density = Density
 size = Size
 contrast-adjusted = Contrast Adjusted Blend
+
+from-space = From Coordinate Space
+to-space = To Coordinate Space
+cartesian = Cartesian
+polar = Polar
