@@ -6,6 +6,8 @@ layout(set = 0, binding = 0) uniform Params {
     uint from_space;
     uint to_space;
     uint supersample;
+    float y_scale;
+    float x_scale;
 };
 
 const uint SPACE_CARTESIAN = 0;
@@ -24,17 +26,18 @@ vec2 polar_to_cartesian(vec2 polar) {
     float x = dist * cos(angle);
     float y = dist * sin(angle);
 
-    return 0.5 - vec2(x, y);
+    return 0.5 - vec2(x, y) / vec2(x_scale, y_scale);
 }
 
 vec2 cartesian_to_polar(vec2 cartesian) {
     cartesian -= 0.5;
 
-    float r = 2 * length(cartesian);
+    float r = 2 * length(cartesian) * x_scale;
     float theta = atan(cartesian.y, cartesian.x);
 
     // Normalize angle to 0..1
     theta = (theta + PI) / (2. * PI);
+    theta *= y_scale;
 
     return vec2(r, theta);
 }

@@ -275,3 +275,5 @@ from-space = From Coordinate Space
 to-space = To Coordinate Space
 cartesian = Cartesian
 polar = Polar
+scale-x = Scale X
+scale-y = Scale Y

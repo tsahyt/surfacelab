@@ -273,3 +273,5 @@ from-space = Von Koordinatenraum
 to-space = Nach Koordinatenraum
 cartesian = Kartesisch
 polar = Polar
+scale-x = Skalierung X
+scale-y = Skalierung Y

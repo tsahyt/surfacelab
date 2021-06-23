@@ -36,6 +36,8 @@ pub struct CoordinateTransform {
     pub from_space: CoordinateSpace,
     pub to_space: CoordinateSpace,
     pub supersample: ParameterBool,
+    pub x_scale: f32,
+    pub y_scale: f32,
 }
 
 impl Default for CoordinateTransform {
@@ -44,6 +46,8 @@ impl Default for CoordinateTransform {
             from_space: CoordinateSpace::Cartesian,
             to_space: CoordinateSpace::Polar,
             supersample: 0,
+            x_scale: 1.,
+            y_scale: 1.,
         }
     }
 }
@@ -143,6 +147,30 @@ impl OperatorParamBox for CoordinateTransform {
                         visibility: VisibilityFunction::default(),
                         presetable: true,
                     },
+                    Parameter {
+                        name: "scale-y".to_string(),
+                        transmitter: Field(CoordinateTransform::Y_SCALE.to_string()),
+                        control: Control::Slider {
+                            value: self.y_scale,
+                            min: 0.,
+                            max: 32.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    },
+                    Parameter {
+                        name: "scale-x".to_string(),
+                        transmitter: Field(CoordinateTransform::X_SCALE.to_string()),
+                        control: Control::Slider {
+                            value: self.x_scale,
+                            min: 0.,
+                            max: 32.,
+                        },
+                        expose_status: Some(ExposeStatus::Unexposed),
+                        visibility: VisibilityFunction::default(),
+                        presetable: true,
+                    }
                 ],
             }],
         }
